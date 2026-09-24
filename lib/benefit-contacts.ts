@@ -24,6 +24,22 @@ import {
   type CategoryPortalVisibility,
 } from "@/lib/portal-category-visibility";
 
+/**
+ * How many support contacts ONE benefit can show.
+ *
+ * A benefit page renders its team as a single row of contact cards, which stops
+ * being readable past four, so the advisor picks the four employees should write to.
+ * Enforced by the editor (Create Benefit step 3 / the Edit Benefit Contacts tab);
+ * a benefit that already holds more (selected before the rule existed) is left
+ * alone — the editor flags it and lets the advisor reduce it by hand.
+ */
+export const MAX_SUPPORT_CONTACTS_PER_BENEFIT = 4;
+
+/** May another support contact still be added to a benefit with this many? */
+export function canAddSupportContact(selectedCount: number): boolean {
+  return selectedCount < MAX_SUPPORT_CONTACTS_PER_BENEFIT;
+}
+
 /** Benefit categories as the wizard/UI spells them (includes "Custom"). */
 export type ContactCategory = string;
 

@@ -7,6 +7,10 @@ import {
   SupportContact,
 } from "@/lib/benefits-wizard-store";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
+import {
+  MAX_SUPPORT_CONTACTS_PER_BENEFIT,
+  canAddSupportContact,
+} from "@/lib/benefit-contacts";
 import { fetchClientOnce } from "@/lib/fetch-client";
 import {
   Card,
@@ -32,6 +36,8 @@ import {
   Save,
   Loader2,
   Eye,
+  Info,
+  AlertTriangle,
 } from "lucide-react";
 import { KeyContact } from "@/types/new-client-wizard";
 import { v4 as uuidv4 } from "uuid";
@@ -85,6 +91,14 @@ export function BenefitsStep3({
     supportContacts: [],
     currentSubStep: "a",
   };
+
+  // Support contacts selected for THIS benefit, measured against the per-benefit cap
+  // (lib/benefit-contacts). Drives the notice and the row states below; `toggleContact`
+  // re-checks the cap against the live store so it cannot be raced by fast clicks.
+  const selectedSupportCount = currentStep3Data.supportContacts.length;
+  const atSupportContactLimit = !canAddSupportContact(selectedSupportCount);
+  const overSupportContactLimit =
+    selectedSupportCount > MAX_SUPPORT_CONTACTS_PER_BENEFIT;
 
   const selectedPlan = step1Data?.selectedPlan;
   const [localContacts, setLocalContacts] = useState<KeyContact[]>([]);
@@ -317,6 +331,21 @@ export function BenefitsStep3({
         supportContacts: newContacts,
       });
     } else {
+      // The cap is enforced here as well as in the row styling: two fast clicks must
+      // not slip a fifth contact past a stale render.
+      const liveCount =
+        useBenefitsWizardStore.getState().stepData.step3?.supportContacts.length ??
+        0;
+      if (!canAddSupportContact(liveCount)) {
+        toast.error(
+          `Up to ${MAX_SUPPORT_CONTACTS_PER_BENEFIT} support contacts per benefit`,
+          {
+            description:
+              "Deselect one of the selected contacts first — these cards are what employees see on the benefit page.",
+          },
+        );
+        return;
+      }
       const contact = planContacts.find((c) => c.id === contactId);
       const newContact: SupportContact = {
         contactId,
@@ -472,10 +501,34 @@ export function BenefitsStep3({
               Support Contacts
             </CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
-              Select one or more contacts for users to reach out to.
+              Select the contacts users should reach out to — up to{" "}
+              {MAX_SUPPORT_CONTACTS_PER_BENEFIT} per benefit.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-3">
+            {/* The cap is a rule about the benefit page rather than a technical limit,
+                so it is stated here and enforced on the rows below. */}
+            <div
+              className={`mb-3 flex items-start gap-2 rounded-lg border px-3 py-2 ${
+                overSupportContactLimit
+                  ? "border-amber-200 bg-amber-50/70 dark:border-amber-800 dark:bg-amber-950/20"
+                  : "border-blue-100 bg-blue-50/60 dark:border-blue-900/40 dark:bg-blue-950/20"
+              }`}
+            >
+              {overSupportContactLimit ? (
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+              ) : (
+                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
+              )}
+              <p className="text-[11px] leading-relaxed text-foreground/80">
+                A benefit shows{" "}
+                <b>up to {MAX_SUPPORT_CONTACTS_PER_BENEFIT} support contacts</b> —
+                these are the contact cards employees see on the benefit page.{" "}
+                {overSupportContactLimit
+                  ? `This benefit has ${selectedSupportCount} selected; keep no more than ${MAX_SUPPORT_CONTACTS_PER_BENEFIT}.`
+                  : `${selectedSupportCount} of ${MAX_SUPPORT_CONTACTS_PER_BENEFIT} selected.`}
+              </p>
+            </div>
             <div className="grid grid-cols-1 gap-2">
               {planContacts.length === 0 ? (
                 <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
@@ -498,14 +551,18 @@ export function BenefitsStep3({
                 const supportConfig = currentStep3Data.supportContacts.find(
                   (sc) => sc.contactId === contact.id,
                 );
+                // At the cap a contact that is not already selected cannot be added. Dim
+                // it so the rule is visible before the click — `toggleContact` still
+                // guards, and says why.
+                const isBlockedByLimit = !isSelected && atSupportContactLimit;
 
                 return (
                   <div key={contact.id} className="space-y-1.5">
                     <div
-                      className={`flex items-center p-2 rounded-lg border cursor-pointer transition-all ${isSelected
+                      className={`flex items-center p-2 rounded-lg border transition-all ${isSelected
                         ? "border-accent-blue bg-accent-blue/[0.02]"
                         : "border-gray-100 bg-white hover:border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600"
-                        }`}
+                        } ${isBlockedByLimit ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
                       onClick={() => toggleContact(contact.id)}
                     >
                       <div

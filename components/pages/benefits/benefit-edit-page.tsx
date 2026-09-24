@@ -58,8 +58,14 @@ type EditTabId = (typeof EDIT_TABS)[number]["id"];
  */
 const DELETE_BENEFIT_PHRASE = "delete benefit";
 
-/** Tabs that mount their own instance of Step 1. */
-const STEP1_TABS: EditTabId[] = ["branding", "contacts"];
+/**
+ * Tabs that render Step 1 VISIBLY. Every other tab keeps a hidden instance mounted
+ * instead (see the render below), so the store stays populated everywhere without
+ * showing Step 1's accordions.
+ *
+ * Contacts is deliberately NOT here: it shows only the support team (Step 3).
+ */
+const STEP1_VISIBLE_TABS: EditTabId[] = ["branding"];
 
 interface BenefitEditPageProps {
   planId: string;
@@ -317,11 +323,11 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
               ? createPortal(tabList, headerPortalTarget)
               : tabList}
 
-            {/* Step 1 owns the benefit pre-fill effects. Tabs that don't render
-                it themselves keep one hidden instance mounted so every tab has
-                the same populated state (the Preview tab included — its preview
-                reads the same store data). */}
-            {!STEP1_TABS.includes(activeTab) && (
+            {/* Step 1 owns the benefit pre-fill effects. Every tab that does not
+                render it visibly keeps one hidden instance mounted, so they all share
+                the same populated store (Preview reads it; Contacts' Step 3 resolves
+                the plan's contacts from it). */}
+            {!STEP1_VISIBLE_TABS.includes(activeTab) && (
               <div className="hidden" aria-hidden="true">
                 <BenefitsStep1 mode="edit" />
               </div>
@@ -339,14 +345,17 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
               <EditBenefitPreviewSection />
             </TabsContent>
 
-            {/* NB: `sections` scopes what Step 1 RENDERS, not what it DOES. Its effects
-                (plans picker, full-plan read, Benefit-rows read, contact + branding
-                prefill, debounced auto-save) are unconditional and still run on this
-                tab, so Contacts is no cheaper than Branding. That is intentional — the
-                auto-save needs the whole record — so don't read the prop as a
-                performance guard when reasoning about tab cost. */}
+            {/* Contacts shows ONLY the support team (Step 3). Step 1's "Key Contact"
+                accordion is deliberately not rendered here: everything it edits — the
+                benefit's primary contact, the designation list, the logo/header
+                uploads — also appears on the Branding tab, which renders Step 1 in
+                full. Showing it again here buried the support-team list the advisor
+                opened this tab for.
+
+                Step 1 still mounts hidden above, so its effects (contact + branding
+                prefill, debounced auto-save) keep running and Step 3 sees the same
+                state it did when both were rendered. */}
             <TabsContent value="contacts" className="mt-0 space-y-6">
-              <BenefitsStep1 mode="edit" sections={["contacts"]} />
               <BenefitsStep3 section="contacts" />
             </TabsContent>
 
