@@ -2,6 +2,7 @@
 
 import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
+import { normalizeUserImagesToR2 } from '@/lib/branding-r2';
 
 const prisma = new PrismaClient();
 
@@ -36,10 +37,14 @@ export async function POST(request: Request) {
   }
 
   try {
+    // See /api/profile/update-profile: inline advisor images are moved to R2 so the
+    // heavy /api/profile response cannot grow with them.
+    const payload = await normalizeUserImagesToR2(data ?? {}, id);
+
     const user = await prisma.user.update({
       where: { id },
       data: {
-        name: data.name,
+        name: payload.name,
         phone: data.phone,
         phoneExtension: data.phoneExtension,
         organizationType: data.organizationType,
@@ -48,7 +53,7 @@ export async function POST(request: Request) {
         advisorPhone: data.advisorPhone,
         advisorPhoneExtension: data.advisorPhoneExtension,
         disclaimer: data.disclaimer,
-        advisorLogoUrl: data.advisorLogoUrl,
+        advisorLogoUrl: payload.advisorLogoUrl,
         complianceEmail: data.complianceEmail,
         advisorLink: data.advisorLink,
         additionalAdvisorLink: data.additionalAdvisorLink,

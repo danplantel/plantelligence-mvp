@@ -10,6 +10,7 @@ import { NewClientStep3d } from "./step-3-contact-preview";
 import { cn } from "@/lib/utils";
 import { BenefitsCategory } from "@/types/new-client-wizard";
 import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboarding-advisor-contacts";
+import { fetchProfileOnce } from "@/lib/fetch-profile";
 
 // ==================== Types ====================
 
@@ -191,9 +192,10 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
         // otherwise fall back to fetching it.
         let profile = advisorProfile;
         if (!profile) {
-          const res = await fetch("/api/profile");
-          if (!res.ok || cancelled) return;
-          profile = await res.json();
+          // Single-flight + TTL (lib/fetch-profile) — coalesces with the layout header's
+          // profile fetch instead of issuing another full GET /api/profile.
+          profile = await fetchProfileOnce();
+          if (!profile || cancelled) return;
         }
         if (!profile || cancelled) return;
 

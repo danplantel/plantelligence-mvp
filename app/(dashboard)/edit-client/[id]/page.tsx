@@ -132,6 +132,7 @@ import {
   ensurePlanTelligenceTrademark,
 } from "@/lib/disclaimer-constants";
 import { DisclaimerUpdateConfirmDialog } from "@/components/pages/settings/disclaimer-update-confirm-dialog";
+import { fetchProfileOnce } from "@/lib/fetch-profile";
 
 // ============================================================================
 // Helper Components
@@ -3325,9 +3326,10 @@ export default function EditClientPage() {
     let cancelled = false;
     const loadUserOrgName = async () => {
       try {
-        const res = await fetch("/api/profile");
-        if (!res.ok) return;
-        const profile = await res.json();
+        // Single-flight + TTL (lib/fetch-profile) — shares the layout header's request
+        // instead of issuing a second full GET /api/profile.
+        const profile = await fetchProfileOnce();
+        if (!profile) return;
         const orgName =
           profile?.organizationName ||
           profile?.wizardSessions?.[0]?.branding?.organizationName ||

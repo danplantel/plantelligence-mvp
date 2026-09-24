@@ -170,3 +170,96 @@ export async function normalizeContactImagesToR2<T>(
     ? normalized
     : { ...(contacts as Record<string, unknown>), contacts: normalized }) as T;
 }
+
+/** Image-bearing columns on `User`. */
+const USER_IMAGE_FIELDS = [
+  "advisorLogo",
+  "advisorLogoUrl",
+  "backgroundImage",
+  "headshot",
+  "companyLogo",
+] as const;
+
+/**
+ * Server-side upload for a NON-plan branding image (advisor logo / background /
+ * headshot). Plan images use `buildBrandingKey`, which is plan-scoped; advisor
+ * images belong to the user, so they land under `uploads/advisor-branding`.
+ */
+async function uploadUserImageToR2Direct(params: {
+  dataUrl: string;
+  userId: string;
+  fileName: string;
+}): Promise<string | null> {
+  const { buildUploadKey, isR2Configured, putObjectBuffer } = await import(
+    "@/lib/r2"
+  );
+  if (!isR2Configured()) return null;
+
+  const file = dataUrlToFile(params.dataUrl, params.fileName);
+  const key = buildUploadKey({
+    orgId: params.userId,
+    subPath: "advisor-branding",
+    fileName: params.fileName,
+  });
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const ok = await putObjectBuffer({
+    key,
+    body: buffer,
+    contentType: file.type || "image/png",
+  });
+  return ok ? key : null;
+}
+
+/**
+ * Replace inline (data-URL) advisor images on a `User` payload with R2 keys.
+ *
+ * `User` rows carry the advisor logo and background inline — measured at 2.72 MB
+ * for a single advisor (2.17 MB `backgroundImage` + 280 KB logo). `/api/profile`
+ * returns the whole row with no `select`, and the benefits wizard fetches that
+ * profile several times per visit, so every one of those readers pays for those
+ * inline bytes.
+ *
+ * `advisorLogo` and `advisorLogoUrl` historically receive the SAME value (see the
+ * settings branding save), which is why the measurement shows the logo twice.
+ * Identical data URLs are therefore uploaded ONCE and both fields are pointed at
+ * the same key — every reader keeps working (both are read, e.g. in
+ * `flyer-brand.ts` and `step-3-key-contacts.tsx`) while the storage halves.
+ *
+ * Returns a new object; the input is never mutated. Values that fail to upload are
+ * left inline rather than dropped, and anything that is not a data URL (an R2 key
+ * or a remote URL) passes through untouched. No-ops without a userId, since the
+ * key needs an owner.
+ */
+export async function normalizeUserImagesToR2<T extends object>(
+  data: T,
+  userId: string,
+): Promise<T> {
+  if (!data || typeof data !== "object") return data;
+  if (!userId) return data;
+
+  let next: Record<string, unknown> | null = null;
+  const uploaded = new Map<string, string | null>();
+
+  for (const field of USER_IMAGE_FIELDS) {
+    const value = (data as Record<string, unknown>)[field];
+    if (typeof value !== "string" || !value.startsWith("data:")) continue;
+
+    if (!uploaded.has(value)) {
+      uploaded.set(
+        value,
+        await uploadUserImageToR2Direct({
+          dataUrl: value,
+          userId,
+          fileName: `${field}.png`,
+        }),
+      );
+    }
+    const key = uploaded.get(value);
+    if (!key) continue;
+
+    if (!next) next = { ...(data as Record<string, unknown>) };
+    next[field] = key;
+  }
+
+  return (next ?? data) as T;
+}

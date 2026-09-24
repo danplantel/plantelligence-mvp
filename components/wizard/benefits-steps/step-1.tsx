@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
+import { fetchClientOnce, invalidateClientCache } from "@/lib/fetch-client";
 import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
 import {
   BenefitsStep1Data,
@@ -844,6 +845,9 @@ export function BenefitsStep1({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
+        // This PUT dual-writes `employeePortalPreview.benefits`, so the client row in
+        // the shared cache is stale from here on.
+        invalidateClientCache(currentStepData.planId);
       } catch (error) {
         console.error("Auto-save error:", error);
       }
@@ -966,13 +970,13 @@ export function BenefitsStep1({
 
     (async () => {
       try {
-        const response = await fetch(`/api/clients/${planId}`);
-        const result = await response.json();
+        // Shared single-flight cache (lib/fetch-client): Steps 2/3/5 and the publish all
+        // read this same row, so none of them needs its own copy.
+        const fullPlan = await fetchClientOnce(planId);
         const latest = useBenefitsWizardStore.getState().stepData.step1;
         if (!latest?.planId || latest.planId !== planId) return;
 
-        if (result.success && result.data) {
-          const fullPlan = result.data;
+        if (fullPlan) {
           let convertedDocs: any[] = [];
           if (fullPlan.documents && Array.isArray(fullPlan.documents)) {
             convertedDocs = await Promise.all(

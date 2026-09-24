@@ -621,16 +621,30 @@ export async function PUT(
       // the benefits/portal routes and forwarded to the browser, so a base64 headshot
       // here costs every reader hundreds of KB (measured: 447 KB on one plan). The
       // helper returns the value unchanged when there is nothing inline to convert.
-      keyContacts: await normalizeContactImagesToR2(
-        keyContacts ? (keyContacts as any) : existingClient.keyContacts,
-        params.id,
-      ),
+      //
+      // Only touched when the caller actually sent `keyContacts`. Falling back to the
+      // stored value meant EVERY PUT — including Step 5's two disclaimer saves, which
+      // never send contacts — ran the R2 normaliser over the existing array and wrote
+      // it straight back.
+      ...(keyContacts != null
+        ? { keyContacts: await normalizeContactImagesToR2(keyContacts as any, params.id) }
+        : {}),
       // employeePortalPreview: merge patch with existing data.
       // Benefits are now managed via the dedicated Benefit API with dual-write
       // keeping this field in sync. Only merge top-level preview fields here.
-      employeePortalPreview: employeePortalPreview !== undefined
-        ? { ...((existingClient as any).employeePortalPreview || {}), ...(employeePortalPreview as any) }
-        : (existingClient as any).employeePortalPreview,
+      //
+      // Only written when the caller sent it. Writing the stored value back (the old
+      // behaviour) made every PUT rewrite this JSON column, and — worse — let a stale
+      // read from the start of this request clobber a concurrent writer, which is
+      // exactly the hazard the dual-write already creates on the publish path.
+      ...(employeePortalPreview !== undefined
+        ? {
+            employeePortalPreview: {
+              ...((existingClient as any).employeePortalPreview || {}),
+              ...(employeePortalPreview as any),
+            },
+          }
+        : {}),
       // Category Display (Show/Hide): always persist when sent by Edit Client so Hide state is not lost
       categoryPortalVisibility:
         (body as any).categoryPortalVisibility !== undefined
@@ -713,6 +727,16 @@ export async function PUT(
           existingDocsMap.set(d.id, d.fileUrl || "");
           const sk = d.storageKey && String(d.storageKey).trim();
           if (sk) storageKeyById.set(d.id, sk);
+        });
+
+        // Reverse index (R2 key -> _id) so a re-created row keeps its ORIGINAL id.
+        // Recreating with a fresh id on every save invalidated every
+        // `/api/documents/<id>` reference (the benefit documents section PATCHes by id)
+        // and reset uploadedAt / expirationDate for documents that never changed.
+        const idByStorageKey = new Map<string, string>();
+        allDbDocs.forEach((d) => {
+          const sk = d.storageKey && String(d.storageKey).trim();
+          if (sk && !idByStorageKey.has(sk)) idByStorageKey.set(sk, d.id);
         });
 
         // Create new documents
@@ -801,13 +825,31 @@ export async function PUT(
         }
 
         // Delete all existing Document type documents first
-        // We'll recreate all from retirementPlanDocuments
-        await prisma.document.deleteMany({
-          where: {
-            clientId,
-            type: "Document",
-          },
-        });
+        // We'll recreate all from retirementPlanDocuments.
+        //
+        // This is a BLANKET, CLIENT-WIDE replace driven by a list the client built for
+        // a single hub, so it must never run on a payload that failed to build: an
+        // empty/absent `retirementPlanDocuments` would previously delete every document
+        // on the plan and put nothing back. The client only sends `documentsData` when
+        // it genuinely added documents (see lib/save-benefit.ts), and step 4 removes a
+        // document through its own DELETE immediately, so "empty list" never means
+        // "delete everything" here.
+        const incomingDocs = documentsData.retirementPlanDocuments;
+        const canReplaceDocuments = Array.isArray(incomingDocs) && incomingDocs.length > 0;
+
+        if (!canReplaceDocuments) {
+          console.warn(
+            "[clients PUT] documentsData had no retirementPlanDocuments — skipping the document replace so existing documents are preserved",
+            { clientId },
+          );
+        } else {
+          await prisma.document.deleteMany({
+            where: {
+              clientId,
+              type: "Document",
+            },
+          });
+        }
 
         // Helper function to detect language (same as in complete-v2)
         const detectLanguage = (name: string, fileName: string, desc: string | null, storedLanguage?: string): string => {
@@ -842,10 +884,12 @@ export async function PUT(
           return "EN";
         };
 
-        // Process retirement plan documents - same logic as in complete-v2
-        if (documentsData.retirementPlanDocuments && Array.isArray(documentsData.retirementPlanDocuments)) {
-          for (let i = 0; i < documentsData.retirementPlanDocuments.length; i++) {
-            const doc = documentsData.retirementPlanDocuments[i] as any;
+        // Process retirement plan documents - same logic as in complete-v2.
+        // Gated on `canReplaceDocuments`: when the replace was skipped the rows still
+        // exist, so creating them again here would duplicate every document.
+        if (canReplaceDocuments) {
+          for (let i = 0; i < incomingDocs.length; i++) {
+            const doc = incomingDocs[i] as any;
 
             // Support both formats (same as in complete-v2):
             // 1. Document format: { id, name, file, type, size, status, shortDescription, originalFileName, language }
@@ -968,9 +1012,14 @@ export async function PUT(
             // Detect language
             const detectedLanguage = detectLanguage(documentName, originalFileName, shortDescription, storedLanguage);
 
-            // Create document
+            // Create document, reusing the original _id when this row already existed
+            // (matched by its R2 key) so ids stay stable across saves.
+            const reusedId = docStorageKey
+              ? idByStorageKey.get(docStorageKey)
+              : undefined;
             await prisma.document.create({
               data: {
+                ...(reusedId ? { id: reusedId } : {}),
                 title: documentName,
                 fileName: originalFileName,
                 fileUrl: fileUrl,

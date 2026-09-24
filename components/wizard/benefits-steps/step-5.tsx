@@ -28,6 +28,8 @@ import {
 } from "@/lib/disclaimer-constants";
 import { Footer } from "@/components/layout/footer";
 import { Skeleton } from "@/components/ui/skeleton";
+import { fetchProfileOnce } from "@/lib/fetch-profile";
+import { fetchClientOnce, invalidateClientCache } from "@/lib/fetch-client";
 import {
   Eye,
   FileText,
@@ -332,9 +334,11 @@ export function BenefitsStep5() {
     let cancelled = false;
     (async () => {
       try {
-        const res = await fetch("/api/profile");
-        if (!res.ok || cancelled) return;
-        const profile = await res.json();
+        // Reuse the page-level single-flight cache (lib/fetch-profile) — Step 1 and the
+        // layout header already fetched the profile, so a raw fetch here was a duplicate
+        // full GET /api/profile (measured up to 2.72 MB) on every Step 5 mount.
+        const profile = await fetchProfileOnce();
+        if (!profile || cancelled) return;
         const orgName = (
           profile?.organizationName ||
           profile?.user?.organizationName ||
@@ -358,9 +362,9 @@ export function BenefitsStep5() {
   // disclaimers. Returns a Disclaimer object (or null if none is saved).
   const getUserProfileDisclaimer = useCallback(async (): Promise<Disclaimer | null> => {
     try {
-      const res = await fetch("/api/profile");
-      if (!res.ok) return null;
-      const profile = await res.json();
+      // Cached single-flight — see the note in the organizationName effect above.
+      const profile = await fetchProfileOnce();
+      if (!profile) return null;
       // Capture User.organizationName for the `[Organization Name]` placeholder.
       // The /api/profile endpoint may return organizationName at the top level
       // or nested under `user.organizationName`.
@@ -506,10 +510,11 @@ export function BenefitsStep5() {
     if (planId) {
       (async () => {
         try {
-          const res = await fetch(`/api/clients/${planId}`);
-          const result = await res.json();
-          if (result.success && result.data) {
-            if (seedFromRaw(result.data.disclaimers)) {
+          // Shared single-flight cache (lib/fetch-client): Step 1 already read this row,
+          // so this fallback normally costs no request at all.
+          const data = await fetchClientOnce(planId);
+          if (data) {
+            if (seedFromRaw((data as any).disclaimers)) {
               setHasInitialized(true);
               return;
             }
@@ -612,6 +617,9 @@ export function BenefitsStep5() {
             ...(brandImages ? { brandImages } : {}),
           }),
         });
+        // The record just changed — drop the cached row so a later reader can't be
+        // handed the pre-write copy.
+        invalidateClientCache(planId);
 
         if (typeof window !== "undefined") {
           window.dispatchEvent(
@@ -710,11 +718,42 @@ export function BenefitsStep5() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ disclaimers: disclaimersData }),
         });
+        invalidateClientCache(planId);
       } catch (err) {
         console.error("Failed to persist footer background:", err);
       }
     },
     [planId, disclaimersByCategory],
+  );
+
+  /**
+   * Debounced wrapper for `persistFooterBg`.
+   *
+   * The custom-colour control below is an `<input type="color">` / text input whose
+   * onChange fired this on EVERY keystroke — typing "#1F3A60" issued seven full
+   * `PUT /api/clients/<id>` requests, and each one rewrote the client record. Coalesce
+   * them into a single save once the advisor stops typing, and cancel a pending save
+   * on unmount so it can't fire after the step is gone.
+   *
+   * The mode buttons go through here too so a mode+colour change in quick succession
+   * collapses into one request.
+   */
+  const footerBgSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const schedulePersistFooterBg = useCallback(
+    (mode: string, customColor: string) => {
+      if (footerBgSaveTimerRef.current) clearTimeout(footerBgSaveTimerRef.current);
+      footerBgSaveTimerRef.current = setTimeout(() => {
+        footerBgSaveTimerRef.current = null;
+        persistFooterBg(mode, customColor).catch(() => {});
+      }, 600);
+    },
+    [persistFooterBg],
+  );
+  useEffect(
+    () => () => {
+      if (footerBgSaveTimerRef.current) clearTimeout(footerBgSaveTimerRef.current);
+    },
+    [],
   );
 
   return (
@@ -890,7 +929,7 @@ export function BenefitsStep5() {
                         type="button"
                         onClick={() => {
                           setFooterBgMode(mode);
-                          persistFooterBg(mode, footerBgCustomColor).catch(() => {});
+                          schedulePersistFooterBg(mode, footerBgCustomColor);
                         }}
                         className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-all ${
                           isActive
@@ -914,7 +953,7 @@ export function BenefitsStep5() {
                         onChange={(e) => {
                           const v = e.target.value;
                           setFooterBgCustomColor(v);
-                          persistFooterBg("custom", v).catch(() => {});
+                          schedulePersistFooterBg("custom", v);
                         }}
                         className="w-6 h-6 rounded cursor-pointer border border-gray-300 p-0.5"
                       />
@@ -924,7 +963,7 @@ export function BenefitsStep5() {
                         onChange={(e) => {
                           const v = e.target.value;
                           setFooterBgCustomColor(v);
-                          persistFooterBg("custom", v).catch(() => {});
+                          schedulePersistFooterBg("custom", v);
                         }}
                         placeholder="#HEX"
                         className="w-20 text-[11px] border border-gray-200 dark:border-gray-600 rounded px-1.5 py-1 bg-transparent"

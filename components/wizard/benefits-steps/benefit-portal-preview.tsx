@@ -43,6 +43,7 @@ import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { getCategoryHeroBackgroundUrl, DEFAULT_WELCOME_BG } from "@/lib/portal-category-hero-background";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { DEFAULT_HELP_CARDS } from "./benefits-editor-panel";
+import { fetchProfileOnce } from "@/lib/fetch-profile";
 
 export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, secondaryColor: secondaryColorOverride }: { mobile?: boolean; brandColor?: string; secondaryColor?: string }) {
     const { stepData } = useBenefitsWizardStore();
@@ -53,8 +54,11 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
     const [userEmail, setUserEmail] = useState<string>("");
     useEffect(() => {
         let cancelled = false;
-        fetch("/api/profile", { credentials: "same-origin" })
-            .then(r => r.json())
+        // Single-flight + TTL (lib/fetch-profile): the wizard page and Step 1 already
+        // fetched the profile, so reuse that result. This component is mounted twice
+        // (desktop + mobile), so a raw fetch here meant two extra full GET /api/profile
+        // requests — each up to ~2.7 MB because User images are stored inline.
+        fetchProfileOnce()
             .then(data => {
                 if (cancelled) return;
                 setUserName((data as any)?.name || (data as any)?.user?.name || null);

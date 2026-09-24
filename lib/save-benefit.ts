@@ -1,5 +1,6 @@
 import { mergeUserBenefitWithHubDefaults } from "@/lib/hub-benefit-defaults";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
+import { fetchClientOnce, invalidateClientCache } from "@/lib/fetch-client";
 import type { BenefitsWizardState } from "@/lib/benefits-wizard-store";
 import type { BenefitsCategory } from "@/types/new-client-wizard";
 
@@ -72,12 +73,10 @@ export async function saveBenefit(
   }
 
   try {
-    // 1. Fetch current client data to merge
-    const response = await fetch(`/api/clients/${planId}`);
-    const result = await response.json();
-    if (!result.success) throw new Error(result.error || "Failed to fetch client data");
-
-    const client = result.data;
+    // 1. Load the current client data to merge. Shared single-flight cache — Steps 1-5
+    // have almost always just read this same row, so this no longer costs a request.
+    const client = await fetchClientOnce(planId);
+    if (!client) throw new Error("Failed to fetch client data");
 
     // 2. Edited category row: merge with hub defaults so image / copy / CTA match other cards
     // (saving only partial data was leaving the portal with empty description, image, and button text).
@@ -385,18 +384,32 @@ export async function saveBenefit(
     // docs on the server. If the user is just editing a benefit without touching
     // documents, skip documentsData to avoid any risk of duplication.
     const finalRetirementDocs = [...retirementPlanDocuments, ...newDocuments];
+
+    // Only a genuinely NEW document forces this payload.
+    //
+    // `documentsData` makes the server DELETE every Document-type row for the client
+    // and recreate it from this list, so sending it when nothing was added churns every
+    // document id and rewrites the whole set for no reason.
+    //
+    // `onlyOnServer.length > 0` used to force it, which fired on any plan where the DB
+    // simply held more rows than the store had rehydrated — and it protected nothing,
+    // because OMITTING `documentsData` leaves the documents completely untouched.
+    const hasWizardAddedDocs = step4ForCurrentCategory.some((d) => {
+      // Temp IDs (doc-, temp-, plan-doc-, optional-doc-) indicate wizard-added docs
+      const sid = String(d.id ?? "");
+      return (
+        sid.startsWith("temp-") ||
+        sid.startsWith("doc-") ||
+        sid.startsWith("plan-doc-") ||
+        sid.startsWith("optional-doc-")
+      );
+    });
+
+    // Never send an empty desired set — the take-it-or-leave-it replace would clear
+    // the plan's documents. Step 4 removes a document through its own DELETE
+    // immediately, so an empty list here never means "delete everything".
     const hasNewOrChangedDocs =
-      onlyOnServer.length > 0 ||
-      step4ForCurrentCategory.some((d) => {
-        // Temp IDs (doc-, temp-, plan-doc-, optional-doc-) indicate wizard-added docs
-        const sid = String(d.id ?? "");
-        return (
-          sid.startsWith("temp-") ||
-          sid.startsWith("doc-") ||
-          sid.startsWith("plan-doc-") ||
-          sid.startsWith("optional-doc-")
-        );
-      });
+      hasWizardAddedDocs && finalRetirementDocs.length > 0;
 
     if (hasNewOrChangedDocs) {
       (updatePayload as any).documentsData = {
@@ -422,6 +435,9 @@ export async function saveBenefit(
 
     const updateResult = await updateResponse.json();
     if (!updateResult.success) throw new Error(updateResult.error || "Failed to update client");
+    // The row just changed — drop the cached copy so any reader that follows (the
+    // benefits PUT's dual-write below, or a step that mounts right after) sees it.
+    invalidateClientCache(planId);
 
     // Persist the edited benefit (including "How Can We Help You Today?" help
     // cards) to the Benefit row so the live Benefits Hub pages show it. The
@@ -469,6 +485,9 @@ export async function saveBenefit(
           }),
         },
       ).catch(() => {});
+      // The benefits PUT dual-writes `employeePortalPreview.benefits`, so the cached
+      // client row is stale again after it runs.
+      invalidateClientCache(planId);
     }
 
     // Notify any open portal views that benefits have changed (triggers re-fetch in ClientPortalProvider)

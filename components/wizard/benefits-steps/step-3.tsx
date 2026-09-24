@@ -7,6 +7,7 @@ import {
   SupportContact,
 } from "@/lib/benefits-wizard-store";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
+import { fetchClientOnce } from "@/lib/fetch-client";
 import {
   Card,
   CardContent,
@@ -87,27 +88,47 @@ export function BenefitsStep3({
         ? selectedPlan.keyContacts
         : selectedPlan.keyContacts.contacts || [];
       setLocalContacts(contacts);
-    } else if (step1Data?.planId) {
-      // Fallback: Fetch plan data if it's missing from store
-      fetch(`/api/clients/${step1Data.planId}`)
-        .then(res => res.json())
-        .then(result => {
-          if (result.success && result.data) {
-            const contacts = Array.isArray(result.data.keyContacts)
-              ? result.data.keyContacts
-              : result.data.keyContacts?.contacts || [];
-            setLocalContacts(contacts);
-
-            // Also update the store for consistency
-            saveStepData(1, {
-              ...step1Data,
-              selectedPlan: result.data
-            });
-          }
-        })
-        .catch(err => console.error("Error fetching contacts in Step 3:", err));
+      return;
     }
-  }, [selectedPlan, step1Data?.planId]);
+    if (!step1Data?.planId) return;
+
+    const planId = step1Data.planId;
+    let cancelled = false;
+
+    // Fallback: the store rehydrated without `selectedPlan` (a reload that lands
+    // directly on Step 3, or a deep link into this step).
+    (async () => {
+      try {
+        // Shared single-flight cache (lib/fetch-client) — Step 1 already read this row.
+        const data = await fetchClientOnce(planId);
+        if (cancelled || !data) return;
+
+        const contacts = Array.isArray(data.keyContacts)
+          ? data.keyContacts
+          : data.keyContacts?.contacts || [];
+        setLocalContacts(contacts);
+
+        // Merge onto the LATEST step-1 data, never the closed-over `step1Data`.
+        // Spreading that snapshot wrote a stale copy of the whole step-1 record back
+        // over anything Step 1 had saved while this request was in flight — a logo
+        // upload, the profile prefill, or the full-plan fetch that sets
+        // `selectedPlan`. It also had no abort guard, so an unmounted/unrelated
+        // response could still land.
+        const latest = useBenefitsWizardStore.getState().stepData.step1;
+        if (!latest || latest.planId !== planId) return;
+        // Step 1 already loaded a plan for this category while we were fetching —
+        // its payload is the same endpoint, so there is nothing to add.
+        if (latest.selectedPlan?.keyContacts) return;
+        saveStepData(1, { ...latest, selectedPlan: data });
+      } catch (err) {
+        console.error("Error fetching contacts in Step 3:", err);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPlan, step1Data?.planId, saveStepData]);
 
   // Deduplicate contacts by id to prevent duplicate rendering
   const planContacts = useMemo(() => {
