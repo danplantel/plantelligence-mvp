@@ -28,6 +28,7 @@ import {
   toR2BrandingKey,
 } from "@/lib/branding-image-url";
 import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
+import { normalizeContactImagesToR2 } from "@/lib/branding-r2";
 
 /**
  * Convert the advisor's User.disclaimer into a single display string for the
@@ -616,9 +617,14 @@ export async function PUT(
       heroUseGradient: heroUseGradient !== undefined ? heroUseGradient : (existingClient as any).heroUseGradient,
       desktopHeroBackgroundPosition: (body as any).desktopHeroBackgroundPosition !== undefined ? (body as any).desktopHeroBackgroundPosition : (existingClient as any)?.desktopHeroBackgroundPosition,
       mobileHeroBackgroundPosition: (body as any).mobileHeroBackgroundPosition !== undefined ? (body as any).mobileHeroBackgroundPosition : (existingClient as any)?.mobileHeroBackgroundPosition,
-      keyContacts: keyContacts
-        ? (keyContacts as any)
-        : existingClient.keyContacts,
+      // Contact images must be R2 keys, not inline data URLs: `keyContacts` is read by
+      // the benefits/portal routes and forwarded to the browser, so a base64 headshot
+      // here costs every reader hundreds of KB (measured: 447 KB on one plan). The
+      // helper returns the value unchanged when there is nothing inline to convert.
+      keyContacts: await normalizeContactImagesToR2(
+        keyContacts ? (keyContacts as any) : existingClient.keyContacts,
+        params.id,
+      ),
       // employeePortalPreview: merge patch with existing data.
       // Benefits are now managed via the dedicated Benefit API with dual-write
       // keeping this field in sync. Only merge top-level preview fields here.

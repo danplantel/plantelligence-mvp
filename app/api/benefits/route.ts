@@ -77,9 +77,13 @@ export async function GET() {
         slug: true,
         status: true,
         categoryPortalVisibility: true,
-        employeePortalPreview: true,
         companyLogo: true,
         keyContacts: true,
+        // `employeePortalPreview` is deliberately NOT selected. It is the legacy
+        // mirror and it holds base64 images — one plan's copy was 7.4 MB of the 8.3 MB
+        // this query transferred — for two things the completeness call below does not
+        // need: `benefits` is overridden with the authoritative Benefit row, and
+        // `companyData` is absent on every plan in the database (measured).
       },
     });
 
@@ -165,11 +169,12 @@ export async function GET() {
         // and documents plus the authoritative Benefit row for the category.
         const completeness = getBenefitCompleteness(cat.category as any, {
           ...client,
-          companyData: (client.employeePortalPreview as any)?.companyData,
-          employeePortalPreview: {
-            ...((client.employeePortalPreview as any) || {}),
-            benefits: row ? [row] : [],
-          },
+          // Only the authoritative Benefit row is passed. The legacy mirror used to be
+          // spread in first, and because `getBenefitsArrayFromPortalPreview` prefers a
+          // non-empty `previewData.benefits`, that stale array could win over the row.
+          // The plan logo still resolves from the selected top-level `companyLogo`
+          // (see planCompanyLogoFromClient), so no completeness input is lost.
+          employeePortalPreview: { benefits: row ? [row] : [] },
           keyContacts: client.keyContacts,
           documents: clientDocuments,
         });

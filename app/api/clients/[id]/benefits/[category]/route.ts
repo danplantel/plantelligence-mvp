@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { uploadBrandingToR2 } from "@/lib/branding-r2";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
@@ -167,6 +168,59 @@ export async function PUT(
       }
     }
 
+    // ── Persist branding as R2 KEYS, never data URLs ──
+    //
+    // These columns are read by list/portal routes that forward them to the browser, so
+    // an inline base64 image costs every reader megabytes — measured at 3.7 MB for six
+    // Benefit rows, and 7.4 MB once the same values were copied into the legacy
+    // `employeePortalPreview` mirror below. Uploading first means both the row and the
+    // mirror carry a short key, which `BrandingImage` / `useBrandingImageUrl` already
+    // resolve. Values that are already keys/URLs, `null`/`""` (explicit clears) and
+    // `undefined` (field omitted ⇒ leave the column untouched) pass through unchanged.
+    const toR2Key = async (
+      value: unknown,
+      slot: "logo" | "background",
+      fileName: string,
+    ): Promise<string | null | undefined> => {
+      if (value === undefined) return undefined;
+      if (value === null || value === "") return value;
+      if (typeof value !== "string" || !value.startsWith("data:")) {
+        return typeof value === "string" ? value : undefined;
+      }
+      const key = await uploadBrandingToR2({
+        dataUrlOrFile: value,
+        fileName,
+        clientId,
+        slot,
+      });
+      if (!key) {
+        // R2 not configured / upload failed: keep the inline value so the logo still
+        // saves, but say so — this is the path that reintroduces multi-MB rows.
+        console.warn(
+          "[benefits] R2 unavailable, storing inline image data:",
+          category,
+        );
+      }
+      return key ?? value;
+    };
+
+    const partnerLogo = await toR2Key(body.partnerLogo, "logo", "benefit-logo.png");
+    const backgroundImage = await toR2Key(
+      body.backgroundImage,
+      "background",
+      "benefit-background.png",
+    );
+    const innerHeaderImage = await toR2Key(
+      body.innerHeaderImage,
+      "background",
+      "benefit-inner-header.png",
+    );
+    const insuranceBackgroundImage = await toR2Key(
+      body.insuranceBackgroundImage,
+      "background",
+      "insurance-background.png",
+    );
+
     // Upsert the Benefit row
     const benefit = await prisma.benefit.upsert({
       where: {
@@ -182,13 +236,13 @@ export async function PUT(
         journeyBodyText: body.journeyBodyText ?? null,
         planVideo: body.planVideo ?? null,
         planVideoFileName: body.planVideoFileName ?? null,
-        partnerLogo: body.partnerLogo ?? null,
-        backgroundImage: body.backgroundImage ?? null,
-        innerHeaderImage: body.innerHeaderImage ?? null,
+        partnerLogo: partnerLogo ?? null,
+        backgroundImage: backgroundImage ?? null,
+        innerHeaderImage: innerHeaderImage ?? null,
         helpCards: body.helpCards ?? null,
         insurancePlanId: body.insurancePlanId ?? null,
         insuranceLoginUrl: body.insuranceLoginUrl ?? null,
-        insuranceBackgroundImage: body.insuranceBackgroundImage ?? null,
+        insuranceBackgroundImage: insuranceBackgroundImage ?? null,
         insuranceContainerBlockOpacity: body.insuranceContainerBlockOpacity ?? null,
         faqs: body.faqs ?? null,
         supportContacts: body.supportContacts ?? null,
@@ -220,13 +274,13 @@ export async function PUT(
         journeyBodyText: body.journeyBodyText !== undefined ? body.journeyBodyText : undefined,
         planVideo: body.planVideo !== undefined ? body.planVideo : undefined,
         planVideoFileName: body.planVideoFileName !== undefined ? body.planVideoFileName : undefined,
-        partnerLogo: body.partnerLogo !== undefined ? body.partnerLogo : undefined,
-        backgroundImage: body.backgroundImage !== undefined ? body.backgroundImage : undefined,
-        innerHeaderImage: body.innerHeaderImage !== undefined ? body.innerHeaderImage : undefined,
+        partnerLogo: partnerLogo,
+        backgroundImage: backgroundImage,
+        innerHeaderImage: innerHeaderImage,
         helpCards: body.helpCards !== undefined ? body.helpCards : undefined,
         insurancePlanId: body.insurancePlanId !== undefined ? body.insurancePlanId : undefined,
         insuranceLoginUrl: body.insuranceLoginUrl !== undefined ? body.insuranceLoginUrl : undefined,
-        insuranceBackgroundImage: body.insuranceBackgroundImage !== undefined ? body.insuranceBackgroundImage : undefined,
+        insuranceBackgroundImage: insuranceBackgroundImage,
         insuranceContainerBlockOpacity: body.insuranceContainerBlockOpacity !== undefined ? body.insuranceContainerBlockOpacity : undefined,
         faqs: body.faqs !== undefined ? body.faqs : undefined,
         supportContacts: body.supportContacts !== undefined ? body.supportContacts : undefined,

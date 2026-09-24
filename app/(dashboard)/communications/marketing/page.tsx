@@ -699,8 +699,12 @@ export default function MarketingPage() {
     { dedupingInterval: 10_000, revalidateOnFocus: true },
   );
   const savedAssets: SavedAsset[] = useMemo(() => assetsData?.data ?? [], [assetsData]);
+  // `summary=1`: this picker reads only id/companyName/slug/status (the plan logo comes
+  // from `planData`, a separate request). The default select ships every plan's
+  // `keyContacts` + legacy `employeePortalPreview` mirror — base64 images, measured at
+  // 8.3 MB / 6.6 s for 7 plans.
   const { data: clientsData, isLoading: isLoadingClients } = useSWR(
-    "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc",
+    "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc&summary=1",
     jsonFetcher,
     {
       keepPreviousData: true,

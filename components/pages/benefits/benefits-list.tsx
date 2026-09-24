@@ -73,8 +73,11 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 export function BenefitsListPage() {
   const router = useRouter();
   const { data, isLoading, mutate } = useSWR("/api/benefits", fetcher);
+  // `summary=1`: this picker reads only id/companyName/slug/status, and the default
+  // response ships every plan's `keyContacts` + legacy `employeePortalPreview` mirror
+  // (base64 images) — measured at 8.3 MB / 6.6 s for a 7-plan account.
   const { data: planListData } = useSWR(
-    "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc",
+    "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc&summary=1",
     fetcher,
     { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false },
   );

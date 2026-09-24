@@ -182,8 +182,11 @@ export default function DocumentsPage() {
     },
   });
 
+  // `summary=1`: only id/companyName/slug/status are read from this response. The
+  // default select ships every plan's `keyContacts` + legacy `employeePortalPreview`
+  // mirror, which carry base64 images (measured at 8.3 MB / 6.6 s for 7 plans).
   const clientsKey =
-    "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc";
+    "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc&summary=1";
   const { data: clientsData } = useSWR(clientsKey, jsonFetcher, {
     keepPreviousData: true,
     dedupingInterval: 60_000,

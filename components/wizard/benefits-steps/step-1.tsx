@@ -861,8 +861,13 @@ export function BenefitsStep1({
     async function fetchPlans() {
       try {
         // Include Draft — most in-progress setups are not Active yet; Archived stays out of the picker.
+        // `summary=1`: this picker needs only id/companyName/status (the full plan,
+        // including keyContacts, is fetched separately by the full-plan effect below).
+        // Without it the default response ships every plan's `keyContacts` + legacy
+        // `employeePortalPreview` mirror — measured at 8.3 MB / 6.6 s for a 7-plan
+        // account, because those fields carry base64 images.
         const response = await fetch(
-          "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc",
+          "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc&summary=1",
           { credentials: "same-origin", cache: "no-store" },
         );
         const result = await response.json().catch(() => ({}));
@@ -1603,9 +1608,13 @@ export function BenefitsStep1({
 
   useEffect(() => {
     if (currentStepData.planId) {
-      // First, check if the store already has a selectedPlan with contacts (might be local unsaved ones)
+      // The store's `selectedPlan` is the only source of contacts. There used to be a
+      // fallback to `plans.find(...).keyContacts`, but that list is now requested with
+      // `summary=1` (it ships no keyContacts), and the authoritative full plan —
+      // including keyContacts — is written to `selectedPlan` by the full-plan effect
+      // above. `selectedPlan` is a dependency of this effect so it re-runs when that
+      // lands; without that dependency the contact list would have stayed empty.
       const storePlan = currentStepData.selectedPlan;
-      const apiPlan = plans.find((p) => p.id === currentStepData.planId);
 
       let contactsToSet: KeyContact[] = [];
 
@@ -1614,11 +1623,6 @@ export function BenefitsStep1({
         contactsToSet = Array.isArray(storePlan.keyContacts)
           ? storePlan.keyContacts
           : storePlan.keyContacts?.contacts || [];
-      } else if (apiPlan && apiPlan.keyContacts) {
-        // Fallback to API plan contacts
-        contactsToSet = Array.isArray(apiPlan.keyContacts)
-          ? apiPlan.keyContacts
-          : apiPlan.keyContacts.contacts || [];
       }
 
       // Ensure the advisor (User) is available as a Key Contact for EVERY primary service
@@ -1652,7 +1656,15 @@ export function BenefitsStep1({
     } else {
       setSelectedPlanContacts([]);
     }
-  }, [currentStepData.planId, plans, currentStepData.benefitCategory, profileData]);
+    // `selectedPlan` matters: the full-plan fetch writes it (with keyContacts) after
+    // this effect first runs, and without it here the contacts would never populate.
+  }, [
+    currentStepData.planId,
+    currentStepData.selectedPlan,
+    plans,
+    currentStepData.benefitCategory,
+    profileData,
+  ]);
 
   const prefillContact = (
     category: string,
