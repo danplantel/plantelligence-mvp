@@ -30,6 +30,13 @@ interface ClientData {
   keyContacts: any[];
   documents?: any[];
   categoryPortalVisibility?: Record<string, boolean>;
+  /**
+   * The plan's Benefit rows (portal only): which hub categories exist, and whether
+   * each is published. The header's benefit links read this rather than the legacy
+   * `employeePortalPreview.benefits` mirror, which also carries Step 5 template
+   * entries for hubs the advisor never created.
+   */
+  benefitHubs?: { category: string; isEnabled: boolean }[];
   spdFile?: string;
   spdFileName?: string;
   sbcFiles?: any[];

@@ -96,8 +96,24 @@ export function getCategoryPortalVisibility(
   }, {} as CategoryPortalVisibility);
 }
 
-/** Map benefit card category/title (from Step 5 / defaultBenefits) to Edit Panel visibility key */
-function benefitCategoryToVisibilityKey(category: string): keyof CategoryPortalVisibility {
+/**
+ * Map a benefit's category to its canonical Portal Visibility key.
+ *
+ * Accepts both the Benefit row's own `category` ("Group Health", "Company / Plan
+ * Sponsor", …) and the legacy mirror's `category`/`title` spellings ("Health
+ * Insurance", "Wellness Programs", …).
+ *
+ * Exported because the portal header has to answer the same question the dashboard
+ * answers from `GET /api/benefits`: does this plan actually HAVE a benefit for this
+ * hub? It can only ask that of the row's category, never of the mirror's `id` — the
+ * dual-write in `/api/clients/[id]/benefits/[category]` derives ids from the category
+ * ("group-health", "company-/-plan-sponsor"), so the Step 5 ids the header used to
+ * compare against ("health", "life", "wellness") never matched and the per-benefit
+ * check was silently skipped.
+ */
+export function benefitCategoryToVisibilityKey(
+  category: string,
+): keyof CategoryPortalVisibility {
   const c = (category || "").trim().toLowerCase();
   if (c === "retirement" || c === "retirement plan benefits") return "Retirement";
   if (c === "group health" || c === "health insurance") return "Group Health";

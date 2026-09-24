@@ -221,6 +221,28 @@ export async function GET(
         )
       : documentsRaw;
 
+    // Authoritative "which hubs does this plan actually have?" signal, for the portal
+    // header's benefit links. It mirrors what GET /api/benefits reports for the
+    // dashboard's Published/Hidden switch: a hub needs a Benefit row (no row ⇒ "Not
+    // created"), the row must not be disabled, and the category must not be hidden in
+    // `categoryPortalVisibility`.
+    //
+    // The legacy `employeePortalPreview.benefits` mirror cannot stand in for this: it
+    // is prefilled with Step 5 template entries for categories the advisor never built
+    // (each isEnabled:false), so "not created" and "deliberately hidden" look identical
+    // in it. Portal-only, and only 4 tiny rows, so the dashboard pays nothing.
+    const benefitHubs = forPortal
+      ? (
+          await prisma.benefit.findMany({
+            where: { clientId: client.id },
+            select: { category: true, isEnabled: true },
+          })
+        ).map((b) => ({
+          category: b.category,
+          isEnabled: b.isEnabled !== false,
+        }))
+      : undefined;
+
     // Required for portal / My Benefits Team: normalize visibility; fallback to employeePortalPreview if top-level missing (e.g. old client or saved only in previewData)
     const rawVisibility =
       (client as any).categoryPortalVisibility ??
@@ -261,6 +283,9 @@ export async function GET(
       client.userId, // advisor ID (from session or plan-derived)
       clientId,
     );
+
+    // Attached after normalization so it can't be mistaken for a branding key.
+    if (benefitHubs) (dataPayload as any).benefitHubs = benefitHubs;
 
     // Generate presigned URLs for R2-backed portal media (plan videos + branding
     // images) so public portal viewers (no session) can load them.
