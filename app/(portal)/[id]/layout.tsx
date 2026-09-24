@@ -493,7 +493,9 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
           secondaryColor={secondaryColor}
           clientId={clientId}
           categoryPortalVisibility={(clientData as any)?.categoryPortalVisibility}
-          benefits={(clientData as any)?.employeePortalPreview?.benefits}
+          // Which hubs this plan actually has, and whether each is published — the
+          // header hides the link for a category with no Benefit row.
+          benefitHubs={(clientData as any)?.benefitHubs}
         />
       </div>
 

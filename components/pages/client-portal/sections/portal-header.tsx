@@ -14,8 +14,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 
 import {
+  benefitCategoryToVisibilityKey,
   getCategoryPortalVisibility,
-  syncBenefitsWithCategoryVisibility,
 } from "@/lib/portal-category-visibility";
 import { BrandingImage } from "@/components/ui/branding-image";
 import {
@@ -31,13 +31,13 @@ const BENEFITS_NAV_TO_VISIBILITY_KEY: Record<string, string> = {
   "Wellness Programs": "Other",
 };
 
-/** Nav label -> benefit id in employeePortalPreview.benefits (Step 5) */
-const BENEFITS_NAV_TO_BENEFIT_ID: Record<string, string> = {
-  Retirement: "retirement",
-  "Health Insurance": "health",
-  "Life Insurance": "life",
-  "Wellness Programs": "wellness",
-};
+/** The four benefit hub links. Static, so it lives outside the component. */
+const BENEFITS_NAV_ITEMS: { label: string; path: string }[] = [
+  { label: "Retirement", path: "/retirement" },
+  { label: "Health Insurance", path: "/health-insurance" },
+  { label: "Life Insurance", path: "/life-insurance" },
+  { label: "Wellness Programs", path: "/wellness-programs" },
+];
 
 interface PortalHeaderProps {
   companyData?: {
@@ -52,7 +52,26 @@ interface PortalHeaderProps {
   onLogoClick?: () => void;
   /** Per-category show/hide in portal; keys: Retirement, Group Life, Group Health, Other */
   categoryPortalVisibility?: Record<string, boolean> | null;
-  /** Benefits from Step 5 (employeePortalPreview.benefits); if a benefit has isEnabled: false, its nav item is hidden */
+  /**
+   * The plan's Benefit rows, as returned by `GET /api/clients/[id]?forPortal=1`
+   * (`benefitHubs`) — which hub categories exist, and whether each is published.
+   *
+   * This is the authoritative counterpart of the dashboard's Published/Hidden switch:
+   * when it is supplied, a link renders only if a Benefit row exists for the hub
+   * (`isEnabled !== false`) and the category is not hidden in
+   * `categoryPortalVisibility` — the same predicate `GET /api/benefits` reports for
+   * `/benefits`. When it is absent (the wizards' preview chrome, which has no plan
+   * data), only the visibility map filters, so those previews keep every hub.
+   */
+  benefitHubs?: { category?: string; isEnabled?: boolean }[] | null;
+  /**
+   * Legacy `employeePortalPreview.benefits` mirror.
+   *
+   * No longer read: it also carries Step 5 template entries for categories the advisor
+   * never created (each `isEnabled: false`), so it cannot answer "does this plan have
+   * this hub?" — see `benefitHubs`. Kept in the signature only so the preview call
+   * sites that still pass it don't have to change.
+   */
   benefits?: { id?: string; isEnabled?: boolean }[] | null;
   /**
    * When < 1, proportionally scales the header's content *and* height to match
@@ -74,34 +93,43 @@ export function PortalHeader({
   enableLogoHover = false,
   onLogoClick,
   categoryPortalVisibility: categoryPortalVisibilityRaw,
-  benefits: benefitsFromStep5,
+  benefitHubs,
   scale = 1,
   referenceWidth = 1400,
 }: PortalHeaderProps) {
   const visibility = getCategoryPortalVisibility(categoryPortalVisibilityRaw);
-  // A category made Visible via Portal Visibility can still have a matching
-  // benefit in employeePortalPreview.benefits carrying a stale isEnabled:false
-  // (e.g. the wizard preview reads selectedPlan.employeePortalPreview, which is
-  // not re-synced when the advisor publishes a category from Step 1). Sync the
-  // two so a Visible category's nav link always renders.
-  const syncedBenefits = syncBenefitsWithCategoryVisibility(
-    benefitsFromStep5,
-    visibility,
-  );
-  const benefitsNavItems: { label: string; path: string }[] = [
-    { label: "Retirement", path: "/retirement" },
-    { label: "Health Insurance", path: "/health-insurance" },
-    { label: "Life Insurance", path: "/life-insurance" },
-    { label: "Wellness Programs", path: "/wellness-programs" },
-  ].filter((item) => {
-    if (visibility[BENEFITS_NAV_TO_VISIBILITY_KEY[item.label]] === false) return false;
-    const benefitId = BENEFITS_NAV_TO_BENEFIT_ID[item.label];
-    if (benefitId && Array.isArray(syncedBenefits) && syncedBenefits.length > 0) {
-      const benefit = syncedBenefits.find((b) => (b.id || "") === benefitId);
-      if (benefit && benefit.isEnabled === false) return false;
-    }
-    return true;
-  });
+
+  /**
+   * A hub link renders only for a hub this plan actually published — the same three
+   * questions `GET /api/benefits` answers for the dashboard's switch:
+   *
+   *  1. a Benefit row exists (no row ⇒ "Not created" ⇒ no link, whatever its
+   *     visibility key happens to say — there has to be something to publish),
+   *  2. that row is not disabled (`isEnabled === false` ⇒ "Hidden"),
+   *  3. the category is not hidden in `categoryPortalVisibility` (checked below).
+   *
+   * Hubs are matched by CATEGORY, never by the legacy mirror's `id`: the dual-write
+   * derives ids from the category ("group-health", "company-/-plan-sponsor"), so the
+   * Step 5 ids this used to compare against ("health", "life", "wellness") never
+   * matched and the per-benefit check was skipped — which is why a hub with no
+   * benefit at all still produced a link whenever its visibility key was true.
+   *
+   * With no `benefitHubs` (preview chrome) nothing is hidden beyond the visibility
+   * map, so those previews keep showing every hub.
+   */
+  const benefitHubsList = Array.isArray(benefitHubs) ? benefitHubs : null;
+  const benefitsNavItems: { label: string; path: string }[] =
+    BENEFITS_NAV_ITEMS.filter((item) => {
+      const key = BENEFITS_NAV_TO_VISIBILITY_KEY[item.label];
+      // Hidden by the plan's Portal Visibility map — the /benefits switch writes it.
+      if (visibility[key] === false) return false;
+      if (!benefitHubsList) return true;
+      const hub = benefitHubsList.find(
+        (h) => benefitCategoryToVisibilityKey(String(h?.category || "")) === key,
+      );
+      if (!hub) return false; // not created yet
+      return hub.isEnabled !== false; // created but Hidden
+    });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showBanner, setShowBanner] = useState(showAlertBanner);
   // The logo band is a fixed contract (see lib/header-logo-band), so the logo
