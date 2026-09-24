@@ -229,7 +229,19 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
     <TabsList
       className={cn(
         "w-full gap-1 rounded-none border-0 bg-transparent dark:bg-transparent p-0 flex-nowrap h-auto min-h-fit overflow-x-auto",
-        "justify-center [&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
+        "[&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
+        // Centring that survives an overflow. `justify-center` inside a scroll
+        // container clips the START of an overlong strip, leaving the first tabs
+        // off-screen and unreachable by scrolling — which the header can now produce,
+        // because it gives this page's "Edit Benefit / <company> - <category>" column
+        // the width its text actually needs. Auto margins centre the strip while it
+        // fits and collapse to 0 when it does not, so the strip stays flush with the
+        // start and scrolls normally. With the inline Editing Panel open the strip has
+        // to hug the panel edge instead, so it starts flush (the header also forces
+        // `justify-start` there for the tabs it portals).
+        previewEditorOpen
+          ? "justify-start"
+          : "[&>*:first-child]:ml-auto [&>*:last-child]:mr-auto",
       )}
     >
       {EDIT_TABS.map((tab) => (

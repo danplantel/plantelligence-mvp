@@ -146,7 +146,22 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
         <div
           className={cn(
             "flex items-center gap-2 min-w-0",
-            editorOpen && portalHasContent ? "flex-none" : "flex-[1]",
+            editorOpen && portalHasContent
+              ? "flex-none"
+              : // A page that portals its tab bar into the header (Edit Plan / Edit
+                // Benefit) has to be able to show this text in full. `flex-[1]` alone
+                // pins the column to a fifth of the row — roughly 215px at 1440px
+                // wide — so "Edit Benefit / Quick Actions LLC - Retirement" (~340px)
+                // was ellipsised to "Edit Ben… / Quick Actions LLC - Retire…" even
+                // while the tab strip beside it sat in slack.
+                //
+                // `min-w-fit` keeps the symmetric flex-[1] share whenever the content
+                // fits it (so nothing shifts on pages with a short title, e.g. Edit
+                // Plan) and raises the floor to the content's own width when it does
+                // not. The centre column gives that space up: a portalled tab strip
+                // scrolls, and the pages centre it with safe auto-margins so an
+                // overflow can never hide its first tabs.
+                "flex-[1] min-w-fit",
           )}
         >
           {!editorOpen && title && (
