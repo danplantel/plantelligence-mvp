@@ -570,10 +570,11 @@ export function BenefitsDocumentsSection({
             <AlertDescription className="text-xs text-blue-700 dark:text-blue-400">
               Review all uploaded plan documents, forms, and notices below. Use
               the column headers to sort, and expand rows to preview or edit.
-              Documents with missing categories will need to be assigned before
-              proceeding.
             </AlertDescription>
           </DismissibleAlert>
+          {/* The Category column is dropped rather than shown read-only: this list is
+              already scoped to the benefit category being configured, so the badge only
+              repeated what the advisor is editing. */}
           <DocumentListTab
             selectedPlan={clientId || "current-plan"}
             isLoading={false}
@@ -589,7 +590,7 @@ export function BenefitsDocumentsSection({
             hideUploadedTime
             showActionTooltips
             showDirectEditDelete
-            disableCategoryEdit
+            hideCategoryColumn
             onEdit={(id, title, updates) => {
               if (updates?.category !== undefined) {
                 const docIndex = documents.findIndex((d) => d.id === id);
@@ -624,12 +625,6 @@ export function BenefitsDocumentsSection({
                 handleEditFromList(id, title);
               }
             }}
-            availableCategories={[
-              "Retirement",
-              "Group Health",
-              "Group Life",
-              "Other Benefits",
-            ]}
           />
         </TabsContent>
 
@@ -705,6 +700,9 @@ export function BenefitsDocumentsSection({
               onSaveEdit={handleSaveEdit}
               brandColor={brandColor}
               accentColor={secondaryColor}
+              // The cards are already scoped to this benefit's category (and the tab
+              // strip above them states it), so the per-card category badge is noise.
+              hideCategoryBadge
             />
           )}
         </TabsContent>

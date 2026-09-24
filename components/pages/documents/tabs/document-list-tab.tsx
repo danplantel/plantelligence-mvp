@@ -19,6 +19,8 @@ interface DocumentListTabProps {
   onEdit?: (documentId: string, title: string, updates?: { category?: string }) => void;
   /** Passed through to DocumentsTableView – hides the Category dropdown when true. */
   disableCategoryEdit?: boolean;
+  /** Passed through to DocumentsTableView – drops the Category column entirely. */
+  hideCategoryColumn?: boolean;
   availableCategories?: string[];
   /** Switches parent to Upload tab when list is empty */
   onGoToUpload?: () => void;
@@ -51,6 +53,7 @@ export function DocumentListTab({
   showActionTooltips = false,
   showDirectEditDelete = false,
   disableCategoryEdit = false,
+  hideCategoryColumn = false,
 }: DocumentListTabProps) {
   if (!selectedPlan) {
     return (
@@ -116,6 +119,7 @@ export function DocumentListTab({
           showActionTooltips={showActionTooltips}
           showDirectEditDelete={showDirectEditDelete}
           disableCategoryEdit={disableCategoryEdit}
+          hideCategoryColumn={hideCategoryColumn}
         />
       </CardContent>
     </Card>

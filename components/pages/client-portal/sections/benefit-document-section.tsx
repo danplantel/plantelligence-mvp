@@ -155,6 +155,10 @@ interface BenefitDocumentSectionProps {
   /** When true, document cards are draggable/reorderable (same drag-and-drop UI as
    *  editable mode) and `onOrderChange` is called after each reorder. */
   reorderable?: boolean;
+  /** When true, cards do not render their category badge. Used by the Create
+   *  Benefits / Edit Benefit Branding preview, whose cards are already scoped to the
+   *  benefit category being configured, so the badge only repeated it. */
+  hideCategoryBadge?: boolean;
 }
 
 const defaultRetirementDocs: RetirementDocumentItem[] = [
@@ -244,6 +248,7 @@ export function BenefitDocumentSection({
   accordionHeaderTitle: explicitAccordionTitle,
   loading = false,
   reorderable = false,
+  hideCategoryBadge = false,
 }: BenefitDocumentSectionProps) {
   // Use provided retirementDocs or default, but prefer provided (even if empty)
   const actualRetirementDocs =
@@ -502,6 +507,7 @@ export function BenefitDocumentSection({
               isDraggable={isEditable}
               onSortChange={isEditable ? handleSortChange : undefined}
               showMetadata={showMetadata}
+              hideCategoryBadge={hideCategoryBadge}
               editingDocId={editingDocId}
               onStartEdit={onStartEdit}
               onSaveEdit={onSaveEdit}
@@ -586,6 +592,7 @@ export function BenefitDocumentSection({
                       isDraggable={isEditable}
                       onSortChange={isEditable ? handleSortChange : undefined}
                       showMetadata={showMetadata}
+                      hideCategoryBadge={hideCategoryBadge}
                       editingDocId={editingDocId}
                       onStartEdit={onStartEdit}
                       onSaveEdit={onSaveEdit}
@@ -652,6 +659,7 @@ function SortableCard({
   onPreview,
   onEdit,
   showMetadata = false,
+  hideCategoryBadge = false,
   editingDocId,
   onStartEdit,
   onSaveEdit,
@@ -663,6 +671,7 @@ function SortableCard({
   onPreview: (doc: RetirementDocumentItem) => void;
   onEdit?: (doc: RetirementDocumentItem) => void;
   showMetadata?: boolean;
+  hideCategoryBadge?: boolean;
   editingDocId?: string | null;
   onStartEdit?: (docId: string) => void;
   onSaveEdit?: (
@@ -798,7 +807,7 @@ function SortableCard({
             >
               <GripVertical className="h-5 w-5" />
             </div>
-            {doc.category && (
+            {!hideCategoryBadge && doc.category && (
               <Badge
                 variant="outline"
                 className="text-[11px] font-bold px-2 py-0 h-5 bg-white shadow-sm whitespace-nowrap flex-shrink-0"
@@ -1146,6 +1155,7 @@ interface DocsGridProps {
   isDraggable?: boolean;
   onSortChange?: (docs: RetirementDocumentItem[]) => void;
   showMetadata?: boolean;
+  hideCategoryBadge?: boolean;
   editingDocId?: string | null;
   onStartEdit?: (docId: string) => void;
   onSaveEdit?: (
@@ -1167,6 +1177,7 @@ export function DocsGrid({
   isDraggable = false,
   onSortChange,
   showMetadata = false,
+  hideCategoryBadge = false,
   editingDocId,
   onStartEdit,
   onSaveEdit,
@@ -1561,7 +1572,7 @@ export function DocsGrid({
                 </>
               )}
 
-              {doc.category && (
+              {!hideCategoryBadge && doc.category && (
                 <div className={`absolute top-4 ${isDraggable ? "left-11" : "left-4"} flex flex-col gap-1 items-start z-10`}>
                   <Badge
                     variant="outline"
@@ -1750,6 +1761,7 @@ export function DocsGrid({
               onPreview={onPreview}
               onEdit={onEdit}
               showMetadata={showMetadata}
+              hideCategoryBadge={hideCategoryBadge}
               editingDocId={localEditingDocId}
               onStartEdit={handleStartEdit}
               onSaveEdit={handleSaveEdit}

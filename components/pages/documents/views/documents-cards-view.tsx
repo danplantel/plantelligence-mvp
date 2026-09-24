@@ -24,6 +24,10 @@ interface DocumentsCardsViewProps {
   ) => Promise<void>;
   brandColor?: string;
   accentColor?: string;
+  /** Hide the category badge on every card. The Create Benefits / Edit Benefit
+   *  Branding preview scopes its cards to a single benefit category, so the badge
+   *  only repeated the category the advisor is editing. */
+  hideCategoryBadge?: boolean;
 }
 
 export function DocumentsCardsView({
@@ -35,6 +39,7 @@ export function DocumentsCardsView({
   onSaveEdit: customOnSaveEdit,
   brandColor = "#002B5B",
   accentColor = "#6B7280",
+  hideCategoryBadge = false,
 }: DocumentsCardsViewProps) {
   const [editingDocId, setEditingDocId] = useState<string | null>(null);
 
@@ -124,6 +129,7 @@ export function DocumentsCardsView({
       mode="editable"
       showMetadata={false}
       hideHeader={true}
+      hideCategoryBadge={hideCategoryBadge}
       editingDocId={editingDocId}
       onStartEdit={handleStartEdit}
       onSaveEdit={handleSaveEdit}

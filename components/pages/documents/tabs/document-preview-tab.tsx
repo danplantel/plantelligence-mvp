@@ -25,6 +25,9 @@ interface DocumentPreviewTabProps {
   ) => Promise<void>;
   brandColor?: string;
   accentColor?: string;
+  /** Hide the category badge on every card (Create Benefits / Edit Benefit Branding
+   *  preview, where the cards are already scoped to the benefit's category). */
+  hideCategoryBadge?: boolean;
 }
 
 export function DocumentPreviewTab({
@@ -38,6 +41,7 @@ export function DocumentPreviewTab({
   onSaveEdit,
   brandColor,
   accentColor,
+  hideCategoryBadge = false,
 }: DocumentPreviewTabProps) {
   if (!selectedPlan) {
     return (
@@ -91,6 +95,7 @@ export function DocumentPreviewTab({
           onSaveEdit={onSaveEdit}
           brandColor={brandColor}
           accentColor={accentColor}
+          hideCategoryBadge={hideCategoryBadge}
         />
       )}
     </div>
