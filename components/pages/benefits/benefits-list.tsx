@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { BrandingImage } from "@/components/ui/branding-image";
@@ -315,13 +316,30 @@ export function BenefitsListPage() {
                         )}
                       </div>
                       {/* Why the benefit is incomplete — the wizard's own
-                          missing-item list, shown inline instead of a tooltip. */}
+                          missing-item list, one chip per item rather than a
+                          "·"-joined sentence, so several gaps read as a set at a
+                          glance instead of a run-on line.
+                          `variant="outline"` + amber overrides: `Badge` merges
+                          className through `cn()`, so these win over the variant's
+                          own colours. Padding/size are tightened to keep the row
+                          height unchanged from the plain-text version. */}
                       {row.exists &&
                         !row.isComplete &&
                         row.missingInfo.length > 0 && (
-                          <p className="mt-0.5 text-[11px] leading-snug text-amber-600 dark:text-amber-400">
-                            {row.missingInfo.join(" · ")}
-                          </p>
+                          <div className="mt-1 flex flex-wrap items-center gap-1">
+                            {row.missingInfo.map((item, index) => (
+                              <Badge
+                                // Index-qualified: the list is stable per render, and
+                                // a bare `item` key would collide if two entries ever
+                                // shared a label.
+                                key={`${item}-${index}`}
+                                variant="outline"
+                                className="border-amber-300/70 bg-amber-50 px-1.5 py-0 text-[11px] font-medium leading-4 text-amber-700 dark:border-amber-700/70 dark:bg-amber-950/40 dark:text-amber-300"
+                              >
+                                {item}
+                              </Badge>
+                            ))}
+                          </div>
                         )}
                     </div>
 
