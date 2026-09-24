@@ -73,6 +73,13 @@ interface SmallVerticalCardProps {
   /** When true, renders muted [placeholder] labels for any missing card data
    *  (used only by the wizard's live Portal Preview — never real portal cards). */
   previewPlaceholders?: boolean;
+  /**
+   * Benefit category this contact speaks for, shown as a tag at the top of the card.
+   * Supplied by `BenefitContactCard` on the My Benefits Team page; omitted (undefined)
+   * on the benefit category pages and in the wizard previews, where the surrounding
+   * page already names the benefit.
+   */
+  categoryLabel?: string;
 }
 
 export function SmallVerticalCard({
@@ -88,6 +95,7 @@ export function SmallVerticalCard({
   baselineLogoScale,
   compact = false,
   previewPlaceholders = false,
+  categoryLabel,
 }: SmallVerticalCardProps) {
   const isPrimary = contact.isPrimary || false;
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
@@ -282,6 +290,16 @@ export function SmallVerticalCard({
         style={{ backgroundColor }}
       >
         <div className="flex flex-col items-center flex-1 w-full">
+          {/* BENEFIT CATEGORY TAG — sits above the logo bar so it reads as the top
+              of the card. Rendered only when the caller supplies a label. */}
+          {categoryLabel && (
+            <span
+              className="mb-2 inline-flex max-w-full items-center truncate rounded-full border border-black/5 bg-white/90 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600 shadow-sm"
+              title={categoryLabel}
+            >
+              {categoryLabel}
+            </span>
+          )}
           {/* COMPANY LOGO BAR — Team/Support Line contacts show their Company
               Logo here, with the support-line icon in the circular avatar slot
               below (positions swapped). */}
@@ -556,6 +574,15 @@ export function SmallVerticalCard({
       style={{ backgroundColor }}
     >
       <div className="flex flex-col items-center flex-1 w-full">
+        {/* BENEFIT CATEGORY TAG — see the comment on the non-animated variant above. */}
+        {categoryLabel && (
+          <span
+            className="mb-2 inline-flex max-w-full items-center truncate rounded-full border border-black/5 bg-white/90 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600 shadow-sm"
+            title={categoryLabel}
+          >
+            {categoryLabel}
+          </span>
+        )}
         {/* COMPANY LOGO BAR — Team/Support Line contacts show their Company Logo
             here, with the support-line icon in the circular avatar slot below
             (positions swapped). */}
