@@ -322,8 +322,14 @@ export function BenefitsListPage() {
                         )}
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-2">
-                      {row.exists && (
+                    {/* Portal visibility only means something once the benefit
+                        exists. `/api/benefits` derives `isEnabled` from the plan's
+                        `categoryPortalVisibility`, which defaults to visible for a
+                        category with no row — so rendering the switch regardless
+                        showed it ON (reading as "Published") beside an "Add benefit"
+                        button that cannot publish anything. */}
+                    {row.exists ? (
+                      <div className="flex shrink-0 items-center gap-2">
                         <span
                           className={cn(
                             "text-[11px] font-semibold",
@@ -332,18 +338,22 @@ export function BenefitsListPage() {
                         >
                           {row.isEnabled ? "Published" : "Hidden"}
                         </span>
-                      )}
-                      {isToggling ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                      ) : null}
-                      <Switch
-                        checked={row.isEnabled}
-                        disabled={!row.exists || isToggling}
-                        onCheckedChange={(checked) =>
-                          handleToggle(row, checked === true)
-                        }
-                      />
-                    </div>
+                        {isToggling ? (
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        ) : null}
+                        <Switch
+                          checked={row.isEnabled}
+                          disabled={isToggling}
+                          onCheckedChange={(checked) =>
+                            handleToggle(row, checked === true)
+                          }
+                        />
+                      </div>
+                    ) : (
+                      <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
+                        Not created
+                      </span>
+                    )}
 
                     {row.exists ? (
                       <Button

@@ -35,7 +35,12 @@ export interface BenefitListRow {
   /** Benefit row title when it exists, otherwise the category default. */
   title: string;
   partnerLogo: string | null;
-  /** Benefit row `isEnabled` (published). Defaults to true when no row exists. */
+  /**
+   * Whether the hub is published. Requires a Benefit row: a category with no row
+   * reports false, because there is nothing to publish (the previous "no row ⇒
+   * true" fallback made a non-existent "Custom" hub read as Published beside an
+   * "Add benefit" button).
+   */
   isEnabled: boolean;
   /** Whether a Benefit row has been created for this plan + category. */
   exists: boolean;
@@ -145,10 +150,16 @@ export async function GET() {
 
       for (const cat of BENEFIT_CATEGORIES) {
         const row = byPlanCategory.get(`${client.id}::${normalize(cat.category)}`);
-        // Visibility lives on the client; fall back to the benefit's own flag.
+        // Published requires an actual benefit: no row ⇒ not published, at any
+        // visibility value. Visibility then lives on the client (explicit `false`
+        // hides), combined with the benefit's own flag. An ABSENT key still reads as
+        // visible for a row that exists, deliberately mirroring the canonical
+        // `readVisibilityValue()` in lib/portal-category-visibility.ts so the list
+        // and the portal never disagree about a hub that exists.
         const visible =
-          visibility[cat.visibilityKey] !== false &&
-          (row ? row.isEnabled !== false : true);
+          !!row &&
+          row.isEnabled !== false &&
+          visibility[cat.visibilityKey] !== false;
 
         // Same completeness check the wizard uses, fed with this plan's contacts
         // and documents plus the authoritative Benefit row for the category.
