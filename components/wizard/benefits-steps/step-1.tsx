@@ -111,7 +111,10 @@ import {
 } from "./benefit-category-card";
 import { categoryToSlug } from "@/lib/benefit-category-slug";
 import { convertToDocumentFormat } from "@/lib/compliance-document-utils";
-import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboarding-advisor-contacts";
+import {
+  mergeOnboardingAdvisorContactsIntoKeyContacts,
+  primaryServiceLabelToBenefitsCategory,
+} from "@/lib/seed-onboarding-advisor-contacts";
 import { BenefitsDocumentsSection } from "./benefits-documents-section";
 import benefitCategoryBackgrounds from "@/data/gallery-benefit-category-backgrounds.json";
 import { buildContactFormHref } from "@/lib/contact-form-link";
@@ -1218,6 +1221,50 @@ export function BenefitsStep1({
   const normalizeApiCategory = (raw: string) =>
     (raw || "").toLowerCase().trim().replace(/\s+/g, " ");
 
+  /**
+   * Company / Organization default for a NEW contact.
+   *
+   * A category on the advisor's own primary-service list is serviced by the
+   * advisor's firm, so that contact's Company / Organization is
+   * `User.organizationName`. Every other category belongs to a vendor / provider /
+   * carrier, whose name has to be typed.
+   *
+   * `User.primaryServiceCategories` holds the canonical service labels
+   * (Retirement / Group Health / Group Life / Other), which are not all spelled like
+   * the benefits categories, so each label is mapped through
+   * `primaryServiceLabelToBenefitsCategory` ("Other" → "Other Benefits") rather than
+   * compared as a string; a direct normalized match is still accepted for a profile
+   * that already stores the benefits label.
+   *
+   * Company / Plan Sponsor contacts are skipped: their form has no Company field
+   * (their card shows the plan's company name), and the wizard keeps "Custom" filed
+   * under that hub.
+   */
+  const getPrimaryOrgCompanyName = (category: string): string => {
+    if (String(category) === "Company / Plan Sponsor") return "";
+    const primaryCats: string[] = Array.isArray(
+      (profileData as any)?.primaryServiceCategories,
+    )
+      ? (profileData as any).primaryServiceCategories
+      : [];
+    if (primaryCats.length === 0) return "";
+    const target = normalizeApiCategory(category);
+    const isPrimary = primaryCats.some((label) => {
+      const raw = String(label);
+      const mapped = primaryServiceLabelToBenefitsCategory(raw);
+      return (
+        normalizeApiCategory(raw) === target ||
+        (!!mapped && normalizeApiCategory(mapped) === target)
+      );
+    });
+    if (!isPrimary) return "";
+    return (
+      (profileData as any)?.organizationName ||
+      (profileData as any)?.user?.organizationName ||
+      ""
+    ).trim();
+  };
+
   /** Resolve the client/plan company name (Company / Plan Sponsor name) from the
    *  selected plan, falling back to the plans list by planId so it populates even
    *  before the full plan detail has finished loading. */
@@ -1966,7 +2013,10 @@ export function BenefitsStep1({
       headshotFileName: "",
       teamImage: "",
       teamImageFileName: "",
-      companyName: "",
+      // Pre-fill the advisor's own organization for a primary service category —
+      // see `getPrimaryOrgCompanyName`. Left editable, and still required: the
+      // submit handler re-validates it for every non-Plan-Sponsor contact.
+      companyName: getPrimaryOrgCompanyName(category),
       companyLogo: "",
       companyLogoFileName: "",
       isPrimary: true,
