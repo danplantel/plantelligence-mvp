@@ -21,12 +21,59 @@ enum VideoStatus {
   failed
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Team & Collaborator Access — enums
+// See Team_Collaborator_Access_Developer_Spec (1).pdf, ticket T1.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Team Member (internal to the advisor org) or Collaborator (external).
+enum TeammatePersonType {
+  team_member
+  collaborator
+}
+
+// Profile lifecycle. A Contact can be upgraded to Invited at any time; the
+// profile stays the same.
+enum TeammateProfileState {
+  contact
+  invited
+  active
+}
+
+// Assignment role. `custom` writes an edited function grid; presets write their
+// own default grid (see types/teammate.ts).
+enum TeammateAssignmentRole {
+  owner
+  admin
+  editor
+  viewer
+  contributor
+  reviewer
+  custom
+}
+
+// Category scope on an assignment: every category on the plan, or a picked list.
+enum TeammateCategoryScope {
+  all
+  selected
+}
+
+// Partner companies are always Partner/Provider and must never surface in Plan
+// Sponsor pickers.
+enum TeammateCompanyEntityType {
+  partner_provider
+}
+
 // User model
 model User {
   id                          String                   @id @default(auto()) @map("_id") @db.ObjectId
   provider                    AuthProvider             @default(credentials)
   name                        String
   email                       String                   @unique
+  // Forward-looking tenancy anchor. `id` above remains the legacy ownership
+  // anchor for all pre-existing queries; see the Organization section at the
+  // end of this file.
+  organizationId              String?                  @db.ObjectId
   organizationEmail           String?
   password                    String?
   resetCode                   String?
@@ -675,9 +722,21 @@ model NewClientEmployeePortalPreview {
 model Client {
   id     String @id @default(auto()) @map("_id") @db.ObjectId
   userId String @db.ObjectId
+  // Additive tenancy anchor for the Team & Collaborator Access feature. `userId`
+  // (the owning advisor) stays authoritative for existing queries; new code
+  // scopes by organizationId through lib/organization.ts.
+  organizationId String? @db.ObjectId
 
-  // URL-friendly identifier (e.g. "acme-corp")
-  slug   String? @unique
+  // URL-friendly identifier (e.g. "acme-corp").
+  //
+  // Deliberately NOT @unique. On MongoDB a unique index counts every null as a
+  // real key, so as soon as a second plan has no slug the build fails with
+  // `dup key: { slug: null }` and aborts the entire `prisma db push`. Global slug
+  // uniqueness is guaranteed by `PortalSlug.slug` (@unique, non-null), which
+  // registers every current AND retired slug; this column is the legacy mirror,
+  // and is additionally guarded by a partial unique index applied via
+  // scripts/repair/apply-partial-unique-indexes.ts.
+  slug   String?
 
   // Company Information
   companyName     String
@@ -761,6 +820,7 @@ model Client {
 
   @@index([companyName])
   @@index([userId])
+  @@index([organizationId])
   @@index([status])
   benefits Benefit[]
 }
@@ -1071,4 +1131,152 @@ model PortalSlug {
 
   @@index([clientId])
   @@index([clientId, isCurrent])
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Team & Collaborator Access (spec: Team_Collaborator_Access_Developer_Spec)
+//
+// T1 introduces a real Organization entity. `userId` (the owning User) remains
+// the anchor for every pre-existing query; `organizationId` is the forward
+// looking anchor that all teammate reads and writes are scoped by. The two are
+// kept in sync by scripts/teammates/backfill-organizations.ts and by the signup
+// path in lib/auth-options.ts.
+//
+// Why plain scalar `organizationId` instead of an `@relation`: the MongoDB
+// connector requires both sides of a relation to be declared and pulls in
+// referential-action semantics we do not want for an additive migration. Every
+// teammate collection is scoped by an explicit organizationId filter instead.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Organization — the tenancy root for the Team & Collaborator Access feature.
+// One per advisor User today (ownerUserId), created at signup or by backfill.
+model Organization {
+  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  name              String
+  ownerUserId       String   @db.ObjectId
+  organizationEmail String?
+  // Owner branding mirrored at creation time so teammate hub rendering has a
+  // stable org-level source even if the owner later rebrands.
+  branding          Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([ownerUserId])
+}
+
+// Partner Company (spec T1 Part B item 2): name, logo, branding.
+// Entity type is always Partner/Provider — these must never appear in Plan
+// Sponsor pickers (enforced in app/api/companies/search/route.ts).
+// One company has many profiles.
+model TeammateCompany {
+  id             String                    @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String                    @db.ObjectId
+  name           String
+  logo           String?
+  branding       Json?
+  entityType     TeammateCompanyEntityType @default(partner_provider)
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  @@index([organizationId])
+  @@index([organizationId, name])
+}
+
+// Person Profile (spec T1 Part B item 1): who the person and their company are.
+// Created once, reused across plans. Carries identity and company only — never
+// plan-scoped data (documents, plan ids, group numbers, provider URLs,
+// meetings, marketing assets, plan-specific messaging).
+model TeammateProfile {
+  id             String               @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String               @db.ObjectId
+  // Global login link. One login can back profiles in several organizations;
+  // each organization keeps its own profile (spec T1 Part B item 5).
+  loginUserId    String?              @db.ObjectId
+  type           TeammatePersonType
+  state          TeammateProfileState @default(contact)
+
+  firstName         String?
+  lastName          String?
+  jobTitle          String?
+  designations      String[]          @default([])
+  email             String
+  phone             String?
+  phoneExtension    String?
+  headshot          String?
+  benefitsSpecialty String[]          @default([])
+
+  companyId String? @db.ObjectId
+
+  // Team Members only: when set, an assignment is generated automatically for
+  // every newly created plan (spec T1 Part B item 4).
+  allPlans Boolean @default(false)
+
+  invitedByUserId String?   @db.ObjectId
+  invitedAt       DateTime?
+  // Spec T6: "Deactivate: all access to the organization ends; the profile is
+  // kept." Set instead of deleting so the audit trail and any content the person
+  // created stay attributable. Null means the profile is live.
+  deactivatedAt   DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([organizationId])
+  @@index([organizationId, email])
+  @@index([companyId])
+  @@index([loginUserId])
+  @@index([organizationId, deactivatedAt])
+}
+
+// Assignment (spec T1 Part B item 3): which plan and categories a profile is
+// connected to, with what role, and whether they show on the hub.
+// Exactly one record per person per plan (enforced by the compound unique).
+model PlanAssignment {
+  id             String                @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String                @db.ObjectId
+  profileId      String                @db.ObjectId
+  clientId       String                @db.ObjectId
+
+  categoryScope TeammateCategoryScope @default(all)
+  categories    String[]              @default([])
+
+  role TeammateAssignmentRole @default(contributor)
+  // The full function-level grid (types/teammate.ts → TeammatePermissionSet).
+  // Presets write their default grid here; Custom writes the edited grid. Never
+  // a reference to a preset, so changing a preset later cannot alter a Custom
+  // user (spec T2a Part B item 5).
+  permissionSet Json
+
+  showOnBenefitsHub Boolean @default(true)
+
+  invitedByUserId     String?   @db.ObjectId
+  invitedAt           DateTime?
+  lastChangedByUserId String?   @db.ObjectId
+  lastChangedAt       DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([profileId, clientId])
+  @@index([organizationId])
+  @@index([clientId])
+  @@index([profileId])
+}
+
+// Audit trail for teammate mutations. Backs T2a ("log who set Custom access,
+// when, and which warnings were confirmed") and T6 ("every change is logged").
+model TeammateAuditEvent {
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  organizationId String   @db.ObjectId
+  profileId      String?  @db.ObjectId
+  assignmentId   String?  @db.ObjectId
+  actorUserId    String   @db.ObjectId
+  action         String
+  // Custom-role saves record the soft warnings the user confirmed (spec T2a).
+  warningsConfirmed Json?
+  details           Json?
+  createdAt         DateTime @default(now())
+
+  @@index([organizationId, createdAt])
+  @@index([profileId])
+  @@index([assignmentId])
 }

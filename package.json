@@ -15,6 +15,14 @@
     "gallery:optimize": "npx tsx scripts/gallery/convert-png-to-webp.ts",
     "gallery:curate": "npx tsx scripts/gallery/curate-default-backgrounds.ts",
     "check:gallery": "npm run gallery:validate",
+    "teammates:check-schema": "npx tsx scripts/teammates/check-schema.ts",
+    "teammates:indexes": "npx tsx scripts/teammates/apply-indexes.ts",
+    "teammates:backfill": "npx tsx scripts/teammates/backfill-organizations.ts",
+    "teammates:verify": "npx tsx scripts/teammates/verify-t1.ts",
+    "teammates:verify-backfill": "npx tsx scripts/teammates/verify-backfill.ts",
+    "repair:unique-conflicts": "npx tsx scripts/repair/fix-unique-conflicts.ts",
+    "repair:partial-indexes": "npx tsx scripts/repair/apply-partial-unique-indexes.ts",
+    "repair:purge-orphaned-user": "npx tsx scripts/repair/purge-orphaned-user-data.ts",
     "postinstall": "prisma generate && node -e \"try{require('fs').cpSync('node_modules/@sparticuz/chromium/bin','chromium-bin',{recursive:true})}catch(e){console.warn('chromium-bin copy skipped:',e.message)}\""
   },
   "dependencies": {

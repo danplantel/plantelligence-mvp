@@ -4,15 +4,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
+import { resolveOrganizationId } from "@/lib/organization";
+import {
+  allowedSourcesForScope,
+  isExcludedFromPlanSponsor,
+  normalizeCompanyKey,
+  parseCompanySearchScope,
+  type CompanySuggestionSource,
+} from "@/lib/teammates/company-scope";
 
 const MAX_RESULTS = 12;
-
-type CompanySuggestionSource =
-  | "client"
-  | "plan"
-  | "provider"
-  | "recordkeeper"
-  | "draft";
 
 interface CompanySuggestion {
   id: string;
@@ -24,6 +25,15 @@ interface CompanySuggestion {
 const sanitizeLogo = (logo?: string | null) =>
   logo && logo.trim().length > 0 ? logo : null;
 
+/**
+ * Company picker search.
+ *
+ * The `scope` parameter decides which sources are visible:
+ *  - `plan_sponsor` — employers only; Partner Companies are excluded outright
+ *    (spec T1 acceptance: "Partner companies never appear in Plan Sponsor search").
+ *  - `provider`     — providers, recordkeepers, and plan-level companies.
+ *  - omitted/`all`  — the legacy mixed list, so existing callers are unaffected.
+ */
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -33,14 +43,16 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const query = searchParams.get("query")?.trim() ?? "";
+    const scope = parseCompanySearchScope(searchParams.get("scope"));
 
     if (query.length < 2) {
-      return NextResponse.json({ success: true, data: [] });
+      return NextResponse.json({ success: true, scope, data: [] });
     }
 
     const userId = session.user.id;
+    const organizationId = await resolveOrganizationId(userId);
 
-    const [clients, plans, drafts] = await Promise.all([
+    const [clients, plans, drafts, partnerCompanies] = await Promise.all([
       prisma.client.findMany({
         where: {
           userId,
@@ -85,7 +97,21 @@ export async function GET(request: NextRequest) {
         },
         take: MAX_RESULTS,
       }),
+      // Partner Companies are a distinct entity type and are never Plan Sponsors.
+      // Matching them by name is what lets a Plan Sponsor picker refuse to offer
+      // one even when a client or plan happens to share the name.
+      prisma.teammateCompany.findMany({
+        where: {
+          organizationId,
+          name: { contains: query, mode: "insensitive" },
+        },
+        select: { name: true },
+      }),
     ]);
+
+    const partnerNames = new Set(
+      partnerCompanies.map((c) => normalizeCompanyKey(c.name)),
+    );
 
     const suggestions = new Map<string, CompanySuggestion>();
 
@@ -99,7 +125,13 @@ export async function GET(request: NextRequest) {
       const normalizedName = name.trim();
       if (!normalizedName) return;
 
-      const key = normalizedName.toLowerCase();
+      const key = normalizeCompanyKey(normalizedName);
+
+      // Spec T1 acceptance: a Partner Company is never offered as a Plan Sponsor.
+      if (scope === "plan_sponsor" && isExcludedFromPlanSponsor(name, partnerNames)) {
+        return;
+      }
+
       const sanitizedLogo = sanitizeLogo(logo);
 
       if (suggestions.has(key)) {
@@ -147,9 +179,18 @@ export async function GET(request: NextRequest) {
       ),
     );
 
-    const data = Array.from(suggestions.values()).slice(0, MAX_RESULTS);
+    let data = Array.from(suggestions.values());
 
-    return NextResponse.json({ success: true, data });
+    const allowedSources = allowedSourcesForScope(scope);
+    if (allowedSources) {
+      data = data.filter((s) => allowedSources.includes(s.source));
+    }
+
+    return NextResponse.json({
+      success: true,
+      scope,
+      data: data.slice(0, MAX_RESULTS),
+    });
   } catch (error) {
     console.error("Error searching companies:", error);
     return NextResponse.json(
@@ -158,5 +199,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
-

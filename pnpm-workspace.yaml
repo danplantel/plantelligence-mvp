@@ -1,2 +1,12 @@
+# Settings for pnpm only. Deliberately NOT in .npmrc: npm reads every .npmrc and
+# warns about keys it does not recognise ("Unknown project config"), which is why
+# `node-linker` used to print a warning on every `npm run` / `npx` invocation.
+
+# Use a flat (hoisted) node_modules like npm/yarn. Fixes Next.js webpack build
+# failures on Windows caused by pnpm's symlink/junction-based node_modules
+# duplicating React (e.g. "Cannot read properties of null (reading 'useContext')"
+# during prerender).
+nodeLinker: hoisted
+
 ignoredBuiltDependencies:
   - sharp

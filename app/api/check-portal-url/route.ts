@@ -45,14 +45,21 @@ export async function GET(request: NextRequest) {
       excludeClientId = owner?.id;
     }
 
-    // Completed plans: Client.slug is globally unique, so check across all users.
+    // Completed plans: a slug is globally unique, so check across all users.
     // Exclude the current draft client being edited (if provided).
+    //
+    // `findFirst`, not `findUnique`: `Client.slug` is deliberately no longer a
+    // Prisma `@unique`. A MongoDB unique index treats every null as a real key,
+    // so with several slug-less legacy plans the index is unbuildable and
+    // `prisma db push` fails. Uniqueness for real slugs is guaranteed by
+    // `PortalSlug.slug` (@unique, non-null) plus a partial unique index on this
+    // column — see scripts/repair/apply-partial-unique-indexes.ts.
     const existingClient = excludeClientId
       ? await prisma.client.findFirst({
           where: { slug: sanitized, id: { not: excludeClientId } },
           select: { id: true, userId: true },
         })
-      : await prisma.client.findUnique({
+      : await prisma.client.findFirst({
           where: { slug: sanitized },
           select: { id: true, userId: true },
         });

@@ -5,6 +5,10 @@ import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 import prisma from "./prisma";
 import { sendSignInNotificationEmail } from "@/lib/email";
+import {
+  getOrCreateOrganizationForUser,
+  resolveOrganizationId,
+} from "@/lib/organization";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -110,6 +114,9 @@ export const authOptions: NextAuthOptions = {
           (token as any).organizationName || null;
         (session.user as any).organizationEmail =
           (token as any).organizationEmail || null;
+        // T1: the tenancy anchor for all teammate reads/writes.
+        (session.user as any).organizationId =
+          (token as any).organizationId || null;
       }
       (session as any).provider = token.provider;
       return session;
@@ -185,6 +192,22 @@ export const authOptions: NextAuthOptions = {
           (token as any).onboardingComplete = false;
         }
       }
+
+      // Team & Collaborator Access (T1): resolve the Organization once and
+      // latch it on the token. Runs only while the value is missing, so a
+      // session created before the migration pays the backfill cost a single
+      // time and every later request reads it from the JWT.
+      if (token.id && !(token as any).organizationId) {
+        try {
+          (token as any).organizationId = await resolveOrganizationId(
+            token.id as string,
+          );
+        } catch (err) {
+          console.error("[jwt callback] Organization resolve failed:", err);
+          (token as any).organizationId = null;
+        }
+      }
+
       return token;
     },
     async signIn(params) {
@@ -211,8 +234,16 @@ export const authOptions: NextAuthOptions = {
             provider: (account?.provider as any) || "credentials",
             name: user?.name || "",
           };
-          await prisma.user.create({
+          const createdUser = await prisma.user.create({
             data: newUser,
+          });
+          // T1: every User owns an Organization. Best-effort so a failure here
+          // can never block a first sign-in; the JWT callback backfills later.
+          await getOrCreateOrganizationForUser(createdUser.id).catch((err) => {
+            console.error(
+              "[signIn callback] Organization bootstrap failed:",
+              err,
+            );
           });
         } else {
           // Existing user — send a sign-in notification email (best-effort).
@@ -245,6 +276,17 @@ export const authOptions: NextAuthOptions = {
                 provider: (account?.provider as any) || "credentials",
                 name: existUser.name || user?.name || "",
               },
+            });
+          }
+
+          // T1: backfill an Organization for accounts created before the model
+          // existed. Idempotent, and only runs while the user has no org.
+          if (!existUser.organizationId) {
+            await getOrCreateOrganizationForUser(existUser.id).catch((err) => {
+              console.error(
+                "[signIn callback] Organization backfill failed:",
+                err,
+              );
             });
           }
         }
