@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 import { getPresignedReadUrl } from "@/lib/r2";
+import { resolvePlanAccess } from "@/lib/teammates/access.server";
 
 export const dynamic = "force-dynamic";
 
@@ -31,14 +32,23 @@ export async function GET(
       );
     }
 
+    // Load the flyer unscoped, then authorize its plan through the T2 guard.
+    // The old `client: { userId }` relation filter refused teammates; a denial
+    // still returns 404 so flyer existence isn't leaked. Downloading is a read.
     const flyer = await prisma.marketingFlyer.findFirst({
-      where: {
-        id: flyerId,
-        client: { userId },
-      },
+      where: { id: flyerId },
     });
 
-    if (!flyer) {
+    const access = flyer
+      ? await resolvePlanAccess({
+          userId,
+          clientIdOrSlug: flyer.clientId,
+          permission: "marketing",
+          level: "view",
+        })
+      : null;
+
+    if (!flyer || !access?.allowed) {
       return NextResponse.json({ error: "Flyer not found" }, { status: 404 });
     }
 

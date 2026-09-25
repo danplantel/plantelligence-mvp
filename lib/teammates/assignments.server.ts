@@ -29,6 +29,9 @@ import {
   resolveAssignmentGrid,
   validatePermissionSet,
 } from "./permissions";
+// Direction is one-way (assignments → access): access.server never imports this
+// module, so the owner guard can live here without creating a cycle.
+import { assertOrganizationKeepsAnOwner } from "./access.server";
 
 /**
  * The grid as a plain JSON object for Prisma. A `Record<string, string>` has the
@@ -143,6 +146,16 @@ export async function upsertAssignment(input: UpsertAssignmentInput) {
     clientId: input.clientId,
     organizationId: input.organizationId,
   });
+
+  // Spec T2 Part B item 4: "At least one Owner must always exist on an
+  // organization." Demoting the only Owner assignment is refused here rather
+  // than silently orphaning the organization.
+  if (existing?.role === "owner" && input.role !== "owner") {
+    await assertOrganizationKeepsAnOwner({
+      organizationId: input.organizationId,
+      excludingAssignmentIds: [existing.id],
+    });
+  }
 
   const now = new Date();
   const assignment = await prisma.planAssignment.upsert({
@@ -341,6 +354,14 @@ export async function removeAssignment({
   });
   if (!existing) {
     throw new TeammateDataError("Assignment not found.", 404);
+  }
+
+  // Spec T2 Part B item 4: never remove the last Owner.
+  if (existing.role === "owner") {
+    await assertOrganizationKeepsAnOwner({
+      organizationId,
+      excludingAssignmentIds: [assignmentId],
+    });
   }
 
   await prisma.planAssignment.delete({ where: { id: assignmentId } });

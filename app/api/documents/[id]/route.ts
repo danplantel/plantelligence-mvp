@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 import { R2_FILEURL_PLACEHOLDER, isR2Configured } from "@/lib/r2";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
+import { resolvePlanAccess } from "@/lib/teammates/access.server";
 
 export async function PATCH(
   request: NextRequest,
@@ -17,18 +18,30 @@ export async function PATCH(
 
     const documentId = params.id;
 
-    // Verify document belongs to user's client
+    // T2: authorize the document's PLAN rather than filtering on
+    // `client: { userId }`. That relation filter hard-coded ownership, so a
+    // teammate assigned to the plan got a 404 on every document they were
+    // supposed to be able to edit. Missing stays 404 (no existence leak);
+    // denied is 403.
     const document = await prisma.document.findFirst({
-      where: {
-        id: documentId,
-        client: {
-          userId: session.user.id,
-        },
-      },
+      where: { id: documentId },
     });
 
     if (!document) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
+    }
+
+    const access = await resolvePlanAccess({
+      userId: session.user.id,
+      clientIdOrSlug: document.clientId,
+      permission: "documents",
+      level: "edit",
+    });
+    if (!access.allowed) {
+      return NextResponse.json(
+        { error: access.message, code: access.reason },
+        { status: 403 },
+      );
     }
 
     // Check if request has FormData (file upload) or JSON
@@ -246,18 +259,27 @@ export async function DELETE(
 
     const documentId = params.id;
 
-    // Verify document belongs to user's client
+    // T2: authorize the plan (see the PATCH handler above). Deleting is a
+    // document write, so it requires `documents: edit`.
     const document = await prisma.document.findFirst({
-      where: {
-        id: documentId,
-        client: {
-          userId: session.user.id,
-        },
-      },
+      where: { id: documentId },
     });
 
     if (!document) {
       return NextResponse.json({ error: "Document not found" }, { status: 404 });
+    }
+
+    const access = await resolvePlanAccess({
+      userId: session.user.id,
+      clientIdOrSlug: document.clientId,
+      permission: "documents",
+      level: "edit",
+    });
+    if (!access.allowed) {
+      return NextResponse.json(
+        { error: access.message, code: access.reason },
+        { status: 403 },
+      );
     }
 
     // Delete document

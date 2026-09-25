@@ -7,6 +7,7 @@ import {
   resolvePortalAdvisorId,
   isLocalDevLoopback,
 } from "@/lib/portal-access";
+import { resolvePlanAccess } from "@/lib/teammates/access.server";
 
 export async function GET(
   request: NextRequest,
@@ -14,20 +15,18 @@ export async function GET(
 ) {
   try {
     // Public portal: anonymous employees open documents directly (browser
-    // navigation to /api/documents/{id}/view?clientSlug=…), so resolve the
-    // owning advisor from the plan slug. A session is preferred when one
-    // exists; a development-only localhost preview is the only other anonymous
-    // path (never enabled outside `next dev`).
+    // navigation to /api/documents/{id}/view?clientSlug=…), so the owning
+    // advisor is resolved from the plan slug and the request is thereby scoped
+    // to that one plan. A session is the dashboard path, where T2 requires the
+    // caller's assignment to be checked instead. A development-only localhost
+    // preview is the only other anonymous path (never enabled outside `next dev`).
     const portalAdvisorId = await resolvePortalAdvisorId(request, true);
-    let ownerId: string | undefined = portalAdvisorId;
-    if (!ownerId) {
-      const session = await getServerSession(authOptions);
-      if (session?.user?.id) {
-        ownerId = session.user.id;
-      }
-    }
-    const devPublic = isLocalDevLoopback(request) && !ownerId;
-    if (!ownerId && !devPublic) {
+    const session = await getServerSession(authOptions);
+    const sessionUserId = session?.user?.id;
+
+    const devPublic =
+      isLocalDevLoopback(request) && !portalAdvisorId && !sessionUserId;
+    if (!portalAdvisorId && !sessionUserId && !devPublic) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -80,14 +79,37 @@ export async function GET(
       );
     }
 
-    // Check if the resolved owner (portal advisor or session user) owns this
-    // document (via its client). Cross-tenant documents are never served; the
-    // dev-local preview is intentionally open in development.
-    if (!devPublic && document.client.userId !== ownerId) {
-      return NextResponse.json(
-        { error: "You don't have permission to view this document" },
-        { status: 403 }
-      );
+    // T2 enforcement.
+    //  - Public portal: the request is already scoped to this plan by its slug,
+    //    so confirming the document belongs to that plan is sufficient.
+    //  - Dashboard session: the caller must hold `documents: view` on this plan,
+    //    within the assignment's category scope. This is precisely what stops a
+    //    Contributor assigned to Ayres → Group Health from opening Ayres →
+    //    Retirement, or an unassigned plan at all.
+    //  - The dev-local preview is intentionally open in development.
+    if (!devPublic) {
+      if (portalAdvisorId) {
+        if (document.client.userId !== portalAdvisorId) {
+          return NextResponse.json(
+            { error: "You don't have permission to view this document" },
+            { status: 403 }
+          );
+        }
+      } else if (sessionUserId) {
+        const access = await resolvePlanAccess({
+          userId: sessionUserId,
+          clientIdOrSlug: document.clientId,
+          category: document.category ?? null,
+          permission: "documents",
+          level: "view",
+        });
+        if (!access.allowed) {
+          return NextResponse.json(
+            { error: access.message },
+            { status: access.reason === "plan_not_found" ? 404 : 403 }
+          );
+        }
+      }
     }
 
     // If file is in R2, redirect to a signed URL (no server file transfer)

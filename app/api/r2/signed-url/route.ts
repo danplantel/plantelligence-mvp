@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
+import { resolveObjectAccess } from "@/lib/teammates/access.server";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -8,8 +9,12 @@ export const dynamic = "force-dynamic";
 /**
  * GET /api/r2/signed-url?key=...
  * Returns a temporary signed URL to read an object from R2.
- * Used when the caller already has a valid storage key (e.g. from document.storageKey).
- * Auth: user must be logged in (key structure encodes orgId; further checks can be added per use case).
+ *
+ * Auth: the caller must be logged in AND entitled to the object. Keys are
+ * `org/{orgId}/plans/{planId}/{documents|branding|uploads}/…` (see lib/r2.ts), so
+ * the plan segment is resolved against the caller's assignment — spec T2 Part B
+ * item 3: "Signed URLs for documents and media check the assignment before
+ * they're issued." Legacy org-level keys fall back to an ownership check.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -38,9 +43,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Optional: enforce that key starts with org/{userId}/ so user can only get URLs for their objects
-    const expectedPrefix = `org/${session.user.id}/`;
-    if (!key.startsWith(expectedPrefix)) {
+    // T2 enforcement. The previous check was a bare prefix match on
+    // `org/{userId}/`, which an owner passes but which says nothing about a
+    // collaborator's assignment, and which cannot distinguish one plan from
+    // another inside the same org.
+    const access = await resolveObjectAccess({
+      userId: session.user.id,
+      key,
+      level: "view",
+    });
+    if (!access.allowed) {
       return NextResponse.json(
         { error: "Access denied to this object" },
         { status: 403 }

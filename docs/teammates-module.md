@@ -130,10 +130,24 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:indexes` | Applies the T1 indexes directly (idempotent). |
 | `npm run teammates:backfill` | Creates one Organization per existing User and stamps `organizationId` onto User + Client rows. Supports `--dry-run`. |
 | `npm run teammates:verify` | Runs the 24-assertion T1 acceptance suite against the real data layer with self-cleaning fixtures. |
+| `npm run teammates:verify-t2` | Runs the 23-assertion T2 enforcement suite (the three T2 acceptance criteria + the one-Owner invariant). |
 | `npm run teammates:verify-backfill` | Asserts the post-backfill invariants (every User/Client org'd, legacy `Client.userId` intact). |
 | `npm run repair:unique-conflicts` | Finds (and with `--apply`, removes) duplicate session rows that block unique-index builds. |
 | `npm run repair:partial-indexes` | Re-applies the partial unique index on `Client.slug`. |
 | `npm run repair:purge-orphaned-user` | Inventories (dry run) then with `--apply` removes everything left behind by a deleted User account. |
+
+### Toolchain prerequisites
+
+- **pnpm** is the declared package manager (`packageManager: pnpm@10.22.0`), but
+  Node does not bundle it. Install it once with `npm install -g pnpm@10.22.0`
+  (or `corepack enable pnpm`). pnpm reads `nodeLinker: hoisted` from
+  `pnpm-workspace.yaml` — that setting must not move back into `.npmrc`, where
+  npm warns about it on every command.
+- **Windows PowerShell** refuses npm's `.ps1` shims under the default
+  `Restricted` execution policy, producing
+  `pnpm : ... cannot be loaded because running scripts is disabled`.
+  `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` fixes it
+  without admin rights.
 
 `prisma db push` now completes cleanly and reports "already in sync" on a second
 run. The `teammates:indexes` script remains as a fallback for the case where a
@@ -167,11 +181,12 @@ npx prisma generate
 npm run teammates:check-schema
 npm run teammates:verify-backfill
 npm run teammates:verify
+npm run teammates:verify-t2
 ```
 
-All three must pass. As of the last run: schema check OK (5 collections, 15
-indexes), backfill verification all assertions passed, T1 acceptance suite
-24/24 passed, and `npx tsc --noEmit` reports no errors.
+All of these must pass. As of the last run: schema check OK (5 collections, 15
+indexes); backfill verification all assertions passed; T1 acceptance suite 24/24;
+T2 enforcement suite 23/23; `npx tsc --noEmit` and `npx next lint` both clean.
 
 ---
 
@@ -277,7 +292,130 @@ remaining references afterwards. `verify-backfill` now reports no orphans.
 
 ---
 
-## 8. Residual migration debt
+## 8. T2 — Permission enforcement layer
+
+Implemented. The engine is [`lib/teammates/access.server.ts`](../lib/teammates/access.server.ts);
+the pure, client-safe half is [`lib/teammates/permission-levels.ts`](../lib/teammates/permission-levels.ts).
+
+### The single decision function
+
+`resolvePlanAccess({ userId, clientIdOrSlug, category?, permission?, level? })`
+returns a discriminated result, so the API can map it to a status and the UI can
+render the right refusal:
+
+| Outcome | When | API mapping |
+|---|---|---|
+| `kind: "owner"` | `Client.userId` is the caller, or the plan's Organization is owned by them | allow |
+| `kind: "teammate"` | profile for this org + assignment for this plan, category and function all satisfied | allow |
+| `not_assigned` | no profile in the org, or no assignment for this plan | 403 |
+| `profile_deactivated` | profile exists but is deactivated | 403 |
+| `category_not_assigned` | assigned, but not to the requested category | 403 |
+| `permission_denied` | assigned, but the grid denies the function/level | 403 |
+| `plan_not_found` | plan doesn't resolve | 404 |
+
+Two deliberate design points:
+
+- **Owner detection checks `Client.userId` first.** An owner whose Organization
+  row has not been backfilled yet is never locked out of their own plans.
+- **Hard blocks are re-applied on top of the stored grid** (`effectivePermissionSet`),
+  so a Custom grid that somehow carries Publish/Invite/Delete/Org Settings/Billing
+  still cannot be exercised by a collaborator. This is T2's "hard rule, including
+  for Custom roles".
+
+### Signed URLs (Part B item 3)
+
+R2 keys are `org/{orgId}/plans/{planId}/{documents|branding|uploads}/…`
+([`lib/r2.ts`](../lib/r2.ts)). `parseR2Key` extracts the **plan** segment, so a
+signed-URL request is checked against the caller's assignment rather than the bare
+`org/{userId}/` prefix match the routes used before. Legacy org-level keys (no
+plan segment) still fall back to an ownership check.
+
+### UI (Part A)
+
+- [`components/pages/no-access-notice.tsx`](../components/pages/no-access-notice.tsx)
+  — the restricted-page state, using the spec's copy verbatim.
+- [`app/api/teammates/plan-access/route.ts`](../app/api/teammates/plan-access/route.ts)
+  — returns the same decision the mutating routes enforce, plus the effective
+  `permissionSet` so controls can be hidden/disabled.
+- [`hooks/usePlanAccess.ts`](../hooks/usePlanAccess.ts) — client hook over that
+  endpoint, with a fail-closed `can(fn, level)`.
+- Reference wiring: [`app/(dashboard)/edit-benefit/[planId]/[category]/page.tsx`](../app/(dashboard)/edit-benefit/[planId]/[category]/page.tsx)
+  renders `NoAccessNotice` instead of the editor when denied.
+
+The UI check is presentation only. The API is the enforcement point — a client
+that ignores the hook still gets refused by the server.
+
+### Route coverage
+
+Adoption goes through [`lib/teammates/plan-guard.server.ts`](../lib/teammates/plan-guard.server.ts):
+
+- `authorizePlan(...)` — decision only.
+- `getAuthorizedClient(...)` — the drop-in for
+  `prisma.client.findFirst({ where: { id: clientId, userId } })`, returning the
+  full `Client` row when the actor owns the plan **or** holds an assignment for
+  it. One query: the row is loaded once and authorized in place.
+
+| Route | Enforced |
+|---|---|
+| `GET /api/clients` | scoped to `listAccessiblePlanIds` — see "Plan lists" below |
+| `GET /api/r2/signed-url` | plan assignment + documents/branding permission |
+| `GET /api/r2/object` | same rule (portal path resolves the plan owner) |
+| `GET /api/documents/[id]/view` | `documents: view` + category scope (dashboard); anonymous portal path unchanged |
+| `GET/POST /api/documents` | `documents: view` per plan; list scoped by accessible plans; uploads need `documents: edit` |
+| `PATCH/DELETE /api/documents/[id]` | `documents: edit` on the document's plan |
+| `POST /api/documents/reorder` | `documents: edit` per plan (was a `client: { userId }` relation filter) |
+| `GET /api/clients/[id]` | assignment required to read the plan |
+| `GET/PUT /api/clients/[id]/benefits/[category]` | `create_benefits` at `view` / `edit` + category scope |
+| `GET/POST /api/clients/[id]/meetings` | `meetings: view` (replaced the local `assertClientOwner`) |
+| `PATCH/DELETE /api/clients/[id]/meetings/[meetingId]` | `meetings: view` (replaced the `userId` column filter) |
+| `GET/POST /api/marketing/assets` | `marketing: edit` |
+| `/api/marketing/flyers/{render,generate-copy,[id],[id]/file}` | `marketing` via `getAuthorizedPlanClient` / `resolvePlanAccess` |
+| `GET/POST /api/webinars` | `marketing` at `view` / `edit`; list scoped by accessible plans |
+
+### Plan lists
+
+"Collaborators never see unassigned plans" is implemented **at the API source,
+not per component**: every plan picker in the app reads `GET /api/clients`
+(Documents, Marketing, Meetings, Videos, Webinars, Benefits Step 1, the clients
+dashboard), and that route now scopes its `where` to
+[`listAccessiblePlanIds`](../lib/teammates/access.server.ts) — owned plans plus
+assigned teammate plans — instead of `userId` alone. A teammate is therefore
+structurally unable to select a plan they have no assignment for, and a
+deactivated teammate's plans drop out of the list.
+
+### Still owner-scoped
+
+- `/api/webinars/[id]` (PATCH/DELETE) and `/api/webinars/bulk-delete`
+- `/api/documents/{batch,expiring,client/[clientId]}`
+- `/api/clients/[id]/{slugs,portal-data}`
+- `/api/videos/*` and the legacy `/api/plans/*`
+
+The first three are the same mechanical swap to `getAuthorizedClient` /
+`resolvePlanAccess`, and remain owner-only until then — so a teammate is refused
+rather than over-permitted. The risk is under-access, not leakage.
+
+The last group is **not** mechanical and is deliberately out of T2. Videos and
+legacy plans are scoped by the `Plan` model (`plan: { userId }`), which teammate
+assignments do not model at all: an assignment is `Client`-scoped. Migrating them
+requires deciding whether an assignment should also grant access to a `Plan` row —
+a product question, not a refactor.
+
+### Verification
+
+```
+npm run teammates:verify-t2     ->  23/23 assertions passed
+```
+
+Covers: the Contributor is allowed Ayres → Group Health and denied Ayres →
+Retirement (`category_not_assigned`) and Precision Optical (`not_assigned`); the
+throwing form returns 403 with the spec copy; the Viewer can read but not save
+edits or publish; a signed document URL is refused to an unassigned user, allowed
+to an assigned Viewer, and refused across plans because the key's plan segment is
+enforced; and the one-Owner invariant refuses removing the last Owner.
+
+---
+
+## 9. Residual migration debt
 
 Tracked, deliberately **not** part of T1:
 
@@ -299,10 +437,10 @@ Tracked, deliberately **not** part of T1:
 
 ---
 
-## 9. Next tickets
+## 10. Next tickets
 
-- **T2** — permission enforcement layer at the API boundary. Should consume
-  `lib/organization.ts` + `lib/teammates/permissions.ts` and add signed-URL
-  assignment checks.
 - **T2a** — Custom role UI over the existing grid contract (no schema change).
 - **T3** — Settings → Team, seat counter, onboarding invite step.
+- **T2 follow-up** — migrate the remaining owner-scoped routes to
+  `requirePlanAccess` (see the coverage table in §8) and wire
+  `listAccessiblePlanIds` into the plan selector.

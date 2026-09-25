@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import { listAccessiblePlanIds } from "@/lib/teammates/access.server";
 
 export async function GET(request: NextRequest) {
   try {
@@ -20,9 +21,19 @@ export async function GET(request: NextRequest) {
     const sortDirection = searchParams.get("sortDirection") || "desc";
     const skip = (page - 1) * limit;
 
-    // Build where clause
+    // Build where clause.
+    //
+    // T2: scope to the plans this caller may see — the ones they own PLUS the ones
+    // they hold a teammate assignment for — instead of `userId` alone.
+    //
+    // This one route is the source for every plan picker in the app (Documents,
+    // Marketing, Meetings, Videos, Webinars, Benefits Step 1, the clients
+    // dashboard), so a collaborating teammate now sees exactly their assigned
+    // plans and is structurally incapable of selecting an unassigned one. An
+    // empty list correctly returns no plans.
+    const accessiblePlanIds = await listAccessiblePlanIds(session.user.id);
     const where: any = {
-      userId: session.user.id
+      id: { in: accessiblePlanIds },
     };
 
     // Only filter by status if not "all"

@@ -3,6 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 import { R2_FILEURL_PLACEHOLDER, isR2Configured } from "@/lib/r2";
+import {
+  listAccessiblePlanIds,
+  resolvePlanAccess,
+} from "@/lib/teammates/access.server";
+import { getAuthorizedClient } from "@/lib/teammates/plan-guard.server";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { sortDocumentRowsByCustomOrder } from "@/lib/documents/document-sort";
 
@@ -29,20 +34,31 @@ export async function GET(request: NextRequest) {
 
     // Add client filter if specified
     if (clientId) {
-      // Verify client belongs to user
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId: session.user.id },
-        select: { id: true },
-      });
-      if (!client) {
-        return NextResponse.json({ error: "Client not found" }, { status: 404 });
-      }
-      whereClause.clientId = clientId;
-    } else {
-      // When no clientId is specified, fall back to the relation filter
-      whereClause.client = {
+      // T2: the caller may be the plan owner OR a teammate assigned to it. The
+      // previous owner-only lookup returned 404 for every teammate.
+      const access = await resolvePlanAccess({
         userId: session.user.id,
-      };
+        clientIdOrSlug: clientId,
+        permission: "documents",
+        level: "view",
+      });
+      if (!access.allowed) {
+        return NextResponse.json(
+          { error: access.message, code: access.reason },
+          { status: access.reason === "plan_not_found" ? 404 : 403 },
+        );
+      }
+      // Use the resolved id, so a slug request still filters correctly.
+      whereClause.clientId = access.clientId;
+    } else {
+      // No plan specified: scope to every plan the caller may see.
+      //
+      // This replaces the relation filter `client: { userId }`, which matched
+      // nothing at all for a teammate — a collaborator opening the documents
+      // list saw an empty page even with documents assigned. An empty array
+      // correctly yields no documents.
+      const accessiblePlanIds = await listAccessiblePlanIds(session.user.id);
+      whereClause.clientId = { in: accessiblePlanIds };
     }
 
     // Add search filter if specified
@@ -178,8 +194,14 @@ export async function POST(request: NextRequest) {
       }
       const categoryTrim =
         typeof category === "string" ? category.trim() : "";
-      const client = await prisma.client.findFirst({
-        where: { id: clientId, userId: session.user.id },
+      // T2: uploading is a document write, so it needs `documents: edit` — the
+      // owner passes, and so does a teammate who holds that row. The previous
+      // owner-only lookup returned 404 for every teammate.
+      const client = await getAuthorizedClient({
+        clientIdOrSlug: clientId,
+        userId: session.user.id,
+        permission: "documents",
+        level: "edit",
       });
       if (!client) {
         return NextResponse.json({ error: "Client not found" }, { status: 404 });
@@ -273,12 +295,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Verify client belongs to user
-    const client = await prisma.client.findFirst({
-      where: {
-        id: clientId,
-        userId: session.user.id,
-      },
+    // Verify the caller may write documents on this plan (T2).
+    const client = await getAuthorizedClient({
+      clientIdOrSlug: clientId,
+      userId: session.user.id,
+      permission: "documents",
+      level: "edit",
     });
 
     if (!client) {

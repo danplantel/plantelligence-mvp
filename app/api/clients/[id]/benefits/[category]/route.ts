@@ -10,15 +10,35 @@ import {
   resolvePortalAdvisorId,
   isLocalDevLoopback,
 } from "@/lib/portal-access";
+import {
+  resolvePlanAccess,
+  type RequiredLevel,
+} from "@/lib/teammates/access.server";
+import type { PermissionFunction } from "@/types/teammate";
 
 /**
- * Shared helper: resolve a client by ObjectId or slug.
- * Supports both portal (forPortal + plan slug in the path) and authenticated
- * access.
+ * Shared helper: resolve a client by ObjectId or slug, then authorize the caller.
+ *
+ * Two very different callers share this:
+ *  - Public portal (`forPortal=1`): anonymous employees. The owning advisor is
+ *    derived from the plan slug, so the request is already scoped to that plan
+ *    and the whole check is "does this plan belong to that advisor?".
+ *  - Dashboard session: T2 requires the caller's assignment to be checked. The
+ *    plan is therefore looked up WITHOUT the legacy `userId` filter — a teammate
+ *    is not the owner, so an owner-scoped lookup would 403 them before any
+ *    assignment check could run — and `require` decides what they may do.
+ *
+ * `require` is optional so existing callers keep the pre-T2 ownership rule; both
+ * handlers below pass it.
  */
 async function resolveClient(
   id: string,
-  request: NextRequest
+  request: NextRequest,
+  require?: {
+    permission: PermissionFunction;
+    level: RequiredLevel;
+    category?: string | null;
+  }
 ): Promise<[any, NextResponse | null]> {
   const forPortal = request.nextUrl.searchParams.get("forPortal") === "1";
   const portalAdvisorId = forPortal
@@ -29,28 +49,30 @@ async function resolveClient(
   // plan is resolved by id/slug alone (never enabled outside `next dev`).
   const devPublic = forPortal && isLocalDevLoopback(request);
 
-  let ownerId: string | undefined = portalAdvisorId;
-  if (!ownerId) {
+  let sessionUserId: string | undefined;
+  if (!portalAdvisorId) {
     const session = await getServerSession(authOptions);
-    if (session?.user?.id) {
-      ownerId = session.user.id;
-    } else if (!devPublic) {
+    sessionUserId = session?.user?.id;
+    if (!sessionUserId && !devPublic) {
       return [null, NextResponse.json({ error: "Unauthorized" }, { status: 401 })];
     }
   }
 
   const isObjectId = ObjectId.isValid(id);
+  // Portal requests stay scoped to the owning advisor; session requests look the
+  // plan up unscoped so a teammate can be authorized by their assignment.
+  const scopeUserId = portalAdvisorId;
   let client = null;
 
   if (isObjectId) {
-    client = ownerId
-      ? await prisma.client.findFirst({ where: { id, userId: ownerId } })
+    client = scopeUserId
+      ? await prisma.client.findFirst({ where: { id, userId: scopeUserId } })
       : await prisma.client.findUnique({ where: { id } });
   }
 
   if (!client) {
     const slugWhere: Record<string, unknown> = { slug: id };
-    if (ownerId) slugWhere.userId = ownerId;
+    if (scopeUserId) slugWhere.userId = scopeUserId;
     client = await prisma.client.findFirst({ where: slugWhere });
   }
 
@@ -58,12 +80,42 @@ async function resolveClient(
     return [null, NextResponse.json({ error: "Client not found" }, { status: 404 })];
   }
 
-  // Ownership check for session requests (portal requests are pre-scoped; the
-  // dev-local preview is intentionally open in development).
-  if (ownerId && client.userId !== ownerId) {
-    return [null, NextResponse.json({ error: "Forbidden" }, { status: 403 })];
+  // Public portal: the plan must belong to the advisor its slug resolved to.
+  if (portalAdvisorId) {
+    if (client.userId !== portalAdvisorId) {
+      return [null, NextResponse.json({ error: "Forbidden" }, { status: 403 })];
+    }
+    return [client, null];
   }
 
+  // Dev-local preview: intentionally open in development.
+  if (!sessionUserId) return [client, null];
+
+  // Dashboard session — T2 authorization.
+  if (require) {
+    const access = await resolvePlanAccess({
+      userId: sessionUserId,
+      clientIdOrSlug: client.id,
+      category: require.category ?? null,
+      permission: require.permission,
+      level: require.level,
+    });
+    if (!access.allowed) {
+      return [
+        null,
+        NextResponse.json(
+          { error: access.message, code: access.reason },
+          { status: access.reason === "plan_not_found" ? 404 : 403 },
+        ),
+      ];
+    }
+    return [client, null];
+  }
+
+  // No requirement supplied: fall back to the pre-T2 ownership rule.
+  if (client.userId !== sessionUserId) {
+    return [null, NextResponse.json({ error: "Forbidden" }, { status: 403 })];
+  }
   return [client, null];
 }
 
@@ -102,7 +154,13 @@ export async function GET(
   { params }: { params: { id: string; category: string } }
 ) {
   try {
-    const [client, error] = await resolveClient(params.id, request);
+    const [client, error] = await resolveClient(params.id, request, {
+      // T2: reading a benefit requires `create_benefits: view` on this plan,
+      // within the assignment's category scope.
+      permission: "create_benefits",
+      level: "view",
+      category: params.category,
+    });
     if (error) return error;
 
     const benefit = await prisma.benefit.findUnique({
@@ -139,7 +197,14 @@ export async function PUT(
   { params }: { params: { id: string; category: string } }
 ) {
   try {
-    const [client, error] = await resolveClient(params.id, request);
+    const [client, error] = await resolveClient(params.id, request, {
+      // T2: saving a benefit requires `create_benefits: edit`. THIS is what
+      // makes "a Viewer cannot save edits" true at the API layer rather than
+      // only in the UI.
+      permission: "create_benefits",
+      level: "edit",
+      category: params.category,
+    });
     if (error) return error;
 
     const clientId = client!.id;

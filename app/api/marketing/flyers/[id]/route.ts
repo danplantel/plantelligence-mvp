@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
+import { resolvePlanAccess } from "@/lib/teammates/access.server";
 
 export const dynamic = "force-dynamic";
 
@@ -25,14 +26,24 @@ export async function PATCH(
       return NextResponse.json({ error: "Missing id" }, { status: 400 });
     }
 
+    // Load the flyer unscoped, then authorize its plan through the T2 guard.
+    // The previous `client: { userId }` relation filter hard-coded ownership and
+    // refused any teammate. A denial still returns 404, matching the old
+    // behaviour and avoiding leaking whether the flyer exists.
     const existing = await prisma.marketingFlyer.findFirst({
-      where: {
-        id: flyerId,
-        client: { userId },
-      },
+      where: { id: flyerId },
     });
 
-    if (!existing) {
+    const access = existing
+      ? await resolvePlanAccess({
+          userId,
+          clientIdOrSlug: existing.clientId,
+          permission: "marketing",
+          level: "edit",
+        })
+      : null;
+
+    if (!existing || !access?.allowed) {
       return NextResponse.json({ error: "Flyer not found" }, { status: 404 });
     }
 

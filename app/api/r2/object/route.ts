@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getObjectFromR2, isR2Configured } from "@/lib/r2";
 import { resolvePortalAdvisorId } from "@/lib/portal-access";
+import { resolveObjectAccess } from "@/lib/teammates/access.server";
 import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -64,8 +65,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const expectedPrefix = `org/${ownerId}/`;
-    if (!key.startsWith(expectedPrefix)) {
+    // T2 Part B item 3. `ownerId` is the session user on the dashboard, and the
+    // plan's owning advisor on the anonymous portal path (resolved from the slug,
+    // so the request is already scoped to that plan). Checking the key's plan
+    // segment against them is strictly stronger than the old bare prefix match:
+    // it also stops one plan's key being read through another plan's slug.
+    const access = await resolveObjectAccess({
+      userId: ownerId,
+      key,
+      level: "view",
+    });
+    if (!access.allowed) {
       return NextResponse.json(
         { error: "Access denied to this object" },
         { status: 403 },

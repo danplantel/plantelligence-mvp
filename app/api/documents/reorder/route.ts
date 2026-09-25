@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
+import { resolvePlanAccess } from "@/lib/teammates/access.server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,15 +25,33 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "orderedIds is required" }, { status: 400 });
     }
 
-    // Only reorder documents that belong to the current advisor's clients.
-    const owned = await prisma.document.findMany({
-      where: {
-        id: { in: orderedIds },
-        client: { userId: session.user.id },
-      },
-      select: { id: true },
+    // Only reorder documents on plans the caller may edit.
+    //
+    // The previous filter used the relation `client: { userId: session.user.id }`,
+    // which hard-codes ownership and therefore refused every teammate. The plan
+    // is authorized per client through the T2 guard instead, and reordering is a
+    // document write, so it requires `documents: edit` (a Viewer is refused).
+    const candidates = await prisma.document.findMany({
+      where: { id: { in: orderedIds } },
+      select: { id: true, clientId: true },
     });
-    const ownedSet = new Set(owned.map((d) => d.id));
+
+    const allowedClientIds = new Set<string>();
+    for (const clientId of new Set(candidates.map((d) => d.clientId))) {
+      const access = await resolvePlanAccess({
+        userId: session.user.id,
+        clientIdOrSlug: clientId,
+        permission: "documents",
+        level: "edit",
+      });
+      if (access.allowed) allowedClientIds.add(clientId);
+    }
+
+    const ownedSet = new Set(
+      candidates
+        .filter((d) => allowedClientIds.has(d.clientId))
+        .map((d) => d.id),
+    );
 
     // Preserve the order provided by the client, skipping any unowned ids.
     const updates = orderedIds

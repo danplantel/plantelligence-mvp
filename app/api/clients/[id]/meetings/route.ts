@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { resolvePortalAdvisorId } from "@/lib/portal-access";
+import { resolvePlanAccess } from "@/lib/teammates/access.server";
 import { computeStartAtUtc, getMeetingSortInstantMs } from "@/lib/meeting-start-at";
 import type { MeetingScheduleFormData } from "@/lib/meetings/meeting-schedule-shared";
 import {
@@ -48,8 +49,19 @@ async function assertClientOwner(clientId: string, userId: string) {
     select: { id: true, userId: true, companyName: true },
   });
   if (!client) return { error: "Client not found" as const, status: 404 };
-  if (client.userId !== userId)
-    return { error: "Forbidden" as const, status: 403 };
+
+  // T2: the caller may be the plan owner OR a teammate assigned to it. The
+  // previous `client.userId !== userId` comparison hard-coded ownership, so
+  // every teammate was refused even with a valid assignment.
+  const access = await resolvePlanAccess({
+    userId,
+    clientIdOrSlug: clientId,
+    permission: "meetings",
+    level: "view",
+  });
+  if (!access.allowed) {
+    return { error: access.message, status: 403 as const };
+  }
   return { client };
 }
 

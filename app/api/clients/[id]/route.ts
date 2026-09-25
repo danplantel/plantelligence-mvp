@@ -7,6 +7,7 @@ import {
   resolvePortalAdvisorId,
   isLocalDevLoopback,
 } from "@/lib/portal-access";
+import { resolvePlanAccess } from "@/lib/teammates/access.server";
 import {
   renameClientSlug,
   isSlugTaken,
@@ -90,6 +91,9 @@ export async function GET(
     //  - development-only localhost preview → no owner (id/slug lookup is open)
     const devPublic = forPortal && isLocalDevLoopback(request);
     let ownerId: string | undefined = portalAdvisorId;
+    // Track the session identity separately from `ownerId`: `ownerId` also holds
+    // the portal advisor, and the two need different authorization rules (T2).
+    let sessionUserId: string | undefined;
     if (!ownerId) {
       // Local loopback portal previews are intentionally open in development —
       // skip the session lookup entirely so preview page loads don't pay for
@@ -99,6 +103,7 @@ export async function GET(
       } else {
         const session = await getServerSession(authOptions);
         if (session?.user?.id) {
+          sessionUserId = session.user.id;
           ownerId = session.user.id;
         } else {
           return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -152,10 +157,32 @@ export async function GET(
       return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
-    // Ownership check for session requests (plan-portal is pre-scoped and
-    // the dev-local preview is intentionally open in development).
-    if (ownerId && client.userId !== ownerId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // Authorization (T2 Part B item 1).
+    //  - Portal request: the plan must belong to the advisor its slug resolved to.
+    //  - Dashboard session: the caller's ASSIGNMENT decides. The legacy
+    //    `client.userId === ownerId` rule is deliberately not used, because a
+    //    teammate is never the owner and that check would lock them out of every
+    //    plan they are legitimately assigned to.
+    //  - Dev-local preview: intentionally open in development.
+    //
+    // No specific function row is required to read the plan shell: an assignment
+    // is enough. Category-scoped and function-scoped checks happen on the
+    // benefit/document routes, which is where a Contributor gets refused.
+    if (portalAdvisorId) {
+      if (client.userId !== portalAdvisorId) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else if (sessionUserId) {
+      const access = await resolvePlanAccess({
+        userId: sessionUserId,
+        clientIdOrSlug: client.id,
+      });
+      if (!access.allowed) {
+        return NextResponse.json(
+          { error: access.message, code: access.reason },
+          { status: access.reason === "plan_not_found" ? 404 : 403 },
+        );
+      }
     }
 
     if (!canonicalSlug) {

@@ -16,3 +16,4 @@ export * from "./audit.server";
 export * from "./companies.server";
 export * from "./profiles.server";
 export * from "./assignments.server";
+export * from "./access.server";

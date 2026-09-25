@@ -20,6 +20,7 @@
     "teammates:backfill": "npx tsx scripts/teammates/backfill-organizations.ts",
     "teammates:verify": "npx tsx scripts/teammates/verify-t1.ts",
     "teammates:verify-backfill": "npx tsx scripts/teammates/verify-backfill.ts",
+    "teammates:verify-t2": "npx tsx scripts/teammates/verify-t2.ts",
     "repair:unique-conflicts": "npx tsx scripts/repair/fix-unique-conflicts.ts",
     "repair:partial-indexes": "npx tsx scripts/repair/apply-partial-unique-indexes.ts",
     "repair:purge-orphaned-user": "npx tsx scripts/repair/purge-orphaned-user-data.ts",

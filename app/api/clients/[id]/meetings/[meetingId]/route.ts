@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { computeStartAtUtc } from "@/lib/meeting-start-at";
+import { resolvePlanAccess } from "@/lib/teammates/access.server";
 import type { MeetingScheduleFormData } from "@/lib/meetings/meeting-schedule-shared";
 import {
   buildHubLocationFromForm,
@@ -44,13 +45,22 @@ async function loadPlanMeeting(
   meetingId: string,
   userId: string,
 ) {
-  return prisma.meeting.findFirst({
-    where: {
-      id: meetingId,
-      clientId,
-      userId,
-    },
+  const meeting = await prisma.meeting.findFirst({
+    where: { id: meetingId, clientId },
   });
+  if (!meeting) return null;
+
+  // T2: authorize the PLAN, not the meeting's owner column. The old filter
+  // (`userId`) hard-coded ownership, so a teammate assigned to the plan got a
+  // 404 on every meeting. Callers treat null as "not found or access denied",
+  // so the existing responses are unchanged.
+  const access = await resolvePlanAccess({
+    userId,
+    clientIdOrSlug: clientId,
+    permission: "meetings",
+    level: "view",
+  });
+  return access.allowed ? meeting : null;
 }
 
 function existingToFormPartial(

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import { resolvePlanAccess } from "@/lib/teammates/access.server";
 
 // ── Shared helpers ──
 
@@ -11,7 +12,18 @@ async function assertOwnership(clientId: string, userId: string) {
     select: { id: true, userId: true },
   });
   if (!client) return { error: "Client not found", status: 404 as const };
-  if (client.userId !== userId) return { error: "Forbidden", status: 403 as const };
+
+  // T2: owner OR teammate assigned to this plan. Marketing edits need the
+  // `marketing` row, so a Viewer (view-only) is still refused a write.
+  const access = await resolvePlanAccess({
+    userId,
+    clientIdOrSlug: clientId,
+    permission: "marketing",
+    level: "edit",
+  });
+  if (!access.allowed) {
+    return { error: access.message, status: 403 as const };
+  }
   return { client };
 }
 

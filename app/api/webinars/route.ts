@@ -5,6 +5,10 @@ import { authOptions } from "@/lib/auth-options";
 import { ObjectId } from "mongodb";
 import { resolvePortalAdvisorId } from "@/lib/portal-access";
 import {
+  listAccessiblePlanIds,
+  resolvePlanAccess,
+} from "@/lib/teammates/access.server";
+import {
   hasWebinarPlacement,
   isWebinarPlacementKey,
   normalizeWebinarPlacements,
@@ -92,24 +96,27 @@ export async function GET(request: NextRequest) {
       request.nextUrl.searchParams.get("clientId")?.trim() ?? "";
     let planId: string | null = null;
     if (clientIdParam) {
-      const plan = await prisma.client.findFirst({
-        where: {
-          userId,
-          ...(ObjectId.isValid(clientIdParam)
-            ? { id: clientIdParam }
-            : { slug: clientIdParam }),
-        },
-        select: { id: true },
+      // T2: the caller may be the plan owner OR a teammate assigned to it.
+      const access = await resolvePlanAccess({
+        userId,
+        clientIdOrSlug: clientIdParam,
+        permission: "marketing",
+        level: "view",
       });
-      // An unresolvable plan returns nothing rather than falling through to the
-      // unrestricted query, which would leak the advisor's other plans.
-      if (!plan) {
+      // An unresolvable or unauthorized plan returns nothing rather than falling
+      // through to the unrestricted query, which would leak other plans.
+      if (!access.allowed) {
         return NextResponse.json({ success: true, data: [] });
       }
-      planId = plan.id;
+      planId = access.clientId;
     }
 
-    const where = planId ? { userId, clientId: planId } : { userId };
+    // T2: scope by the plans the caller may see (owned OR assigned) rather than
+    // `userId` alone, which returned nothing at all for a teammate.
+    const accessiblePlanIds = await listAccessiblePlanIds(userId);
+    const where = planId
+      ? { clientId: planId }
+      : { clientId: { in: accessiblePlanIds } };
 
     // Typed Prisma, not $runCommandRaw: the raw command serializes BSON values
     // (ObjectId, Date) to strings, so rows written that way are stored as
@@ -247,11 +254,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find client by company name
+    // Find the client by company name, restricted to the plans this caller may
+    // use. Scoping on `userId` alone would miss a teammate's assigned plans, and
+    // scoping on the name alone could pick another organization's plan — so the
+    // name is matched against the caller's accessible plan set (T2).
+    const accessiblePlanIds = await listAccessiblePlanIds(session.user.id);
     const clientRecord = await prisma.client.findFirst({
       where: {
         companyName: client,
-        userId: session.user.id,
+        id: { in: accessiblePlanIds },
       },
     });
 
@@ -259,6 +270,21 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "Client not found" },
         { status: 404 }
+      );
+    }
+
+    // Creating a webinar is content publishing, so it needs `marketing: edit` —
+    // being able to *see* the plan is not enough.
+    const createAccess = await resolvePlanAccess({
+      userId: session.user.id,
+      clientIdOrSlug: clientRecord.id,
+      permission: "marketing",
+      level: "edit",
+    });
+    if (!createAccess.allowed) {
+      return NextResponse.json(
+        { error: createAccess.message },
+        { status: 403 }
       );
     }
 
