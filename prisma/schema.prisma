@@ -1155,6 +1155,12 @@ model Organization {
   name              String
   ownerUserId       String   @db.ObjectId
   organizationEmail String?
+  // T3 seat metering. Both are placeholders until tier pricing is final (spec
+  // Open Decisions): a null `seatsIncluded` falls back to DEFAULT_SEATS_INCLUDED,
+  // and a confirmed over-limit add raises `seatsIncluded` by one rather than
+  // hard-blocking.
+  seatsIncluded     Int?
+  planTier          String?
   // Owner branding mirrored at creation time so teammate hub rendering has a
   // stable org-level source even if the owner later rebrands.
   branding          Json?

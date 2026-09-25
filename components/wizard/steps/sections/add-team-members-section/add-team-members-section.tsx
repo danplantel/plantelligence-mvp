@@ -28,6 +28,7 @@ import {
   onSendInvite,
   roleOptions,
 } from "./add-team-members-section.funcs";
+import { withOwnerPrefill } from "@/lib/teammates/onboarding-owner";
 import { toast } from "sonner";
 
 export function AddTeamMembersSection({
@@ -36,18 +37,32 @@ export function AddTeamMembersSection({
 }: AddTeamMembersSectionProps & { hideCard?: boolean }) {
   const { saveStepDataLocally, stepData } = useOnboardingWizardStore();
 
-  // Team Members state
-  const [members, setMembers] = useState<TeamMember[]>(
-    stepData.teamMembers?.members || [],
+  // Team Members state. Seeded with the account owner as the first member
+  // (spec T3 Part A item 4) so the step opens on "who else needs access?".
+  const [members, setMembers] = useState<TeamMember[]>(() =>
+    withOwnerPrefill(stepData.teamMembers?.members || [], {
+      name: stepData.userSetup?.name,
+      email: stepData.userSetup?.email,
+    }),
   );
   const [sendingInvites, setSendingInvites] = useState<Set<number>>(new Set());
 
-  // Update state when stepData changes (when data is loaded from server)
+  // Re-apply when the server data OR the owner's identity arrives. The owner's
+  // name/email live in the user-setup step, which runs later, so the prefill
+  // appears as soon as they are known. `withOwnerPrefill` is reference-stable,
+  // so this settles after one pass instead of looping.
   useEffect(() => {
-    if (stepData.teamMembers?.members) {
-      setMembers(stepData.teamMembers.members);
-    }
-  }, [stepData.teamMembers?.members]);
+    setMembers((current) =>
+      withOwnerPrefill(stepData.teamMembers?.members ?? current, {
+        name: stepData.userSetup?.name,
+        email: stepData.userSetup?.email,
+      }),
+    );
+  }, [
+    stepData.teamMembers?.members,
+    stepData.userSetup?.name,
+    stepData.userSetup?.email,
+  ]);
 
   const onAddMemberClick = () => {
     onAddMember(members, setMembers, saveStepDataLocally);

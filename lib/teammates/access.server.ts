@@ -171,6 +171,46 @@ export async function isPlanOwner({
   return organization?.ownerUserId === userId;
 }
 
+/**
+ * Is this user the Owner or an Admin of the organization?
+ *
+ * Deliberately separate from `resolveOrganizationPermission`: seats and the
+ * seat-limit upgrade confirmation (spec T3) are NOT rows in the permission grid,
+ * so they are gated on identity and role rather than on a function.
+ *
+ * Owner = the Organization's `ownerUserId`, or a teammate holding an assignment
+ * with the Owner preset. Admin = any assignment with the Admin preset.
+ */
+export async function isOwnerOrAdminOfOrganization({
+  userId,
+  organizationId,
+}: {
+  userId: string;
+  organizationId: string;
+}): Promise<boolean> {
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { ownerUserId: true },
+  });
+  if (organization?.ownerUserId === userId) return true;
+
+  const profile = await prisma.teammateProfile.findFirst({
+    where: { organizationId, loginUserId: userId },
+    orderBy: { createdAt: "asc" },
+  });
+  if (!profile || !isLive(profile)) return false;
+
+  const assignment = await prisma.planAssignment.findFirst({
+    where: {
+      profileId: profile.id,
+      organizationId,
+      role: { in: ["owner", "admin"] },
+    },
+    select: { id: true },
+  });
+  return Boolean(assignment);
+}
+
 /* ─────────────────────── Plan access resolution ─────────────────────── */
 
 /** The minimum a plan row must expose to be authorized. */

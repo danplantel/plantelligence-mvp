@@ -30,7 +30,8 @@ export type TeammateAuditAction =
   | "assignment_role_changed"
   | "assignment_visibility_changed"
   | "assignment_removed"
-  | "custom_access_set";
+  | "custom_access_set"
+  | "seat_limit_upgrade_confirmed";
 
 export interface RecordTeammateAuditEventInput {
   organizationId: string;

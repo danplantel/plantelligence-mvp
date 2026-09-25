@@ -94,6 +94,12 @@ export interface TeamMember {
   email: string;
   role: string;
   inviteSent?: boolean;
+  /**
+   * True for the account owner's row in the onboarding invite step (spec T3
+   * Part A item 4). The owner also appears in Settings → Team, but there they are
+   * synthesized from the Organization — this flag only drives the wizard UI.
+   */
+  isOwner?: boolean;
 }
 
 export interface WizardTeamMembers {

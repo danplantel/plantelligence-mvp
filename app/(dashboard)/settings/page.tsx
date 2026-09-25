@@ -16,6 +16,7 @@ import { ProfileSettingsSection } from "@/components/pages/settings/profile-sett
 import { BrandingSettingsSection } from "@/components/pages/settings/branding-settings-section";
 import { OrganizationSettingsSection } from "@/components/pages/settings/organization-settings-section";
 import { TeamAndDisclaimersSection } from "@/components/pages/settings/team-and-disclaimers-section";
+import { TeamMembersSection } from "@/components/pages/settings/team-members-section";
 import type { DisclaimersSettingsSectionHandle } from "@/components/pages/settings/disclaimers-settings-section";
 import {
   AlertDialog,
@@ -40,6 +41,7 @@ import {
   ShieldAlert,
   Loader2,
   CheckCircle2,
+  UserPlus,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -937,7 +939,7 @@ export default function SettingsPage() {
           onValueChange={handleTabChange}
           className="space-y-6"
         >
-          <TabsList className="grid w-full grid-cols-4 relative">
+          <TabsList className="grid w-full grid-cols-5 relative">
             <TabsTrigger value="profile" className="flex items-center gap-2 relative">
               <User className="h-4 w-4" />
               Profile
@@ -968,6 +970,13 @@ export default function SettingsPage() {
               {tabDirty.team && (
                 <Circle className="h-2 w-2 fill-amber-500 text-amber-500 absolute -top-0.5 -right-0.5" />
               )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="members"
+              className="flex items-center gap-2 relative"
+            >
+              <UserPlus className="h-4 w-4" />
+              Team Members
             </TabsTrigger>
           </TabsList>
 
@@ -1035,6 +1044,11 @@ export default function SettingsPage() {
               organizationForm={organizationForm}
               onSave={noopSave}
             />
+          </TabsContent>
+
+          {/* Team Members Tab */}
+          <TabsContent value="members" className="space-y-6">
+            <TeamMembersSection />
           </TabsContent>
 
           {/* Disclaimers Tab */}

@@ -20,6 +20,7 @@ import {
   userInfo as defaultUserInfo,
 } from "./dashboard.funcs";
 import { resolveBrandingImageUrl } from "@/lib/branding-image-url";
+import { SeatMeter, useSeatUsage } from "@/components/pages/seat-meter";
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -31,6 +32,10 @@ const SWR_OPTS = {
 
 export function Dashboard() {
   const { setTitle } = usePageTitleContext();
+  // Spec T3 Part A item 3: the seat meter is also visible on the dashboard.
+  // `useSeatUsage` resolves to null for anyone without org-settings access
+  // (Viewer, Collaborator), so the meter simply doesn't render for them.
+  const seatUsage = useSeatUsage();
 
   useEffect(() => {
     setTitle("Dashboard");
@@ -99,6 +104,7 @@ export function Dashboard() {
   return (
     <div className="px-6">
       <div className="w-full space-y-6 max-w-7xl mx-auto">
+        {seatUsage ? <SeatMeter usage={seatUsage} /> : null}
 
       {/* User Info */}
       <Card className="px-5 mt-4 bg-transparent">

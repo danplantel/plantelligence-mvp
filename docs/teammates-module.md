@@ -15,6 +15,7 @@ grid), T3-T8.
 |---|---|
 | Permission-grid contract (pure) | [`types/teammate.ts`](../types/teammate.ts) |
 | Permission rules engine (pure) | [`lib/teammates/permissions.ts`](../lib/teammates/permissions.ts) |
+| Role descriptions for the UI (pure, derived from the grids) | [`lib/teammates/role-summary.ts`](../lib/teammates/role-summary.ts) |
 | Company-picker scope rule (pure) | [`lib/teammates/company-scope.ts`](../lib/teammates/company-scope.ts) |
 | Teammate data access (server) | [`lib/teammates/`](../lib/teammates) |
 | Organization helpers (server) | [`lib/organization.ts`](../lib/organization.ts) |
@@ -130,7 +131,8 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:indexes` | Applies the T1 indexes directly (idempotent). |
 | `npm run teammates:backfill` | Creates one Organization per existing User and stamps `organizationId` onto User + Client rows. Supports `--dry-run`. |
 | `npm run teammates:verify` | Runs the 24-assertion T1 acceptance suite against the real data layer with self-cleaning fixtures. |
-| `npm run teammates:verify-t2` | Runs the 23-assertion T2 enforcement suite (the three T2 acceptance criteria + the one-Owner invariant). |
+| `npm run teammates:verify-t2` | Runs the 35-assertion T2 enforcement suite (the three T2 acceptance criteria, the one-Owner invariant, plan lists, and the route guard). |
+| `npm run teammates:verify-t3` | Runs the 53-assertion T3 suite (seat metering, invite expiry, the upgrade-confirm gate, the owner-first team list, onboarding pre-fill, editing a member, and the roles explainer). |
 | `npm run teammates:verify-backfill` | Asserts the post-backfill invariants (every User/Client org'd, legacy `Client.userId` intact). |
 | `npm run repair:unique-conflicts` | Finds (and with `--apply`, removes) duplicate session rows that block unique-index builds. |
 | `npm run repair:partial-indexes` | Re-applies the partial unique index on `Client.slug`. |
@@ -415,7 +417,128 @@ enforced; and the one-Owner invariant refuses removing the last Owner.
 
 ---
 
-## 9. Residual migration debt
+## 9. T3 — Team Member management + seat counter
+
+Implemented. Seat logic lives in [`lib/teammates/seats.server.ts`](../lib/teammates/seats.server.ts);
+team management in [`lib/teammates/team.server.ts`](../lib/teammates/team.server.ts);
+the onboarding prefill in [`lib/teammates/onboarding-owner.ts`](../lib/teammates/onboarding-owner.ts).
+
+### Seat rules
+
+| Rule | Behaviour |
+|---|---|
+| Who holds a seat | The owner, Active Team Members, and unexpired pending invites. Contacts and Collaborators never do (spec Part B item 1). |
+| Invite hold | A pending invite reserves a seat for 14 days, then stops counting. The meter ignores stale invites immediately, and a sweep moves them back to `Contact` so the stored state is truthful — the profile is kept, never deleted. |
+| At the limit | A 409 with code `seat_limit`, not a hard block, so the UI shows an upgrade confirm (Part B item 3). Confirming requires Owner/Admin (`isOwnerOrAdminOfOrganization`), otherwise 403 `seat_limit_owner_only`. |
+| Domain guess | A matching email domain defaults to Team Member, anything else to Collaborator (Part B item 4). It is only a default — the API returns it and the UI can override. |
+
+### Two decisions the spec left open
+
+Both are centralised so they are one-line changes:
+
+- **The owner occupies a seat** — `OWNER_CONSUMES_SEAT` in [`seats.server.ts`](../lib/teammates/seats.server.ts).
+  The spec says only Team Members use seats and that the owner is the first Team
+  Member, so the owner counts. Set it to `false` to give the owner a free seat.
+- **A confirmed over-limit add raises `seatsIncluded` by one**, standing in for "they
+  moved to a bigger tier" until pricing exists. It keeps the meter honest rather
+  than showing "6 of 5 used". `DEFAULT_SEATS_INCLUDED` (5) and
+  `PLACEHOLDER_PLAN_TIER` are the other placeholders.
+
+### API
+
+| Route | Purpose |
+|---|---|
+| `GET /api/teammates/team` | The Settings → Team list plus the seat meter. Sweeps expired invites first. |
+| `POST /api/teammates/team` | Add a Team Member/Collaborator: domain guess, seat check, then profile + one assignment per plan. |
+| `GET /api/teammates/seats` | The meter alone, for the dashboard. |
+| `PATCH /api/teammates/team/[profileId]` | Edit a Team Member: name, role, plan access, benefits access. |
+
+All three are gated on the `org_settings` permission, which is what produces the
+spec's "Owner/Admin only" outcome — a Collaborator can never hold Org Settings
+(hard block), so they cannot list or add Team Members at all.
+
+### UI
+
+- Settings gains a **Team Members** tab built around **one card per seat**: an
+  occupied card shows the person (initials, name, email, role, status, plan and
+  category access) and opens the **Edit Team Member** modal; an open card opens the
+  **Add Team Member** modal. The grid is `max(seatsIncluded, members)` wide, so if
+  the organization is over its allowance no member is hidden. Usage and the pending
+  invite count sit above the grid, with the upgrade-confirm dialog on a
+  seat-limited add.
+- **Edit** reconciles rather than replaces: the desired plan set is computed from
+  the requested scope, assignments for dropped plans are removed, and the survivors
+  are upserted with the new role and category scope. It reuses `upsertAssignment` /
+  `removeAssignment`, so the permission grid, the collaborator hard blocks and the
+  never-remove-the-last-Owner guard all still apply to an edit.
+- A **roles explainer** sits where the decision is made: a "What can this role do?"
+  popover beside the Role field describes the *currently selected* role, and a
+  "Roles & permissions" dialog lists Team Members and Collaborators as an
+  **accordion per role** — the header shows a one-line gist (e.g. "Edits 8 · views
+  1 · can publish, invite, delete") so the whole list scans without expanding.
+- The dialog's accordions are **controlled and always start collapsed**: opening
+  the dialog clears both sections, so a reader never sees a stale expansion. An
+  open row tints its own background (`primary/[0.04]`) and the capability detail
+  sits on a `bg-muted` panel, so the detail is unambiguously attached to its role.
+- Proximity refinements: each row is a bordered card with `space-y-2` gaps (not a
+  hairline-divided list); a **per-role left accent colour** reserves a transparent
+  2px border so nothing shifts on open and the accent simply fades in; rows are
+  grouped under headings that carry a role count; and the two groups are separated
+  by a rule. Role colours are literal Tailwind classes in `ROLE_ACCENT_BORDER`, so
+  they survive JIT purging.
+- The role chip's `Badge` variant is chosen by **section**, not by the role's own
+  audience: `variant="default"` under Team Members, `variant="secondary"` under
+  Collaborators. Viewer appears in both lists, so deriving the variant from the
+  role made the Collaborators > Viewer chip render solid while its two neighbours
+  rendered muted — the chip must match the list it sits in.
+- The **owner's card** opens the same modal in a read-only state, pointing at the
+  Profile tab — their access always covers every plan, so there is nothing to scope.
+
+### The explainer cannot drift from enforcement
+
+[`lib/teammates/role-summary.ts`](../lib/teammates/role-summary.ts) computes each
+role's capability lists from `PRESET_PERMISSION_GRIDS` — the same table the API
+checks — so changing a preset updates the UI text automatically. Only the
+one-line summaries are authored, because no grid can express "and ownership
+transfer". `verify-t3` asserts the explainer is complete (every one of the 14
+functions lands in exactly one bucket per role), that Owner has no No-Access rows,
+that Editor/Viewer get no publish or delete, and that **no collaborator preset is
+described as allowed to publish, invite or delete**.
+- The **dashboard** shows the same seat meter. `useSeatUsage` resolves to null
+  without org-settings access, so a Viewer or Collaborator simply doesn't see it.
+- **Onboarding**: the invite step opens with the owner pre-filled as the first
+  member, and the step is skippable.
+
+Two things to know about the onboarding piece:
+
+1. The owner's canonical representation is the Organization's `ownerUserId`. The
+   Settings → Team list **synthesizes** the owner's row from it rather than storing
+   a TeammateProfile, so there is no second copy to drift, and the owner is
+   guaranteed to be the first row.
+2. The pre-fill reads the owner's name/email from the wizard store's user-setup
+   step, which runs *after* the invite step — so on a first pass the row appears as
+   soon as that identity is known, and is immediately present on any revisit.
+   `withOwnerPrefill` is reference-stable, so re-running it never loops.
+
+### Acceptance
+
+```
+npm run teammates:verify-t3     ->  53/53 assertions passed
+```
+
+Covers all three criteria: an invite fills a seat and an aged invite releases it
+(both in the meter and via the sweep, with the profile kept); the team list works
+with no onboarding team-step data and an empty step passes validation, so
+onboarding cannot depend on it; and the owner is the first Team Member with the
+Owner role and Active status. Plus the domain guess, that a Collaborator consumes
+no seat, the upgrade-confirm gate refusing a non-owner, the onboarding pre-fill
+(owner first, idempotent, no-op without an identity), and the edit path narrowing
+All Plans to a single plan — removing the dropped assignment, flipping the
+`allPlans` flag off, and applying the new role and category scope to the survivor.
+
+---
+
+## 10. Residual migration debt
 
 Tracked, deliberately **not** part of T1:
 
@@ -437,7 +560,7 @@ Tracked, deliberately **not** part of T1:
 
 ---
 
-## 10. Next tickets
+## 11. Next tickets
 
 - **T2a** — Custom role UI over the existing grid contract (no schema change).
 - **T3** — Settings → Team, seat counter, onboarding invite step.

@@ -17,3 +17,6 @@ export * from "./companies.server";
 export * from "./profiles.server";
 export * from "./assignments.server";
 export * from "./access.server";
+export * from "./seats.server";
+export * from "./team.server";
+export * from "./plan-guard.server";
