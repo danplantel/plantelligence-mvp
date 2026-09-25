@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
 import { useForm } from "react-hook-form";
@@ -45,7 +45,7 @@ import {
 } from "lucide-react";
 
 export default function SettingsPage() {
-  const { setTitle } = usePageTitleContext();
+  const { setTitle, setSubtitle } = usePageTitleContext();
   const { stepData } = useOnboardingWizardStore();
   const [isSaving, setIsSaving] = useState(false);
   const router = useRouter();
@@ -147,6 +147,37 @@ export default function SettingsPage() {
       profileSyncedRef.current = true;
     }
   }, [cachedProfile]);
+
+  // ── Header subtitle: "Settings / {Organization Name}" ───────────────────
+  // The header renders `title / subtitle` with the subtitle in accent-blue, so
+  // setting the organization name as the subtitle is all that is needed.
+  //
+  // The precedence mirrors the Branding tab's own resolution of the organization
+  // name (wizard branding → User.organizationName → User.organizationType) so the
+  // two can never disagree about what the organization is called.
+  //
+  // Read from `cachedProfile` — the SWR value that `invalidateProfileCache()`
+  // revalidates after a save — rather than `userProfile`, which
+  // `profileSyncedRef` above freezes at the first sync and would therefore keep
+  // showing a stale name after an organization rename.
+  const organizationName = useMemo(() => {
+    const source: any = cachedProfile ?? userProfile;
+    return (
+      source?.wizardSessions?.[0]?.branding?.organizationName?.trim() ||
+      source?.organizationName?.trim() ||
+      source?.organizationType?.trim() ||
+      ""
+    );
+  }, [cachedProfile, userProfile]);
+
+  // Declared AFTER the setTitle effect above: `setTitle` clears the subtitle, so
+  // the subtitle must be applied last for the header to read "Settings / Org".
+  // Re-runs when the name arrives (the profile loads asynchronously) and on any
+  // later rename.
+  useEffect(() => {
+    setSubtitle(organizationName);
+    return () => setSubtitle("");
+  }, [organizationName, setSubtitle]);
 
   // Load data for specific tab
   const loadTabData = async (tab: string) => {

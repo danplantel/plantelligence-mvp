@@ -493,6 +493,15 @@ spec's "Owner/Admin only" outcome — a Collaborator can never hold Org Settings
   rendered muted — the chip must match the list it sits in.
 - The **owner's card** opens the same modal in a read-only state, pointing at the
   Profile tab — their access always covers every plan, so there is nothing to scope.
+- **Settings header** — the page sets the organization name as the page-title
+  `subtitle`, so the shared header renders `Settings / {Organization Name}` with the
+  name in `text-accent-blue`. The precedence mirrors the Branding tab's own
+  resolution (wizard branding → `User.organizationName` → `User.organizationType`)
+  so the header can never disagree with what that tab displays, and it reads from
+  `cachedProfile` (the SWR value `invalidateProfileCache()` revalidates after a
+  save) rather than the frozen `userProfile` snapshot, so a rename shows up without
+  a reload. The effect is declared *after* the `setTitle` effect because
+  `setTitle` clears the subtitle.
 
 ### The explainer cannot drift from enforcement
 
