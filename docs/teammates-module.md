@@ -497,11 +497,28 @@ spec's "Owner/Admin only" outcome — a Collaborator can never hold Org Settings
   `subtitle`, so the shared header renders `Settings / {Organization Name}` with the
   name in `text-accent-blue`. The precedence mirrors the Branding tab's own
   resolution (wizard branding → `User.organizationName` → `User.organizationType`)
-  so the header can never disagree with what that tab displays, and it reads from
-  `cachedProfile` (the SWR value `invalidateProfileCache()` revalidates after a
-  save) rather than the frozen `userProfile` snapshot, so a rename shows up without
-  a reload. The effect is declared *after* the `setTitle` effect because
-  `setTitle` clears the subtitle.
+  so the header can never disagree with what that tab displays. The effect is
+  declared *after* the `setTitle` effect because `setTitle` clears the subtitle.
+- **Fixed a stale-profile snapshot on the Settings page** (found while wiring the
+  header). `userProfile` was populated by a `profileSyncedRef` latch that copied
+  `cachedProfile` only on the *first* sync, so every `userProfile?.…` fallback
+  (branding's `organizationName`/`website`, the organization tab, the header) kept
+  reading a pre-save object — a renamed organization, or a logo that had just been
+  cleared, could be resurrected from it. Three changes: the latch is now a plain
+  mirror (`useEffect(() => { if (cachedProfile) setUserProfile(cachedProfile) })`),
+  the page uses SWR's `mutate` through a new `refreshProfile()` helper so a save
+  actually re-reads the profile, and the three save handlers call
+  `await refreshProfile()` where they used to call `invalidateProfileCache()`.
+
+  Why `mutate` was required: SWR is configured with `dedupingInterval: 60_000` and
+  `revalidateOnFocus: false`, so it never refetches on its own — clearing the
+  module-level cache in [`lib/fetch-profile.ts`](../lib/fetch-profile.ts) alone did
+  **not** reach `cachedProfile`, which is SWR's own store. `refreshProfile()`
+  clears the module cache first and only then triggers the revalidation, so the
+  fetcher hits the network instead of being served the value just invalidated. The
+  mirror is safe to widen because the populate effect still prefers the wizard
+  store (`stepData`) for every field the forms edit, so an in-progress edit is not
+  overwritten by a refetch.
 
 ### The explainer cannot drift from enforcement
 

@@ -133,20 +133,49 @@ export default function SettingsPage() {
 
   // SWR: cache /api/profile (single-flight fetcher so concurrent callers
   // share one request instead of racing each other)
-  const { data: cachedProfile } = useSWR(
+  const { data: cachedProfile, mutate: mutateProfile } = useSWR(
     "/api/profile",
     () => fetchProfileOnce(),
     { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false },
   );
 
-  // Sync cachedProfile into userProfile state when it arrives
-  const profileSyncedRef = useRef(false);
+  // Mirror the resolved profile into state on every change.
+  //
+  // This previously latched onto the FIRST value (`profileSyncedRef`), which
+  // pinned a pre-save snapshot for the rest of the page's life: every
+  // `userProfile?.…` fallback below (branding's organizationName / website, the
+  // organization tab, the header subtitle) kept reading the old object, so a
+  // renamed organization — or a value that had just been cleared, e.g. a removed
+  // logo — could be resurrected from it.
+  //
+  // The mirror is safe: `cachedProfile` only changes identity when a fetch
+  // actually resolves, and the populate effect below still prefers the wizard
+  // store (`stepData`) over the profile for every field the forms edit.
   useEffect(() => {
-    if (cachedProfile && !profileSyncedRef.current) {
-      setUserProfile(cachedProfile);
-      profileSyncedRef.current = true;
-    }
+    if (cachedProfile) setUserProfile(cachedProfile);
   }, [cachedProfile]);
+
+  /**
+   * Re-read the profile after a save.
+   *
+   * SWR is configured with a 60s dedupe and no focus revalidation, so on its own
+   * it never refetches — without this the page held the pre-save profile for its
+   * entire lifetime and the header kept the old organization name after a rename.
+   *
+   * `invalidateProfileCache()` clears the module-level single-flight cache first,
+   * so the revalidation SWR then triggers goes to the network instead of being
+   * served the stale module-cached value.
+   *
+   * Never throws: a failed refresh must not fail a save that already succeeded.
+   */
+  const refreshProfile = useCallback(async () => {
+    invalidateProfileCache();
+    try {
+      await mutateProfile();
+    } catch {
+      // Ignore — the save itself already succeeded.
+    }
+  }, [mutateProfile]);
 
   // ── Header subtitle: "Settings / {Organization Name}" ───────────────────
   // The header renders `title / subtitle` with the subtitle in accent-blue, so
@@ -156,10 +185,10 @@ export default function SettingsPage() {
   // name (wizard branding → User.organizationName → User.organizationType) so the
   // two can never disagree about what the organization is called.
   //
-  // Read from `cachedProfile` — the SWR value that `invalidateProfileCache()`
-  // revalidates after a save — rather than `userProfile`, which
-  // `profileSyncedRef` above freezes at the first sync and would therefore keep
-  // showing a stale name after an organization rename.
+  // `cachedProfile` first, then the mirrored `userProfile`: cachedProfile updates
+  // the instant a fetch resolves, whereas the mirror lands one effect later, so
+  // this ordering avoids a frame of missing subtitle on first load. Both are kept
+  // fresh by `refreshProfile()` after every save, so a rename shows immediately.
   const organizationName = useMemo(() => {
     const source: any = cachedProfile ?? userProfile;
     return (
@@ -390,12 +419,12 @@ export default function SettingsPage() {
     setInitialUserSetup(JSON.parse(JSON.stringify(userData)));
 
     const branding = stepData.branding || ({} as any);
-    // Read the FALLBACKS from the freshest profile available. `userProfile` is frozen
-    // by `profileSyncedRef` at the first sync and never picks up the refetch that
-    // `invalidateProfileCache()` triggers after a save, so a value that had just been
-    // cleared here (e.g. a removed logo save) could still be resurrected from it.
-    // `cachedProfile` is the same source `loadTabData` trusts, and the store above
-    // remains the primary value.
+    // Read the FALLBACKS from the freshest profile available. `cachedProfile` is
+    // the SWR value `refreshProfile()` revalidates after every save, and the
+    // `userProfile` mirror above now tracks it instead of freezing at the first
+    // sync, so a value that had just been cleared (e.g. a removed logo) can no
+    // longer be resurrected from a stale snapshot. The store above remains the
+    // primary value.
     const persistedProfile: any = cachedProfile ?? userProfile;
     const completedBranding = persistedProfile?.wizardSessions?.[0]?.branding;
 
@@ -603,7 +632,7 @@ export default function SettingsPage() {
         console.warn("Failed to sync user setup to the wizard store", localError);
       }
 
-      invalidateProfileCache();
+      await refreshProfile();
       userSetupForm.reset(data, { keepDirtyValues: false });
       setInitialUserSetup(JSON.parse(JSON.stringify(data)));
       toast.success("User profile updated successfully!");
@@ -717,7 +746,7 @@ export default function SettingsPage() {
         console.warn("Failed to sync branding to the wizard store", localError);
       }
 
-      invalidateProfileCache();
+      await refreshProfile();
       brandingForm.reset(brandingPayload, { keepDirtyValues: false });
       setInitialBranding(JSON.parse(JSON.stringify(brandingPayload)));
       toast.success("Branding settings updated successfully!");
@@ -743,7 +772,7 @@ export default function SettingsPage() {
         saveStepDataToServer("teamSize", { teamSize: formData.teamSize }),
       ]);
 
-      invalidateProfileCache();
+      await refreshProfile();
       organizationForm.reset(formData, { keepDirtyValues: false });
       setInitialOrganization(JSON.parse(JSON.stringify(formData)));
       toast.success("Organization settings updated successfully!");
