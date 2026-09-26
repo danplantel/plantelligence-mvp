@@ -1,8 +1,10 @@
 "use client";
 
 import { type ComponentProps, useCallback, useEffect, useMemo, useState } from "react";
+import { useSession } from "next-auth/react";
 import {
   HelpCircle,
+  Info,
   Loader2,
   Mail,
   Pencil,
@@ -52,6 +54,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Headshot } from "@/components/ui/headshot";
 import type { SeatUsageSummary } from "@/components/pages/seat-meter";
 import { BENEFIT_CONTACT_CATEGORIES } from "@/lib/benefit-contacts";
 import {
@@ -76,6 +79,8 @@ interface TeamMemberRow {
   userId: string | null;
   name: string;
   email: string;
+  /** R2 key or absolute URL — resolved to a loadable URL by <Headshot>. */
+  headshot: string | null;
   role: TeammateAssignmentRole;
   status: keyof typeof PROFILE_STATE_LABELS;
   personType: "team_member" | "collaborator";
@@ -115,14 +120,6 @@ const EMPTY_ACCESS: AccessDraft = {
   categoryScope: "all",
   categories: [],
 };
-
-function initialsOf(name: string, email: string): string {
-  const source = name.trim() || email.trim();
-  const parts = source.split(/[\s@._-]+/).filter(Boolean);
-  const first = parts[0]?.[0] ?? "?";
-  const second = parts.length > 1 ? (parts[1]?.[0] ?? "") : "";
-  return `${first}${second}`.toUpperCase();
-}
 
 function planAccessLabel(row: TeamMemberRow): string {
   if (row.isOwner || row.planAccess.scope === "all") return "All Plans";
@@ -398,6 +395,144 @@ function RolesPermissionsDialog() {
   );
 }
 
+/**
+ * Explains the seat rules next to the live count.
+ *
+ * Every rule below is one the server actually enforces in
+ * [`lib/teammates/seats.server.ts`](lib/teammates/seats.server.ts) — the 14-day
+ * invite hold (`INVITE_SEAT_HOLD_DAYS`), the owner's seat
+ * (`OWNER_CONSUMES_SEAT`), and confirm-instead-of-block at the limit
+ * (`assertSeatAvailable`) — and the figures come from the same `getSeatUsage`
+ * payload the meter renders, so the explanation cannot drift from the numbers.
+ */
+function SeatUsageInfoDialog({
+  seats,
+  ownerName,
+  viewerIsOwner,
+}: {
+  seats: SeatUsageSummary;
+  /** Display name of the ORGANIZATION owner, for the reserved-seat rule. */
+  ownerName: string | null;
+  /** True only when the signed-in user is that owner. */
+  viewerIsOwner: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+
+  const countLabel = (count: number, word: string) =>
+    `${count} ${word}${count === 1 ? "" : "s"}`;
+
+  const stats: { label: string; value: string }[] = [
+    { label: "Seats used", value: `${seats.seatsUsed} of ${seats.seatsIncluded}` },
+    { label: "Active members", value: countLabel(seats.seatsActive, "member") },
+    { label: "Pending invites", value: String(seats.seatsPending) },
+    { label: "Available", value: countLabel(seats.seatsAvailable, "seat") },
+  ];
+
+  /**
+   * The reserved seat belongs to the ORGANIZATION's owner (`Organization.ownerUserId`
+   * — see `OWNER_CONSUMES_SEAT` in seats.server.ts), not to whoever is reading the
+   * page. An Admin reaches this tab without owning the organization, so "your own
+   * seat" would be a false statement for them. All three variants are true for
+   * their reader; only the second person changes.
+   */
+  const ownerSeatRule = viewerIsOwner
+    ? {
+        title: "Your own seat is counted",
+        body: "You are the organization owner and always the first Team Member, so one seat is always in use.",
+      }
+    : ownerName
+      ? {
+          title: "The owner's seat is always counted",
+          body: `${ownerName} is the organization owner and always the first Team Member, so one seat is always in use.`,
+        }
+      : {
+          title: "One seat is reserved for the organization owner",
+          body: "The owner is always the first Team Member, so one seat is always in use.",
+        };
+
+  const rules: { title: string; body: string }[] = [
+    {
+      title: "Only Team Members hold a seat",
+      body: "A Collaborator gets the same plan and category access without using one — they are listed under Collaborators and never counted here.",
+    },
+    ownerSeatRule,
+    {
+      title: "An invite reserves a seat for 14 days",
+      body: "It shows as a pending invite. If it is not accepted in that window the hold is released automatically and the person returns to a Contact — their profile and history are kept.",
+    },
+    {
+      title: "Deactivating someone frees their seat",
+      body: "The profile is kept, so their past work stays attributable.",
+    },
+    {
+      title: "At the limit you are not blocked",
+      body: "Adding another Team Member asks you to confirm an upgrade instead of failing, and confirming raises your allowance by one. Only an Owner or Admin can confirm.",
+    },
+  ];
+
+  return (
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="h-6 w-6 shrink-0 rounded-full"
+        aria-label="How seats are used"
+        title="How seats are used"
+        onClick={() => setOpen(true)}
+      >
+        <Info className="h-3.5 w-3.5" />
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>How seats work</DialogTitle>
+            <DialogDescription>
+              Only Team Members use seats. Contacts and Collaborators are free.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-2">
+            {stats.map((stat) => (
+              <div key={stat.label} className="rounded-lg border bg-muted/40 p-3">
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  {stat.label}
+                </p>
+                <p className="mt-0.5 text-sm font-semibold">{stat.value}</p>
+              </div>
+            ))}
+          </div>
+
+          {seats.atLimit ? (
+            <p className="rounded-lg border border-amber-400/60 bg-amber-50/60 p-3 text-xs text-amber-800 dark:border-amber-500/40 dark:bg-amber-950/30 dark:text-amber-200">
+              You are at your limit — {seats.seatsUsed} of {seats.seatsIncluded}{" "}
+              seats used. The next Team Member starts an upgrade.
+            </p>
+          ) : null}
+
+          <ul className="space-y-3">
+            {rules.map((rule) => (
+              <li key={rule.title} className="flex gap-2.5">
+                <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-accent-blue" />
+                <span className="text-sm">
+                  <span className="font-medium">{rule.title}.</span>{" "}
+                  <span className="text-muted-foreground">{rule.body}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Got it
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 /* ───────────────────────── Seat cards ───────────────────────── */
 
 /** A filled seat: an existing Team Member. Clicking opens the Edit modal. */
@@ -416,8 +551,15 @@ function FilledSeatCard({
     >
       <Pencil className="absolute right-3 top-3 h-3.5 w-3.5 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
 
-      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-muted text-lg font-semibold">
-        {initialsOf(row.name, row.email)}
+      {/* Headshot falls back to a monogram of the name, so an owner who has not
+          uploaded a photo still renders something rather than a blank circle. */}
+      <span className="block h-14 w-14 shrink-0 overflow-hidden rounded-full bg-muted">
+        <Headshot
+          src={row.headshot}
+          alt={row.name}
+          monogramName={row.name}
+          wrapperClassName="rounded-full"
+        />
       </span>
 
       <span className="w-full space-y-1">
@@ -618,6 +760,10 @@ export function TeamMembersSection() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
 
+  // Used only to answer "is the signed-in user the organization owner?" for the
+  // seat dialog. The session callback always populates `user.id`.
+  const { data: session } = useSession();
+
   const load = useCallback(async () => {
     setIsLoading(true);
     try {
@@ -771,6 +917,20 @@ export function TeamMembersSection() {
 
   const pendingCount = seats?.seatsPending ?? 0;
 
+  /**
+   * The reserved seat is a property of the ORGANIZATION, not of the viewer: an
+   * Admin can open this tab without owning the organization, so the dialog must
+   * not claim the reader's own seat is the reserved one. The team list's owner row
+   * supplies both the id (to compare against the session) and the name (so the
+   * copy can name them instead of saying "you"). While either the list or the
+   * session is still resolving this is false, and the dialog names the owner
+   * generically rather than guessing at the reader's role.
+   */
+  const ownerRow = useMemo(() => team.find((row) => row.isOwner) ?? null, [team]);
+  const viewerIsOwner = Boolean(
+    ownerRow?.userId && session?.user?.id && ownerRow.userId === session.user.id,
+  );
+
   return (
     <div className="space-y-6">
       {/* Spec T3 Part A item 3: usage, with pending invites called out. */}
@@ -778,12 +938,19 @@ export function TeamMembersSection() {
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
             <h3 className="text-base font-medium">Team Members</h3>
-            <p className="text-sm text-muted-foreground">
-              {seats.seatsUsed} of {seats.seatsIncluded} seats used
-              {pendingCount > 0
-                ? ` · ${pendingCount} pending invite${pendingCount === 1 ? "" : "s"}`
-                : ""}
-            </p>
+            <div className="flex items-center gap-1">
+              <p className="text-sm text-muted-foreground">
+                {seats.seatsUsed} of {seats.seatsIncluded} seats used
+                {pendingCount > 0
+                  ? ` · ${pendingCount} pending invite${pendingCount === 1 ? "" : "s"}`
+                  : ""}
+              </p>
+              <SeatUsageInfoDialog
+                seats={seats}
+                ownerName={ownerRow?.name ?? null}
+                viewerIsOwner={viewerIsOwner}
+              />
+            </div>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <RolesPermissionsDialog />
@@ -885,8 +1052,13 @@ export function TeamMembersSection() {
           {editing ? (
             <div className="space-y-4">
               <div className="flex items-center gap-3 rounded-lg border p-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-sm font-semibold">
-                  {initialsOf(editing.name, editing.email)}
+                <span className="block h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted">
+                  <Headshot
+                    src={editing.headshot}
+                    alt={editing.name}
+                    monogramName={editing.name}
+                    wrapperClassName="rounded-full"
+                  />
                 </span>
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium">{editing.name}</p>

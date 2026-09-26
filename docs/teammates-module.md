@@ -530,6 +530,38 @@ transfer". `verify-t3` asserts the explainer is complete (every one of the 14
 functions lands in exactly one bucket per role), that Owner has no No-Access rows,
 that Editor/Viewer get no publish or delete, and that **no collaborator preset is
 described as allowed to publish, invite or delete**.
+- **Seat cards carry the person's headshot.** `listTeamMembers` returns a `headshot`
+  per row: `TeammateProfile.headshot` for teammates, and for the synthesized owner
+  the chain `latest session userSetup.headshot` → `User.headshot` →
+  `branding.aiAvatar`, mirroring [`/api/profile`](../app/api/profile/route.ts:143)
+  and [`/api/profile/header`](../app/api/profile/header/route.ts:59) so the card
+  cannot disagree with the header avatar. The value is returned **as stored** — an
+  R2 `org/…` key or an absolute/data URL, never a signed URL, which would expire
+  inside a list payload. The card renders it through
+  [`components/ui/headshot.tsx`](../components/ui/headshot.tsx), which resolves the
+  R2 proxy, retries once on error, and falls back to a monogram of the name, so a
+  member with no photo still renders something. That also replaced this section's
+  local `initialsOf` helper, which is now removed.
+- An **ⓘ "How seats work" dialog** sits beside the "N of M seats used" line. It is
+  driven by the same `getSeatUsage` payload the meter renders, so its four figures
+  (used / active / pending / available) are live rather than restated, and it
+  surfaces an amber callout when `atLimit` is true. Each rule it states is one the
+  server enforces in [`lib/teammates/seats.server.ts`](../lib/teammates/seats.server.ts):
+  only Team Members hold a seat, the owner's seat is always counted
+  (`OWNER_CONSUMES_SEAT`), an invite holds a seat for 14 days and then releases
+  back to a Contact (`INVITE_SEAT_HOLD_DAYS`, `expireStaleInvites`), deactivating
+  frees the seat, and the limit produces an upgrade confirm rather than a block
+  (`assertSeatAvailable`).
+- The dialog's **reserved-seat rule is viewer-aware**, because the reserved seat
+  belongs to the *organization* (`Organization.ownerUserId`), not to the reader —
+  an Admin reaches this tab (they hold `org_settings`) without owning the
+  organization, so a static "your own seat is counted" would be false for them.
+  The row for the owner in the team list supplies both the id and the name: the
+  dialog says "Your own seat is counted" only when `ownerRow.userId` matches
+  `session.user.id`, otherwise it names the owner ("**{name}** is the organization
+  owner and always the first Team Member…"), and falls back to an unnamed version
+  while the list or the session is still resolving. All three variants are true —
+  only the grammatical person changes.
 - The **dashboard** shows the same seat meter. `useSeatUsage` resolves to null
   without org-settings access, so a Viewer or Collaborator simply doesn't see it.
 - **Onboarding**: the invite step opens with the owner pre-filled as the first

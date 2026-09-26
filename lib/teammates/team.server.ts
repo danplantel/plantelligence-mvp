@@ -387,6 +387,12 @@ export interface TeamMemberRow {
   userId: string | null;
   name: string;
   email: string;
+  /**
+   * Headshot as STORED — an R2 object key (`org/…`) or an absolute/data URL, never
+   * a signed URL (those expire). The client resolves it through <Headshot>, which
+   * already handles the R2 proxy, the retry and the monogram fallback.
+   */
+  headshot: string | null;
   role: TeammateAssignmentRole;
   status: TeammateProfileState;
   personType: TeammatePersonType;
@@ -428,7 +434,24 @@ export async function listTeamMembers(
     organization?.ownerUserId
       ? prisma.user.findUnique({
           where: { id: organization.ownerUserId },
-          select: { id: true, name: true, email: true },
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            headshot: true,
+            // The owner is synthesized from the User, so the card has to reach the
+            // same two sources the rest of the app reads: the latest wizard
+            // session's `userSetup.headshot` (what /api/profile prefers) and the
+            // Branding `aiAvatar` (what /api/profile/header falls back to).
+            wizardSessions: {
+              orderBy: { createdAt: "desc" },
+              take: 1,
+              select: {
+                userSetup: { select: { headshot: true } },
+                branding: { select: { aiAvatar: true } },
+              },
+            },
+          },
         })
       : Promise.resolve(null),
     prisma.teammateProfile.findMany({
@@ -470,6 +493,8 @@ export async function listTeamMembers(
 
   // Owner first — spec acceptance: "the owner appears as the first Team Member".
   if (owner) {
+    const ownerSession = owner.wizardSessions?.[0];
+
     rows.push({
       id: `owner:${owner.id}`,
       isOwner: true,
@@ -477,6 +502,13 @@ export async function listTeamMembers(
       userId: owner.id,
       name: owner.name || owner.email,
       email: owner.email,
+      // Real headshot first, AI avatar only as a last resort — mirroring the
+      // precedence in /api/profile and /api/profile/header.
+      headshot:
+        ownerSession?.userSetup?.headshot ||
+        owner.headshot ||
+        ownerSession?.branding?.aiAvatar ||
+        null,
       role: "owner",
       status: "active",
       personType: "team_member",
@@ -523,6 +555,7 @@ export async function listTeamMembers(
         [profile.firstName, profile.lastName].filter(Boolean).join(" ") ||
         profile.email,
       email: profile.email,
+      headshot: profile.headshot ?? null,
       role: mostPrivilegedRole(memberAssignments.map((a) => a.role)),
       status: profile.state,
       personType: profile.type,
