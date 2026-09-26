@@ -1254,6 +1254,15 @@ model PlanAssignment {
 
   showOnBenefitsHub Boolean @default(true)
 
+  // T7: the `KeyContact.id` this assignment was mirrored from.
+  //
+  // The hub renders from profile + assignment, but `Benefit.supportContacts[].contactId`
+  // already references the id the advisor's contact carried when the benefit was saved.
+  // Keeping that id ON the assignment is what lets a mirrored contact reproduce the same
+  // card id, so every existing cross-reference keeps resolving without a rewrite.
+  // Null for anyone who was never a Key Contact (a teammate added from Settings).
+  contactId String?
+
   invitedByUserId     String?   @db.ObjectId
   invitedAt           DateTime?
   // T4: the invite's own metadata, captured where it was raised (Create Benefits).
@@ -1271,6 +1280,8 @@ model PlanAssignment {
   @@index([organizationId])
   @@index([clientId])
   @@index([profileId])
+  // The mirror reconciles by (plan, contactId): which assignments came from contacts.
+  @@index([clientId, contactId])
 }
 
 // Audit trail for teammate mutations. Backs T2a ("log who set Custom access,

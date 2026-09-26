@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { getOrCreateOrganizationForUser } from "@/lib/organization";
+import { mirrorPlanContactsSafely } from "@/lib/teammates/contact-mirror.server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,6 +41,15 @@ export async function POST(request: NextRequest) {
               status: "active"
             }
           });
+
+    // T7: project the contacts onto the teammate layer — the hub reads profile +
+    // assignment, not this JSON.
+    await mirrorPlanContactsSafely({
+      organizationId,
+      actorUserId: session.user.id,
+      clientId: client.id,
+      keyContacts: body.keyContacts,
+    });
 
     // Create Document records for uploaded files
     const documents = [];

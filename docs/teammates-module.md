@@ -139,6 +139,9 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run repair:unique-conflicts` | Finds (and with `--apply`, removes) duplicate session rows that block unique-index builds. |
 | `npm run repair:partial-indexes` | Re-applies the partial unique index on `Client.slug`. |
 | `npm run repair:purge-orphaned-user` | Inventories (dry run) then with `--apply` removes everything left behind by a deleted User account. |
+| `npm run teammates:verify-t6` | Runs the 35-assertion T6 suite (the four acceptance criteria, per-assignment role and visibility, the Delete guard, the audit trail, and All Plans staying Team-Member-only). |
+| `npm run teammates:verify-t7` | Runs the 26-assertion T7 suite (the three acceptance criteria, display-vs-access, the mirror's idempotency and removals, hidden categories, and the unmirrorable-contact residue). |
+| `npm run teammates:backfill-contacts` | Projects every plan's `keyContacts` onto profiles + assignments (T7). Idempotent; `--dry-run` to count without writing. Run it before the hub reader switch and after adding a new contacts writer. |
 | `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
 
 Each verify script also **sweeps stranded fixtures before it asserts** and installs a
@@ -997,6 +1000,210 @@ invisible.
 
 ---
 
+## 9e. T6 — Assignment Management screen
+
+Spec page 11. The screen exists because access is **per assignment**, not per person:
+one person can be an Editor on Ayres and a Viewer on Precision Optical, and a single
+form cannot express that.
+
+### Where it lives
+
+| Piece | File |
+|---|---|
+| The screen | [`person-access-screen.tsx`](../components/teammates/person-access-screen.tsx) |
+| Opened from | Settings → Team Members — the seat cards and the Collaborator rows |
+| The screen's single read | `GET /api/teammates/team/[profileId]` → `getMembershipDetail()` in `lib/teammates/team.server.ts` |
+| The per-assignment controls | `PATCH` / `DELETE` `/api/teammates/assignments/[assignmentId]` → `updateAssignment()` / `removeAssignment()` |
+| The set-level access save | `PATCH /api/teammates/team/[profileId]` → `updateTeamMember()` |
+| Deactivate / Delete | the same route, `action: "deactivate" \| "reactivate" \| "delete"` |
+
+### What T6 actually added
+
+Most of T6 already existed: `removeAssignment`, `setAssignmentShowOnBenefitsHub`,
+`deactivateTeammateProfile` and `deleteTeammateProfile` were written during T1/T3 and
+annotated with their T6 item numbers, and `upsertAssignment` already owns the grid, the
+collaborator hard blocks, the last-Owner guard and the audit rows. What was missing was
+**exposure and a screen**:
+
+- `updateAssignment` — per-assignment role and hub visibility. Built ON TOP of
+  `upsertAssignment` rather than beside it, so a per-assignment edit re-runs every
+  validation a create does. It preserves the invite metadata and any field the caller
+  did not supply, which is what makes a role-only edit safe.
+- `getMembershipDetail` — profile + assignments (with plan NAMES) + the plan list + the
+  seat meter + `canDeleteProfile`, in one read, so the header, the checklist and the
+  rows cannot disagree while the screen is open.
+- The three missing HTTP verbs: an assignment can now be patched and deleted, and a
+  profile deleted.
+
+### Part A, item by item
+
+1. **Per-person screen, assignments by plan** — profile card on top, one row per plan.
+2. **Plan access** — Certain Plans (searchable checklist) or All Plans. All Plans is
+   hidden for a Collaborator and the server refuses to set the flag for one, which is
+   the spec's own Open Decision ("Can Owners/Admins grant All Plans to a Collaborator,
+   with a warning? **No**").
+3. **Benefits access** — All / Certain, pre-filled from what the person already holds
+   (All only when every assignment already covers everything).
+4. **Per-assignment controls** — a role dropdown and a Show on Benefits Hub toggle.
+5. **Three separate actions** — Remove Assignment (per row), Deactivate, Delete Profile.
+
+### Two interaction choices
+
+- **Rows apply immediately; the access block is saved deliberately.** A row edits one
+  assignment, so there is nothing to reconcile and instant feedback matches T6 Part B
+  item 1 ("access ends immediately"). The Plan/Benefits block changes *which*
+  assignments exist — the server reconciles that by removing the ones that drop out —
+  so it gets an explicit Save rather than firing as the advisor ticks boxes.
+- **`Custom` is rendered but not selectable.** It needs T2a's plan-first grid. The
+  server refuses the role too (`custom_role_unavailable`), so the disabled entry
+  documents a real gap instead of opening a dead end.
+
+### The three actions, and their guards
+
+| Action | Ends | Keeps | Guard |
+|---|---|---|---|
+| Remove Assignment | access to that plan, immediately | everything the person created | the last-Owner guard still applies |
+| Deactivate | all access to the organization | the profile | a deactivated person cannot be given a new plan (`profile_deactivated`) |
+| Delete Profile | everything | nothing | refused with `profile_has_assignments` while any assignment remains |
+
+The Delete guard lives in `deleteTeammateProfile`, not in the screen, so the client's
+disabled button with its explanation is a courtesy rather than the enforcement.
+
+### Verification
+
+`verify-t6` asserts all four acceptance criteria and Part B's five rules: one save adds
+Jane to Precision Optical without a second profile (criterion 1); a removed assignment
+is denied on the very next `resolvePlanAccess` call and leaves her plan list (criterion
+2); a deactivated profile keeps its row while every plan disappears from the login
+(criterion 3, see the caveat); and Delete is refused with `profile_has_assignments`
+until the last assignment is gone (criterion 4). It also checks the two new functions
+directly — a role-only edit leaves the category scope alone, a visibility-only edit
+leaves the role alone and audits `assignment_visibility_changed`, and `custom` is
+refused — plus that each of the six relevant audit actions is written with the acting
+user and a timestamp.
+
+**The one honest caveat:** criterion 3 says "a deactivated user cannot log in to that
+organization". What T6 and the enforcement layer guarantee, and what is asserted, is
+that every organization-scoped read is refused and every plan disappears from their
+list — the authorization half. Refusing the *credential* itself belongs to the auth
+layer, which does not yet consult `TeammateProfile.deactivatedAt`.
+
+### Not T6's to build
+
+Per-plan custom permissions remain T2a's (the `custom` role, and the plan-first grid
+behind it). T6 stores and displays whatever grid an assignment already holds; it does
+not author one.
+
+---
+
+## 9f. T7 — Benefits Hub contact display
+
+Spec page 12. This is the ticket that changes the hub's **source of truth**.
+
+### The scope decision
+
+The spec says plainly: *"The hub renders from profile + assignment. One source of truth;
+contact details are never duplicated."* The hub rendered `Client.keyContacts` — an array
+read in six surfaces across 168 references, where contacts had no profile and no
+assignment. Two ways to satisfy that line were possible: render a deduped union of both
+sources (safe, but still two sources), or make profile + assignment genuinely
+authoritative. **The user chose the migration**, so contacts are now projected onto the
+teammate layer and the hub reads only that.
+
+### Three pieces
+
+| Piece | File | Job |
+|---|---|---|
+| The mirror (write) | `lib/teammates/contact-mirror.server.ts` | Projects a plan's `keyContacts` onto profiles + assignments |
+| The reader (read) | `lib/teammates/hub-contacts.server.ts` | Builds the hub's cards from assignments joined to profiles |
+| The backfill (existing data) | `scripts/teammates/backfill-plan-contacts.ts` | Runs the mirror over every plan once |
+
+### One choke point, not six rewrites
+
+The portal's readers all consume the payload from
+`GET /api/clients/[id]?forPortal=1`. Rebuilding `keyContacts` **there** — from profile +
+assignment — means the six readers, the card layouts and the CSS keep working unchanged,
+while the data underneath changes. Nothing was rewritten that did not have to be.
+
+Three details make the swap safe:
+
+- **The card keeps the contact's own id.** `Benefit.supportContacts[].contactId` already
+  references the id the advisor's contact carried, so the assignment stores it as
+  `PlanAssignment.contactId` (the one schema addition) and the reader emits it as the card
+  id. Every existing cross-reference resolves without touching the benefit rows.
+- **`showOnPortal` is derived from `showOnBenefitsHub`** (Part B item 2 — display off
+  hides a person but keeps their admin access). The readers already filter on
+  `showOnPortal`, so they keep working.
+- **Category scope is expanded, not invented.** An assignment scoped to `all` reports
+  every benefit category, which is what the category-visibility filter (Part B item 3)
+  and the per-category readers expect.
+
+### The mirror's four rules
+
+1. **A Contact becomes a profile in the `contact` state with no login.** It holds no seat
+   (`getSeatUsage` counts only non-contact Team Members) and grants no access (the
+   permission layer resolves people by login, and there is none).
+2. **Person type follows the organization's own domain rule** — the same
+   `guessPersonTypeForEmail` the invite flow uses.
+3. **A `contact`-state profile is synced from the contact; anything else is left alone.**
+   Once someone is invited or active, T5 Part B item 2 applies: the collaborator controls
+   their own info, the advisor controls assignments and display. Overwriting an active
+   person's job title from a stale contact row is exactly the drift this removes.
+4. **The mirror writes no audit events and never changes a role.** It is a projection of
+   the advisor's own contact data, not an access decision. Access changes stay audited
+   where they are made (T4, T6).
+
+A plan-sponsor contact whose company **is** the client is deliberately left without a
+`companyId`: creating a Partner/Provider row for an employer is what T1 forbids, and the
+card falls back to the plan's own branding. Only genuinely external firms become
+companies.
+
+### The safety net, and why it exists
+
+A `TeammateProfile` requires an email, and **3 of the 8 real plans' contacts had none**.
+Rather than let a live hub lose those cards, `buildPortalKeyContacts` passes through any
+stored contact whose id is absent from the derived cards. The switch is therefore
+non-destructive **by construction** rather than by having migrated everything perfectly.
+It is residue, not a second source: nothing is read from it for a contact that did mirror,
+and the set shrinks to empty as coverage grows.
+
+### What the tests caught
+
+`verify-t7` found a real bug in the removal logic. It filtered orphaned assignments with
+`!seenProfileIds.has(profileId) && !byProfileId.has(profileId)` — but `byProfileId` is
+keyed by every existing assignment, so the second clause was **vacuous** and a removed
+contact's assignment was never deleted. The profile-state guard below it is what protects
+real access, and it now has to be the only thing that does.
+
+Two further failures were the test's own fault and are worth recording: the sponsor check
+mirrored into the wrong plan (where that company legitimately *is* a different firm), and
+the hidden-category check hid a category the contact was not in, so it could never have
+filtered anything.
+
+### Verification
+
+`verify-t7` asserts the three acceptance criteria — she appears on the Ayres hub in both
+places (the team array and, through `resolveCategoryContacts`, the category page) and on
+no other hub; display off removes her while a logged-in person with display off can still
+edit; and a phone-number change on the profile reaches **both** hubs she is on — plus the
+mirror's idempotency, its non-destruction of an invited person's assignment, the
+sponsor-company rule, hidden categories, and the residue guarantee.
+
+```
+npm run teammates:backfill-contacts   -> 5 profiles, 7 assignments created
+npm run teammates:backfill-contacts   -> 0 created, 0 removed (idempotent)
+```
+
+### What is not done
+
+The **authoring** surfaces still write `keyContacts` and rely on the mirror being called;
+a new writer that forgets it will drift until the backfill runs. Those choke points are
+listed in §10.8. Making the mirror a Prisma extension on `Client` writes would remove the
+obligation, but it changes the shared client's type and was judged riskier than explicit
+calls plus a documented remedy.
+
+---
+
 ## 10. Residual migration debt
 
 Tracked, deliberately **not** part of T1:
@@ -1016,6 +1223,15 @@ Tracked, deliberately **not** part of T1:
 5. **New-plan auto-assignment.** Spec Part B item 4 ("All Plans" generates an
    assignment for every new plan) has its data support (`listAllPlansTeamMembers`)
    but is not yet wired into plan creation — that lands with T3/T6.
+6. **The contact mirror is called explicitly, not automatically.** Every server-side
+   writer of `Client.keyContacts` calls `mirrorPlanContactsSafely` after its write, and a
+   writer added later must do the same or the hub will drift until the backfill runs.
+   Current choke points: `POST /api/clients`, `POST /api/clients/create`,
+   `PUT /api/clients/[id]` — which also covers the Benefits wizard, since
+   `lib/save-benefit.ts` PUTs to it — `POST /api/new-client-wizard/complete` and
+   `POST /api/new-client-wizard/save-draft`.
+   `npm run teammates:backfill-contacts` is the remedy.
+
 Two problems found while building the invite entry points were **fixed, not
 deferred**: plan creation now stamps `organizationId` at all four creation paths
 (§7.6), and verify runs sweep stranded fixtures and clean up on Ctrl-C (§7.7).
@@ -1033,9 +1249,15 @@ deferred**: plan creation now stamps `organizationId` at all four creation paths
 - **T5 follow-up** — make a contact a profile the moment it is saved (state
   `contact`, no login, no cap) so "upgrade keeps the same profile" holds literally,
   which is the same change that moves the hub onto profile + assignment (T7).
-- **T6** — Assignment management screen: profile per person, per-plan controls, and
-  the three separate actions Remove Assignment / Deactivate / Delete Profile.
-- **T7** — Benefits Hub contact display (My Benefits Team + the category page).
+- **T6 follow-up** — per-plan custom permissions stay blocked on T2a (the screen shows
+  an assignment's stored grid but does not author one), and the "cannot log in" half of
+  the deactivate criterion belongs to the auth layer, which does not yet consult
+  `TeammateProfile.deactivatedAt`.
+- **T7 follow-up** — two loose ends, both recorded in §9f: the mirror is called
+  explicitly rather than by a Prisma extension on `Client` writes (so a future writer can
+  forget it — §10.6), and the authoring surfaces still store contacts in
+  `Client.keyContacts`, so that array remains a write surface even though it is no longer
+  a read source.
 - **T2 follow-up** — migrate the remaining owner-scoped routes to
   `requirePlanAccess` (see the coverage table in §8) and wire
   `listAccessiblePlanIds` into the plan selector.

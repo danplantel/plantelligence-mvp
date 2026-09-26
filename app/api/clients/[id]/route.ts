@@ -30,6 +30,9 @@ import {
 } from "@/lib/branding-image-url";
 import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
 import { normalizeContactImagesToR2 } from "@/lib/branding-r2";
+import { getOrCreateOrganizationForUser } from "@/lib/organization";
+import { buildPortalKeyContacts } from "@/lib/teammates/hub-contacts.server";
+import { mirrorPlanContacts } from "@/lib/teammates/contact-mirror.server";
 
 /**
  * Convert the advisor's User.disclaimer into a single display string for the
@@ -281,22 +284,42 @@ export async function GET(
     // visibility toggles only suppress contacts in a hidden category when at least
     // one other category is visible; when every hub is hidden (default for new
     // plans) contacts are still shown. Hidden-by-category cards are not sent here.
+    //
+    // T7: the portal's cards come from PROFILE + ASSIGNMENT, not from the stored
+    // `keyContacts` array. That array is now only an authoring surface — the mirror
+    // (`lib/teammates/contact-mirror.server.ts`) projects it onto the teammate layer,
+    // and this rebuilds the card shape from there. Presentation settings (layout, card
+    // colours, logo scale) are not contact details, so they still come from the blob.
     let keyContactsToReturn: any = (client as any).keyContacts;
-    if (forPortal && keyContactsToReturn != null) {
-      const rawContacts = Array.isArray(keyContactsToReturn)
-        ? keyContactsToReturn
-        : (keyContactsToReturn as any).contacts ?? (keyContactsToReturn as any).Contacts;
+    if (forPortal) {
+      // Legacy rows may predate the org stamp; the helper is idempotent and catches
+      // those up rather than rendering an empty hub.
+      const planOrganizationId =
+        (client as any).organizationId ??
+        (await getOrCreateOrganizationForUser(client.userId));
+
+      const derived = await buildPortalKeyContacts({
+        organizationId: planOrganizationId,
+        clientId: client.id,
+        presentation: (client as any).keyContacts,
+      });
+
+      const rawContacts = Array.isArray(derived)
+        ? derived
+        : (derived as any)?.contacts ?? (derived as any)?.Contacts;
       const contactsArray = Array.isArray(rawContacts) ? rawContacts : [];
       const byVisibility = filterContactsByPortalVisibility(
         contactsArray as Record<string, unknown>[],
         categoryPortalVisibility
       );
+      // `showOnPortal` is derived from `showOnBenefitsHub`, so this drops exactly the
+      // people the advisor switched display off for (T7 Part B item 2).
       const filtered = byVisibility.filter(
         (c: any) => c?.showOnPortal !== false
       );
-      keyContactsToReturn = Array.isArray(keyContactsToReturn)
+      keyContactsToReturn = Array.isArray(derived)
         ? filtered
-        : { ...(keyContactsToReturn as object), contacts: filtered };
+        : { ...(derived as object), contacts: filtered };
     }
 
     const dataPayload = normalizeClientBrandingKeysForResponse(
@@ -1105,6 +1128,27 @@ export async function PUT(
       } catch (docError) {
         console.error("Error handling documents:", docError);
         // Don't fail the entire update if documents fail
+      }
+    }
+
+    // T7: project this plan's contacts onto the teammate layer, because the hub reads
+    // profile + assignment now. Guarded on the request having actually written
+    // `keyContacts`, so the two Step 5 disclaimer saves do not trigger a needless
+    // reconcile.
+    if (keyContacts != null) {
+      try {
+        await mirrorPlanContacts({
+          organizationId:
+            (updatedClient as any).organizationId ??
+            (await getOrCreateOrganizationForUser(session.user.id)),
+          actorUserId: session.user.id,
+          clientId,
+          keyContacts: (updatedClient as any).keyContacts,
+        });
+      } catch (error) {
+        // The plan is already saved, and a mirror failure must not fail the save the
+        // advisor asked for. The backfill (`teammates:backfill-contacts`) repairs it.
+        console.error("[clients/[id]] contact mirror failed", error);
       }
     }
 

@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { getOrCreateOrganizationForUser } from "@/lib/organization";
+import { mirrorPlanContactsSafely } from "@/lib/teammates/contact-mirror.server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -142,6 +143,16 @@ export async function POST(request: NextRequest) {
             organizationId,
             status: "active"
           }
+        });
+
+        // T7: the hub renders from profile + assignment, so the contacts saved with
+        // this plan are projected onto the teammate layer as it is created. A failure
+        // here is logged, not surfaced — the plan itself is already saved.
+        await mirrorPlanContactsSafely({
+          organizationId,
+          actorUserId: session.user.id,
+          clientId: client.id,
+          keyContacts: clientData.keyContacts,
         });
 
 

@@ -4,6 +4,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { listAccessiblePlanIds } from "@/lib/teammates/access.server";
 import { getOrCreateOrganizationForUser } from "@/lib/organization";
+import { mirrorPlanContactsSafely } from "@/lib/teammates/contact-mirror.server";
 
 export async function GET(request: NextRequest) {
   try {
@@ -231,6 +232,17 @@ export async function POST(request: NextRequest) {
         organizationId,
       }
     });
+
+    // T7: if the caller supplied contacts, project them onto the teammate layer — the
+    // hub reads profile + assignment now, not this JSON.
+    if ((body as Record<string, unknown>)?.keyContacts != null) {
+      await mirrorPlanContactsSafely({
+        organizationId,
+        actorUserId: session.user.id,
+        clientId: client.id,
+        keyContacts: (body as Record<string, unknown>).keyContacts,
+      });
+    }
 
     return NextResponse.json({
       success: true,

@@ -61,6 +61,7 @@ import type { SeatUsageSummary } from "@/components/pages/seat-meter";
 // invite means one thing everywhere.
 import { InviteCollaboratorDialog } from "@/components/teammates/invite-collaborator-dialog";
 import { BENEFIT_CONTACT_CATEGORIES } from "@/lib/benefit-contacts";
+import { PersonAccessScreen } from "@/components/teammates/person-access-screen";
 import {
   describeAllRoles,
   describeRole,
@@ -557,7 +558,7 @@ function SeatUsageInfoDialog({
 
 /* ───────────────────────── Seat cards ───────────────────────── */
 
-/** A filled seat: an existing Team Member. Clicking opens the Edit modal. */
+/** A filled seat: an existing Team Member. Clicking opens the T6 management screen. */
 function FilledSeatCard({
   row,
   onEdit,
@@ -849,7 +850,13 @@ export function TeamMembersSection() {
   const [addAccess, setAddAccess] = useState<AccessDraft>(EMPTY_ACCESS);
   const [confirmUpgrade, setConfirmUpgrade] = useState(false);
 
-  // Edit modal
+  /**
+   * T6 Assignment Management screen (spec T6). Opened for anyone who HAS a profile;
+   * the synthesized owner row does not, so it keeps the read-only dialog below.
+   */
+  const [managingProfileId, setManagingProfileId] = useState<string | null>(null);
+
+  // Read-only dialog for the owner (no profile of their own to manage).
   const [editing, setEditing] = useState<TeamMemberRow | null>(null);
   const [editName, setEditName] = useState("");
   const [editAccess, setEditAccess] = useState<AccessDraft>(EMPTY_ACCESS);
@@ -945,6 +952,13 @@ export function TeamMembersSection() {
   };
 
   const openEdit = (row: TeamMemberRow) => {
+    // Spec T6 supersedes the old edit form for anyone with a profile: access is
+    // per-assignment, which a single form cannot express. The owner is the one
+    // exception — their access is the Organization itself, not an assignment.
+    if (row.profileId) {
+      setManagingProfileId(row.profileId);
+      return;
+    }
     setEditing(row);
     setEditName(row.name);
     setEditAccess({
@@ -1334,7 +1348,17 @@ export function TeamMembersSection() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Edit Team Member / Collaborator ── */}
+      {/* ── T6: Manage access — the per-person Assignment Management screen ── */}
+      <PersonAccessScreen
+        open={managingProfileId !== null}
+        onOpenChange={(open) => {
+          if (!open) setManagingProfileId(null);
+        }}
+        profileId={managingProfileId}
+        onChanged={() => void load()}
+      />
+
+      {/* ── Read-only dialog for the owner (no profile to manage) ── */}
       <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>

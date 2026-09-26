@@ -7,6 +7,7 @@ import { getCategoryPortalVisibility } from "@/lib/portal-category-visibility";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { DUPLICATE_PLAN_NAME_CODE } from "@/lib/duplicate-plan-name-error";
 import { getOrCreateOrganizationForUser } from "@/lib/organization";
+import { mirrorPlanContactsSafely } from "@/lib/teammates/contact-mirror.server";
 
 /** Persist logo removal: Prisma update must set null, not omit the field. */
 function companyLogoFieldsForPersistence(
@@ -542,6 +543,19 @@ export async function POST(request: NextRequest) {
           },
         });
       }
+
+      // T7: keep the teammate layer in step with this draft's contacts. A draft hub is
+      // reachable, and T5's invite can be raised against a draft id, so both must see
+      // the people the wizard just saved. Autosave is frequent, which is fine: the
+      // mirror reconciles rather than appends.
+      await mirrorPlanContactsSafely({
+        organizationId:
+          (client as any)?.organizationId ??
+          (await getOrCreateOrganizationForUser(session.user.id)),
+        actorUserId: session.user.id,
+        clientId: client.id,
+        keyContacts: clientUpdateData.keyContacts,
+      });
 
       // --- 4. Save Documents ---
       if (stepData.complianceDocuments) {

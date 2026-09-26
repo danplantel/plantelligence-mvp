@@ -672,6 +672,152 @@ export async function setTeamMemberActive({
   return { profileId, seats: await getSeatUsage(organizationId) };
 }
 
+/* ─────────────── T6: the Assignment Management screen's reader ─────────────── */
+
+/** One plan a person is attached to, as the T6 screen renders it. */
+export interface MembershipAssignmentDetail {
+  id: string;
+  clientId: string;
+  planName: string;
+  role: TeammateAssignmentRole;
+  /** `all` | `selected` — the screen labels these All / Certain. */
+  categoryScope: TeammateCategoryScope;
+  categories: string[];
+  showOnBenefitsHub: boolean;
+  inviteNote: string | null;
+  inviteDueDate: string | null;
+  invitedAt: string | null;
+  lastChangedAt: string | null;
+}
+
+export interface MembershipDetail {
+  profile: {
+    id: string;
+    name: string;
+    email: string;
+    headshot: string | null;
+    companyName: string | null;
+    personType: TeammatePersonType;
+    state: TeammateProfileState;
+    /** Spec T1 Part B item 4 — Team Members only. */
+    allPlans: boolean;
+    deactivatedAt: string | null;
+  };
+  /** Spec T6 Part A item 1: "assignments listed below by plan". */
+  assignments: MembershipAssignmentDetail[];
+  /** The organization's plans, for the "Certain Plans" searchable checklist. */
+  plans: { id: string; companyName: string }[];
+  seats: SeatUsage;
+  /**
+   * Spec T6 Part B item 3: "Delete Profile: allowed only when the person has no
+   * remaining assignments." Mirrored to the client so the action can be disabled
+   * with an explanation instead of failing on click; the guard itself still lives in
+   * `deleteTeammateProfile`, so a direct API call cannot bypass it.
+   */
+  canDeleteProfile: boolean;
+}
+
+/**
+ * Everything the T6 per-person screen needs, in one read.
+ *
+ * A single reader rather than three calls from the client, so the header, the plan
+ * list and the assignment list cannot disagree with each other while the screen is
+ * open — which matters because the screen's whole job is showing a person's access
+ * accurately.
+ */
+export async function getMembershipDetail({
+  organizationId,
+  profileId,
+}: {
+  organizationId: string;
+  profileId: string;
+}): Promise<MembershipDetail> {
+  const profile = await prisma.teammateProfile.findFirst({
+    where: { id: profileId, organizationId },
+  });
+  if (!profile) {
+    throw new TeammateDataError("Teammate profile not found.", 404);
+  }
+
+  const [assignments, company, plans, seats] = await Promise.all([
+    prisma.planAssignment.findMany({
+      where: { profileId, organizationId },
+      orderBy: { createdAt: "asc" },
+    }),
+    profile.companyId
+      ? prisma.teammateCompany.findFirst({
+          where: { id: profile.companyId, organizationId },
+          select: { name: true },
+        })
+      : Promise.resolve(null),
+    // Scoped the same way `resolveTargetPlanIds` scopes All Plans, so the checklist
+    // and the write path agree on what "every plan" means.
+    prisma.client.findMany({
+      where: { organizationId },
+      select: { id: true, companyName: true },
+      orderBy: { companyName: "asc" },
+    }),
+    getSeatUsage(organizationId),
+  ]);
+
+  const planIds = [...new Set(assignments.map((row) => row.clientId))];
+  const planRows =
+    planIds.length > 0
+      ? await prisma.client.findMany({
+          where: { id: { in: planIds } },
+          select: { id: true, companyName: true },
+        })
+      : [];
+  const planNameById = new Map(
+    planRows.map((row) => [row.id, row.companyName ?? "Untitled plan"]),
+  );
+
+  const name =
+    [profile.firstName, profile.lastName].filter(Boolean).join(" ").trim() ||
+    profile.email;
+
+  return {
+    profile: {
+      id: profile.id,
+      name,
+      email: profile.email,
+      headshot: profile.headshot ?? null,
+      companyName: company?.name ?? null,
+      personType: profile.type as TeammatePersonType,
+      state: profile.state as TeammateProfileState,
+      allPlans: Boolean(profile.allPlans),
+      deactivatedAt: profile.deactivatedAt
+        ? profile.deactivatedAt.toISOString()
+        : null,
+    },
+    assignments: assignments.map((row) => ({
+      id: row.id,
+      clientId: row.clientId,
+      planName: planNameById.get(row.clientId) ?? "Unknown plan",
+      role: row.role as TeammateAssignmentRole,
+      categoryScope: row.categoryScope as TeammateCategoryScope,
+      categories: Array.isArray(row.categories)
+        ? (row.categories as string[])
+        : [],
+      showOnBenefitsHub: Boolean(row.showOnBenefitsHub),
+      inviteNote: row.inviteNote ?? null,
+      inviteDueDate: row.inviteDueDate
+        ? row.inviteDueDate.toISOString()
+        : null,
+      invitedAt: row.invitedAt ? row.invitedAt.toISOString() : null,
+      lastChangedAt: row.lastChangedAt
+        ? row.lastChangedAt.toISOString()
+        : null,
+    })),
+    plans: plans.map((plan) => ({
+      id: plan.id,
+      companyName: plan.companyName ?? "Untitled plan",
+    })),
+    seats,
+    canDeleteProfile: assignments.length === 0,
+  };
+}
+
 function mostPrivilegedRole(
   roles: TeammateAssignmentRole[],
 ): TeammateAssignmentRole {

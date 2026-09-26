@@ -391,6 +391,93 @@ export async function removeAssignment({
 }
 
 /**
+ * Spec T6 Part A item 4: the per-assignment controls on the management screen — the
+ * role dropdown and the "Show on Benefits Hub" toggle, applied to ONE assignment.
+ *
+ * Deliberately built on [`upsertAssignment`] rather than a second writer, so a
+ * per-assignment edit re-runs everything a create does: the profile and plan must
+ * both belong to the organization, the full permission grid is re-finalized from the
+ * new role, the collaborator hard blocks are re-validated, and the "never remove the
+ * last Owner" guard applies to a demotion. `upsertAssignment` also preserves
+ * `showOnBenefitsHub` and the invite metadata when they are not supplied, and records
+ * `assignment_role_changed` / `assignment_updated` with the actor and the time, which
+ * is T6 Part B item 5.
+ *
+ * Two deliberate behaviours:
+ *  - A **visibility-only** change skips the upsert and goes straight to
+ *    [`setAssignmentShowOnBenefitsHub`], which is the function that audits
+ *    `assignment_visibility_changed`. Routing it through the upsert instead would
+ *    rewrite the role and the grid for a display toggle, and would make the toggle
+ *    fail on a deactivated person for no reason.
+ *  - `role: "custom"` is refused. Custom needs the plan-first grid from T2a, which is
+ *    a separate unbuilt ticket; accepting the string here would write a role the UI
+ *    has no way to configure or explain.
+ */
+export interface UpdateAssignmentInput {
+  assignmentId: string;
+  organizationId: string;
+  actorUserId: string;
+  role?: TeammateAssignmentRole;
+  categoryScope?: TeammateCategoryScope;
+  categories?: string[];
+  showOnBenefitsHub?: boolean;
+}
+
+export async function updateAssignment(input: UpdateAssignmentInput) {
+  const existing = await prisma.planAssignment.findFirst({
+    where: { id: input.assignmentId, organizationId: input.organizationId },
+  });
+  if (!existing) {
+    throw new TeammateDataError("Assignment not found.", 404);
+  }
+
+  if (input.role === "custom") {
+    throw new TeammateDataError(
+      "Custom access is configured with the plan-first grid, which is not built yet.",
+      400,
+      "custom_role_unavailable",
+    );
+  }
+
+  const touchesRoleOrScope =
+    input.role !== undefined ||
+    input.categoryScope !== undefined ||
+    input.categories !== undefined;
+
+  let assignment = existing;
+
+  if (touchesRoleOrScope) {
+    assignment = await upsertAssignment({
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      profileId: existing.profileId,
+      clientId: existing.clientId,
+      // Unsupplied fields keep their current value, so a role-only edit cannot
+      // silently reset the category scope (or vice versa).
+      role: input.role ?? existing.role,
+      categoryScope: input.categoryScope ?? existing.categoryScope,
+      categories: input.categories ?? existing.categories,
+      showOnBenefitsHub: input.showOnBenefitsHub,
+    });
+  }
+
+  const visibilityChanged =
+    input.showOnBenefitsHub !== undefined &&
+    input.showOnBenefitsHub !== existing.showOnBenefitsHub;
+
+  if (visibilityChanged) {
+    assignment = await setAssignmentShowOnBenefitsHub({
+      assignmentId: existing.id,
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      showOnBenefitsHub: input.showOnBenefitsHub as boolean,
+    });
+  }
+
+  return assignment;
+}
+
+/**
  * The plan must belong to the organization. A plan that predates the T1
  * backfill may still have a null `organizationId`, so fall back to comparing the
  * plan's legacy owner against the organization's owner.
