@@ -624,6 +624,152 @@ All Plans to a single plan — removing the dropped assignment, flipping the
 
 ---
 
+## 9b. T4 — Invite Collaborator from Create Benefits
+
+Shipped: **A1, A2, A3, A5, A6 + B1, B2, B3, B5.** Two items are deferred on purpose
+— see "Deferred" at the end of this section.
+
+### Where it lives
+
+| Piece | File |
+|---|---|
+| Invite writer, plan-assignment reader, collaborator search | [`lib/teammates/invites.server.ts`](../lib/teammates/invites.server.ts) |
+| "Who is this?" table + preset mapping (shared with the dialog) | [`types/teammate.ts`](../types/teammate.ts) |
+| Invite email template | [`sendCollaboratorInviteEmail`](../lib/email.ts:745) |
+| Dialog | [`invite-collaborator-dialog.tsx`](../components/pages/benefits/invite-collaborator-dialog.tsx) |
+| Card button + "Assigned to …" chip | [`benefits-list.tsx`](../components/pages/benefits/benefits-list.tsx) |
+| Contacts-step accordion (invite lives here) | [`step-3.tsx`](../components/wizard/benefits-steps/step-3.tsx) |
+
+### Entry points — the Create / Edit benefits workflow
+
+1. **Browse Benefits** (`/benefits`): next to Edit on each created category card, with
+   the "Assigned to …" line directly above it.
+2. **Contacts step** — the one place that serves **both** the Edit Benefit Contacts tab
+   (`<BenefitsStep3 section="contacts" />`) and Create Benefits Step 3
+   (`<BenefitsStep3 />`), so a single implementation covers both workflows. It renders
+   two **accordion sections**, both open by default:
+   - **Support Contacts** — the existing behaviour (the plan's people, capped per
+     benefit), now collapsible with a "N of MAX" badge in its header.
+   - **Collaborators** — who is assigned to this plan, each row showing headshot, name,
+     email, partner company, role, state (or "Deactivated") and a "This section" /
+     "Other sections" badge derived from whether that assignment covers the category
+     being edited. **Invite Collaborator** lives here, and the invite section is
+     disabled until Step 1 has both a plan and a category, because those two things are
+     what the invite is scoped by — the dialog never asks for them.
+
+   The invite deliberately moved off the page footers: an earlier pass put it in the
+   Edit Benefit bottom action bar and the wizard footer, which made it a page-level
+   action competing with Cancel/Save rather than something about *who helps with this
+   section*. The `BenefitsWizard.extraActions` slot added for that is gone again.
+
+### API
+
+| Route | Purpose |
+|---|---|
+| `POST /api/teammates/invite-collaborator` | Resolve/reuse the person, merge the assignment, audit, then email. |
+| `GET /api/teammates/invite-collaborator?clientId=&email=` | The domain guess for the address being typed. |
+| `GET /api/teammates/plan-assignments?planId=` | Who is assigned to a plan, for the card chips. |
+| `GET /api/teammates/collaborators/search?q=` | "Add Existing Collaborator" typeahead. |
+
+`POST` is gated on `org_settings: edit`, which is the Open Decision's "Can Editors
+invite Collaborators? **No: Owner/Admin only**" expressed as one rule — a Collaborator
+can never hold that row (hard block) and an Editor's grid does not include it. The
+two GETs are gated on `org_settings: view`, except `plan-assignments`, which checks
+the caller's own access to *that plan* because it is read from a plan screen.
+
+### The rules, and where they come from
+
+1. **Scope is pinned, never asked for.** The dialog receives `planId` and `category`
+   from the card it was opened on and shows them as locked chips, so an invite from
+   Ayres → Group Health writes exactly one assignment for exactly that plan and
+   category (the acceptance criterion).
+2. **"Who is this?" → preset lives in `types/teammate.ts`** as data
+   (`WHO_IS_THIS_OPTIONS` / `roleForWhoIsThisContext`), so the dialog and the writer
+   cannot disagree: Plan Sponsor HR, Outside Advisor/Specialist and Provider Rep →
+   Contributor; Reviewer only → Reviewer. An unknown answer is refused rather than
+   defaulted.
+3. **The domain guess is a pre-selection, not a correction.** An address on the plan
+   sponsor's domain pre-selects "Plan Sponsor HR" and explains why; once the advisor
+   answers the field themselves the guess stops overwriting them. Sponsor domains are
+   the plan's `companyWebsite` plus its key contacts' email domains — deliberately
+   *not* `getOrganizationDomains`, which describes the advisor's own firm and drives
+   the T3 Team-Member guess.
+4. **No seat check.** Only Team Members consume seats, so this path never calls
+   `assertSeatAvailable`.
+5. **No All Plans.** One plan wide, and `allPlans` is never set on the created
+   profile (T2a hides All Plans for Collaborators).
+6. **Re-inviting merges.** `upsertAssignment` writes the category list verbatim, so
+   the writer unions the new category into the existing list instead of replacing it.
+   An existing assignment also keeps its role — a second invite for a different
+   category is not a role change — and the response reports `roleApplied: false`.
+7. **Team Members are refused** with `already_a_team_member` (409) and a pointer at
+   Settings → Team Members: that email already holds a seat, and silently rewriting
+   their access from a benefits screen is the wrong surface for it.
+8. **Order: person → assignment → state → audit → email.** The email is last and
+   non-fatal, so a mail failure can neither leave an unaudited grant behind nor roll
+   back a grant the advisor asked for. The dialog reports that case as a warning
+   ("the invite was saved, but the email could not be sent") rather than an error.
+9. **The missing-field list is shared, not re-derived.** The writer calls the same
+   `getBenefitCompleteness` that `/api/benefits` calls, with the same inputs, so the
+   email and the card's amber chips cannot disagree; the card's
+   "Assigned to Jane · 3 fields missing" reads the count straight off that row. The
+   deep link is `/edit-benefit/{planId}/{categorySlug}` — the section the invite is
+   scoped to.
+10. **Search matches in JS on purpose.** Prisma's MongoDB connector has no
+    case-insensitive `contains` (the SQL-only `mode: "insensitive"`), so a filter
+    would miss "jane" → "Jane Smith". One organization's external collaborators is a
+    small set, so it is loaded and filtered. Deactivated people are excluded —
+    reactivating them is a Settings decision, not something an invite should do.
+
+### Data added
+
+`PlanAssignment.inviteNote` and `PlanAssignment.inviteDueDate`, both nullable.
+`upsertAssignment` treats `undefined` as "leave it alone", so an ordinary edit from
+Settings cannot wipe the invite's note or deadline. The new audit action
+`collaborator_invited` records the source (`create_benefits`), the plan, the category,
+the "Who is this?" label, whether the profile was reused, and the due date.
+
+**An invite only writes the metadata it was given.** `verify-t4` caught the first
+version clearing it: re-inviting the same person for a *different* category on the
+same plan passed `inviteNote: null` / `inviteDueDate: null` into `upsertAssignment`,
+which overwrote the note and deadline the first invite had set. The writer now
+includes the pair only when the advisor actually supplied a note or a date — a plain
+"add another category" re-invite leaves the original invite intact, while a
+deliberately filled form still writes exactly what it shows.
+
+### Acceptance
+
+```
+npm run teammates:verify-t4     ->  62/62 assertions passed
+```
+
+Covers the reachable criteria: an invite writes exactly the plan and category it was
+raised from; a second invite on another plan adds an assignment and reuses the
+profile; re-inviting the same plan merges the category, keeps the role and keeps the
+original note and due date; the deep link's pieces resolve; the "Who is this?"
+mapping and the sponsor-domain guess behave (including that the advisor's own domain
+is not the sponsor); no seat is consumed; All Plans is never set on a collaborator; a
+Team Member's email is refused; the card rows are scoped per plan; the
+existing-collaborator search matches name, email and company case-insensitively while
+hiding deactivated people; and every invite is audited. It also asserts the
+**deferral** for criterion 4 — `PlanAssignment` has no review column — so the gap is
+recorded rather than implied. No email leaves the machine: every invite in the script
+passes `skipEmail: true`.
+
+### Deferred, with the reason
+
+- **A4 "Customize access" → the T2a plan-first grid.** T2a is a separate ticket. The
+  affordance is rendered **visible but disabled** with a line explaining that the grid
+  arrives with custom roles, rather than being a doorway into a screen that does not
+  exist. When T2a lands this becomes a link, and the invite gains a
+  `customPermissionSet` argument that `upsertAssignment` already accepts.
+- **B4 "Ready for Review" → Approve / Send Back.** Needs a review state
+  `PlanAssignment` does not have (it carries only `showOnBenefitsHub`, `invitedBy*`,
+  `lastChangedBy*`) plus a notification channel — the header notifications today are
+  derived from documents and meetings, there is no inbox. Its own ticket.
+
+---
+
 ## 10. Residual migration debt
 
 Tracked, deliberately **not** part of T1:
@@ -648,8 +794,18 @@ Tracked, deliberately **not** part of T1:
 
 ## 11. Next tickets
 
-- **T2a** — Custom role UI over the existing grid contract (no schema change).
-- **T3** — Settings → Team, seat counter, onboarding invite step.
+- **T2a** — Custom role UI over the existing grid contract (no schema change). It
+  unblocks the "Customize access" affordance left disabled in T4 and the `custom`
+  role in T6's per-plan controls.
+- **T4 follow-ups** — wire "Customize access" once T2a lands; build the
+  Ready-for-Review / Approve / Send-Back workflow (needs a review state on
+  `PlanAssignment` and a notification channel).
+- **T5** — Key Contacts entry point: "Complete Profile Myself" (saves a Contact, no
+  login) vs "Invite Collaborator to Complete Profile", plus "Invite to collaborate"
+  on an existing Contact.
+- **T6** — Assignment management screen: profile per person, per-plan controls, and
+  the three separate actions Remove Assignment / Deactivate / Delete Profile.
+- **T7** — Benefits Hub contact display (My Benefits Team + the category page).
 - **T2 follow-up** — migrate the remaining owner-scoped routes to
   `requirePlanAccess` (see the coverage table in §8) and wire
   `listAccessiblePlanIds` into the plan selector.

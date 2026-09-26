@@ -65,6 +65,12 @@ export interface UpsertAssignmentInput {
   categoryScope?: TeammateCategoryScope;
   categories?: string[];
   showOnBenefitsHub?: boolean;
+  /**
+   * T4 invite metadata. Left `undefined` by every non-invite caller, which is why
+   * the update below treats "undefined" as "leave it alone" rather than "clear it".
+   */
+  inviteNote?: string | null;
+  inviteDueDate?: Date | null;
   /** Soft-warning codes the user confirmed (spec T2a save-and-audit). */
   warningsConfirmed?: string[] | null;
 }
@@ -176,6 +182,8 @@ export async function upsertAssignment(input: UpsertAssignmentInput) {
       showOnBenefitsHub: input.showOnBenefitsHub ?? true,
       invitedByUserId: input.actorUserId,
       invitedAt: now,
+      inviteNote: input.inviteNote ?? null,
+      inviteDueDate: input.inviteDueDate ?? null,
       lastChangedByUserId: input.actorUserId,
       lastChangedAt: now,
     },
@@ -187,6 +195,11 @@ export async function upsertAssignment(input: UpsertAssignmentInput) {
       ...(input.showOnBenefitsHub === undefined
         ? {}
         : { showOnBenefitsHub: input.showOnBenefitsHub }),
+      // Only an invite sets these, so an ordinary edit must not wipe them.
+      ...(input.inviteNote === undefined ? {} : { inviteNote: input.inviteNote }),
+      ...(input.inviteDueDate === undefined
+        ? {}
+        : { inviteDueDate: input.inviteDueDate }),
       lastChangedByUserId: input.actorUserId,
       lastChangedAt: now,
     },

@@ -22,7 +22,9 @@ import {
 } from "@/lib/plan-selector-storage";
 import { isActiveClientStatus } from "@/lib/active-client-status";
 import { categoryToSlug } from "@/lib/benefit-category-slug";
-import { Loader2, Pencil, Plus } from "lucide-react";
+import { Headshot } from "@/components/ui/headshot";
+import { InviteCollaboratorDialog } from "@/components/pages/benefits/invite-collaborator-dialog";
+import { Loader2, Pencil, Plus, UserPlus } from "lucide-react";
 
 interface BenefitRow {
   planId: string;
@@ -41,6 +43,22 @@ interface BenefitRow {
   isComplete: boolean;
   /** What is still missing when `isComplete` is false. */
   missingInfo: string[];
+}
+
+/**
+ * One person's assignment on the selected plan, flattened by
+ * `/api/teammates/plan-assignments`. Mirrors `PlanAssignmentRow` in
+ * lib/teammates/invites.server.ts — the card needs the person AND the assignment.
+ */
+interface PlanAssignmentRow {
+  assignmentId: string;
+  profileId: string;
+  name: string;
+  email: string;
+  headshot: string | null;
+  role: string;
+  categoryScope: "all" | "selected";
+  categories: string[];
 }
 
 /**
@@ -115,6 +133,54 @@ export function BenefitsListPage() {
     () => rows.filter((row) => row.planId === selectedPlanId),
     [rows, selectedPlanId],
   );
+
+  // Who is assigned to the selected plan (T4 Part A item 6). Scoped to one plan so
+  // the card can show "Assigned to Jane" without the page loading every assignment
+  // in the organization.
+  const { data: assignmentData, mutate: mutateAssignments } = useSWR(
+    selectedPlanId
+      ? `/api/teammates/plan-assignments?planId=${encodeURIComponent(selectedPlanId)}`
+      : null,
+    fetcher,
+    { keepPreviousData: true, revalidateOnFocus: false },
+  );
+
+  /**
+   * Category → the assignment shown on that card.
+   *
+   * Explicit category scope wins; an assignment with "all categories" on this plan
+   * is the fallback for the cards nobody claimed, because otherwise a card would
+   * read "unassigned" while a collaborator can in fact edit it.
+   */
+  const assignmentByCategory = useMemo(() => {
+    const assignments: PlanAssignmentRow[] = assignmentData?.assignments ?? [];
+    const normalize = (value: string) =>
+      value.trim().toLowerCase().replace(/\s+/g, " ");
+    const map = new Map<string, PlanAssignmentRow>();
+
+    for (const assignment of assignments) {
+      if (assignment.categoryScope === "all") continue;
+      for (const category of assignment.categories) {
+        const key = normalize(category);
+        if (!map.has(key)) map.set(key, assignment);
+      }
+    }
+
+    const allCategories = assignments.find(
+      (assignment) => assignment.categoryScope === "all",
+    );
+    if (allCategories) {
+      for (const row of planRows) {
+        const key = normalize(row.category);
+        if (!map.has(key)) map.set(key, allCategories);
+      }
+    }
+
+    return map;
+  }, [assignmentData, planRows]);
+
+  /** The card whose invite dialog is open, by category. */
+  const [inviteCategory, setInviteCategory] = useState<string | null>(null);
 
   const handleSelectPlan = (planId: string) => {
     setSelectedPlanId(planId);
@@ -256,6 +322,16 @@ export function BenefitsListPage() {
               {planRows.map((row) => {
                 const key = `${row.planId}::${row.category}`;
                 const isToggling = toggling[key] === true;
+                // T4 Part A item 6: who is already on this section, and how much of
+                // it is still missing. The count is the SAME `missingInfo` the amber
+                // chips below render, so the two lines cannot disagree.
+                const assignment = assignmentByCategory.get(
+                  row.category.trim().toLowerCase().replace(/\s+/g, " "),
+                );
+                const assignmentMissingFields =
+                  assignment && row.exists && !row.isComplete
+                    ? row.missingInfo.length
+                    : 0;
                 // Headline is the benefit's own name — see isCustomBenefitTitle().
                 const customTitle = isCustomBenefitTitle(
                   row.title,
@@ -323,6 +399,29 @@ export function BenefitsListPage() {
                           className through `cn()`, so these win over the variant's
                           own colours. Padding/size are tightened to keep the row
                           height unchanged from the plain-text version. */}
+                      {/* T4 Part A item 6: who is already on this section. The
+                          missing-field count is the same `missingInfo` the chips
+                          above render, so the two cannot disagree. */}
+                      {assignment ? (
+                        <div className="mt-1 flex items-center gap-1.5">
+                          <span className="block h-5 w-5 shrink-0 overflow-hidden rounded-full bg-muted">
+                            <Headshot
+                              src={assignment.headshot}
+                              alt={assignment.name}
+                              monogramName={assignment.name}
+                              wrapperClassName="rounded-full"
+                            />
+                          </span>
+                          <span className="truncate text-[11px] text-muted-foreground">
+                            Assigned to {assignment.name}
+                            {assignmentMissingFields > 0
+                              ? ` · ${assignmentMissingFields} field${
+                                  assignmentMissingFields === 1 ? "" : "s"
+                                } missing`
+                              : ""}
+                          </span>
+                        </div>
+                      ) : null}
                       {row.exists &&
                         !row.isComplete &&
                         row.missingInfo.length > 0 && (
@@ -377,21 +476,36 @@ export function BenefitsListPage() {
                     )}
 
                     {row.exists ? (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="shrink-0 gap-1.5"
-                        onClick={() =>
-                          router.push(
-                            `/edit-benefit/${encodeURIComponent(
-                              row.planId,
-                            )}/${categoryToSlug(row.category)}`,
-                          )
-                        }
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        Edit
-                      </Button>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          title="Invite Collaborator"
+                          onClick={() => setInviteCategory(row.category)}
+                        >
+                          <UserPlus className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">
+                            Invite Collaborator
+                          </span>
+                          <span className="sr-only sm:hidden">Invite</span>
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5"
+                          onClick={() =>
+                            router.push(
+                              `/edit-benefit/${encodeURIComponent(
+                                row.planId,
+                              )}/${categoryToSlug(row.category)}`,
+                            )
+                          }
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
+                        </Button>
+                      </div>
                     ) : (
                       <Button
                         size="sm"
@@ -421,6 +535,17 @@ export function BenefitsListPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* T4: the invite is pinned to the card it was opened from — the plan and
+          category are passed in, never chosen in the dialog. */}
+      <InviteCollaboratorDialog
+        open={inviteCategory !== null}
+        onOpenChange={(next) => !next && setInviteCategory(null)}
+        planId={selectedPlanId}
+        planName={planRows[0]?.planName || "this plan"}
+        category={inviteCategory ?? ""}
+        onInvited={() => void mutateAssignments()}
+      />
     </div>
   );
 }

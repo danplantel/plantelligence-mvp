@@ -1256,6 +1256,11 @@ model PlanAssignment {
 
   invitedByUserId     String?   @db.ObjectId
   invitedAt           DateTime?
+  // T4: the invite's own metadata, captured where it was raised (Create Benefits).
+  // The card and the invite email both read these, so the note and the deadline the
+  // advisor set are visible on both sides of the invite.
+  inviteNote          String?
+  inviteDueDate       DateTime?
   lastChangedByUserId String?   @db.ObjectId
   lastChangedAt       DateTime?
 

@@ -347,6 +347,60 @@ export const PROFILE_STATE_LABELS: Record<TeammateProfileState, string> = {
   active: "Active",
 };
 
+/* ────────────────── T4: inviting a collaborator ────────────────── */
+
+/**
+ * T4 Part A item 3 — the "Who is this?" answers, and the preset each maps to
+ * (Part B item 1: Plan Sponsor HR, Outside Advisor/Specialist and Provider Rep →
+ * Contributor; Reviewer only → Reviewer).
+ *
+ * It lives in this dependency-free module rather than in the invite writer so the
+ * dialog (browser) and the writer (server) cannot disagree about the mapping —
+ * importing it from the server module would drag Prisma into the client bundle.
+ */
+export type WhoIsThisContext =
+  | "plan_sponsor_hr"
+  | "outside_advisor"
+  | "provider_rep"
+  | "reviewer_only";
+
+export const WHO_IS_THIS_OPTIONS: readonly {
+  value: WhoIsThisContext;
+  label: string;
+  role: TeammateAssignmentRole;
+}[] = [
+  { value: "plan_sponsor_hr", label: "Plan Sponsor HR", role: "contributor" },
+  {
+    value: "outside_advisor",
+    label: "Outside Advisor/Specialist",
+    role: "contributor",
+  },
+  { value: "provider_rep", label: "Provider Rep", role: "contributor" },
+  { value: "reviewer_only", label: "Reviewer only", role: "reviewer" },
+];
+
+export function isWhoIsThisContext(value: unknown): value is WhoIsThisContext {
+  return WHO_IS_THIS_OPTIONS.some((option) => option.value === value);
+}
+
+/** The preset written onto the assignment for an answer. */
+export function roleForWhoIsThisContext(
+  context: WhoIsThisContext,
+): TeammateAssignmentRole {
+  return (
+    WHO_IS_THIS_OPTIONS.find((option) => option.value === context)?.role ??
+    "contributor"
+  );
+}
+
+/** The label shown in the invite and stored on the audit event. */
+export function labelForWhoIsThisContext(context: WhoIsThisContext): string {
+  return (
+    WHO_IS_THIS_OPTIONS.find((option) => option.value === context)?.label ??
+    "Collaborator"
+  );
+}
+
 /* ─────────────────────────── Constructors ─────────────────────────── */
 
 /** A fresh, fully-denied grid. Never renders as a blank Custom screen (T2a). */

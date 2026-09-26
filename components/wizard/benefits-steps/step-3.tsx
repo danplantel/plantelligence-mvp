@@ -39,8 +39,23 @@ import {
   Info,
   AlertTriangle,
   Pencil,
+  UserPlus,
 } from "lucide-react";
 import { KeyContact } from "@/types/new-client-wizard";
+import {
+  PROFILE_STATE_LABELS,
+  PRESET_ROLE_LABELS,
+  type TeammateAssignmentRole,
+  type TeammateProfileState,
+} from "@/types/teammate";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Badge } from "@/components/ui/badge";
+import { InviteCollaboratorDialog } from "@/components/pages/benefits/invite-collaborator-dialog";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -71,6 +86,22 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+
+/** One person assigned to this plan, as `/api/teammates/plan-assignments` returns it. */
+interface PlanCollaboratorRow {
+  assignmentId: string;
+  profileId: string;
+  name: string;
+  email: string;
+  headshot: string | null;
+  companyName: string | null;
+  role: TeammateAssignmentRole;
+  categoryScope: "all" | "selected";
+  categories: string[];
+  state: TeammateProfileState;
+  deactivatedAt: string | null;
+  inviteDueDate: string | null;
+}
 
 export function BenefitsStep3({
   section,
@@ -104,6 +135,56 @@ export function BenefitsStep3({
   const atSupportContactLimit = !canAddSupportContact(selectedSupportCount);
   const overSupportContactLimit =
     selectedSupportCount > MAX_SUPPORT_CONTACTS_PER_BENEFIT;
+
+  /* ── Collaborators (T4) ──────────────────────────────────────────────
+     The Contacts step is where an advisor thinks about who helps with the
+     section, so the invite lives here rather than in the page's action bar. The
+     scope comes from Step 1 — the plan and the benefit category — and the dialog
+     receives it, never asks for it. Both accordion sections start open so neither
+     set of people is hidden behind a click. */
+  const [openContactSections, setOpenContactSections] = useState<string[]>([
+    "support-contacts",
+    "collaborators",
+  ]);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [collaborators, setCollaborators] = useState<PlanCollaboratorRow[]>([]);
+  // Bumped after an invite so the list re-reads without a page reload.
+  const [collaboratorsRefreshKey, setCollaboratorsRefreshKey] = useState(0);
+  const invitePlanId = step1Data?.planId || "";
+  const inviteCategory = String(step1Data?.benefitCategory || "");
+
+  useEffect(() => {
+    if (!invitePlanId) {
+      setCollaborators([]);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const response = await fetch(
+          `/api/teammates/plan-assignments?planId=${encodeURIComponent(invitePlanId)}`,
+          { cache: "no-store" },
+        );
+        if (!response.ok) {
+          // No access to the plan (or it is gone): show nobody rather than an
+          // error state — the section is informational.
+          if (!cancelled) setCollaborators([]);
+          return;
+        }
+        const body = (await response.json()) as {
+          assignments?: PlanCollaboratorRow[];
+        };
+        if (!cancelled) setCollaborators(body.assignments ?? []);
+      } catch {
+        if (!cancelled) setCollaborators([]);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [invitePlanId, collaboratorsRefreshKey]);
 
   const selectedPlan = step1Data?.selectedPlan;
   const [localContacts, setLocalContacts] = useState<KeyContact[]>([]);
@@ -542,19 +623,35 @@ export function BenefitsStep3({
   return (
     <>
       <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full mx-auto pb-20">
-        {/* Support Contacts Section */}
+        {/* Support Contacts + Collaborators — two accordion sections, so each set
+            of people on this benefit is its own collapsible block. */}
         {(!section || section === "contacts") && (
-        <Card className="border-none shadow-md overflow-hidden bg-card">
-          <CardHeader className="py-2 border-b bg-gray-50/50 dark:bg-gray-800 dark:border-gray-700">
-            <CardTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-              <Users className="w-5 h-5 text-accent-blue" />
-              Support Contacts
-            </CardTitle>
-            <CardDescription className="text-xs text-muted-foreground">
-              Select the contacts users should reach out to — up to{" "}
-              {MAX_SUPPORT_CONTACTS_PER_BENEFIT} per benefit.
-            </CardDescription>
-          </CardHeader>
+        <Accordion
+          type="multiple"
+          value={openContactSections}
+          onValueChange={setOpenContactSections}
+          className="space-y-4"
+        >
+        <AccordionItem
+          value="support-contacts"
+          className="rounded-xl border bg-card shadow-md"
+        >
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">
+            <span className="flex flex-1 flex-wrap items-center gap-2 text-left">
+              <Users className="w-5 h-5 shrink-0 text-accent-blue" />
+              <span className="text-lg font-bold text-foreground">
+                Support Contacts
+              </span>
+              <Badge variant="secondary" className="font-medium">
+                {selectedSupportCount} of {MAX_SUPPORT_CONTACTS_PER_BENEFIT}
+              </Badge>
+              <span className="w-full text-xs font-normal text-muted-foreground">
+                Select the contacts users should reach out to — up to{" "}
+                {MAX_SUPPORT_CONTACTS_PER_BENEFIT} per benefit.
+              </span>
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4 pt-0">
           <CardContent className="p-3">
             {/* The cap is a rule about the benefit page rather than a technical limit,
                 so it is stated here and enforced on the rows below. */}
@@ -718,7 +815,116 @@ export function BenefitsStep3({
               })}
             </div>
           </CardContent>
-        </Card>
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* Collaborators — external people with scoped access and no seat. */}
+        <AccordionItem
+          value="collaborators"
+          className="rounded-xl border bg-card shadow-md"
+        >
+          <AccordionTrigger className="px-4 py-3 hover:no-underline">
+            <span className="flex flex-1 flex-wrap items-center gap-2 text-left">
+              <UserPlus className="w-5 h-5 shrink-0 text-accent-blue" />
+              <span className="text-lg font-bold text-foreground">
+                Collaborators
+              </span>
+              <Badge variant="secondary" className="font-medium">
+                {collaborators.length}
+              </Badge>
+              <span className="w-full text-xs font-normal text-muted-foreground">
+                External people who help with this section. Free — no seat, and no
+                publish, invite, delete or organization settings.
+              </span>
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4 pt-0">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <Button
+                  size="sm"
+                  className="h-8 gap-1.5 px-3 text-xs font-semibold"
+                  onClick={() => setIsInviteOpen(true)}
+                  disabled={!invitePlanId || !inviteCategory}
+                >
+                  <UserPlus className="h-3.5 w-3.5" />
+                  Invite Collaborator
+                </Button>
+              </div>
+
+              {collaborators.length === 0 ? (
+                <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+                  No collaborators yet. Invite a plan sponsor, an outside advisor or a
+                  provider rep to help fill in this section.
+                </p>
+              ) : (
+                <ul className="space-y-2">
+                  {collaborators.map((person) => {
+                    // The step edits ONE category, so say which people can actually
+                    // work on it — an assignment scoped elsewhere is still listed,
+                    // because the advisor may want to widen it.
+                    const onThisSection =
+                      person.categoryScope === "all" ||
+                      person.categories.some(
+                        (candidate) =>
+                          candidate.trim().toLowerCase() ===
+                          inviteCategory.trim().toLowerCase(),
+                      );
+
+                    return (
+                      <li
+                        key={person.assignmentId}
+                        className="flex flex-wrap items-center gap-3 rounded-lg border p-3"
+                      >
+                        <span className="block h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted">
+                          <Headshot
+                            src={person.headshot}
+                            alt={person.name}
+                            monogramName={person.name}
+                            wrapperClassName="rounded-full"
+                          />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium">
+                            {person.name}
+                          </span>
+                          <span className="block truncate text-xs text-muted-foreground">
+                            {person.email}
+                            {person.companyName ? ` · ${person.companyName}` : ""}
+                          </span>
+                        </span>
+                        <span className="flex shrink-0 flex-wrap items-center gap-1">
+                          <Badge variant="secondary">
+                            {PRESET_ROLE_LABELS[person.role]}
+                          </Badge>
+                          {person.deactivatedAt ? (
+                            <Badge variant="outline" className="text-muted-foreground">
+                              Deactivated
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline">
+                              {PROFILE_STATE_LABELS[person.state]}
+                            </Badge>
+                          )}
+                          <Badge variant={onThisSection ? "default" : "outline"}>
+                            {onThisSection ? "This section" : "Other sections"}
+                          </Badge>
+                        </span>
+                        {person.inviteDueDate ? (
+                          <span className="w-full text-[11px] text-muted-foreground">
+                            Due{" "}
+                            {new Date(person.inviteDueDate).toLocaleDateString()}
+                          </span>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+        </Accordion>
         )}
 
         {/* Edit contact — the SAME editor Step 1 uses to create one (see
@@ -752,6 +958,16 @@ export function BenefitsStep3({
         />
 
 
+
+        {/* T4: scoped to the plan and the category this step is editing. */}
+        <InviteCollaboratorDialog
+          open={isInviteOpen}
+          onOpenChange={setIsInviteOpen}
+          planId={invitePlanId}
+          planName={step1Data?.selectedPlan?.companyName || "this plan"}
+          category={inviteCategory}
+          onInvited={() => setCollaboratorsRefreshKey((key) => key + 1)}
+        />
 
         {/* Plan-level delete confirmation. Placed here for locality only — Radix's
             AlertDialog portals to `document.body`, so tree position doesn't affect

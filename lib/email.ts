@@ -740,3 +740,245 @@ export async function sendPasswordChangedConfirmationEmail(userEmail: string, us
 
   return sendEmail({ to: userEmail, subject, html });
 }
+
+/** Payload for the T4 collaborator invite raised from Create Benefits. */
+export interface CollaboratorInviteEmailInput {
+  to: string;
+  /** The invitee; only the first name is used in the greeting. */
+  collaboratorName?: string | null;
+  /** The advisor who sent the invite. */
+  inviterName?: string | null;
+  /** Their firm, shown so an external recipient knows who is asking. */
+  organizationName?: string | null;
+  planName: string;
+  category: string;
+  /** The "Who is this?" label, e.g. "Plan Sponsor HR". */
+  inviteContext: string;
+  /** Absolute deep link to the assigned benefit section. */
+  sectionUrl: string;
+  /** What still needs filling in on that section, straight from the completeness check. */
+  missingFields: string[];
+  note?: string | null;
+  dueDate?: Date | null;
+}
+
+/**
+ * Invite an external collaborator to complete one benefit section.
+ *
+ * Scope comes entirely from the arguments: this template never decides which plan
+ * or category is in play, it only renders the deep link and the missing-field list
+ * the caller computed, so the email cannot describe an assignment that differs
+ * from the one that was written.
+ */
+export async function sendCollaboratorInviteEmail({
+  to,
+  collaboratorName,
+  inviterName,
+  organizationName,
+  planName,
+  category,
+  inviteContext,
+  sectionUrl,
+  missingFields,
+  note,
+  dueDate,
+}: CollaboratorInviteEmailInput) {
+  const firstName = (collaboratorName || "").trim().split(" ")[0] || "there";
+  const inviter = (inviterName || "").trim() || organizationName?.trim() || "Your benefits advisor";
+  const firm = organizationName?.trim();
+  const subject = `${inviter} invited you to help with ${planName} — ${category}`;
+
+  const missingRows =
+    missingFields.length > 0
+      ? missingFields
+          .map(
+            (field) => `
+                                    <tr>
+                                        <td style="padding: 2px 0 2px 14px; font-size: 14px; color: #666680; line-height: 1.6;">&bull;&nbsp; ${field}</td>
+                                    </tr>`,
+          )
+          .join("")
+      : "";
+
+  const missingBlock =
+    missingFields.length > 0
+      ? `
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 8px;">
+                                            <p class="email-text" style="margin: 0; font-size: 15px; font-weight: 600; color: #1a1a2e;">
+                                                Still needed on this section
+                                            </p>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 20px;">
+                                            <table cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 420px;">${missingRows}
+                                            </table>
+                                        </td>
+                                    </tr>`
+      : "";
+
+  const dueBlock = dueDate
+    ? `
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 20px;">
+                                            <p class="email-text-secondary" style="margin: 0; font-size: 14px; color: #666680; line-height: 1.5;">
+                                                Please complete it by <strong style="color: #1a1a2e;">${dueDate.toLocaleDateString(
+                                                  "en-US",
+                                                  {
+                                                    month: "long",
+                                                    day: "numeric",
+                                                    year: "numeric",
+                                                    timeZone: "UTC",
+                                                  },
+                                                )}</strong>.
+                                            </p>
+                                        </td>
+                                    </tr>`
+    : "";
+
+  const noteBlock = (note || "").trim()
+    ? `
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 20px;">
+                                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-left: 3px solid #3a7bd5; background-color: #f4f6f9; border-radius: 6px;">
+                                                <tr>
+                                                    <td style="padding: 14px 16px;">
+                                                        <p class="email-text-secondary" style="margin: 0; font-size: 14px; color: #666680; line-height: 1.6; font-style: italic;">
+                                                            ${(note || "").trim()}
+                                                        </p>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>`
+    : "";
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="color-scheme" content="light dark">
+        <meta name="supported-color-schemes" content="light dark">
+        <style>
+            @media (prefers-color-scheme: dark) {
+                .email-body { background-color: #1a1a2e !important; }
+                .email-card { background-color: #16213e !important; }
+                .email-text { color: #e0e0e0 !important; }
+                .email-text-secondary { color: #a0a0b0 !important; }
+                .button { background-color: #3a7bd5 !important; }
+                .divider { background-color: #2a2a4a !important; }
+                .logo-default { display: none !important; }
+                .logo-dark { display: block !important; }
+            }
+            @media (prefers-color-scheme: light) {
+                .logo-dark { display: none !important; }
+            }
+        </style>
+    </head>
+    <body class="email-body" style="margin: 0; padding: 0; background-color: #f4f6f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f6f9;">
+            <tr>
+                <td align="center" style="padding: 40px 16px 20px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 560px; width: 100%;">
+                        <tr>
+                            <td align="center" style="padding-bottom: 24px;">
+                                <img src="${logoUrl}" alt="PlanTelligence®" width="220" class="logo-default" style="display: inline; max-width: 220px; height: auto; border: 0;" />
+                                <img src="${logoUrlLight}" alt="PlanTelligence®" width="220" class="logo-dark" style="display: none; max-width: 220px; height: auto; border: 0;" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align="center">
+                                <table width="100%" cellpadding="0" cellspacing="0" border="0" class="email-card" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 40px 32px;">
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 8px;">
+                                            <h1 class="email-text" style="margin: 0; font-size: 22px; font-weight: 600; color: #1a1a2e;">You have been invited to collaborate</h1>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 16px;">
+                                            <p class="email-text-secondary" style="margin: 0; font-size: 15px; color: #666680; line-height: 1.5;">Hi ${firstName},</p>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 16px;">
+                                            <p class="email-text-secondary" style="margin: 0; font-size: 15px; color: #666680; line-height: 1.6;">
+                                                ${inviter}${firm && inviterName?.trim() ? ` (${firm})` : ""} invited you as <strong style="color: #1a1a2e;">${inviteContext}</strong> to help complete the <strong style="color: #1a1a2e;">${category}</strong> section of the <strong style="color: #1a1a2e;">${planName}</strong> benefits hub.
+                                            </p>
+                                        </td>
+                                    </tr>${noteBlock}${missingBlock}
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 20px;">
+                                            <table cellpadding="0" cellspacing="0" border="0">
+                                                <tr>
+                                                    <td align="center" class="button" style="background-color: #1a3a6a; border-radius: 8px;">
+                                                        <a href="${sectionUrl}" style="display: inline-block; padding: 14px 28px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none;">Open the section</a>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>${dueBlock}
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 24px;">
+                                            <p class="email-text-secondary" style="margin: 0; font-size: 13px; color: #888890; line-height: 1.5;">
+                                                If the button does not work, paste this into your browser:<br/>
+                                                <a href="${sectionUrl}" style="color: #1a3a6a; text-decoration: underline; word-break: break-all;">${sectionUrl}</a>
+                                            </p>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 24px; padding-top: 8px;">
+                                            <table width="100%" cellpadding="0" cellspacing="0" border="0" class="divider" style="height: 1px; background-color: #e0e0e8; width: 100%;"><tr><td style="height: 1px; line-height: 1px;">&nbsp;</td></tr></table>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="center">
+                                            <p class="email-text-secondary" style="margin: 0; font-size: 13px; color: #888890; line-height: 1.5;">
+                                                Need help? Contact us at<br/>
+                                                <a href="mailto:support@plantelligence.ai" style="color: #1a3a6a; text-decoration: underline;">support@plantelligence.ai</a>
+                                            </p>
+                                            <p class="email-text-secondary" style="margin: 16px 0 0 0; font-size: 12px; color: #a0a0b0;">
+                                                &copy; ${new Date().getFullYear()} PlanTelligence®. All rights reserved.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to,
+    subject,
+    html,
+    text: [
+      `Hi ${firstName},`,
+      ``,
+      `${inviter} invited you as ${inviteContext} to help complete the ${category} section of the ${planName} benefits hub.`,
+      ...(note?.trim() ? [``, `Note: ${note.trim()}`] : []),
+      ...(missingFields.length > 0
+        ? [``, `Still needed on this section:`, ...missingFields.map((f) => `- ${f}`)]
+        : []),
+      ``,
+      `Open the section: ${sectionUrl}`,
+      ...(dueDate
+        ? [
+            ``,
+            `Please complete it by ${dueDate.toLocaleDateString("en-US", {
+              month: "long",
+              day: "numeric",
+              year: "numeric",
+              timeZone: "UTC",
+            })}.`,
+          ]
+        : []),
+    ].join("\n"),
+  });
+}

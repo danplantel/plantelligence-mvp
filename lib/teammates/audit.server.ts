@@ -30,6 +30,7 @@ export type TeammateAuditAction =
   | "assignment_role_changed"
   | "assignment_visibility_changed"
   | "assignment_removed"
+  | "collaborator_invited"
   | "custom_access_set"
   | "seat_limit_upgrade_confirmed";
 
