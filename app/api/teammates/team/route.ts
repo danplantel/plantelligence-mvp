@@ -5,7 +5,11 @@ import { getOrgSession } from "@/lib/organization-session";
 import { requireOrganizationPermission } from "@/lib/teammates/access.server";
 import { TeammateDataError } from "@/lib/teammates/errors";
 import { expireStaleInvites, getSeatUsage } from "@/lib/teammates/seats.server";
-import { addTeamMember, listTeamMembers } from "@/lib/teammates/team.server";
+import {
+  addTeamMember,
+  listCollaborators,
+  listTeamMembers,
+} from "@/lib/teammates/team.server";
 
 /**
  * Team Member management (spec T3).
@@ -27,7 +31,14 @@ function errorResponse(error: unknown): NextResponse {
   return NextResponse.json({ error: "Internal server error" }, { status: 500 });
 }
 
-/** GET → the Settings → Team list plus the seat meter. */
+/**
+ * GET → the Settings → Team lists plus the seat meter.
+ *
+ * Two lists, not one: `team` is the seat-holding side (owner first, then Team
+ * Members) and `collaborators` is the free side. They are separate readers in
+ * team.server.ts because only one of them synthesizes the owner row, and the
+ * client renders them in different places (seat cards vs an accordion).
+ */
 export async function GET() {
   try {
     const session = await getOrgSession();
@@ -46,12 +57,13 @@ export async function GET() {
     // and the meter never show a seat that has already been released.
     await expireStaleInvites(session.organizationId, session.userId);
 
-    const [team, seats] = await Promise.all([
+    const [team, collaborators, seats] = await Promise.all([
       listTeamMembers(session.organizationId),
+      listCollaborators(session.organizationId),
       getSeatUsage(session.organizationId),
     ]);
 
-    return NextResponse.json({ team, seats });
+    return NextResponse.json({ team, collaborators, seats });
   } catch (error) {
     return errorResponse(error);
   }

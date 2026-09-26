@@ -18,7 +18,9 @@ import prisma from "@/lib/prisma";
 import { TeammateDataError } from "./errors";
 import {
   createTeammateProfile,
+  deactivateTeammateProfile,
   findProfileByEmail,
+  reactivateTeammateProfile,
   setProfileAllPlans,
   updateTeammateProfile,
 } from "./profiles.server";
@@ -212,15 +214,24 @@ export interface UpdateTeamMemberResult {
 }
 
 /**
- * Edit an existing Team Member (the Edit modal behind a populated seat card).
+ * Edit an existing membership: a Team Member (the Edit modal behind a populated
+ * seat card) or a Collaborator (the row actions in the Collaborators accordion).
  *
  * Scope is reconciled rather than replaced: the desired plan set is computed from
  * the requested scope, assignments for plans that dropped out are removed, and the
  * rest are upserted with the new role/category scope. Reusing `upsertAssignment`
  * means the permission grid, the collaborator hard blocks, and the "never remove
- * the last Owner" guard all still apply — an edit cannot bypass T2's rules.
+ * the last Owner" guard all still apply — an edit cannot bypass T2's rules. That is
+ * also why widening this to Collaborators is safe: the grid itself rejects a role
+ * their person type may not hold, so the old type check was redundant rather than
+ * protective.
  *
- * Only Team Members are editable here; collaborators get their own flow (T4/T6).
+ * Two rules are type-aware, both taken from the spec rather than invented here:
+ *  - `allPlans` is Team-Member-only (T2a: "All Plans is shown for Team Members
+ *    only. It is hidden for Collaborators."), so a Collaborator never carries the
+ *    flag even when the scope happens to span every plan today;
+ *  - the role written onto a NEWLY added assignment follows `addTeamMember`'s own
+ *    default — Editor for a Team Member, Contributor for a Collaborator.
  */
 export async function updateTeamMember(
   input: UpdateTeamMemberInput,
@@ -230,13 +241,6 @@ export async function updateTeamMember(
   });
   if (!profile) {
     throw new TeammateDataError("Team Member not found.", 404);
-  }
-  if (profile.type !== "team_member") {
-    throw new TeammateDataError(
-      "Only Team Members can be edited here.",
-      400,
-      "not_a_team_member",
-    );
   }
 
   if (input.name !== undefined) {
@@ -272,12 +276,15 @@ export async function updateTeamMember(
 
   if (input.planScope) {
     // Keep the All-Plans flag in step with the scope, so plans created later are
-    // covered (or not) consistently with what the member sees today.
+    // covered (or not) consistently with what the member sees today — but only for
+    // a Team Member: `allPlans` is not a Collaborator concept, so their
+    // assignments are materialised without the follow-on flag.
     await setProfileAllPlans({
       id: profile.id,
       organizationId: input.organizationId,
       actorUserId: input.actorUserId,
-      allPlans: input.planScope === "all_plans",
+      allPlans:
+        profile.type === "team_member" && input.planScope === "all_plans",
     });
   }
 
@@ -306,7 +313,10 @@ export async function updateTeamMember(
       profileId: profile.id,
       clientId,
       actorUserId: input.actorUserId,
-      role: input.role ?? existingByClient.get(clientId)?.role ?? "editor",
+      role:
+        input.role ??
+        existingByClient.get(clientId)?.role ??
+        (profile.type === "team_member" ? "editor" : "contributor"),
       categoryScope,
       categories,
     });
@@ -396,6 +406,8 @@ export interface TeamMemberRow {
   role: TeammateAssignmentRole;
   status: TeammateProfileState;
   personType: TeammatePersonType;
+  /** Partner/Provider company (T1) the person belongs to; null for the owner. */
+  companyName: string | null;
   planAccess: TeamMemberPlanSummary;
   categoryAccess: TeamMemberCategorySummary;
   allPlans: boolean;
@@ -415,23 +427,52 @@ const ROLE_RANK: Record<TeammateAssignmentRole, number> = {
 };
 
 /**
- * The Settings → Team list.
+ * The Settings → Team Team-Member list.
  *
  * The owner is SYNTHESIZED from the Organization + owning User rather than
  * materialised as a TeammateProfile: that keeps one source of truth for the
  * owner's identity and guarantees the spec's "the owner appears as the first
  * Team Member" without a row that could drift from the User record.
  */
-export async function listTeamMembers(
+export function listTeamMembers(
   organizationId: string,
+): Promise<TeamMemberRow[]> {
+  return listOrgPeople(organizationId, "team_member");
+}
+
+/**
+ * The Settings → Team "Collaborators" list.
+ *
+ * A separate reader from `listTeamMembers`, for two reasons:
+ *  - no owner row is synthesized, because the owner is always a Team Member and
+ *    the Owner preset is not available to a Collaborator at all
+ *    (`COLLABORATOR_PRESET_ROLES` in types/teammate.ts);
+ *  - the `type` filter is what keeps the two lists disjoint, so someone who is
+ *    both an employee and an external partner is represented once per
+ *    organization — by the profile whose type matches the list being read.
+ *
+ * Deactivated profiles are included (with `deactivatedAt`) so the UI can offer
+ * the spec's reactivate path; a caller wanting only live people filters.
+ */
+export function listCollaborators(
+  organizationId: string,
+): Promise<TeamMemberRow[]> {
+  return listOrgPeople(organizationId, "collaborator");
+}
+
+/** Shared row builder behind the two lists above. */
+async function listOrgPeople(
+  organizationId: string,
+  type: TeammatePersonType,
 ): Promise<TeamMemberRow[]> {
   const organization = await prisma.organization.findUnique({
     where: { id: organizationId },
     select: { ownerUserId: true },
   });
 
-  const [owner, profiles, plans] = await Promise.all([
-    organization?.ownerUserId
+  const [owner, profiles, plans, companies] = await Promise.all([
+    // The owner only ever belongs to the Team Member list.
+    type === "team_member" && organization?.ownerUserId
       ? prisma.user.findUnique({
           where: { id: organization.ownerUserId },
           select: {
@@ -455,7 +496,7 @@ export async function listTeamMembers(
         })
       : Promise.resolve(null),
     prisma.teammateProfile.findMany({
-      where: { organizationId, type: "team_member" },
+      where: { organizationId, type },
       orderBy: { createdAt: "asc" },
     }),
     prisma.client.findMany({
@@ -463,9 +504,18 @@ export async function listTeamMembers(
       select: { id: true, companyName: true },
       orderBy: { companyName: "asc" },
     }),
+    // Partner/Provider companies (T1) — a Collaborator is usually attached to one,
+    // which is how several people from the same partner are grouped.
+    prisma.teammateCompany.findMany({
+      where: { organizationId },
+      select: { id: true, name: true },
+    }),
   ]);
 
   const planNameById = new Map(plans.map((plan) => [plan.id, plan.companyName]));
+  const companyNameById = new Map(
+    companies.map((company) => [company.id, company.name]),
+  );
 
   const profileIds = profiles.map((profile) => profile.id);
   const assignments =
@@ -512,6 +562,8 @@ export async function listTeamMembers(
       role: "owner",
       status: "active",
       personType: "team_member",
+      // The owner is a User, not a partner company.
+      companyName: null,
       // The owner implicitly reaches every plan in their organization.
       planAccess: {
         scope: "all",
@@ -559,6 +611,9 @@ export async function listTeamMembers(
       role: mostPrivilegedRole(memberAssignments.map((a) => a.role)),
       status: profile.state,
       personType: profile.type,
+      companyName: profile.companyId
+        ? (companyNameById.get(profile.companyId) ?? null)
+        : null,
       planAccess: {
         scope: planScope,
         planIds,
@@ -575,6 +630,46 @@ export async function listTeamMembers(
   }
 
   return rows;
+}
+
+/**
+ * Deactivate / reactivate a profile (spec T6: "Deactivate: all access to the
+ * organization ends; the profile is kept.").
+ *
+ * A thin pass-through so the route never has to import `profiles.server`
+ * directly, and both directions stay audited — the writers there record
+ * `profile_deactivated` / `profile_reactivated`.
+ *
+ * Deactivating also FREES a Team Member's seat: `getSeatUsage` skips any profile
+ * carrying a `deactivatedAt`. The fresh meter is returned so the caller can show
+ * the released seat without a second round trip.
+ */
+export async function setTeamMemberActive({
+  organizationId,
+  actorUserId,
+  profileId,
+  active,
+}: {
+  organizationId: string;
+  actorUserId: string;
+  profileId: string;
+  active: boolean;
+}): Promise<{ profileId: string; seats: SeatUsage }> {
+  if (active) {
+    await reactivateTeammateProfile({
+      id: profileId,
+      organizationId,
+      actorUserId,
+    });
+  } else {
+    await deactivateTeammateProfile({
+      id: profileId,
+      organizationId,
+      actorUserId,
+    });
+  }
+
+  return { profileId, seats: await getSeatUsage(organizationId) };
 }
 
 function mostPrivilegedRole(

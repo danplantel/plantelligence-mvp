@@ -448,10 +448,10 @@ Both are centralised so they are one-line changes:
 
 | Route | Purpose |
 |---|---|
-| `GET /api/teammates/team` | The Settings → Team list plus the seat meter. Sweeps expired invites first. |
+| `GET /api/teammates/team` | Both Settings → Team lists (`team` + `collaborators`) plus the seat meter. Sweeps expired invites first. |
 | `POST /api/teammates/team` | Add a Team Member/Collaborator: domain guess, seat check, then profile + one assignment per plan. |
 | `GET /api/teammates/seats` | The meter alone, for the dashboard. |
-| `PATCH /api/teammates/team/[profileId]` | Edit a Team Member: name, role, plan access, benefits access. |
+| `PATCH /api/teammates/team/[profileId]` | Edit a membership (name, role, plan access, benefits access), or `action: "deactivate" \\| "reactivate"` for the spec T6 state transition. |
 
 All three are gated on the `org_settings` permission, which is what produces the
 spec's "Owner/Admin only" outcome — a Collaborator can never hold Org Settings
@@ -460,12 +460,40 @@ spec's "Owner/Admin only" outcome — a Collaborator can never hold Org Settings
 ### UI
 
 - Settings gains a **Team Members** tab built around **one card per seat**: an
-  occupied card shows the person (initials, name, email, role, status, plan and
+  occupied card shows the person (headshot, name, email, role, status, plan and
   category access) and opens the **Edit Team Member** modal; an open card opens the
   **Add Team Member** modal. The grid is `max(seatsIncluded, members)` wide, so if
   the organization is over its allowance no member is hidden. Usage and the pending
   invite count sit above the grid, with the upgrade-confirm dialog on a
   seat-limited add.
+- **Collaborators** get their own accordion *under* the seat cards, because a seat
+  is exactly what they do not consume: listing them as cards would imply they hold
+  one. Each row shows headshot, name, email, the partner company (T1's
+  `TeammateCompany`, which is how one firm's several people are recognisable), the
+  summarised role and status, plan + category access, and Edit /
+  Deactivate–Reactivate actions. "Add Collaborator" reuses the same modal, pinned
+  to `type: "collaborator"` so a same-domain address is still created as a
+  Collaborator; the modal's Team-Member mode still leaves the type to the server's
+  email-domain guess, which its own copy explains.
+- The client renders that list from a **separate server reader**,
+  `listCollaborators`, and the two lists are deliberately disjoint: only
+  `listTeamMembers` synthesizes the owner row, and each filters on
+  `TeammateProfile.type`. Both now share one internal row builder (`listOrgPeople`),
+  so plan scope, category scope and the summarised role are computed identically —
+  a Collaborator row cannot report access differently from a seat card.
+- `AccessFields` gained two props so the collaborator flow reuses it honestly:
+  `roles` (Contributors/Reviewer/Viewer via `COLLABORATOR_PRESET_ROLES` — a
+  Collaborator can never be Owner or Admin) and `allowAllPlans` (spec T2a: "All
+  Plans is shown for Team Members only"). Since a collaborator whose assignments
+  cover every plan reports scope `all`, `openEdit` maps that back to the explicit
+  plan list — the same access, expressed in the only form their editor offers.
+- `updateTeamMember` was widened from Team-Member-only to **any membership**. The
+  old `type !== "team_member"` rejection was redundant rather than protective: the
+  permission grid already refuses a role the person's type may not hold, and the
+  last-Owner guard lives in the assignment writers. Two rules stayed type-aware —
+  `allPlans` is never set on a Collaborator, and a newly created assignment
+  defaults to Contributor for one (Editor for a Team Member), matching
+  `addTeamMember`.
 - **Edit** reconciles rather than replaces: the desired plan set is computed from
   the requested scope, assignments for dropped plans are removed, and the survivors
   are upserted with the new role and category scope. It reuses `upsertAssignment` /

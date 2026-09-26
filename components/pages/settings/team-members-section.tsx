@@ -63,6 +63,7 @@ import {
   type RoleCapability,
 } from "@/lib/teammates/role-summary";
 import {
+  COLLABORATOR_PRESET_ROLES,
   PRESET_ROLE_LABELS,
   PRESET_ROLES,
   PROFILE_STATE_LABELS,
@@ -84,9 +85,13 @@ interface TeamMemberRow {
   role: TeammateAssignmentRole;
   status: keyof typeof PROFILE_STATE_LABELS;
   personType: "team_member" | "collaborator";
+  /** Partner/Provider company (T1); null for the owner and people without one. */
+  companyName?: string | null;
   planAccess: { scope: "all" | "certain" | "none"; planIds: string[]; planNames: string[] };
   categoryAccess: { scope: "all" | "certain" | "none"; categories: string[] };
   allPlans: boolean;
+  /** ISO timestamp while deactivated; null/absent for a live profile. */
+  deactivatedAt?: string | null;
 }
 
 interface PlanOption {
@@ -116,6 +121,19 @@ interface AccessDraft {
 const EMPTY_ACCESS: AccessDraft = {
   role: "editor",
   planScope: "all_plans",
+  planIds: [],
+  categoryScope: "all",
+  categories: [],
+};
+
+/**
+ * The same draft, scoped for an external Collaborator: Contributor (the server's
+ * own default for that type) and an explicit plan selection, because All Plans is
+ * not offered to Collaborators (spec T2a).
+ */
+const EMPTY_COLLABORATOR_ACCESS: AccessDraft = {
+  role: "contributor",
+  planScope: "certain_plans",
   planIds: [],
   categoryScope: "all",
   categories: [],
@@ -607,17 +625,90 @@ function EmptySeatCard({ onAdd }: { onAdd: () => void }) {
   );
 }
 
+/**
+ * One Collaborator: an external person with scoped access and no seat.
+ *
+ * Rendered as a row rather than a card because the card grid means "seats", and a
+ * Collaborator is defined by not holding one. The company is shown because a
+ * partner firm usually sends several people (T1 groups them on one
+ * `TeammateCompany`).
+ */
+function CollaboratorRow({
+  row,
+  onEdit,
+  onToggleActive,
+}: {
+  row: TeamMemberRow;
+  onEdit: (row: TeamMemberRow) => void;
+  onToggleActive: (row: TeamMemberRow) => void;
+}) {
+  const isDeactivated = Boolean(row.deactivatedAt);
+
+  return (
+    <li className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
+      <span className="block h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted">
+        <Headshot
+          src={row.headshot}
+          alt={row.name}
+          monogramName={row.name}
+          wrapperClassName="rounded-full"
+        />
+      </span>
+
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">{row.name}</span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {row.email}
+          {row.companyName ? ` · ${row.companyName}` : ""}
+        </span>
+        <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
+          {planAccessLabel(row)} · {categoryAccessLabel(row)}
+        </span>
+      </span>
+
+      <span className="flex shrink-0 flex-wrap items-center gap-1">
+        <Badge variant="secondary">{PRESET_ROLE_LABELS[row.role]}</Badge>
+        {isDeactivated ? (
+          <Badge variant="outline" className="text-muted-foreground">
+            Deactivated
+          </Badge>
+        ) : (
+          <Badge variant="outline">
+            {PROFILE_STATE_LABELS[row.status] ?? row.status}
+          </Badge>
+        )}
+      </span>
+
+      <span className="flex shrink-0 items-center gap-1">
+        <Button variant="ghost" size="sm" onClick={() => onEdit(row)}>
+          <Pencil className="mr-1.5 h-3.5 w-3.5" />
+          Edit
+        </Button>
+        <Button variant="ghost" size="sm" onClick={() => onToggleActive(row)}>
+          {isDeactivated ? "Reactivate" : "Deactivate"}
+        </Button>
+      </span>
+    </li>
+  );
+}
+
 /* ───────────────────── Shared access fields ───────────────────── */
 
 function AccessFields({
   value,
   onChange,
   plans,
+  roles = TEAM_MEMBER_ROLES,
+  allowAllPlans = true,
   disabled,
 }: {
   value: AccessDraft;
   onChange: (next: AccessDraft) => void;
   plans: PlanOption[];
+  /** Presets this person type may hold; a Collaborator can never be Owner/Admin. */
+  roles?: readonly TeammateAssignmentRole[];
+  /** Spec T2a: "All Plans is shown for Team Members only." */
+  allowAllPlans?: boolean;
   disabled?: boolean;
 }) {
   const toggle = (list: string[], item: string): string[] =>
@@ -642,7 +733,7 @@ function AccessFields({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {TEAM_MEMBER_ROLES.map((option) => (
+              {roles.map((option) => (
                 <SelectItem key={option} value={option}>
                   {PRESET_ROLE_LABELS[option]}
                 </SelectItem>
@@ -664,7 +755,9 @@ function AccessFields({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all_plans">All Plans</SelectItem>
+              {allowAllPlans ? (
+                <SelectItem value="all_plans">All Plans</SelectItem>
+              ) : null}
               <SelectItem value="certain_plans">Certain Plans</SelectItem>
             </SelectContent>
           </Select>
@@ -757,6 +850,18 @@ export function TeamMembersSection() {
   const [editName, setEditName] = useState("");
   const [editAccess, setEditAccess] = useState<AccessDraft>(EMPTY_ACCESS);
 
+  // Collaborators: external people, no seat. They get their own list and their own
+  // Add flow, because they are created with a different type and cannot be given
+  // All Plans or the Owner/Admin presets.
+  const [collaborators, setCollaborators] = useState<TeamMemberRow[]>([]);
+  const [collaboratorsOpen, setCollaboratorsOpen] = useState("collaborators");
+  /** Which person type the Add modal is creating right now. */
+  const [addType, setAddType] = useState<"team_member" | "collaborator">(
+    "team_member",
+  );
+  /** The collaborator awaiting a deactivate confirmation. */
+  const [deactivating, setDeactivating] = useState<TeamMemberRow | null>(null);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
 
@@ -775,12 +880,15 @@ export function TeamMembersSection() {
       if (teamResponse.ok) {
         const body = (await teamResponse.json()) as {
           team?: TeamMemberRow[];
+          collaborators?: TeamMemberRow[];
           seats?: SeatUsageSummary;
         };
         setTeam(body.team ?? []);
+        setCollaborators(body.collaborators ?? []);
         setSeats(body.seats ?? null);
       } else {
         setTeam([]);
+        setCollaborators([]);
       }
 
       if (plansResponse.ok) {
@@ -804,9 +912,20 @@ export function TeamMembersSection() {
   }, [load]);
 
   const openAdd = () => {
+    setAddType("team_member");
     setName("");
     setEmail("");
     setAddAccess(EMPTY_ACCESS);
+    setConfirmUpgrade(false);
+    setIsAddOpen(true);
+  };
+
+  /** The same modal, forced to the free Collaborator type and its own defaults. */
+  const openAddCollaborator = () => {
+    setAddType("collaborator");
+    setName("");
+    setEmail("");
+    setAddAccess(EMPTY_COLLABORATOR_ACCESS);
     setConfirmUpgrade(false);
     setIsAddOpen(true);
   };
@@ -816,7 +935,16 @@ export function TeamMembersSection() {
     setEditName(row.name);
     setEditAccess({
       role: row.isOwner ? "owner" : row.role,
-      planScope: row.planAccess.scope === "all" ? "all_plans" : "certain_plans",
+      // A Collaborator is never offered All Plans (T2a). A collaborator whose
+      // assignments happen to cover every plan reports scope "all", so that maps
+      // back to the explicit list of plans they actually have — the same access,
+      // expressed in the only form their editor accepts.
+      planScope:
+        row.personType === "collaborator"
+          ? "certain_plans"
+          : row.planAccess.scope === "all"
+            ? "all_plans"
+            : "certain_plans",
       planIds: row.planAccess.planIds,
       categoryScope: row.categoryAccess.scope === "all" ? "all" : "certain",
       categories: row.categoryAccess.categories,
@@ -824,6 +952,13 @@ export function TeamMembersSection() {
   };
 
   const submitAdd = async (confirmed: boolean) => {
+    // "Certain Plans" with nothing ticked would 400 on the server; catch it here so
+    // the message points at the field instead of the request.
+    if (addAccess.planScope === "certain_plans" && addAccess.planIds.length === 0) {
+      toast.error("Select at least one plan for this person.");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const response = await fetch("/api/teammates/team", {
@@ -832,6 +967,10 @@ export function TeamMembersSection() {
         body: JSON.stringify({
           name,
           email,
+          // Only the Collaborator flow pins the type. The Team Member flow leaves it
+          // to the server's email-domain guess, which is what the modal's own copy
+          // explains.
+          ...(addType === "collaborator" ? { type: "collaborator" } : {}),
           role: addAccess.role,
           planScope: addAccess.planScope,
           planIds: addAccess.planIds,
@@ -900,6 +1039,49 @@ export function TeamMembersSection() {
       await load();
     } catch {
       toast.error("Could not save the Team Member");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /**
+   * Deactivate or reactivate a person (spec T6): deactivating ends their access but
+   * keeps the profile, reactivating restores it. Neither touches a seat — seats
+   * belong to Team Members — so this needs no upgrade confirm. The response's meter
+   * is folded back in anyway so the header stays truthful if that ever changes.
+   */
+  const submitToggleActive = async (row: TeamMemberRow) => {
+    const reactivating = Boolean(row.deactivatedAt);
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(
+        `/api/teammates/team/${row.profileId ?? row.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: reactivating ? "reactivate" : "deactivate",
+          }),
+        },
+      );
+
+      const body = (await response.json()) as {
+        error?: string;
+        seats?: SeatUsageSummary;
+      };
+      if (!response.ok) {
+        toast.error(body.error ?? "Could not update this person");
+        return;
+      }
+
+      if (body.seats) setSeats(body.seats);
+      setDeactivating(null);
+      toast.success(
+        reactivating ? `${row.name} reactivated.` : `${row.name} deactivated.`,
+      );
+      await load();
+    } catch {
+      toast.error("Could not update this person");
     } finally {
       setIsSubmitting(false);
     }
@@ -978,15 +1160,80 @@ export function TeamMembersSection() {
         </div>
       )}
 
-      {/* ── Add Team Member ── */}
+      {/* ── Collaborators ──
+          The other half of the team: external people with scoped access and no
+          seat. They are listed here rather than as seat cards because a seat is
+          precisely what they do not consume. Rendered only once the lists have
+          loaded, so an empty organization cannot flash "No Collaborators yet"
+          while the request is still in flight. */}
+      {isLoading ? null : (
+      <Accordion
+        type="single"
+        collapsible
+        value={collaboratorsOpen}
+        onValueChange={setCollaboratorsOpen}
+        className="rounded-xl border bg-card px-4"
+      >
+        <AccordionItem value="collaborators" className="border-b-0">
+          <AccordionTrigger className="hover:no-underline">
+            <span className="flex flex-1 flex-wrap items-center gap-2 pr-2 text-left">
+              <span className="text-base font-medium">Collaborators</span>
+              <Badge variant="secondary">{collaborators.length}</Badge>
+              <span className="text-xs font-normal text-muted-foreground">
+                External people — free, no seat.
+              </span>
+            </span>
+          </AccordionTrigger>
+          <AccordionContent>
+            {collaborators.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No Collaborators yet. Add one when someone outside your organization
+                needs access to a plan — a provider, a TPA contact, a specialist.
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {collaborators.map((row) => (
+                  <CollaboratorRow
+                    key={row.id}
+                    row={row}
+                    onEdit={openEdit}
+                    onToggleActive={(target) => {
+                      // Reactivating is safe and immediate; deactivating ends access,
+                      // so it asks first.
+                      if (target.deactivatedAt) void submitToggleActive(target);
+                      else setDeactivating(target);
+                    }}
+                  />
+                ))}
+              </ul>
+            )}
+
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Whatever role they hold, they can never publish, invite, delete, or
+                see organization settings.
+              </p>
+              <Button variant="outline" onClick={openAddCollaborator}>
+                <Plus className="mr-2 h-4 w-4" />
+                Add Collaborator
+              </Button>
+            </div>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
+      )}
+
+      {/* ── Add Team Member / Collaborator ── */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Add Team Member</DialogTitle>
+            <DialogTitle>
+              {addType === "collaborator" ? "Add Collaborator" : "Add Team Member"}
+            </DialogTitle>
             <DialogDescription>
-              The email domain decides the default: a match with your organization
-              adds a Team Member (uses a seat), any other domain adds a Collaborator
-              (free).
+              {addType === "collaborator"
+                ? "Someone outside your organization. No seat is used — scope them to the plans and benefit categories they should reach."
+                : "The email domain decides the default: a match with your organization adds a Team Member (uses a seat), any other domain adds a Collaborator (free)."}
             </DialogDescription>
           </DialogHeader>
 
@@ -1013,7 +1260,17 @@ export function TeamMembersSection() {
               </div>
             </div>
 
-            <AccessFields value={addAccess} onChange={setAddAccess} plans={plans} />
+            <AccessFields
+              value={addAccess}
+              onChange={setAddAccess}
+              plans={plans}
+              roles={
+                addType === "collaborator"
+                  ? COLLABORATOR_PRESET_ROLES
+                  : TEAM_MEMBER_ROLES
+              }
+              allowAllPlans={addType !== "collaborator"}
+            />
           </div>
 
           <DialogFooter>
@@ -1031,21 +1288,27 @@ export function TeamMembersSection() {
               {isSubmitting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : null}
-              Add Team Member
+              {addType === "collaborator" ? "Add Collaborator" : "Add Team Member"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ── Edit Team Member ── */}
+      {/* ── Edit Team Member / Collaborator ── */}
       <Dialog open={editing !== null} onOpenChange={(open) => !open && setEditing(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Edit Team Member</DialogTitle>
+            <DialogTitle>
+              {editing?.personType === "collaborator"
+                ? "Edit Collaborator"
+                : "Edit Team Member"}
+            </DialogTitle>
             <DialogDescription>
               {editing?.isOwner
                 ? "The account owner's own details are edited in the Profile tab. Their access always covers every plan."
-                : "Update this person's name, role, and access. Their profile is shared across every plan."}
+                : editing?.personType === "collaborator"
+                  ? "Update this person's name, role, and access. No seat is used, and they can never publish, invite, delete, or see organization settings."
+                  : "Update this person's name, role, and access. Their profile is shared across every plan."}
             </DialogDescription>
           </DialogHeader>
 
@@ -1086,6 +1349,12 @@ export function TeamMembersSection() {
                 value={editAccess}
                 onChange={setEditAccess}
                 plans={plans}
+                roles={
+                  editing.personType === "collaborator"
+                    ? COLLABORATOR_PRESET_ROLES
+                    : TEAM_MEMBER_ROLES
+                }
+                allowAllPlans={editing.personType !== "collaborator"}
                 disabled={editing.isOwner}
               />
             </div>
@@ -1135,6 +1404,38 @@ export function TeamMembersSection() {
               }}
             >
               {isSubmitting ? "Adding…" : "Add and increase seats"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Spec T6: deactivate ends access but keeps the profile, so it is reversible
+          and asks for confirmation rather than warning about data loss. */}
+      <AlertDialog
+        open={deactivating !== null}
+        onOpenChange={(open) => !open && setDeactivating(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Deactivate {deactivating?.name}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              They immediately lose access to every plan they were assigned to. Their
+              profile, notes and history are kept, and you can reactivate them at any
+              time. No seat is affected — Collaborators never use one.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isSubmitting}
+              onClick={(event) => {
+                event.preventDefault();
+                if (deactivating) void submitToggleActive(deactivating);
+              }}
+            >
+              {isSubmitting ? "Deactivating…" : "Deactivate"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

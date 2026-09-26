@@ -4,15 +4,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { getOrgSession } from "@/lib/organization-session";
 import { requireOrganizationPermission } from "@/lib/teammates/access.server";
 import { TeammateDataError } from "@/lib/teammates/errors";
-import { updateTeamMember } from "@/lib/teammates/team.server";
+import { setTeamMemberActive, updateTeamMember } from "@/lib/teammates/team.server";
 
 /**
  * PATCH /api/teammates/team/[profileId]
  *
- * Edits a Team Member: display name, role, plan access and benefits access. The
- * scope is reconciled against the existing assignments through the same writers
- * the rest of the module uses, so the permission grid, the collaborator hard
- * blocks and the "never remove the last Owner" guard all still apply.
+ * Two operations, chosen by `action`:
+ *
+ *  - **no action** — edit: display name, role, plan access and benefits access.
+ *    The scope is reconciled against the existing assignments through the same
+ *    writers the rest of the module uses, so the permission grid, the
+ *    collaborator hard blocks and the "never remove the last Owner" guard all
+ *    still apply.
+ *  - **`action: "deactivate" | "reactivate"`** — spec T6 state transitions. The
+ *    profile is kept either way (deactivating ends access; reactivating restores
+ *    it), and a deactivated Team Member's seat is released, which is why the
+ *    response carries a fresh meter.
  *
  * Gated on `org_settings: edit` — the same rule that keeps a Collaborator and a
  * Viewer out of team management entirely.
@@ -40,6 +47,21 @@ export async function PATCH(
     > | null;
     if (!body) {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
+    }
+
+    if (body.action === "deactivate" || body.action === "reactivate") {
+      const changed = await setTeamMemberActive({
+        organizationId: session.organizationId,
+        actorUserId: session.userId,
+        profileId: params.profileId,
+        active: body.action === "reactivate",
+      });
+
+      return NextResponse.json({
+        success: true,
+        member: { profileId: changed.profileId },
+        seats: changed.seats,
+      });
     }
 
     const result = await updateTeamMember({
