@@ -63,6 +63,20 @@ export function usePlanAccess(input: UsePlanAccessInput): PlanAccessState {
     }
 
     const controller = new AbortController();
+
+    /**
+     * Guards EVERY state write from this run — including the `finally`.
+     *
+     * The cleanup below aborts the request when the inputs change, and on a dynamic
+     * route the inputs DO change right after mount as `useParams()` populates (the
+     * plan arrives, then the category). An aborted fetch still runs its `.finally`,
+     * and that was clearing `loading` while `state` was still `null` — so the hook
+     * fell through to `denied` for as long as the *replacement* request took (~1s),
+     * showing "You don't have access to this plan/section" to a user who has access.
+     * A superseded run must publish nothing at all.
+     */
+    let active = true;
+
     const params = new URLSearchParams({ planId });
     if (category) params.set("category", category);
     if (permission) params.set("permission", permission);
@@ -74,10 +88,13 @@ export function usePlanAccess(input: UsePlanAccessInput): PlanAccessState {
       cache: "no-store",
     })
       .then(async (response) => {
+        if (!active) return;
         const body = (await response.json()) as PlanAccessResponse;
+        if (!active) return;
         setState(body);
       })
       .catch((error: unknown) => {
+        if (!active) return;
         if ((error as Error)?.name === "AbortError") return;
         // A failed lookup must not leak the page: treat it as denied.
         setState({
@@ -86,9 +103,15 @@ export function usePlanAccess(input: UsePlanAccessInput): PlanAccessState {
           message: "You don't have access to this plan/section",
         });
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!active) return;
+        setLoading(false);
+      });
 
-    return () => controller.abort();
+    return () => {
+      active = false;
+      controller.abort();
+    };
   }, [planId, category, permission, level]);
 
   const can = useMemo(
@@ -108,15 +131,44 @@ export function usePlanAccess(input: UsePlanAccessInput): PlanAccessState {
     [can, loading, state],
   );
 
+  /**
+   * No planId yet is "not ready", NOT "denied".
+   *
+   * `useParams()` is empty on the first client render of a dynamic route, and the
+   * caller's own state (which plan/category it is editing) can arrive a tick later
+   * than the component. Reporting that as `denied` made the restricted notice flash
+   * on pages the user is fully entitled to — with a meaningless
+   * "Reference: unknown", because no server decision had been made at all. The
+   * lookup is simply disabled until there is something to look up.
+   */
+  if (!planId) {
+    return { status: "loading", can: guardedCan };
+  }
+
   if (loading) {
     return { status: "loading", can: guardedCan };
   }
 
-  if (!state || !state.allowed) {
+  /**
+   * Belt and braces: `denied` is only ever returned for an actual answer.
+   *
+   * Every path that has no response yet is a `loading` state (no planId, request in
+   * flight), so reaching here with `state === null` would mean a future refactor
+   * dropped a guard — and the cost of guessing wrong is telling a permitted user they
+   * have no access. Fail closed on `can()`, but never claim a refusal that was never
+   * issued.
+   */
+  if (!state) {
+    return { status: "loading", can: guardedCan };
+  }
+
+  if (!state.allowed) {
     return {
       status: "denied",
-      message: state?.message ?? "You don't have access to this plan/section",
-      reason: state?.reason ?? "unknown",
+      message: state.message ?? "You don't have access to this plan/section",
+      // A body with no `reason` is not an access decision (a 400/malformed response
+      // from the lookup), so name it for what it is. "unknown" told support nothing.
+      reason: state.reason ?? "lookup_incomplete",
       can: guardedCan,
     };
   }

@@ -343,6 +343,27 @@ plan segment) still fall back to an ownership check.
   endpoint, with a fail-closed `can(fn, level)`.
 - Reference wiring: [`app/(dashboard)/edit-benefit/[planId]/[category]/page.tsx`](../app/(dashboard)/edit-benefit/[planId]/[category]/page.tsx)
   renders `NoAccessNotice` instead of the editor when denied.
+- **`loading` is not `denied`** — a distinction that had to be made explicit, twice.
+
+  1. A falsy `planId` (exactly what `useParams()` returns on the first client render
+     of a dynamic route) was reported as `denied`, so the notice flashed with
+     `Reference: unknown` — no server decision had been made at all.
+  2. With that fixed it still flashed, because of an **abort race**: the effect's
+     cleanup aborts the in-flight request when the inputs change, and they *do* change
+     right after mount (the plan arrives, then the category). An aborted fetch still
+     runs its `.finally`, which cleared `loading` while `state` was still `null` — so
+     the hook fell through to `denied` for as long as the *replacement* request took
+     (~1s on a cold route).
+
+  Both are fixed in [`usePlanAccess`](../hooks/usePlanAccess.ts): an `active` flag now
+  guards **every** state write from a run, including the `.finally`, so a superseded
+  request publishes nothing; and the decision ladder is
+  `!planId → loading`, `loading → loading`, `!state → loading`, and only a real
+  response body can produce `denied`. The no-reason fallback is `lookup_incomplete`
+  rather than `unknown`. The page renders a spinner for the loading state instead of
+  `null`, so the wait reads as a wait. Fail-closed is unchanged where it matters:
+  `can()` returns false while loading, and a failed lookup is still refused — the hook
+  simply never *claims* a refusal that no one issued.
 
 The UI check is presentation only. The API is the enforcement point — a client
 that ignores the hook still gets refused by the server.
