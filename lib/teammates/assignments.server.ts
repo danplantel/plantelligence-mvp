@@ -421,6 +421,14 @@ export interface UpdateAssignmentInput {
   categoryScope?: TeammateCategoryScope;
   categories?: string[];
   showOnBenefitsHub?: boolean;
+  /**
+   * T2a: the edited grid, required when `role` is `custom`. The plan-first screen
+   * supplies it, and `upsertAssignment` finalizes it (auto-enforced rules, then the
+   * collaborator hard blocks) before storing the FULL grid on this one assignment.
+   */
+  customPermissionSet?: unknown;
+  /** Soft-warning codes the advisor confirmed (spec T2a Part B item 5). */
+  warningsConfirmed?: string[] | null;
 }
 
 export async function updateAssignment(input: UpdateAssignmentInput) {
@@ -431,11 +439,14 @@ export async function updateAssignment(input: UpdateAssignmentInput) {
     throw new TeammateDataError("Assignment not found.", 404);
   }
 
-  if (input.role === "custom") {
+  // T2a: `custom` is written WITH the grid the advisor configured. A `custom` role
+  // carrying no set is refused rather than defaulted, because the fallback would be an
+  // all-denied grid — silently stripping access the advisor never meant to remove.
+  if (input.role === "custom" && input.customPermissionSet === undefined) {
     throw new TeammateDataError(
-      "Custom access is configured with the plan-first grid, which is not built yet.",
+      "Custom access needs the permission grid it was configured with.",
       400,
-      "custom_role_unavailable",
+      "custom_permission_set_required",
     );
   }
 
@@ -458,6 +469,12 @@ export async function updateAssignment(input: UpdateAssignmentInput) {
       categoryScope: input.categoryScope ?? existing.categoryScope,
       categories: input.categories ?? existing.categories,
       showOnBenefitsHub: input.showOnBenefitsHub,
+      // Only sent when supplied: `upsertAssignment` ignores it for a preset role, and
+      // passing `undefined` would let a preset edit overwrite a Custom user's grid.
+      ...(input.customPermissionSet !== undefined
+        ? { customPermissionSet: input.customPermissionSet }
+        : {}),
+      warningsConfirmed: input.warningsConfirmed ?? null,
     });
   }
 

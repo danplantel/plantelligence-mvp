@@ -59,6 +59,7 @@ import {
  * client bundle; `import type` is erased at compile time and cannot.
  */
 import type { MembershipDetail } from "@/lib/teammates/team.server";
+import { CustomRoleScreen } from "@/components/teammates/custom-role-screen";
 
 export interface PersonAccessScreenProps {
   open: boolean;
@@ -123,6 +124,11 @@ export function PersonAccessScreen({
   );
   const [isWorking, setIsWorking] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  /** T2a: the plan-first grid, opened from the role dropdown's Custom entry. */
+  const [isCustomOpen, setIsCustomOpen] = useState(false);
+  const [customForAssignmentId, setCustomForAssignmentId] = useState<string | null>(
+    null,
+  );
 
   const hydrate = useCallback((next: MembershipDetail) => {
     setDetail(next);
@@ -620,11 +626,19 @@ export function PersonAccessScreen({
                               </Label>
                               <Select
                                 value={assignment.role}
-                                onValueChange={(value) =>
+                                onValueChange={(value) => {
+                                  // T2a: Custom is not written from here. Choosing it
+                                  // opens the plan-first grid, which decides the plans,
+                                  // categories and per-plan functions together.
+                                  if (value === "custom") {
+                                    setCustomForAssignmentId(assignment.id);
+                                    setIsCustomOpen(true);
+                                    return;
+                                  }
                                   void patchAssignmentRow(assignment.id, {
                                     role: value as TeammateAssignmentRole,
-                                  })
-                                }
+                                  });
+                                }}
                                 disabled={isPending}
                               >
                                 <SelectTrigger className="h-8 w-[190px]">
@@ -636,10 +650,7 @@ export function PersonAccessScreen({
                                       {PRESET_ROLE_LABELS[role]}
                                     </SelectItem>
                                   ))}
-                                  {/* T2a is unbuilt; the server refuses this too. */}
-                                  <SelectItem value="custom" disabled>
-                                    Custom… (needs custom roles)
-                                  </SelectItem>
+                                  <SelectItem value="custom">Custom…</SelectItem>
                                 </SelectContent>
                               </Select>
                             </div>
@@ -752,6 +763,37 @@ export function PersonAccessScreen({
           ) : null}
         </DialogContent>
       </Dialog>
+
+      {/* ── T2a: the Custom role screen (plan-first grid) ── */}
+      <CustomRoleScreen
+        open={isCustomOpen}
+        onOpenChange={(next) => {
+          setIsCustomOpen(next);
+          if (!next) setCustomForAssignmentId(null);
+        }}
+        profileId={profileId}
+        personType={personType}
+        currentRole={
+          detail?.assignments.find((row) => row.id === customForAssignmentId)?.role ??
+          "contributor"
+        }
+        plans={detail?.plans ?? []}
+        seed={(detail?.assignments ?? []).map((row) => ({
+          assignmentId: row.id,
+          planId: row.clientId,
+          categories: row.categories,
+          categoriesAll: row.categoryScope === "all",
+          permissionSet: row.permissionSet,
+        }))}
+        initialPlanId={
+          detail?.assignments.find((row) => row.id === customForAssignmentId)
+            ?.clientId ?? null
+        }
+        onSaved={() => {
+          void reload();
+          onChanged();
+        }}
+      />
 
       <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
         <AlertDialogContent>

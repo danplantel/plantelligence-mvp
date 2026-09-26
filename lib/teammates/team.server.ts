@@ -31,11 +31,13 @@ import {
   guessPersonTypeForEmail,
   type SeatUsage,
 } from "./seats.server";
-import type {
-  TeammateAssignmentRole,
-  TeammateCategoryScope,
-  TeammatePersonType,
-  TeammateProfileState,
+import {
+  normalizePermissionSet,
+  type TeammateAssignmentRole,
+  type TeammateCategoryScope,
+  type TeammatePermissionSet,
+  type TeammatePersonType,
+  type TeammateProfileState,
 } from "@/types/teammate";
 
 /** Spec T3 Part A item 2: This Plan / Certain Plans / All Plans. */
@@ -684,6 +686,11 @@ export interface MembershipAssignmentDetail {
   categoryScope: TeammateCategoryScope;
   categories: string[];
   showOnBenefitsHub: boolean;
+  /**
+   * T2a: the stored grid, so the plan-first screen can start from what this person
+   * actually has instead of from a preset guess.
+   */
+  permissionSet: TeammatePermissionSet;
   inviteNote: string | null;
   inviteDueDate: string | null;
   invitedAt: string | null;
@@ -800,6 +807,7 @@ export async function getMembershipDetail({
         ? (row.categories as string[])
         : [],
       showOnBenefitsHub: Boolean(row.showOnBenefitsHub),
+      permissionSet: normalizePermissionSet(row.permissionSet),
       inviteNote: row.inviteNote ?? null,
       inviteDueDate: row.inviteDueDate
         ? row.inviteDueDate.toISOString()

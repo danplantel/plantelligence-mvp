@@ -316,8 +316,12 @@ async function main(): Promise<void> {
       String(ayresVisibility?.role),
     );
 
+    // T2a has landed since this suite was written, so the rule changed shape: `custom`
+    // is no longer unavailable, it is REFUSED WITHOUT A GRID. The grid itself is
+    // covered by verify-t2a; what this suite guards is that the screen's path cannot
+    // store a Custom role with no permissions behind it.
     check(
-      "Custom is refused, because the T2a grid it needs does not exist yet",
+      "Custom without a grid is refused, so no role can be stored with no permissions",
       (await refusalCode(() =>
         updateAssignment({
           assignmentId: ayresAssignment.id,
@@ -325,7 +329,7 @@ async function main(): Promise<void> {
           actorUserId: owner.id,
           role: "custom",
         }),
-      )) === "custom_role_unavailable",
+      )) === "custom_permission_set_required",
     );
 
     /* ── 3. Remove Assignment revokes access immediately ───────────── */

@@ -84,6 +84,15 @@ export async function PATCH(
       ...(body.showOnBenefitsHub !== undefined
         ? { showOnBenefitsHub: body.showOnBenefitsHub === true }
         : {}),
+      // T2a: the plan-first grid sends the edited set with `role: "custom"`, plus the
+      // soft-warning codes the advisor confirmed. Both are passed through untouched —
+      // `upsertAssignment` finalizes the grid and refuses a locked permission.
+      ...(body.customPermissionSet !== undefined
+        ? { customPermissionSet: body.customPermissionSet }
+        : {}),
+      ...(Array.isArray(body.warningsConfirmed)
+        ? { warningsConfirmed: body.warningsConfirmed.map((code) => String(code)) }
+        : {}),
     });
 
     return NextResponse.json({

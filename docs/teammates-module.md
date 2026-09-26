@@ -140,6 +140,7 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run repair:partial-indexes` | Re-applies the partial unique index on `Client.slug`. |
 | `npm run repair:purge-orphaned-user` | Inventories (dry run) then with `--apply` removes everything left behind by a deleted User account. |
 | `npm run teammates:verify-t6` | Runs the 35-assertion T6 suite (the four acceptance criteria, per-assignment role and visibility, the Delete guard, the audit trail, and All Plans staying Team-Member-only). |
+| `npm run teammates:verify-t2a` | Runs the 25-assertion T2a suite (per-function Custom enforcement, same-vs-per-plan grids, the locked-row refusal, All Plans, the missing-grid refusal, soft warnings and their audit trail, and the summary line). |
 | `npm run teammates:verify-t7` | Runs the 26-assertion T7 suite (the three acceptance criteria, display-vs-access, the mirror's idempotency and removals, hidden categories, and the unmirrorable-contact residue). |
 | `npm run teammates:backfill-contacts` | Projects every plan's `keyContacts` onto profiles + assignments (T7). Idempotent; `--dry-run` to count without writing. Run it before the hub reader switch and after adding a new contacts writer. |
 | `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
@@ -1204,6 +1205,103 @@ calls plus a documented remedy.
 
 ---
 
+## 9g. T2a — Custom role (plan-first grid)
+
+Spec pages 5-8. The ticket that makes the `custom` role real.
+
+### What was already there
+
+Almost all of T2a's **Part B** existed before this ticket, because T1 built it and T2a
+"needs no schema change":
+
+| Already implemented | Where |
+|---|---|
+| The 14-function grid, its labels, options and binary rows | `types/teammate.ts` |
+| Auto-enforced rules (Edit ⇒ View; Delete requires Edit; Publish requires Disclaimers View) | `applyAutoEnforcedRules` |
+| Collaborator hard blocks, with a locked value per function | `finalizePermissionSet` / `lockedFunctionViolations` |
+| `validatePermissionSet` — the 400 a direct API call gets | `permissions.ts` |
+| **All ten soft warnings**, checked per plan | `evaluateSoftWarnings` |
+| The plan-aware summary line ("Custom · …") | `summarizePermissionSet` |
+| "All Plans is Team-Member-only" as a rule | `isPlanScopeAllowed` |
+| `custom_access_set` audit with `warningsConfirmed` | `upsertAssignment` |
+
+So the work was the **write path and the UI** — not the rules.
+
+### What T2a added
+
+- [`updateAssignment`](../lib/teammates/assignments.server.ts) now accepts
+  `customPermissionSet` and `warningsConfirmed`. The one guard that replaced T6's old
+  refusal: **`custom` without a grid is refused** (`custom_permission_set_required`),
+  because the fallback would be an all-denied grid — silently stripping access the
+  advisor never meant to remove.
+- The assignments API carries both fields through.
+- [`custom-role-screen.tsx`](../components/teammates/custom-role-screen.tsx) — the
+  three-step screen.
+- [`getMembershipDetail`](../lib/teammates/team.server.ts) now returns each assignment's
+  stored grid, so the screen can start from what the person actually has.
+- T6's `Custom…` entry is enabled and opens the grid instead of writing a role.
+
+### Part A, item by item
+
+1. **Three steps, top to bottom:** Plans → Benefits categories → Functions, with a step
+   indicator that also doubles as navigation. It starts from
+   `finalizePermissionSet(presetPermissionSet(currentRole))`, so the grid is **never
+   blank** as the spec requires.
+2. **Plans** — This Plan / Certain Plans (searchable checklist) / All Plans. All Plans is
+   **hidden for a Collaborator**, with a line saying why, and the server refuses the flag
+   for one anyway. Choosing it shows "Includes plans created in the future."
+3. **Benefits categories** — "Same categories on all plans" is on by default; off gives
+   each plan its own picker.
+4. **Functions** — "Same permissions on all selected plans" is on by default; off shows
+   per-plan tabs. Each row is a radio group (`No Access / View / Edit`, or
+   `Not Allowed / Allowed`). Locked rows render with a **lock icon** and
+   "Not available for external collaborators." rather than being hidden.
+5. **The summary line** is rendered live above the steps.
+6. **Warnings appear inline** as selections are made, and again on Save as one confirm
+   listing everything flagged; the confirmed codes are sent with the save.
+
+### How the save works, without a bespoke endpoint
+
+Two passes over the routes that already exist, rather than a new bulk endpoint:
+
+1. `PATCH /api/teammates/team/[profileId]` materialises the plan set — that is what
+   creates and removes assignments.
+2. Read the person back, then `PATCH /api/teammates/assignments/[id]` **per plan** with
+   that plan's grid, category scope and confirmed warnings.
+
+That is what makes "same permissions on" write two identical grids and "off" write two
+independent ones, and it means the hard blocks, the auto-enforced rules and the
+last-Owner guard all apply on every write — the screen cannot bypass them, and neither
+can a direct API call.
+
+### Verification
+
+`verify-t2a` asserts the acceptance criteria that live at the enforcement layer: a
+Documents-Edit/everything-else-View user **can** edit documents and **cannot** edit any
+other module (and the denial names the permission, not the plan); "same permissions on"
+produces two identical assignments while "off" enforces Edit on one plan and View on the
+other; a locked permission supplied directly is **refused** with
+`collaborator_locked_function` rather than silently dropped; a Collaborator never carries
+All Plans; `custom` with no grid is refused; a soft warning fires on its condition (and
+one that is not true does not), and the confirmed codes land on the audit row — which is
+how an Owner sees them; and the stored grid is a full grid, not a reference to a preset.
+
+### Deferred, with the reason
+
+- **T4's "Customize access" link** is still disabled. It is not a wiring gap: the invite
+  dialog may be inviting someone who has **no profile yet**, and a Custom grid has to be
+  written onto an assignment that does not exist until the invite is accepted. Granting
+  Custom access at invite time therefore needs a decision the spec does not make — create
+  the profile and assignment first and then open the grid, or configure Custom from
+  Settings → Team Members after the invite. The grid itself is now reachable from T6.
+- **"Save as role template"** is marked Optional (Low) in the spec.
+- **Auto-assignment for a new plan** when a Team Member holds All Plans (T1 Part B item 4)
+  remains unwired — it is listed in §10.
+- **No test covers the screen's own rendering.** The suite tests the rules and the write
+  path it uses; there is no component test for the three steps.
+
+---
+
 ## 10. Residual migration debt
 
 Tracked, deliberately **not** part of T1:
@@ -1240,9 +1338,24 @@ deferred**: plan creation now stamps `organizationId` at all four creation paths
 
 ## 11. Next tickets
 
-- **T2a** — Custom role UI over the existing grid contract (no schema change). It
-  unblocks the "Customize access" affordance left disabled in T4 and the `custom`
-  role in T6's per-plan controls.
+**T8 (Collaborator gating + upgrade previews) remains deliberately unbuilt.** The spec
+marks it `Status: Deferred pending pricing`, and the Open Decisions table names two
+blockers it cannot close itself: the collaborator cap numbers per tier, and the tier
+breakpoints and pricing. Two further pieces are blocked rather than pending — Part A item
+3 ("Preview your branded hub") waits on the WEP pipeline *"once built"*, and Part B item 3
+(converting a collaborator into a paying customer creates a new Organization) is the
+signup/billing path. Reconnaissance found nothing built for caps or upgrade screens yet,
+and one gap would need a schema addition first: the upgrade screen differs by collaborator
+**type**, but that type is currently recorded only on the audit row (`whoIsThis` /
+`inviteContext`), never on the profile. If T8 is picked up before pricing lands, the
+buildable subset is: caps as configuration, locked-but-visible gating on the three named
+surfaces, the three type-tailored upgrade screens, and view/click tracking — with the
+pricing-dependent pieces rendered visible-but-disabled the way T4 did with "Customize
+access".
+
+- **T2a follow-up** — decide how Custom access is granted at *invite* time (the invite
+  may create the profile, so there is no assignment to write a grid onto yet — see §9g),
+  and the Optional "Save as role template".
 - **T4 follow-ups** — wire "Customize access" once T2a lands; build the
   Ready-for-Review / Approve / Send-Back workflow (needs a review state on
   `PlanAssignment` and a notification channel).
