@@ -48,6 +48,11 @@ export interface InviteCollaboratorDialogProps {
   planId: string;
   planName: string;
   category: string;
+  /**
+   * Which flow raised the invite. This step is rendered by both Create Benefit and
+   * Edit Benefit, so the audit row would otherwise be unable to tell them apart.
+   */
+  source?: "create_benefits" | "edit_benefit";
   /** Called after a successful invite so the page can refresh its assignment chips. */
   onInvited?: () => void;
 }
@@ -72,6 +77,7 @@ export function InviteCollaboratorDialog({
   planId,
   planName,
   category,
+  source,
   onInvited,
 }: InviteCollaboratorDialogProps) {
   const [email, setEmail] = useState("");
@@ -203,6 +209,9 @@ export function InviteCollaboratorDialog({
           note: note.trim() || null,
           dueDate: dueDate || null,
           profileId: picked?.profileId ?? null,
+          // Omitted when the caller does not say — the endpoint then defaults to the
+          // Create Benefits label rather than refusing the invite.
+          ...(source ? { source } : {}),
         }),
       });
 

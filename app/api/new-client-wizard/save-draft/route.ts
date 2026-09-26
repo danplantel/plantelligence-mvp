@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { getCategoryPortalVisibility } from "@/lib/portal-category-visibility";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import { DUPLICATE_PLAN_NAME_CODE } from "@/lib/duplicate-plan-name-error";
+import { getOrCreateOrganizationForUser } from "@/lib/organization";
 
 /** Persist logo removal: Prisma update must set null, not omit the field. */
 function companyLogoFieldsForPersistence(
@@ -527,8 +528,18 @@ export async function POST(request: NextRequest) {
           data: clientUpdateData,
         });
       } else {
+        // A draft is a real plan the teammate layer must be able to see — T5's Key
+        // Contacts invite is raised against a draft id — so it is stamped here too.
+        // The UPDATE branch above deliberately leaves `organizationId` alone:
+        // re-stamping on every autosave would be pointless work on a row that this
+        // route already stamped.
+        const organizationId = await getOrCreateOrganizationForUser(session.user.id);
         client = await (prisma.client as any).create({
-          data: { ...clientUpdateData, userId: session.user.id },
+          data: {
+            ...clientUpdateData,
+            userId: session.user.id,
+            organizationId,
+          },
         });
       }
 

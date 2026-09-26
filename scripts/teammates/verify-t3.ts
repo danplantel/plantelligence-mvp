@@ -16,7 +16,14 @@
  * Fixtures are `t3-verify-*` and are cleaned up unless `--keep` is passed.
  * Exit code is non-zero when any assertion fails.
  */
-import { check, createPrisma, failureCount, summary } from "./shared";
+import {
+  check,
+  createPrisma,
+  failureCount,
+  installFixtureGuards,
+  summary,
+  sweepStaleFixtures,
+} from "./shared";
 import {
   DEFAULT_SEATS_INCLUDED,
   INVITE_SEAT_HOLD_DAYS,
@@ -47,6 +54,12 @@ const STAMP = Date.now();
 
 async function main(): Promise<void> {
   const prisma = createPrisma();
+
+  // Sweep whatever an earlier interrupted run stranded — a fixture owner with no
+  // Organization would otherwise fail the NEXT verify run — then make sure this run
+  // cleans up on Ctrl-C as well as on a thrown error.
+  installFixtureGuards(prisma, { exceptStamps: [STAMP] });
+  await sweepStaleFixtures(prisma, { exceptStamps: [STAMP] });
 
   const created = {
     profileIds: [] as string[],

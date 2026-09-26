@@ -37,6 +37,7 @@ import {
   Image as ImageIcon,
   Trash2,
   Info,
+  UserRoundPlus,
 } from "lucide-react";
 import {
   EditClientHeader,
@@ -44,6 +45,9 @@ import {
   EditClientLoading,
   EditClientError,
 } from "@/components/pages/edit-client";
+// Shared with the wizard's Key Contacts step, Add/Edit Benefit and Settings → Team
+// Members — one dialog, so the invite cannot mean something different here.
+import { InviteCollaboratorDialog } from "@/components/teammates/invite-collaborator-dialog";
 import { SaveButton } from "@/components/pages/edit-client/save-button";
 import { useEditClient } from "@/hooks/useEditClient";
 // Import components from new-client-steps
@@ -219,12 +223,15 @@ function ContactRow({
   onTogglePrimary,
   onEdit,
   onDelete,
+  onInvite,
 }: {
   contact: KeyContact;
   isPrimary?: boolean;
   onTogglePrimary?: () => void;
   onEdit: () => void;
   onDelete?: () => void;
+  /** Hands this contact to the invite dialog, pre-filled from their saved details. */
+  onInvite?: () => void;
 }) {
   const displayName =
     contact.firstName || contact.lastName
@@ -302,6 +309,17 @@ function ContactRow({
             title={isPrimary ? "Remove as primary" : "Mark as primary"}
           >
             <Star className={cn("w-3.5 h-3.5", isPrimary && "fill-amber-500")} />
+          </Button>
+        )}
+        {onInvite && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0 shrink-0 text-muted-foreground hover:text-foreground"
+            onClick={onInvite}
+            title="Invite this contact to complete their sections"
+          >
+            <UserRoundPlus className="w-3.5 h-3.5" />
           </Button>
         )}
         <Button
@@ -1431,6 +1449,7 @@ function EditKeyContactsSection({
   onHeadshotRemove,
   validationErrors = {},
   onAddContact,
+  onInviteContact,
   planId = "",
 }: {
   contacts: KeyContact[];
@@ -1450,6 +1469,12 @@ function EditKeyContactsSection({
   ) => void;
   /** Plan (client) id passed to the contact editor so /contact links resolve. */
   planId?: string;
+  /**
+   * Hands an existing contact to the invite dialog — the same T5 action the Create
+   * Plan wizard raises, re-hosted on a saved plan. Optional so the section still
+   * renders anywhere that has no invite host.
+   */
+  onInviteContact?: (contact: KeyContact) => void;
 }) {
   const [editingContact, setEditingContact] = useState<KeyContact | null>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -1685,6 +1710,11 @@ function EditKeyContactsSection({
             isPrimary
             onEdit={() => handleOpenEdit(primaryContact)}
             onDelete={() => handleDeleteContact(primaryContact)}
+            onInvite={
+              onInviteContact
+                ? () => onInviteContact(primaryContact)
+                : undefined
+            }
           />
         ) : (
           <p className="text-xs text-muted-foreground text-center py-4">
@@ -1749,6 +1779,9 @@ function EditKeyContactsSection({
                   onTogglePrimary={() => handleTogglePrimary(contact)}
                   onEdit={() => handleOpenEdit(contact)}
                   onDelete={() => handleDeleteContact(contact)}
+                  onInvite={
+                    onInviteContact ? () => onInviteContact(contact) : undefined
+                  }
                 />
               ))
             )}
@@ -1800,6 +1833,11 @@ function EditKeyContactsSection({
                       onTogglePrimary={() => handleTogglePrimary(contact)}
                       onEdit={() => handleOpenEdit(contact)}
                       onDelete={() => handleDeleteContact(contact)}
+                      onInvite={
+                        onInviteContact
+                          ? () => onInviteContact(contact)
+                          : undefined
+                      }
                     />
                   ))
                 )}
@@ -1851,6 +1889,9 @@ function EditKeyContactsSection({
                   onTogglePrimary={() => handleTogglePrimary(contact)}
                   onEdit={() => handleOpenEdit(contact)}
                   onDelete={() => handleDeleteContact(contact)}
+                  onInvite={
+                    onInviteContact ? () => onInviteContact(contact) : undefined
+                  }
                 />
               ))
             )}
@@ -2738,6 +2779,36 @@ export default function EditClientPage() {
   const [step1ScrollTarget, setStep1ScrollTarget] = useState<string | null>(null);
   // Tab 2 (Preview) field to scroll to after a failed Save.
   const [tab2ScrollField, setTab2ScrollField] = useState<string | null>(null);
+
+  // Invite Collaborator (T5's action, hosted on the saved plan). The tab header opens
+  // it empty; a contact's own row opens it pre-filled from what that contact already
+  // covers, so the invite starts where the advisor was looking.
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+  const [invitePrefill, setInvitePrefill] = useState<{
+    name?: string | null;
+    email?: string | null;
+    categories?: string[];
+  } | null>(null);
+
+  const openInviteForContact = useCallback((contact: KeyContact) => {
+    // A contact can carry several categories; both spellings are read because older
+    // rows only ever set the singular field.
+    const categories =
+      (contact.benefitsCategories ?? []).length > 0
+        ? (contact.benefitsCategories as string[])
+        : contact.benefitsCategory
+          ? [contact.benefitsCategory as string]
+          : [];
+    setInvitePrefill({
+      name:
+        [contact.firstName, contact.lastName].filter(Boolean).join(" ").trim() ||
+        contact.name ||
+        null,
+      email: contact.email ?? null,
+      categories,
+    });
+    setIsInviteOpen(true);
+  }, []);
 
   // Preset for the Add Contact dialog. Entry points just open the dialog with a
   // pre-seeded category/type — the contact is created only when the user saves.
@@ -4336,6 +4407,24 @@ export default function EditClientPage() {
                         <Plus className="w-4 h-4 mr-2" />
                         Add Contact ({keyContacts.length})
                       </Button>
+                      <Button
+                        onClick={() => {
+                          setInvitePrefill(null);
+                          setIsInviteOpen(true);
+                        }}
+                        variant="outline"
+                        size="sm"
+                        className="text-sm"
+                        disabled={!clientId}
+                        title={
+                          clientId
+                            ? "Invite someone to complete this plan's benefit sections"
+                            : "Save this plan before inviting"
+                        }
+                      >
+                        <UserRoundPlus className="w-4 h-4 mr-2" />
+                        Invite Collaborator
+                      </Button>
                     </div>
                     <div className="flex items-center gap-3">
                       {/* Layout Indicator */}
@@ -4390,6 +4479,7 @@ export default function EditClientPage() {
                     onHeadshotRemove={handleHeadshotRemove}
                     validationErrors={getValidationErrors()}
                     onAddContact={openAddContact}
+                    onInviteContact={openInviteForContact}
                     planId={clientId || ""}
                   />
                 </CardContent>
@@ -4669,6 +4759,18 @@ export default function EditClientPage() {
             </TabsContent>
           </Tabs>
         </div>
+
+        {/* Invite Collaborator — the same dialog the Create Plan wizard, Add/Edit
+            Benefit and Settings use. Scoped to this saved plan, so no draft handling
+            is needed here: `planId` is always known. */}
+        <InviteCollaboratorDialog
+          open={isInviteOpen}
+          onOpenChange={setIsInviteOpen}
+          planId={clientId || ""}
+          planName={companyData.companyName || "this plan"}
+          prefill={invitePrefill}
+          source="edit_client"
+        />
 
         {/* Add Contact Modal — same form as the Edit Contact dialog. The contact
             is only created once the user saves, so no blank "Unnamed Contact"

@@ -752,6 +752,11 @@ export interface CollaboratorInviteEmailInput {
   organizationName?: string | null;
   planName: string;
   category: string;
+  /**
+   * T5 invites to a set of categories at once. When two or more are given the copy
+   * lists the sections instead of calling them one section.
+   */
+  categories?: string[];
   /** The "Who is this?" label, e.g. "Plan Sponsor HR". */
   inviteContext: string;
   /** Absolute deep link to the assigned benefit section. */
@@ -777,6 +782,7 @@ export async function sendCollaboratorInviteEmail({
   organizationName,
   planName,
   category,
+  categories,
   inviteContext,
   sectionUrl,
   missingFields,
@@ -786,7 +792,19 @@ export async function sendCollaboratorInviteEmail({
   const firstName = (collaboratorName || "").trim().split(" ")[0] || "there";
   const inviter = (inviterName || "").trim() || organizationName?.trim() || "Your benefits advisor";
   const firm = organizationName?.trim();
-  const subject = `${inviter} invited you to help with ${planName} — ${category}`;
+
+  // One category reads as "the Group Health section"; several are named, because
+  // "the Group Health, Group Life section" is not a sentence.
+  const targets = categories && categories.length > 1 ? categories : [category];
+  const sectionLabel = targets.length > 1 ? `${targets.length} benefit sections` : targets[0];
+  const sectionPhrase =
+    targets.length > 1
+      ? `the <strong style="color: #1a1a2e;">${targets.join(", ")}</strong> sections`
+      : `the <strong style="color: #1a1a2e;">${targets[0]}</strong> section`;
+  const sectionPhraseText =
+    targets.length > 1 ? `the ${targets.join(", ")} sections` : `the ${targets[0]} section`;
+
+  const subject = `${inviter} invited you to help with ${planName} — ${sectionLabel}`;
 
   const missingRows =
     missingFields.length > 0
@@ -904,7 +922,7 @@ export async function sendCollaboratorInviteEmail({
                                     <tr>
                                         <td align="center" style="padding-bottom: 16px;">
                                             <p class="email-text-secondary" style="margin: 0; font-size: 15px; color: #666680; line-height: 1.6;">
-                                                ${inviter}${firm && inviterName?.trim() ? ` (${firm})` : ""} invited you as <strong style="color: #1a1a2e;">${inviteContext}</strong> to help complete the <strong style="color: #1a1a2e;">${category}</strong> section of the <strong style="color: #1a1a2e;">${planName}</strong> benefits hub.
+                                                ${inviter}${firm && inviterName?.trim() ? ` (${firm})` : ""} invited you as <strong style="color: #1a1a2e;">${inviteContext}</strong> to help complete ${sectionPhrase} of the <strong style="color: #1a1a2e;">${planName}</strong> benefits hub.
                                             </p>
                                         </td>
                                     </tr>${noteBlock}${missingBlock}
@@ -961,7 +979,7 @@ export async function sendCollaboratorInviteEmail({
     text: [
       `Hi ${firstName},`,
       ``,
-      `${inviter} invited you as ${inviteContext} to help complete the ${category} section of the ${planName} benefits hub.`,
+      `${inviter} invited you as ${inviteContext} to help complete ${sectionPhraseText} of the ${planName} benefits hub.`,
       ...(note?.trim() ? [``, `Note: ${note.trim()}`] : []),
       ...(missingFields.length > 0
         ? [``, `Still needed on this section:`, ...missingFields.map((f) => `- ${f}`)]

@@ -626,6 +626,33 @@ export function BenefitsStep3({
         {/* Support Contacts + Collaborators — two accordion sections, so each set
             of people on this benefit is its own collapsible block. */}
         {(!section || section === "contacts") && (
+        <>
+        {/* Section header. The invite action lives HERE rather than inside the
+            Collaborators accordion, where it used to be hidden until the advisor
+            expanded that section — "Add Benefit" and "Edit Benefit" both render this
+            step, so one header serves both surfaces. */}
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3 shadow-md">
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold text-foreground">Contacts</h2>
+            <p className="text-xs text-muted-foreground">
+              Who employees reach out to, and who can help complete this section.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            className="h-8 shrink-0 gap-1.5 px-3 text-xs font-semibold"
+            onClick={() => setIsInviteOpen(true)}
+            disabled={!invitePlanId || !inviteCategory}
+            title={
+              invitePlanId && inviteCategory
+                ? "Invite a collaborator to complete this section"
+                : "Save the plan first, then invite a collaborator"
+            }
+          >
+            <UserPlus className="h-3.5 w-3.5" />
+            Invite Collaborator
+          </Button>
+        </div>
         <Accordion
           type="multiple"
           value={openContactSections}
@@ -840,18 +867,6 @@ export function BenefitsStep3({
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4 pt-0">
             <div className="space-y-3">
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                <Button
-                  size="sm"
-                  className="h-8 gap-1.5 px-3 text-xs font-semibold"
-                  onClick={() => setIsInviteOpen(true)}
-                  disabled={!invitePlanId || !inviteCategory}
-                >
-                  <UserPlus className="h-3.5 w-3.5" />
-                  Invite Collaborator
-                </Button>
-              </div>
-
               {collaborators.length === 0 ? (
                 <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
                   No collaborators yet. Invite a plan sponsor, an outside advisor or a
@@ -925,6 +940,7 @@ export function BenefitsStep3({
           </AccordionContent>
         </AccordionItem>
         </Accordion>
+        </>
         )}
 
         {/* Edit contact — the SAME editor Step 1 uses to create one (see
@@ -959,13 +975,16 @@ export function BenefitsStep3({
 
 
 
-        {/* T4: scoped to the plan and the category this step is editing. */}
+        {/* T4: scoped to the plan and the category this step is editing. The same
+            step renders in the Create (section undefined) and Edit
+            (section="contacts") benefit flows, so the audit row records which. */}
         <InviteCollaboratorDialog
           open={isInviteOpen}
           onOpenChange={setIsInviteOpen}
           planId={invitePlanId}
           planName={step1Data?.selectedPlan?.companyName || "this plan"}
           category={inviteCategory}
+          source={section === "contacts" ? "edit_benefit" : "create_benefits"}
           onInvited={() => setCollaboratorsRefreshKey((key) => key + 1)}
         />
 

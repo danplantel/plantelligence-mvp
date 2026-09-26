@@ -27,9 +27,16 @@
  * mail a real address. Fixtures are `t4-verify-*` and are cleaned up unless `--keep`
  * is passed. Exit code is non-zero when any assertion fails.
  */
-import { check, createPrisma, failureCount, summary } from "./shared";
 import {
-  inviteCollaboratorToCategory,
+  check,
+  createPrisma,
+  failureCount,
+  installFixtureGuards,
+  summary,
+  sweepStaleFixtures,
+} from "./shared";
+import {
+  inviteCollaboratorToPlan,
   listPlanAssignments,
   missingFieldsForCategory,
   searchCollaborators,
@@ -77,6 +84,12 @@ const MERGED_CATEGORY = "Retirement";
 
 async function main(): Promise<void> {
   const prisma = createPrisma();
+
+  // Sweep whatever an earlier interrupted run stranded — a fixture owner with no
+  // Organization would otherwise fail the NEXT verify run — then make sure this run
+  // cleans up on Ctrl-C as well as on a thrown error.
+  installFixtureGuards(prisma, { exceptStamps: [STAMP] });
+  await sweepStaleFixtures(prisma, { exceptStamps: [STAMP] });
 
   const created = {
     profileIds: [] as string[],
@@ -155,7 +168,7 @@ async function main(): Promise<void> {
     console.log("1. An invite from a category card writes that plan and that category");
     const seatsBefore = await getSeatUsage(organizationId);
 
-    const first = await inviteCollaboratorToCategory({
+    const first = await inviteCollaboratorToPlan({
       organizationId,
       actorUserId: owner.id,
       clientId: planA.id,
@@ -256,7 +269,7 @@ async function main(): Promise<void> {
     console.log("");
     console.log("2. A second invite to Jane on another plan adds an assignment");
 
-    const second = await inviteCollaboratorToCategory({
+    const second = await inviteCollaboratorToPlan({
       organizationId,
       actorUserId: owner.id,
       clientId: planB.id,
@@ -294,7 +307,7 @@ async function main(): Promise<void> {
     console.log("");
     console.log("3. Re-inviting the same plan merges the category and keeps the role");
 
-    const third = await inviteCollaboratorToCategory({
+    const third = await inviteCollaboratorToPlan({
       organizationId,
       actorUserId: owner.id,
       clientId: planA.id,
@@ -450,7 +463,7 @@ async function main(): Promise<void> {
 
     let refusalCode = "";
     try {
-      await inviteCollaboratorToCategory({
+      await inviteCollaboratorToPlan({
         organizationId,
         actorUserId: owner.id,
         clientId: planA.id,
@@ -611,11 +624,13 @@ async function main(): Promise<void> {
       audit?.profileId === first.profileId && audit?.assignmentId === first.assignmentId,
     );
     const details = (audit?.details ?? {}) as Record<string, unknown>;
+    // `categories` is an array because T5 invites to several at once; a T4 invite is
+    // the one-element case of the same field.
     check(
-      "it records the source surface, the plan and the category",
+      "it records the source surface, the plan and the categories",
       details.source === "create_benefits" &&
         details.clientId === planA.id &&
-        details.category === PLAN_A_CATEGORY,
+        JSON.stringify(details.categories) === JSON.stringify([PLAN_A_CATEGORY]),
       JSON.stringify(details),
     );
     check(

@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { listAccessiblePlanIds } from "@/lib/teammates/access.server";
+import { getOrCreateOrganizationForUser } from "@/lib/organization";
 
 export async function GET(request: NextRequest) {
   try {
@@ -214,10 +215,20 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
 
+    // Stamp the tenant at creation.
+    //
+    // Every teammate read filters on `organizationId`, so a plan created without one
+    // is invisible to the org-scoped layer until the T1 backfill happens to run again.
+    // `getOrCreateOrganizationForUser` is idempotent and also catches up any plans
+    // still missing a stamp. It is applied AFTER the spread so a caller-supplied
+    // `organizationId` cannot place the plan in someone else's organization.
+    const organizationId = await getOrCreateOrganizationForUser(session.user.id);
+
     const client = await prisma.client.create({
       data: {
         ...body,
-        userId: session.user.id
+        userId: session.user.id,
+        organizationId,
       }
     });
 

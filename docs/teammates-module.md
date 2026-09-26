@@ -134,9 +134,18 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:verify-t2` | Runs the 35-assertion T2 enforcement suite (the three T2 acceptance criteria, the one-Owner invariant, plan lists, and the route guard). |
 | `npm run teammates:verify-t3` | Runs the 53-assertion T3 suite (seat metering, invite expiry, the upgrade-confirm gate, the owner-first team list, onboarding pre-fill, editing a member, and the roles explainer). |
 | `npm run teammates:verify-backfill` | Asserts the post-backfill invariants (every User/Client org'd, legacy `Client.userId` intact). |
+| `npm run teammates:verify-t4` | Runs the 62-assertion T4 suite (the invite path, the category merge, the deep link, the Who-is-this presets, the sponsor-domain guess, the search, and the audit row). |
+| `npm run teammates:verify-t5` | Runs the 38-assertion T5 suite (contact → invited without duplication, the plan-scoped section choice, the Contributor default, the source on the audit row, and the merge on re-invite). |
 | `npm run repair:unique-conflicts` | Finds (and with `--apply`, removes) duplicate session rows that block unique-index builds. |
 | `npm run repair:partial-indexes` | Re-applies the partial unique index on `Client.slug`. |
 | `npm run repair:purge-orphaned-user` | Inventories (dry run) then with `--apply` removes everything left behind by a deleted User account. |
+| `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
+
+Each verify script also **sweeps stranded fixtures before it asserts** and installs a
+SIGINT/SIGTERM handler that sweeps before exiting (§7.7), so an interrupted run is
+self-healing rather than something you have to notice and repair. Do not run two
+verifications concurrently — each sweep removes the other's rows, because a foreign
+stamp is indistinguishable from a stranded one.
 
 ### Toolchain prerequisites
 
@@ -291,6 +300,75 @@ Deletion reuses the app's own cascades
 so plan-scoped children are removed in the order their required relations demand.
 The script refuses to run while the `User` still exists, and verifies zero
 remaining references afterwards. `verify-backfill` now reports no orphans.
+
+### 7.6 Plan creation now stamps `organizationId` — fixed
+
+Every teammate read filters plans by `organizationId`, and **no** creation path used to
+set it. All four wrote `userId` only:
+
+| Route | Was |
+|---|---|
+| [`POST /api/clients`](../app/api/clients/route.ts) | `{ ...body, userId }` |
+| [`POST /api/clients/create`](../app/api/clients/create/route.ts) | explicit field list, no org |
+| [`POST /api/new-client-wizard/complete`](../app/api/new-client-wizard/complete/route.ts) | explicit field list, no org |
+| [`POST /api/new-client-wizard/save-draft`](../app/api/new-client-wizard/save-draft/route.ts) | `{ ...clientUpdateData, userId }` behind an `as any` |
+
+The consequence was not theoretical: a plan created after the last backfill run was
+**invisible to the org-scoped layer** — `listAccessiblePlanIds` would not return it,
+`assertPlanInOrganization` would refuse teammate assignment on it, and the T5 invite
+raised against a draft id would fail. It surfaced during this work as one unstamped
+client, and `verify-backfill` reported it as "every Client whose owner still exists is
+stamped with an organizationId".
+
+Each route now calls the existing idempotent
+[`getOrCreateOrganizationForUser(actorUserId)`](../lib/organization.ts) and writes the
+result, **after** any object spread so a caller-supplied value cannot place a plan in
+another organization. In `save-draft` only the create branch stamps — the update branch
+leaves the column alone, because re-stamping on every autosave would be pointless work
+on a row this route already stamped.
+
+The existing drifted row was fixed with `npm run teammates:backfill` (1 plan stamped).
+`verify-backfill` now also prints the offending plan's name and id, plus the remedy for
+each of the two causes, because "1 unstamped" alone does not say whether to re-run the
+backfill or to sweep a fixture.
+
+### 7.7 Interrupted verify runs no longer strand fixtures — fixed
+
+`verify-t1` … `verify-t5` build isolated fixtures, assert, and delete them unless
+`--keep` is passed. A Ctrl-C, a dropped connection or a crash skipped the cleanup, and a
+stranded fixture owner has no Organization — which fails the NEXT `verify-backfill` on
+two assertions that read like code regressions and are not.
+
+Two mechanisms now make that self-healing, both in
+[`scripts/teammates/shared.ts`](../scripts/teammates/shared.ts):
+
+- **`sweepStaleFixtures()` runs at the start of every verify script**, so an interrupted
+  run's rows are gone before anything is asserted. `exceptStamps` spares the current
+  run.
+- **`installFixtureGuards()` sweeps on SIGINT/SIGTERM** before exiting, so Ctrl-C leaves
+  the database clean rather than waiting for the next run.
+
+Selection is deliberately narrow. Owners must match
+`/^t[1-5]-verify-…@example\.test$/i`; because `verify-t2` deliberately creates an
+organization whose `ownerUserId` is a *fabricated* id (it asserts the "owner User is
+gone" case) and a plan inside it, rows are also matched by name against
+`/^t\d[ -]verify-/i`. The Prisma `contains`/`endsWith` filters are coarse pre-cuts —
+the typed API has no `$regex` — and the JS regexes are what decide, so they can only
+narrow the set. `npm run repair:purge-verification-fixtures` is the same sweep as a
+manual command, dry-run by default.
+
+Two implementation notes worth keeping:
+
+- **No `"__none__"` sentinels.** `id` and `profileId` are ObjectIds and Prisma validates
+  every value in an `in` list, so a placeholder string raises `P2023 Malformed ObjectID`.
+  An empty `in: []` already matches nothing.
+- **"Nothing to purge" must check every count, not just users.** A run can have zero
+  stranded users and still leave an organization and its audit rows behind.
+
+Verified end-to-end: `npm run teammates:verify-t2 -- --keep` (deliberately stranding
+4 users plus the ghost org and plan) followed by `npm run teammates:verify-backfill`
+printed `Swept 4 fixture user(s)…` and passed all 7 assertions; before the fix the same
+sequence failed 3.
 
 ---
 
@@ -791,6 +869,134 @@ passes `skipEmail: true`.
 
 ---
 
+## 9c. T5 — Key Contacts entry point
+
+Shipped as the **invite path only**, which is the scope decision recorded here:
+contacts keep living in `Client.keyContacts` (the array the hub already renders), and
+inviting is what creates a profile. Nothing about the hub's data source changed.
+
+### Where it lives
+
+| Piece | File |
+|---|---|
+| The step (4 slides: prompt → details → categories → preview) | [`step-3-key-contacts.tsx`](../components/wizard/new-client-steps/step-3-key-contacts/step-3-key-contacts.tsx) |
+| The two options on the opening prompt | [`first-contact-prompt.tsx`](../components/wizard/new-client-steps/step-3-key-contacts/slides/first-contact-prompt.tsx) |
+| Per-contact "Invite" action (Part A item 4) | [`category-explorer.tsx`](../components/wizard/new-client-steps/step-3-key-contacts/slides/category-explorer.tsx) |
+| The invite dialog | [`invite-collaborator-dialog.tsx`](../components/teammates/invite-collaborator-dialog.tsx) — shared with the other three entry points since §9d |
+| The shared invite itself | [`inviteCollaboratorToPlan`](../lib/teammates/invites.server.ts) |
+
+### One invite, two entry points
+
+`inviteCollaboratorToCategory` was widened and renamed to
+**`inviteCollaboratorToPlan`**, and `POST /api/teammates/invite-collaborator` now
+serves both tickets:
+
+- `category` (one) → the T4 category card that was clicked;
+- `categories` (one or more), no `whoIsThis` → the T5 Key Contacts invite, which
+  defaults to the Contributor preset because that flow never asks "Who is this?".
+
+Everything downstream is shared: the profile-reuse rule, the Team-Member refusal,
+the deactivation guard, the category merge on re-invite, the invite-metadata rule
+(only what was supplied is written), the audit row and the email. Adding a second
+entry point therefore did not add a second set of rules to keep in step.
+
+Two consequences worth knowing:
+
+- **The audit row now records `categories: string[]`** instead of a single
+  `category`, and `source` distinguishes `create_benefits` from `key_contacts`. A T4
+  invite is the one-element case of the same field.
+- **Two pages deep-link differently**: one category opens its own section
+  (`/edit-benefit/{plan}/{slug}`), several open `/benefits`, because there is no
+  single section to land on. The email copy says "the Group Health section" or lists
+  the sections accordingly.
+
+### The rules this entry point follows
+
+1. **Scope is This Plan** — the invite writes exactly one assignment, for the plan
+   the wizard is building, carrying the categories the advisor ticked. A second plan
+   in the same organization is never touched (asserted).
+2. **The invite needs a saved plan.** Key Contacts runs before the plan is
+   completed, so the step persists the wizard draft on demand (`ensurePlanId`) and
+   refuses to invite if that fails, rather than inviting into nothing.
+3. **No seat, no Team Member, no All Plans** — all inherited from the shared core.
+4. **The person is reused, not duplicated.** Picking someone from the
+   "Add Existing Contact / Collaborator" search fills their saved profile in, and
+   inviting by email reuses whatever profile exists for that address (Part B item 5).
+
+### Acceptance, and one honest caveat
+
+`verify-t5` covers the three criteria: a Contact sends no invite and has no
+assignment while still appearing in the plan's own contact data (what the hub
+renders); inviting it reuses the same profile and moves it Contact → Invited; and two
+collaborators from one firm share a single `TeammateCompany` row.
+
+The caveat: because the approved scope leaves plain contacts in `Client.keyContacts`,
+"I invite the contact I already typed in" reuses the *profile that exists for that
+email* — and there may be none yet, in which case the invite creates it. What is
+guaranteed, and asserted, is that **no second profile is ever created for an email
+that already has one**, and that the plan's contact data is left alone. Making every
+contact a profile from the moment it is saved is the T6/T7 step that also moves the
+hub onto profile + assignment.
+
+---
+
+## 9d. Invite entry points — one dialog, four surfaces
+
+The invite is a single verb ("put this person on this plan's sections and email
+them"), so it now has a single UI. Every entry point mounts
+[`InviteCollaboratorDialog`](components/teammates/invite-collaborator-dialog.tsx) and
+POSTs to `/api/teammates/invite-collaborator`, which lands on
+[`inviteCollaboratorToPlan()`](lib/teammates/invites.server.ts). There is no second
+rule set to drift.
+
+| Surface | How it opens | Plan resolution | `source` |
+|---|---|---|---|
+| **Create Plan → Key Contacts** (T5) | second prompt card, or per-contact "Invite" in the Category Explorer | draft persisted on demand (`ensurePlanId`) | `key_contacts` |
+| **Edit Client → Key Contacts** | tab header button, or the row action on any contact | the saved plan (`clientId`) | `edit_client` |
+| **Add / Edit Benefit → Contacts** | section header button (was inside the collapsed Collaborators accordion) | the plan being edited | `create_benefits` / `edit_benefit` |
+| **Settings → Team Members → Collaborators** | "Invite Collaborator", beside "Add Collaborator" | chosen from a plan list | `settings` |
+
+### How the plan is resolved
+
+One prop decides, never a fallback chain that could pick the wrong plan:
+
+1. `planOptions` — a plan picker, used by Settings, which has no plan in context;
+2. `planId` — a plan the caller already holds (Edit Client, Add/Edit Benefit);
+3. `ensurePlanId()` — the wizard's draft-on-demand resolution.
+
+If none yields a plan the invite is **refused** rather than written against nothing.
+
+### Why the source is recorded
+
+`InviteCollaboratorDialog` renders in the Create *and* Edit benefit flows, and there
+are now four places an invite can come from. `INVITE_SOURCES` is a named union, the
+endpoint validates the incoming value with `isInviteSource()` instead of accepting any
+string, and the audit row records which surface asked. Without it "where do invites
+come from?" is unanswerable, and a Guest-list problem in one surface would be
+invisible.
+
+### Two deliberate distinctions
+
+- **Settings: "Invite Collaborator" ≠ "Add Collaborator".** The latter grants scoped
+  access silently — an Owner sharing a screen may not want mail sent yet. The former
+  creates the same profile and assignment *and* emails the person. Two intents, two
+  buttons, so neither has to guess.
+- **The dialog's category list is not fixed at four.** It shows the canonical four
+  from [`BENEFIT_CONTACT_CATEGORIES`](lib/benefit-contacts.ts) plus any pre-filled
+  category that is not among them (a contact filed under "Third Party Contact", say).
+  Filtering those out — as the T5-only version did — would tick nothing for a contact
+  the advisor explicitly asked to invite.
+
+### Files
+
+- Dialog: `components/teammates/invite-collaborator-dialog.tsx`. The old T5 path
+  (`components/wizard/new-client-steps/step-3-key-contacts/invite-collaborator-dialog.tsx`)
+  is a re-export shim only; nothing imports it.
+- Server: `INVITE_SOURCES` / `isInviteSource()` in `lib/teammates/invites.server.ts`;
+  `source` accepted on `POST /api/teammates/invite-collaborator`.
+
+---
+
 ## 10. Residual migration debt
 
 Tracked, deliberately **not** part of T1:
@@ -810,6 +1016,9 @@ Tracked, deliberately **not** part of T1:
 5. **New-plan auto-assignment.** Spec Part B item 4 ("All Plans" generates an
    assignment for every new plan) has its data support (`listAllPlansTeamMembers`)
    but is not yet wired into plan creation — that lands with T3/T6.
+Two problems found while building the invite entry points were **fixed, not
+deferred**: plan creation now stamps `organizationId` at all four creation paths
+(§7.6), and verify runs sweep stranded fixtures and clean up on Ctrl-C (§7.7).
 
 ---
 
@@ -821,9 +1030,9 @@ Tracked, deliberately **not** part of T1:
 - **T4 follow-ups** — wire "Customize access" once T2a lands; build the
   Ready-for-Review / Approve / Send-Back workflow (needs a review state on
   `PlanAssignment` and a notification channel).
-- **T5** — Key Contacts entry point: "Complete Profile Myself" (saves a Contact, no
-  login) vs "Invite Collaborator to Complete Profile", plus "Invite to collaborate"
-  on an existing Contact.
+- **T5 follow-up** — make a contact a profile the moment it is saved (state
+  `contact`, no login, no cap) so "upgrade keeps the same profile" holds literally,
+  which is the same change that moves the hub onto profile + assignment (T7).
 - **T6** — Assignment management screen: profile per person, per-plan controls, and
   the three separate actions Remove Assignment / Deactivate / Delete Profile.
 - **T7** — Benefits Hub contact display (My Benefits Team + the category page).

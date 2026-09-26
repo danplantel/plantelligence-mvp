@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
-import { ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
+import { ArrowRight, ChevronDown, ChevronUp, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BrandingImage } from "@/components/ui/branding-image";
 
@@ -21,9 +21,18 @@ export interface FirstContactPromptProps {
   onContinue: () => void;
   /** Called when user selects a "Someone Else" option */
   onSomeoneElseSelect?: (option: SomeoneElseOption) => void;
+  /**
+   * T5 Part A item 1: the second of the two options — invite the person to complete
+   * their own profile instead of the advisor typing it up. Omitted renders one option.
+   */
+  onInviteCollaborator?: () => void;
 }
 
-export function FirstContactPrompt({ onContinue, onSomeoneElseSelect }: FirstContactPromptProps) {
+export function FirstContactPrompt({
+  onContinue,
+  onSomeoneElseSelect,
+  onInviteCollaborator,
+}: FirstContactPromptProps) {
   const stepData = useNewClientWizardStore((s) => s.stepData);
   const [isSomeoneElseExpanded, setIsSomeoneElseExpanded] = useState(false);
   const someoneElseRef = useRef<HTMLDivElement>(null);
@@ -130,6 +139,30 @@ export function FirstContactPrompt({ onContinue, onSomeoneElseSelect }: FirstCon
           </div>
         </div>
       </button>
+
+      {/* T5: the person fills in their own profile and gets access to this plan. */}
+      {onInviteCollaborator ? (
+        <button
+          type="button"
+          onClick={onInviteCollaborator}
+          className="group rounded-xl w-full max-w-sm mx-auto p-4 text-left shadow-sm transition-all cursor-pointer bg-gray-50 hover:bg-gray-100 hover:shadow-md dark:bg-gray-800/50 dark:hover:bg-gray-800"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0">
+              <UserPlus className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <div className="flex flex-col flex-1 min-w-0">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                Invite Collaborator to Complete Profile
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                They fill in their own details — free, and no seat used
+              </p>
+            </div>
+            <ArrowRight className="w-4 h-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+          </div>
+        </button>
+      ) : null}
 
       {/* Divider */}
       <div className="flex items-center gap-3 w-full max-w-sm mx-auto">

@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
+import { getOrCreateOrganizationForUser } from "@/lib/organization";
 
 export async function POST(request: NextRequest) {
   try {
@@ -114,6 +115,11 @@ export async function POST(request: NextRequest) {
 
 
 
+        // Stamp the tenant at creation. This route builds the row itself rather than
+        // calling an API, so it has to stamp `organizationId` itself too — otherwise
+        // the finished plan is invisible to the teammate layer until the backfill runs.
+        const organizationId = await getOrCreateOrganizationForUser(session.user.id);
+
         // Create client directly here instead of calling API
         const client = await prisma.client.create({
           data: {
@@ -133,6 +139,7 @@ export async function POST(request: NextRequest) {
             disclaimers: clientData.disclaimers,
             keyContacts: clientData.keyContacts as any,
             userId: session.user.id,
+            organizationId,
             status: "active"
           }
         });

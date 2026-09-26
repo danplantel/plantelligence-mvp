@@ -4,6 +4,8 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { SlideContainer, SlideDirection } from "./slides/slide-container";
 import { FirstContactPrompt, SomeoneElseOption } from "./slides/first-contact-prompt";
+// Shared with Edit Client and Settings → Team Members — one dialog, four entry points.
+import { InviteCollaboratorDialog } from "@/components/teammates/invite-collaborator-dialog";
 import { ContactFormSlide } from "./slides/contact-form-slide";
 import { CategoryExplorer } from "./slides/category-explorer";
 import { NewClientStep3d } from "./step-3-contact-preview";
@@ -59,6 +61,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
   const {
     stepData,
     saveStepDataLocally,
+    saveAsDraft,
     clearErrorFields,
     setSelectedCategoryStep3a,
     currentStep,
@@ -66,6 +69,52 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     setStep3SlideIndex,
     advisorProfile,
   } = useNewClientWizardStore();
+
+  /* ── T5: invite a collaborator from Key Contacts ─────────────────────
+     The invite needs a plan row to attach the assignment to. This step runs before
+     the plan is completed, so the draft is persisted on demand — the wizard already
+     does that on step transitions, but a fast path can reach this prompt first. */
+  const [invitePrefill, setInvitePrefill] = useState<{
+    name?: string | null;
+    email?: string | null;
+    categories?: string[];
+  } | null>(null);
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+
+  const ensurePlanId = useCallback(async (): Promise<string | null> => {
+    const existing = useNewClientWizardStore.getState().draftClientId;
+    if (existing) return existing;
+    try {
+      await saveAsDraft();
+    } catch {
+      return null;
+    }
+    return useNewClientWizardStore.getState().draftClientId ?? null;
+  }, [saveAsDraft]);
+
+  const openInvite = useCallback(
+    (contact?: any) => {
+      const categories = Array.isArray(contact?.benefitsCategories)
+        ? contact.benefitsCategories
+        : contact?.benefitsCategory
+          ? [contact.benefitsCategory]
+          : [];
+      setInvitePrefill(
+        contact
+          ? {
+              name:
+                contact.displayName ||
+                [contact.firstName, contact.lastName].filter(Boolean).join(" ") ||
+                null,
+              email: contact.email ?? null,
+              categories,
+            }
+          : null,
+      );
+      setIsInviteOpen(true);
+    },
+    [],
+  );
 
   // Get contacts
   const keyContactsData = stepData.keyContacts || { contacts: [] };
@@ -478,6 +527,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
           <FirstContactPrompt
             onContinue={handleFirstContactContinue}
             onSomeoneElseSelect={handleSomeoneElseSelect}
+            // T5 Part A item 1: the second option — invite the person to fill in
+            // their own profile and get access to this plan.
+            onInviteCollaborator={() => openInvite()}
           />
         );
       case 1:
@@ -504,6 +556,13 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             onCategorySelect={handleCategorySelect}
             onBack={handleCategoryBack}
             onContinue={handleCategoryContinue}
+            // T5 Part A item 4: hand an existing contact to the person it describes,
+            // with their saved details pre-filled.
+            onInviteContact={(category, contact) =>
+              openInvite(
+                contact ?? { benefitsCategories: [String(category)] },
+              )
+            }
             onEditContact={(category, contact) => {
               // Pre-populate step3b with the existing contact's data so the form
               // initialises with its values, and include editingContactId so
@@ -613,6 +672,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     handleCategorySelect,
     handleCategoryContinue,
     handleCategoryBack,
+    openInvite,
     errorFields,
   ]);
 
@@ -637,6 +697,20 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
       >
         {slideContent}
       </SlideContainer>
+
+      {/* T5: scoped to this plan and to whatever the contact's own categories were,
+          so inviting an existing contact starts from what they already cover. The
+          invite needs a plan row, which `ensurePlanId` persists on demand. The
+          `source` is explicit so the audit row says this came from Key Contacts
+          rather than from one of the three other entry points. */}
+      <InviteCollaboratorDialog
+        open={isInviteOpen}
+        onOpenChange={setIsInviteOpen}
+        planName={defaultCompanyName || "this plan"}
+        ensurePlanId={ensurePlanId}
+        prefill={invitePrefill}
+        source="key_contacts"
+      />
     </div>
   );
 }

@@ -21,6 +21,7 @@ import {
   Puzzle,
   Users,
   Briefcase,
+  UserPlus,
 } from "lucide-react";
 import { Headshot } from "@/components/ui/headshot";
 import { BenefitsCategory } from "@/types/new-client-wizard";
@@ -41,6 +42,11 @@ export interface CategoryExplorerProps {
   onEditMainContact?: () => void;
   /** Called when user wants to edit a specific benefit contact */
   onEditContact?: (category: BenefitsCategory, contact?: any) => void;
+  /**
+   * T5 Part A item 4: "Invite to collaborate" on any existing contact, so an
+   * advisor-filed contact can be handed to the person it describes.
+   */
+  onInviteContact?: (category: BenefitsCategory, contact?: any) => void;
 }
 
 // ==================== Constants ====================
@@ -77,6 +83,7 @@ export function CategoryExplorer({
   onContinue,
   onEditMainContact,
   onEditContact,
+  onInviteContact,
 }: CategoryExplorerProps) {
   const { stepData, saveStepDataLocally } = useNewClientWizardStore();
 
@@ -837,6 +844,21 @@ export function CategoryExplorer({
                               >
                                 <Pencil className="w-3 h-3 mr-1" />
                                 Edit
+                              </Button>
+                            )}
+                            {onInviteContact && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onInviteContact(category, contact);
+                                }}
+                                className="h-7 px-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                title={`Invite ${name} to collaborate`}
+                              >
+                                <UserPlus className="w-3 h-3 mr-1" />
+                                Invite
                               </Button>
                             )}
                             <Button

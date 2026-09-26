@@ -280,15 +280,59 @@ export async function missingFieldsForCategory({
 
 /* ───────────────────────────── The invite ───────────────────────────── */
 
+/**
+ * The surfaces that raise an invite. Kept as a named union so the route can validate
+ * an incoming value against it instead of accepting any string, and so adding a fifth
+ * entry point is a compile error at the audit call rather than a silent mislabel.
+ */
+export const INVITE_SOURCES = [
+  "create_benefits",
+  "edit_benefit",
+  "key_contacts",
+  "edit_client",
+  "settings",
+] as const;
+
+export type InviteSource = (typeof INVITE_SOURCES)[number];
+
+export function isInviteSource(value: unknown): value is InviteSource {
+  return (
+    typeof value === "string" &&
+    (INVITE_SOURCES as readonly string[]).includes(value)
+  );
+}
+
 export interface InviteCollaboratorInput {
   organizationId: string;
   actorUserId: string;
   /** The plan the invite is pinned to — never widened here. */
   clientId: string;
-  /** The single benefit category it is scoped to (Part A item 2). */
-  category: string;
+  /**
+   * The category it is scoped to (T4 Part A item 2). Omit it when `categories` is
+   * supplied — T5's Key Contacts entry point invites to several at once.
+   */
+  category?: string;
+  /** T5: the categories the advisor picked, merged into the single plan assignment. */
+  categories?: string[];
   email: string;
-  whoIsThis: WhoIsThisContext;
+  /**
+   * T4's "Who is this?" answer. Optional because T5's flow never asks; when it is
+   * omitted the invite falls back to the Contributor preset.
+   */
+  whoIsThis?: WhoIsThisContext;
+  /** Explicit preset, overriding whatever `whoIsThis` would map to. */
+  role?: TeammateAssignmentRole;
+  /**
+   * Which surface raised the invite; recorded on the audit row.
+   *
+   * Four entry points share this one function (T4's benefit card, T5's Key Contacts
+   * prompt, Edit Client's Key Contacts tab, and Settings → Team Members), so the
+   * audit row has to say which one actually asked. A wrong or absent `source` would
+   * make "where do invites come from?" unanswerable.
+   */
+  source?: InviteSource;
+  /** Label used in the email and the audit row (e.g. "Plan Sponsor HR"). */
+  inviteContext?: string;
   name?: string | null;
   note?: string | null;
   /** `yyyy-mm-dd` from the dialog's date field, or null. */
@@ -317,14 +361,20 @@ export interface InviteCollaboratorResult {
 }
 
 /**
- * Invite someone to complete ONE benefit category of ONE plan.
+ * Invite someone to help with ONE plan, scoped to one or more benefit categories.
+ *
+ * T4 calls it with the single category of the card the invite was raised from; T5's
+ * Key Contacts entry point calls it with the categories the advisor picked. Both
+ * therefore share one implementation of the guards, the profile reuse, the state
+ * transition, the audit row and the email — there is no second invite path that
+ * could drift from this one.
  *
  * Order matters: the person is resolved/created first, then the assignment is
  * merged, then the state moves to Invited, then the audit row is written, and only
  * then is the email attempted. A mail failure therefore cannot leave an unaudited
  * assignment behind, and it cannot roll back a grant the advisor asked for.
  */
-export async function inviteCollaboratorToCategory(
+export async function inviteCollaboratorToPlan(
   input: InviteCollaboratorInput,
 ): Promise<InviteCollaboratorResult> {
   const email = (input.email ?? "").trim().toLowerCase();
@@ -336,8 +386,16 @@ export async function inviteCollaboratorToCategory(
     );
   }
 
-  const category = (input.category ?? "").trim();
-  if (!category) {
+  // One category (T4) or several (T5). Deduped, because the merge below preserves
+  // order and a repeated category should not survive into the stored list.
+  const targetCategories = [
+    ...new Set(
+      (input.categories?.length ? input.categories : [input.category ?? ""])
+        .map((value) => (value ?? "").trim())
+        .filter(Boolean),
+    ),
+  ];
+  if (targetCategories.length === 0) {
     throw new TeammateDataError(
       "A benefit category is required.",
       400,
@@ -400,13 +458,15 @@ export async function inviteCollaboratorToCategory(
   // different category is not a role change.
   const role: TeammateAssignmentRole = existing
     ? existing.role
-    : roleForWhoIsThisContext(input.whoIsThis);
+    : (input.role ??
+      // T5 never asks "Who is this?", so an omitted answer means Contributor.
+      roleForWhoIsThisContext(input.whoIsThis ?? "outside_advisor"));
   const categoryScope: TeammateCategoryScope =
     existing?.categoryScope === "all" ? "all" : "selected";
   const categories =
     categoryScope === "all"
       ? []
-      : [...new Set([...(existing?.categories ?? []), category])];
+      : [...new Set([...(existing?.categories ?? []), ...targetCategories])];
 
   const dueDate = parseDueDate(input.dueDate);
   const note = (input.note ?? "").trim();
@@ -444,11 +504,18 @@ export async function inviteCollaboratorToCategory(
     });
   }
 
-  const missingFields = await missingFieldsForCategory({
-    organizationId: input.organizationId,
-    clientId: input.clientId,
-    category,
-  });
+  // Deduped across every invited category: the email lists what is still missing on
+  // the sections this person was given, and the caller shows the same list.
+  const missingPerCategory = await Promise.all(
+    targetCategories.map((value) =>
+      missingFieldsForCategory({
+        organizationId: input.organizationId,
+        clientId: input.clientId,
+        category: value,
+      }),
+    ),
+  );
+  const missingFields = [...new Set(missingPerCategory.flat())];
 
   await recordTeammateAuditEvent({
     organizationId: input.organizationId,
@@ -457,11 +524,13 @@ export async function inviteCollaboratorToCategory(
     profileId: profile.id,
     assignmentId: assignment.id,
     details: {
-      source: "create_benefits",
+      source: input.source ?? "create_benefits",
       clientId: input.clientId,
-      category,
-      whoIsThis: input.whoIsThis,
-      whoIsThisLabel: labelForWhoIsThisContext(input.whoIsThis),
+      categories: targetCategories,
+      whoIsThis: input.whoIsThis ?? null,
+      whoIsThisLabel:
+        input.inviteContext ??
+        labelForWhoIsThisContext(input.whoIsThis ?? "outside_advisor"),
       reusedProfile,
       dueDate: dueDate ? dueDate.toISOString() : null,
     },
@@ -492,11 +561,19 @@ export async function inviteCollaboratorToCategory(
         inviterName: actor?.name ?? null,
         organizationName: organization?.name ?? null,
         planName: plan.companyName,
-        category,
-        inviteContext: labelForWhoIsThisContext(input.whoIsThis),
-        sectionUrl: `${appBaseUrl()}/edit-benefit/${input.clientId}/${categoryToSlug(
-          category,
-        )}`,
+        category: targetCategories[0],
+        categories: targetCategories,
+        inviteContext:
+          input.inviteContext ??
+          labelForWhoIsThisContext(input.whoIsThis ?? "outside_advisor"),
+        // One category deep-links straight at its section; several land on the plan's
+        // benefit list, because there is no single section to open.
+        sectionUrl:
+          targetCategories.length === 1
+            ? `${appBaseUrl()}/edit-benefit/${input.clientId}/${categoryToSlug(
+                targetCategories[0],
+              )}`
+            : `${appBaseUrl()}/benefits`,
         missingFields,
         note: input.note ?? null,
         dueDate,

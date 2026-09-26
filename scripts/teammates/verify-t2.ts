@@ -19,7 +19,14 @@
  * everything it created. Pass `--keep` to inspect the fixtures afterwards.
  * Exit code is non-zero when any assertion fails.
  */
-import { check, createPrisma, failureCount, summary } from "./shared";
+import {
+  check,
+  createPrisma,
+  failureCount,
+  installFixtureGuards,
+  summary,
+  sweepStaleFixtures,
+} from "./shared";
 import {
   NO_ACCESS_MESSAGE,
   assertOrganizationKeepsAnOwner,
@@ -44,6 +51,12 @@ const STAMP = Date.now();
 
 async function main(): Promise<void> {
   const prisma = createPrisma();
+
+  // Sweep whatever an earlier interrupted run stranded — a fixture owner with no
+  // Organization would otherwise fail the NEXT verify run — then make sure this run
+  // cleans up on Ctrl-C as well as on a thrown error.
+  installFixtureGuards(prisma, { exceptStamps: [STAMP] });
+  await sweepStaleFixtures(prisma, { exceptStamps: [STAMP] });
 
   const created = {
     assignmentIds: [] as string[],

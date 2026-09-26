@@ -5,13 +5,20 @@ import { getOrgSession } from "@/lib/organization-session";
 import { requireOrganizationPermission } from "@/lib/teammates/access.server";
 import { TeammateDataError } from "@/lib/teammates/errors";
 import {
-  inviteCollaboratorToCategory,
+  inviteCollaboratorToPlan,
+  isInviteSource,
   suggestWhoIsThisContext,
 } from "@/lib/teammates/invites.server";
 import { isWhoIsThisContext } from "@/types/teammate";
 
 /**
- * T4 — invite a Collaborator from Create Benefits.
+ * T4 — invite a Collaborator from Create Benefits — and T5, which raises the same
+ * invite from Create Plan → Key Contacts.
+ *
+ * The two differ only in scope, so they share this endpoint:
+ *  - `category` (one) → the category card that was clicked (T4);
+ *  - `categories` (one or more) + no answer → the plan-first invite from Key
+ *    Contacts (T5), which defaults to the Contributor preset.
  *
  * Deliberately gated on `org_settings` rather than on the per-plan
  * `invite_team_or_collaborators` row, because the spec settles the question in Open
@@ -95,22 +102,60 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
     }
 
-    // An unknown "Who is this?" is refused rather than defaulted: silently
-    // choosing a role for the advisor is worse than making them pick again.
-    if (!isWhoIsThisContext(body.whoIsThis)) {
+    // Which surface raised this invite, for the audit row. Defaulted per branch below
+    // rather than defaulted to a constant: an unchecked default would label an Edit
+    // Client or Settings invite as coming from the Create Plan wizard.
+    const source = isInviteSource(body.source) ? body.source : undefined;
+
+    // T5's Key Contacts flow invites to a set of categories and never asks "Who is
+    // this?"; T4 sends exactly one category together with the answer.
+    const categories = Array.isArray(body.categories)
+      ? body.categories.map((value) => String(value)).filter(Boolean)
+      : [];
+    const isPlanScope = categories.length > 0;
+
+    if (!isPlanScope && !String(body.category ?? "").trim()) {
       return NextResponse.json(
-        { error: 'Choose who this person is.', code: "who_is_this_required" },
+        { error: "A benefit category is required.", code: "category_required" },
         { status: 400 },
       );
     }
 
-    const result = await inviteCollaboratorToCategory({
+    // An answer that was SENT but is unknown is refused rather than defaulted:
+    // silently choosing a role for the advisor is worse than making them pick again.
+    // Omitted entirely is fine — that is the T5 flow, which defaults to Contributor.
+    if (
+      body.whoIsThis !== undefined &&
+      body.whoIsThis !== null &&
+      !isWhoIsThisContext(body.whoIsThis)
+    ) {
+      return NextResponse.json(
+        { error: "Choose who this person is.", code: "who_is_this_required" },
+        { status: 400 },
+      );
+    }
+    const whoIsThis = isWhoIsThisContext(body.whoIsThis)
+      ? body.whoIsThis
+      : undefined;
+
+    const result = await inviteCollaboratorToPlan({
       organizationId: session.organizationId,
       actorUserId: session.userId,
       clientId: String(body.clientId ?? ""),
-      category: String(body.category ?? ""),
+      ...(isPlanScope
+        ? {
+            categories,
+            // Key Contacts is the default because it is the plan-scoped caller that
+            // predates this field; a caller that knows better says so explicitly.
+            source: source ?? ("key_contacts" as const),
+            inviteContext: "Collaborator",
+          }
+        : {
+            category: String(body.category ?? ""),
+            source: source ?? ("create_benefits" as const),
+          }),
       email: String(body.email ?? ""),
-      whoIsThis: body.whoIsThis,
+      ...(whoIsThis ? { whoIsThis } : {}),
       name: typeof body.name === "string" ? body.name : null,
       note: typeof body.note === "string" ? body.note : null,
       dueDate: typeof body.dueDate === "string" ? body.dueDate : null,

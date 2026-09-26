@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
+import { getOrCreateOrganizationForUser } from "@/lib/organization";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,8 +13,13 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    
-    
+
+    // Stamp the tenant at creation — the teammate layer reads plans by
+    // `organizationId`, and the backfill is not guaranteed to have run since the last
+    // plan was made. Idempotent, so this is safe on every request.
+    const organizationId = await getOrCreateOrganizationForUser(session.user.id);
+
+
           const client = await prisma.client.create({
             data: {
               companyName: body.companyName,
@@ -30,6 +36,7 @@ export async function POST(request: NextRequest) {
               disclaimers: body.disclaimers,
               keyContacts: body.keyContacts,
               userId: session.user.id,
+              organizationId,
               status: "active"
             }
           });

@@ -11,10 +11,30 @@
  *
  * Exit code is non-zero when an invariant is violated.
  */
-import { check, createPrisma, failureCount, summary } from "./shared";
+import {
+  check,
+  createPrisma,
+  failureCount,
+  installFixtureGuards,
+  summary,
+  sweepStaleFixtures,
+} from "./shared";
 
 async function main(): Promise<void> {
   const prisma = createPrisma();
+
+  // This is the assertion a stranded fixture breaks first ("every User has an
+  // organizationId"), so it is also the best place to self-heal: sweep anything a
+  // previous interrupted run left behind before asserting. This script has no stamp
+  // of its own to spare.
+  installFixtureGuards(prisma);
+  const swept = await sweepStaleFixtures(prisma);
+  if (swept.users > 0) {
+    console.log(
+      `Swept ${swept.users} fixture user(s) stranded by an earlier interrupted run.`,
+    );
+    console.log("");
+  }
 
   try {
     const users = await prisma.user.findMany({
@@ -83,6 +103,26 @@ async function main(): Promise<void> {
       stampableUnstamped.length === 0,
       `${stampableUnstamped.length} unstamped`,
     );
+
+    // Name the row and the remedy. This failure is nearly always one of two things —
+    // a plan created after the last backfill (the creation routes stamp from
+    // `getOrCreateOrganizationForUser`, but a plan made by an older build will not
+    // have it), or an interrupted verify run — and neither is obvious from a count.
+    if (stampableUnstamped.length > 0) {
+      console.log("");
+      for (const plan of stampableUnstamped) {
+        console.log(`    unstamped plan: "${plan.companyName}" (${plan.id})`);
+      }
+      console.log(
+        "    Fix: `npm run teammates:backfill` stamps every plan whose owner has an",
+      );
+      console.log(
+        "    organization. If a fixture user appears in the owners list above, run",
+      );
+      console.log(
+        "    `npm run repair:purge-verification-fixtures -- --apply` first.",
+      );
+    }
 
     if (orphanClients.length > 0) {
       console.log("");

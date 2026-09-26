@@ -10,6 +10,7 @@ import {
   Pencil,
   Plus,
   UserRound,
+  UserRoundPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -56,6 +57,9 @@ import {
 } from "@/components/ui/select";
 import { Headshot } from "@/components/ui/headshot";
 import type { SeatUsageSummary } from "@/components/pages/seat-meter";
+// The same dialog Edit Client, the Create Plan wizard and Add/Edit Benefit use, so an
+// invite means one thing everywhere.
+import { InviteCollaboratorDialog } from "@/components/teammates/invite-collaborator-dialog";
 import { BENEFIT_CONTACT_CATEGORIES } from "@/lib/benefit-contacts";
 import {
   describeAllRoles,
@@ -862,6 +866,16 @@ export function TeamMembersSection() {
   /** The collaborator awaiting a deactivate confirmation. */
   const [deactivating, setDeactivating] = useState<TeamMemberRow | null>(null);
 
+  /**
+   * Invite Collaborator — the email-sending path.
+   *
+   * Deliberately a SEPARATE action from "Add Collaborator": the latter grants scoped
+   * access silently (an Owner sharing a screen may not want mail sent yet), while this
+   * one creates the same profile and assignment AND emails the person. Two intents, two
+   * buttons, so neither has to guess.
+   */
+  const [isInviteOpen, setIsInviteOpen] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
 
@@ -1213,15 +1227,41 @@ export function TeamMembersSection() {
                 Whatever role they hold, they can never publish, invite, delete, or
                 see organization settings.
               </p>
-              <Button variant="outline" onClick={openAddCollaborator}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Collaborator
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  onClick={() => setIsInviteOpen(true)}
+                  disabled={plans.length === 0}
+                  title={
+                    plans.length === 0
+                      ? "Create a plan before inviting a collaborator"
+                      : "Email someone an invite to complete a plan's sections"
+                  }
+                >
+                  <UserRoundPlus className="mr-2 h-4 w-4" />
+                  Invite Collaborator
+                </Button>
+                <Button variant="outline" onClick={openAddCollaborator}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Collaborator
+                </Button>
+              </div>
             </div>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
       )}
+
+      {/* ── Invite Collaborator (sends the email) ── */}
+      <InviteCollaboratorDialog
+        open={isInviteOpen}
+        onOpenChange={setIsInviteOpen}
+        planOptions={plans.map((plan) => ({
+          id: plan.id,
+          name: plan.companyName,
+        }))}
+        source="settings"
+        onInvited={() => void load()}
+      />
 
       {/* ── Add Team Member / Collaborator ── */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
