@@ -19,6 +19,10 @@ Run these first. They prove the data layer is healthy before you go looking for 
 the UI, and they leave the database clean.
 
 ```bash
+# 0. Prove the app is on the new database at all — run these two before anything else.
+npx prisma migrate status              # expect: "Database schema is up to date!"
+npm run check:no-mongo                 # expect: "no MongoDB coupling remains"
+
 npm run teammates:verify-backfill     # 7 assertions  — every User/Client has an org
 npm run teammates:verify              # 24 assertions — T1 data model
 npm run teammates:verify-t2           # 35 assertions — enforcement layer
@@ -32,11 +36,19 @@ npm run teammates:verify-t9           # 41 assertions — invite acceptance (col
 ```
 
 - [ ] All ten suites report **all assertions passed**.
-- [ ] `npx tsc --noEmit` exits 0.
+- [ ] `npx tsc --noEmit` exits 0, and `npm run lint` reports no warnings.
+- [ ] **`npm run check:no-mongo` is clean.** Until it is, the surfaces it names are known
+      broken — read [Known gaps](#known-gaps--do-not-report-these-as-bugs) **before** filing
+      anything about benefits, videos, webinars, documents or plan creation.
+- [ ] If a suite fails with a **foreign-key error (`P2003`)** while cleaning up its fixtures,
+      that is the new foreign keys doing their job — Postgres enforces relations that Prisma
+      only emulated before. Report it; do not work around it.
 - [ ] If a suite fails on "every User has an organizationId", a previous interrupted run
       left a fixture behind: `npm run repair:purge-verification-fixtures -- --apply`.
 - [ ] If a suite fails on "every Client whose owner still exists is stamped", run
       `npm run teammates:backfill`.
+- [ ] Note that on a **fresh database** `verify-backfill` passes trivially (0 users, 0 plans).
+      That proves the connection, not the invariants — run it again after creating a plan.
 
 ### Accounts you need
 
@@ -58,6 +70,39 @@ open (an alias is fine), open the **accept link** from the email, choose a passw
 are signed in as that collaborator, landing on the section they were invited to. The full
 flow — including expired, revoked, already-accepted and wrong-mailbox refusals — is
 [T9 — Invite acceptance](#t9--invite-acceptance-creating-the-collaborator-login).
+
+---
+
+## Create Plan — the draft-resume flow
+
+The wizard may only offer to resume a plan that **exists on the server**. Browser storage is a
+cache of typing, never evidence that a plan exists — that rule lives in
+[`lib/new-client-wizard-resume.ts`](../lib/new-client-wizard-resume.ts:1), and the reasoning is
+in [§P5a of the migration plan](./postgres-migration.md). These five checks are the ones that
+were failing.
+
+- [ ] With **no drafts on the server at all** (a fresh database), open **Create Plan**. You go
+      straight into a blank wizard — **no "You have an in-progress plan" dialog**. This is the
+      bug that prompted the rebuild.
+- [ ] Save a draft, confirm it appears in **View Plans**, delete it there, then revisit
+      **Create Plan**. You are **not** offered to resume the deleted plan.
+- [ ] **A second advisor on the same browser:** sign out, sign in as a different account, open
+      **Create Plan**. You must **not** see the first advisor's company name, contacts or
+      images. The snapshot is attributed to a user and discarded when it is not yours.
+- [ ] Type a company name and navigate away **within about three seconds**, before autosave
+      fires. Returning to the wizard **keeps your typing** and does **not** prompt — there is no
+      server draft yet, so there is nothing to resume.
+- [ ] Now let autosave run, navigate away and return: you **are** offered the resume dialog,
+      naming the company and the last-saved time.
+
+Two behaviours worth not reporting as bugs:
+
+- **The first load after deploying this change discards the existing browser snapshot**, because
+  the snapshot written before the rebuild carries no owner and therefore cannot be attributed.
+  It happens **once per browser** and starts the wizard clean. If a tester reports "my
+  half-finished plan vanished on first load", that is this.
+- **A network failure never clears local work.** Only an explicit "draft not found" does — so
+  losing connectivity mid-wizard should leave your typing untouched.
 
 ---
 
@@ -328,6 +373,13 @@ until the accept link is used, an invited person still cannot sign in.
       grid and the invite dialog.
 - [ ] **Narrow viewport** pass over the same four surfaces — long plan and company names
       truncate rather than overflow.
+- [ ] **Deployment targets the new database.** `.env` is gitignored and **Vercel does not read
+      it** — the dev and production projects each need `DATABASE_URL` (pooled, including
+      `pgbouncer=true`) and `DIRECT_URL` set in their dashboards. Until that is done those
+      deploys still write to MongoDB, so check it before investigating any "my data
+      disappeared" report.
+- [ ] **A brand-new signup works end to end** against the new database: the account saves, an
+      Organization is created for it, and that account can create a plan.
 
 ---
 
@@ -361,6 +413,17 @@ These are deliberate, recorded decisions. Reporting them wastes a cycle.
   invited into *someone else's* organization also has a personal, planless one. It grants
   nothing (plan access is resolved from their profile's assignments, never from that
   organization) and it is not a leak. Do not report it.
+- **The MongoDB → PostgreSQL migration is not finished, so some surfaces are expected to be
+  broken.** `npm run check:no-mongo` still reports findings in ~30 files. While it does, treat
+  these as known and stop: **Edit Benefit**, **renaming a plan's portal URL**, **opening a plan
+  video**, **webinars by id**, **plan creation that attaches a video**, **marketing flyer
+  rendering**, **viewing a document**, and the client-side "is this a persisted document id"
+  checks in the benefits and documents wizards.
+  The cause is uniform — a 24-hex "looks like a Mongo id?" test that no longer matches cuid
+  ids — so the symptom is a **missing record or a silently dropped file** rather than an error.
+  `npm run check:no-mongo` is the authoritative list, and the remaining work is tracked in
+  [plans/postgres-migration.md](./postgres-migration.md). Anything **not** on that list is fair
+  game to report.
 
 ---
 
@@ -372,5 +435,5 @@ Include, so it can be reproduced without a second round trip:
 2. Which account/role you were signed in as, and whether you were on the owner's own row.
 3. The plan and category involved.
 4. What you expected versus what happened.
-5. Whether the ten `verify-*` suites still pass — if one fails, paste the failing line,
-   because it usually names the cause directly.
+5. Whether the ten `verify-*` suites still pass, and whether `npm run check:no-mongo` is clean.
+   If either fails, paste the failing line — both usually name the cause directly.
