@@ -23,11 +23,26 @@ import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
 import { ResumeOrNewPlanDialog } from "@/components/ui/resume-or-new-plan-dialog";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
+import { consumePendingDraftSelection } from "@/lib/draft-utils";
+import {
+  clearWizardBrowserState,
+  formatSavedAt,
+  hasMeaningfulLocalWork,
+  lookupDraft,
+  peekPendingDraftId,
+  readLocalSavedAt,
+  rememberWizardOwner,
+  wizardBlobBelongsTo,
+} from "@/lib/new-client-wizard-resume";
 
 export default function NewClientPage() {
   const router = useRouter();
   const { setTitle } = usePageTitleContext();
+  // The signed-in user, needed to attribute the browser-side wizard snapshot to its owner.
+  const { data: session, status: sessionStatus } = useSession();
+  const sessionUserId = session?.user?.id ?? null;
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showSavingDialog, setShowSavingDialog] = useState(false);
@@ -95,94 +110,125 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
   }, [setTitle]);
 
   // ── Initialization ─────────────────────────────────────────────────────
-  // On mount, detect any in-progress draft (server-side via sessionStorage or
-  // client-side via Zustand persist rehydration).  If found, load its metadata
-  // and show the resume-or-new-plan dialog instead of auto-resuming.
+  // Whether to offer resuming a draft is decided by the SERVER, never by browser storage.
+  // See lib/new-client-wizard-resume.ts for the reasoning; the short version is that a draft
+  // is a row, and a browser snapshot is only a cache of typing.
+  //
+  // Two browser-side candidates are considered, and BOTH are verified against
+  // `/api/clients/:id` before anything is shown:
+  //
+  //   1. a hand-off pointer from View Plans (sessionStorage), and
+  //   2. the rehydrated snapshot's own `draftClientId`.
+  //
+  // Consequences worth knowing:
+  //   - An empty database can no longer produce a resume prompt: the snapshot may remember a
+  //     draft id, but the verification below finds no row and clears it.
+  //   - Local typing with no server draft is NOT a plan, so it no longer raises the dialog.
+  //   - Local state is discarded only when the server says the draft is gone — never on a
+  //     network error, which would throw away real work.
   useEffect(() => {
+    // Ownership cannot be judged without a user id, and evaluating the gate with an unknown
+    // id would clear every snapshot on every load. Wait for the session to resolve.
+    if (sessionStatus === "loading") return;
+
     let cancelled = false;
+
+    /** Reset local state and open a fresh server session. */
+    const startFresh = async (): Promise<void> => {
+      resetWizard();
+      await createNewSession();
+      // Seeding advisor defaults reads the (slow) /api/profile. Don't hold the
+      // "Loading Your Plan" spinner for it — render now and let the defaults fill in.
+      void seedAdvisorDefaultsFromProfile();
+    };
 
     const initializeWizard = async () => {
       setIsInitialLoading(true);
       try {
-        const pendingDraftId =
-          typeof window !== "undefined"
-            ? window.sessionStorage.getItem("plantelligence:selectedDraftId")
-            : null;
+        // ── Ownership gate ──
+        // The snapshot is keyed by browser, not by user, so establish whose work it is
+        // BEFORE rehydrating it. An unattributable or foreign snapshot is discarded rather
+        // than adopted — adopting one is how a second advisor on the same machine inherits
+        // the first advisor's company name, contacts and images.
+        if (!wizardBlobBelongsTo(sessionUserId)) {
+          clearWizardBrowserState();
+        }
+        rememberWizardOwner(sessionUserId);
 
-        let hasExistingData = false;
-        let planName = "";
-
+        // ── 1. Hand-off pointer from View Plans ──
+        const pendingDraftId = peekPendingDraftId();
         if (pendingDraftId) {
-          // Load draft data so the dialog can show the company name.
-          await loadDraftById(pendingDraftId);
+          const lookup = await lookupDraft(pendingDraftId);
           if (cancelled) return;
 
-          planName =
-            useNewClientWizardStore.getState().stepData.companyBasics
-              ?.companyName || "";
-
-          // Try to fetch the server-side saved-at timestamp.
-          let savedAt = "";
-          try {
-            const draftRes = await fetch(`/api/clients/${pendingDraftId}`);
-            const draftJson = await draftRes.json();
-            const draftClient = draftJson?.data || draftJson;
-            const updatedAt: string | undefined = draftClient?.updatedAt;
-            if (updatedAt) {
-              savedAt = formatSavedAt(updatedAt);
-            }
-          } catch {
-            // Fall through — we'll try localStorage below.
+          if (lookup === "missing") {
+            // The pointer outlived the plan — deleted in View Plans, or this browser was
+            // pointed at a fresh database. Drop it instead of offering a phantom resume.
+            consumePendingDraftSelection();
+            clearWizardBrowserState();
+            await startFresh();
+            if (cancelled) return;
+            setIsInitialLoading(false);
+            return;
           }
 
-          // If the API call didn't yield a timestamp, try the companion localStorage key
-          // written by createSafeStorage.setItem on the previous page load.
-          if (!savedAt) {
-            savedAt = readLocalStorageSavedAt();
+          if (lookup === "exists") {
+            await loadDraftById(pendingDraftId);
+            if (cancelled) return;
+
+            const planName =
+              useNewClientWizardStore.getState().stepData.companyBasics?.companyName || "";
+            setResumePlanName(planName);
+            setResumeSavedAt(await fetchDraftSavedAt(pendingDraftId));
+            setShowResumeDialog(true);
+            // isInitialLoading stays true — a dialog callback finalises.
+            return;
           }
-
-          setResumePlanName(planName);
-          setResumeSavedAt(savedAt);
-          setShowResumeDialog(true);
-          hasExistingData = true;
-
-          // Keep isInitialLoading = true — the dialog callbacks will finalise.
-          return;
+          // "unknown" — cannot tell if it exists. Fall through to the snapshot check rather
+          // than guessing, and never delete the pointer on an inconclusive answer.
         }
 
-        // No pending draft — check localStorage via persist rehydration.
+        // ── 2. The rehydrated snapshot ──
         await useNewClientWizardStore.persist.rehydrate();
         if (cancelled) return;
 
-        const sd = useNewClientWizardStore.getState().stepData;
-        hasExistingData =
-          !!sd.companyBasics?.companyName ||
-          !!sd.companyBasics?.planType?.trim() ||
-          (!!sd.welcomeStatement?.headline &&
-            sd.welcomeStatement.headline !==
-              "Welcome to the <Company Name> Benefits Hub!") ||
-          !!(sd.keyContacts?.contacts && sd.keyContacts.contacts.length > 0);
+        const state = useNewClientWizardStore.getState();
+        const localDraftId = state.draftClientId;
 
-        if (hasExistingData) {
-          planName = sd.companyBasics?.companyName || "";
-          const savedAt = readLocalStorageSavedAt();
+        if (localDraftId) {
+          const lookup = await lookupDraft(localDraftId);
+          if (cancelled) return;
 
-          setResumePlanName(planName);
-          setResumeSavedAt(savedAt);
-          setShowResumeDialog(true);
+          if (lookup === "missing") {
+            // THE case that produced a resume prompt on a fresh database: the snapshot
+            // remembered a draft id, but no such row exists.
+            clearWizardBrowserState();
+            await startFresh();
+            if (cancelled) return;
+            setIsInitialLoading(false);
+            return;
+          }
 
-          // Keep isInitialLoading = true — the dialog callbacks will finalise.
+          if (lookup === "exists") {
+            setResumePlanName(state.stepData.companyBasics?.companyName || "");
+            setResumeSavedAt(readLocalSavedAt());
+            setShowResumeDialog(true);
+            return;
+          }
+          // "unknown" — keep the snapshot and continue without prompting.
+        }
+
+        // ── 3. No server draft ──
+        // The snapshot may still hold unsaved typing (the user typed a company name but the
+        // 3s autosave had not fired). That is not a plan, so no dialog — and it must not be
+        // wiped, because the server never saw it. Autosave creates the draft lazily on the
+        // next edit, which is exactly what the store's missing-session path already handles.
+        if (hasMeaningfulLocalWork(state.stepData)) {
+          setIsInitialLoading(false);
           return;
         }
 
-        // No existing data at all — start a fresh session immediately.
-        resetWizard();
-        await createNewSession();
-        // Seeding advisor defaults reads the (slow) /api/profile. Don't keep the
-        // "Loading Your Plan" spinner up for it — render the wizard now and let
-        // the empty advisor defaults fill in moments later (non-blocking).
-        void seedAdvisorDefaultsFromProfile();
-
+        await startFresh();
         if (cancelled) return;
         setIsInitialLoading(false);
       } catch (error) {
@@ -196,13 +242,12 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
       cancelled = true;
     };
   }, [
+    sessionStatus,
+    sessionUserId,
     createNewSession,
     resetWizard,
     loadDraftById,
     seedAdvisorDefaultsFromProfile,
-    syncCurrentStepToFirstIncomplete,
-    goToStep,
-    updateCurrentStep,
   ]);
 
   // ── Resume-dialog callbacks ────────────────────────────────────────────
@@ -307,37 +352,34 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
   }, [resetWizard, createNewSession, seedAdvisorDefaultsFromProfile]);
 
   // ── Stale-draft guard (non-blocking) ────────────────────────────────────
-  // After initialization finishes, verify that any draftClientId still
-  // references a live server-side draft.  If the draft was deleted from
-  // /clients (View Plans) while this page was loaded in another tab,
-  // or if the persist middleware re-wrote old state before the delete
-  // handler's resetWizard() could clear it, force a clean start.
-  // This runs OUTSIDE the initialization path so it never blocks
-  // isInitialLoading → autosave.
+  // Initialization verifies the draft once; this re-checks after it finishes, because the
+  // draft can disappear while the page is open — deleted from View Plans in another tab, or
+  // cleared by another session. It stays outside the initialization path so it never holds
+  // isInitialLoading, and therefore never delays autosave.
+  //
+  // Only an explicit "the server says it is gone" clears local state. The previous version
+  // reset on ANY non-OK response, so a 500 or a 401 threw away the user's work — `lookupDraft`
+  // separates "missing" from "could not tell".
   useEffect(() => {
     if (isInitialLoading) return;
 
-    const state = useNewClientWizardStore.getState();
-    const draftId = state.draftClientId;
+    const draftId = useNewClientWizardStore.getState().draftClientId;
     if (!draftId) return;
 
     let cancelled = false;
 
     (async () => {
-      try {
-        const checkRes = await fetch(`/api/clients/${draftId}`);
-        if (cancelled) return;
-        if (!checkRes.ok) {
-          // Draft no longer exists — silently reset to a clean session
-          const { resetWizard, createNewSession, seedAdvisorDefaultsFromProfile } =
-            useNewClientWizardStore.getState();
-          resetWizard();
-          await createNewSession();
-          await seedAdvisorDefaultsFromProfile();
-        }
-      } catch {
-        // Network error — preserve data (don't wipe real work)
-      }
+      const lookup = await lookupDraft(draftId);
+      if (cancelled || lookup !== "missing") return;
+
+      // The draft is gone: drop local state so the wizard cannot be completed against a row
+      // that no longer exists.
+      const { resetWizard, createNewSession, seedAdvisorDefaultsFromProfile } =
+        useNewClientWizardStore.getState();
+      clearWizardBrowserState();
+      resetWizard();
+      await createNewSession();
+      await seedAdvisorDefaultsFromProfile();
     })();
 
     return () => {
@@ -703,41 +745,25 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
 
 // ── Helpers ──────────────────────────────────────────────────────────────
 
-/** Parse an ISO timestamp into a human-readable "saved at" string. */
-function formatSavedAt(iso: string): string {
+/**
+ * The server's own "last saved" timestamp for a draft, for the resume dialog.
+ *
+ * Falls back to the browser's companion timestamp when the request fails, so a dialog already
+ * known to be about a real plan still shows something useful rather than nothing.
+ */
+async function fetchDraftSavedAt(draftId: string): Promise<string> {
   try {
-    const savedAt = new Date(iso);
-    return savedAt.toLocaleString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
+    const response = await fetch(`/api/clients/${encodeURIComponent(draftId)}`, {
+      cache: "no-store",
     });
+    if (!response.ok) return readLocalSavedAt();
+    const json = (await response.json()) as {
+      data?: { updatedAt?: string };
+      updatedAt?: string;
+    };
+    const updatedAt = json?.data?.updatedAt ?? json?.updatedAt;
+    return updatedAt ? formatSavedAt(updatedAt) : readLocalSavedAt();
   } catch {
-    return "";
+    return readLocalSavedAt();
   }
-}
-
-/** Read the companion localStorage timestamp written by createSafeStorage.setItem. */
-function readLocalStorageSavedAt(): string {
-  try {
-    const raw = localStorage.getItem("new-client-wizard-saved-at");
-    if (raw) {
-      const ts = Number(raw);
-      if (!Number.isNaN(ts) && ts > 0) {
-        const savedAt = new Date(ts);
-        return savedAt.toLocaleString(undefined, {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        });
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  return "";
 }
