@@ -1,53 +1,30 @@
 import { PrismaClient } from '@prisma/client'
-import fs from 'fs'
-import path from 'path'
 
-// ── Force DATABASE_URL from .env ──────────────────────────────────────────
-// Next.js webpack DefinePlugin replaces process.env.DATABASE_URL at compile
-// time with a value that may not match the project's .env file (observed
-// with a stale postgresql:// URL being injected).  To guarantee the Prisma
-// client always uses the correct MongoDB URL from the project's .env, we
-// read it directly and overwrite process.env.DATABASE_URL on every module
-// load, before any PrismaClient is instantiated.
-// ─────────────────────────────────────────────────────────────────────────
-
-;(function ensureMongoUrl() {
-  try {
-    const envPath = path.resolve(process.cwd(), '.env')
-    if (!fs.existsSync(envPath)) return
-
-    const content = fs.readFileSync(envPath, 'utf-8')
-    const match = content.match(/^DATABASE_URL\s*=\s*(.+)$/m)
-    if (!match?.[1]) return
-
-    const envUrl = match[1].trim()
-    if (!envUrl.startsWith('mongodb')) {
-      console.warn('[prisma] Skipping .env DATABASE_URL — not a MongoDB URL:', envUrl.substring(0, 40) + '...')
-      return
-    }
-
-    if (process.env.DATABASE_URL !== envUrl) {
-      console.log('[prisma] Forcing DATABASE_URL from .env (was:', (process.env.DATABASE_URL || 'undefined').substring(0, 30) + '...)')
-      process.env.DATABASE_URL = envUrl
-    }
-  } catch { /* silently ignore — env file reading is best-effort */ }
-})()
+/**
+ * A single PrismaClient, reused across route bundles and HMR reloads.
+ *
+ * Creating a fresh client on every module evaluation in `next dev` churns connections: each
+ * route bundle ends up holding a disconnected client and the next query pays a full
+ * handshake — previously observed as multi-second portal page loads. We therefore only
+ * recreate the client when `DATABASE_URL` actually changes (e.g. after editing `.env`).
+ *
+ * ── Removed by the MongoDB → PostgreSQL migration (plans/postgres-migration.md §P2) ──
+ * This module used to carry an IIFE that read `.env` by regex, "forced" `DATABASE_URL` from
+ * it, and **discarded any URL that did not start with `mongodb://` — logging a warning and
+ * then keeping the previous, wrong value.** That was a workaround for Next.js inlining a
+ * stale URL at build time, and on Postgres it silently pointed the app at the wrong
+ * database. The datasource in `prisma/schema.prisma` is now the only thing that decides the
+ * connection, and it reads both URLs it needs:
+ *
+ *   DATABASE_URL — the pooled Neon endpoint (carries `pgbouncer=true`).
+ *   DIRECT_URL   — the unpooled endpoint, used only by `prisma migrate`.
+ */
 
 const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined
   databaseUrl: string | undefined
 }
 
-function createPrismaClient(): PrismaClient {
-  return new PrismaClient()
-}
-
-// Reuse a single PrismaClient across route bundles and HMR reloads. Creating a
-// fresh client (and disconnecting the previous one) on every module evaluation
-// in `next dev` causes connection churn: each route bundle ends up holding a
-// disconnected client and the next query pays the full MongoDB handshake
-// (observed as multi-second portal page loads). We still recreate the client
-// only when the DATABASE_URL actually changes (e.g. after editing `.env`).
 const currentDatabaseUrl = process.env.DATABASE_URL
 
 if (
@@ -61,7 +38,7 @@ if (
 }
 
 if (!globalForPrisma.prisma) {
-  globalForPrisma.prisma = createPrismaClient()
+  globalForPrisma.prisma = new PrismaClient()
   globalForPrisma.databaseUrl = currentDatabaseUrl
 }
 

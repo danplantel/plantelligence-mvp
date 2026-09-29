@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { ObjectId } from "mongodb";
+import { planIdOrSlug } from "@/lib/plan-lookup";
 import {
   resolvePortalAdvisorId,
   isLocalDevLoopback,
@@ -114,24 +114,17 @@ export async function GET(
       }
     }
 
-    // Dual lookup: try ObjectId first, then slug. When an owner is known the
-    // lookup is scoped to them so no cross-tenant plan is ever returned.
-    const isObjectId = ObjectId.isValid(clientId);
-    let client = null;
-
-    if (isObjectId) {
-      client = ownerId
-        ? await prisma.client.findFirst({
-            where: { id: clientId, userId: ownerId },
-          })
-        : await prisma.client.findUnique({ where: { id: clientId } });
-    }
-
-    if (!client) {
-      const slugWhere: Record<string, unknown> = { slug: clientId };
-      if (ownerId) slugWhere.userId = ownerId;
-      client = await prisma.client.findFirst({ where: slugWhere });
-    }
+    // One lookup for either form. When an owner is known the lookup is scoped to them so
+    // no cross-tenant plan is ever returned.
+    //
+    // The previous two-step "try ObjectId, then slug" is equivalent to this single `OR` —
+    // and it had to go: a cuid fails a 24-hex test, so the id step stopped running and by-id
+    // requests fell through to the slug path and matched nothing (plan §5).
+    let client = ownerId
+      ? await prisma.client.findFirst({
+          where: { ...planIdOrSlug(clientId), userId: ownerId },
+        })
+      : await prisma.client.findFirst({ where: planIdOrSlug(clientId) });
 
     // Retired (alias) slug — a slug this plan previously used. Resolve the
     // owning plan so old QR/printed links still load, and report the canonical
@@ -437,15 +430,13 @@ export async function PUT(
     let clientId = params.id;
     const body = await request.json();
 
-    // Dual lookup: try ObjectId first, then slug
-    const isObjectId = ObjectId.isValid(clientId);
-    let existingClient = null;
-
-    if (isObjectId) {
-      existingClient = await prisma.client.findUnique({
-        where: { id: clientId },
-      });
-    }
+    // Dual lookup: primary key first, then slug. Deliberately NOT a single `OR` — the two
+    // steps have different scoping (the id lookup is unscoped because the ownership check
+    // below reports it distinctly), and the shape test that used to gate the first step no
+    // longer works now that ids are cuids (plan §5).
+    let existingClient = await prisma.client.findFirst({
+      where: { id: clientId },
+    });
 
     if (!existingClient) {
       existingClient = await prisma.client.findFirst({
@@ -993,11 +984,11 @@ export async function PUT(
             const looksLikeObjectKey = (k: string) =>
               k.startsWith("org/") || (k.includes("/") && k.length > 8);
             let docStorageKey = looksLikeObjectKey(rawKeyIn) ? rawKeyIn : null;
-            if (
-              !docStorageKey &&
-              doc.id &&
-              /^[0-9a-fA-F]{24}$/.test(String(doc.id).trim())
-            ) {
+            // The id-shape test that used to guard this was a MongoDB artifact, and is now
+            // actively harmful: existing Document ids are cuids, so a 24-hex check rejects
+            // every real id and the stored R2 key is never recovered — silently losing the
+            // pointer to the file. A map miss costs nothing, so just look it up.
+            if (!docStorageKey && doc.id) {
               const fromDb = storageKeyById.get(String(doc.id));
               if (fromDb && String(fromDb).trim() && looksLikeObjectKey(String(fromDb).trim())) {
                 docStorageKey = String(fromDb).trim();
@@ -1055,7 +1046,9 @@ export async function PUT(
                   const docId = match[1];
                   fileUrl = existingDocsMap.get(docId) || null;
                 }
-                if (!fileUrl && doc.id && /^[0-9a-fA-F]{24}$/.test(doc.id)) {
+                // Same as the storage-key recovery above: the map is keyed by real ids, so
+                // a shape test only prevents the recovery it exists to perform.
+                if (!fileUrl && doc.id) {
                   fileUrl = existingDocsMap.get(doc.id) || null;
                 }
                 if (!fileUrl) {
@@ -1238,15 +1231,11 @@ export async function DELETE(
 
     let clientId = params.id;
 
-    // Dual lookup: try ObjectId first, then slug
-    const isObjectId = ObjectId.isValid(clientId);
-    let client = null;
-
-    if (isObjectId) {
-      client = await prisma.client.findUnique({
-        where: { id: clientId },
-      });
-    }
+    // Dual lookup: primary key first, then slug — same shape and the same reasoning as the
+    // PUT handler above. The ownership check below is what actually refuses a foreign plan.
+    let client = await prisma.client.findFirst({
+      where: { id: clientId },
+    });
 
     if (!client) {
       client = await prisma.client.findFirst({

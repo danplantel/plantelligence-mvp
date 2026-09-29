@@ -13,6 +13,7 @@
 
 import type { Client } from "@prisma/client";
 import prisma from "@/lib/prisma";
+import { planIdOrSlug } from "@/lib/plan-lookup";
 import {
   loadPlanRow,
   resolvePlanAccessForPlan,
@@ -86,11 +87,8 @@ export async function getAuthorizedClient({
   permission,
   level,
 }: PlanGuardInput): Promise<Client | null> {
-  const isObjectId = /^[0-9a-fA-F]{24}$/.test(clientIdOrSlug);
   const client = await prisma.client.findFirst({
-    where: isObjectId
-      ? { OR: [{ id: clientIdOrSlug }, { slug: clientIdOrSlug }] }
-      : { slug: clientIdOrSlug },
+    where: planIdOrSlug(clientIdOrSlug),
   });
   if (!client) return null;
 

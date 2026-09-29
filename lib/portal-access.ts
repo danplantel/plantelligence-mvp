@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { ObjectId } from "mongodb";
 import prisma from "@/lib/prisma";
+import { planIdOrSlug } from "@/lib/plan-lookup";
 import { resolvePortalSlug } from "@/lib/slug-registry";
 
 export const PORTAL_ADVISOR_HEADER = "x-advisor-id";
@@ -57,24 +57,25 @@ export async function resolvePortalAdvisorId(
 
   if (candidate) {
     const client = await prisma.client.findFirst({
-      where: ObjectId.isValid(candidate)
-        ? { id: candidate }
-        : { slug: candidate },
+      where: planIdOrSlug(candidate),
       select: { userId: true },
     });
     if (client?.userId) return client.userId;
 
     // Retired (alias) slug — the plan's current slug differs, so resolve the
     // registry to find the owning plan before giving up.
-    if (!ObjectId.isValid(candidate)) {
-      const resolved = await resolvePortalSlug(candidate);
-      if (resolved) {
-        const owner = await prisma.client.findUnique({
-          where: { id: resolved.clientId },
-          select: { userId: true },
-        });
-        if (owner?.userId) return owner.userId;
-      }
+    //
+    // This no longer needs a shape test. It used to run only for a non-ObjectId candidate
+    // (`if (!ObjectId.isValid(candidate))`), because an id could never be an alias. A
+    // `resolvePortalSlug` miss on a cuid is one wasted query on a path that is about to
+    // return undefined anyway — a fair price for not having to know the id format here.
+    const resolved = await resolvePortalSlug(candidate);
+    if (resolved) {
+      const owner = await prisma.client.findUnique({
+        where: { id: resolved.clientId },
+        select: { userId: true },
+      });
+      if (owner?.userId) return owner.userId;
     }
   }
 

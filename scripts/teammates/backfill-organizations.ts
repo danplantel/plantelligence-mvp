@@ -41,7 +41,8 @@ async function main(): Promise<void> {
   /** Plans that still need an org: explicit null OR field absent. */
   const clientNeedsOrg = (userId: string): Prisma.ClientWhereInput => ({
     userId,
-    OR: [{ organizationId: null }, { organizationId: { isSet: false } }],
+    // Absent and explicit null are the same NULL on PostgreSQL (docs §7.3).
+    organizationId: null,
   });
 
   try {

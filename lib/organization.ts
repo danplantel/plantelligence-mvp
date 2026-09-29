@@ -128,10 +128,12 @@ export async function resolveOrganizationId(userId: string): Promise<string> {
 /**
  * Backfill `Client.organizationId` for a user's plans.
  *
- * The filter must accept BOTH an explicit null and an absent field. With this
- * Prisma/MongoDB combination `null` matches only explicit nulls, so a plain
- * `organizationId: null` silently skips every plan that never had the field set
- * — which is all of them before the first backfill.
+ * `organizationId IS NULL` is the whole test: PostgreSQL has no "absent vs explicitly null"
+ * distinction, so one predicate covers a field that was never written as well as one that
+ * was cleared. Before the move to PostgreSQL this needed a two-branch
+ * `OR: [{ organizationId: null }, { organizationId: { isSet: false } }]`, because on MongoDB
+ * `null` matched only explicit nulls and skipped every plan that never had the field at all
+ * (the trap recorded in docs/teammates-module.md §7.3).
  *
  * Safe to run repeatedly: only plans missing an org are touched.
  */
@@ -140,10 +142,7 @@ async function stampPlansWithOrganization(
   organizationId: string,
 ): Promise<void> {
   await prisma.client.updateMany({
-    where: {
-      userId,
-      OR: [{ organizationId: null }, { organizationId: { isSet: false } }],
-    },
+    where: { userId, organizationId: null },
     data: { organizationId },
   });
 }

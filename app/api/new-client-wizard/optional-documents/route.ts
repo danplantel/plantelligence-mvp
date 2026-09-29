@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
@@ -192,17 +193,23 @@ export async function POST(request: NextRequest) {
       where: { sessionId: wizardSession.id },
       update: {
         retirementPlanDocuments: (data.optionalFiles || []) as any,
-        // Preserve other fields
-        spdFile: existing?.spdFile || null,
-        otherDocuments: existing?.otherDocuments || null,
+        // Preserve other fields.
+        //
+        // `Prisma.DbNull`, not a bare `null`, is how you write SQL NULL to a nullable `Json`
+        // column. PostgreSQL distinguishes SQL NULL from the JSON scalar `null`
+        // (`Prisma.JsonNull`) — a distinction MongoDB does not make, which is why the old
+        // `|| null` stopped type-checking. DbNull is the faithful mapping: every reader of
+        // these fields was written against MongoDB's "null means absent" behaviour.
+        spdFile: existing?.spdFile ?? Prisma.DbNull,
+        otherDocuments: existing?.otherDocuments ?? Prisma.DbNull,
         recordkeeper: existing?.recordkeeper || null,
         updatedAt: new Date(),
       },
       create: {
         sessionId: wizardSession.id,
-        spdFile: null,
+        spdFile: Prisma.DbNull,
         retirementPlanDocuments: (data.optionalFiles || []) as any,
-        otherDocuments: null,
+        otherDocuments: Prisma.DbNull,
       }
     });
 

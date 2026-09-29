@@ -95,9 +95,8 @@ export async function listTeammateProfiles(
     // A live profile is either an explicit null or a row written before the
     // field existed (MongoDB stores it as an absent field). Matching only `null`
     // silently hides those rows, so both shapes are accepted.
-    filters.push({
-      OR: [{ deactivatedAt: null }, { deactivatedAt: { isSet: false } }],
-    });
+    // One predicate: on PostgreSQL an absent field and an explicit null are the same NULL.
+    filters.push({ deactivatedAt: null });
   }
 
   if (search) {
@@ -563,7 +562,7 @@ export async function listAllPlansTeamMembers(organizationId: string) {
       organizationId,
       type: "team_member",
       allPlans: true,
-      OR: [{ deactivatedAt: null }, { deactivatedAt: { isSet: false } }],
+      deactivatedAt: null,
     },
     orderBy: { createdAt: "asc" },
   });

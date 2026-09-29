@@ -208,12 +208,9 @@ export const authOptions: NextAuthOptions = {
               where: {
                 loginUserId: token.id as string,
                 state: "active",
-                // `{ deactivatedAt: null }` matches explicit nulls only, never an absent
-                // field — the Mongo trap documented in docs/teammates-module.md §7.3.
-                OR: [
-                  { deactivatedAt: null },
-                  { deactivatedAt: { isSet: false } },
-                ],
+                // PostgreSQL stores "never set" as NULL, so one predicate is enough. The
+                // two-shape `OR` this used to need was a MongoDB artefact (docs §7.3).
+                deactivatedAt: null,
               },
               select: { id: true },
             });

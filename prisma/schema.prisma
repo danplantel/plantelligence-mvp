@@ -3,9 +3,20 @@ generator client {
   provider = "prisma-client-js"
 }
 
+// PostgreSQL on Neon. Two URLs on purpose (see plans/postgres-migration.md §P1):
+//   url       — the POOLED endpoint the app uses; it carries `pgbouncer=true` so Prisma
+//               avoids prepared statements, which PgBouncer cannot support in transaction
+//               pooling mode.
+//   directUrl — the unpooled endpoint, used only by `prisma migrate`. DDL cannot run
+//               through the pooler.
+//
+// Migrated from MongoDB: `prisma db push` (no migration history) is replaced by versioned
+// `prisma migrate`, and `@db.ObjectId` / `@map("_id")` are gone — both existed only because
+// MongoDB names its primary key `_id` and stores it as a BSON ObjectId.
 datasource db {
-  provider = "mongodb"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // Auth Provider enum
@@ -66,14 +77,14 @@ enum TeammateCompanyEntityType {
 
 // User model
 model User {
-  id                          String                   @id @default(auto()) @map("_id") @db.ObjectId
+  id                          String                   @id @default(cuid())
   provider                    AuthProvider             @default(credentials)
   name                        String
   email                       String                   @unique
   // Forward-looking tenancy anchor. `id` above remains the legacy ownership
   // anchor for all pre-existing queries; see the Organization section at the
   // end of this file.
-  organizationId              String?                  @db.ObjectId
+  organizationId              String?
   organizationEmail           String?
   password                    String?
   resetCode                   String?
@@ -133,13 +144,13 @@ model User {
 // read time (see lib/dashboard-tasks.ts) and are deliberately not stored here — they have no
 // lifecycle of their own and would go stale the moment the underlying plan changed.
 model Task {
-  id        String    @id @default(auto()) @map("_id") @db.ObjectId
-  userId    String    @db.ObjectId
+  id        String    @id @default(cuid())
+  userId    String
   title     String
   done      Boolean   @default(false)
   // Optional plan the task relates to. Tasks are per-advisor (they appear on one dashboard);
   // the link adds plan context without splitting them into per-plan lists.
-  clientId  String?   @db.ObjectId
+  clientId  String?
   doneAt    DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -152,9 +163,9 @@ model Task {
 
 // Plan model
 model Plan {
-  id      String @id @default(auto()) @map("_id") @db.ObjectId
+  id      String @id @default(cuid())
   idIndex Int?   @unique
-  userId  String @db.ObjectId
+  userId  String
 
   videoStatus VideoStatus? @default(in_progress)
 
@@ -259,8 +270,8 @@ model Plan {
 }
 
 model NewClientContactBuilder {
-  id                  String   @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId           String   @unique @db.ObjectId
+  id                  String   @id @default(cuid())
+  sessionId           String   @unique
   fullName            String
   title               String
   companyName         String
@@ -282,9 +293,9 @@ model NewClientContactBuilder {
 
 // Video model
 model Video {
-  id              String       @id @default(auto()) @map("_id") @db.ObjectId
-  planId          String?      @db.ObjectId // Optional - for backward compatibility
-  clientId        String?      @db.ObjectId // ✅ Primary: Video belongs to Client (Benefits Hub)
+  id              String       @id @default(cuid())
+  planId          String? // Optional - for backward compatibility
+  clientId        String? // ✅ Primary: Video belongs to Client (Benefits Hub)
   videoUrl        String?
   thumbnail       String?
   title           String
@@ -308,9 +319,9 @@ model Video {
 
 // Analytics models
 model PlanAnalytic {
-  id     String  @id @default(auto()) @map("_id") @db.ObjectId
-  userId String? @db.ObjectId
-  planId String? @db.ObjectId
+  id     String  @id @default(cuid())
+  userId String?
+  planId String?
   key    String  @unique
 
   date          String
@@ -327,8 +338,8 @@ model PlanAnalytic {
 }
 
 model PlanEvent {
-  id           String  @id @default(auto()) @map("_id") @db.ObjectId
-  planId       String? @db.ObjectId
+  id           String  @id @default(cuid())
+  planId       String?
   planStaticId String?
   name         String
   ip           String?
@@ -340,14 +351,14 @@ model PlanEvent {
 
 // System models
 model KeyStorage {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        String   @id @default(cuid())
   key       String   @unique
   createdAt DateTime @default(now())
 }
 
 // model Resource {
-//   id                       String   @id @default(auto()) @map("_id") @db.ObjectId
-//   userId                   String   @db.ObjectId
+//   id                       String   @id @default(cuid())
+//   userId                   String
 //   user                     User     @relation(fields: [userId], references: [id])
 //   recordkeeper             String
 //   onlineEnrollment         String
@@ -376,7 +387,7 @@ model KeyStorage {
 // }
 
 model MailTask {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  id        String   @id @default(cuid())
   to        String
   subject   String
   html      String
@@ -385,15 +396,15 @@ model MailTask {
 }
 
 model Setting {
-  id    String @id @default(auto()) @map("_id") @db.ObjectId
+  id    String @id @default(cuid())
   key   String @unique
   value String
 }
 
 // Wizard Session model - User Onboarding (5 steps)
 model WizardSession {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String   @db.ObjectId
+  id          String   @id @default(cuid())
+  userId      String
   currentStep Int      @default(1)
   completed   Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -416,8 +427,8 @@ model WizardSession {
 
 // Wizard Step 1: Client Profile
 model WizardClientProfile {
-  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId          String   @unique @db.ObjectId
+  id                 String   @id @default(cuid())
+  sessionId          String   @unique
   organizationType   String // independent, ria, hybrid, broker, insurance, recordkeeper, other
   customOrganization String?
   organizationName   String? // Organization name from branding
@@ -432,8 +443,8 @@ model WizardClientProfile {
 
 // Wizard Step 1B: Team Size
 model WizardTeamSize {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId String   @unique @db.ObjectId
+  id        String   @id @default(cuid())
+  sessionId String   @unique
   teamSize  String // just_me, 2_5, 6_20, 21_100, 100_plus
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -445,21 +456,21 @@ model WizardTeamSize {
 
 // Wizard Step 2: Services Provided
 model WizardServices {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId String   @unique @db.ObjectId
+  id        String   @id @default(cuid())
+  sessionId String   @unique
   services  String[] // retirement, insurance, both
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   session WizardSession @relation(fields: [sessionId], references: [id])
 
-  @@index([services])
+  @@index([services], type: Gin)
 }
 
 // Wizard Step 3: Insurance Licensing
 model WizardInsuranceLicensing {
-  id              String   @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId       String   @unique @db.ObjectId
+  id              String   @id @default(cuid())
+  sessionId       String   @unique
   offersInsurance Boolean  @default(false)
   licenseTypes    String[] // life, health, disability, ltc, variable, other
   statesLicensed  String[] // CA, NY, TX, etc.
@@ -471,14 +482,14 @@ model WizardInsuranceLicensing {
   session WizardSession @relation(fields: [sessionId], references: [id])
 
   @@index([offersInsurance])
-  @@index([licenseTypes])
-  @@index([statesLicensed])
+  @@index([licenseTypes], type: Gin)
+  @@index([statesLicensed], type: Gin)
 }
 
 // Wizard Step 4: Team Members
 model WizardTeamMembers {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId String   @unique @db.ObjectId
+  id        String   @id @default(cuid())
+  sessionId String   @unique
   members   Json // [{name, email, role, isAdmin}]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -487,7 +498,7 @@ model WizardTeamMembers {
 }
 
 model FutureContact {
-  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  id            String   @id @default(cuid())
   // Legacy fields
   name          String
   email         String
@@ -511,15 +522,15 @@ model FutureContact {
   title         String?
   phoneExtension String?
   website       String?
-  userId        String   @db.ObjectId
+  userId        String
   user          User     @relation("UserFutureContacts", fields: [userId], references: [id])
   createdAt     DateTime @default(now())
 }
 
 // Wizard Step 3: Branding Setup
 model WizardBranding {
-  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId          String   @unique @db.ObjectId
+  id                 String   @id @default(cuid())
+  sessionId          String   @unique
   logo               String? // URL or R2 key
   logoFileName       String? // Original filename
   backgroundImage    String? // URL or R2 key
@@ -542,8 +553,8 @@ model WizardBranding {
 
 // Wizard Step 6: Benefit Types
 model WizardBenefitTypes {
-  id                String   @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId         String   @unique @db.ObjectId
+  id                String   @id @default(cuid())
+  sessionId         String   @unique
   benefitTypes      String[] // 401k, group_health, group_life, voluntary, other
   customBenefitType String?
   createdAt         DateTime @default(now())
@@ -551,13 +562,13 @@ model WizardBenefitTypes {
 
   session WizardSession @relation(fields: [sessionId], references: [id])
 
-  @@index([benefitTypes])
+  @@index([benefitTypes], type: Gin)
 }
 
 // Wizard Step 7: Employer Scope
 model WizardEmployerScope {
-  id                      String   @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId               String   @unique @db.ObjectId
+  id                      String   @id @default(cuid())
+  sessionId               String   @unique
   servesMultipleEmployers Boolean  @default(false)
   createdAt               DateTime @default(now())
   updatedAt               DateTime @updatedAt
@@ -569,8 +580,8 @@ model WizardEmployerScope {
 
 // Wizard Step 4: User Setup
 model WizardUserSetup {
-  id                 String   @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId          String   @unique @db.ObjectId
+  id                 String   @id @default(cuid())
+  sessionId          String   @unique
   name               String
   email              String
   organizationEmail  String?
@@ -593,8 +604,8 @@ model WizardUserSetup {
 
 // Wizard Step 5: Disclaimers
 model WizardDisclaimers {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId   String   @unique @db.ObjectId
+  id          String   @id @default(cuid())
+  sessionId   String   @unique
   disclaimers Json     // Stores full disclaimer objects (id, locations, text, etc.)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -604,8 +615,8 @@ model WizardDisclaimers {
 
 // New Client Wizard Session model
 model NewClientWizardSession {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String   @db.ObjectId
+  id          String   @id @default(cuid())
+  userId      String
   currentStep Int      @default(1)
   completed   Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -625,8 +636,8 @@ model NewClientWizardSession {
 
 // New Client Wizard Step 1: Company Basics & Branding
 model NewClientCompanyBasics {
-  id        String @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId String @unique @db.ObjectId
+  id        String @id @default(cuid())
+  sessionId String @unique
 
   // Company Information
   companyName    String
@@ -663,8 +674,8 @@ model NewClientCompanyBasics {
 
 // New Client Wizard Step 2: Welcome Statement
 model NewClientWelcomeStatement {
-  id        String @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId String @unique @db.ObjectId
+  id        String @id @default(cuid())
+  sessionId String @unique
 
   headline      String
   bodyText      String
@@ -678,8 +689,8 @@ model NewClientWelcomeStatement {
 
 // New Client Wizard Step 3: Key Contacts
 model NewClientKeyContacts {
-  id        String @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId String @unique @db.ObjectId
+  id        String @id @default(cuid())
+  sessionId String @unique
 
   contacts Json // Array of contact objects with all contact details
 
@@ -691,8 +702,8 @@ model NewClientKeyContacts {
 
 // New Client Wizard Step 4: Compliance Documents
 model NewClientComplianceDocuments {
-  id        String @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId String @unique @db.ObjectId
+  id        String @id @default(cuid())
+  sessionId String @unique
 
   spdFile                Json? // SPD document object
   retirementPlanDocuments Json? // Array of retirement plan documents (from DocumentsUploadSection)
@@ -707,8 +718,8 @@ model NewClientComplianceDocuments {
 
 // New Client Wizard Step 5: Employee Portal Preview
 model NewClientEmployeePortalPreview {
-  id        String @id @default(auto()) @map("_id") @db.ObjectId
-  sessionId String @unique @db.ObjectId
+  id        String @id @default(cuid())
+  sessionId String @unique
 
   previewData Json // Complete preview data for the employee portal
 
@@ -720,12 +731,12 @@ model NewClientEmployeePortalPreview {
 
 // Client model - stores completed client data
 model Client {
-  id     String @id @default(auto()) @map("_id") @db.ObjectId
-  userId String @db.ObjectId
+  id     String @id @default(cuid())
+  userId String
   // Additive tenancy anchor for the Team & Collaborator Access feature. `userId`
   // (the owning advisor) stays authoritative for existing queries; new code
   // scopes by organizationId through lib/organization.ts.
-  organizationId String? @db.ObjectId
+  organizationId String?
 
   // URL-friendly identifier (e.g. "acme-corp").
   //
@@ -827,8 +838,8 @@ model Client {
 
 // Benefit model — one row per (clientId, category)
 model Benefit {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  clientId    String   @db.ObjectId
+  id          String   @id @default(cuid())
+  clientId    String
   category    String   // "Retirement" | "Group Health" | "Group Life" | "Company / Plan Sponsor"
 
   // Core
@@ -902,9 +913,9 @@ model Benefit {
 
 // Meeting model
 model Meeting {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId       String?  @db.ObjectId
-  clientId     String?  @db.ObjectId // Plan (Client) — set for Benefits Hub plan-scoped meetings
+  id           String   @id @default(cuid())
+  userId       String?
+  clientId     String? // Plan (Client) — set for Benefits Hub plan-scoped meetings
   meeting      String // Meeting name/title
   meetingType  String // Open Enrollment, Client Meeting, Training, etc. (plan meetings: 4 hub types)
   client       String // Client name (denormalized; legacy meetings without clientId)
@@ -956,19 +967,19 @@ model Meeting {
 }
 
 model MeetingCustomType {
-  id          String @id @default(auto()) @map("_id") @db.ObjectId
+  id          String @id @default(cuid())
   value       String
   label       String
   description String
-  userId      String @db.ObjectId
+  userId      String
   user        User   @relation(fields: [userId], references: [id])
 }
 
 // Webinar model for Webinars & Replays
 model Webinar {
-  id           String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId       String   @db.ObjectId
-  clientId     String   @db.ObjectId // Reference to Client (Plan)
+  id           String   @id @default(cuid())
+  userId       String
+  clientId     String // Reference to Client (Plan)
   clientName   String   // Client company name (denormalized for easier queries)
   webinarTitle String   // Webinar title
   description  String?  // Optional description shown alongside the replay
@@ -1000,7 +1011,7 @@ model Webinar {
 
 // Document model
 model Document {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
+  id              String    @id @default(cuid())
   title           String // Document title
   fileName        String // Original file name
   fileUrl         String // Legacy: base64 data URL. When storageKey is set, may be empty; file is served from R2 via signed URL.
@@ -1008,7 +1019,7 @@ model Document {
   type            String    @default("Document") // Document type: SPD, SBC, or Document
   shortDescription String? // Optional short description for the document
   language        String?  @default("EN") // Document language: EN or ES
-  clientId        String    @db.ObjectId // Reference to Client
+  clientId        String // Reference to Client
   category           String?  // Document category: Retirement, Group Health, etc. (BenefitsCategory / portal mapping)
   categorySuggested  String?  // AI- or auto-detected suggested category (spec: aiSuggestedCategory)
   categoryConfidence Int?      // 0–100 confidence for categorySuggested (spec: aiConfidence)
@@ -1030,9 +1041,9 @@ model Document {
 
 // Plan-scoped marketing flyers (Benefits Hub QR + co-brand snapshot + R2 assets)
 model MarketingFlyer {
-  id              String    @id @default(auto()) @map("_id") @db.ObjectId
-  clientId        String    @db.ObjectId
-  userId          String    @db.ObjectId
+  id              String    @id @default(cuid())
+  clientId        String
+  userId          String
   mode            String // hub_promo_general | action_beneficiaries | meetings_invite | ...
   modeOptions     Json? // { category?, openEnrollmentLabel?, meetingTitle?, ... }
   headline        String
@@ -1062,9 +1073,9 @@ model MarketingFlyer {
 
 // Unified marketing assets (flyer, portal-notice, pop-up, news-post)
 model MarketingAsset {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  clientId  String   @db.ObjectId
-  userId    String   @db.ObjectId
+  id        String   @id @default(cuid())
+  clientId  String
+  userId    String
   type      String   // "flyer" | "portal-notice" | "pop-up" | "news-post"
   status    String   @default("Draft") // Draft | Ready for Review | Published | Scheduled | Hidden | Archived
   headline  String
@@ -1088,8 +1099,8 @@ model MarketingAsset {
 
 // Headshot model for processed user headshots
 model Headshot {
-  id          String   @id @default(auto()) @map("_id") @db.ObjectId
-  userId      String   @db.ObjectId // Reference to User
+  id          String   @id @default(cuid())
+  userId      String // Reference to User
   originalUrl String // Original image URL/base64
   square400   String // 400x400 square variant
   square800   String // 800x800 square variant (retina)
@@ -1118,9 +1129,9 @@ model Headshot {
 // inserts/promotes the new one. Aliases are never mutated or auto-deleted; a
 // slug leaves the namespace only via an explicit release (row deleted).
 model PortalSlug {
-  id         String    @id @default(auto()) @map("_id") @db.ObjectId
+  id         String    @id @default(cuid())
   slug       String    @unique
-  clientId   String    @db.ObjectId
+  clientId   String
   isCurrent  Boolean   @default(true)
   // When the row was demoted to an alias (null while it is the current slug).
   retiredAt  DateTime?
@@ -1151,9 +1162,9 @@ model PortalSlug {
 // Organization — the tenancy root for the Team & Collaborator Access feature.
 // One per advisor User today (ownerUserId), created at signup or by backfill.
 model Organization {
-  id                String   @id @default(auto()) @map("_id") @db.ObjectId
+  id                String   @id @default(cuid())
   name              String
-  ownerUserId       String   @db.ObjectId
+  ownerUserId       String
   organizationEmail String?
   // T3 seat metering. Both are placeholders until tier pricing is final (spec
   // Open Decisions): a null `seatsIncluded` falls back to DEFAULT_SEATS_INCLUDED,
@@ -1175,8 +1186,8 @@ model Organization {
 // Sponsor pickers (enforced in app/api/companies/search/route.ts).
 // One company has many profiles.
 model TeammateCompany {
-  id             String                    @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String                    @db.ObjectId
+  id             String                    @id @default(cuid())
+  organizationId String
   name           String
   logo           String?
   branding       Json?
@@ -1193,11 +1204,11 @@ model TeammateCompany {
 // plan-scoped data (documents, plan ids, group numbers, provider URLs,
 // meetings, marketing assets, plan-specific messaging).
 model TeammateProfile {
-  id             String               @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String               @db.ObjectId
+  id             String               @id @default(cuid())
+  organizationId String
   // Global login link. One login can back profiles in several organizations;
   // each organization keeps its own profile (spec T1 Part B item 5).
-  loginUserId    String?              @db.ObjectId
+  loginUserId    String?
   type           TeammatePersonType
   state          TeammateProfileState @default(contact)
 
@@ -1211,13 +1222,13 @@ model TeammateProfile {
   headshot          String?
   benefitsSpecialty String[]          @default([])
 
-  companyId String? @db.ObjectId
+  companyId String?
 
   // Team Members only: when set, an assignment is generated automatically for
   // every newly created plan (spec T1 Part B item 4).
   allPlans Boolean @default(false)
 
-  invitedByUserId String?   @db.ObjectId
+  invitedByUserId String?
   invitedAt       DateTime?
   // Spec T6: "Deactivate: all access to the organization ends; the profile is
   // kept." Set instead of deleting so the audit trail and any content the person
@@ -1237,10 +1248,10 @@ model TeammateProfile {
 // connected to, with what role, and whether they show on the hub.
 // Exactly one record per person per plan (enforced by the compound unique).
 model PlanAssignment {
-  id             String                @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String                @db.ObjectId
-  profileId      String                @db.ObjectId
-  clientId       String                @db.ObjectId
+  id             String                @id @default(cuid())
+  organizationId String
+  profileId      String
+  clientId       String
 
   categoryScope TeammateCategoryScope @default(all)
   categories    String[]              @default([])
@@ -1263,14 +1274,14 @@ model PlanAssignment {
   // Null for anyone who was never a Key Contact (a teammate added from Settings).
   contactId String?
 
-  invitedByUserId     String?   @db.ObjectId
+  invitedByUserId     String?
   invitedAt           DateTime?
   // T4: the invite's own metadata, captured where it was raised (Create Benefits).
   // The card and the invite email both read these, so the note and the deadline the
   // advisor set are visible on both sides of the invite.
   inviteNote          String?
   inviteDueDate       DateTime?
-  lastChangedByUserId String?   @db.ObjectId
+  lastChangedByUserId String?
   lastChangedAt       DateTime?
 
   createdAt DateTime @default(now())
@@ -1287,11 +1298,11 @@ model PlanAssignment {
 // Audit trail for teammate mutations. Backs T2a ("log who set Custom access,
 // when, and which warnings were confirmed") and T6 ("every change is logged").
 model TeammateAuditEvent {
-  id             String   @id @default(auto()) @map("_id") @db.ObjectId
-  organizationId String   @db.ObjectId
-  profileId      String?  @db.ObjectId
-  assignmentId   String?  @db.ObjectId
-  actorUserId    String   @db.ObjectId
+  id             String   @id @default(cuid())
+  organizationId String
+  profileId      String?
+  assignmentId   String?
+  actorUserId    String
   action         String
   // Custom-role saves record the soft warnings the user confirmed (spec T2a).
   warningsConfirmed Json?

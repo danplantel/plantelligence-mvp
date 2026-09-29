@@ -39,6 +39,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { planIdOrSlug } from "@/lib/plan-lookup";
 import { TeammateDataError } from "./errors";
 import { applyHardBlocks } from "./permissions";
 import {
@@ -230,12 +231,12 @@ export interface PlanRow {
 export async function loadPlanRow(
   clientIdOrSlug: string,
 ): Promise<PlanRow | null> {
-  const isObjectId = /^[0-9a-fA-F]{24}$/.test(clientIdOrSlug);
+  // No shape test: `planIdOrSlug` matches either column, so it does not matter which one the
+  // caller passed. The 24-hex guard that used to live here is documented in
+  // plans/postgres-migration.md §5.
   return (
     (await prisma.client.findFirst({
-      where: isObjectId
-        ? { OR: [{ id: clientIdOrSlug }, { slug: clientIdOrSlug }] }
-        : { slug: clientIdOrSlug },
+      where: planIdOrSlug(clientIdOrSlug),
       select: { id: true, slug: true, userId: true, organizationId: true },
     })) ?? null
   );

@@ -762,14 +762,13 @@ export async function searchCollaborators({
       where: {
         organizationId,
         type: "collaborator",
-        // `deactivatedAt: null` matches only an EXPLICIT null on MongoDB, and
-        // every pre-existing row has the field ABSENT — so a live profile has to
-        // be asked for in both shapes. (Same trap documented in team.server.ts.)
         // Deactivated people are excluded from the picker on purpose: reactivating
         // them is a Settings decision, not something an invite should do.
-        AND: [
-          { OR: [{ deactivatedAt: null }, { deactivatedAt: { isSet: false } }] },
-        ],
+        //
+        // One predicate is enough on PostgreSQL, where "never set" and an explicit
+        // clear are both NULL. The two-shape `OR` this replaced existed because MongoDB
+        // matched only the explicit null (docs/teammates-module.md §7.3).
+        deactivatedAt: null,
       },
       take: 200,
     }),
