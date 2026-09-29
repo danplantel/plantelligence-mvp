@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth-options";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { deletePlansAndScopedDataForUser } from "@/lib/delete-user-plans-and-scoped-data";
+import { deleteOrganizationForOwner } from "@/lib/teammates/organization-cleanup.server";
 
 /**
  * DELETE /api/profile/delete
@@ -56,7 +57,17 @@ export async function DELETE() {
       prisma.headshot.deleteMany({ where: { userId } }),
     ]);
 
-    // 4. Delete the user account itself
+    // 4. Delete the organization this user owns, and the teammate layer inside it.
+    //
+    // The teammate models carry NO foreign keys — `Organization.ownerUserId`,
+    // `TeammateProfile.organizationId`, `PlanAssignment.*` and `TeammateAuditEvent.*` are
+    // plain scalars — so nothing else removes them. Omitting this left an ownerless
+    // Organization behind on every account deletion, which `verify-backfill` reports as
+    // "every Organization references a real User as owner — 1 orphaned". See
+    // lib/teammates/organization-cleanup.server.ts.
+    await deleteOrganizationForOwner(userId);
+
+    // 5. Delete the user account itself
     await prisma.user.delete({ where: { id: userId } });
 
     return NextResponse.json({ success: true });

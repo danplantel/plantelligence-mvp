@@ -197,6 +197,94 @@ async function main(): Promise<void> {
       where: { organizationId, email: `t7-verify-sponsor-${STAMP}@example.test` },
     });
     if (sponsorProfile) created.profileIds.push(sponsorProfile.id);
+
+    // ── The owner is not a teammate (regression) ──────────────────────────────
+    // Create Plan Step 3 seeds the advisor's OWN contact into `keyContacts`, so the mirror
+    // used to give the owner a profile and a Viewer assignment. Settings → Team Members then
+    // listed the owner twice — the row synthesized from `Organization.ownerUserId` (see
+    // `listOrgPeople`) plus that duplicate wearing Viewer. The owner's address must be
+    // skipped, and a profile an earlier mirror already created must be cleaned up, because
+    // otherwise existing accounts keep the duplicate.
+    //
+    // Its own plan, for the same reason the sponsor check has one: a mirror reconciles a
+    // plan's WHOLE contact list, so reusing a plan that holds other contacts would remove
+    // them instead of testing anything about the owner.
+    const ownerEmail = `t7-verify-owner-${STAMP}@example.test`;
+    const ownerContactId = `t7-owner-contact-${STAMP}`;
+
+    const ownerPlan = await prisma.client.create({
+      data: {
+        userId: owner.id,
+        organizationId,
+        companyName: `Owner Trace ${STAMP}`,
+        slug: `t7-verify-owner-trace-${STAMP}`,
+        status: "Draft",
+        keyContacts: [],
+      },
+      select: { id: true },
+    });
+    created.clientIds.push(ownerPlan.id);
+
+    // Reproduce the pre-fix state by hand: the duplicate the old mirror wrote.
+    const phantom = await prisma.teammateProfile.create({
+      data: {
+        organizationId,
+        type: "team_member",
+        state: "contact",
+        email: ownerEmail,
+        firstName: "T7 Verify",
+        lastName: "Advisor",
+      },
+      select: { id: true },
+    });
+    const phantomAssignment = await prisma.planAssignment.create({
+      data: {
+        organizationId,
+        profileId: phantom.id,
+        clientId: ownerPlan.id,
+        role: "viewer",
+        permissionSet: {},
+        categoryScope: "all",
+        categories: [],
+        showOnBenefitsHub: true,
+        contactId: ownerContactId,
+      },
+      select: { id: true },
+    });
+
+    const ownerMirror = await mirrorPlanContacts({
+      organizationId,
+      actorUserId: owner.id,
+      clientId: ownerPlan.id,
+      keyContacts: {
+        contacts: [
+          {
+            id: ownerContactId,
+            firstName: "T7 Verify",
+            lastName: "Advisor",
+            email: ownerEmail,
+            benefitsCategories: ["Group Health"],
+            showOnPortal: true,
+          },
+        ],
+      },
+    });
+
+    check(
+      "the owner's own contact is not mirrored into a profile",
+      ownerMirror.profilesCreated === 0 && ownerMirror.skippedOwner === 1,
+      `created=${ownerMirror.profilesCreated} skippedOwner=${ownerMirror.skippedOwner}`,
+    );
+    check(
+      "and the duplicate profile an earlier mirror left behind is removed",
+      ownerMirror.ownerProfilesRemoved === 1 &&
+        (await prisma.teammateProfile.count({ where: { id: phantom.id } })) === 0,
+      `removed=${ownerMirror.ownerProfilesRemoved}`,
+    );
+    check(
+      "with its Viewer assignment",
+      (await prisma.planAssignment.count({ where: { id: phantomAssignment.id } })) === 0,
+    );
     check(
       "a contact whose company IS the plan sponsor does not become a Partner company",
       sponsorProfile?.companyId === null,

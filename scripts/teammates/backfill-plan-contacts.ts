@@ -45,6 +45,8 @@ async function main(): Promise<void> {
       assignmentsUpdated: 0,
       assignmentsRemoved: 0,
       skipped: 0,
+      skippedOwner: 0,
+      ownerProfilesRemoved: 0,
     };
 
     for (const client of clients) {
@@ -79,6 +81,8 @@ async function main(): Promise<void> {
       totals.assignmentsUpdated += result.assignmentsUpdated;
       totals.assignmentsRemoved += result.assignmentsRemoved;
       totals.skipped += result.skipped;
+      totals.skippedOwner += result.skippedOwner;
+      totals.ownerProfilesRemoved += result.ownerProfilesRemoved;
     }
 
     console.log(`  plans with contacts: ${withContacts}`);
@@ -100,6 +104,14 @@ async function main(): Promise<void> {
     console.log(`  assignments updated  : ${totals.assignmentsUpdated}`);
     console.log(`  assignments removed  : ${totals.assignmentsRemoved}`);
     console.log(`  contacts skipped     : ${totals.skipped} (no usable email)`);
+    console.log(
+      `  owner contacts skipped: ${totals.skippedOwner} (the owner is not a teammate)`,
+    );
+    if (totals.ownerProfilesRemoved > 0) {
+      console.log(
+        `  owner profiles removed: ${totals.ownerProfilesRemoved} (duplicates of a synthesized owner row)`,
+      );
+    }
   } finally {
     await prisma.$disconnect();
   }

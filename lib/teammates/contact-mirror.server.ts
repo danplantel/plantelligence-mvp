@@ -64,6 +64,13 @@ export interface MirrorPlanContactsResult {
   assignmentsRemoved: number;
   /** Rows with no usable email — cannot become a profile, so they are not shown. */
   skipped: number;
+  /**
+   * Rows carrying the organization owner's own address. The owner is not a teammate
+   * (see `organizationOwnerEmails` below), so these are skipped rather than mirrored.
+   */
+  skippedOwner: number;
+  /** Stale owner profiles removed — the self-healing half of `skippedOwner`. */
+  ownerProfilesRemoved: number;
 }
 
 /** Read the contacts array out of either storage shape. */
@@ -83,6 +90,47 @@ function viewerGridJson(): Prisma.InputJsonValue {
   const out: Record<string, string> = {};
   for (const fn of PERMISSION_FUNCTIONS) out[fn] = grid[fn];
   return out;
+}
+
+/**
+ * The addresses that identify this organization's owner.
+ *
+ * **The owner is not a teammate.** Their canonical representation is
+ * `Organization.ownerUserId`, and `listOrgPeople` synthesizes their Team Member row from
+ * it — the same rule `lib/teammates/onboarding-owner.ts` states for the wizard: *"It does
+ * not create a TeammateProfile for the owner … storing a second copy would be a third
+ * source of truth that could drift."*
+ *
+ * Without this, the mirror breaks that rule in the most visible way possible: Create Plan
+ * Step 3 seeds the advisor's **own** contact into `Client.keyContacts`, so the owner got a
+ * mirrored profile *and* a Viewer assignment, and Settings → Team Members then showed the
+ * owner twice — the synthesized row plus a duplicate wearing Viewer.
+ *
+ * Both addresses are returned because the seeded contact is built from whichever identity
+ * the wizard captured: `User.email` is the login identity and `User.organizationEmail` is
+ * what advisor contact cards display (Create Plan Step 3). Either can end up as the
+ * `email` on the mirror's input row.
+ */
+async function organizationOwnerEmails(
+  organizationId: string,
+): Promise<Set<string>> {
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { ownerUserId: true },
+  });
+  if (!organization?.ownerUserId) return new Set();
+
+  const owner = await prisma.user.findUnique({
+    where: { id: organization.ownerUserId },
+    select: { email: true, organizationEmail: true },
+  });
+
+  const emails = new Set<string>();
+  for (const value of [owner?.email, owner?.organizationEmail]) {
+    const normalized = str(value).toLowerCase();
+    if (normalized) emails.add(normalized);
+  }
+  return emails;
 }
 
 function str(value: unknown): string {
@@ -146,6 +194,8 @@ export async function mirrorPlanContacts(
     assignmentsUpdated: 0,
     assignmentsRemoved: 0,
     skipped: 0,
+    skippedOwner: 0,
+    ownerProfilesRemoved: 0,
   };
 
   const plan = await prisma.client.findFirst({
@@ -156,6 +206,7 @@ export async function mirrorPlanContacts(
 
   const contacts = readPlanContacts(input.keyContacts);
   const planCompanyName = str(plan.companyName).toLowerCase();
+  const ownerEmails = await organizationOwnerEmails(input.organizationId);
 
   const existingAssignments = await prisma.planAssignment.findMany({
     where: { clientId: input.clientId, organizationId: input.organizationId },
@@ -176,6 +227,14 @@ export async function mirrorPlanContacts(
     const contactId = str(contact.id) || null;
     if (!email || !email.includes("@")) {
       result.skipped += 1;
+      continue;
+    }
+
+    // The owner is skipped BEFORE anything is created, and deliberately NOT added to
+    // `seenProfileIds` — leaving them out of that set is what makes the cleanup pass at
+    // the end of this function treat a previously-mirrored owner as an orphan.
+    if (ownerEmails.has(email)) {
+      result.skippedOwner += 1;
       continue;
     }
 
@@ -336,6 +395,47 @@ export async function mirrorPlanContacts(
     if (profile.state === "contact" && !profile.loginUserId) {
       await prisma.planAssignment.delete({ where: { id: assignment.id } });
       result.assignmentsRemoved += 1;
+    }
+  }
+
+  // ── self-healing: remove the owner's phantom profile ────────────────────────
+  // Before the owner skip existed, mirroring the advisor's own contact left a real
+  // `TeammateProfile` (type team_member, state contact, never signed in) plus its Viewer
+  // assignment. The assignment is already gone — the orphan pass above removes it, because
+  // the owner never enters `seenProfileIds`. What lingers is the profile row itself, which
+  // still renders as a duplicate Team Member, so it has to go too.
+  //
+  // Bounded to what is unmistakably a mirror trace: a Contact that never signed in, is not
+  // deactivated, and now holds no assignment at all. Anything else — a deactivated record,
+  // a linked login, a profile someone still has access through — is left untouched.
+  if (ownerEmails.size > 0) {
+    const traces = await prisma.teammateProfile.findMany({
+      where: {
+        organizationId: input.organizationId,
+        state: "contact",
+        loginUserId: null,
+        OR: [...ownerEmails].map((address) => ({
+          email: { equals: address, mode: "insensitive" as const },
+        })),
+      },
+      select: { id: true },
+    });
+
+    if (traces.length > 0) {
+      const ids = traces.map((trace) => trace.id);
+      const stillAssigned = await prisma.planAssignment.findMany({
+        where: { profileId: { in: ids } },
+        select: { profileId: true },
+        distinct: ["profileId"],
+      });
+      const assigned = new Set(stillAssigned.map((row) => row.profileId));
+      const removable = ids.filter((id) => !assigned.has(id));
+      if (removable.length > 0) {
+        await prisma.teammateProfile.deleteMany({
+          where: { id: { in: removable } },
+        });
+        result.ownerProfilesRemoved = removable.length;
+      }
     }
   }
 
