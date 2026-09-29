@@ -20,7 +20,6 @@ import {
   userInfo as defaultUserInfo,
 } from "./dashboard.funcs";
 import { resolveBrandingImageUrl } from "@/lib/branding-image-url";
-import { SeatMeter, useSeatUsage } from "@/components/pages/seat-meter";
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -32,10 +31,22 @@ const SWR_OPTS = {
 
 export function Dashboard() {
   const { setTitle } = usePageTitleContext();
-  // Spec T3 Part A item 3: the seat meter is also visible on the dashboard.
-  // `useSeatUsage` resolves to null for anyone without org-settings access
-  // (Viewer, Collaborator), so the meter simply doesn't render for them.
-  const seatUsage = useSeatUsage();
+
+  // The seat meter is deliberately NOT on the dashboard any more.
+  //
+  // Recorded because it contradicts a written rule rather than merely omitting one: spec T3
+  // Part A item 3 asks for "X of Y seats used … visible in Settings → Team and on the
+  // dashboard", and `components/pages/seat-meter.tsx` quotes that line in its own header.
+  // This is a product decision overriding that half of the sentence, so the next person to
+  // read the spec finds the reason here instead of assuming an oversight.
+  //
+  // Nothing was thrown away to achieve it: `SeatMeter` and `useSeatUsage` are untouched in
+  // `components/pages/seat-meter.tsx`, so restoring the dashboard zone is a re-wire rather than
+  // a rebuild. (They are now referenced by nothing else — the meter was the only consumer of
+  // this hook, which is why the dashboard no longer fires `GET /api/teammates/seats` on load.)
+  // The shared "How seats work" dialog lives in
+  // `components/teammates/seats/seat-usage-info-dialog.tsx`, and the seats UI itself lives only
+  // in Settings → People & Access.
 
   useEffect(() => {
     setTitle("Dashboard");
@@ -104,60 +115,84 @@ export function Dashboard() {
   return (
     <div className="px-6">
       <div className="w-full space-y-6 max-w-7xl mx-auto">
-        {seatUsage ? <SeatMeter usage={seatUsage} /> : null}
+        {/* ── Top row: identity · branding ─────────────────────────────────────
+            Two zones across the parent width: who you are on the left, the
+            organization's logo pinned right. The seat meter used to hold the middle
+            column — see the note at the top of `Dashboard` for why it no longer does.
 
-      {/* User Info */}
-      <Card className="px-5 mt-4 bg-transparent">
-        <CardContent className="flex items-center justify-between gap-4 p-0">
-          {isLoadingUserInfo ? (
-            <>
-              {/* Identity skeleton: avatar + greeting lines (left) */}
-              <div className="flex min-w-0 flex-1 items-center gap-4">
-                <div className="size-16 flex-shrink-0 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700" />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <div className="h-6 w-48 max-w-full animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
-                  <div className="h-4 w-24 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
-                </div>
-              </div>
+            Two details that are load-bearing rather than cosmetic:
 
-              {/* Logo skeleton (right) */}
-              <div className="h-[104px] w-[156px] flex-shrink-0 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
-            </>
-          ) : (
-            <>
-              {/* Identity: avatar + greeting — flush left */}
-              <div className="flex min-w-0 flex-1 items-center gap-4 text-left">
-                <div className="size-16 flex-shrink-0 overflow-hidden rounded-full border border-border dark:border-gray-600">
-                  <Headshot
-                    src={resolvedAvatar || userInfo.rawAvatar || undefined}
-                    monogramName={userInfo.name}
-                    alt="Avatar"
-                  />
-                </div>
-                <div className="min-w-0 text-left">
-                  <h4 className="truncate text-xl font-semibold dark:text-gray-100">
-                    Welcome back, {userInfo.name}!
-                  </h4>
-                  <p className="truncate text-sm font-normal text-muted-foreground">
-                    {userInfo.title || "Advisor"}
-                  </p>
-                </div>
-              </div>
-
-              {/* Advisor branding logo — flush right */}
-              {userInfo.logo && (
-                <div className="ml-auto flex h-[104px] w-[156px] flex-shrink-0 items-center justify-center overflow-hidden rounded">
-                  <BrandingImage
-                    src={userInfo.logo}
-                    alt="Logo"
-                    className="h-full w-full object-contain"
-                  />
-                </div>
+            1. `[minmax(0,1fr)_auto]` gives the identity card all the flexible space
+               while the logo keeps its intrinsic width. `minmax(0, …)` rather than a
+               bare `1fr`: `1fr` has an `auto` minimum, so a long name could push the
+               logo out of the row instead of truncating inside its own column.
+            2. The logo is deliberately NOT its own Card. It is a bare grid child
+               pinned to the right, which keeps the row to one card instead of
+               inventing a bordered box to hold a single image.
+            Below `lg` the two stack, because the logo is a fixed 156×104 and cannot
+            shrink. `items-stretch` (the grid default, stated for intent) makes both
+            children the same height, and the `h-full` below is what lets the identity
+            content centre vertically against the taller logo. */}
+        <div className="grid items-stretch grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
+          {/* Identity — left */}
+          <Card className="px-5 bg-transparent">
+            <CardContent className="flex h-full items-center gap-4 p-0">
+              {isLoadingUserInfo ? (
+                <>
+                  {/* Identity skeleton: avatar + greeting lines (left) */}
+                  <div className="flex min-w-0 flex-1 items-center gap-4">
+                    <div className="size-16 flex-shrink-0 animate-pulse rounded-full bg-gray-200 dark:bg-gray-700" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <div className="h-6 w-48 max-w-full animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+                      <div className="h-4 w-24 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Identity: avatar + greeting — flush left */}
+                  <div className="flex min-w-0 flex-1 items-center gap-4 text-left">
+                    <div className="size-16 flex-shrink-0 overflow-hidden rounded-full border border-border dark:border-gray-600">
+                      <Headshot
+                        src={resolvedAvatar || userInfo.rawAvatar || undefined}
+                        monogramName={userInfo.name}
+                        alt="Avatar"
+                      />
+                    </div>
+                    <div className="min-w-0 text-left">
+                      <h4 className="truncate text-xl font-semibold dark:text-gray-100">
+                        Welcome back, {userInfo.name}!
+                      </h4>
+                      <p className="truncate text-sm font-normal text-muted-foreground">
+                        {userInfo.title || "Advisor"}
+                      </p>
+                    </div>
+                  </div>
+                </>
               )}
-            </>
-          )}
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+
+          {/* Branding logo — pinned right. Deliberately not a Card: a single image
+              does not need a bordered box, and this keeps the row to two cards. The
+              logo is also fixed at 156×104 and cannot shrink, which is why the whole
+              row stacks below `lg` instead of squeezing it. */}
+          {isLoadingUserInfo ? (
+            <div className="flex items-center justify-end">
+              <div className="h-[104px] w-[156px] flex-shrink-0 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
+            </div>
+          ) : userInfo.logo ? (
+            <div className="flex items-center justify-end">
+              <div className="flex h-[104px] w-[156px] flex-shrink-0 items-center justify-center overflow-hidden rounded">
+                <BrandingImage
+                  src={userInfo.logo}
+                  alt="Logo"
+                  className="h-full w-full object-contain"
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
 
       {/* Quick Actions */}
       <QuickActions actions={quickActions} />

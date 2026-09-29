@@ -563,7 +563,7 @@ Both are centralised so they are one-line changes:
 |---|---|
 | `GET /api/teammates/team` | Both Settings → Team lists (`team` + `collaborators`) plus the seat meter. Sweeps expired invites first. |
 | `POST /api/teammates/team` | Add a Team Member/Collaborator: domain guess, seat check, then profile + one assignment per plan. |
-| `GET /api/teammates/seats` | The meter alone, for the dashboard. |
+| `GET /api/teammates/seats` | The meter alone. Nothing renders it at present — its only caller was the dashboard meter, which has been removed (see the seats note in §9). |
 | `PATCH /api/teammates/team/[profileId]` | Edit a membership (name, role, plan access, benefits access), or `action: "deactivate" \\| "reactivate"` for the spec T6 state transition. |
 
 All three are gated on the `org_settings` permission, which is what produces the
@@ -703,8 +703,17 @@ described as allowed to publish, invite or delete**.
   owner and always the first Team Member…"), and falls back to an unnamed version
   while the list or the session is still resolving. All three variants are true —
   only the grammatical person changes.
-- The **dashboard** shows the same seat meter. `useSeatUsage` resolves to null
-  without org-settings access, so a Viewer or Collaborator simply doesn't see it.
+- The **dashboard no longer shows the seat meter.** Spec T3 Part A item 3 asks for it in
+  both places, so this is a deliberate product decision overriding half that sentence, not an
+  oversight — the reason is recorded at the top of
+  [`components/pages/dashboard/dashboard.tsx`](../components/pages/dashboard/dashboard.tsx:33)
+  so the next reader of the spec finds it. Nothing was discarded to achieve it: `SeatMeter` and
+  `useSeatUsage` are still in
+  [`components/pages/seat-meter.tsx`](../components/pages/seat-meter.tsx:26) (currently
+  referenced by nothing else), and the dialog Settings renders is the shared
+  [`components/teammates/seats/seat-usage-info-dialog.tsx`](../components/teammates/seats/seat-usage-info-dialog.tsx:40),
+  so restoring the zone is a re-wire rather than a rebuild. The seats UI lives only in
+  Settings → People & Access.
 - **Onboarding**: the invite step opens with the owner pre-filled as the first
   member, and the step is skippable.
 
