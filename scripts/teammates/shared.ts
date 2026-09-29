@@ -73,11 +73,18 @@ export function summary(title: string): void {
 /**
  * The email shape every verify fixture owner uses (`t1-verify-a-…@example.test`).
  *
- * Anchored at both ends and limited to t1–t5, so it can only ever match a fixture.
- * No real account can be selected by it, which is what makes the sweep below safe to
- * run automatically.
+ * Anchored at both ends, so it can only ever match a fixture: the `t<n>-verify-` prefix is
+ * asserted on every fixture account and no real address carries it. Two things it must NOT
+ * narrow, both learned the hard way:
+ *
+ *  - the ticket number is any `t`-stamped tag (`t1`, `t2a`, `t9`, …), not just `t1`–`t5`;
+ *  - the mailbox domain is any reserved `.test` domain, not just `@example.test`. Fixtures
+ *    also use `@abbenefits.test`, `@abc.test`, `@other.test`, `@elsewhere.test`.
+ *
+ * Narrowing either one left stranded rows that the sweep could not see, which is exactly
+ * the failure the sweep exists to prevent.
  */
-export const FIXTURE_OWNER_EMAIL = /^t[1-5]-verify-[\s\S]*@example\.test$/i;
+export const FIXTURE_OWNER_EMAIL = /^t[a-z0-9]{1,3}-verify-[\s\S]*@[a-z0-9.-]+\.test$/i;
 
 /**
  * Fixture *names*, for the rows a script creates without a fixture OWNER.
@@ -133,7 +140,11 @@ export async function sweepStaleFixtures(
   };
 
   const candidates = await prisma.user.findMany({
-    where: { email: { endsWith: "@example.test" } },
+    // `.test` is a reserved TLD that cannot resolve, so it is the coarse cut; the anchored
+    // {@link FIXTURE_OWNER_EMAIL} regex below is what actually decides. A tighter
+    // `@example.test` cut silently skipped fixtures on the other fixture domains, which is
+    // how a stranded T9 login survived a sweep and broke the next `verify-backfill`.
+    where: { email: { endsWith: ".test" } },
     select: { id: true, email: true },
   });
 

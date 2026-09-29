@@ -34,6 +34,7 @@ import {
   findProfileByEmail,
   upgradeContactToInvited,
 } from "./profiles.server";
+import { inviteAcceptUrl, signInviteToken } from "./invite-token.server";
 import { emailDomain } from "./seats.server";
 import { getBenefitCompleteness } from "@/lib/benefit-completeness";
 import { categoryToSlug } from "@/lib/benefit-category-slug";
@@ -539,6 +540,26 @@ export async function inviteCollaboratorToPlan(
   let emailSent = false;
   let emailError: string | null = null;
 
+  // T9: the invitation is only useful if the invitee can redeem it, and until now nothing
+  // could be. Mint the acceptance link from the profile's OWN invite window, re-read here
+  // because the state transition above may just have started it.
+  let acceptUrl: string | null = null;
+  const invitedProfile = await prisma.teammateProfile.findUnique({
+    where: { id: profile.id },
+    select: { invitedAt: true },
+  });
+  if (invitedProfile?.invitedAt) {
+    acceptUrl = inviteAcceptUrl(
+      appBaseUrl(),
+      signInviteToken({
+        profileId: profile.id,
+        organizationId: input.organizationId,
+        email,
+        invitedAt: invitedProfile.invitedAt,
+      }),
+    );
+  }
+
   if (!input.skipEmail) {
     // Resolved here rather than passed in: `OrgSession` carries only the ids, and
     // the email needs a human name to open with.
@@ -574,6 +595,8 @@ export async function inviteCollaboratorToPlan(
                 targetCategories[0],
               )}`
             : `${appBaseUrl()}/benefits`,
+        // T9: leads with acceptance; the section link stays as the secondary action.
+        acceptUrl,
         missingFields,
         note: input.note ?? null,
         dueDate,

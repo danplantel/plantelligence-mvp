@@ -4,7 +4,7 @@
  *
  *   npx tsx scripts/repair/purge-verification-fixtures.ts [--apply]
  *
- * Why: `verify-t1` … `verify-t5` build isolated fixtures, assert against them, and
+ * Why: `verify-t1` … `verify-t9` build isolated fixtures, assert against them, and
  * delete them unless `--keep` was passed. If a run is interrupted — Ctrl-C, a lost
  * connection, a crash — the fixtures survive, and because a fixture owner has no
  * Organization the next `verify-backfill` then fails with:
@@ -16,7 +16,7 @@
  * this command is the manual escape hatch: for a run killed with SIGKILL or a power
  * loss, or when you want to inspect what is stranded without running anything else.
  *
- * Safety: selection is the anchored `t<1-5>-verify-*@example.test` pattern in
+ * Safety: selection is the anchored `t<ticket>-verify-*@<domain>.test` pattern in
  * [`sweepStaleFixtures`](../teammates/shared.ts) — no real account can match it, and a
  * mistyped argument cannot widen it. DRY RUN by default; `--apply` to delete.
  */

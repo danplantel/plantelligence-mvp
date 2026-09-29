@@ -142,6 +142,7 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:verify-t6` | Runs the 35-assertion T6 suite (the four acceptance criteria, per-assignment role and visibility, the Delete guard, the audit trail, and All Plans staying Team-Member-only). |
 | `npm run teammates:verify-t2a` | Runs the 25-assertion T2a suite (per-function Custom enforcement, same-vs-per-plan grids, the locked-row refusal, All Plans, the missing-grid refusal, soft warnings and their audit trail, and the summary line). |
 | `npm run teammates:verify-t7` | Runs the 26-assertion T7 suite (the three acceptance criteria, display-vs-access, the mirror's idempotency and removals, hidden categories, and the unmirrorable-contact residue). |
+| `npm run teammates:verify-t9` | Runs the 41-assertion T9 suite (the signed token and its refusals, the mailbox guard, the profile guards, acceptance creating vs reusing a login, the seat conversion, replay, both audit rows, and the tenancy invariant). |
 | `npm run teammates:backfill-contacts` | Projects every plan's `keyContacts` onto profiles + assignments (T7). Idempotent; `--dry-run` to count without writing. Run it before the hub reader switch and after adding a new contacts writer. |
 | `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
 
@@ -338,7 +339,7 @@ backfill or to sweep a fixture.
 
 ### 7.7 Interrupted verify runs no longer strand fixtures — fixed
 
-`verify-t1` … `verify-t5` build isolated fixtures, assert, and delete them unless
+`verify-t1` … `verify-t9` build isolated fixtures, assert, and delete them unless
 `--keep` is passed. A Ctrl-C, a dropped connection or a crash skipped the cleanup, and a
 stranded fixture owner has no Organization — which fails the NEXT `verify-backfill` on
 two assertions that read like code regressions and are not.
@@ -353,13 +354,20 @@ Two mechanisms now make that self-healing, both in
   the database clean rather than waiting for the next run.
 
 Selection is deliberately narrow. Owners must match
-`/^t[1-5]-verify-…@example\.test$/i`; because `verify-t2` deliberately creates an
-organization whose `ownerUserId` is a *fabricated* id (it asserts the "owner User is
-gone" case) and a plan inside it, rows are also matched by name against
-`/^t\d[ -]verify-/i`. The Prisma `contains`/`endsWith` filters are coarse pre-cuts —
-the typed API has no `$regex` — and the JS regexes are what decide, so they can only
-narrow the set. `npm run repair:purge-verification-fixtures` is the same sweep as a
-manual command, dry-run by default.
+`/^t[a-z0-9]{1,3}-verify-…@<domain>\.test$/i` — the `t<n>-verify-` prefix is asserted on
+every fixture account and no real address carries it. Because `verify-t2` deliberately
+creates an organization whose `ownerUserId` is a *fabricated* id (it asserts the "owner User
+is gone" case) and a plan inside it, rows are also matched by name against
+`/^t\d[ -]verify-/i`. The Prisma `contains`/`endsWith` filters are coarse pre-cuts — the
+typed API has no `$regex` — and the JS regexes are what decide, so they can only narrow the
+set. `npm run repair:purge-verification-fixtures` is the same sweep as a manual command,
+dry-run by default.
+
+**Two things that narrow must not:** the ticket tag is any `t`-stamped one (`t1`, `t2a`,
+`t9`, …), and the mailbox may sit on any reserved `.test` domain — fixtures also use
+`@abbenefits.test`, `@abc.test`, `@other.test` and `@elsewhere.test`. An earlier version
+restricted both (`t[1-5]` and `@example\.test`), which is precisely how a stranded T9 login
+survived a sweep and broke the next `verify-backfill`.
 
 Two implementation notes worth keeping:
 
@@ -369,10 +377,12 @@ Two implementation notes worth keeping:
 - **"Nothing to purge" must check every count, not just users.** A run can have zero
   stranded users and still leave an organization and its audit rows behind.
 
-Verified end-to-end: `npm run teammates:verify-t2 -- --keep` (deliberately stranding
-4 users plus the ghost org and plan) followed by `npm run teammates:verify-backfill`
-printed `Swept 4 fixture user(s)…` and passed all 7 assertions; before the fix the same
-sequence failed 3.
+Verified end-to-end twice. `npm run teammates:verify-t2 -- --keep` (deliberately stranding
+4 users plus the ghost org and plan) followed by `npm run teammates:verify-backfill` printed
+`Swept 4 fixture user(s)…` and passed all 7 assertions; before the fix the same sequence
+failed 3. Later, a T9 run that left two accepted logins behind — one on `@abbenefits.test` —
+was invisible to the old pattern and made `verify-backfill` report `2 missing`; the widened
+pattern now finds and removes both.
 
 ---
 
@@ -1302,6 +1312,98 @@ how an Owner sees them; and the stored grid is a full grid, not a reference to a
 
 ---
 
+## 9h. T9 — Invite acceptance
+
+Not a spec ticket: the missing second half of T4/T5. T4 and T5 send an invitation email, but
+nothing turned it into access — and access is resolved **by login**, because
+`resolvePlanAccess` finds the `TeammateProfile` whose `loginUserId` equals the session's
+`userId`. Every verify suite before T9 created that link by hand. T9 is the caller
+`activateProfile` never had.
+
+### The flow
+
+1. `inviteCollaboratorToPlan` mints a signed token from the profile's own `invitedAt` and
+   puts it in the email's primary CTA.
+2. `GET /accept-invite/[token]` renders `loadInvitation(token)`: who invited you, which plan
+   and section it is about, and the invited mailbox as a locked, read-only field.
+3. `POST /api/teammates/accept-invite` runs `acceptInvitation`, which re-validates from
+   scratch (a link can be replayed or edited between render and submit), creates or reuses
+   the login, and activates the profile.
+
+### Three landmines it had to clear
+
+- **The onboarding gate.** `middleware.ts` sends any signed-in user without an
+  `onboardingComplete` latch to `/onboarding`. A collaborator never has a `wizardSession`, so
+  the old gate would have dropped them into the advisor wizard. The `jwt` callback now also
+  latches a user who holds an active teammate profile — including the
+  `{ deactivatedAt: null }`-vs-absent trap, which needs the explicit two-branch `OR`.
+- **`signIn` creates an Organization for every new User.** Acceptance creates a User *outside*
+  `signIn`, so it has to do the same, or the accepted login is the one User in the database
+  with no `organizationId` — exactly what `verify-backfill` asserts against. `acceptInvitation`
+  now calls `getOrCreateOrganizationForUser`. It grants nothing extra: access comes from the
+  profile's assignments, never from that organization, so the personal, planless Organization
+  is invisible to authorization. (Recorded in the QA checklist as a non-bug, because it looks
+  surprising in the database.)
+- **No token existed.** Nothing on the profile can prove "this link is ours" — `profileId` is
+  an ObjectId, not a secret. T9 signs `{ profileId, organizationId, email, invitedAt }` with
+  `NEXTAUTH_SECRET` and lets it expire with the 14-day invite hold, so revocation needs no
+  bookkeeping: deactivate the person, remove the assignment, or let the hold lapse, and the
+  link stops working.
+
+### The governing rule: never trust the token, trust the profile
+
+The token proves the link was minted by us and has not expired. Everything else — still
+invited, not deactivated, not already accepted, right mailbox — is decided by re-reading the
+profile. Two consequences worth keeping:
+
+- An **already-accepted** invite reports `already_accepted` and points at sign-in. Collapsing
+  that into "revoked" would tell a returning invitee their invitation was withdrawn when in
+  fact it worked.
+- A **forwarded** link is refused unless the mailbox matches, because the mailbox is the
+  identity here.
+
+### Failure vocabulary
+
+One status union, shared by the page and the API: `ok`, `invalid`, `expired`,
+`already_accepted`, `deactivated`, `revoked`, mapped to 200 / 400 / 409 / 410.
+
+### Files
+
+| File | Role |
+|---|---|
+| `lib/teammates/invite-token.server.ts` | `signInviteToken` / `verifyInviteToken`, the accept URL, and a constant-time compare over `TextEncoder` bytes (avoids `crypto.timingSafeEqual`'s Buffer typing). |
+| `lib/teammates/invite-acceptance.server.ts` | `loadInvitation` (read-only, safe to call on render) and `acceptInvitation` (the write). |
+| `app/api/teammates/accept-invite/route.ts` | Public GET/POST, status→HTTP mapping, and a best-effort per-IP throttle that is documented as non-durable. |
+| `app/accept-invite/[token]/page.tsx` + `components/teammates/invite-accept-form.tsx` | The summary-then-credentials screen, reusing the existing credentials form. |
+| `lib/email.ts` | "Accept the invitation" as the primary CTA; the section link demoted to a secondary line so an already-active person still has a way in. |
+| `lib/auth-options.ts` | The onboarding latch also accepts an active, non-deactivated teammate profile. |
+
+The route is intentionally public: `middleware.ts` gates only the paths on its `APP_ROUTES`
+allow-list, and `/accept-invite/...` is not on it — which is required, since redeeming the
+invite is how the login comes to exist.
+
+### Verification
+
+`npm run teammates:verify-t9` — 41 assertions: the token round-trip and its three refusals
+(tampered, malformed, past the hold), the mailbox guard, the four profile guards
+(missing/Contact/deactivated/never-invited), acceptance creating *and* reusing a login without
+overwriting an existing password or name, the seat conversion (`seatsUsed` unchanged), replay,
+the weak-password refusal, both audit rows, and the tenancy invariant that every login the
+flow creates owns an Organization.
+
+No mail leaves the machine: the invite is raised with `skipEmail: true` and the token is minted
+exactly as `invites.server.ts` mints it.
+
+**Retrospective.** T9 shipped its own version of the stranded-fixture bug: the logins it
+creates are made *inside* `acceptInvitation`, so `verify-t9`'s cleanup list did not include
+them, and the fixture sweep could not see them either (its pattern stopped at `t5` and
+`@example.test`). The fix has two halves — the service now gives the login an Organization, and
+the suite tracks and removes every login the flow creates — plus the widened sweep in §7.7.
+That is the case that made `verify-backfill` fail on `2 missing`, and it is why the tenancy
+invariant is now an assertion rather than an assumption.
+
+---
+
 ## 10. Residual migration debt
 
 Tracked, deliberately **not** part of T1:
@@ -1374,3 +1476,8 @@ access".
 - **T2 follow-up** — migrate the remaining owner-scoped routes to
   `requirePlanAccess` (see the coverage table in §8) and wire
   `listAccessiblePlanIds` into the plan selector.
+- **T9 follow-up** — the accept route's per-IP throttle is in-process and non-durable (it
+  resets on redeploy and does not span instances); a shared store is the real fix if abuse
+  ever matters. And there is no dedicated **resend invitation** action — resending means
+  re-inviting the same person from the same surface, which merges onto their existing
+  profile rather than creating a second one (T5's rule).

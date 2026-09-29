@@ -181,13 +181,44 @@ export const authOptions: NextAuthOptions = {
       // afterwards. The flag is mirrored into the JWT and consumed by
       // middleware (see middleware.ts) to replace the old client-side
       // OnboardingGuard, eliminating the per-navigation onboarding-status call.
+      //
+      // T9: a COLLABORATOR must not be sent through the advisor onboarding wizard. Until
+      // invite acceptance existed, nobody external could sign in at all, so the gate
+      // only ever saw advisors. It now sees people whose access comes from an assignment
+      // in someone else's organization — and who have no wizard session to complete, so
+      // they would be bounced to `/onboarding` forever.
+      //
+      // The rule is deliberately about the FACT of granted access, not about how the
+      // account was created: "another organization has already given you active
+      // access" is what makes the org-creation wizard inapplicable. A brand-new advisor
+      // has no TeammateProfile at all — the owner of an organization is synthesized from
+      // the Organization, never materialised as a profile — so this cannot accidentally
+      // mark a new advisor as onboarded. A deactivated profile does not count, so
+      // deactivating somebody does not leave them with a bypass.
       if (token.id && !(token as any).onboardingComplete) {
         try {
           const completed = await prisma.wizardSession.findFirst({
             where: { userId: token.id as string, completed: true },
             select: { id: true },
           });
-          (token as any).onboardingComplete = !!completed;
+          if (completed) {
+            (token as any).onboardingComplete = true;
+          } else {
+            const teammateAccess = await prisma.teammateProfile.findFirst({
+              where: {
+                loginUserId: token.id as string,
+                state: "active",
+                // `{ deactivatedAt: null }` matches explicit nulls only, never an absent
+                // field — the Mongo trap documented in docs/teammates-module.md §7.3.
+                OR: [
+                  { deactivatedAt: null },
+                  { deactivatedAt: { isSet: false } },
+                ],
+              },
+              select: { id: true },
+            });
+            (token as any).onboardingComplete = !!teammateAccess;
+          }
         } catch {
           (token as any).onboardingComplete = false;
         }

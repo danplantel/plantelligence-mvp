@@ -761,6 +761,13 @@ export interface CollaboratorInviteEmailInput {
   inviteContext: string;
   /** Absolute deep link to the assigned benefit section. */
   sectionUrl: string;
+  /**
+   * T9: the link that accepts the invitation. The email leads with this, because an
+   * external invitee has no account yet — "Open the section" leads to a sign-in wall for
+   * them. The section link stays as a secondary action, which is what an
+   * already-accepted collaborator needs on a re-invite.
+   */
+  acceptUrl?: string | null;
   /** What still needs filling in on that section, straight from the completeness check. */
   missingFields: string[];
   note?: string | null;
@@ -785,6 +792,7 @@ export async function sendCollaboratorInviteEmail({
   categories,
   inviteContext,
   sectionUrl,
+  acceptUrl,
   missingFields,
   note,
   dueDate,
@@ -803,6 +811,23 @@ export async function sendCollaboratorInviteEmail({
       : `the <strong style="color: #1a1a2e;">${targets[0]}</strong> section`;
   const sectionPhraseText =
     targets.length > 1 ? `the ${targets.join(", ")} sections` : `the ${targets[0]} section`;
+
+  // T9: the invitation is redeemed first, the section is opened second. An invitee who
+  // already accepted (or already has access) can skip straight to the work, so the
+  // section link stays present as the secondary action.
+  const acceptLink = (acceptUrl ?? "").trim();
+  const primaryUrl = acceptLink || sectionUrl;
+  const primaryLabel = acceptLink ? "Accept the invitation" : "Open the section";
+  const secondaryBlock = acceptLink
+    ? `
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 20px;">
+                                            <p class="email-text-secondary" style="margin: 0; font-size: 13px; color: #888890; line-height: 1.5;">
+                                                Already set up? <a href="${sectionUrl}" style="color: #1a3a6a; text-decoration: underline;">Open the section</a>
+                                            </p>
+                                        </td>
+                                    </tr>`
+    : "";
 
   const subject = `${inviter} invited you to help with ${planName} — ${sectionLabel}`;
 
@@ -931,17 +956,17 @@ export async function sendCollaboratorInviteEmail({
                                             <table cellpadding="0" cellspacing="0" border="0">
                                                 <tr>
                                                     <td align="center" class="button" style="background-color: #1a3a6a; border-radius: 8px;">
-                                                        <a href="${sectionUrl}" style="display: inline-block; padding: 14px 28px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none;">Open the section</a>
+                                                        <a href="${primaryUrl}" style="display: inline-block; padding: 14px 28px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none;">${primaryLabel}</a>
                                                     </td>
                                                 </tr>
                                             </table>
                                         </td>
-                                    </tr>${dueBlock}
+                                    </tr>${secondaryBlock}${dueBlock}
                                     <tr>
                                         <td align="center" style="padding-bottom: 24px;">
                                             <p class="email-text-secondary" style="margin: 0; font-size: 13px; color: #888890; line-height: 1.5;">
                                                 If the button does not work, paste this into your browser:<br/>
-                                                <a href="${sectionUrl}" style="color: #1a3a6a; text-decoration: underline; word-break: break-all;">${sectionUrl}</a>
+                                                <a href="${primaryUrl}" style="color: #1a3a6a; text-decoration: underline; word-break: break-all;">${primaryUrl}</a>
                                             </p>
                                         </td>
                                     </tr>
@@ -985,6 +1010,7 @@ export async function sendCollaboratorInviteEmail({
         ? [``, `Still needed on this section:`, ...missingFields.map((f) => `- ${f}`)]
         : []),
       ``,
+      ...(acceptLink ? [`Accept the invitation: ${acceptLink}`] : []),
       `Open the section: ${sectionUrl}`,
       ...(dueDate
         ? [

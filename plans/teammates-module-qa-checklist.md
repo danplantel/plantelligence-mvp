@@ -28,9 +28,10 @@ npm run teammates:verify-t4           # 62 assertions — invite from Create Ben
 npm run teammates:verify-t5           # 38 assertions — Key Contacts entry point
 npm run teammates:verify-t6           # 35 assertions — Assignment management screen
 npm run teammates:verify-t7           # 26 assertions — hub contact display
+npm run teammates:verify-t9           # 41 assertions — invite acceptance (collaborator login)
 ```
 
-- [ ] All nine suites report **all assertions passed**.
+- [ ] All ten suites report **all assertions passed**.
 - [ ] `npx tsc --noEmit` exits 0.
 - [ ] If a suite fails on "every User has an organizationId", a previous interrupted run
       left a fixture behind: `npm run repair:purge-verification-fixtures -- --apply`.
@@ -49,6 +50,14 @@ Several checks require a login that is **not** the owner.
 
 - [ ] Have at least these three before starting, or the access-denial items cannot be
       tested.
+
+**How to get a Collaborator login (T9).** Before T9 there was no way to turn an invitation
+into a login — this account had to be inserted into the database by hand. It is now a flow,
+and it is the account every access-denial check in T2 depends on: invite a mailbox you can
+open (an alias is fine), open the **accept link** from the email, choose a password, and you
+are signed in as that collaborator, landing on the section they were invited to. The full
+flow — including expired, revoked, already-accepted and wrong-mailbox refusals — is
+[T9 — Invite acceptance](#t9--invite-acceptance-creating-the-collaborator-login).
 
 ---
 
@@ -269,6 +278,41 @@ Open a plan's **public hub** (My Benefits Team and a benefit category page).
 
 ---
 
+## T9 — Invite acceptance (creating the collaborator login)
+
+The step that used to be missing. An invitation is only a promise until someone redeems it:
+access is resolved by looking up the login on a profile (`TeammateProfile.loginUserId`), so
+until the accept link is used, an invited person still cannot sign in.
+
+- [ ] Invite a mailbox you control from **Add Benefit → Contacts → Invite Collaborator**. The
+      email's **primary button says "Accept the invitation"**; the "open the section" link is
+      now a secondary line rather than the button. **[impl]**
+- [ ] Open the accept link. Before asking for anything, the page says **who** invited you,
+      **which plan and section** it is about, and shows the invited address as a **locked,
+      read-only** field. **[spec]** "The user is not asked again."
+- [ ] Submitting a password lands you **on the invited section** (single-category invite) or
+      on the plan list (all-sections invite). **[impl]**
+- [ ] You are a real login afterwards: sign out, sign in at `/signin` with the same email and
+      password, and land in the same place. **[spec]** "…an ordinary credentials user
+      afterwards."
+- [ ] You are **not** dropped into the advisor onboarding wizard. (A collaborator has no
+      `wizardSession`, so the old gate would have sent them there.) **[impl]**
+- [ ] As that collaborator, the plan list shows **only** the plan(s) assigned to you — none of
+      the owner's other plans. **[spec]**
+- [ ] **Already accepted:** open the same accept link a second time. It says the invitation was
+      already accepted and points at **sign in** — not at an error. **[impl]**
+- [ ] **Deactivated:** deactivate the person in Settings → Team Members → Collaborators, then
+      reopen the link. It is refused with the deactivated copy. (Re-activate to tidy up.)
+      **[impl]**
+- [ ] **Wrong mailbox:** open the accept link from a different mailbox. It is refused — the
+      mailbox is the identity, not the link. **[impl]**
+- [ ] An **expired** invite (past the 14-day hold) is refused as expired, and its seat has
+      already been released. **[spec]**
+- [ ] The login this creates owns an Organization, like every other `User` — the T1 invariant
+      `verify-backfill` asserts. This was the defect T9 first shipped with. **[impl]**
+
+---
+
 ## Cross-cutting checks
 
 - [ ] **Invite emails** arrive once per invite, from the right sender, with a working deep
@@ -312,6 +356,11 @@ These are deliberate, recorded decisions. Reporting them wastes a cycle.
   Collaborators.
 - **The `plans/` file "Save as role template"** from T2a is marked Optional (Low) in the
   spec and is not built.
+- **The accepted collaborator owns an empty Organization.** Every `User` gets one — it is
+  the T1 invariant and exactly what `signIn` does for any new account — so a collaborator
+  invited into *someone else's* organization also has a personal, planless one. It grants
+  nothing (plan access is resolved from their profile's assignments, never from that
+  organization) and it is not a leak. Do not report it.
 
 ---
 
@@ -323,5 +372,5 @@ Include, so it can be reproduced without a second round trip:
 2. Which account/role you were signed in as, and whether you were on the owner's own row.
 3. The plan and category involved.
 4. What you expected versus what happened.
-5. Whether the nine `verify-*` suites still pass — if one fails, paste the failing line,
+5. Whether the ten `verify-*` suites still pass — if one fails, paste the failing line,
    because it usually names the cause directly.

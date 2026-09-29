@@ -26,6 +26,7 @@
     "teammates:verify-t3": "npx tsx scripts/teammates/verify-t3.ts",
     "teammates:verify-t4": "npx tsx scripts/teammates/verify-t4.ts",
     "teammates:verify-t5": "npx tsx scripts/teammates/verify-t5.ts",
+    "teammates:verify-t9": "npx tsx scripts/teammates/verify-t9.ts",
     "teammates:verify-t6": "npx tsx scripts/teammates/verify-t6.ts",
     "teammates:verify-t7": "npx tsx scripts/teammates/verify-t7.ts",
     "repair:unique-conflicts": "npx tsx scripts/repair/fix-unique-conflicts.ts",
