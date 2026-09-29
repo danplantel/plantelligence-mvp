@@ -145,8 +145,8 @@ Mostly invisible, but two things are observable.
 
 ## T2a — Custom role (plan-first grid)
 
-Reached from **Settings → Team Members → click a person → any assignment's Role dropdown
-→ `Custom…`**.
+Reached from **Settings → People & Access → click a person → any assignment's Role
+dropdown → `Custom…`**.
 
 - [ ] The screen opens at **Step 1: Plans**, pre-filled with the person's current plan.
       **[spec]** "Pre-filled with the current plan."
@@ -187,7 +187,7 @@ Custom access is set.
 
 ## T3 — Team Member management + seats
 
-Open **Settings → Team Members**.
+Open **Settings → People & Access**.
 
 - [ ] The seat line reads "X of Y seats used", with pending invites shown separately.
       **[spec]**
@@ -266,7 +266,7 @@ Create Plan → **Step 3: Key Contacts**.
 
 ## T6 — Assignment management screen
 
-Open **Settings → Team Members** and click a person (a seat card or a Collaborator row).
+Open **Settings → People & Access** and click a person (a seat card or a Collaborator row).
 The owner row keeps its own read-only dialog — that is expected. **[impl]**
 
 - [ ] The screen shows the **profile at the top** and assignments **listed below by
@@ -346,7 +346,7 @@ until the accept link is used, an invited person still cannot sign in.
       the owner's other plans. **[spec]**
 - [ ] **Already accepted:** open the same accept link a second time. It says the invitation was
       already accepted and points at **sign in** — not at an error. **[impl]**
-- [ ] **Deactivated:** deactivate the person in Settings → Team Members → Collaborators, then
+- [ ] **Deactivated:** deactivate the person in Settings → People & Access → Collaborators, then
       reopen the link. It is refused with the deactivated copy. (Re-activate to tidy up.)
       **[impl]**
 - [ ] **Wrong mailbox:** open the accept link from a different mailbox. It is refused — the
@@ -369,7 +369,7 @@ until the accept link is used, an invited person still cannot sign in.
       or a mirrored hub contact never moves the seat counter. **[spec]**
 - [ ] **Completeness copy matches reality**: the "N fields missing" count on an invite chip
       matches the missing fields the invite email lists. **[impl]**
-- [ ] **Dark mode** pass over Settings → Team Members, the Plan Access screen, the Custom
+- [ ] **Dark mode** pass over Settings → People & Access, the Plan Access screen, the Custom
       grid and the invite dialog.
 - [ ] **Narrow viewport** pass over the same four surfaces — long plan and company names
       truncate rather than overflow.
@@ -397,7 +397,7 @@ These are deliberate, recorded decisions. Reporting them wastes a cycle.
   `deactivatedAt`. Test the authorization half, not a login screen.
 - **"Customize access" in the invite dialog (T4) is disabled on purpose.** A Custom grid
   must be written onto an assignment, and at invite time the person may have no profile or
-  assignment yet. Configure Custom from Settings → Team Members after the invite.
+  assignment yet. Configure Custom from Settings → People & Access after the invite.
 - **A Team Member with All Plans does not automatically get access to a plan created
   later.** Unwired; listed in the module docs.
 - **Plan creation stamping** is now wired, but a plan created by an **older build** (before

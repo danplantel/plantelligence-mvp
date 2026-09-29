@@ -1036,7 +1036,7 @@ export default function SettingsPage() {
               className="flex items-center gap-2 relative"
             >
               <UserPlus className="h-4 w-4" />
-              Team Members
+              People & Access
             </TabsTrigger>
           </TabsList>
 
@@ -1106,7 +1106,8 @@ export default function SettingsPage() {
             />
           </TabsContent>
 
-          {/* Team Members Tab */}
+          {/* People & Access Tab — the tab's value stays "members" so existing links
+              and the size-5 grid above keep working; only the label changed. */}
           <TabsContent value="members" className="space-y-6">
             <TeamMembersSection />
           </TabsContent>
