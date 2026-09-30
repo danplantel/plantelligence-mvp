@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
 import useSWR from "swr";
 import { useForm } from "react-hook-form";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
@@ -54,6 +56,17 @@ export default function SettingsPage() {
   );
   const [activeTab, setActiveTab] = useState("profile");
   const [pendingTab, setPendingTab] = useState<string | null>(null);
+  // Portal target for the tab bar — the Header renders <div id="header-tabs-portal" />
+  // and the TabsList is portalled into it, so the tabs live in the fixed header and
+  // stay visible while the page scrolls. Same arrangement as Edit Plan / Edit Client /
+  // Edit Benefit. A React portal keeps the React tree, so the portalled list is still
+  // inside this page's <Tabs>: it drives `activeTab` and therefore still goes through
+  // `handleTabChange` and the unsaved-changes guard below.
+  const [headerPortalTarget, setHeaderPortalTarget] =
+    useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setHeaderPortalTarget(document.getElementById("header-tabs-portal"));
+  }, []);
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] =
     useState(false);
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
@@ -1019,6 +1032,73 @@ export default function SettingsPage() {
       ? tabDirty.team
       : false;
 
+  // ── The tab bar ─────────────────────────────────────────────────────────
+  // Rendered into the fixed header through a portal (see `headerPortalTarget`), so the
+  // tabs stay visible while the page scrolls — the same bar Edit Client and Edit Benefit
+  // render. The default `TabsList` card is stripped (no border, no background, one line,
+  // horizontally scrollable) and the active tab is underlined in accent-blue.
+  const settingsTabList = (
+    <TabsList
+      className={cn(
+        "w-full gap-1 rounded-none border-0 bg-transparent dark:bg-transparent p-0 flex-nowrap h-auto min-h-fit overflow-x-auto",
+        "[&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
+        // Centring that survives an overflow — the same rule Edit Benefit uses: auto
+        // margins centre the strip while it fits and collapse to 0 when it does not, so
+        // an overlong strip stays flush with the start and scrolls normally instead of
+        // having its first tabs clipped out of reach.
+        "[&>*:first-child]:ml-auto [&>*:last-child]:mr-auto",
+      )}
+    >
+      {[
+        {
+          value: "profile",
+          label: "Profile",
+          Icon: User,
+          dirty: tabDirty.profile,
+        },
+        {
+          value: "branding",
+          label: "Branding",
+          Icon: Building2,
+          dirty: tabDirty.branding,
+        },
+        {
+          value: "organization",
+          label: "Organization",
+          Icon: Briefcase,
+          dirty: tabDirty.organization,
+        },
+        {
+          value: "team",
+          label: "Disclaimers",
+          Icon: UsersIcon,
+          dirty: tabDirty.team,
+        },
+        {
+          value: "members",
+          label: "People & Access",
+          Icon: UserPlus,
+          dirty: false,
+        },
+      ].map(({ value, label, Icon, dirty }) => (
+        <TabsTrigger
+          key={value}
+          value={value}
+          className="relative flex items-center gap-2 rounded-none px-4 py-3 text-sm font-medium whitespace-nowrap data-[state=active]:border-b-2 data-[state=active]:border-accent-blue data-[state=active]:font-bold data-[state=active]:text-accent-blue"
+        >
+          <Icon className="h-4 w-4" />
+          {label}
+          {dirty && (
+            // Inset rather than hanging outside the trigger: the strip is a horizontal
+            // scroll container, so a dot at `-top-1 -right-1` would fall outside its
+            // clip box.
+            <Circle className="absolute right-1 top-1 h-2 w-2 fill-amber-500 text-amber-500" />
+          )}
+        </TabsTrigger>
+      ))}
+    </TabsList>
+  );
+
   // ── Save handler for sections (kept for compatibility but unused by UI) ─
   const noopSave = async () => {};
 
@@ -1036,46 +1116,12 @@ export default function SettingsPage() {
           onValueChange={handleTabChange}
           className="space-y-6"
         >
-          <TabsList className="grid w-full grid-cols-5 relative">
-            <TabsTrigger value="profile" className="flex items-center gap-2 relative">
-              <User className="h-4 w-4" />
-              Profile
-              {tabDirty.profile && (
-                <Circle className="h-2 w-2 fill-amber-500 text-amber-500 absolute -top-0.5 -right-0.5" />
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="branding" className="flex items-center gap-2 relative">
-              <Building2 className="h-4 w-4" />
-              Branding
-              {tabDirty.branding && (
-                <Circle className="h-2 w-2 fill-amber-500 text-amber-500 absolute -top-0.5 -right-0.5" />
-              )}
-            </TabsTrigger>
-            <TabsTrigger
-              value="organization"
-              className="flex items-center gap-2 relative"
-            >
-              <Briefcase className="h-4 w-4" />
-              Organization
-              {tabDirty.organization && (
-                <Circle className="h-2 w-2 fill-amber-500 text-amber-500 absolute -top-0.5 -right-0.5" />
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="team" className="flex items-center gap-2 relative">
-              <UsersIcon className="h-4 w-4" />
-              Disclaimers
-              {tabDirty.team && (
-                <Circle className="h-2 w-2 fill-amber-500 text-amber-500 absolute -top-0.5 -right-0.5" />
-              )}
-            </TabsTrigger>
-            <TabsTrigger
-              value="members"
-              className="flex items-center gap-2 relative"
-            >
-              <UserPlus className="h-4 w-4" />
-              People & Access
-            </TabsTrigger>
-          </TabsList>
+          {/* The tab bar renders inside the fixed header via portal; it falls back to
+              an inline bar if the header's portal target is not mounted yet (e.g. the
+              very first client render), so the tabs are never missing. */}
+          {headerPortalTarget
+            ? createPortal(settingsTabList, headerPortalTarget)
+            : settingsTabList}
 
           {/* Profile Tab */}
           <TabsContent value="profile" className="space-y-6">
