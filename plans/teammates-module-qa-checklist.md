@@ -22,6 +22,7 @@ the UI, and they leave the database clean.
 # 0. Prove the app is on the new database at all — run these two before anything else.
 npx prisma migrate status              # expect: "Database schema is up to date!"
 npm run check:no-mongo                 # expect: "no MongoDB coupling remains"
+#   Fresh database or a new Neon branch: npx prisma migrate deploy, then npx prisma generate.
 
 npm run teammates:verify-backfill     # 7 assertions  — every User/Client has an org
 npm run teammates:verify              # 24 assertions — T1 data model
@@ -37,14 +38,21 @@ npm run teammates:verify-t9           # 41 assertions — invite acceptance (col
 
 - [ ] All ten suites report **all assertions passed**.
 - [ ] `npx tsc --noEmit` exits 0, and `npm run lint` reports no warnings.
-- [ ] **`npm run check:no-mongo` is clean.** Until it is, the surfaces it names are known
-      broken — read [Known gaps](#known-gaps--do-not-report-these-as-bugs) **before** filing
-      anything about benefits, videos, webinars, documents or plan creation.
+- [ ] **No two suites were run at the same time.** Every suite now sweeps stranded fixtures
+      *before* it asserts and again on Ctrl-C, and another run's in-flight rows are
+      indistinguishable from stranded ones, so a concurrent run deletes them.
+- [ ] **`npm run check:no-mongo` is clean.** As of the last run it reports **80 findings in
+      28 files** — 63 `ObjectId` references and 17 hand-written 24-hex shape tests. While it is
+      not clean, the surfaces it names are known broken: read
+      [Known gaps](#known-gaps--do-not-report-these-as-bugs) **before** filing anything about
+      benefits, documents, videos, webinars, marketing flyers, contact-form topics or plan
+      creation.
 - [ ] If a suite fails with a **foreign-key error (`P2003`)** while cleaning up its fixtures,
       that is the new foreign keys doing their job — Postgres enforces relations that Prisma
       only emulated before. Report it; do not work around it.
 - [ ] If a suite fails on "every User has an organizationId", a previous interrupted run
-      left a fixture behind: `npm run repair:purge-verification-fixtures -- --apply`.
+      left a fixture behind: `npm run repair:purge-verification-fixtures -- --apply`. A hard
+      kill (closing the terminal) skips the Ctrl-C sweep, so this is still reachable.
 - [ ] If a suite fails on "every Client whose owner still exists is stamped", run
       `npm run teammates:backfill`.
 - [ ] Note that on a **fresh database** `verify-backfill` passes trivially (0 users, 0 plans).
@@ -59,9 +67,11 @@ Several checks require a login that is **not** the owner.
 | Owner | owns the organization | everything |
 | Collaborator login | external, assigned to one plan + one category | the access-denial and hub checks |
 | Unassigned login | no assignment at all | the "no access" checks |
+| Admin | a Team Member holding Org Settings, and **not** the owner | the Settings tab from a non-owner's side: the reserved-seat copy, and the `seat_limit_owner_only` refusal |
 
-- [ ] Have at least these three before starting, or the access-denial items cannot be
-      tested.
+- [ ] Have at least the first three before starting, or the access-denial items cannot be
+      tested. The fourth is optional, but it is the only way to see the reserved-seat line and
+      the seat-limit confirm behave correctly for someone who is not the owner.
 
 **How to get a Collaborator login (T9).** Before T9 there was no way to turn an invitation
 into a login — this account had to be inserted into the database by hand. It is now a flow,
@@ -140,6 +150,12 @@ Mostly invisible, but two things are observable.
 - [ ] Confirm the last Owner cannot be removed: try to deactivate or demote the only
       Owner. It is refused with a message about keeping an Owner.
 - [ ] As a collaborator, confirm you cannot see organization settings or billing at all.
+- [ ] As a collaborator, every plan picker (Documents, Marketing, Meetings, Videos,
+      Webinars, Benefits step 1) lists **only** the plans assigned to you — never the
+      owner's other plans. **[spec]** "Collaborators never see unassigned plans."
+- [ ] A **deactivated** teammate's plans drop out of their picker and every org-scoped read
+      is refused. Their *login* still works — that half belongs to the auth layer, see
+      [Known gaps](#known-gaps--do-not-report-these-as-bugs). **[impl]**
 
 ---
 
@@ -212,6 +228,29 @@ Open **Settings → People & Access**.
       Collaborator type, and **All Plans is not offered**. **[impl]**
 - [ ] The Settings header reads **"Settings / {Organization Name}"** with the organization
       in accent-blue. **[impl]**
+- [ ] The tab is labelled **People & Access** (its internal value is still `members`), and the
+      seats UI lives **only** here — the dashboard shows **no seat meter**. Spec T3 asks for it
+      in both places; dropping the dashboard zone is a deliberate decision, not an oversight.
+      **[impl]**
+- [ ] The **i** "How seats work" dialog is driven by the live meter: its four figures (used /
+      active / pending / available) match the line above it, and the amber callout appears only
+      when the organization is at its limit. **[impl]**
+- [ ] **Remove from seat** on an occupied card asks first, then releases the seat and says
+      which of the two things happened: an **un-accepted invite returns to Contact** (fully
+      reversible, profile and notes kept), an **accepted member is deactivated** (access to
+      every plan ends). Either way the counter drops by one and the person is still listed.
+      **[impl]**
+- [ ] **Remove from seat is absent on the owner's card and on a deactivated row.** The owner's
+      seat is reserved, and a deactivated member holds none. **[impl]**
+- [ ] The **Collaborators** accordion sits *under* the seat cards, shows each person's partner
+      company and status, and states that a Collaborator is free and holds no seat. **[impl]**
+- [ ] **Invite Collaborator** and **Add Collaborator** are two separate buttons with different
+      meaning: Add grants access silently, Invite creates the same profile and assignment *and*
+      sends the email. **[impl]**
+- [ ] The Add modal puts **access first** on both of its slides, and its **New Contact** slide
+      asks only for fields a profile can store (name, job title, email, phone + extension,
+      headshot, company). See [Known gaps](#known-gaps--do-not-report-these-as-bugs) for the
+      card fields it cannot yet carry. **[impl]**
 
 ---
 
@@ -223,6 +262,10 @@ Open **Settings → People & Access**.
 - [ ] Opening it from Ayres → Group Health shows the plan and category as **locked chips**,
       not fields. **[spec]** "An invite from Ayres → Group Health is scoped to exactly
       that; the user is not asked again."
+- [ ] In **Add Benefit** and **Edit Benefit** the invite lives on the **Contacts section
+      header**, not inside the Collaborators accordion, and it stays disabled with "Save the
+      plan first, then invite a collaborator" until there is both a plan and a category —
+      those two things are what the invite is scoped by. **[impl]**
 - [ ] "Who is this?" offers exactly four answers: Plan Sponsor HR, Outside Advisor /
       Specialist, Provider Rep, Reviewer only. **[spec]**
 - [ ] Typing an address on a **plan sponsor's domain** pre-selects Plan Sponsor HR and
@@ -264,6 +307,44 @@ Create Plan → **Step 3: Key Contacts**.
 
 ---
 
+## Invite entry points — where the button is
+
+One intent ("put this person on these sections and email them") is reached from five places in
+the current build. Every one of them POSTs to `/api/teammates/invite-collaborator` and lands on
+`inviteCollaboratorToPlan()`, so the guards are shared: no seat check, no Team-Member email, no
+All Plans, the category merge on re-invite, the invite-metadata rule, the audit row and the
+email. What differs is **how the plan is resolved** and what the audit row records as the
+`source`.
+
+| Surface | How it opens | Plan resolution | `source` |
+|---|---|---|---|
+| **/benefits** category card | "Invite Collaborator" beside Edit | the card's plan | `create_benefits` (the default) |
+| **Create Benefit → Contacts** | header button on the Contacts step | the plan being built | `create_benefits` |
+| **Edit Benefit → Contacts tab** | the same header button | the plan being edited | `edit_benefit` |
+| **Create Plan → Key Contacts** | the second prompt card, or per-contact "Invite" in the Category Explorer | the wizard draft, persisted on demand | `key_contacts` |
+| **Settings → People & Access → Collaborators** | "Invite Collaborator", beside "Add Collaborator" | chosen in the dialog's own plan picker | `settings` |
+
+- [ ] Each surface opens the invite dialog, and each writes the surface it came from onto the
+      audit row. Raise at least two from different surfaces and confirm the audit entries
+      differ. **[impl]**
+- [ ] From **Settings** the dialog offers a **plan picker** (there is no plan in context); from
+      a benefit card or a contact it shows the plan as a **locked chip**. Neither asks for a
+      plan the caller already knows. **[impl]**
+- [ ] The dialog's category list shows the four canonical categories **plus** any category
+      pre-filled from the contact it was opened from, so a contact filed under a non-canonical
+      category (e.g. Third Party Contact) still arrives ticked. **[impl]**
+- [ ] Opening it from Key Contacts pre-fills the person's name, email and their categories.
+      **[spec]** "Invite to collaborate on any existing Contact."
+- [ ] If no plan can be resolved — nothing picked, no plan in context, and the wizard draft
+      cannot be saved — the invite is **refused** rather than written against nothing. **[impl]**
+
+**Not in this build:** `edit_client` exists in the source union and in the dialog's prop types,
+and the module docs describe an **Edit Client → Key Contacts** invite, but nothing under
+`components/pages/edit-client/` renders an invite action, and no component passes
+`source="edit_client"`. Do not file "Edit Client invite is missing" as a bug — it is unwired.
+
+---
+
 ## T6 — Assignment management screen
 
 Open **Settings → People & Access** and click a person (a seat card or a Collaborator row).
@@ -288,9 +369,21 @@ The owner row keeps its own read-only dialog — that is expected. **[impl]**
       row), **Deactivate**, **Delete Profile**. **[spec]**
 - [ ] Deactivate keeps the profile (it reappears with a "Deactivated" badge) and offers
       **Reactivate**. **[spec]**
-- [ ] **Delete Profile is disabled while assignments remain**, with an explanation
-      naming how many are left. **[spec]**
-- [ ] After removing every assignment, Delete becomes available and works. **[spec]**
+- [ ] The Plan/Benefits block changes nothing until **Save access** is pressed (rows apply
+      immediately, this does not), and a save that drops a plan removes that assignment.
+      **[impl]**
+- [ ] **Delete Profile removes the person outright, plans and all.** The confirm names how many
+      plans' access goes with them and the toast repeats the count. The old rule — refuse while
+      any assignment remains — is no longer what the button does: the UI sends
+      `remove_from_organization`, which drops the assignments first, then deletes the profile
+      through the same guarded writer. (The server's strict `delete` still refuses with
+      `profile_has_assignments`, which is why the count is in the confirmation.) **[spec]** /
+      **[impl]**
+- [ ] Deactivate, by contrast, keeps the profile and its history, and its dialog points at
+      Delete as the difference. **[spec]**
+- [ ] The helper copy under **Person-level actions** must not still claim Delete is "only
+      possible with no plans left" — that sentence describes the retired behaviour. If it is
+      still there, report it as a copy bug; the dialog itself is correct. **[impl]**
 - [ ] Deleting a profile does **not** delete plans or content the person created.
       **[spec]**
 - [ ] A deactivated person cannot be given a new plan until reactivated. **[impl]**
@@ -320,6 +413,20 @@ Open a plan's **public hub** (My Benefits Team and a benefit category page).
       **[impl]**
 - [ ] Contacts with no email address still appear (they cannot become profiles, so they are
       passed through). **[impl]**
+- [ ] A person who reaches the hub through a **mirrored Key Contact** holds **no login and no
+      seat**: adding or removing their plan's contacts must never move the seat counter.
+      **[impl]**
+- [ ] A plan-sponsor contact whose company **is the plan's own client** does not create a
+      Partner company row, and their card falls back to the plan's own branding. **[impl]**
+- [ ] Edit a contact through one of the surfaces that writes `keyContacts` (Create Plan,
+      `/api/clients` create/update — which the benefits wizard PUTs through — and the
+      new-client wizard's complete / save-draft) and confirm the hub reflects it. The mirror is
+      called **explicitly** by each writer, not by a database trigger, so a writer that forgets
+      it drifts until `npm run teammates:backfill-contacts` runs. **[impl]**
+- [ ] Deleting a mirrored **Contact** profile alone does not stick: saving that plan's contacts
+      again recreates it, because the mirror reconciles the stored `keyContacts` onto profiles.
+      Removing the contact from the plan's own contact list is what makes it stay gone.
+      **[impl]**
 
 ---
 
@@ -329,9 +436,10 @@ The step that used to be missing. An invitation is only a promise until someone 
 access is resolved by looking up the login on a profile (`TeammateProfile.loginUserId`), so
 until the accept link is used, an invited person still cannot sign in.
 
-- [ ] Invite a mailbox you control from **Add Benefit → Contacts → Invite Collaborator**. The
-      email's **primary button says "Accept the invitation"**; the "open the section" link is
-      now a secondary line rather than the button. **[impl]**
+- [ ] Invite a mailbox you control from any of the invite surfaces — the simplest is
+      **Settings → People & Access → Collaborators → Invite Collaborator**. The email's
+      **primary button says "Accept the invitation"**; the "open the section" link is now a
+      secondary line rather than the button. **[impl]**
 - [ ] Open the accept link. Before asking for anything, the page says **who** invited you,
       **which plan and section** it is about, and shows the invited address as a **locked,
       read-only** field. **[spec]** "The user is not asked again."
@@ -366,7 +474,8 @@ until the accept link is used, an invited person still cannot sign in.
 - [ ] **No duplicate profiles**: after inviting, re-inviting, and editing, search Settings
       for the person — exactly one row. **[spec]**
 - [ ] **Seat accounting is unaffected by collaborators**: adding a Collaborator, a Contact
-      or a mirrored hub contact never moves the seat counter. **[spec]**
+      or a mirrored hub contact never moves the seat counter, and **Remove from seat** gives
+      back exactly one. **[spec]**
 - [ ] **Completeness copy matches reality**: the "N fields missing" count on an invite chip
       matches the missing fields the invite email lists. **[impl]**
 - [ ] **Dark mode** pass over Settings → People & Access, the Plan Access screen, the Custom
@@ -374,10 +483,11 @@ until the accept link is used, an invited person still cannot sign in.
 - [ ] **Narrow viewport** pass over the same four surfaces — long plan and company names
       truncate rather than overflow.
 - [ ] **Deployment targets the new database.** `.env` is gitignored and **Vercel does not read
-      it** — the dev and production projects each need `DATABASE_URL` (pooled, including
-      `pgbouncer=true`) and `DIRECT_URL` set in their dashboards. Until that is done those
-      deploys still write to MongoDB, so check it before investigating any "my data
-      disappeared" report.
+      it** — the dev and production projects each need `DATABASE_URL` (the pooled Neon endpoint,
+      including `pgbouncer=true`) **and** `DIRECT_URL` (unpooled, used only by `prisma migrate`)
+      set in their dashboards. The Prisma datasource is now `postgresql` only, so a project
+      missing them cannot connect at all: it fails loudly rather than quietly writing to the
+      old Mongo database. Check it first when someone reports "my data disappeared".
 - [ ] **A brand-new signup works end to end** against the new database: the account saves, an
       Organization is created for it, and that account can create a plan.
 
@@ -406,24 +516,51 @@ These are deliberate, recorded decisions. Reporting them wastes a cycle.
 - **Contacts with no email cannot become profiles**, so they are excluded from the teammate
   layer and passed through to the hub unchanged. They will not appear in Settings →
   Collaborators.
-- **The `plans/` file "Save as role template"** from T2a is marked Optional (Low) in the
-  spec and is not built.
+- **"Save as role template"** (T2a) is marked Optional (Low) in the spec and is not built.
 - **The accepted collaborator owns an empty Organization.** Every `User` gets one — it is
   the T1 invariant and exactly what `signIn` does for any new account — so a collaborator
   invited into *someone else's* organization also has a personal, planless one. It grants
   nothing (plan access is resolved from their profile's assignments, never from that
   organization) and it is not a leak. Do not report it.
 - **The MongoDB → PostgreSQL migration is not finished, so some surfaces are expected to be
-  broken.** `npm run check:no-mongo` still reports findings in ~30 files. While it does, treat
-  these as known and stop: **Edit Benefit**, **renaming a plan's portal URL**, **opening a plan
-  video**, **webinars by id**, **plan creation that attaches a video**, **marketing flyer
-  rendering**, **viewing a document**, and the client-side "is this a persisted document id"
-  checks in the benefits and documents wizards.
+  broken.** `npm run check:no-mongo` currently reports **80 findings in 28 files**. While it
+  does, treat these as known and stop: **Edit Benefit** (the edit-client page's 24-hex guards),
+  **renaming a plan's portal URL** (`clients/[id]/slugs`), **opening or generating a plan
+  video** (the whole `videos/*` group, including generate-from-previews, get-by-placement, the
+  HeyGen webhook and `create-video` / `create-video-template`), **webinars by id**,
+  **plan creation that attaches a video**, the legacy `/api/plans/*` routes, **marketing flyer
+  rendering**, **viewing a document** (`documents/[id]/view`), the client-side "is this a
+  persisted document id" checks in the benefits and documents wizards, the hub's
+  **benefit-document section**, **contact-form topics** (`lib/plan-contact-form-topics.ts`) and
+  the hub's **document mapper** (`lib/map-plan-documents-for-benefit-hub.ts`).
   The cause is uniform — a 24-hex "looks like a Mongo id?" test that no longer matches cuid
   ids — so the symptom is a **missing record or a silently dropped file** rather than an error.
   `npm run check:no-mongo` is the authoritative list, and the remaining work is tracked in
   [plans/postgres-migration.md](./postgres-migration.md). Anything **not** on that list is fair
   game to report.
+- **Edit Client → Key Contacts has no invite action yet.** The `edit_client` invite source and
+  its dialog prop exist, and the module docs describe the surface, but nothing renders it. The
+  five working surfaces are listed under
+  [Invite entry points](#invite-entry-points--where-the-button-is).
+- **The Add modal's "New Contact" slide cannot carry the card-only fields**, so a contact added
+  from Settings → People & Access renders a plainer hub card than one authored in the Create
+  Plan wizard. Deliberately not collected yet, because no column exists for them:
+  `contactType`, `displayName` / `supportIcon` / `departmentLabel`, the email and phone
+  visibility toggles, the CTA group (`enableContactButton`, `ctaType`, `schedulingUrl`,
+  `websiteUrl`), `contactFormTopics`, the contact's own `companyLogo`, the card colours and
+  `isPrimary`. This closes when a profile-to-plan writer and a card payload (or typed columns)
+  land.
+- **There is no self-service profile.** An invited person fills in a name and a password and
+  nothing else; every teammate profile writer is gated on Org Settings, and there is no
+  `/api/teammates/me`. So the advisor's form is the only source of a job title or a phone
+  number, and only an Owner/Admin can correct one. Tracked in
+  [plans/teammates-self-service-profile.md](./plans/teammates-self-service-profile.md).
+- **There is no dedicated "resend invitation".** Resending means re-inviting the same person
+  from the same surface, which merges onto their existing profile instead of creating a second
+  one — the intended behaviour, not a duplicate.
+- **The accept-invite route's per-IP throttle is in-process and non-durable** (it resets on
+  redeploy and does not span instances). It is a speed bump, not a rate limiter; do not report
+  it as one.
 
 ---
 
@@ -435,5 +572,8 @@ Include, so it can be reproduced without a second round trip:
 2. Which account/role you were signed in as, and whether you were on the owner's own row.
 3. The plan and category involved.
 4. What you expected versus what happened.
-5. Whether the ten `verify-*` suites still pass, and whether `npm run check:no-mongo` is clean.
+5. If the bug is about an invite, **which surface you raised it from** (benefits card, Create/
+   Edit Benefit Contacts, Create Plan Key Contacts, or Settings → Collaborators) — the audit
+   row records it, so it can be found afterwards.
+6. Whether the ten `verify-*` suites still pass, and whether `npm run check:no-mongo` is clean.
    If either fails, paste the failing line — both usually name the cause directly.
