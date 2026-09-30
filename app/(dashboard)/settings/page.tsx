@@ -321,32 +321,36 @@ export default function SettingsPage() {
           break;
         }
         case "organization": {
-          // Same as the other tabs: read wizard step data from /api/profile
-          // (wizardSessions[0].clientProfile / .teamSize) instead of loading
-          // the full 10-step wizard payload.
           let profileFallback: any = cachedProfile ?? userProfile;
           if (!profileFallback) {
             profileFallback = await fetchProfileOnce();
             if (profileFallback) setUserProfile(profileFallback);
           }
 
-          const completedClientProfile =
+          // The `User` row is the canonical firm profile — the onboarding wizard copies its
+          // session into those columns (`wizard-completion.ts`), and the Organization mirrors
+          // them. It is read FIRST for that reason.
+          //
+          // The wizard session is still read, but only as a fallback, because Settings used to
+          // save these three fields there: for an advisor who edited them from this tab, the
+          // session holds the newer value. Reading it second means the next save migrates that
+          // value into the canonical row instead of reverting it to whatever onboarding saw.
+          const legacyClientProfile =
             profileFallback?.wizardSessions?.[0]?.clientProfile;
-          const completedTeamSize =
-            profileFallback?.wizardSessions?.[0]?.teamSize;
+          const legacyTeamSize = profileFallback?.wizardSessions?.[0]?.teamSize;
 
           const orgData = {
             organizationType:
-              completedClientProfile?.organizationType ||
               profileFallback?.organizationType ||
+              legacyClientProfile?.organizationType ||
               "",
             customOrganization:
-              completedClientProfile?.customOrganization ||
               profileFallback?.customOrganization ||
+              legacyClientProfile?.customOrganization ||
               "",
             teamSize:
-              completedTeamSize?.teamSize ||
               profileFallback?.teamSize ||
+              legacyTeamSize?.teamSize ||
               "",
           };
           organizationForm.reset(orgData, { keepDirtyValues: false });
@@ -489,21 +493,25 @@ export default function SettingsPage() {
       userProfile?.wizardSessions?.[0]?.clientProfile;
     const completedTeamSize = userProfile?.wizardSessions?.[0]?.teamSize;
 
+    // The persisted profile comes FIRST here, unlike the other fields on this page. These
+    // three are organization-level: the User row is their source of truth, and the wizard
+    // store / session is only leftover onboarding data. Letting stepData win would overwrite
+    // a deliberate edit with the value captured during onboarding.
     const orgData = {
       organizationType:
+        persistedProfile?.organizationType ||
         stepData.clientProfile?.organizationType ||
         completedClientProfile?.organizationType ||
-        userProfile?.organizationType ||
         "",
       customOrganization:
+        persistedProfile?.customOrganization ||
         stepData.clientProfile?.customOrganization ||
         completedClientProfile?.customOrganization ||
-        userProfile?.customOrganization ||
         "",
       teamSize:
+        persistedProfile?.teamSize ||
         stepData.teamSize?.teamSize ||
         completedTeamSize?.teamSize ||
-        userProfile?.teamSize ||
         "",
     };
     organizationForm.reset(orgData, { keepDirtyValues: false });
@@ -762,15 +770,39 @@ export default function SettingsPage() {
     setIsSaving(true);
     try {
       const formData = organizationForm.getValues();
-      const { saveStepDataToServer } = useOnboardingWizardStore.getState();
 
-      await Promise.all([
-        saveStepDataToServer("clientProfile", {
+      // Written to the canonical `User` row via /api/profile, NOT to
+      // `wizardSessions[0]`. The previous implementation used
+      // `saveStepDataToServer("clientProfile" / "teamSize")`, which stored an
+      // organization-level setting inside ONE advisor's onboarding draft: invisible to the
+      // rest of the organization (and to a second admin), and it left `User.organizationType`
+      // / `User.customOrganization` / `User.teamSize` stale — the very columns the onboarding
+      // wizard copies these into (`wizard-completion.ts`).
+      //
+      // The route then mirrors them onto the Organization via `syncOrganizationIdentity`, so
+      // the tenancy root holds the firm profile too.
+      const userId = userProfile?.id || cachedProfile?.id;
+      if (!userId) {
+        toast.error("Could not identify your account. Reload and try again.");
+        return;
+      }
+
+      const response = await fetch("/api/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: userId,
           organizationType: formData.organizationType,
-          customOrganization: formData.customOrganization,
+          customOrganization: formData.customOrganization ?? "",
+          teamSize: formData.teamSize,
         }),
-        saveStepDataToServer("teamSize", { teamSize: formData.teamSize }),
-      ]);
+      });
+
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        toast.error(body?.error || "Failed to save organization settings");
+        return;
+      }
 
       await refreshProfile();
       organizationForm.reset(formData, { keepDirtyValues: false });
@@ -950,11 +982,16 @@ export default function SettingsPage() {
           break;
         }
         case "organization":
-          organizationForm.reset({
-            organizationType: stepData.clientProfile?.organizationType || "",
-            customOrganization: stepData.clientProfile?.customOrganization || "",
-            teamSize: stepData.teamSize?.teamSize || "",
-          });
+          // Reset to the loaded SERVER values, not to the wizard store. The store is the
+          // onboarding draft; resetting from it would resurrect exactly the values this tab
+          // now writes past (`wizardSessions[0].clientProfile` / `.teamSize`).
+          organizationForm.reset(
+            initialOrganization ?? {
+              organizationType: "",
+              customOrganization: "",
+              teamSize: "",
+            },
+          );
           break;
         case "team":
           disclaimersRef.current?.reset();

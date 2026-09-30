@@ -1172,8 +1172,25 @@ model Organization {
   // hard-blocking.
   seatsIncluded     Int?
   planTier          String?
-  // Owner branding mirrored at creation time so teammate hub rendering has a
-  // stable org-level source even if the owner later rebrands.
+  // Firm profile, mirrored from the owner's User row by `syncOrganizationIdentity`
+  // (lib/organization.ts) alongside `name` and `organizationEmail`.
+  //
+  // These deliberately live here and NOT in `wizardSessions[0].clientProfile` /
+  // `.teamSize`, which is where Settings -> Organization used to save them. Those tables
+  // are the onboarding wizard's own draft storage and are scoped to ONE advisor, so an
+  // organization-level setting stored there was invisible to the organization (and to a
+  // second admin) and left `User.organizationType` stale. The wizard keeps using its
+  // session tables for its own flow; these columns are the organization's copy.
+  organizationType   String?
+  customOrganization String?
+  teamSize           String?
+  // Owner branding mirrored from the User row. Kept CURRENT rather than frozen at
+  // creation by `syncOrganizationIdentity` (lib/organization.ts), which the profile
+  // and branding write paths call.
+  //
+  // No reader yet: it was added for hub rendering, and hub branding is read from the
+  // owner's User today. Kept true so a consumer can rely on it, and droppable if none
+  // ever arrives — a frozen copy is only a stale copy.
   branding          Json?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

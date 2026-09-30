@@ -1,6 +1,7 @@
 import { authOptions } from "@/lib/auth-options";
 import prisma from "@/lib/prisma";
 import { normalizeUserImagesToR2 } from "@/lib/branding-r2";
+import { syncOrganizationIdentity } from "@/lib/organization";
 import { getServerSession } from "next-auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -42,6 +43,17 @@ export async function POST(req: NextRequest) {
   const profile = await prisma.user.update({
     where: { email: session.user.email },
     data: normalizedBody,
+  });
+
+  // Settings -> Branding is where `organizationName` is edited, and `Organization.name` is
+  // the name every invitation email greets the recipient with. Without this sync the invite
+  // kept sending the name captured at signup, so renaming the organization appeared to have
+  // no effect on invitations. Best-effort: a mirror failure must not fail the save.
+  await syncOrganizationIdentity(profile.id).catch((error) => {
+    console.error(
+      "[profile/update-profile] organization identity sync failed",
+      error,
+    );
   });
 
   return NextResponse.json(profile);

@@ -37,6 +37,70 @@ export interface OrganizationBranding {
 }
 
 /**
+ * The `User` fields the Organization's identity is derived from.
+ *
+ * A structural type rather than a Prisma model type, so the create path and the sync agree
+ * on one input shape without either importing the generated client.
+ */
+export interface OrganizationIdentitySource {
+  name: string | null;
+  organizationName: string | null;
+  organizationEmail: string | null;
+  organizationType: string | null;
+  customOrganization: string | null;
+  teamSize: string | null;
+  brandColor: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  advisorLogo: string | null;
+  advisorLogoUrl: string | null;
+  backgroundImage: string | null;
+}
+
+/**
+ * The organization's display name, resolved the same way at creation and on every sync.
+ *
+ * `organizationName` is what the advisor types in Branding; `user.name` is the login name
+ * as a fallback; the literal keeps the column satisfied, since it is `String` and not
+ * `String?`.
+ */
+function organizationNameFor(
+  user: Pick<OrganizationIdentitySource, "organizationName" | "name">,
+): string {
+  return (
+    (user.organizationName && user.organizationName.trim()) ||
+    user.name ||
+    "Untitled Organization"
+  );
+}
+
+/**
+ * The branding mirror stored on `Organization.branding`.
+ *
+ * `logo` prefers `advisorLogo` over `advisorLogoUrl` because those two columns routinely
+ * hold the SAME image while the row is being normalised to R2 (`normalizeUserImagesToR2`
+ * in /api/profile/update-profile), so a fixed precedence keeps the mirror from flipping
+ * between the two spellings on every save.
+ *
+ * This snapshot currently has **no reader** — it was added for hub rendering, and hub
+ * branding is read from the owner's User today. It is kept current by
+ * `syncOrganizationIdentity` rather than left frozen at signup, so the value is true if a
+ * consumer ever arrives; if none does, deleting the column is the cleanup, not preserving
+ * a stale copy.
+ */
+export function brandingSnapshotFromUser(
+  user: OrganizationIdentitySource,
+): OrganizationBranding {
+  return {
+    brandColor: user.brandColor ?? null,
+    primaryColor: user.primaryColor ?? null,
+    secondaryColor: user.secondaryColor ?? null,
+    logo: user.advisorLogo ?? user.advisorLogoUrl ?? null,
+    backgroundImage: user.backgroundImage ?? null,
+  };
+}
+
+/**
  * Resolve the Organization id that owns this User, creating one if the user
  * predates the T1 migration and stamping `User.organizationId` plus every
  * `Client.organizationId` for their plans.
@@ -54,6 +118,9 @@ export async function getOrCreateOrganizationForUser(
       organizationId: true,
       organizationName: true,
       organizationEmail: true,
+      organizationType: true,
+      customOrganization: true,
+      teamSize: true,
       brandColor: true,
       primaryColor: true,
       secondaryColor: true,
@@ -79,25 +146,17 @@ export async function getOrCreateOrganizationForUser(
     orderBy: { createdAt: "asc" },
   });
 
-  const branding: OrganizationBranding = {
-    brandColor: user.brandColor ?? null,
-    primaryColor: user.primaryColor ?? null,
-    secondaryColor: user.secondaryColor ?? null,
-    logo: user.advisorLogo ?? user.advisorLogoUrl ?? null,
-    backgroundImage: user.backgroundImage ?? null,
-  };
-
   const organization =
     existing ??
     (await prisma.organization.create({
       data: {
-        name:
-          (user.organizationName && user.organizationName.trim()) ||
-          user.name ||
-          "Untitled Organization",
+        name: organizationNameFor(user),
         ownerUserId: userId,
         organizationEmail: user.organizationEmail ?? null,
-        branding,
+        organizationType: user.organizationType ?? null,
+        customOrganization: user.customOrganization ?? null,
+        teamSize: user.teamSize ?? null,
+        branding: brandingSnapshotFromUser(user),
       },
       select: { id: true },
     }));
@@ -123,6 +182,150 @@ export async function resolveOrganizationId(userId: string): Promise<string> {
   });
   if (user?.organizationId) return user.organizationId;
   return getOrCreateOrganizationForUser(userId);
+}
+
+export interface OrganizationSyncResult {
+  organizationId: string;
+  /** Which mirror fields actually changed. Empty when the organization was current. */
+  changed: string[];
+}
+
+/**
+ * Re-derive the Organization's identity from its owner's current User row.
+ *
+ * ## Why this exists
+ *
+ * `Organization` is created once, from whatever the User looked like at that moment, and
+ * nothing used to update it. Two live reads made that a bug rather than a tidy snapshot:
+ *
+ *  - **`name`** is the `organizationName` every invitation email greets the recipient with
+ *    (`team.server.ts`, `invites.server.ts`, `invite-acceptance.server.ts`). Renaming the
+ *    organization in Settings → Branding wrote `User.organizationName` and left the
+ *    Organization row saying whatever it said at signup, so invites kept using the old name.
+ *  - **`organizationEmail`** is read first by the T3 Team-Member domain guess
+ *    (`getOrganizationDomains` in `seats.server.ts`). Note this one did NOT turn out to be a
+ *    live defect: the guess unions every source into one list — this mirror, then the
+ *    owner's own row — so it already saw a changed address through the fallback. The mirror
+ *    is kept in step because it is the organization-level copy of that address, and because
+ *    writing `null` here would otherwise narrow the list the guess checks.
+ *  - **the firm profile** (`organizationType`, `customOrganization`, `teamSize`) was written
+ *    by Settings → Organization into `wizardSessions[0].clientProfile` / `.teamSize`. Those
+ *    tables are the onboarding wizard's own draft storage and are scoped to ONE advisor, so
+ *    an organization-level setting saved there was invisible to the organization (and to a
+ *    second admin) and left the canonical `User` columns stale. Settings now writes the
+ *    `User` row and this mirrors it here.
+ *
+ * So this is a sync, not an API: the User row stays the single source, and the Organization
+ * row is a derived mirror that callers refresh wherever they write the User fields it is
+ * derived from. Nothing here needs a route — every reader is already server-side and scopes
+ * itself by `organizationId` from the session.
+ *
+ * ## Behaviour
+ *
+ * Only fields that actually differ are written, so an ordinary profile save does not bump
+ * `updatedAt` or hand out a needless `organization.update`. Idempotent. Callers should treat
+ * a failure as non-fatal (log it): a stale mirror must never fail the edit the user just made.
+ */
+export async function syncOrganizationIdentity(
+  userId: string,
+): Promise<OrganizationSyncResult> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      name: true,
+      organizationName: true,
+      organizationEmail: true,
+      organizationType: true,
+      customOrganization: true,
+      teamSize: true,
+      brandColor: true,
+      primaryColor: true,
+      secondaryColor: true,
+      advisorLogo: true,
+      advisorLogoUrl: true,
+      backgroundImage: true,
+    },
+  });
+  if (!user) {
+    throw new Error(`[organization] User not found: ${userId}`);
+  }
+
+  // Resolves, creating and backfilling when the user predates T1. A freshly created
+  // organization was written from these same values, so it has nothing left to sync.
+  const organizationId = await resolveOrganizationId(userId);
+
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: {
+      name: true,
+      organizationEmail: true,
+      branding: true,
+      organizationType: true,
+      customOrganization: true,
+      teamSize: true,
+    },
+  });
+  if (!organization) return { organizationId, changed: [] };
+
+  const name = organizationNameFor(user);
+  const organizationEmail = user.organizationEmail ?? null;
+  const branding = brandingSnapshotFromUser(user);
+
+  const changed: string[] = [];
+  const data: {
+    name?: string;
+    organizationEmail?: string | null;
+    branding?: OrganizationBranding;
+    organizationType?: string | null;
+    customOrganization?: string | null;
+    teamSize?: string | null;
+  } = {};
+
+  if (organization.name !== name) {
+    data.name = name;
+    changed.push("name");
+  }
+  if ((organization.organizationEmail ?? null) !== organizationEmail) {
+    data.organizationEmail = organizationEmail;
+    changed.push("organizationEmail");
+  }
+
+  // The firm profile. Kept on the organization so a future second admin reads it from the
+  // organization rather than from whichever advisor happened to save it last.
+  const firmProfile: Array<
+    ["organizationType" | "customOrganization" | "teamSize", string | null]
+  > = [
+    ["organizationType", user.organizationType ?? null],
+    ["customOrganization", user.customOrganization ?? null],
+    ["teamSize", user.teamSize ?? null],
+  ];
+  for (const [field, value] of firmProfile) {
+    if ((organization[field] ?? null) !== value) {
+      data[field] = value;
+      changed.push(field);
+    }
+  }
+
+  // Compared key by key rather than as a stringified blob: key ORDER is not guaranteed for
+  // a JSON column, so a blob comparison would report a change on every save for some rows.
+  const existingBranding = (organization.branding ?? null) as Record<
+    string,
+    unknown
+  > | null;
+  const brandingDiffers =
+    !existingBranding ||
+    (Object.keys(branding) as Array<keyof OrganizationBranding>).some(
+      (key) => (existingBranding[key] ?? null) !== branding[key],
+    );
+  if (brandingDiffers) {
+    data.branding = branding;
+    changed.push("branding");
+  }
+
+  if (changed.length === 0) return { organizationId, changed };
+
+  await prisma.organization.update({ where: { id: organizationId }, data });
+  return { organizationId, changed };
 }
 
 /**

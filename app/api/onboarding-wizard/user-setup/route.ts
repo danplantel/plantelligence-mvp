@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { toR2BrandingKey } from "@/lib/branding-image-url";
+import { syncOrganizationIdentity } from "@/lib/organization";
 
 /**
  * Normalize an image value: if it's a full proxy URL (e.g. /api/r2/object?key=org/...),
@@ -157,6 +158,17 @@ export async function POST(request: NextRequest) {
     } catch (userError) {
       console.error("Error updating user profile:", userError);
     }
+
+    // `organizationEmail` is mirrored onto the Organization, which is what the invitation
+    // sender identity and the T3 Team-Member domain guess read — so onboarding has to carry
+    // it across exactly like the two settings paths do. Its own catch, so a mirror failure
+    // can never fail the save the user just made.
+    await syncOrganizationIdentity(userId).catch((error) => {
+      console.error(
+        "[onboarding-wizard/user-setup] organization identity sync failed",
+        error,
+      );
+    });
 
     return NextResponse.json({ success: true, userSetup: result });
   } catch (error) {

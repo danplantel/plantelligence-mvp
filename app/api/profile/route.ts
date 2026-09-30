@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { step2ServicesToCategories } from '@/lib/service-categories';
 import { getEffectiveWizardUserSetup } from '@/lib/effective-wizard-user-setup';
+import { syncOrganizationIdentity } from '@/lib/organization';
 import { resolvePortalAdvisorId } from '@/lib/portal-access';
 
 export async function GET(request: NextRequest) {
@@ -158,10 +159,26 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: Request) {
   try {
+    // The session is the authority for WHICH row is written. This handler used to trust a
+    // body-supplied `data.id`, so any caller could rewrite another user's name,
+    // organizationEmail and primaryServiceCategories without authenticating at all.
+    //
+    // A body id is still accepted for compatibility with the Settings form, but only when it
+    // names the caller. A mismatch is rejected rather than ignored, deliberately: a wrong id
+    // should be a loud failure, not a silent no-op that returns 200 and looks like a save.
+    const session = await getServerSession(authOptions);
+    const sessionUserId = (session?.user as { id?: string } | undefined)?.id;
+    if (!sessionUserId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const data = await request.json();
+    if (data?.id && String(data.id) !== sessionUserId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const profile = await prisma.user.update({
-      where: { id: data.id },
+      where: { id: sessionUserId },
       data: {
         name: data.name,
         phone: data.phone,
@@ -178,8 +195,28 @@ export async function POST(request: Request) {
         ...(data.organizationEmail !== undefined && {
           organizationEmail: data.organizationEmail || null,
         }),
+        // The firm profile. These are the canonical `User` fields the onboarding wizard
+        // copies out of its own session tables (see `wizard-completion.ts`), which is why
+        // Settings -> Organization writes them HERE rather than into `wizardSessions[0]`: a
+        // wizard session is one advisor's draft, so an edit saved there was invisible to the
+        // organization and left the User row stale.
+        ...(data.customOrganization !== undefined && {
+          customOrganization: data.customOrganization || null,
+        }),
+        ...(data.teamSize !== undefined && { teamSize: data.teamSize || null }),
         ...(data.primaryServiceCategories !== undefined && { primaryServiceCategories: data.primaryServiceCategories }),
       } as any,
+    });
+
+    // The Organization mirrors the owner's identity: every invitation email reads
+    // `organizationName` from it, and the T3 Team-Member domain guess reads
+    // `organizationEmail`. Without this a profile save wrote only the User row and those
+    // reads kept using whatever was true at signup.
+    //
+    // Best-effort on purpose — a mirror that cannot be refreshed must not fail the edit the
+    // user just made, and a stale mirror beats a lost change.
+    await syncOrganizationIdentity(profile.id).catch((error) => {
+      console.error('[profile] organization identity sync failed', error);
     });
 
     return NextResponse.json(profile);

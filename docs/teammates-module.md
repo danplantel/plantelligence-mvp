@@ -44,6 +44,27 @@ erDiagram
 
 - **`Organization`** — tenancy root. One per advisor `User` (`ownerUserId`),
   created at signup or by the backfill script.
+  Its `name`, `organizationEmail`, `branding` and the **firm profile**
+  (`organizationType`, `customOrganization`, `teamSize`) are a **derived mirror** of the
+  owner's `User` row, kept current by `syncOrganizationIdentity` in
+  [`lib/organization.ts`](../lib/organization.ts), which all three profile write paths call
+  (`app/api/profile`, `app/api/profile/update-profile`, and `app/api/onboarding-wizard/user-setup`).
+  The `User` stays the single source; if you add another writer of those fields, call the sync
+  there too — `verify-organization-sync` asserts the whole mirror
+  (`npm run teammates:verify-org`).
+
+  Why it matters, precisely: `Organization.name` is what every invitation email greets the
+  recipient with, so a mirror frozen at signup means renamed organizations keep sending the
+  old name. The T3 domain guess (via `getOrganizationDomains`) unions this mirror with the
+  owner's own row, so it was **never** actually affected by staleness — the email mirror is
+  kept true because it is the organization-level copy of that address.
+
+  Settings → Organization writes the firm profile to the **`User` row**, not to
+  `wizardSessions[0]`: a wizard session is one advisor's onboarding draft, so an
+  organization-level setting saved there was invisible to the organization (and to a second
+  admin). That tab is also the reason these three columns exist on `Organization` at all —
+  they are the organization-owned copy of data that previously lived only in the owner's
+  session.
 - **`TeammateCompany`** — Partner Company (spec Part B item 2). Always
   `entityType = partner_provider`. One company serves many profiles.
 - **`TeammateProfile`** — the reusable person (spec Part B item 1): identity,
