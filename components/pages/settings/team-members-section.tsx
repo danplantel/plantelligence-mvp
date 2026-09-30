@@ -62,7 +62,10 @@ import type { SeatUsageSummary } from "@/components/pages/seat-meter";
 // The same dialog Edit Client, the Create Plan wizard and Add/Edit Benefit use, so an
 // invite means one thing everywhere.
 import { InviteCollaboratorDialog } from "@/components/teammates/invite-collaborator-dialog";
-import { BENEFIT_CONTACT_CATEGORIES } from "@/lib/benefit-contacts";
+import {
+  BENEFIT_CONTACT_CATEGORIES,
+  normalizeContactCategory,
+} from "@/lib/benefit-contacts";
 import { PersonAccessScreen } from "@/components/teammates/person-access-screen";
 // Shared with the dashboard's seats card, so the seat rules are written down once.
 import { SeatUsageInfoDialog } from "@/components/teammates/seats/seat-usage-info-dialog";
@@ -738,7 +741,7 @@ function AccessFields({
               a single column in any genuinely narrow context and ran the list off the bottom
               of the dialog. `max-h` plus a scroll keeps a long list from doing the same. */}
           <div className="grid max-h-48 grid-cols-2 gap-x-4 gap-y-2 overflow-y-auto rounded-md border p-3">
-            {BENEFIT_CONTACT_CATEGORIES.map((category) => (
+            {GRANTABLE_BENEFIT_CATEGORIES.map((category) => (
               <label
                 key={category}
                 className="flex min-w-0 items-center gap-2 text-sm"
@@ -756,8 +759,9 @@ function AccessFields({
                 <span className="truncate">{category}</span>
               </label>
             ))}
-            {/* The Custom benefits the advisor created, appended after the canonical four.
-                `title` on the label because these are free text and the column is narrow. */}
+            {/* The Custom benefits the advisor created, appended after the canonical
+                categories. `title` on the label because these are free text and the column
+                is narrow. */}
             {customCategories.map((category) => (
               <label
                 key={category}
@@ -799,6 +803,51 @@ function AccessFields({
  * would drag a Prisma client into the browser bundle.
  */
 const CUSTOM_BENEFIT_CATEGORY = "Company / Plan Sponsor";
+
+/**
+ * The canonical categories the access picker offers.
+ *
+ * `Company / Plan Sponsor` is deliberately NOT offered here. It is not a benefit anybody is
+ * granted — it is the storage key for the **Custom** hub page at `/wellness-programs` (see
+ * `lib/teammates/benefit-categories.server.ts`), so a checkbox named after it read as "the
+ * company's own plan sponsor information", which is not a thing an advisor scopes access to.
+ * The Custom hub is reached through the Custom titles the advisor actually authored, which
+ * are listed underneath and each carry this key with them — see `categoriesForAccess`.
+ *
+ * Filtered with `normalizeContactCategory` rather than a string comparison because the
+ * category is free text, and that helper already knows `"custom"` and
+ * `"company / plan sponsor"` are the same thing.
+ */
+const GRANTABLE_BENEFIT_CATEGORIES = BENEFIT_CONTACT_CATEGORIES.filter(
+  (category) =>
+    normalizeContactCategory(category) !==
+    normalizeContactCategory(CUSTOM_BENEFIT_CATEGORY),
+);
+
+/**
+ * The category list to send for an access draft.
+ *
+ * A Custom benefit is stored under `Company / Plan Sponsor`, and that key is what the portal
+ * checks before rendering the Custom page — so scoping somebody to one of the advisor's own
+ * titles has to carry it too. Without that the person is granted the benefit and then refused
+ * its page, which is the worst kind of failure: it looks like access was given.
+ *
+ * Shared by the Add and Edit paths so they cannot drift apart.
+ */
+function categoriesForAccess(
+  categories: readonly string[],
+  customCategories: readonly string[],
+): string[] {
+  const customTitleSelected = categories.some((category) =>
+    customCategories.includes(category),
+  );
+  return [
+    ...new Set([
+      ...categories,
+      ...(customTitleSelected ? [CUSTOM_BENEFIT_CATEGORY] : []),
+    ]),
+  ];
+}
 
 /**
  * `(555) 123-4567` from whatever the advisor types.
@@ -1134,20 +1183,10 @@ export function TeamMembersSection() {
       return;
     }
 
-    // A Custom benefit is ADDRESSED by the category "Company / Plan Sponsor" — that is what
-    // the portal's Custom page checks against — so scoping somebody to the advisor's own
-    // title has to carry that category as well. Without this the person is granted the
-    // benefit and then refused its page, which is the worst kind of failure: it looks like
-    // access was given.
-    const selectedCustom = addAccess.categories.filter((category) =>
-      customCategories.includes(category),
+    const categoriesToSend = categoriesForAccess(
+      addAccess.categories,
+      customCategories,
     );
-    const categoriesToSend = [
-      ...new Set([
-        ...addAccess.categories,
-        ...(selectedCustom.length > 0 ? [CUSTOM_BENEFIT_CATEGORY] : []),
-      ]),
-    ];
 
     setIsSubmitting(true);
     try {
@@ -1255,7 +1294,13 @@ export function TeamMembersSection() {
           planScope: editAccess.planScope,
           planIds: editAccess.planIds,
           categoryScope: editAccess.categoryScope,
-          categories: editAccess.categories,
+          // Through the same helper the Add path uses. This previously sent the array raw,
+          // so ticking a Custom title in the Edit dialog granted the benefit but not its
+          // page — the Custom hub is keyed on `Company / Plan Sponsor`.
+          categories: categoriesForAccess(
+            editAccess.categories,
+            customCategories,
+          ),
         }),
       });
 
@@ -1647,8 +1692,13 @@ export function TeamMembersSection() {
 
           {/* The only scrollable region. `min-h-0` is load-bearing: a flex child defaults to
               `min-height: auto`, which lets a tall child grow the column instead of
-              scrolling inside it — and then the footer is pushed out again. */}
-          <div className="min-h-0 flex-1 overflow-y-auto">
+              scrolling inside it — and then the footer is pushed out again.
+
+              `pr-3` is the gap between the content and the scrollbar. A scroll container's
+              content otherwise runs flush to the bar, which is what put the bordered access
+              boxes against it: on Windows the bar takes layout space (~15px) rather than
+              overlaying, so the box border and the scrollbar track read as a single edge. */}
+          <div className="min-h-0 flex-1 overflow-y-auto pr-3">
           {addStep === "choose" ? (
             /* ── Slide 1: how is this person being added? ──────────────────────
                 Two square targets instead of one form with the other path buried in it.

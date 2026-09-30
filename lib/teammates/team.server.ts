@@ -19,7 +19,7 @@ import { sendTeamMemberInviteEmail } from "@/lib/email";
 import { assertOrganizationKeepsAnOwner } from "./access.server";
 import { recordTeammateAuditEvent } from "./audit.server";
 import { TeammateDataError } from "./errors";
-import { acceptanceUrlForProfile } from "./invite-link.server";
+import { acceptanceUrlForProfile } from "./invite-link.server"
 import {
   createTeammateProfile,
   deactivateTeammateProfile,
