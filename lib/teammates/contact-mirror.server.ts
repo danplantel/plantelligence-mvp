@@ -111,7 +111,12 @@ function viewerGridJson(): Prisma.InputJsonValue {
  * what advisor contact cards display (Create Plan Step 3). Either can end up as the
  * `email` on the mirror's input row.
  */
-async function organizationOwnerEmails(
+/**
+ * Exported for `contacts.server.ts`: the People & Access picker must not offer the owner
+ * as somebody to promote, for the same reason the mirror must not create a profile for
+ * them — the owner is not a teammate (see `onboarding-owner.ts`).
+ */
+export async function organizationOwnerEmails(
   organizationId: string,
 ): Promise<Set<string>> {
   const organization = await prisma.organization.findUnique({

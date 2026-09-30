@@ -8,6 +8,7 @@ import {
   Mail,
   Pencil,
   Plus,
+  Search,
   UserRound,
   UserRoundPlus,
 } from "lucide-react";
@@ -55,6 +56,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Headshot } from "@/components/ui/headshot";
+import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import type { SeatUsageSummary } from "@/components/pages/seat-meter";
 // The same dialog Edit Client, the Create Plan wizard and Add/Edit Benefit use, so an
 // invite means one thing everywhere.
@@ -572,6 +574,7 @@ function AccessFields({
   plans,
   roles = TEAM_MEMBER_ROLES,
   allowAllPlans = true,
+  customCategories = [],
   disabled,
 }: {
   value: AccessDraft;
@@ -581,6 +584,14 @@ function AccessFields({
   roles?: readonly TeammateAssignmentRole[];
   /** Spec T2a: "All Plans is shown for Team Members only." */
   allowAllPlans?: boolean;
+  /**
+   * The organisation's own Custom benefit titles.
+   *
+   * A Custom benefit is stored as category "Company / Plan Sponsor" under whatever title the
+   * advisor gave it, so these are offered as their own rows: the advisor recognises "Wellness
+   * Programs", not the storage label.
+   */
+  customCategories?: readonly string[];
   disabled?: boolean;
 }) {
   const toggle = (list: string[], item: string): string[] =>
@@ -680,26 +691,104 @@ function AccessFields({
       </div>
 
       {value.categoryScope === "certain" ? (
-        <div className="grid gap-2 sm:grid-cols-2">
-          {BENEFIT_CONTACT_CATEGORIES.map((category) => (
-            <label key={category} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                disabled={disabled}
-                checked={value.categories.includes(category)}
-                onCheckedChange={() =>
-                  onChange({
-                    ...value,
-                    categories: toggle(value.categories, category),
-                  })
-                }
-              />
-              {category}
-            </label>
-          ))}
+        <div className="space-y-2">
+          <Label>Which benefit categories</Label>
+          {/* Two columns at EVERY width, inside a bordered box that matches the plans list
+              above it. The previous `sm:grid-cols-2` was viewport-based, so it collapsed to
+              a single column in any genuinely narrow context and ran the list off the bottom
+              of the dialog. `max-h` plus a scroll keeps a long list from doing the same. */}
+          <div className="grid max-h-48 grid-cols-2 gap-x-4 gap-y-2 overflow-y-auto rounded-md border p-3">
+            {BENEFIT_CONTACT_CATEGORIES.map((category) => (
+              <label
+                key={category}
+                className="flex min-w-0 items-center gap-2 text-sm"
+              >
+                <Checkbox
+                  disabled={disabled}
+                  checked={value.categories.includes(category)}
+                  onCheckedChange={() =>
+                    onChange({
+                      ...value,
+                      categories: toggle(value.categories, category),
+                    })
+                  }
+                />
+                <span className="truncate">{category}</span>
+              </label>
+            ))}
+            {/* The Custom benefits the advisor created, appended after the canonical four.
+                `title` on the label because these are free text and the column is narrow. */}
+            {customCategories.map((category) => (
+              <label
+                key={category}
+                className="flex min-w-0 items-center gap-2 text-sm"
+              >
+                <Checkbox
+                  disabled={disabled}
+                  checked={value.categories.includes(category)}
+                  onCheckedChange={() =>
+                    onChange({
+                      ...value,
+                      categories: toggle(value.categories, category),
+                    })
+                  }
+                />
+                <span className="truncate" title={category}>
+                  {category}
+                </span>
+              </label>
+            ))}
+          </div>
+          {customCategories.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Custom benefits are listed by the name you gave them. Selecting one also
+              grants its Custom benefit page.
+            </p>
+          ) : null}
         </div>
       ) : null}
     </div>
   );
+}
+
+/**
+ * The category a Custom benefit is stored under.
+ *
+ * Duplicated as a literal rather than imported from
+ * `lib/teammates/benefit-categories.server.ts`, which is server-only — importing it here
+ * would drag a Prisma client into the browser bundle.
+ */
+const CUSTOM_BENEFIT_CATEGORY = "Company / Plan Sponsor";
+
+/**
+ * `(555) 123-4567` from whatever the advisor types.
+ *
+ * The digits are what get stored; the punctuation is presentation. Mirrors how Create Plan →
+ * Key Contacts handles the same field, so a phone number looks the same wherever it is
+ * entered.
+ */
+function formatPhoneInput(value: string): string {
+  const digits = (value || "").replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+/**
+ * A person returned by the "add an existing contact" search.
+ *
+ * Declared here rather than imported from `lib/teammates/contacts.server`, which is
+ * server-only — the shape crosses the wire as JSON, exactly like the invite dialog's own
+ * `CollaboratorSearchRow`.
+ */
+interface PromotableContactRow {
+  profileId: string;
+  name: string;
+  email: string;
+  headshot: string | null;
+  jobTitle: string | null;
+  companyName: string | null;
+  planCount: number;
 }
 
 /* ───────────────────────── Section ───────────────────────── */
@@ -708,14 +797,61 @@ export function TeamMembersSection() {
   const [team, setTeam] = useState<TeamMemberRow[]>([]);
   const [seats, setSeats] = useState<SeatUsageSummary | null>(null);
   const [plans, setPlans] = useState<PlanOption[]>([]);
+  /**
+   * The organisation's Custom benefit titles, read with the team list so the access picker
+   * does not render an incomplete category list and then shift.
+   */
+  const [customCategories, setCustomCategories] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Add modal
   const [isAddOpen, setIsAddOpen] = useState(false);
-  const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  /**
+   * The New Contact slide's fields. These are exactly the Key Contact fields the profile
+   * can store — nothing here is collected only to be dropped on the way in. The card-only
+   * fields (contact type, CTA button, topic list, email/phone visibility) are deliberately
+   * absent until the profile has somewhere to put them.
+   */
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [phone, setPhone] = useState("");
+  const [phoneExtension, setPhoneExtension] = useState("");
+  const [headshot, setHeadshot] = useState("");
+  const [headshotFileName, setHeadshotFileName] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [addAccess, setAddAccess] = useState<AccessDraft>(EMPTY_ACCESS);
   const [confirmUpgrade, setConfirmUpgrade] = useState(false);
+
+  // ── The "add an existing contact" picker ──────────────────────────────────────
+  //
+  // A Contact is somebody the organization already knows — mirrored from a plan's Key
+  // Contacts — but has never given access to. Promoting one instead of retyping a name is
+  // the point, so the chosen profile travels to the server as `profileId` and the server
+  // promotes exactly that person rather than whatever address is in the form.
+  const [contactQuery, setContactQuery] = useState("");
+  const [contactResults, setContactResults] = useState<PromotableContactRow[]>([]);
+  const [isSearchingContacts, setIsSearchingContacts] = useState(false);
+  /**
+   * Kept separate from an empty result set on purpose. "We could not ask" and "there is
+   * nobody" look identical in a bare array, and telling an advisor there are no contacts
+   * when the request actually failed would be a claim about their data that we cannot
+   * support.
+   */
+  const [contactSearchError, setContactSearchError] = useState(false);
+  const [pickedContact, setPickedContact] = useState<PromotableContactRow | null>(
+    null,
+  );
+  /**
+   * Slide 1 asks HOW the person is being added; slide 2 is the form for that answer.
+   *
+   * Two questions asked one at a time rather than one long form with half its fields
+   * irrelevant to what the advisor is actually doing. "Is this somebody we already know?"
+   * is a real question with a real answer, and answering it first is what lets slide 2 show
+   * only the fields that apply.
+   */
+  const [addStep, setAddStep] = useState<"choose" | "new" | "existing">("choose");
 
   /**
    * T6 Assignment Management screen (spec T6). Opened for anyone who HAS a profile;
@@ -770,10 +906,13 @@ export function TeamMembersSection() {
           team?: TeamMemberRow[];
           collaborators?: TeamMemberRow[];
           seats?: SeatUsageSummary;
+          customCategories?: string[];
         };
         setTeam(body.team ?? []);
         setCollaborators(body.collaborators ?? []);
         setSeats(body.seats ?? null);
+        // Read with the same response so the category list is complete on first paint.
+        setCustomCategories(body.customCategories ?? []);
       } else {
         setTeam([]);
         setCollaborators([]);
@@ -799,23 +938,120 @@ export function TeamMembersSection() {
     void load();
   }, [load]);
 
+  // ── "Add an existing contact" search ──────────────────────────────────────────
+  //
+  // This runs on an EMPTY query too, which is the one thing it does differently from the
+  // invite dialog's picker. The server treats "" as "show me the most recent", because a
+  // search box that shows nothing until you type is invisible to an advisor who does not
+  // already know that a contact exists — and that is exactly who this is for.
+  //
+  // Debounced, and aborted on every keystroke: without the abort, a slow response for
+  // "jan" can land after a fast one for "jane" and repopulate the list with the wrong
+  // results.
+  useEffect(() => {
+    if (!isAddOpen) return;
+
+    const term = contactQuery.trim();
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      setIsSearchingContacts(true);
+      try {
+        const response = await fetch(
+          `/api/teammates/contacts/search?q=${encodeURIComponent(term)}`,
+          { signal: controller.signal, cache: "no-store" },
+        );
+        if (!response.ok) {
+          if (!controller.signal.aborted) {
+            setContactResults([]);
+            setContactSearchError(true);
+          }
+          return;
+        }
+        const body = (await response.json()) as {
+          results?: PromotableContactRow[];
+        };
+        if (!controller.signal.aborted) {
+          setContactResults(body.results ?? []);
+          setContactSearchError(false);
+        }
+      } catch {
+        // An aborted request also lands here; leaving the previous results in place is
+        // correct, because the next keystroke will replace them anyway.
+        if (!controller.signal.aborted) {
+          setContactResults([]);
+          setContactSearchError(true);
+        }
+      } finally {
+        if (!controller.signal.aborted) setIsSearchingContacts(false);
+      }
+    }, 250);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timer);
+    };
+  }, [contactQuery, isAddOpen]);
+
+  /**
+   * Clear every field the Add modal owns, so it always opens empty.
+   *
+   * Extracted because the two entry points must reset the SAME set: a field added to one
+   * and forgotten in the other is how a stale company name ends up attached to the next
+   * person. Also always returns to the chooser, never to whichever slide was used last.
+   */
+  const resetAddForm = () => {
+    setEmail("");
+    setFirstName("");
+    setLastName("");
+    setJobTitle("");
+    setPhone("");
+    setPhoneExtension("");
+    setHeadshot("");
+    setHeadshotFileName("");
+    setCompanyName("");
+    setContactQuery("");
+    setContactResults([]);
+    setPickedContact(null);
+    setAddStep("choose");
+  };
+
   const openAdd = () => {
     setAddType("team_member");
-    setName("");
-    setEmail("");
     setAddAccess(EMPTY_ACCESS);
     setConfirmUpgrade(false);
+    resetAddForm();
     setIsAddOpen(true);
   };
 
   /** The same modal, forced to the free Collaborator type and its own defaults. */
   const openAddCollaborator = () => {
     setAddType("collaborator");
-    setName("");
-    setEmail("");
     setAddAccess(EMPTY_COLLABORATOR_ACCESS);
     setConfirmUpgrade(false);
+    resetAddForm();
     setIsAddOpen(true);
+  };
+
+  /**
+   * Apply a picked contact to the form.
+   *
+   * Fills the two fields an advisor would otherwise retype — which is the entire feature —
+   * and then stops. Role, plan scope and category scope are deliberately left alone:
+   * promoting a contact is still a decision about ACCESS, and inferring that from the
+   * person would be inventing a grant nobody chose.
+   */
+  const applyPickedContact = (contact: PromotableContactRow) => {
+    setPickedContact(contact);
+    setEmail(contact.email);
+    setContactQuery("");
+    setContactResults([]);
+  };
+
+  /** Unlink the picked contact and start the manual fields from empty. */
+  const clearPickedContact = () => {
+    setPickedContact(null);
+    setEmail("");
+    setContactQuery("");
   };
 
   const openEdit = (row: TeamMemberRow) => {
@@ -854,23 +1090,61 @@ export function TeamMembersSection() {
       return;
     }
 
+    // A Custom benefit is ADDRESSED by the category "Company / Plan Sponsor" — that is what
+    // the portal's Custom page checks against — so scoping somebody to the advisor's own
+    // title has to carry that category as well. Without this the person is granted the
+    // benefit and then refused its page, which is the worst kind of failure: it looks like
+    // access was given.
+    const selectedCustom = addAccess.categories.filter((category) =>
+      customCategories.includes(category),
+    );
+    const categoriesToSend = [
+      ...new Set([
+        ...addAccess.categories,
+        ...(selectedCustom.length > 0 ? [CUSTOM_BENEFIT_CATEGORY] : []),
+      ]),
+    ];
+
     setIsSubmitting(true);
     try {
       const response = await fetch("/api/teammates/team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name,
           email,
-          // Only the Collaborator flow pins the type. The Team Member flow leaves it
-          // to the server's email-domain guess, which is what the modal's own copy
-          // explains.
-          ...(addType === "collaborator" ? { type: "collaborator" } : {}),
+          // A PICKED contact pins the type to the button the advisor pressed. The domain
+          // guess is moot once the profile is known, and guessing "collaborator" for an
+          // external address would contradict a button that said "Add Team Member".
+          //
+          // The typed path does NOT pin the type for a Team Member, because the modal's copy
+          // tells the advisor the domain decides — that behaviour predates this form and is
+          // left intact rather than changed quietly.
+          ...(pickedContact
+            ? {
+                profileId: pickedContact.profileId,
+                type: addType,
+                // The picked contact's own name, so the record matches what the advisor
+                // just chose. Its parts are not sent: the server keeps the stored first and
+                // last names rather than re-splitting this single string.
+                name: pickedContact.name,
+              }
+            : {
+                firstName,
+                lastName,
+                jobTitle,
+                phone,
+                phoneExtension,
+                headshot,
+                companyName,
+                ...(addType === "collaborator"
+                  ? { type: "collaborator" as const }
+                  : {}),
+              }),
           role: addAccess.role,
           planScope: addAccess.planScope,
           planIds: addAccess.planIds,
           categoryScope: addAccess.categoryScope,
-          categories: addAccess.categories,
+          categories: categoriesToSend,
           ...(confirmed ? { confirmUpgrade: true } : {}),
         }),
       });
@@ -878,7 +1152,9 @@ export function TeamMembersSection() {
       const body = (await response.json()) as {
         error?: string;
         code?: string;
-        member?: { personType: string; assignmentCount: number };
+        member?: { personType: string; state: string; assignmentCount: number };
+        emailSent?: boolean;
+        emailError?: string | null;
       };
 
       if (response.status === 409 && body.code === "seat_limit") {
@@ -891,11 +1167,27 @@ export function TeamMembersSection() {
         return;
       }
 
-      toast.success(
-        `${email} added as a ${
-          body.member?.personType === "collaborator" ? "Collaborator" : "Team Member"
-        } with ${body.member?.assignmentCount ?? 0} plan assignment(s).`,
-      );
+      const personLabel =
+        body.member?.personType === "collaborator" ? "Collaborator" : "Team Member";
+      const summary = `${email} added as a ${personLabel} with ${
+        body.member?.assignmentCount ?? 0
+      } plan assignment(s).`;
+
+      // The add succeeded either way; what varies is whether the person was told. Claiming
+      // an invitation was sent when it was not would leave the advisor waiting for an
+      // email that does not exist, and calling the whole thing a failure would send them
+      // to retry a write that already happened.
+      if (body.emailSent) {
+        toast.success(`${summary} An invitation email is on its way to them.`);
+      } else if (body.emailError) {
+        toast.warning(`${summary} The invitation email could not be sent.`);
+      } else if (body.member?.state === "active") {
+        toast.success(
+          `${summary} They already have an account, so no invitation was needed.`,
+        );
+      } else {
+        toast.success(summary);
+      }
       setIsAddOpen(false);
       setShowUpgradeConfirm(false);
       await load();
@@ -1146,41 +1438,82 @@ export function TeamMembersSection() {
 
       {/* ── Add Team Member / Collaborator ── */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
+        {/* A flex column rather than a scrolling box: the header and the footer stay put
+            while the middle scrolls, so Back / Cancel / Add are always reachable without
+            scrolling to the bottom of a long form. `overflow-y-auto` on DialogContent
+            itself was what pushed the buttons off-screen behind the fields. */}
+        <DialogContent className="flex max-h-[90vh] flex-col overflow-hidden sm:max-w-lg">
+          <DialogHeader className="shrink-0">
             <DialogTitle>
-              {addType === "collaborator" ? "Add Collaborator" : "Add Team Member"}
+              {addStep === "choose"
+                ? addType === "collaborator"
+                  ? "Add Collaborator"
+                  : "Add Team Member"
+                : addStep === "new"
+                  ? "New contact"
+                  : "Existing contact"}
             </DialogTitle>
             <DialogDescription>
-              {addType === "collaborator"
-                ? "Someone outside your organization. No seat is used — scope them to the plans and benefit categories they should reach."
-                : "The email domain decides the default: a match with your organization adds a Team Member (uses a seat), any other domain adds a Collaborator (free)."}
+              {addStep === "choose"
+                ? addType === "collaborator"
+                  ? "Someone outside your organization. No seat is used — scope them to the plans and benefit categories they should reach."
+                  : "Someone with an email on your organization's domain uses a seat; anyone else is added as a free Collaborator."
+                : addStep === "new"
+                  ? addType === "collaborator"
+                    ? "Enter their details, then scope them to the plans and benefit categories they should reach."
+                    : "Enter their details. The email domain decides the default: a match with your organization adds a Team Member (uses a seat), any other domain adds a Collaborator (free)."
+                  : "Pick somebody already on one of your plans. Their name and email come from the contact, so there is nothing to retype."}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="team-member-name">Name</Label>
-                <Input
-                  id="team-member-name"
-                  value={name}
-                  onChange={(event) => setName(event.target.value)}
-                  placeholder="Jane Smith"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="team-member-email">Email</Label>
-                <Input
-                  id="team-member-email"
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="jane@yourfirm.com"
-                />
-              </div>
-            </div>
+          {/* The only scrollable region. `min-h-0` is load-bearing: a flex child defaults to
+              `min-height: auto`, which lets a tall child grow the column instead of
+              scrolling inside it — and then the footer is pushed out again. */}
+          <div className="min-h-0 flex-1 overflow-y-auto">
+          {addStep === "choose" ? (
+            /* ── Slide 1: how is this person being added? ──────────────────────
+                Two square targets instead of one form with the other path buried in it.
+                The advisor's first question really is "is this somebody we already know?",
+                and asking it first is what lets slide 2 show only the fields that apply. */
+            <div className="grid grid-cols-2 gap-4 py-2">
+              <button
+                type="button"
+                onClick={() => setAddStep("new")}
+                className="flex aspect-square flex-col items-center justify-center gap-3 rounded-xl border bg-card p-4 text-center transition hover:border-primary/60 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
+                  <UserRoundPlus className="h-6 w-6" />
+                </span>
+                <span className="space-y-1">
+                  <span className="block text-sm font-medium">New Contact</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Type their details by hand
+                  </span>
+                </span>
+              </button>
 
+              <button
+                type="button"
+                onClick={() => setAddStep("existing")}
+                className="flex aspect-square flex-col items-center justify-center gap-3 rounded-xl border bg-card p-4 text-center transition hover:border-primary/60 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <span className="flex h-12 w-12 items-center justify-center rounded-lg bg-muted">
+                  <Search className="h-6 w-6" />
+                </span>
+                <span className="space-y-1">
+                  <span className="block text-sm font-medium">Existing Contact</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Pick somebody already on your plans
+                  </span>
+                </span>
+              </button>
+            </div>
+          ) : (
+          <div className="space-y-4">
+            {/* Access comes FIRST on both slides — above the New Contact fields and above
+                the Existing Contact search. Role and scope are the decision the advisor has
+                already made by the time they open this modal; working out *who* the person
+                is, is the lookup that serves that decision, not the other way round. */}
             <AccessFields
               value={addAccess}
               onChange={setAddAccess}
@@ -1191,10 +1524,251 @@ export function TeamMembersSection() {
                   : TEAM_MEMBER_ROLES
               }
               allowAllPlans={addType !== "collaborator"}
+              customCategories={customCategories}
             />
+
+            {/* ── Add an existing contact (slide 2, "Existing Contact") ─────
+                Only rendered on its own slide. It previously sat above the manual
+                name/email fields on a single form, which put a search box directly on top
+                of two inputs that invited the advisor to retype somebody the system
+                already held — the exact duplication this feature exists to remove.
+
+                Once a contact is picked the search is replaced by a card naming them, so
+                the form always says who it is about — and can be cleared if the wrong
+                person was picked. */}
+            {addStep !== "existing" ? null : pickedContact ? (
+              <div className="flex items-center justify-between gap-3 rounded-lg border bg-muted/40 px-3 py-2">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">
+                    {pickedContact.name}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {pickedContact.email}
+                    {pickedContact.planCount > 0
+                      ? ` · already on ${pickedContact.planCount} plan${
+                          pickedContact.planCount === 1 ? "" : "s"
+                        }`
+                      : ""}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={clearPickedContact}
+                  disabled={isSubmitting}
+                >
+                  Clear
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="add-existing-contact">
+                  Add an existing contact
+                </Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="add-existing-contact"
+                    value={contactQuery}
+                    onChange={(event) => setContactQuery(event.target.value)}
+                    placeholder="Search contacts already on your plans…"
+                    className="pl-9"
+                    autoComplete="off"
+                    disabled={isSubmitting}
+                  />
+                </div>
+
+                {isSearchingContacts ? (
+                  <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Searching contacts…
+                  </p>
+                ) : contactResults.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">
+                    {contactSearchError
+                      ? "Could not load your contacts just now. Go back to add somebody new instead."
+                      : contactQuery.trim()
+                        ? "No contacts match that. Go back to add somebody new instead."
+                        : "Nobody to promote yet — contacts from your plans will appear here."}
+                  </p>
+                ) : (
+                  <div className="max-h-56 overflow-y-auto rounded-md border">
+                    <ul className="divide-y">
+                      {contactResults.map((contact) => (
+                        <li key={contact.profileId}>
+                          <button
+                            type="button"
+                            onClick={() => applyPickedContact(contact)}
+                            className="flex w-full items-center gap-3 px-3 py-2 text-left transition hover:bg-muted/60 focus:outline-none focus-visible:bg-muted/60"
+                          >
+                            <span className="block h-8 w-8 shrink-0 overflow-hidden rounded-full bg-muted">
+                              <Headshot
+                                src={contact.headshot}
+                                alt={contact.name}
+                                monogramName={contact.name}
+                                wrapperClassName="rounded-full"
+                              />
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium">
+                                {contact.name}
+                              </span>
+                              <span className="block truncate text-xs text-muted-foreground">
+                                {[contact.jobTitle, contact.companyName]
+                                  .filter(Boolean)
+                                  .join(" · ") || contact.email}
+                              </span>
+                            </span>
+                            {contact.planCount > 0 ? (
+                              <Badge variant="outline" className="shrink-0">
+                                {contact.planCount} plan
+                                {contact.planCount === 1 ? "" : "s"}
+                              </Badge>
+                            ) : null}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {addStep === "new" ? (
+              <div className="space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="team-member-first-name">First Name</Label>
+                    <Input
+                      id="team-member-first-name"
+                      value={firstName}
+                      onChange={(event) => setFirstName(event.target.value)}
+                      placeholder="Jane"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="team-member-last-name">Last Name</Label>
+                    <Input
+                      id="team-member-last-name"
+                      value={lastName}
+                      onChange={(event) => setLastName(event.target.value)}
+                      placeholder="Smith"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="team-member-company">
+                    Company / Organization
+                  </Label>
+                  <Input
+                    id="team-member-company"
+                    value={companyName}
+                    onChange={(event) => setCompanyName(event.target.value)}
+                    placeholder="e.g. Benefits Provider Inc."
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    A company you have not used before is added to your Partner /
+                    Provider list.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="team-member-title">Job Title</Label>
+                  <Input
+                    id="team-member-title"
+                    value={jobTitle}
+                    onChange={(event) => setJobTitle(event.target.value)}
+                    placeholder="e.g. HR Director"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="team-member-email">Email</Label>
+                  <Input
+                    id="team-member-email"
+                    type="email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    placeholder="jane@yourfirm.com"
+                  />
+                </div>
+
+                {/* Phone and extension share a row: the extension is meaningless without the
+                    number, and giving it its own row would overstate its importance. */}
+                <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_6rem]">
+                  <div className="space-y-2">
+                    <Label htmlFor="team-member-phone">Phone</Label>
+                    <Input
+                      id="team-member-phone"
+                      type="tel"
+                      value={phone ? formatPhoneInput(phone) : ""}
+                      onChange={(event) =>
+                        setPhone(
+                          event.target.value.replace(/\D/g, "").slice(0, 10),
+                        )
+                      }
+                      placeholder="(555) 123-4567"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="team-member-ext">Ext.</Label>
+                    <Input
+                      id="team-member-ext"
+                      value={phoneExtension}
+                      onChange={(event) =>
+                        setPhoneExtension(
+                          event.target.value.replace(/\D/g, "").slice(0, 8),
+                        )
+                      }
+                      placeholder="123"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2 mb-8">
+                  <Label>Headshot (optional)</Label>
+                  <UniversalImageEditorModal
+                    value={headshot || ""}
+                    fileName={headshotFileName || ""}
+                    onChange={(value, fileName) => {
+                      setHeadshot(value);
+                      setHeadshotFileName(fileName || "");
+                    }}
+                    onRemove={() => {
+                      setHeadshot("");
+                      setHeadshotFileName("");
+                    }}
+                    placeholder="Upload Headshot"
+                    modalTitle="Edit Headshot"
+                    modalDescription="Upload a clear, front-facing photo. Keep the face inside the circle guide for best results."
+                    saveButtonText="Save Headshot"
+                    type="headshot"
+                    autoSizeOnOpen={true}
+                    forceCircularGuidelines={true}
+                  />
+                </div>
+
+              </div>
+            ) : null}
+          </div>
+          )}
+
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0 border-t pt-4">
+            {addStep === "choose" ? null : (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setAddStep("choose")}
+                disabled={isSubmitting}
+                className="sm:mr-auto"
+              >
+                Back
+              </Button>
+            )}
             <Button
               variant="ghost"
               onClick={() => setIsAddOpen(false)}
@@ -1202,15 +1776,19 @@ export function TeamMembersSection() {
             >
               Cancel
             </Button>
-            <Button
-              onClick={() => void submitAdd(confirmUpgrade)}
-              disabled={isSubmitting || !email.trim()}
-            >
-              {isSubmitting ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : null}
-              {addType === "collaborator" ? "Add Collaborator" : "Add Team Member"}
-            </Button>
+            {/* No submit on the chooser: there is nothing to submit yet, and a disabled
+                button would only invite the advisor to wonder what is missing. */}
+            {addStep === "choose" ? null : (
+              <Button
+                onClick={() => void submitAdd(confirmUpgrade)}
+                disabled={isSubmitting || !email.trim()}
+              >
+                {isSubmitting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : null}
+                {addType === "collaborator" ? "Add Collaborator" : "Add Team Member"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

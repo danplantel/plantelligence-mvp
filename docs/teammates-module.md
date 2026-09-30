@@ -714,6 +714,25 @@ described as allowed to publish, invite or delete**.
   [`components/teammates/seats/seat-usage-info-dialog.tsx`](../components/teammates/seats/seat-usage-info-dialog.tsx:40),
   so restoring the zone is a re-wire rather than a rebuild. The seats UI lives only in
   Settings → People & Access.
+- **The Add modal's "New Contact" slide collects only what a profile can store.** Create Plan
+  → Key Contacts gathers about thirty values; `TeammateProfile` has columns for roughly eight
+  of them. Rather than render inputs whose values `POST /api/teammates/team` has nowhere to
+  put, the slide asks for first and last name, job title, email, phone and extension,
+  headshot, and company — the Key Contact fields with a home — and derives
+  `benefitsSpecialty` from the categories the access fields already select, so there is one
+  category picker rather than two that could disagree. Deliberately **not** collected yet,
+  because no column exists: `contactType` (individual vs team/support),
+  `displayName`/`supportIcon`/`departmentLabel`, the **email and phone visibility toggles**,
+  the whole CTA group (`enableContactButton`, `ctaType`, `schedulingUrl`, `websiteUrl`),
+  `contactFormTopics`, the contact's own **`companyLogo`**, the card colours, and
+  `isPrimary`. A contact added here therefore renders a **plainer card** than one authored in
+  the wizard. That is a known gap, not a fault: it closes when a profile-to-plan writer and
+  a `contactCard` payload (or typed columns) land, which is its own decision.
+- **Only the advisor can enter a person's details, and only an admin can correct them.** The
+  invite collects a name and a password and nothing else, and every teammate profile writer
+  is gated on `org_settings` — there is no `/api/teammates/me`. So the advisor's form is the
+  sole source of a job title or phone number. Making it optional is a follow-up ticket, kept
+  in `plans/teammates-self-service-profile.md`.
 - **Onboarding**: the invite step opens with the owner pre-filled as the first
   member, and the step is skippable.
 

@@ -307,7 +307,21 @@ export async function setProfileState({
     where: { id },
     data: {
       state,
-      ...(state === "invited" && !existing.invitedAt
+      // Transitioning INTO `invited` always starts a fresh invite window.
+      //
+      // The `existing.state === state` return above means the previous state was never
+      // `invited`, so this is unconditionally a new invitation and must not inherit the
+      // old timestamp. This previously read `!existing.invitedAt`, which preserved a
+      // stale date: `expireStaleInvites` moves a lapsed profile back to `contact`
+      // WITHOUT clearing `invitedAt`, so re-inviting after a lapse kept the original
+      // date. The T9 acceptance token is minted from that window
+      // (invites.server.ts → `signInviteToken({ invitedAt })`), so the emailed link was
+      // already expired on arrival and `loadInvitation` reported "expired".
+      //
+      // A still-live invite never reaches this line, so "a second invite adds an
+      // assignment rather than a new profile" is unaffected: it neither resets the
+      // 14-day hold nor double-counts a pending seat.
+      ...(state === "invited"
         ? { invitedAt: new Date(), invitedByUserId: actorUserId }
         : {}),
     },
@@ -395,6 +409,56 @@ export async function linkLoginUserId({
     action: "profile_login_linked",
     profileId: id,
     details: { loginUserId },
+  });
+
+  return updated;
+}
+
+/**
+ * The org-boundary axis (spec T1 Part B item 1, T3 item 1): a Team Member is inside the
+ * organization and consumes a seat; a Collaborator is outside it and never does.
+ *
+ * Kept separate from `updateTeammateProfile` because it is not an identity edit — it
+ * changes seat accounting and which list the person appears in. Both `getSeatUsage` and
+ * `listOrgPeople` filter on `type`, so a silent change here is a silent change to the
+ * seat meter, which is why it gets its own audit entry.
+ */
+export async function setProfileType({
+  id,
+  organizationId,
+  actorUserId,
+  type,
+}: {
+  id: string;
+  organizationId: string;
+  actorUserId: string;
+  type: TeammatePersonType;
+}) {
+  const existing = await getTeammateProfile(id, organizationId);
+  if (!existing) {
+    throw new TeammateDataError("Teammate profile not found.", 404);
+  }
+  if (existing.type === type) return existing;
+
+  // Moving a profile to the external side has to clear All Plans in the same write:
+  // `setProfileAllPlans` and `createTeammateProfile` both refuse All Plans for a
+  // collaborator, so leaving the flag set would leave a state those guards would never
+  // have created — and one that would start generating assignments for new plans again
+  // the moment the profile was ever promoted back.
+  const updated = await prisma.teammateProfile.update({
+    where: { id },
+    data: {
+      type,
+      ...(type === "collaborator" ? { allPlans: false } : {}),
+    },
+  });
+
+  await recordTeammateAuditEvent({
+    organizationId,
+    actorUserId,
+    action: "profile_type_changed",
+    profileId: id,
+    details: { from: existing.type, to: type },
   });
 
   return updated;

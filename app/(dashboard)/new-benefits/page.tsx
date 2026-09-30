@@ -266,7 +266,14 @@ function NewBenefitsPageInner() {
       };
       if (categoryParam) {
         next.benefitCategory = categoryParam as BenefitsCategory;
-        next.benefitTitle = categoryParam === "Custom" ? "" : categoryParam;
+        // A Custom category's name is the advisor's to choose, so it starts BLANK rather
+        // than inheriting the category. The storage label is checked too: the portal's
+        // Custom page is linked with `category=Company / Plan Sponsor`, and seeding that
+        // would drop the category name into the field meant to name the benefit.
+        next.benefitTitle =
+          categoryParam === "Custom" || categoryParam === "Company / Plan Sponsor"
+            ? ""
+            : categoryParam;
       } else {
         // Plan-only deep link: preselect the plan, clear any category so the
         // wizard starts at "pick a benefit category" for this plan.

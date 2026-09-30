@@ -141,6 +141,9 @@ async function main(): Promise<void> {
       email: `t3-verify-invitee-${STAMP}@example.test`,
       type: "team_member",
       role: "editor",
+      // Adding a Team Member now sends the T9 invitation email. A suite must never send
+      // real mail, so every call here suppresses it.
+      skipEmail: true,
     });
     track(invited);
 
@@ -257,6 +260,7 @@ async function main(): Promise<void> {
       name: "T3 Verify Collaborator",
       email: `t3-verify-collab-${STAMP}@elsewhere.test`,
       // No explicit type: the domain guess decides.
+      skipEmail: true,
     });
     track(collaborator);
     check(
@@ -290,6 +294,7 @@ async function main(): Promise<void> {
         name: "T3 Over Limit",
         email: `t3-verify-overlimit-${STAMP}@example.test`,
         type: "team_member",
+        skipEmail: true,
       });
     } catch (error) {
       limitCode = (error as TeammateDataError).code;
@@ -310,6 +315,7 @@ async function main(): Promise<void> {
         email: `t3-verify-outsider-add-${STAMP}@example.test`,
         type: "team_member",
         confirmUpgrade: true,
+        skipEmail: true,
       });
     } catch (error) {
       outsiderCode = (error as TeammateDataError).code;
@@ -327,6 +333,7 @@ async function main(): Promise<void> {
       email: `t3-verify-confirmed-${STAMP}@example.test`,
       type: "team_member",
       confirmUpgrade: true,
+      skipEmail: true,
     });
     track(confirmed);
 

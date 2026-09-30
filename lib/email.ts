@@ -774,6 +774,197 @@ export interface CollaboratorInviteEmailInput {
   dueDate?: Date | null;
 }
 
+/** Payload for the promotion email: a Contact becoming a Team Member. */
+export interface TeamMemberInviteEmailInput {
+  to: string;
+  /** The promoted person; only the first name is used in the greeting. */
+  memberName?: string | null;
+  /** The advisor who promoted them. */
+  inviterName?: string | null;
+  /** Their firm, shown so the recipient knows who acted. */
+  organizationName?: string | null;
+  /**
+   * T9: the link that activates the account. Required, not optional — the entire purpose
+   * of this email is that the recipient has no account yet and cannot sign in.
+   */
+  acceptUrl: string;
+  /** How long the invitation stays valid, in days, for the copy. */
+  expiresInDays?: number;
+}
+
+/**
+ * Tell somebody they have been added to a team, and give them the link that activates it.
+ *
+ * Deliberately NOT `sendCollaboratorInviteEmail` with rearranged arguments. That template
+ * is built around an external helper being asked to fill in a specific benefit section:
+ * `planName`, `category`, `inviteContext` and `sectionUrl` are all required, and its copy
+ * says "help complete the Group Life section". None of that is true for a colleague being
+ * given account access, and forcing it through would send them a description of work they
+ * were never asked to do.
+ *
+ * The acceptance link is the only action, because an invitee with no account has nowhere
+ * else to go.
+ */
+export async function sendTeamMemberInviteEmail({
+  to,
+  memberName,
+  inviterName,
+  organizationName,
+  acceptUrl,
+  expiresInDays,
+}: TeamMemberInviteEmailInput) {
+  const firstName = (memberName || "").trim().split(" ")[0] || "there";
+  const inviter =
+    (inviterName || "").trim() || organizationName?.trim() || "Your benefits advisor";
+  const firm = organizationName?.trim();
+
+  // Interpolated user data is escaped here, unlike the older templates. A person's display
+  // name and an organization name are free text an advisor typed, and this one is
+  // rendered inside a styled button-adjacent block where a stray tag would break the
+  // layout rather than merely look wrong.
+  const safeInviter = escapeHtml(inviter);
+  const safeFirm = firm ? escapeHtml(firm) : "";
+  const validFor =
+    typeof expiresInDays === "number" && expiresInDays > 0
+      ? `
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 20px;">
+                                            <p class="email-text-secondary" style="margin: 0; font-size: 13px; color: #888890; line-height: 1.5;">
+                                                This invitation expires in ${expiresInDays} days.
+                                            </p>
+                                        </td>
+                                    </tr>`
+      : "";
+
+  const subject = firm
+    ? `${safeInviter} added you to ${safeFirm} on PlanTelligence`
+    : `${safeInviter} added you to their team on PlanTelligence`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta charset="UTF-8">
+        <meta name="color-scheme" content="light dark">
+        <meta name="supported-color-schemes" content="light dark">
+        <style>
+            @media (prefers-color-scheme: dark) {
+                .email-body { background-color: #1a1a2e !important; }
+                .email-card { background-color: #16213e !important; }
+                .email-text { color: #e0e0e0 !important; }
+                .email-text-secondary { color: #a0a0b0 !important; }
+                .button { background-color: #3a7bd5 !important; }
+                .divider { background-color: #2a2a4a !important; }
+                .logo-default { display: none !important; }
+                .logo-dark { display: block !important; }
+            }
+            @media (prefers-color-scheme: light) {
+                .logo-dark { display: none !important; }
+            }
+        </style>
+    </head>
+    <body class="email-body" style="margin: 0; padding: 0; background-color: #f4f6f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f4f6f9;">
+            <tr>
+                <td align="center" style="padding: 40px 16px 20px;">
+                    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 560px; width: 100%;">
+                        <tr>
+                            <td align="center" style="padding-bottom: 24px;">
+                                <img src="${logoUrl}" alt="PlanTelligence®" width="220" class="logo-default" style="display: inline; max-width: 220px; height: auto; border: 0;" />
+                                <img src="${logoUrlLight}" alt="PlanTelligence®" width="220" class="logo-dark" style="display: none; max-width: 220px; height: auto; border: 0;" />
+                            </td>
+                        </tr>
+                        <tr>
+                            <td align="center">
+                                <table width="100%" cellpadding="0" cellspacing="0" border="0" class="email-card" style="background-color: #ffffff; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 40px 32px;">
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 8px;">
+                                            <h1 class="email-text" style="margin: 0; font-size: 22px; font-weight: 600; color: #1a1a2e;">You have been added to the team</h1>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 16px;">
+                                            <p class="email-text-secondary" style="margin: 0; font-size: 15px; color: #666680; line-height: 1.5;">Hi ${escapeHtml(firstName)},</p>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 20px;">
+                                            <p class="email-text-secondary" style="margin: 0; font-size: 15px; color: #666680; line-height: 1.6;">
+                                                ${safeInviter}${safeFirm && inviterName?.trim() ? ` (${safeFirm})` : ""} added you as a <strong style="color: #1a1a2e;">Team Member</strong> on PlanTelligence.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 20px;">
+                                            <p class="email-text-secondary" style="margin: 0; font-size: 15px; color: #666680; line-height: 1.6;">
+                                                Choose a password to activate your account, then you can sign in at any time.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 20px;">
+                                            <table cellpadding="0" cellspacing="0" border="0">
+                                                <tr>
+                                                    <td align="center" class="button" style="background-color: #1a3a6a; border-radius: 8px;">
+                                                        <a href="${acceptUrl}" style="display: inline-block; padding: 14px 28px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none;">Accept the invitation</a>
+                                                    </td>
+                                                </tr>
+                                            </table>
+                                        </td>
+                                    </tr>${validFor}
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 24px;">
+                                            <p class="email-text-secondary" style="margin: 0; font-size: 13px; color: #888890; line-height: 1.5;">
+                                                If the button does not work, paste this into your browser:<br/>
+                                                <a href="${acceptUrl}" style="color: #1a3a6a; text-decoration: underline; word-break: break-all;">${acceptUrl}</a>
+                                            </p>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 24px; padding-top: 8px;">
+                                            <table width="100%" cellpadding="0" cellspacing="0" border="0" class="divider" style="height: 1px; background-color: #e0e0e8; width: 100%;"><tr><td style="height: 1px; line-height: 1px;">&nbsp;</td></tr></table>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td align="center">
+                                            <p class="email-text-secondary" style="margin: 0; font-size: 13px; color: #888890; line-height: 1.5;">
+                                                Need help? Contact us at<br/>
+                                                <a href="mailto:support@plantelligence.ai" style="color: #1a3a6a; text-decoration: underline;">support@plantelligence.ai</a>
+                                            </p>
+                                            <p class="email-text-secondary" style="margin: 16px 0 0 0; font-size: 12px; color: #a0a0b0;">
+                                                &copy; ${new Date().getFullYear()} PlanTelligence®. All rights reserved.
+                                            </p>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+        </table>
+    </body>
+    </html>
+  `;
+
+  return sendEmail({
+    to,
+    subject,
+    html,
+    text: [
+      `Hi ${firstName},`,
+      ``,
+      `${inviter} added you as a Team Member on PlanTelligence.`,
+      `Choose a password to activate your account, then you can sign in at any time.`,
+      ``,
+      `Accept the invitation: ${acceptUrl}`,
+      ...(typeof expiresInDays === "number" && expiresInDays > 0
+        ? [``, `This invitation expires in ${expiresInDays} days.`]
+        : []),
+    ].join("\n"),
+  });
+}
+
 /**
  * Invite an external collaborator to complete one benefit section.
  *

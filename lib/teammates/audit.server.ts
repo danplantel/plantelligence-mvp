@@ -19,6 +19,7 @@ export type TeammateAuditAction =
   | "profile_state_changed"
   | "profile_login_linked"
   | "profile_all_plans_changed"
+  | "profile_type_changed"
   | "profile_company_changed"
   | "profile_deactivated"
   | "profile_reactivated"

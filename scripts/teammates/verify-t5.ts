@@ -420,6 +420,8 @@ async function main(): Promise<void> {
       name: "Internal Editor",
       planScope: "this_plan",
       planId: plan.id,
+      // Adding a Team Member now sends the T9 invitation email; a suite must not.
+      skipEmail: true,
     });
     created.profileIds.push(teammate.profileId);
 

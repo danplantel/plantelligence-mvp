@@ -1042,6 +1042,20 @@ export function BenefitsStep1({
   const normalizeApiCategory = (raw: string) =>
     (raw || "").toLowerCase().trim().replace(/\s+/g, " ");
 
+  /**
+   * Is this the Custom hub's CATEGORY rather than a name the advisor gave a benefit?
+   *
+   * The wizard calls the hub "Custom", the portal calls it "Wellness Programs", and the
+   * database stores it as "Company / Plan Sponsor" — all three are category names for the
+   * same thing, so none of them is a title. Seeding the Custom Category Name field with one
+   * both misleads the advisor and, because validation only requires a non-empty title, would
+   * happily save the storage label as the benefit's own name.
+   */
+  const isCustomHubCategory = (raw: string | null | undefined) => {
+    const v = (raw || "").toLowerCase().trim().replace(/\s+/g, " ");
+    return v === "custom" || v === "company / plan sponsor";
+  };
+
 
   /** Resolve the client/plan company name (Company / Plan Sponsor name) from the
    *  selected plan, falling back to the plans list by planId so it populates even
@@ -1368,7 +1382,15 @@ export function BenefitsStep1({
     // logo/header for primary categories.
     if (!benefit) {
       // Default the Intro Headline to "Welcome to [Org/Company]" so Messaging is not empty.
-      next.benefitTitle = getDefaultIntroHeadline(cat);
+      //
+      // EXCEPT for a Custom benefit, where `benefitTitle` is not a headline at all — it is
+      // the advisor's own name for the benefit ("Wellness Programs"). This branch is the
+      // brand-new-benefit path, so the default had nowhere to map "Company / Plan Sponsor"
+      // and handed the category label straight back, which is what pre-filled the Custom
+      // Category Name field. It starts empty; the advisor names it.
+      next.benefitTitle = isCustomHubCategory(cat)
+        ? ""
+        : getDefaultIntroHeadline(cat);
       next.shortDescription = getDefaultIntroMessage();
       // NOTE: contactId (Key Contact selection) is deliberately NOT cleared here — it is
       // managed by the contact-prefill effect / prefillContact, so clearing it on a different
@@ -2178,7 +2200,15 @@ export function BenefitsStep1({
       ...currentStepData,
       benefitCategory: normalizedCategory,
       contactId: existingBenefit?.contactId || "",
-      benefitTitle: existingBenefit?.title || getDefaultIntroHeadline(benefitCategory),
+      benefitTitle:
+        existingBenefit?.title ||
+        // A Custom category starts with NO name: that field is where the advisor supplies
+        // one. The intro-headline default is right for the other categories, whose
+        // `benefitTitle` is the headline itself, and wrong here, where it would seed the
+        // category label into the field meant to replace it.
+        (isCustomHubCategory(normalizedCategory)
+          ? ""
+          : getDefaultIntroHeadline(benefitCategory)),
       shortDescription: existingBenefit?.shortDescription || getDefaultIntroMessage(),
       planVideo: existingBenefit?.planVideo || undefined,
       planVideoFileName: existingBenefit?.planVideoFileName || undefined,
@@ -2681,7 +2711,7 @@ export function BenefitsStep1({
                   </Label>
                   <Input
                     value={
-                      currentStepData.benefitTitle === "Custom"
+                      isCustomHubCategory(currentStepData.benefitTitle)
                         ? ""
                         : currentStepData.benefitTitle
                     }

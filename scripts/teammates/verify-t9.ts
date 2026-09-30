@@ -383,6 +383,8 @@ async function main(): Promise<void> {
       planScope: "this_plan",
       planId: plan.id,
       categoryScope: "all",
+      // Adding a Team Member now sends the T9 invitation email; a suite must not.
+      skipEmail: true,
     });
     created.profileIds.push(teammate.profileId);
 

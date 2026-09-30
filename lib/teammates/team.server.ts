@@ -15,20 +15,28 @@
  */
 
 import prisma from "@/lib/prisma";
+import { sendTeamMemberInviteEmail } from "@/lib/email";
 import { TeammateDataError } from "./errors";
+import { acceptanceUrlForProfile } from "./invite-link.server";
 import {
   createTeammateProfile,
   deactivateTeammateProfile,
   findProfileByEmail,
+  getTeammateProfile,
   reactivateTeammateProfile,
+  type UpdateTeammateProfileInput,
   setProfileAllPlans,
+  setProfileType,
   updateTeammateProfile,
+  upgradeContactToInvited,
 } from "./profiles.server";
 import { removeAssignment, upsertAssignment } from "./assignments.server";
+import { findOrCreatePartnerCompany } from "./companies.server";
 import {
   assertSeatAvailable,
   getSeatUsage,
   guessPersonTypeForEmail,
+  INVITE_SEAT_HOLD_DAYS,
   type SeatUsage,
 } from "./seats.server";
 import {
@@ -49,9 +57,41 @@ export type TeamCategoryScope = "all" | "certain";
 export interface AddTeamMemberInput {
   organizationId: string;
   actorUserId: string;
-  /** Display name; split into first/last. */
+  /**
+   * Display name; split into first/last. Kept as the fallback for callers that only hold a
+   * single string, and for the verification scripts.
+   */
   name?: string | null;
+  /**
+   * Explicit name parts, preferred over `name` when given. The People & Access form asks
+   * for them separately, and splitting "Mary Jane Watson" on whitespace would file "Jane"
+   * into the last name.
+   */
+  firstName?: string | null;
+  lastName?: string | null;
   email: string;
+  /**
+   * Identity the profile can carry. These are the Key Contact fields the profile can
+   * already store; anything the profile has no column for is deliberately not accepted, so
+   * the form cannot collect data that would be discarded on the way in.
+   *
+   * An ABSENT key means "not supplied, leave it alone"; an empty string means "clear it".
+   * That distinction is what lets the Existing Contact slide omit all of them while New
+   * Contact sends them, without a promotion blanking out data it was never asked about.
+   */
+  jobTitle?: string | null;
+  phone?: string | null;
+  phoneExtension?: string | null;
+  headshot?: string | null;
+  /**
+   * Company / Organization, resolved to a Partner/Provider company row — the same call the
+   * contact mirror makes for a Key Contact.
+   *
+   * Taken as a NAME rather than an id so the client cannot link a company belonging to
+   * another organization, and so the resolution rule lives next to the other teammate
+   * writers rather than in a route.
+   */
+  companyName?: string | null;
   /** Overrides the email-domain guess when the user changes it. */
   type?: TeammatePersonType;
   role?: TeammateAssignmentRole;
@@ -65,16 +105,36 @@ export interface AddTeamMemberInput {
   categoryScope?: TeamCategoryScope;
   /** Used when `categoryScope` is `certain`. */
   categories?: string[];
+  /**
+   * Promote an existing Contact by id instead of by email. Set by the People & Access
+   * picker, so that the person the advisor chose is the person who is promoted — which is
+   * the entire point of picking rather than retyping.
+   */
+  profileId?: string | null;
   /** Spec T3 item 3: pass true only once the upgrade confirm is accepted. */
   confirmUpgrade?: boolean;
+  /**
+   * Suppress the invitation email. The verification suites set this so a battery run never
+   * sends real mail, mirroring `inviteCollaboratorToPlan`'s own flag.
+   */
+  skipEmail?: boolean;
 }
 
 export interface AddTeamMemberResult {
   profileId: string;
   personType: TeammatePersonType;
-  /** Always `invited`: adding a Team Member sends an invite. */
+  /**
+   * The state the call actually left the profile in: `invited` for a new or
+   * just-promoted person, but `active` when the email already belonged to someone who
+   * had accepted an earlier invite. Not always `invited` — that was a lie the UI
+   * repeated back to the advisor.
+   */
   state: TeammateProfileState;
   assignmentIds: string[];
+  /** Whether the invitation email actually went out. False when suppressed or moot. */
+  emailSent: boolean;
+  /** Why the email failed, when it did. A mail failure never fails the add itself. */
+  emailError: string | null;
   seats: SeatUsage;
 }
 
@@ -92,7 +152,31 @@ const DEFAULT_CATEGORY_SCOPE: TeamCategoryScope = "all";
 export async function addTeamMember(
   input: AddTeamMemberInput,
 ): Promise<AddTeamMemberResult> {
-  const email = (input.email ?? "").trim().toLowerCase();
+  const providedEmail = (input.email ?? "").trim().toLowerCase();
+
+  // Resolve the person FIRST when the caller named one, because a promotion is a decision
+  // about a specific Contact rather than about whatever address happens to be in the form.
+  // Resolving by id also means the email used for everything downstream comes FROM the
+  // profile, so a mismatched id and email pair cannot send one person's invitation to
+  // another person's mailbox.
+  //
+  // By email — the original path — nothing changes: the address is the identity, and an
+  // existing profile is reused rather than duplicated.
+  const existing = input.profileId
+    ? await getTeammateProfile(input.profileId, input.organizationId)
+    : await findProfileByEmail(input.organizationId, providedEmail);
+
+  if (input.profileId && !existing) {
+    // Scoped to the organization, so this is also what stops a caller promoting a profile
+    // that belongs to somebody else's organization.
+    throw new TeammateDataError(
+      "That contact is not in this organization.",
+      404,
+      "profile_not_found",
+    );
+  }
+
+  const email = existing?.email ?? providedEmail;
   if (!email) {
     throw new TeammateDataError("An email address is required.", 400);
   }
@@ -115,9 +199,21 @@ export async function addTeamMember(
   const planScope = input.planScope ?? DEFAULT_PLAN_SCOPE;
   const categoryScopeInput = input.categoryScope ?? DEFAULT_CATEGORY_SCOPE;
 
-  // Reuse the person if this organization already knows the email — "a second
-  // invite adds an assignment, not a new profile".
-  const existing = await findProfileByEmail(input.organizationId, email);
+  // Computed HERE rather than after the assignment loop, because the profile now stores the
+  // same list as `benefitsSpecialty` and so it has to exist before the profile is created.
+  //
+  // `benefitsSpecialty` is "the benefit categories this person covers", which is what the
+  // Benefits Hub groups them under. It is deliberately the SAME list as the access scope
+  // instead of a second picker: the contact mirror derives both from one source (the Key
+  // Contact's own benefit categories), so two inputs would be two chances to disagree. If
+  // they ever need to diverge, that is a change of meaning and needs its own input.
+  const categoryScope: TeammateCategoryScope =
+    categoryScopeInput === "all" ? "all" : "selected";
+  const categories =
+    categoryScope === "selected" ? (input.categories ?? []) : [];
+
+  // `existing` was resolved above, by id or by email — "a second invite adds an
+  // assignment, not a new profile".
   if (existing?.deactivatedAt) {
     throw new TeammateDataError(
       "A deactivated profile exists for this email. Reactivate it instead of re-adding.",
@@ -126,9 +222,33 @@ export async function addTeamMember(
     );
   }
 
+  // Explicit parts win; otherwise fall back to splitting the single display name.
   const trimmedName = (input.name ?? "").trim();
-  const [firstName, ...restName] = trimmedName.split(/\s+/).filter(Boolean);
-  const lastName = restName.length > 0 ? restName.join(" ") : null;
+  const [nameFirst, ...restName] = trimmedName.split(/\s+/).filter(Boolean);
+  const firstName =
+    (input.firstName ?? "").trim() || nameFirst || null;
+  const lastName =
+    (input.lastName ?? "").trim() ||
+    (restName.length > 0 ? restName.join(" ") : null);
+
+  // A typed company becomes a Partner/Provider row, exactly as the mirror does for a Key
+  // Contact. Blank means "no company", not a company whose name is the empty string.
+  const companyName = (input.companyName ?? "").trim();
+  const companyId = companyName
+    ? (
+        await findOrCreatePartnerCompany({
+          organizationId: input.organizationId,
+          name: companyName,
+          logo: null,
+          actorUserId: input.actorUserId,
+        })
+      ).id
+    : null;
+
+  // Spec T1 Part B item 4: All Plans is the flag that makes a NEW plan generate an
+  // assignment. Computed once, so creation and the reuse path below cannot disagree
+  // about what this call asked for.
+  const wantsAllPlans = personType === "team_member" && planScope === "all_plans";
 
   const profile =
     existing ??
@@ -137,22 +257,106 @@ export async function addTeamMember(
       actorUserId: input.actorUserId,
       type: personType,
       email,
-      firstName: firstName ?? null,
+      firstName,
       lastName,
-      // Team-Member-only: makes every NEW plan generate an assignment (T1 item 4).
-      allPlans: personType === "team_member" && planScope === "all_plans",
+      jobTitle: input.jobTitle ?? null,
+      phone: input.phone ?? null,
+      phoneExtension: input.phoneExtension ?? null,
+      headshot: input.headshot ?? null,
+      benefitsSpecialty: categories,
+      companyId,
+      allPlans: wantsAllPlans,
     }));
+
+  // ── Reuse can be a promotion, not just a no-op ───────────────────────────────
+  //
+  // `type` decides both the seat count and the list the person appears in: `getSeatUsage`
+  // counts only `type: "team_member"` profiles and `listOrgPeople` filters the same way.
+  // Reuse previously kept whatever type the profile was created with, so promoting a
+  // Contact whose stored type was `collaborator` reserved a seat via `assertSeatAvailable`
+  // above that the meter then never counted — and the person kept rendering under
+  // Collaborators instead of appearing on the team.
+  //
+  // Order matters: `setProfileAllPlans` refuses All Plans for a collaborator, reading the
+  // type it finds rather than the one being requested, so the type must be settled first.
+  // `reused` tracks the post-change row so the All Plans check below compares against what
+  // the profile is, not against the stale snapshot read before the type change.
+  let reused = existing;
+  if (existing && existing.type !== personType) {
+    reused = await setProfileType({
+      id: existing.id,
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      type: personType,
+    });
+  }
+
+  if (reused && reused.allPlans !== wantsAllPlans) {
+    await setProfileAllPlans({
+      id: reused.id,
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      allPlans: wantsAllPlans,
+    });
+  }
+
+  // ── Identity on reuse ─────────────────────────────────────────────────────────
+  //
+  // Only the keys the caller actually sent are written. "Existing Contact" omits all of
+  // them, because the person already has them from the Key Contact they were mirrored from;
+  // "New Contact" sends them. Without that distinction a promotion from the picker would
+  // blank out a contact's job title, phone and company simply because the slide it came
+  // from has no fields for them.
+  //
+  // `benefitsSpecialty` is written ONLY when the advisor named specific categories. With
+  // "All categories" the list legitimately arrives empty, and treating that as a value
+  // would wipe the specialty of every contact promoted with the default scope.
+  const identityPatch: UpdateTeammateProfileInput = {
+    ...(input.firstName !== undefined && firstName ? { firstName } : {}),
+    ...(input.lastName !== undefined && lastName ? { lastName } : {}),
+    ...(input.jobTitle !== undefined ? { jobTitle: input.jobTitle || null } : {}),
+    ...(input.phone !== undefined ? { phone: input.phone || null } : {}),
+    ...(input.phoneExtension !== undefined
+      ? { phoneExtension: input.phoneExtension || null }
+      : {}),
+    ...(input.headshot !== undefined ? { headshot: input.headshot || null } : {}),
+    ...(input.companyName !== undefined ? { companyId } : {}),
+    ...(categoryScope === "selected" ? { benefitsSpecialty: categories } : {}),
+  };
+
+  if (reused && Object.keys(identityPatch).length > 0) {
+    await updateTeammateProfile({
+      id: reused.id,
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      data: identityPatch,
+    });
+  }
 
   // An invite reserves a seat (spec T3 item 2), so the state moves to Invited.
   // A Contact's profile is reused as-is — the profile never changes identity.
-  if (profile.state !== "invited" && profile.state !== "active") {
-    await prisma.teammateProfile.update({
-      where: { id: profile.id },
-      data: {
-        state: "invited",
-        invitedByUserId: input.actorUserId,
-        invitedAt: profile.invitedAt ?? new Date(),
-      },
+  //
+  // Routed through `upgradeContactToInvited` rather than an inline update so this shares
+  // ONE state transition with the collaborator invite path. Three things came from the
+  // inline write being replaced:
+  //
+  //   1. `invitedAt` is refreshed instead of inherited from `profile.invitedAt`, which
+  //      on a re-invite after a lapse handed the T9 token an already-expired window and
+  //      made the emailed acceptance link land on "expired" (see `setProfileState`).
+  //   2. The `active` → `contact` guard lives in `setProfileState`, so it cannot be
+  //      bypassed here.
+  //   3. A `profile_state_changed` audit row is written. The inline update recorded
+  //      nothing, so a promotion left no trace beyond the assignment rows.
+  // Captured rather than recomputed later: this is exactly the condition under which the
+  // transition runs, and the email below must agree with it (see the note on the return).
+  const startedInviteWindow =
+    profile.state !== "invited" && profile.state !== "active";
+
+  if (startedInviteWindow) {
+    await upgradeContactToInvited({
+      id: profile.id,
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
     });
   }
 
@@ -165,10 +369,6 @@ export async function addTeamMember(
 
   const role: TeammateAssignmentRole =
     input.role ?? (personType === "team_member" ? "editor" : "contributor");
-  const categoryScope: TeammateCategoryScope =
-    categoryScopeInput === "all" ? "all" : "selected";
-  const categories =
-    categoryScope === "selected" ? (input.categories ?? []) : [];
 
   const assignmentIds: string[] = [];
   for (const clientId of targetPlanIds) {
@@ -184,11 +384,76 @@ export async function addTeamMember(
     assignmentIds.push(assignment.id);
   }
 
+  // The state this call actually produced. `startedInviteWindow` above is exactly the
+  // condition under which the transition ran, so the two cannot disagree — this used to be
+  // the hardcoded string "invited", which was untrue for somebody who was already `active`.
+  const state: TeammateProfileState = startedInviteWindow
+    ? "invited"
+    : (profile.state as TeammateProfileState);
+
+  // ── The invitation email ────────────────────────────────────────────────────────
+  //
+  // Sent only when this call actually began an invite window. Promoting somebody who is
+  // already `active` grants them more access; it does not re-invite them, and mailing a
+  // "choose a password" link to a person who already has one would be wrong.
+  //
+  // Best-effort, like the collaborator invite: a mail failure must not roll back a grant
+  // the advisor asked for, so it is reported in the result rather than thrown.
+  let emailSent = false;
+  let emailError: string | null = null;
+
+  if (startedInviteWindow && !input.skipEmail) {
+    // Resolved here rather than passed in: this layer holds ids, and the email needs human
+    // names to open with.
+    const [organization, actor] = await Promise.all([
+      prisma.organization.findUnique({
+        where: { id: input.organizationId },
+        select: { name: true },
+      }),
+      prisma.user.findUnique({
+        where: { id: input.actorUserId },
+        select: { name: true },
+      }),
+    ]);
+
+    try {
+      const link = await acceptanceUrlForProfile({
+        id: profile.id,
+        organizationId: input.organizationId,
+        email,
+      });
+      if (!link) {
+        // Without a window to encode, the link would be rejected the moment it was
+        // opened. Sending it anyway would deliver a broken invitation, so it is reported.
+        emailError = "The profile has no invite window to mint a link from.";
+      } else {
+        await sendTeamMemberInviteEmail({
+          to: email,
+          memberName:
+            [profile.firstName, profile.lastName].filter(Boolean).join(" ") ||
+            trimmedName ||
+            null,
+          inviterName: actor?.name ?? null,
+          organizationName: organization?.name ?? null,
+          acceptUrl: link.url,
+          expiresInDays: INVITE_SEAT_HOLD_DAYS,
+        });
+        emailSent = true;
+      }
+    } catch (error) {
+      emailError =
+        error instanceof Error ? error.message : "Unknown email error";
+      console.error("[teammates/team] invitation email failed", error);
+    }
+  }
+
   return {
     profileId: profile.id,
     personType,
-    state: "invited",
+    state,
     assignmentIds,
+    emailSent,
+    emailError,
     seats: await getSeatUsage(input.organizationId),
   };
 }

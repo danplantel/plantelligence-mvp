@@ -34,7 +34,7 @@ import {
   findProfileByEmail,
   upgradeContactToInvited,
 } from "./profiles.server";
-import { inviteAcceptUrl, signInviteToken } from "./invite-token.server";
+import { acceptanceUrlForProfile, appBaseUrl } from "./invite-link.server";
 import { emailDomain } from "./seats.server";
 import { getBenefitCompleteness } from "@/lib/benefit-completeness";
 import { categoryToSlug } from "@/lib/benefit-category-slug";
@@ -86,14 +86,10 @@ function normalizeCategory(value: string | null | undefined): string {
   return (value || "").toLowerCase().trim().replace(/\s+/g, " ");
 }
 
-/** Same precedence as the rest of the mailers (see lib/email.ts). */
-function appBaseUrl(): string {
-  return (
-    process.env.NEXT_PUBLIC_APP_URL ||
-    process.env.NEXTAUTH_URL ||
-    ""
-  ).replace(/\/$/, "");
-}
+// `appBaseUrl` and the acceptance-link minting now live in `./invite-link.server`, shared
+// with `addTeamMember`'s promotion email so the two invite paths cannot mint different
+// links for the same profile. The local copy that used to sit here is gone rather than
+// duplicated.
 
 /** `yyyy-mm-dd` from a date input → a UTC date at midnight. Null when absent/invalid. */
 function parseDueDate(value: string | null | undefined): Date | null {
@@ -541,24 +537,14 @@ export async function inviteCollaboratorToPlan(
   let emailError: string | null = null;
 
   // T9: the invitation is only useful if the invitee can redeem it, and until now nothing
-  // could be. Mint the acceptance link from the profile's OWN invite window, re-read here
+  // could be. Minted from the profile's OWN invite window, which the helper re-reads
   // because the state transition above may just have started it.
-  let acceptUrl: string | null = null;
-  const invitedProfile = await prisma.teammateProfile.findUnique({
-    where: { id: profile.id },
-    select: { invitedAt: true },
+  const acceptLink = await acceptanceUrlForProfile({
+    id: profile.id,
+    organizationId: input.organizationId,
+    email,
   });
-  if (invitedProfile?.invitedAt) {
-    acceptUrl = inviteAcceptUrl(
-      appBaseUrl(),
-      signInviteToken({
-        profileId: profile.id,
-        organizationId: input.organizationId,
-        email,
-        invitedAt: invitedProfile.invitedAt,
-      }),
-    );
-  }
+  const acceptUrl: string | null = acceptLink?.url ?? null;
 
   if (!input.skipEmail) {
     // Resolved here rather than passed in: `OrgSession` carries only the ids, and
@@ -739,11 +725,20 @@ export interface CollaboratorSearchRow {
 /**
  * Search this organization's collaborators by person OR company name.
  *
- * The matching is done in JS, deliberately: Prisma's MongoDB connector has no
- * case-insensitive `contains` (SQL-only `mode: "insensitive"`), so a `contains`
- * filter would be case-sensitive and a collaborator typed as "jane" would never
- * find "Jane Smith". The candidate set is one organization's external
- * collaborators, so loading it and filtering is cheap and correct.
+ * The matching happens in the DATABASE. It used to happen in JS, for a reason that no
+ * longer applies: Prisma's MongoDB connector had no case-insensitive `contains`
+ * (`mode: "insensitive"` is SQL-only), so a `contains` filter would have been
+ * case-sensitive and a collaborator typed as "jane" would never find "Jane Smith".
+ * PostgreSQL has the operator, so the filter is a query again.
+ *
+ * That is not only tidier — it fixes a silent truncation. The old version fetched a
+ * 200-row candidate window and filtered it afterwards, so a match living outside that
+ * window simply did not exist as far as the picker was concerned, with nothing in the UI
+ * to say so. Filtering in the query removes the arbitrary ceiling.
+ *
+ * Company name is still searchable, via a pre-resolved set of matching company ids,
+ * because `companyId` is a plain scalar here (the teammate models carry no relations —
+ * docs/teammates-module.md §7.4) and so cannot be traversed with a nested `where`.
  */
 export async function searchCollaborators({
   organizationId,
@@ -754,8 +749,18 @@ export async function searchCollaborators({
   query: string;
   limit?: number;
 }): Promise<CollaboratorSearchRow[]> {
-  const needle = (query ?? "").trim().toLowerCase();
+  const needle = (query ?? "").trim();
   if (needle.length < 2) return [];
+
+  const matchingCompanyIds = (
+    await prisma.teammateCompany.findMany({
+      where: {
+        organizationId,
+        name: { contains: needle, mode: "insensitive" },
+      },
+      select: { id: true },
+    })
+  ).map((row) => row.id);
 
   const [profiles, companies] = await Promise.all([
     prisma.teammateProfile.findMany({
@@ -769,8 +774,16 @@ export async function searchCollaborators({
         // clear are both NULL. The two-shape `OR` this replaced existed because MongoDB
         // matched only the explicit null (docs/teammates-module.md §7.3).
         deactivatedAt: null,
+        OR: [
+          { firstName: { contains: needle, mode: "insensitive" } },
+          { lastName: { contains: needle, mode: "insensitive" } },
+          { email: { contains: needle, mode: "insensitive" } },
+          ...(matchingCompanyIds.length > 0
+            ? [{ companyId: { in: matchingCompanyIds } }]
+            : []),
+        ],
       },
-      take: 200,
+      take: limit,
     }),
     prisma.teammateCompany.findMany({
       where: { organizationId },
@@ -783,27 +796,16 @@ export async function searchCollaborators({
     companies.map((company) => [company.id, company.name]),
   );
 
-  return profiles
-    .map((profile) => {
-      const companyName = profile.companyId
-        ? (companyNameById.get(profile.companyId) ?? null)
-        : null;
-      return {
-        profileId: profile.id,
-        name:
-          [profile.firstName, profile.lastName].filter(Boolean).join(" ") ||
-          profile.email,
-        email: profile.email,
-        headshot: profile.headshot ?? null,
-        companyName,
-        state: profile.state,
-      };
-    })
-    .filter(
-      (row) =>
-        row.name.toLowerCase().includes(needle) ||
-        row.email.toLowerCase().includes(needle) ||
-        (row.companyName ?? "").toLowerCase().includes(needle),
-    )
-    .slice(0, limit);
+  return profiles.map((profile) => ({
+    profileId: profile.id,
+    name:
+      [profile.firstName, profile.lastName].filter(Boolean).join(" ") ||
+      profile.email,
+    email: profile.email,
+    headshot: profile.headshot ?? null,
+    companyName: profile.companyId
+      ? (companyNameById.get(profile.companyId) ?? null)
+      : null,
+    state: profile.state,
+  }));
 }

@@ -458,6 +458,8 @@ async function main(): Promise<void> {
       // per-plan scoping assertions below meaningless.
       planScope: "this_plan",
       planId: planA.id,
+      // Adding a Team Member now sends the T9 invitation email; a suite must not.
+      skipEmail: true,
     });
     created.profileIds.push(teammate.profileId);
 

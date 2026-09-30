@@ -10,6 +10,7 @@ import {
   listCollaborators,
   listTeamMembers,
 } from "@/lib/teammates/team.server";
+import { listCustomBenefitTitles } from "@/lib/teammates/benefit-categories.server";
 
 /**
  * Team Member management (spec T3).
@@ -57,13 +58,19 @@ export async function GET() {
     // and the meter never show a seat that has already been released.
     await expireStaleInvites(session.organizationId, session.userId);
 
-    const [team, collaborators, seats] = await Promise.all([
+    const [team, collaborators, seats, customCategories] = await Promise.all([
       listTeamMembers(session.organizationId),
       listCollaborators(session.organizationId),
       getSeatUsage(session.organizationId),
+      // The organisation's own Custom benefit titles, so the access picker can offer them
+      // alongside the four canonical categories. Read here rather than from a second
+      // endpoint because this response is already the one the Settings tab fetches, and a
+      // picker that renders before its category list arrives is a picker that briefly
+      // cannot be used.
+      listCustomBenefitTitles(session.organizationId),
     ]);
 
-    return NextResponse.json({ team, collaborators, seats });
+    return NextResponse.json({ team, collaborators, seats, customCategories });
   } catch (error) {
     return errorResponse(error);
   }
@@ -97,6 +104,19 @@ export async function POST(request: NextRequest) {
       actorUserId: session.userId,
       name: typeof body.name === "string" ? body.name : null,
       email: String(body.email ?? ""),
+      // The Key Contact fields the profile can actually store. An ABSENT key means "not
+      // supplied, leave it alone" and an empty string means "clear it", so these are passed
+      // as `undefined` when the client did not send them — which is what keeps the Existing
+      // Contact slide from blanking out a contact's details on promotion.
+      firstName: typeof body.firstName === "string" ? body.firstName : undefined,
+      lastName: typeof body.lastName === "string" ? body.lastName : undefined,
+      jobTitle: typeof body.jobTitle === "string" ? body.jobTitle : undefined,
+      phone: typeof body.phone === "string" ? body.phone : undefined,
+      phoneExtension:
+        typeof body.phoneExtension === "string" ? body.phoneExtension : undefined,
+      headshot: typeof body.headshot === "string" ? body.headshot : undefined,
+      companyName:
+        typeof body.companyName === "string" ? body.companyName : undefined,
       type: body.type as never,
       role: body.role as never,
       planScope: body.planScope as never,
@@ -104,6 +124,9 @@ export async function POST(request: NextRequest) {
         ? body.planIds.map((id) => String(id))
         : undefined,
       planId: typeof body.planId === "string" ? body.planId : null,
+      // A promotion names the Contact explicitly, so the picker's choice is the person who
+      // is promoted. Absent for a fresh add, where the email is the identity.
+      profileId: typeof body.profileId === "string" ? body.profileId : null,
       categoryScope: body.categoryScope as never,
       categories: Array.isArray(body.categories)
         ? body.categories.map((category) => String(category))
@@ -117,9 +140,15 @@ export async function POST(request: NextRequest) {
       member: {
         profileId: result.profileId,
         personType: result.personType,
+        // The state the profile is actually in, which is `active` rather than `invited`
+        // when the email already belonged to somebody with an account. The UI says
+        // "invitation sent" only when `emailSent` is true, so this and the flag below are
+        // what keep the toast honest.
         state: result.state,
         assignmentCount: result.assignmentIds.length,
       },
+      emailSent: result.emailSent,
+      emailError: result.emailError,
       seats: result.seats,
     });
   } catch (error) {
