@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { ObjectId } from "mongodb";
+import { planIdOrSlug } from "@/lib/plan-lookup";
 import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
 import {
   resolvePortalAdvisorId,
@@ -37,20 +37,14 @@ async function resolveClient(
     }
   }
 
-  const isObjectId = ObjectId.isValid(id);
-  let client = null;
-
-  if (isObjectId) {
-    client = ownerId
-      ? await prisma.client.findFirst({ where: { id, userId: ownerId } })
-      : await prisma.client.findUnique({ where: { id } });
-  }
-
-  if (!client) {
-    const slugWhere: Record<string, unknown> = { slug: id };
-    if (ownerId) slugWhere.userId = ownerId;
-    client = await prisma.client.findFirst({ where: slugWhere });
-  }
+  // Same by-id-or-slug fix as the `[category]` route, for the same reason: `ObjectId.isValid`
+  // is false for a cuid, so the id lookup was skipped and the slug fallback could never match
+  // an id. See that route for the full note.
+  const client = await prisma.client.findFirst({
+    where: {
+      AND: [planIdOrSlug(id), ...(ownerId ? [{ userId: ownerId }] : [])],
+    },
+  });
 
   if (!client) {
     return [null, NextResponse.json({ error: "Client not found" }, { status: 404 })];

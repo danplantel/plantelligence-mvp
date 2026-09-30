@@ -8,6 +8,7 @@ import { deleteTeammateProfile } from "@/lib/teammates/profiles.server";
 import { getSeatUsage } from "@/lib/teammates/seats.server";
 import {
   getMembershipDetail,
+  removeTeamMemberFromSeat,
   setTeamMemberActive,
   updateTeamMember,
 } from "@/lib/teammates/team.server";
@@ -60,7 +61,7 @@ export async function GET(
 /**
  * PATCH /api/teammates/team/[profileId]
  *
- * Three operations, chosen by `action`:
+ * Four operations, chosen by `action`:
  *
  *  - **no action** — edit: display name, role, plan access and benefits access.
  *    The scope is reconciled against the existing assignments through the same
@@ -75,6 +76,12 @@ export async function GET(
  *    actions. Only reachable with no assignments left: `deleteTeammateProfile`
  *    owns that guard (409 `profile_has_assignments`), so the client's disabled
  *    button is a courtesy rather than the enforcement.
+ *  - **`action: "remove_from_seat"`** — give the seat up without deleting the person.
+ *    This is one intent but not one write: the state machine forbids `active →
+ *    contact`, so an un-accepted invite returns to Contact while an accepted member is
+ *    deactivated. Both release the seat, and the response reports which happened
+ *    (`member.outcome`) alongside `releasedSeats`; `removeTeamMemberFromSeat` owns the
+ *    reasoning and the reserved-Owner-seat guard.
  *
  * Gated on `org_settings: edit` — the same rule that keeps a Collaborator and a
  * Viewer out of team management entirely.
@@ -130,6 +137,25 @@ export async function PATCH(
         success: true,
         member: { profileId: removed.id, deleted: true },
         seats: await getSeatUsage(session.organizationId),
+      });
+    }
+
+    if (body.action === "remove_from_seat") {
+      const removed = await removeTeamMemberFromSeat({
+        organizationId: session.organizationId,
+        actorUserId: session.userId,
+        profileId: params.profileId,
+      });
+
+      return NextResponse.json({
+        success: true,
+        member: {
+          profileId: removed.profileId,
+          outcome: removed.outcome,
+          state: removed.state,
+        },
+        releasedSeats: removed.releasedSeats,
+        seats: removed.seats,
       });
     }
 

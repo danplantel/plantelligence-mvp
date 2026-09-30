@@ -3,7 +3,7 @@ import { uploadBrandingToR2 } from "@/lib/branding-r2";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { ObjectId } from "mongodb";
+import { planIdOrSlug } from "@/lib/plan-lookup";
 import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
 import { getCategoryPortalVisibility } from "@/lib/portal-category-visibility";
 import {
@@ -58,23 +58,27 @@ async function resolveClient(
     }
   }
 
-  const isObjectId = ObjectId.isValid(id);
-  // Portal requests stay scoped to the owning advisor; session requests look the
-  // plan up unscoped so a teammate can be authorized by their assignment.
-  const scopeUserId = portalAdvisorId;
-  let client = null;
-
-  if (isObjectId) {
-    client = scopeUserId
-      ? await prisma.client.findFirst({ where: { id, userId: scopeUserId } })
-      : await prisma.client.findUnique({ where: { id } });
-  }
-
-  if (!client) {
-    const slugWhere: Record<string, unknown> = { slug: id };
-    if (scopeUserId) slugWhere.userId = scopeUserId;
-    client = await prisma.client.findFirst({ where: slugWhere });
-  }
+  // Resolve the plan by id OR slug in ONE query, instead of testing the shape of the
+  // identifier first.
+  //
+  // The `ObjectId.isValid(id)` gate this replaces was a MongoDB-era workaround: handing a
+  // non-ObjectId to `where: { id }` threw `P2023`. PostgreSQL simply does not match a
+  // malformed value, so the shape test is unnecessary — and actively harmful, because ids
+  // are cuids now and `isValid` is false for every one of them. The id lookup was therefore
+  // skipped, the slug fallback could never match an id, and the plan was NEVER resolved.
+  // That is what broke Create Benefit and Edit Benefit after the migration: the row could
+  // not be written because its plan could not be found. (plans/postgres-migration.md, P5a.)
+  //
+  // Portal requests stay scoped to the owning advisor; session requests look the plan up
+  // unscoped so a teammate can be authorized by their assignment.
+  const client = await prisma.client.findFirst({
+    where: {
+      AND: [
+        planIdOrSlug(id),
+        ...(portalAdvisorId ? [{ userId: portalAdvisorId }] : []),
+      ],
+    },
+  });
 
   if (!client) {
     return [null, NextResponse.json({ error: "Client not found" }, { status: 404 })];

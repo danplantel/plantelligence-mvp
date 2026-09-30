@@ -16,6 +16,7 @@
 
 import prisma from "@/lib/prisma";
 import { sendTeamMemberInviteEmail } from "@/lib/email";
+import { recordTeammateAuditEvent } from "./audit.server";
 import { TeammateDataError } from "./errors";
 import { acceptanceUrlForProfile } from "./invite-link.server";
 import {
@@ -26,6 +27,7 @@ import {
   reactivateTeammateProfile,
   type UpdateTeammateProfileInput,
   setProfileAllPlans,
+  setProfileState,
   setProfileType,
   updateTeammateProfile,
   upgradeContactToInvited,
@@ -937,6 +939,161 @@ export async function setTeamMemberActive({
   }
 
   return { profileId, seats: await getSeatUsage(organizationId) };
+}
+
+/** Which write a "remove from seat" actually performed. */
+export type RemoveFromSeatOutcome = "returned_to_contact" | "deactivated";
+
+export interface RemoveFromSeatResult {
+  profileId: string;
+  outcome: RemoveFromSeatOutcome;
+  /** The state the profile ended in, so the caller need not re-read it. */
+  state: TeammateProfileState;
+  /** How many seats the meter gave back — 0 when this person held none. */
+  releasedSeats: number;
+  /** The fresh meter, so the header can show the freed seat without a second read. */
+  seats: SeatUsage;
+}
+
+/**
+ * Take someone out of the seat they occupy without deleting them.
+ *
+ * This is one *user* action but not one write, because the state machine only allows
+ * one of them per person: `setProfileState` refuses `active → contact` ("An Active
+ * profile cannot be reverted to Contact. Deactivate it instead."), so "put them back
+ * as a Contact" is genuinely unavailable to anyone who has accepted.
+ *
+ *  - **`invited`** — no acceptance yet, so the promotion is fully reversible: the state
+ *    returns to `contact`, exactly as `expireStaleInvites` does when a 14-day hold
+ *    lapses. `getSeatUsage` counts only `active` and unexpired `invited` profiles, so the
+ *    seat is released; the profile and everything on it survive, and they can be Promoted
+ *    again unchanged.
+ *  - **`active`** — accepted, and therefore un-revertable. Deactivation is the spec's own
+ *    answer (T6: "all access to the organization ends; the profile is kept"), and
+ *    `getSeatUsage` skips any profile carrying a `deactivatedAt`, so the seat is released
+ *    exactly as it is on the invite path.
+ *
+ * **`type` is never touched.** It is the org-boundary axis, and moving a profile to
+ * `collaborator` is precisely what makes it appear in the Collaborators list — a list the
+ * settings accordion describes as "external people — free, no seat" who need "access to a
+ * plan". Someone who has just given up their seat is neither: they are a **Contact**, on
+ * the roster with no seat and no access, and they belong in neither list. Leaving the type
+ * alone also matches what `expireStaleInvites` already does, so the two ways a seat can
+ * lapse produce the same shape — and it keeps Reactivate able to hand an accepted member
+ * their seat back.
+ *
+ * All Plans is cleared when it was set. That flag is what makes `listAllPlansTeamMembers`
+ * hand out an assignment for every NEW plan, so without clearing it a person who just gave
+ * up their seat would keep silently accruing access to plans created next week. Re-Promoting
+ * re-applies it from the Plan scope the access step asks for.
+ *
+ * The Owner is refused. Their seat is reserved and they are synthesized from the
+ * Organization + User rather than stored as a profile (`listOrgPeople` gives them
+ * `id: "owner:<userId>"` and `profileId: null`), so there is nothing to release —
+ * the guard exists so a hand-made request cannot try.
+ */
+export async function removeTeamMemberFromSeat({
+  organizationId,
+  actorUserId,
+  profileId,
+}: {
+  organizationId: string;
+  actorUserId: string;
+  profileId: string;
+}): Promise<RemoveFromSeatResult> {
+  const profile = await getTeammateProfile(profileId, organizationId);
+  if (!profile) {
+    throw new TeammateDataError("Teammate profile not found.", 404);
+  }
+
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { ownerUserId: true },
+  });
+  if (organization?.ownerUserId) {
+    const owner = await prisma.user.findUnique({
+      where: { id: organization.ownerUserId },
+      select: { email: true },
+    });
+    // Either link identifies the owner: a profile that has accepted and is therefore
+    // carrying `loginUserId`, or a mirrored Contact profile matched by email.
+    const isOwner =
+      profile.loginUserId === organization.ownerUserId ||
+      (owner?.email ?? "").toLowerCase() === profile.email.toLowerCase();
+    if (isOwner) {
+      throw new TeammateDataError(
+        "The Owner's seat is reserved and cannot be removed. Transfer ownership first.",
+        409,
+        "owner_reserved_seat",
+      );
+    }
+  }
+
+  // Measured, not re-derived: `getSeatUsage` owns the metering rules (the 14-day hold,
+  // deactivated profiles, Team Members only), so diffing its own number stays correct
+  // even if those rules change.
+  const before = await getSeatUsage(organizationId);
+
+  let outcome: RemoveFromSeatOutcome;
+
+  if (profile.deactivatedAt) {
+    // Already deactivated: no access, no seat, nothing to free. Deliberately a no-op.
+    outcome = "deactivated";
+  } else if (profile.state === "active") {
+    await deactivateTeammateProfile({
+      id: profileId,
+      organizationId,
+      actorUserId,
+    });
+    outcome = "deactivated";
+  } else if (profile.state === "invited") {
+    await setProfileState({
+      id: profileId,
+      organizationId,
+      actorUserId,
+      state: "contact",
+    });
+    outcome = "returned_to_contact";
+  } else {
+    // Already a Contact: no seat to give back, and no state to change.
+    outcome = "returned_to_contact";
+  }
+
+  // A seat and All Plans go together — see the note on the function.
+  if (profile.allPlans) {
+    await setProfileAllPlans({
+      id: profileId,
+      organizationId,
+      actorUserId,
+      allPlans: false,
+    });
+  }
+
+  const seats = await getSeatUsage(organizationId);
+  const releasedSeats = Math.max(before.seatsUsed - seats.seatsUsed, 0);
+
+  // The state/type writers above audit their own step; this records the intent, so the
+  // log reads as "someone gave this seat up" rather than two unrelated transitions.
+  await recordTeammateAuditEvent({
+    organizationId,
+    actorUserId,
+    action: "profile_removed_from_seat",
+    profileId,
+    details: {
+      outcome,
+      from: profile.state,
+      releasedSeats,
+      clearedAllPlans: profile.allPlans,
+    },
+  });
+
+  return {
+    profileId,
+    outcome,
+    state: outcome === "deactivated" ? "active" : "contact",
+    releasedSeats,
+    seats,
+  };
 }
 
 /* ─────────────── T6: the Assignment Management screen's reader ─────────────── */

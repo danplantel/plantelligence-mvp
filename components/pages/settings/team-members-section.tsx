@@ -10,6 +10,7 @@ import {
   Plus,
   Search,
   UserRound,
+  UserRoundMinus,
   UserRoundPlus,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -427,54 +428,79 @@ function RolesPermissionsDialog() {
 // `components/teammates/seats/seat-usage-info-dialog` so this panel and the dashboard's
 // seats card explain the rules from one implementation rather than two copies that drift.
 
-/** A filled seat: an existing Team Member. Clicking opens the T6 management screen. */
+/**
+ * A filled seat: an existing Team Member. The main surface opens the T6 management
+ * screen; the footer gives the seat up.
+ *
+ * The card is a plain `div` wrapping two separate buttons rather than one big
+ * `<button>`, because a button inside a button is invalid HTML and the seat genuinely
+ * has two actions. `onRemove` is omitted for the Owner: their seat is reserved and
+ * their row is synthesized from the Organization + User, so it carries no `profileId`
+ * to address (see `listOrgPeople`).
+ */
 function FilledSeatCard({
   row,
   onEdit,
+  onRemove,
 }: {
   row: TeamMemberRow;
   onEdit: (row: TeamMemberRow) => void;
+  onRemove?: (row: TeamMemberRow) => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onEdit(row)}
-      className="group relative flex h-full flex-col items-center gap-3 rounded-xl border bg-card p-4 text-center transition hover:border-primary/60 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <Pencil className="absolute right-3 top-3 h-3.5 w-3.5 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
+    <div className="group relative flex h-full flex-col items-center gap-3 rounded-xl border bg-card p-4 text-center transition hover:border-primary/60 hover:shadow-sm">
+      <button
+        type="button"
+        onClick={() => onEdit(row)}
+        aria-label={`Manage ${row.name}`}
+        className="flex w-full flex-1 flex-col items-center gap-3 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        <Pencil className="absolute right-3 top-3 h-3.5 w-3.5 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
 
-      {/* Headshot falls back to a monogram of the name, so an owner who has not
-          uploaded a photo still renders something rather than a blank circle. */}
-      <span className="block h-14 w-14 shrink-0 overflow-hidden rounded-full bg-muted">
-        <Headshot
-          src={row.headshot}
-          alt={row.name}
-          monogramName={row.name}
-          wrapperClassName="rounded-full"
-        />
-      </span>
-
-      <span className="w-full space-y-1">
-        <span className="block truncate text-sm font-medium">{row.name}</span>
-        <span className="block truncate text-xs text-muted-foreground">
-          {row.email}
+        {/* Headshot falls back to a monogram of the name, so an owner who has not
+            uploaded a photo still renders something rather than a blank circle. */}
+        <span className="block h-14 w-14 shrink-0 overflow-hidden rounded-full bg-muted">
+          <Headshot
+            src={row.headshot}
+            alt={row.name}
+            monogramName={row.name}
+            wrapperClassName="rounded-full"
+          />
         </span>
-      </span>
 
-      <span className="flex flex-wrap items-center justify-center gap-1">
-        <Badge variant={row.isOwner ? "default" : "secondary"}>
-          {row.isOwner ? "Owner" : PRESET_ROLE_LABELS[row.role]}
-        </Badge>
-        <Badge variant="outline">
-          {PROFILE_STATE_LABELS[row.status] ?? row.status}
-        </Badge>
-      </span>
+        <span className="w-full space-y-1">
+          <span className="block truncate text-sm font-medium">{row.name}</span>
+          <span className="block truncate text-xs text-muted-foreground">
+            {row.email}
+          </span>
+        </span>
 
-      <span className="mt-auto w-full space-y-0.5 text-[11px] leading-tight text-muted-foreground">
-        <span className="block truncate">{planAccessLabel(row)}</span>
-        <span className="block truncate">{categoryAccessLabel(row)}</span>
-      </span>
-    </button>
+        <span className="flex flex-wrap items-center justify-center gap-1">
+          <Badge variant={row.isOwner ? "default" : "secondary"}>
+            {row.isOwner ? "Owner" : PRESET_ROLE_LABELS[row.role]}
+          </Badge>
+          <Badge variant="outline">
+            {PROFILE_STATE_LABELS[row.status] ?? row.status}
+          </Badge>
+        </span>
+
+        <span className="mt-auto w-full space-y-0.5 text-[11px] leading-tight text-muted-foreground">
+          <span className="block truncate">{planAccessLabel(row)}</span>
+          <span className="block truncate">{categoryAccessLabel(row)}</span>
+        </span>
+      </button>
+
+      {onRemove ? (
+        <button
+          type="button"
+          onClick={() => onRemove(row)}
+          className="mt-auto inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <UserRoundMinus className="h-3 w-3" />
+          Remove from seat
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -875,6 +901,8 @@ export function TeamMembersSection() {
   );
   /** The collaborator awaiting a deactivate confirmation. */
   const [deactivating, setDeactivating] = useState<TeamMemberRow | null>(null);
+  /** The seat holder awaiting a "remove from seat" confirmation. */
+  const [removing, setRemoving] = useState<TeamMemberRow | null>(null);
 
   /**
    * Invite Collaborator — the email-sending path.
@@ -1275,14 +1303,85 @@ export function TeamMembersSection() {
   };
 
   /**
+   * Free the seat this person occupies, without deleting them.
+   *
+   * There is no single server-side meaning for this, and the UI must not imply one:
+   * the state machine forbids `active → contact`, so an un-accepted invite returns to
+   * being a Contact while an accepted member can only be deactivated. The confirm
+   * dialog below names whichever one applies, and the response's `outcome` decides the
+   * wording here, so the reader is told what actually happened rather than what they
+   * might have assumed.
+   */
+  const submitRemoveFromSeat = async (row: TeamMemberRow) => {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(
+        `/api/teammates/team/${row.profileId ?? row.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "remove_from_seat" }),
+        },
+      );
+
+      const body = (await response.json()) as {
+        error?: string;
+        seats?: SeatUsageSummary;
+        releasedSeats?: number;
+        member?: { outcome?: "returned_to_contact" | "deactivated" };
+      };
+      if (!response.ok) {
+        toast.error(body.error ?? "Could not remove the seat");
+        return;
+      }
+
+      if (body.seats) setSeats(body.seats);
+      setRemoving(null);
+
+      const freed = body.releasedSeats ?? 0;
+      const suffix =
+        freed > 0 && body.seats
+          ? ` Seat released — ${body.seats.seatsUsed} of ${body.seats.seatsIncluded} now in use.`
+          : "";
+      toast.success(
+        body.member?.outcome === "deactivated"
+          ? `${row.name} deactivated.${suffix}`
+          : `${row.name} is a Contact again.${suffix}`,
+      );
+      await load();
+    } catch {
+      toast.error("Could not remove the seat");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /**
+   * The rows that actually occupy a seat — which is what this grid is a picture of.
+   *
+   * `listOrgPeople` filters on `type` alone, so a `contact`-state profile still comes back
+   * in the team list and would render as a FILLED card claiming a seat nobody holds (the
+   * meter reading "1 of 5 used" beside a full grid). That is exactly what "remove from
+   * seat" produces, and what `expireStaleInvites` produces when a 14-day hold lapses: a
+   * person on the roster with no seat and no access. They belong in neither list, so they
+   * are dropped here rather than shown as a card the reader cannot account for.
+   *
+   * Deactivated members are kept: this grid is the only place their Reactivate path lives.
+   */
+  const seatHolders = useMemo(
+    () => team.filter((row) => row.status !== "contact"),
+    [team],
+  );
+
+  /**
    * One card per seat. Occupied cards are the people already on the team; the
    * rest are open. If the organization is over its allowance (a confirmed
    * over-limit add), the grid grows so no member is hidden.
    */
   const emptyCards = useMemo(() => {
-    const total = Math.max(seats?.seatsIncluded ?? 0, team.length);
-    return Math.max(0, total - team.length);
-  }, [seats?.seatsIncluded, team.length]);
+    const total = Math.max(seats?.seatsIncluded ?? 0, seatHolders.length);
+    return Math.max(0, total - seatHolders.length);
+  }, [seats?.seatsIncluded, seatHolders.length]);
 
   const pendingCount = seats?.seatsPending ?? 0;
 
@@ -1338,8 +1437,21 @@ export function TeamMembersSection() {
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {team.map((row) => (
-            <FilledSeatCard key={row.id} row={row} onEdit={openEdit} />
+          {seatHolders.map((row) => (
+            <FilledSeatCard
+              key={row.id}
+              row={row}
+              onEdit={openEdit}
+              // The Owner's seat is reserved, and their row is synthesized rather than
+              // stored, so there is no seat to give back and no profileId to address.
+              // A deactivated member holds nothing either, and their removal is undone
+              // from their own screen rather than from this grid.
+              onRemove={
+                row.isOwner || row.deactivatedAt
+                  ? undefined
+                  : (target) => setRemoving(target)
+              }
+            />
           ))}
           {Array.from({ length: emptyCards }).map((_, index) => (
             <EmptySeatCard key={`empty-${index}`} onAdd={openAdd} />
@@ -1913,6 +2025,40 @@ export function TeamMembersSection() {
               }}
             >
               {isSubmitting ? "Adding…" : "Add and increase seats"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Removing a seat means one of two different things depending on whether the
+          invite was ever accepted, so the copy names the one that applies instead of
+          leaving the reader to guess — and unlike the Collaborator dialog above, this
+          one changes the seat count. */}
+      <AlertDialog
+        open={removing !== null}
+        onOpenChange={(open) => !open && setRemoving(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Remove {removing?.name} from this seat?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {removing?.status === "invited"
+                ? "They have not accepted their invite yet, so this is fully reversible: they go back to being a Contact — no seat, no access, and not a Collaborator — and the seat is released. Their profile and every note on it are kept, so you can Promote them again at any time."
+                : "They have already accepted, so an active account cannot go back to being a Contact. They will be deactivated instead: access to every plan they were assigned to ends immediately and their seat is released. Their profile and history are kept, and reactivating them takes the seat back."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isSubmitting}
+              onClick={(event) => {
+                event.preventDefault();
+                if (removing) void submitRemoveFromSeat(removing);
+              }}
+            >
+              {isSubmitting ? "Removing…" : "Remove from seat"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

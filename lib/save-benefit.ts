@@ -452,7 +452,7 @@ export async function saveBenefit(
         ? "Company / Plan Sponsor"
         : step1Data?.benefitCategory;
     if (benefitCategory) {
-      await fetch(
+      const benefitResponse = await fetch(
         `/api/clients/${planId}/benefits/${encodeURIComponent(benefitCategory)}`,
         {
           method: "PUT",
@@ -488,7 +488,24 @@ export async function saveBenefit(
             providerContact: step1Data?.providerContact ?? null,
           }),
         },
-      ).catch(() => {});
+      );
+      // The response MUST be checked.
+      //
+      // This write is what creates the Benefit row, and that row is what the Benefits list
+      // reads a category's status from. Swallowing the failure left the row absent while the
+      // caller reported success — so the advisor saw "created successfully" next to a card
+      // still marked "Not Created". While this route was broken by the Postgres migration
+      // that is precisely what happened, and it took a report of "the 500 and the wrong
+      // status" to surface, because the two symptoms looked like separate bugs.
+      if (!benefitResponse.ok) {
+        const detail = await benefitResponse
+          .json()
+          .then((body: any) => body?.error)
+          .catch(() => null);
+        throw new Error(
+          detail || `Saving the benefit failed (${benefitResponse.status})`,
+        );
+      }
       // The benefits PUT writes the Benefit row and dual-writes
       // `employeePortalPreview.benefits`, so both cached reads are stale after it runs.
       invalidateClientCache(planId);

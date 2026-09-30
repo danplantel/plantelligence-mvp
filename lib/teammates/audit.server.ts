@@ -20,6 +20,10 @@ export type TeammateAuditAction =
   | "profile_login_linked"
   | "profile_all_plans_changed"
   | "profile_type_changed"
+  // Freeing a seat is a distinct intent from the write it performs (an un-accepted
+  // invite reverts to Contact, an accepted member can only be deactivated), so it gets
+  // its own action rather than reading as a stray state change in the trail.
+  | "profile_removed_from_seat"
   | "profile_company_changed"
   | "profile_deactivated"
   | "profile_reactivated"
