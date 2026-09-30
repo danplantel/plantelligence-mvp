@@ -537,10 +537,13 @@ function CollaboratorRow({
   row,
   onEdit,
   onToggleActive,
+  onRemove,
 }: {
   row: TeamMemberRow;
   onEdit: (row: TeamMemberRow) => void;
   onToggleActive: (row: TeamMemberRow) => void;
+  /** Removes the person and the access that goes with them. Absent while loading. */
+  onRemove: (row: TeamMemberRow) => void;
 }) {
   const isDeactivated = Boolean(row.deactivatedAt);
 
@@ -579,13 +582,24 @@ function CollaboratorRow({
         )}
       </span>
 
-      <span className="flex shrink-0 items-center gap-1">
+      <span className="flex shrink-0 flex-wrap items-center gap-1">
         <Button variant="ghost" size="sm" onClick={() => onEdit(row)}>
           <Pencil className="mr-1.5 h-3.5 w-3.5" />
           Edit
         </Button>
         <Button variant="ghost" size="sm" onClick={() => onToggleActive(row)}>
           {isDeactivated ? "Reactivate" : "Deactivate"}
+        </Button>
+        {/* Deactivate ends access but keeps the person; Remove is the way out of the
+            organization, which is what "I added this collaborator by mistake" asks for. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          className="text-red-600 hover:text-red-700"
+          onClick={() => onRemove(row)}
+        >
+          <UserRoundMinus className="mr-1.5 h-3.5 w-3.5" />
+          Remove
         </Button>
       </span>
     </li>
@@ -903,6 +917,8 @@ export function TeamMembersSection() {
   const [deactivating, setDeactivating] = useState<TeamMemberRow | null>(null);
   /** The seat holder awaiting a "remove from seat" confirmation. */
   const [removing, setRemoving] = useState<TeamMemberRow | null>(null);
+  /** The person awaiting a "remove from the organization" confirmation. */
+  const [removingPerson, setRemovingPerson] = useState<TeamMemberRow | null>(null);
 
   /**
    * Invite Collaborator — the email-sending path.
@@ -1357,6 +1373,56 @@ export function TeamMembersSection() {
   };
 
   /**
+   * Remove a person from the organization outright — their plan access goes with them.
+   *
+   * Nothing in this tab can drop a single assignment, and the T6 screen's Delete used to
+   * refuse while any remained (spec T6 item 3), so a Collaborator on any plan had no route
+   * out at all. The server does the two writes in order (assignments, then profile) for one
+   * confirm, because "remove this person" is one decision; the dialog names the access that
+   * goes with it so it is never a surprise.
+   */
+  const submitRemovePerson = async (row: TeamMemberRow) => {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(
+        `/api/teammates/team/${row.profileId ?? row.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "remove_from_organization" }),
+        },
+      );
+
+      const body = (await response.json()) as {
+        error?: string;
+        seats?: SeatUsageSummary;
+        member?: { removedAssignments?: number };
+      };
+      if (!response.ok) {
+        toast.error(body.error ?? "Could not remove this person");
+        return;
+      }
+
+      if (body.seats) setSeats(body.seats);
+      setRemovingPerson(null);
+
+      const revoked = body.member?.removedAssignments ?? 0;
+      toast.success(
+        revoked > 0
+          ? `${row.name} removed, along with their access to ${revoked} plan${
+              revoked === 1 ? "" : "s"
+            }.`
+          : `${row.name} removed.`,
+      );
+      await load();
+    } catch {
+      toast.error("Could not remove this person");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /**
    * The rows that actually occupy a seat — which is what this grid is a picture of.
    *
    * `listOrgPeople` filters on `type` alone, so a `contact`-state profile still comes back
@@ -1502,6 +1568,7 @@ export function TeamMembersSection() {
                       if (target.deactivatedAt) void submitToggleActive(target);
                       else setDeactivating(target);
                     }}
+                    onRemove={(target) => setRemovingPerson(target)}
                   />
                 ))}
               </ul>
@@ -2059,6 +2126,46 @@ export function TeamMembersSection() {
               }}
             >
               {isSubmitting ? "Removing…" : "Remove from seat"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Removing a person is destructive and irreversible — unlike Deactivate, which
+          keeps them — so the copy leads with what goes with the profile: their plan
+          access. Stated up front because the T6 screen used to refuse this while any
+          assignment remained, so the reader may have learned to expect a block. */}
+      <AlertDialog
+        open={removingPerson !== null}
+        onOpenChange={(open) => !open && setRemovingPerson(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove {removingPerson?.name}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              They are removed from your organization
+              {(removingPerson?.planAccess.planIds.length ?? 0) > 0
+                ? `, and their access to ${
+                    removingPerson?.planAccess.planIds.length
+                  } plan${
+                    removingPerson?.planAccess.planIds.length === 1 ? "" : "s"
+                  } is revoked first`
+                : ""}
+              . Their profile is deleted and this cannot be undone. Content they
+              created stays where it is. If you only want to end their access, use
+              Deactivate instead — that keeps the person.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isSubmitting}
+              onClick={(event) => {
+                event.preventDefault();
+                if (removingPerson) void submitRemovePerson(removingPerson);
+              }}
+            >
+              {isSubmitting ? "Removing…" : "Remove person"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

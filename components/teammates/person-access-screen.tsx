@@ -356,7 +356,16 @@ export function PersonAccessScreen({
     }
   };
 
-  /** The third action: Delete Profile, only ever with no assignments left. */
+  /**
+   * The third action: Delete Profile.
+   *
+   * Sent as `remove_from_organization` rather than the strict `delete`, and that difference
+   * is the whole point: `deleteTeammateProfile` refuses with a 409 while any assignment
+   * remains (spec T6 item 3), so the strict action could only ever work on someone with no
+   * plans — which is not who you delete. The cascade removes the assignments first and then
+   * the profile, and the dialog below states that their access goes with them, so this is a
+   * confirmed clear rather than a silent one.
+   */
   const deleteProfile = async () => {
     if (!profileId) return;
     setIsWorking(true);
@@ -364,15 +373,23 @@ export function PersonAccessScreen({
       const response = await fetch(`/api/teammates/team/${profileId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "delete" }),
+        body: JSON.stringify({ action: "remove_from_organization" }),
       });
-      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      const body = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        member?: { removedAssignments?: number };
+      };
       if (!response.ok) {
-        // 409 profile_has_assignments is the spec's own rule, not a failure.
         toast.error(body.error ?? "Could not delete this profile");
         return;
       }
-      toast.success("Profile deleted.");
+
+      const removed = body.member?.removedAssignments ?? 0;
+      toast.success(
+        removed > 0
+          ? `Profile deleted — access to ${removed} plan${removed === 1 ? "" : "s"} removed with it.`
+          : "Profile deleted.",
+      );
       setIsDeleteOpen(false);
       onOpenChange(false);
       onChanged();
@@ -384,7 +401,6 @@ export function PersonAccessScreen({
   };
 
   const assignmentCount = detail?.assignments.length ?? 0;
-  const canDelete = detail?.canDeleteProfile ?? false;
 
   return (
     <>
@@ -740,22 +756,19 @@ export function PersonAccessScreen({
                     size="sm"
                     className="text-red-600 hover:text-red-700"
                     onClick={() => setIsDeleteOpen(true)}
-                    disabled={isWorking || !canDelete}
-                    title={
-                      canDelete
-                        ? "Delete this profile"
-                        : "Remove every assignment before deleting this profile"
-                    }
+                    disabled={isWorking}
+                    title="Remove this person from your organization"
                   >
                     <Trash2 className="mr-2 h-3.5 w-3.5" />
                     Delete Profile
                   </Button>
                 </div>
 
-                {!canDelete ? (
+                {assignmentCount > 0 ? (
                   <p className="text-[11px] text-muted-foreground">
-                    Delete is blocked while {assignmentCount} assignment
-                    {assignmentCount === 1 ? "" : "s"} remain — remove them first.
+                    Deleting also revokes their access to {assignmentCount} plan
+                    {assignmentCount === 1 ? "" : "s"}. Content they created stays
+                    where it is.
                   </p>
                 ) : null}
               </section>
@@ -801,8 +814,13 @@ export function PersonAccessScreen({
             <AlertDialogTitle>Delete this profile?</AlertDialogTitle>
             <AlertDialogDescription>
               {detail?.profile.name ?? "This person"} is removed from your
-              organization. Content they created stays where it is. This cannot be
-              undone.
+              organization
+              {assignmentCount > 0
+                ? `, along with their access to ${assignmentCount} plan${
+                    assignmentCount === 1 ? "" : "s"
+                  }`
+                : ""}
+              . Content they created stays where it is. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

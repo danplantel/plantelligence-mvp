@@ -8,6 +8,7 @@ import { deleteTeammateProfile } from "@/lib/teammates/profiles.server";
 import { getSeatUsage } from "@/lib/teammates/seats.server";
 import {
   getMembershipDetail,
+  removePersonFromOrganization,
   removeTeamMemberFromSeat,
   setTeamMemberActive,
   updateTeamMember,
@@ -61,7 +62,7 @@ export async function GET(
 /**
  * PATCH /api/teammates/team/[profileId]
  *
- * Four operations, chosen by `action`:
+ * Five operations, chosen by `action`:
  *
  *  - **no action** — edit: display name, role, plan access and benefits access.
  *    The scope is reconciled against the existing assignments through the same
@@ -82,6 +83,13 @@ export async function GET(
  *    deactivated. Both release the seat, and the response reports which happened
  *    (`member.outcome`) alongside `releasedSeats`; `removeTeamMemberFromSeat` owns the
  *    reasoning and the reserved-Owner-seat guard.
+ *  - **`action: "remove_from_organization"`** — remove the person entirely, which is the
+ *    only way to act on T6 item 3's "no remaining assignments" rule from the UI: their
+ *    assignments are removed first (spec T6 Part B item 1, audited per assignment) and the
+ *    profile is then deleted through the same guarded writer the strict `delete` uses. The
+ *    response reports how much access went with them. Without this, a Collaborator on any
+ *    plan was unremovable — `delete` refuses with 409 `profile_has_assignments` and nothing
+ *    in the Collaborators list can drop an assignment.
  *
  * Gated on `org_settings: edit` — the same rule that keeps a Collaborator and a
  * Viewer out of team management entirely.
@@ -137,6 +145,24 @@ export async function PATCH(
         success: true,
         member: { profileId: removed.id, deleted: true },
         seats: await getSeatUsage(session.organizationId),
+      });
+    }
+
+    if (body.action === "remove_from_organization") {
+      const removed = await removePersonFromOrganization({
+        organizationId: session.organizationId,
+        actorUserId: session.userId,
+        profileId: params.profileId,
+      });
+
+      return NextResponse.json({
+        success: true,
+        member: {
+          profileId: removed.profileId,
+          removedAssignments: removed.removedAssignments,
+          deleted: true,
+        },
+        seats: removed.seats,
       });
     }
 

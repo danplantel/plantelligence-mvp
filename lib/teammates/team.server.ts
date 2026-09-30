@@ -22,6 +22,7 @@ import { acceptanceUrlForProfile } from "./invite-link.server";
 import {
   createTeammateProfile,
   deactivateTeammateProfile,
+  deleteTeammateProfile,
   findProfileByEmail,
   getTeammateProfile,
   reactivateTeammateProfile,
@@ -987,10 +988,10 @@ export interface RemoveFromSeatResult {
  * up their seat would keep silently accruing access to plans created next week. Re-Promoting
  * re-applies it from the Plan scope the access step asks for.
  *
- * The Owner is refused. Their seat is reserved and they are synthesized from the
- * Organization + User rather than stored as a profile (`listOrgPeople` gives them
- * `id: "owner:<userId>"` and `profileId: null`), so there is nothing to release —
- * the guard exists so a hand-made request cannot try.
+ * The Owner is refused, through the shared guard below: their seat is reserved and they
+ * are synthesized from the Organization + User rather than stored as a profile
+ * (`listOrgPeople` gives them `id: "owner:<userId>"` and `profileId: null`), so there is
+ * nothing to release.
  */
 export async function removeTeamMemberFromSeat({
   organizationId,
@@ -1006,28 +1007,7 @@ export async function removeTeamMemberFromSeat({
     throw new TeammateDataError("Teammate profile not found.", 404);
   }
 
-  const organization = await prisma.organization.findUnique({
-    where: { id: organizationId },
-    select: { ownerUserId: true },
-  });
-  if (organization?.ownerUserId) {
-    const owner = await prisma.user.findUnique({
-      where: { id: organization.ownerUserId },
-      select: { email: true },
-    });
-    // Either link identifies the owner: a profile that has accepted and is therefore
-    // carrying `loginUserId`, or a mirrored Contact profile matched by email.
-    const isOwner =
-      profile.loginUserId === organization.ownerUserId ||
-      (owner?.email ?? "").toLowerCase() === profile.email.toLowerCase();
-    if (isOwner) {
-      throw new TeammateDataError(
-        "The Owner's seat is reserved and cannot be removed. Transfer ownership first.",
-        409,
-        "owner_reserved_seat",
-      );
-    }
-  }
+  await assertProfileIsNotOrganizationOwner({ profile, organizationId });
 
   // Measured, not re-derived: `getSeatUsage` owns the metering rules (the 14-day hold,
   // deactivated profiles, Team Members only), so diffing its own number stays correct
@@ -1093,6 +1073,113 @@ export async function removeTeamMemberFromSeat({
     state: outcome === "deactivated" ? "active" : "contact",
     releasedSeats,
     seats,
+  };
+}
+
+/**
+ * The Owner is not a teammate, so no writer here may remove them.
+ *
+ * `listOrgPeople` synthesizes the owner's row from `Organization.ownerUserId` rather than
+ * storing a `TeammateProfile` for them (see `onboarding-owner.ts`), which is why the seat
+ * grid's owner card carries `profileId: null`. They can still have a *profile* though — the
+ * T7 mirror creates one for any plan Contact, and a plan's contact list often holds the
+ * advisor's own address — so both links have to be checked: a profile carrying
+ * `loginUserId`, or a mirrored Contact matched by email.
+ */
+async function assertProfileIsNotOrganizationOwner({
+  profile,
+  organizationId,
+}: {
+  profile: { loginUserId: string | null; email: string };
+  organizationId: string;
+}): Promise<void> {
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { ownerUserId: true },
+  });
+  if (!organization?.ownerUserId) return;
+
+  const owner = await prisma.user.findUnique({
+    where: { id: organization.ownerUserId },
+    select: { email: true },
+  });
+
+  const isOwner =
+    profile.loginUserId === organization.ownerUserId ||
+    (owner?.email ?? "").toLowerCase() === profile.email.toLowerCase();
+
+  if (isOwner) {
+    throw new TeammateDataError(
+      "The Owner's seat is reserved and cannot be removed. Transfer ownership first.",
+      409,
+      "owner_reserved_seat",
+    );
+  }
+}
+
+/**
+ * Remove a person from the organization outright: their assignments first, then the
+ * profile itself.
+ *
+ * Spec T6 item 3 allows deletion "only when the person has no remaining assignments", and
+ * `deleteTeammateProfile` enforces exactly that with a 409. In the UI that made deletion a
+ * dead end rather than a rule: the T6 screen disables its Delete button while assignments
+ * exist, and the Collaborators list offers no way to drop one — so a Collaborator on any
+ * plan could not be removed at all.
+ *
+ * The two writes belong to a single user decision ("remove this person"), so they happen
+ * together here rather than being left to the advisor to perform one row at a time. The
+ * guard is not bypassed: assignments go through `removeAssignment`, which keeps the
+ * never-remove-the-last-Owner rule and audits each removal, and the profile then deletes
+ * through the same writer the strict path uses.
+ *
+ * One caveat worth knowing: a Contact mirrored from a plan's Key Contacts can be recreated
+ * by the T7 mirror the next time that plan's contacts are saved, because the mirror
+ * reconciles `Client.keyContacts` onto profiles and has no way to know the profile was
+ * deliberately removed. It comes back as a Contact with no access, never as a Collaborator
+ * with access.
+ */
+export async function removePersonFromOrganization({
+  organizationId,
+  actorUserId,
+  profileId,
+}: {
+  organizationId: string;
+  actorUserId: string;
+  profileId: string;
+}): Promise<{
+  profileId: string;
+  removedAssignments: number;
+  seats: SeatUsage;
+}> {
+  const profile = await getTeammateProfile(profileId, organizationId);
+  if (!profile) {
+    throw new TeammateDataError("Teammate profile not found.", 404);
+  }
+
+  await assertProfileIsNotOrganizationOwner({ profile, organizationId });
+
+  const assignments = await prisma.planAssignment.findMany({
+    where: { profileId, organizationId },
+    select: { id: true },
+  });
+
+  for (const assignment of assignments) {
+    await removeAssignment({
+      assignmentId: assignment.id,
+      organizationId,
+      actorUserId,
+    });
+  }
+
+  await deleteTeammateProfile({ id: profileId, organizationId, actorUserId });
+
+  // A Team Member's profile was carrying a seat; the caller needs the new meter so the
+  // header stops claiming a seat nobody holds.
+  return {
+    profileId,
+    removedAssignments: assignments.length,
+    seats: await getSeatUsage(organizationId),
   };
 }
 
