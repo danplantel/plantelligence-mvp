@@ -17,14 +17,23 @@ import {
 } from "@/components/plan-selector/plan-search-bar";
 import { OrgServiceCategories } from "@/components/pages/benefits/org-service-categories";
 import {
+  getLastPlanId,
   getRecentPlanIds,
   persistPlanSelection,
 } from "@/lib/plan-selector-storage";
 import { isActiveClientStatus } from "@/lib/active-client-status";
 import { categoryToSlug } from "@/lib/benefit-category-slug";
 import { Headshot } from "@/components/ui/headshot";
+import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { InviteCollaboratorDialog } from "@/components/pages/benefits/invite-collaborator-dialog";
-import { Loader2, Pencil, Plus, UserPlus } from "lucide-react";
+import {
+  AlertCircle,
+  Loader2,
+  Pencil,
+  Plus,
+  RefreshCw,
+  UserPlus,
+} from "lucide-react";
 
 interface BenefitRow {
   planId: string;
@@ -85,25 +94,168 @@ function isCustomBenefitTitle(
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 /**
+ * The picker's own read. `summary=1` is load-bearing: the picker uses only
+ * id/companyName/slug/status, and the default response ships every plan's `keyContacts`
+ * + legacy `employeePortalPreview` mirror (base64 images) — measured at 8.3 MB / 6.6 s
+ * for a 7-plan account.
+ */
+const PLAN_LIST_KEY =
+  "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc&summary=1";
+
+/**
+ * The states the plan card can be in. A union rather than nested ternaries in the JSX,
+ * because the interesting part of this page is the ORDER these resolve in, and that is
+ * easier to read as a ladder than as brackets.
+ */
+type ContentState =
+  | "loading"
+  | "plans-failed"
+  | "benefits-failed"
+  | "no-plans"
+  | "no-active-plans"
+  | "ready";
+
+/**
+ * What the plan card shows while it is being resolved.
+ *
+ * Mirrors the card's own shape — header, then rows — so the reveal is a fade rather than
+ * a relayout. Its job is to own the first paint: before it existed, the empty state was
+ * rendered for a plan that was merely still arriving.
+ */
+function PlanBenefitsSkeleton() {
+  return (
+    <Card aria-busy="true" aria-live="polite" className="dark:bg-gray-800">
+      <CardContent className="p-4 sm:p-6">
+        <span className="sr-only">Loading this plan&rsquo;s benefits…</span>
+        <div className="mb-4 space-y-2">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-3 w-56" />
+        </div>
+        <div className="divide-y divide-gray-100 dark:divide-gray-700">
+          {Array.from({ length: 4 }).map((_, index) => (
+            <div key={index} className="flex items-center gap-4 py-3">
+              <Skeleton className="h-10 w-10 shrink-0 rounded-lg" />
+              <div className="min-w-0 flex-1 space-y-2">
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-3 w-24" />
+              </div>
+              <Skeleton className="h-5 w-16 shrink-0 rounded-full" />
+              <Skeleton className="h-8 w-20 shrink-0 rounded-md" />
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * A read that failed, stated as such and with a way out.
+ *
+ * Both of this page's reads can fail on their own, and SWR reports that as `error` with
+ * `isLoading` back to false. Without this state the page either sits on a skeleton
+ * forever or — worse, and this is what it used to do — claims the account has no plans.
+ */
+function LoadFailedCard({
+  title,
+  description,
+  onRetry,
+}: {
+  title: string;
+  description: string;
+  onRetry: () => void;
+}) {
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+        <AlertCircle className="h-5 w-5 text-muted-foreground" />
+        <div className="space-y-1">
+          <p className="text-sm font-medium">{title}</p>
+          <p className="max-w-md text-sm text-muted-foreground">{description}</p>
+        </div>
+        <Button variant="outline" className="gap-2" onClick={onRetry}>
+          <RefreshCw className="h-4 w-4" />
+          Try again
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Every plan is Draft or Archived, so the picker has nothing it may offer — the plan
+ * search lists Active plans only (see `PlanSearchBar`). Saying so beats the previous
+ * "Select a plan above to view its benefits", which pointed at a list that was empty by
+ * construction.
+ */
+function NoActivePlansCard({ onViewPlans }: { onViewPlans: () => void }) {
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+        <p className="max-w-md text-sm text-muted-foreground">
+          No active plans. A plan has to be Active before its benefit pages can be
+          published — Draft and Archived plans are not offered above.
+        </p>
+        <Button variant="outline" onClick={onViewPlans}>
+          View Plans
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
  * Browse Benefits — a plan picker scopes the view to one plan's four benefit
  * pages, each with a Portal Visibility toggle and an action that opens the
  * inline editor (mirrors the "View Plans" list for the plan flow).
  */
-export function BenefitsListPage() {
+export function BenefitsListPage({
+  orgCategories,
+}: {
+  /**
+   * The organization strip's labels, resolved by the page on the SERVER — see
+   * app/(dashboard)/benefits/page.tsx. Server-resolved on purpose: this strip sits above
+   * the plan card, so a read of its own here would race the card and could paint after it.
+   */
+  orgCategories: string[];
+}) {
   const router = useRouter();
-  const { data, isLoading, mutate } = useSWR("/api/benefits", fetcher);
-  // `summary=1`: this picker reads only id/companyName/slug/status, and the default
-  // response ships every plan's `keyContacts` + legacy `employeePortalPreview` mirror
-  // (base64 images) — measured at 8.3 MB / 6.6 s for a 7-plan account.
-  const { data: planListData } = useSWR(
-    "/api/clients?status=all&limit=500&sortColumn=companyName&sortDirection=asc&summary=1",
-    fetcher,
-    { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false },
-  );
+  const { setTitle } = usePageTitleContext();
+
+  // The page's own title, kept with the component it labels — the same arrangement
+  // Dashboard and Edit Benefit use. It lives here so `page.tsx` can stay a Server
+  // Component and hand the strip's data straight down.
+  useEffect(() => {
+    setTitle("Benefits");
+  }, [setTitle]);
+
+  /* ── The two client reads behind this page ──
+     `benefits` is keyed on the endpoint alone: it returns EVERY plan's rows, so changing the
+     selected plan never refetches it. `plans` is the picker's list, and without it nothing
+     can be selected at all — which is why "no plan selected" is not the same question as
+     "no plans exist". The organization strip is NOT part of this: the server already
+     resolved it, so it is on screen before either read returns. */
+  const {
+    data: benefitsData,
+    isLoading: isBenefitsLoading,
+    error: benefitsError,
+    mutate,
+  } = useSWR("/api/benefits", fetcher);
+  const {
+    data: planListData,
+    isLoading: isPlanListLoading,
+    error: planListError,
+    mutate: mutatePlanList,
+  } = useSWR(PLAN_LIST_KEY, fetcher, {
+    keepPreviousData: true,
+    dedupingInterval: 60_000,
+    revalidateOnFocus: false,
+  });
+
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [toggling, setToggling] = useState<Record<string, boolean>>({});
 
-  const rows: BenefitRow[] = data?.benefits ?? [];
+  const rows: BenefitRow[] = benefitsData?.benefits ?? [];
   const plans: PlanSearchBarPlan[] = useMemo(
     () =>
       ((planListData?.data as PlanSearchBarPlan[] | undefined) ?? []).map((p) => ({
@@ -120,14 +272,73 @@ export function BenefitsListPage() {
     [plans],
   );
 
-  // Default to the most recent plan the user has worked on, else the first.
+  /**
+   * Restore the plan this page was last on.
+   *
+   * Precedence: this module's own last pick → a plan touched anywhere (the shared MRU) →
+   * the first selectable plan. The per-module key is the one the picker itself persists,
+   * so coming back to Benefits restores the plan you were working on rather than whichever
+   * plan another module touched most recently.
+   */
   useEffect(() => {
     if (selectedPlanId || selectablePlans.length === 0) return;
-    const recentId = getRecentPlanIds().find((id) =>
-      selectablePlans.some((p) => p.id === id),
-    );
-    setSelectedPlanId(recentId || selectablePlans[0].id);
+    const sticky = getLastPlanId("benefits");
+    const remembered =
+      (sticky && selectablePlans.some((p) => p.id === sticky) ? sticky : null) ??
+      getRecentPlanIds().find((id) => selectablePlans.some((p) => p.id === id)) ??
+      selectablePlans[0].id;
+    setSelectedPlanId(remembered);
   }, [selectedPlanId, selectablePlans]);
+
+  /* ── What is known, so far ──
+     SWR's `isLoading` is true only for the first read of a key, and goes back to false
+     once an `error` is set — which is what lets a failure become a Retry instead of a
+     permanent skeleton. */
+  const plansSettled = !isPlanListLoading;
+  const hasPlans = plans.length > 0;
+  const hasActivePlans = selectablePlans.length > 0;
+  // The auto-selection above runs in an effect, so there is exactly one render where the
+  // plan list is known and nothing is chosen yet. Counting that as "loading" is what stops
+  // "No plans yet. Create a plan first…" from flashing on every cold load.
+  const isSelectingPlan = !selectedPlanId && hasActivePlans;
+
+  const isPlanContentLoading = isBenefitsLoading || isSelectingPlan;
+
+  /* ── Which state the plan card renders ──
+     Order matters. What is known beats what is loading, so an account with no plans is
+     told so at once rather than behind the strip's placeholder. A failure is only shown
+     for the read that would have produced this content — and never in place of a plan
+     list we already hold, since `keepPreviousData` keeps the picker usable. */
+  const contentState: ContentState = !plansSettled
+    ? "loading"
+    : planListError && !hasPlans
+      ? "plans-failed"
+      : !hasPlans
+        ? "no-plans"
+        : !hasActivePlans
+          ? "no-active-plans"
+          : isPlanContentLoading
+            ? "loading"
+            : benefitsError && !benefitsData
+              ? "benefits-failed"
+              : "ready";
+
+  const failure =
+    contentState === "plans-failed"
+      ? {
+          title: "Couldn't load your plans",
+          description:
+            "The plan list did not come back, so there is nothing to select yet. Check your connection and try again.",
+          onRetry: () => void mutatePlanList(),
+        }
+      : contentState === "benefits-failed"
+        ? {
+            title: "Couldn't load this plan's benefits",
+            description:
+              "The plan list loaded, but the benefit pages did not. Check your connection and try again.",
+            onRetry: () => void mutate(),
+          }
+        : null;
 
   const planRows = useMemo(
     () => rows.filter((row) => row.planId === selectedPlanId),
@@ -269,34 +480,32 @@ export function BenefitsListPage() {
         </CardContent>
       </Card>
       
-      {/* Organization-wide context: the benefits this advisor's organization
-          offers. Plan-independent, and permanent — see the component. */}
-      <OrgServiceCategories />
-      
-      {isLoading ? (
-        <Card>
-          <CardContent className="space-y-3 p-6">
-            <Skeleton className="h-5 w-40" />
-            <Skeleton className="h-16 w-full" />
-          </CardContent>
-        </Card>
-      ) : !selectedPlanId ? (
+      {/* Organization-wide context: the benefits this advisor's organization offers.
+          Plan-independent, permanent, and server-rendered — it is on screen before any of
+          the reads below return. See the component. */}
+      <OrgServiceCategories categories={orgCategories} />
+
+      {contentState === "loading" ? (
+        <PlanBenefitsSkeleton />
+      ) : failure ? (
+        <LoadFailedCard
+          title={failure.title}
+          description={failure.description}
+          onRetry={failure.onRetry}
+        />
+      ) : contentState === "no-plans" ? (
         <Card>
           <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
             <p className="text-sm text-muted-foreground">
-              {plans.length === 0
-                ? "No plans yet. Create a plan first, then add its benefits."
-                : "Select a plan above to view its benefits."}
+              No plans yet. Create a plan first, then add its benefits.
             </p>
             <div className="flex gap-2">
-              {plans.length === 0 && (
-                <Button
-                  variant="outline"
-                  onClick={() => router.push("/new-client")}
-                >
-                  Create Plan
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                onClick={() => router.push("/new-client")}
+              >
+                Create Plan
+              </Button>
               <Button className="gap-2" onClick={() => router.push("/new-benefits")}>
                 <Plus className="h-4 w-4" />
                 Create Benefit
@@ -304,6 +513,8 @@ export function BenefitsListPage() {
             </div>
           </CardContent>
         </Card>
+      ) : contentState === "no-active-plans" ? (
+        <NoActivePlansCard onViewPlans={() => router.push("/clients")} />
       ) : (
         <Card className="dark:bg-gray-800">
           <CardContent className="p-4 sm:p-6">

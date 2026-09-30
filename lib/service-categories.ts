@@ -60,3 +60,33 @@ export function getDocumentCategoryDisplayLabel(category: string): string {
   if (category && category.includes(",")) return "Multiple";
   return category || "";
 }
+
+/**
+ * Stored service-category labels → the labels Browse Benefits' "Your organization offers"
+ * strip renders: trimmed, de-duped, and presented in the canonical order above, so the chip
+ * order cannot drift with whatever order the record happens to hold.
+ *
+ * Unknown-but-stored labels are KEPT, not dropped — the stored value is what the
+ * organization actually offers, so hiding one would understate the list.
+ *
+ * This lives in a plain module rather than in the strip's component because the Benefits
+ * page resolves it while rendering on the SERVER, and a `"use client"` module's exports are
+ * client references that cannot be called there.
+ */
+export function normalizePrimaryServiceCategories(values: unknown): string[] {
+  const labels = (Array.isArray(values) ? values : [])
+    .map((value) => String(value ?? "").trim())
+    .filter(Boolean);
+
+  const canonicalIndex = (label: string) =>
+    PRIMARY_SERVICE_CATEGORY_OPTIONS.indexOf(label as PrimaryServiceCategory);
+
+  return Array.from(new Set(labels)).sort((a, b) => {
+    const ai = canonicalIndex(a);
+    const bi = canonicalIndex(b);
+    if (ai === -1 && bi === -1) return 0;
+    if (ai === -1) return 1;
+    if (bi === -1) return -1;
+    return ai - bi;
+  });
+}

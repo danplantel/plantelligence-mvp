@@ -1,14 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { fetchProfileOnce } from "@/lib/fetch-profile";
-import { PRIMARY_SERVICE_CATEGORY_OPTIONS } from "@/lib/service-categories";
 
 /**
  * "Your organization offers" — the permanent strip at the top of Browse Benefits
@@ -24,50 +20,23 @@ import { PRIMARY_SERVICE_CATEGORY_OPTIONS } from "@/lib/service-categories";
  * Shown even when nothing is selected — a permanent element that disappears when
  * empty would read as a bug, and "which benefits do we offer?" is precisely the
  * thing the page is otherwise silent about.
+ *
+ * Fully presentational, and fed from the SERVER: the page resolves the labels and passes
+ * them in, so the chips are part of the first paint. When this component fetched for
+ * itself, its read raced the plan card's and could land after the plan's benefit rows —
+ * a strip that arrives last looks like a late widget, not like a header.
+ *
+ * An empty array is a real answer ("this account has selected none"), not a loading state;
+ * there is deliberately no skeleton here, because there is now nothing to wait for. The
+ * read is normalized by `normalizePrimaryServiceCategories` in lib/service-categories.ts.
  */
-export function OrgServiceCategories() {
+export function OrgServiceCategories({
+  categories,
+}: {
+  categories: string[];
+}) {
   const router = useRouter();
-  // `null` while loading, so the strip keeps its shape instead of collapsing and
-  // pushing the plan picker up for a frame.
-  const [categories, setCategories] = useState<string[] | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      // Shares the single-flight / short-TTL profile cache with the rest of the
-      // benefits surfaces, so this costs no extra request on a typical visit.
-      const profile = await fetchProfileOnce().catch(() => null);
-      if (cancelled) return;
-
-      const raw: unknown = profile?.primaryServiceCategories;
-      const labels = (Array.isArray(raw) ? raw : [])
-        .map((value) => String(value ?? "").trim())
-        .filter(Boolean);
-
-      // De-dupe, then present in the canonical order the Settings selector uses
-      // so the chip order can't drift with whatever order the record holds.
-      // Unknown-but-stored labels are kept, not dropped: the raw value is what the
-      // organization actually offers, so hiding it would understate the list.
-      const canonical = PRIMARY_SERVICE_CATEGORY_OPTIONS as readonly string[];
-      const ordered = Array.from(new Set(labels)).sort((a, b) => {
-        const ai = canonical.indexOf(a);
-        const bi = canonical.indexOf(b);
-        if (ai === -1 && bi === -1) return 0;
-        if (ai === -1) return 1;
-        if (bi === -1) return -1;
-        return ai - bi;
-      });
-
-      setCategories(ordered);
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const hasCategories = categories !== null && categories.length > 0;
+  const hasCategories = categories.length > 0;
 
   return (
     <Card className="mb-6 shadow-sm dark:bg-gray-800">
@@ -76,9 +45,7 @@ export function OrgServiceCategories() {
           Your organization offers
         </span>
 
-        {categories === null ? (
-          <Skeleton className="h-6 w-48" />
-        ) : hasCategories ? (
+        {hasCategories ? (
           <div className="flex flex-wrap items-center gap-1.5">
             {categories.map((category) => (
               <Badge
