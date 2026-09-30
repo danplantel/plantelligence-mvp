@@ -16,6 +16,7 @@
 
 import prisma from "@/lib/prisma";
 import { sendTeamMemberInviteEmail } from "@/lib/email";
+import { assertOrganizationKeepsAnOwner } from "./access.server";
 import { recordTeammateAuditEvent } from "./audit.server";
 import { TeammateDataError } from "./errors";
 import { acceptanceUrlForProfile } from "./invite-link.server";
@@ -1161,8 +1162,20 @@ export async function removePersonFromOrganization({
 
   const assignments = await prisma.planAssignment.findMany({
     where: { profileId, organizationId },
-    select: { id: true },
+    select: { id: true, role: true },
   });
+
+  // Validate the whole set BEFORE mutating anything. `removeAssignment` refuses to remove
+  // the last Owner (spec T2 Part B item 4), and tripping that guard mid-loop would leave the
+  // person half-removed — some access gone, the profile still there — behind an error that
+  // talks about Owners rather than about this screen.
+  const ownerAssignments = assignments.filter((row) => row.role === "owner");
+  if (ownerAssignments.length > 0) {
+    await assertOrganizationKeepsAnOwner({
+      organizationId,
+      excludingAssignmentIds: ownerAssignments.map((row) => row.id),
+    });
+  }
 
   for (const assignment of assignments) {
     await removeAssignment({
