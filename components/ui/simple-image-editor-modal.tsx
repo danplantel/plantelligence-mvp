@@ -58,7 +58,9 @@ const AUTO_SIZE_OVERSHOOT = 0.04;
  * The canvas is therefore widened to at least this multiple of the frame (never
  * narrowed, so a caller that already allows more pasteboard keeps it). 2 covers
  * the widest mismatch that occurs in practice: a 16:9 photo covering a square
- * frame needs 1.78x the frame's width, plus room for the handles themselves.
+ * frame needs 1.78x the frame's width, plus room for the handles themselves. It is
+ * an upper bound rather than a promise: the surface is capped to the stage it is
+ * drawn in, because pasteboard beyond that is not room to work in.
  *
  * The caller's canvas still decides the *initial* framing, so the editor opens
  * exactly as it did before; this only adds room around it. Aspect ratios beyond
@@ -278,6 +280,35 @@ export function SimpleImageEditorModal({
     }
   };
 
+  /**
+   * The stage the editing surface is drawn in — the box the canvas column gives it.
+   *
+   * Tracked because the surface is capped to it (see `editorCanvasWidth`). A pasteboard
+   * wider than the column is not room to move in, it is room painted over the info panel
+   * beside it — and the corner handles the pasteboard exists for are only reachable
+   * while they are inside this box.
+   */
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const [stage, setStage] = useState({ width: 0, height: 0 });
+
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el || !modalOpen) return;
+    // Only settle on a new size when it really is a new size: the surface is sized
+    // from this, and re-rendering on every observer callback (or on a callback the
+    // resize itself caused) is how a ResizeObserver loop starts.
+    const measure = () =>
+      setStage((prev) =>
+        prev.width === el.clientWidth && prev.height === el.clientHeight
+          ? prev
+          : { width: el.clientWidth, height: el.clientHeight },
+      );
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [modalOpen, imageSrc]);
+
   /** The slot's padding — the gutter between the frame and the dashed line. */
   const guidePad =
     guidelinePadding ??
@@ -298,21 +329,38 @@ export function SimpleImageEditorModal({
   );
 
   /**
-   * The editing canvas — at least `MIN_CANVAS_TO_GUIDE_RATIO` times the crop frame,
-   * and never smaller than the canvas the caller asked for.
+   * The editing canvas — at least `MIN_CANVAS_TO_GUIDE_RATIO` times the crop frame and
+   * never smaller than the canvas the caller asked for, but never larger than the stage
+   * it is drawn in either.
    *
-   * The frame keeps the size the caller specified (it is only re-centred on the
-   * larger surface), so the crop and its resolution are untouched; what the
-   * pasteboard buys is somewhere for the artwork to go when it is scaled up. See
-   * MIN_CANVAS_TO_GUIDE_RATIO for why this exists and why it is this size.
+   * The frame keeps the size the caller specified (it is only re-centred on the larger
+   * surface), so the crop and its resolution are untouched; what the pasteboard buys is
+   * somewhere for the artwork to go when it is scaled up. See MIN_CANVAS_TO_GUIDE_RATIO
+   * for why it exists.
+   *
+   * The stage cap is what keeps it useful. A pasteboard wider than the column it is
+   * drawn in was never room to move in — the overflow is painted over the info panel
+   * beside it — and it forced the whole surface to be scaled down to fit, so the crop
+   * frame shrank along with it. Capped, the frame is drawn at its true size and the
+   * pasteboard is exactly as large as the space that actually exists.
    */
   const editorCanvasWidth = Math.max(
-    canvasWidth,
-    Math.round(guideFrameWidth * MIN_CANVAS_TO_GUIDE_RATIO),
+    guideFrameWidth,
+    Math.min(
+      Math.round(
+        Math.max(canvasWidth, guideFrameWidth * MIN_CANVAS_TO_GUIDE_RATIO),
+      ),
+      stage.width > 0 ? stage.width : Number.POSITIVE_INFINITY,
+    ),
   );
   const editorCanvasHeight = Math.max(
-    canvasHeight,
-    Math.round(guideFrameHeight * MIN_CANVAS_TO_GUIDE_RATIO),
+    guideFrameHeight,
+    Math.min(
+      Math.round(
+        Math.max(canvasHeight, guideFrameHeight * MIN_CANVAS_TO_GUIDE_RATIO),
+      ),
+      stage.height > 0 ? stage.height : Number.POSITIVE_INFINITY,
+    ),
   );
 
   const getGuidelineMetrics = useCallback(() => {
@@ -376,6 +424,27 @@ export function SimpleImageEditorModal({
     const height = outerBottom - outerTop;
     return width > 0 && height > 0 ? width / height : 16 / 9;
   })();
+
+  /**
+   * Scale that keeps the surface inside the stage. Normally 1: the surface is already
+   * capped to the stage when its size is worked out (see `editorCanvasWidth`).
+   *
+   * It exists for the moments that cap cannot know about — before the stage has been
+   * measured, or after the window is resized while the modal is open — where drawing at
+   * the raw size would push the surface over the info panel beside it. Only the
+   * on-screen size changes: the canvas keeps its real dimensions, so the crop, the
+   * export and the guide geometry are untouched.
+   */
+  const fitScale =
+    stage.width > 0 && stage.height > 0
+      ? Math.min(
+          1,
+          stage.width / editorCanvasWidth,
+          stage.height / editorCanvasHeight,
+        )
+      : 1;
+  const stageWidth = Math.max(1, Math.round(editorCanvasWidth * fitScale));
+  const stageHeight = Math.max(1, Math.round(editorCanvasHeight * fitScale));
 
   const evaluateGuidelineBounds = useCallback(() => {
     const canvas = fabricCanvasRef.current;
@@ -675,6 +744,25 @@ export function SimpleImageEditorModal({
     evaluateGuidelineBounds,
     getGuidelineMetrics,
   ]);
+
+  /**
+   * Draw the editing surface at the size that fits the stage.
+   *
+   * `cssOnly` leaves the backing store — and with it the crop resolution and every
+   * guide measurement — at the real pasteboard size; only how large the canvas is on
+   * screen changes. Fabric reads the pointer against the element's backing size
+   * (`SelectableCanvas.getPointer` divides by the CSS/backing ratio), so dragging and
+   * scaling stay accurate at the fitted size.
+   */
+  useEffect(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas || !modalOpen) return;
+    canvas.setDimensions(
+      { width: stageWidth, height: stageHeight },
+      { cssOnly: true },
+    );
+    canvas.renderAll();
+  }, [modalOpen, imageSrc, stageWidth, stageHeight]);
 
   const generatePreview = useCallback(() => {
     if (!fabricCanvasRef.current || isEditingRef.current) return;
@@ -1511,10 +1599,16 @@ export function SimpleImageEditorModal({
 
             {/* Content */}
             <div className="flex-1 flex flex-row overflow-hidden min-h-0">
-              {/* Left: Editing Canvas */}
-              <div className="w-2/3 p-2 sm:p-3 md:p-4 flex items-center justify-center bg-gray-50 dark:bg-gray-800">
+              {/* Left: Editing Canvas.
+                  `overflow-hidden` is the backstop: the surface is drawn at the fitted
+                  size below, so it should never exceed this column — but a positioned
+                  element that did would paint over the info panel beside it. */}
+              <div className="w-2/3 p-2 sm:p-3 md:p-4 flex items-center justify-center overflow-hidden bg-gray-50 dark:bg-gray-800">
                 {imageSrc ? (
-                  <div className="w-full h-full flex items-center justify-center">
+                  <div
+                    ref={stageRef}
+                    className="w-full h-full flex items-center justify-center"
+                  >
                     <div
                       style={{
                         background: `
@@ -1522,8 +1616,9 @@ export function SimpleImageEditorModal({
                           50% / 20px 20px
                         `,
                         padding: "2px",
-                        width: `${editorCanvasWidth}px`,
-                        height: `${editorCanvasHeight}px`,
+                        // Fitted size, not the raw pasteboard size — see `fitScale`.
+                        width: `${stageWidth}px`,
+                        height: `${stageHeight}px`,
                         display: "inline-block",
                         position: "relative",
                       }}
@@ -1535,8 +1630,6 @@ export function SimpleImageEditorModal({
                         style={{
                           border: "1px solid #ddd",
                           display: "block",
-                          maxWidth: "100%",
-                          maxHeight: "100%",
                         }}
                       />
                       {canvasOverlay && (
