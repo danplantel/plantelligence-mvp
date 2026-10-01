@@ -91,11 +91,21 @@ cache of typing, never evidence that a plan exists — that rule lives in
 in [§P5a of the migration plan](./postgres-migration.md). These five checks are the ones that
 were failing.
 
-- [ ] With **no drafts on the server at all** (a fresh database), open **Create Plan**. You go
+- [✓] With **no drafts on the server at all** (a fresh database), open **Create Plan**. You go
       straight into a blank wizard — **no "You have an in-progress plan" dialog**. This is the
       bug that prompted the rebuild.
 - [ ] Save a draft, confirm it appears in **View Plans**, delete it there, then revisit
       **Create Plan**. You are **not** offered to resume the deleted plan.
+- [ ] **A saved draft appears in View Plans without a multi-second wait.** The row is a
+      `Client` like any other, and the dashboard now asks for the slim `view=table`
+      projection rather than the full record. The full record ships
+      `employeePortalPreview` and the legacy brand-image columns — measured at
+      **8.3 MB / 6.6 s for a 7-plan account**, 7.4 MB of it one plan's
+      `employeePortalPreview.benefits` — none of which the table renders, so a draft
+      saved seconds earlier only appeared once that payload had finished downloading.
+      If it is still slow, open the network tab: `/api/clients?...&view=table` should
+      be kilobytes, and anything larger means a heavy column slipped back in.
+      **[impl]**
 - [ ] **A second advisor on the same browser:** sign out, sign in as a different account, open
       **Create Plan**. You must **not** see the first advisor's company name, contacts or
       images. The snapshot is attributed to a user and discarded when it is not yours.

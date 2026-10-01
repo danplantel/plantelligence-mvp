@@ -6,6 +6,23 @@ import { listAccessiblePlanIds } from "@/lib/teammates/access.server";
 import { getOrCreateOrganizationForUser } from "@/lib/organization";
 import { mirrorPlanContactsSafely } from "@/lib/teammates/contact-mirror.server";
 
+/**
+ * How many people a plan's `keyContacts` JSON holds.
+ *
+ * The column stores either a bare array (the legacy shape) or
+ * `{ contacts: [...], contactCardLayoutStyle }`. The View Plans table only ever
+ * renders the number, and a contact's `headshot` is a base64 data URL, so the count
+ * is derived here and the JSON itself is stripped from the `view=table` payload.
+ */
+function countKeyContacts(value: unknown): number {
+  if (Array.isArray(value)) return value.length;
+  if (value && typeof value === "object") {
+    const contacts = (value as { contacts?: unknown }).contacts;
+    if (Array.isArray(contacts)) return contacts.length;
+  }
+  return 0;
+}
+
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
@@ -82,6 +99,36 @@ export async function GET(request: NextRequest) {
     // id/name/slug/status — all four map the response down to exactly those fields.
     const summary = searchParams.get("summary") === "1";
 
+    // `view=table` is the projection the View Plans dashboard renders.
+    //
+    // The dashboard needs a row's identity, its branding swatch, status/type, the
+    // timestamps, the wizard step and the contact count — nothing else. It must not
+    // pull `employeePortalPreview` (7.4 MB for a single plan in the measurement
+    // above) or the four legacy brand-image columns, because drawing a table row is
+    // not worth several megabytes. A freshly saved draft used to show up in the list
+    // only once the whole payload had downloaded, which read as "saving a draft did
+    // not work" for ~10 s.
+    //
+    // `keyContacts` is selected because the count column needs its length, but it is
+    // replaced with a plain count before the response is written — the entries carry
+    // base64 headshots, so serialising them to render "3 contacts" would reintroduce
+    // the weight this projection exists to remove.
+    const tableView = searchParams.get("view") === "table";
+
+    const tableSelect = {
+      id: true,
+      slug: true,
+      companyName: true,
+      companyLogo: true,
+      brandColor: true,
+      status: true,
+      type: true,
+      createdAt: true,
+      updatedAt: true,
+      currentStep: true,
+      keyContacts: true,
+    };
+
     const fullSelect = {
       id: true,
       slug: true,
@@ -136,16 +183,24 @@ export async function GET(request: NextRequest) {
         skip,
         take: limit,
         // `as any`: Prisma cannot infer one payload type from a conditional select.
-        select: (summary ? summarySelect : fullSelect) as any,
+        select: (tableView ? tableSelect : summary ? summarySelect : fullSelect) as any,
       }),
       prisma.client.count({ where }),
     ]);
 
-    // Summary rows carry no brandImages/documents, so there is nothing to normalise.
-    if (summary) {
+    // Summary and table rows carry no brandImages/documents, so there is nothing to
+    // normalise — and the mapper below is the only reason to have fetched them.
+    if (summary || tableView) {
+      const rows = tableView
+        ? (clients as any[]).map((row) => {
+            const { keyContacts, ...rest } = row;
+            return { ...rest, keyContactsCount: countKeyContacts(keyContacts) };
+          })
+        : clients;
+
       return NextResponse.json({
         success: true,
-        data: clients,
+        data: rows,
         pagination: {
           page,
           limit,

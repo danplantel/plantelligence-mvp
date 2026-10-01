@@ -89,14 +89,24 @@ interface Client {
   updatedAt: string;
   /** Create Plan wizard step (1–5) persisted on draft client */
   currentStep?: number;
+  /**
+   * Present only when the list is fetched with the full projection. `view=table`
+   * omits the JSON (its entries carry base64 headshots) and sends the count instead.
+   */
   keyContacts?: any[] | { contacts: any[]; displayStyle?: number | null };
+  /** Contact count for the `view=table` projection. */
+  keyContactsCount?: number;
 }
 
 type SortColumn = "companyName" | "createdAt" | "updatedAt" | "status" | "type";
 type SortDirection = "asc" | "desc";
 type StatusFilter = "all" | "active" | "draft";
 
-const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
+// `cache: "no-store"` keeps the browser's HTTP cache from answering the list with a
+// stale JSON body — SWR's own in-memory cache is what makes a revisit instant, and a
+// draft saved a moment ago must not be hidden behind a heuristic HTTP cache entry.
+const jsonFetcher = (url: string) =>
+  fetch(url, { cache: "no-store" }).then((r) => r.json());
 
 export function ClientsListDashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -114,8 +124,14 @@ export function ClientsListDashboardPage() {
 
   // Build the SWR key from current filter/sort/page state.
   // SWR caches each unique key — navigating back shows cached data instantly.
+  // `view=table` asks the API for the slim projection this table renders (identity,
+  // logo/brand colour, status/type, timestamps, wizard step, contact count). Without
+  // it the endpoint ships `employeePortalPreview` and the legacy brand-image blobs —
+  // measured at 8.3 MB / 6.6 s for a 7-plan account — so a draft saved seconds earlier
+  // only appeared once that payload had finished downloading.
   const swrKey = useMemo(() => {
     const params = new URLSearchParams({
+      view: "table",
       search: searchDebounce,
       status: statusFilter === "all" ? "all" : statusFilter,
       type: planTypeFilter,
@@ -601,27 +617,30 @@ export function ClientsListDashboardPage() {
                               className="text-sm hover:text-primary"
                             >
                               {(() => {
-                                // Handle both old format (array) and new format (object with contacts)
-                                let contactsCount = 0;
-                                if (client.keyContacts) {
-                                  if (Array.isArray(client.keyContacts)) {
-                                    // Old format: just an array
-                                    contactsCount = client.keyContacts.length;
-                                  } else if (
-                                    typeof client.keyContacts === "object" &&
-                                    client.keyContacts !== null &&
-                                    "contacts" in client.keyContacts
-                                  ) {
-                                    // New format: { contacts: [...], displayStyle: ... }
-                                    const contactsArray = Array.isArray(
-                                      (client.keyContacts as any).contacts,
-                                    )
-                                      ? (client.keyContacts as any).contacts
-                                      : [];
-                                    contactsCount = contactsArray.length;
-                                  }
+                                // `view=table` sends a pre-computed count so the
+                                // base64 headshots inside `keyContacts` never reach
+                                // the browser. The JSON shapes below are the fallback
+                                // for any caller still on the full projection.
+                                if (typeof client.keyContactsCount === "number") {
+                                  return client.keyContactsCount;
                                 }
-                                return contactsCount;
+                                if (Array.isArray(client.keyContacts)) {
+                                  return client.keyContacts.length;
+                                }
+                                if (
+                                  client.keyContacts &&
+                                  typeof client.keyContacts === "object" &&
+                                  Array.isArray(
+                                    (client.keyContacts as { contacts?: unknown })
+                                      .contacts,
+                                  )
+                                ) {
+                                  return (
+                                    (client.keyContacts as { contacts: unknown[] })
+                                      .contacts.length
+                                  );
+                                }
+                                return 0;
                               })()}{" "}
                               contacts
                             </Button>

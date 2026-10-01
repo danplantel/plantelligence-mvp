@@ -1697,6 +1697,19 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
           if (result.clientId && !(get() as any).draftClientId) {
             set({ draftClientId: result.clientId });
           }
+
+          // A draft is a Client row like any other, so it belongs in the View Plans
+          // list the moment it exists — not only after a full publish. Mark every
+          // mounted clients-list cache stale so a dashboard that is already open (a
+          // second tab, or the sidebar) picks the new row up instead of holding a
+          // snapshot taken before the draft was written. `completeWizard` does the
+          // same thing for a published plan.
+          mutate(
+            (key) => typeof key === "string" && key.startsWith("/api/clients"),
+            undefined,
+            { revalidate: true },
+          );
+
           return result;
         } catch (error) {
           throw error;
