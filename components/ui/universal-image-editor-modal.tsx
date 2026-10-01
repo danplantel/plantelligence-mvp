@@ -3847,7 +3847,16 @@ export function UniversalImageEditorModal({
                     </div>
                   </ImageEditorControls>
 
-                  <div className="flex items-center gap-1.5 sm:gap-2">
+                  {/* `ml-auto` because this row wraps: once the alignment,
+                      Reset, Auto-size and Remove Background buttons plus the
+                      slider and the guidelines checkbox have taken the first
+                      line, Cancel/Save become the *only* child of the second
+                      line — and `justify-between` has nothing to distribute
+                      across a single item, so it would sit hard left. An auto
+                      left margin absorbs that line's free space and pins the
+                      pair right. On one line it is equivalent to the
+                      `justify-between` already on the parent. */}
+                  <div className="ml-auto mt-6 flex items-center gap-1.5 sm:gap-2">
                     <Button
                       variant="outline"
                       onClick={handleCancel}
