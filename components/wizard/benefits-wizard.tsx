@@ -157,7 +157,18 @@ export function BenefitsWizard({
                     width: "calc(100% - var(--sidebar-width, 0))",
                 }}
             >
-                <div className="mx-10">
+                <div
+                    className="mx-10"
+                    // Clear the Editing Panel's reserved column on the step that reserves one
+                    // (step 2 → `usePreviewEditorLayout` sets `--editor-inset`).
+                    //
+                    // The panel is fixed and painted above this bar, and on that step it is
+                    // seated *beside* the sidebar instead of pushing everything aside, so
+                    // without this the bar's left-hand controls sat underneath it — Previous
+                    // was the button the panel covered. Steps that widen `--sidebar-width`
+                    // instead leave this at 0, because they never set `--editor-inset`.
+                    style={{ paddingLeft: "var(--editor-inset, 0px)" }}
+                >
                     <Card className="shadow-none border-0">
                         <CardContent className="flex justify-between items-center p-4 relative">
                             <LoadingButton
