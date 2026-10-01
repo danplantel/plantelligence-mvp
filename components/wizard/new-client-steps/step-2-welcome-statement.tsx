@@ -34,6 +34,7 @@ import { Smartphone, Monitor } from "lucide-react";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
 import { ClientPortal } from "@/components/pages/client-portal/client-portal";
 import { TypographySection } from "./sections/typography-section";
+import { usePreviewEditorLayout } from "@/lib/preview-editor-layout";
 import {
   applyTypographyToElement,
   type TypographyThemeId,
@@ -245,7 +246,6 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
   const previewScrollContainerRef = useRef<HTMLDivElement>(null);
   const headlineRef = useRef<HTMLInputElement>(null);
   const bodyTextRef = useRef<HTMLTextAreaElement>(null);
-  const originalSidebarWidthRef = useRef<string | null>(null);
   const scrollToPreviewTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const bannerTitleHighlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -276,6 +276,22 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
 
   const editorIsOpen =
     editorState.isEditorOpen || editorState.isEditorAnimating;
+
+  /**
+   * Reserve a column for the Editing Panel *beside* the sidebar, and ask the
+   * sidebar to rail-collapse while it is open.
+   *
+   * Step 2 used to widen `--sidebar-width` to 36rem instead. That moved the
+   * header and the preview out of the panel's way, but the panel itself was
+   * pinned to `left: 0` — so it was painted straight over the nav and the
+   * sidebar disappeared for the whole step, even though the dashboard layout
+   * still renders it. This is the shared contract the Preview pages already use
+   * (see `lib/preview-editor-layout.ts`): `--editor-inset` carries the panel's
+   * width, the Sidebar listens for the event and collapses to its icon rail so
+   * the nav stays visible, and anything that must clear both is written as
+   * `calc(var(--sidebar-width) + var(--editor-inset))`.
+   */
+  usePreviewEditorLayout(editorIsOpen);
 
   // ── Preview mode ──
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
@@ -496,41 +512,10 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     }
   }, [editorState.isEditorOpen]);
 
-  // Sidebar widening — matches benefits/step-2 behavior.
-  // When the editor opens, widen --sidebar-width to 36rem so the header
-  // and toolbar shift right, creating space for the fixed overlay editor.
-  useEffect(() => {
-    const sidebarWidth = "36rem";
-    const shouldShift = editorState.isEditorOpen || editorState.isEditorAnimating;
-    if (shouldShift) {
-      if (originalSidebarWidthRef.current === null) {
-        originalSidebarWidthRef.current = document.documentElement.style.getPropertyValue("--sidebar-width");
-      }
-      document.documentElement.style.setProperty("--sidebar-width", sidebarWidth);
-    } else {
-      if (originalSidebarWidthRef.current !== null) {
-        if (originalSidebarWidthRef.current) {
-          document.documentElement.style.setProperty("--sidebar-width", originalSidebarWidthRef.current);
-        } else {
-          document.documentElement.style.removeProperty("--sidebar-width");
-        }
-        originalSidebarWidthRef.current = null;
-      }
-    }
-
-    // Restore the original sidebar width when the component unmounts
-    // (e.g. navigating to another step while the Edit Panel is open).
-    return () => {
-      if (originalSidebarWidthRef.current !== null) {
-        if (originalSidebarWidthRef.current) {
-          document.documentElement.style.setProperty("--sidebar-width", originalSidebarWidthRef.current);
-        } else {
-          document.documentElement.style.removeProperty("--sidebar-width");
-        }
-        originalSidebarWidthRef.current = null;
-      }
-    };
-  }, [editorState.isEditorOpen, editorState.isEditorAnimating]);
+  // The `--sidebar-width = 36rem` widening that used to live here is gone: it
+  // reserved the panel's space by pushing everything else aside, but the panel
+  // stayed pinned to `left: 0`, so it covered the sidebar. `usePreviewEditorLayout`
+  // (above) reserves the column with `--editor-inset` instead and keeps the nav.
 
   // Tell the shared Header (and WizardStepper) that this step's editing panel is
   // open. Both already listen for `step2EditorStateChange`, but nothing on the
@@ -1097,8 +1082,10 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
       <div
         className="fixed top-0 z-[45]"
         style={{
-          left: "var(--sidebar-width, 18rem)",
-          width: "calc(100% - var(--sidebar-width, 18rem))",
+          // Same offsets as the preview below: sidebar + the panel's column.
+          left: "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
+          width:
+            "calc(100% - var(--sidebar-width, 16rem) - var(--editor-inset, 0px))",
         }}
       >
         <div style={{ height: `${HEADER_HEIGHT}px` }} />
@@ -1159,6 +1146,9 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
         isAnimating={editorState.isEditorAnimating}
         editorScrollContainerRef={editorScrollContainerRef}
         onClose={editorState.handleCloseEditor}
+        // Sit beside the (rail-collapsed) sidebar rather than over it. The
+        // wrapper's plain class-level `left-0` is what hid the sidebar.
+        leftOffset="var(--sidebar-width, 16rem)"
         headerBadge={
           stepData.companyBasics?.companyName?.trim() ? (
             <span className="inline-flex items-center rounded-md bg-accent-blue/10 px-2 py-0.5 text-xs font-semibold text-accent-blue">
@@ -1303,9 +1293,12 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
       <div
         className="fixed z-40 flex flex-col"
         style={{
+          // Clears the sidebar *and* the Editing Panel's reserved column, so the
+          // preview sits beside both instead of under the panel.
           top: `${HEADER_HEIGHT + barHeight}px`,
-          left: "var(--sidebar-width, 18rem)",
-          width: "calc(100% - var(--sidebar-width, 18rem))",
+          left: "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
+          width:
+            "calc(100% - var(--sidebar-width, 16rem) - var(--editor-inset, 0px))",
           height: `calc(100vh - ${totalFixedHeight}px)`,
         }}
       >
