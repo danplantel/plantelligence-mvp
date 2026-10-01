@@ -1042,6 +1042,12 @@ export function BenefitsStep1({
   const normalizeApiCategory = (raw: string) =>
     (raw || "").toLowerCase().trim().replace(/\s+/g, " ");
 
+  // Custom Category Name fields the advisor has typed into during this session, keyed by
+  // `planId::category`. The field hides wizard-generated values until its key is present
+  // (see getCustomCategoryNameValue), because a stored hub label or auto-generated intro
+  // headline is not a name the advisor chose — but their own typing must never be masked.
+  const customTitleEditedKeysRef = useRef<Set<string>>(new Set());
+
   /**
    * Is this the Custom hub's CATEGORY rather than a name the advisor gave a benefit?
    *
@@ -1123,6 +1129,25 @@ export function BenefitsStep1({
     if (isCustomHubCategory(raw)) return true;
     const v = (raw || "").trim();
     return v.length > 0 && v === getDefaultIntroHeadline("Custom");
+  };
+
+  /** Identity of the Custom Category Name field for the mask above: a mask lifted for one
+   *  plan/category must not leak into another. */
+  const customTitleEditKey = (): string =>
+    `${resolvedPlanId ?? ""}::${currentStepData.benefitCategory ?? ""}`;
+
+  /**
+   * What the Custom Category Name input actually displays.
+   *
+   * Until the advisor types in this field it hides wizard-generated values, so neither a
+   * hub label nor an auto-generated intro headline can sit there looking like a name the
+   * advisor chose. The moment they type, the stored value is shown verbatim — the mask
+   * exists to hide OUR defaults, never their input.
+   */
+  const getCustomCategoryNameValue = (): string => {
+    const raw = currentStepData.benefitTitle ?? "";
+    if (customTitleEditedKeysRef.current.has(customTitleEditKey())) return raw;
+    return isNonTitleCustomValue(raw, currentStepData.benefitCategory) ? "" : raw;
   };
 
   /** Default Intro Message: a personalized welcome that fills in the
@@ -2743,20 +2768,18 @@ export function BenefitsStep1({
                     Custom Category Name <span className="text-red-500">*</span>
                   </Label>
                   <Input
-                    value={
-                      isNonTitleCustomValue(
-                        currentStepData.benefitTitle,
-                        currentStepData.benefitCategory,
-                      )
-                        ? ""
-                        : currentStepData.benefitTitle
-                    }
-                    onChange={(e) =>
+                    value={getCustomCategoryNameValue()}
+                    onChange={(e) => {
+                      // Lift the mask for this plan + category: from now on the field shows
+                      // exactly what the advisor typed. Without this the mask would fight
+                      // the input — typing "custom" is itself a masked value, so the field
+                      // would visibly erase the advisor's own text.
+                      customTitleEditedKeysRef.current.add(customTitleEditKey());
                       saveStepData(1, {
                         ...currentStepData,
                         benefitTitle: e.target.value,
-                      })
-                    }
+                      });
+                    }}
                     data-field="benefitTitle"
                     destructive={isFieldInvalid("benefitTitle")}
                     placeholder="e.g. Disability Insurance, Wellness Program, HSA..."

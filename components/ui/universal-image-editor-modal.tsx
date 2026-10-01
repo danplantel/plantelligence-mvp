@@ -73,12 +73,31 @@ const TRANSPARENCY_CHECKERBOARD =
   "repeating-conic-gradient(#f0f0f0 0% 25%, #ffffff 0% 50%) 50% / 20px 20px";
 
 /**
- * Scale applied to the preview boxes in the info panel. A preview is a check on
- * framing, not a working surface, so it renders well below full size and leaves
- * the panel's vertical space to the guidance and the controls. The header mock's
- * caption reads this value, so changing it cannot leave the wording behind.
+ * Scale of the header mock in the info panel.
+ *
+ * The real portal header is a wide bar, so shrinking it to fit the panel left the
+ * thing the preview exists to show — the logo — almost unreadable: at the previous
+ * 0.3 the bar was 24px tall and the band the artwork sits in only 14px.
+ *
+ * At 1:1 both dimensions of the logo's box are the real ones (`HEADER_LOGO_BAND_PX`
+ * tall, capped at `HEADER_LOGO_MAX_WIDTH_PX` wide), so the logo renders in the panel
+ * at exactly the size the portal renders it: a true size check rather than a shrunken
+ * decoration. Only the bar's own width is the panel's, not the portal's.
  */
-const PREVIEW_DISPLAY_SCALE = 0.3;
+const PREVIEW_HEADER_SCALE = 1;
+
+/**
+ * Side of the square frame the logo preview is drawn in, in px.
+ *
+ * Deliberately the real header bar height: the frame is then exactly as tall as the bar
+ * the logo renders in, so the logo is contained in the band at its true height without
+ * the frame taking the info column's full length. Both a bar spanning the column and a
+ * large square spent that space on area the logo never uses.
+ *
+ * Capped by the panel's own width, so a narrow viewport shrinks the frame rather than
+ * pushing the column wider.
+ */
+const PREVIEW_FRAME_PX = HEADER_LOGO_BAR_HEIGHT_PX;
 
 /**
  * How far past the guide line Auto-size pushes the image, as a fraction of that
@@ -3113,8 +3132,8 @@ export function UniversalImageEditorModal({
 
   /**
    * Preview panel body. Rendered first in the info column — the preview is what
-   * the advisor came to check — and at `PREVIEW_DISPLAY_SCALE` of its configured
-   * size so it does not dominate the panel.
+   * the advisor came to check — and sized to use that column, so it is a usable
+   * check on the framing rather than a thumbnail sitting beside the guidance.
    */
   const previewsPanel = (
     <>
@@ -3125,10 +3144,9 @@ export function UniversalImageEditorModal({
         // Special styling for Header Bar preview in normalizer
         const isHeaderBarPreview = type === "normalizer" && format === "custom";
 
-        // Half-scale mock of the real header geometry.
-        const barHeight = HEADER_LOGO_BAR_HEIGHT_PX * PREVIEW_DISPLAY_SCALE;
-        const bandHeight = HEADER_LOGO_BAND_PX * PREVIEW_DISPLAY_SCALE;
-        const bandMaxWidth = HEADER_LOGO_MAX_WIDTH_PX * PREVIEW_DISPLAY_SCALE;
+        // 1:1 mock of the real header geometry — see PREVIEW_HEADER_SCALE.
+        const bandHeight = HEADER_LOGO_BAND_PX * PREVIEW_HEADER_SCALE;
+        const bandMaxWidth = HEADER_LOGO_MAX_WIDTH_PX * PREVIEW_HEADER_SCALE;
 
         return (
           <div key={format}>
@@ -3140,12 +3158,17 @@ export function UniversalImageEditorModal({
             <div className="mt-2">
               {isHeaderBarPreview ? (
                 <div className="space-y-2">
-                  {/* Mirrors the real header at half scale: a fixed band the logo
-                      is contain-fitted into, showing the same tight crop the save
-                      path stores. */}
+                  {/* The header bar, cropped to a square the size of the bar itself.
+                      A bar the length of the panel, and a large square, each spent the
+                      column on area the logo never uses. The logo is centred in the
+                      square, where it is easiest to judge. */}
                   <div
-                    className="border-[1px] border-gray-200 rounded-lg bg-white relative mx-auto overflow-hidden flex items-center px-2"
-                    style={{ width: `100%`, height: `${barHeight}px` }}
+                    className="border-[1px] border-gray-200 rounded-lg bg-white relative overflow-hidden flex items-center justify-center px-2"
+                    style={{
+                      width: `100%`,
+                      maxWidth: `${PREVIEW_FRAME_PX}px`,
+                      aspectRatio: "1 / 1",
+                    }}
                   >
                     {previews[format] ? (
                       <div
@@ -3153,7 +3176,10 @@ export function UniversalImageEditorModal({
                         style={{
                           height: `${bandHeight}px`,
                           minHeight: `${bandHeight}px`,
-                          maxWidth: `${bandMaxWidth}px`,
+                          // Capped at the real logo width, but never wider than the
+                          // frame it sits in — a fixed cap would let a wide logo
+                          // overflow and be clipped by the frame's `overflow-hidden`.
+                          maxWidth: `min(${bandMaxWidth}px, 100%)`,
                         }}
                       >
                         <img
@@ -3166,21 +3192,25 @@ export function UniversalImageEditorModal({
                       <span className="text-gray-400 text-xs">Adjusting...</span>
                     )}
                   </div>
-                  <p className="text-[10px] text-gray-400 text-center">
-                    {Math.round(PREVIEW_DISPLAY_SCALE * 100)}% scale mock of the
-                    portal header.
+                  <p className="text-[10px] text-gray-400">
+                    The logo as it sits in the portal header.
                   </p>
                 </div>
               ) : (
                 // Standard preview for other formats
                 <div
-                  className={`overflow-hidden flex items-center justify-center border-2 border-gray-300 dark:border-gray-600 ${format === "circle"
+                  className={`w-full overflow-hidden flex items-center justify-center border-2 border-gray-300 dark:border-gray-600 ${format === "circle"
                     ? "rounded-full"
                     : "rounded-lg"
                     }`}
                   style={{
-                    width: `${size.width * PREVIEW_DISPLAY_SCALE}px`,
-                    height: `${size.height * PREVIEW_DISPLAY_SCALE}px`,
+                    // Fill the info column — a preview scaled down to a fraction of
+                    // its own size was too small to check anything in. The box is
+                    // capped at the preview's designed size (the bitmap is generated
+                    // at exactly those dimensions) and takes its height from the same
+                    // ratio, so the artwork's proportions survive at any column width.
+                    maxWidth: `${size.width}px`,
+                    aspectRatio: `${size.width} / ${size.height}`,
                     background: TRANSPARENCY_CHECKERBOARD,
                   }}
                 >
