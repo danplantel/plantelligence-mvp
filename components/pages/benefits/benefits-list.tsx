@@ -30,14 +30,12 @@ import {
 import { readPersistedBenefitsDraft } from "@/lib/benefits-wizard-store";
 import { Headshot } from "@/components/ui/headshot";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
-import { InviteCollaboratorDialog } from "@/components/pages/benefits/invite-collaborator-dialog";
 import {
   AlertCircle,
   Loader2,
   Pencil,
   Plus,
   RefreshCw,
-  UserPlus,
 } from "lucide-react";
 
 interface BenefitRow {
@@ -385,7 +383,7 @@ export function BenefitsListPage({
   // Who is assigned to the selected plan (T4 Part A item 6). Scoped to one plan so
   // the card can show "Assigned to Jane" without the page loading every assignment
   // in the organization.
-  const { data: assignmentData, mutate: mutateAssignments } = useSWR(
+  const { data: assignmentData } = useSWR(
     selectedPlanId
       ? `/api/teammates/plan-assignments?planId=${encodeURIComponent(selectedPlanId)}`
       : null,
@@ -426,9 +424,6 @@ export function BenefitsListPage({
 
     return map;
   }, [assignmentData, planRows]);
-
-  /** The card whose invite dialog is open, by category. */
-  const [inviteCategory, setInviteCategory] = useState<string | null>(null);
 
   const handleSelectPlan = (planId: string) => {
     setSelectedPlanId(planId);
@@ -729,19 +724,11 @@ export function BenefitsListPage({
 
                     {row.exists ? (
                       <div className="flex shrink-0 items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5"
-                          title="Invite Collaborator"
-                          onClick={() => setInviteCategory(row.category)}
-                        >
-                          <UserPlus className="h-3.5 w-3.5" />
-                          <span className="hidden sm:inline">
-                            Invite Collaborator
-                          </span>
-                          <span className="sr-only sm:hidden">Invite</span>
-                        </Button>
+                        {/* A row's only action is editing the benefit. Inviting a
+                            collaborator belongs to the benefit itself (Create/Edit
+                            Benefit → Contacts → Add Collaborator), where the scope they
+                            are being given is on screen next to the section it applies
+                            to — not on a list row where the category is implied. */}
                         <Button
                           variant="outline"
                           size="sm"
@@ -791,16 +778,6 @@ export function BenefitsListPage({
         </Card>
       )}
 
-      {/* T4: the invite is pinned to the card it was opened from — the plan and
-          category are passed in, never chosen in the dialog. */}
-      <InviteCollaboratorDialog
-        open={inviteCategory !== null}
-        onOpenChange={(next) => !next && setInviteCategory(null)}
-        planId={selectedPlanId}
-        planName={planRows[0]?.planName || "this plan"}
-        category={inviteCategory ?? ""}
-        onInvited={() => void mutateAssignments()}
-      />
     </div>
   );
 }

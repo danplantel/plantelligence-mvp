@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getOrgSession } from "@/lib/organization-session";
 import { listPlanAssignments } from "@/lib/teammates/invites.server";
 import { resolvePlanAccess } from "@/lib/teammates/access.server";
+import { organizationOwnerEmails } from "@/lib/teammates/contact-mirror.server";
 
 /**
  * GET /api/teammates/plan-assignments?planId=…
@@ -17,6 +18,13 @@ import { resolvePlanAccess } from "@/lib/teammates/access.server";
  * it. The check reuses `resolvePlanAccess` against `create_benefits`, the section
  * the cards belong to, so a Viewer of the plan can read the list while a
  * collaborator with no access to it cannot.
+ *
+ * `ownerEmails` travels with the list because the owner is deliberately NOT in it:
+ * `contact-mirror.server.ts` skips the owner (their canonical representation is
+ * `Organization.ownerUserId`, not a TeammateProfile), so a caller looking for them
+ * among the assignments would never find them. Returned as the same set the mirror
+ * itself uses to decide who to skip, so a card cannot disagree with the rule that
+ * kept them out.
  */
 export async function GET(request: NextRequest) {
   const session = await getOrgSession();
@@ -42,10 +50,13 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const assignments = await listPlanAssignments({
-    organizationId: session.organizationId,
-    clientId: planId,
-  });
+  const [assignments, ownerEmails] = await Promise.all([
+    listPlanAssignments({
+      organizationId: session.organizationId,
+      clientId: planId,
+    }),
+    organizationOwnerEmails(session.organizationId),
+  ]);
 
-  return NextResponse.json({ assignments });
+  return NextResponse.json({ assignments, ownerEmails: [...ownerEmails] });
 }

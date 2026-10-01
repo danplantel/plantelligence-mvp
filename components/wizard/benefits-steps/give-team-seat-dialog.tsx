@@ -71,6 +71,14 @@ export interface GiveTeamSeatDialogProps {
    * as its own pre-ticked row so the benefit being worked on is visibly among the grants.
    */
   currentCustomBenefit?: string | null;
+  /**
+   * The plan this invitation is raised from.
+   *
+   * Sent as `planId`, which the endpoint uses both as the `this_plan` scope and as the plan
+   * the invitation email names, so the recipient is told what they have been added to
+   * rather than having the firm's own name echoed back at them.
+   */
+  planId?: string | null;
 }
 
 /** The best name this contact shape can offer — the same precedence the card uses. */
@@ -94,6 +102,7 @@ export function GiveTeamSeatDialog({
   onOpenChange,
   onGranted,
   currentCustomBenefit,
+  planId,
 }: GiveTeamSeatDialogProps) {
   const [isSaving, setIsSaving] = useState(false);
   /**
@@ -218,6 +227,10 @@ export function GiveTeamSeatDialog({
           // from the email domain, and an outside advisor would be filed as a free
           // Collaborator — the opposite of what this button promises.
           type: "team_member",
+          // Context for the invitation email, not just the `this_plan` scope: the email
+          // names this plan, which is the only thing in the message the recipient can
+          // recognise as theirs.
+          ...(planId ? { planId } : {}),
           role: access.role,
           planScope: access.planScope,
           // Only meaningful for `certain_plans`; omitted otherwise rather than sent as an

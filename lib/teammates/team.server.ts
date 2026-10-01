@@ -103,7 +103,14 @@ export interface AddTeamMemberInput {
   planScope?: TeamPlanScope;
   /** Used when `planScope` is `certain_plans`. */
   planIds?: string[];
-  /** Used when `planScope` is `this_plan`. */
+  /**
+   * Used when `planScope` is `this_plan`.
+   *
+   * Also the plan NAMED in the invitation email, so a caller that knows which plan it is
+   * raising the invite from should send it even when the scope is All Plans — otherwise the
+   * recipient is told the firm's own name instead of what they have been given, which for a
+   * solo advisor is the inviter's name twice.
+   */
   planId?: string | null;
   /** Defaults to `all`. */
   categoryScope?: TeamCategoryScope;
@@ -407,9 +414,16 @@ export async function addTeamMember(
   let emailError: string | null = null;
 
   if (startedInviteWindow && !input.skipEmail) {
+    // The plan to NAME in the invitation: the one this call was raised from, or the only
+    // plan it scopes the person to. Never the whole list — "added you to 3 plans" is a worse
+    // subject than the firm — and never the caller's own wording, because the name is
+    // resolved from an id scoped to this organization rather than accepted as a string.
+    const contextPlanId =
+      input.planId ?? (targetPlanIds.length === 1 ? targetPlanIds[0] : null);
+
     // Resolved here rather than passed in: this layer holds ids, and the email needs human
     // names to open with.
-    const [organization, actor] = await Promise.all([
+    const [organization, actor, invitePlan] = await Promise.all([
       prisma.organization.findUnique({
         where: { id: input.organizationId },
         select: { name: true },
@@ -418,6 +432,12 @@ export async function addTeamMember(
         where: { id: input.actorUserId },
         select: { name: true },
       }),
+      contextPlanId
+        ? prisma.client.findFirst({
+            where: { id: contextPlanId, organizationId: input.organizationId },
+            select: { companyName: true },
+          })
+        : Promise.resolve(null),
     ]);
 
     try {
@@ -439,6 +459,7 @@ export async function addTeamMember(
             null,
           inviterName: actor?.name ?? null,
           organizationName: organization?.name ?? null,
+          planName: invitePlan?.companyName ?? null,
           acceptUrl: link.url,
           expiresInDays: INVITE_SEAT_HOLD_DAYS,
         });

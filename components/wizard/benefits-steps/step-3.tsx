@@ -36,6 +36,9 @@ import {
   UserPlus,
   Armchair,
   X,
+  BadgeCheck,
+  MailCheck,
+  UserCheck,
 } from "lucide-react";
 import { KeyContact } from "@/types/new-client-wizard";
 import {
@@ -103,6 +106,16 @@ interface PlanCollaboratorRow {
   deactivatedAt: string | null;
   inviteDueDate: string | null;
 }
+
+/**
+ * The status that stands in for "Give Team Seat" — muted when there is nothing for the
+ * advisor to do, green when the person is already handled. Sized like the button it
+ * replaces (`h-8 w-full`) so every card in the row keeps the same height.
+ */
+const SEAT_STATUS_MUTED_CLASS =
+  "flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-gray-100 bg-gray-50 px-3 text-xs font-semibold text-muted-foreground dark:border-gray-700 dark:bg-gray-800/60";
+const SEAT_STATUS_DONE_CLASS =
+  "flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-400";
 
 export function BenefitsStep3({
   section,
@@ -172,6 +185,15 @@ export function BenefitsStep3({
   ]);
   const [isInviteOpen, setIsInviteOpen] = useState(false);
   const [collaborators, setCollaborators] = useState<PlanCollaboratorRow[]>([]);
+  /**
+   * The organization owner's addresses, reported beside the assignments.
+   *
+   * The owner is deliberately not a teammate — `contact-mirror.server.ts` skips them,
+   * because their canonical representation is `Organization.ownerUserId` rather than a
+   * TeammateProfile — so they are absent from `collaborators` and this is the only way to
+   * recognise their Support Contact card.
+   */
+  const [ownerEmails, setOwnerEmails] = useState<string[]>([]);
   // Bumped after an invite so the list re-reads without a page reload.
   const [collaboratorsRefreshKey, setCollaboratorsRefreshKey] = useState(0);
   const invitePlanId = step1Data?.planId || "";
@@ -190,6 +212,7 @@ export function BenefitsStep3({
   useEffect(() => {
     if (!invitePlanId) {
       setCollaborators([]);
+      setOwnerEmails([]);
       return;
     }
 
@@ -203,15 +226,25 @@ export function BenefitsStep3({
         if (!response.ok) {
           // No access to the plan (or it is gone): show nobody rather than an
           // error state — the section is informational.
-          if (!cancelled) setCollaborators([]);
+          if (!cancelled) {
+            setCollaborators([]);
+            setOwnerEmails([]);
+          }
           return;
         }
         const body = (await response.json()) as {
           assignments?: PlanCollaboratorRow[];
+          ownerEmails?: string[];
         };
-        if (!cancelled) setCollaborators(body.assignments ?? []);
+        if (!cancelled) {
+          setCollaborators(body.assignments ?? []);
+          setOwnerEmails(body.ownerEmails ?? []);
+        }
       } catch {
-        if (!cancelled) setCollaborators([]);
+        if (!cancelled) {
+          setCollaborators([]);
+          setOwnerEmails([]);
+        }
       }
     })();
 
@@ -219,6 +252,28 @@ export function BenefitsStep3({
       cancelled = true;
     };
   }, [invitePlanId, collaboratorsRefreshKey]);
+
+  /**
+   * The two lookups that decide what each Support Contact card shows.
+   *
+   * Email is the only key the two lists share: a Key Contact carries no profile id and a
+   * teammate profile carries no contact id, but the mirror is keyed on the address, so one
+   * person is one address on both sides.
+   */
+  const ownerEmailSet = useMemo(
+    () => new Set(ownerEmails.map((address) => address.trim().toLowerCase())),
+    [ownerEmails],
+  );
+  const teammateByEmail = useMemo(() => {
+    const map = new Map<string, PlanCollaboratorRow>();
+    for (const person of collaborators) {
+      const address = person.email?.trim().toLowerCase();
+      // First wins: `listPlanAssignments` orders by createdAt, so the earliest assignment
+      // is the one an invitation was raised against.
+      if (address && !map.has(address)) map.set(address, person);
+    }
+    return map;
+  }, [collaborators]);
 
   const selectedPlan = step1Data?.selectedPlan;
   const [localContacts, setLocalContacts] = useState<KeyContact[]>([]);
@@ -789,6 +844,35 @@ export function BenefitsStep3({
                   contact.phone,
                   contact.phoneExtension,
                 );
+                // Email is the only key the plan's contact list and the assignment list
+                // share — a contact carries no profile id and a profile no contact id —
+                // so it is what connects this card to the person the server knows.
+                const contactEmail = (contact.email || "").trim().toLowerCase();
+                const teammate = contactEmail
+                  ? teammateByEmail.get(contactEmail)
+                  : undefined;
+                /**
+                 * What replaces the seat button, or `null` when the button is right.
+                 *
+                 * Only `invited` and `active` count as already handled. The T7 contact
+                 * mirror creates an assignment for EVERY plan contact, so an ordinary
+                 * mirrored contact is on this plan with `state: "contact"` — no seat, no
+                 * invitation — and offering them one is the point of the button.
+                 */
+                const seatStatus = !contactEmail
+                  ? null
+                  : ownerEmailSet.has(contactEmail)
+                    ? "owner"
+                    : teammate?.deactivatedAt
+                      ? "deactivated"
+                      : teammate?.state === "invited"
+                        ? "invited"
+                        : teammate?.state === "active"
+                          ? "active"
+                          : null;
+                const inviteDueDate = teammate?.inviteDueDate
+                  ? new Date(teammate.inviteDueDate).toLocaleDateString()
+                  : null;
 
                 return (
                   <Card
@@ -887,30 +971,73 @@ export function BenefitsStep3({
                         ) : null}
                       </div>
 
-                      {/* Promote this person into a paid Team Member seat. It lives
-                          inside CardContent, which owns the on/off toggle for this
-                          benefit, so every event is stopped — otherwise pressing it
-                          would also deselect the contact it is about. */}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-8 w-full gap-1.5 text-xs font-semibold"
-                        title={
-                          contact.email
-                            ? "Give this contact a Team Member seat"
-                            : "Add an email address for this contact first"
-                        }
-                        disabled={!contact.email}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setContactPendingSeat(contact);
-                        }}
-                        onPointerDown={(e) => e.stopPropagation()}
-                      >
-                        <Armchair className="h-3.5 w-3.5" />
-                        Give Team Seat
-                      </Button>
+                      {/* Promote this person into a paid Team Member seat — unless a seat
+                          is not theirs to be given. The status stands in the button's place
+                          rather than the button simply vanishing, so the card still says
+                          why: the owner already has everything, and somebody who has been
+                          invited (or has accepted) must not be invited twice. */}
+                      {seatStatus === "owner" ? (
+                        <div
+                          className={SEAT_STATUS_MUTED_CLASS}
+                          title="This is the organization owner. They already have full access to every plan and every category."
+                        >
+                          <BadgeCheck className="h-3.5 w-3.5" />
+                          Organization owner
+                        </div>
+                      ) : seatStatus === "invited" ? (
+                        <div
+                          className={SEAT_STATUS_DONE_CLASS}
+                          title={
+                            inviteDueDate
+                              ? `Invitation sent · expires ${inviteDueDate}`
+                              : "Invitation sent"
+                          }
+                        >
+                          <MailCheck className="h-3.5 w-3.5" />
+                          Invite sent
+                        </div>
+                      ) : seatStatus === "active" ? (
+                        <div
+                          className={SEAT_STATUS_DONE_CLASS}
+                          title="Already a Team Member of your organization."
+                        >
+                          <UserCheck className="h-3.5 w-3.5" />
+                          Team member
+                        </div>
+                      ) : seatStatus === "deactivated" ? (
+                        <div
+                          className={SEAT_STATUS_MUTED_CLASS}
+                          title="This person was deactivated. Reactivate them in Settings → People & Access rather than adding them again — the server refuses a re-add for a deactivated address."
+                        >
+                          <UserCheck className="h-3.5 w-3.5" />
+                          Deactivated
+                        </div>
+                      ) : (
+                        /* Nothing to describe: they hold no seat and no invitation, so the
+                           action IS the content. It lives inside CardContent, which owns the
+                           on/off toggle for this benefit, so every event is stopped —
+                           otherwise pressing it would also deselect the contact. */
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 w-full gap-1.5 text-xs font-semibold"
+                          title={
+                            contact.email
+                              ? "Give this contact a Team Member seat"
+                              : "Add an email address for this contact first"
+                          }
+                          disabled={!contact.email}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setContactPendingSeat(contact);
+                          }}
+                          onPointerDown={(e) => e.stopPropagation()}
+                        >
+                          <Armchair className="h-3.5 w-3.5" />
+                          Give Team Seat
+                        </Button>
+                      )}
                     </CardContent>
 
                     {/* The display copy only exists once this contact is selected for the
@@ -1141,6 +1268,9 @@ export function BenefitsStep3({
           }}
           onGranted={() => setCollaboratorsRefreshKey((key) => key + 1)}
           currentCustomBenefit={currentCustomBenefit}
+          // The plan this benefit belongs to: the invitation email names it, so the
+          // recipient reads "added you to <Plan> on PlanTelligence".
+          planId={invitePlanId || null}
         />
 
         {/* Plan-level delete confirmation. Placed here for locality only — Radix's

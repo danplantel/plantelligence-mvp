@@ -784,6 +784,15 @@ export interface TeamMemberInviteEmailInput {
   /** Their firm, shown so the recipient knows who acted. */
   organizationName?: string | null;
   /**
+   * The plan the recipient is being brought in for, when the caller knows which one.
+   *
+   * Named in the subject INSTEAD of the firm when present. A solo advisor's Organization
+   * mirrors their own `User` row, so in that — the common — case the firm reads as the
+   * inviter's name a second time ("Eddie Taliaferro added you to Eddie Taliaferro"), which
+   * tells the recipient nothing. The plan is the thing they can recognise.
+   */
+  planName?: string | null;
+  /**
    * T9: the link that activates the account. Required, not optional — the entire purpose
    * of this email is that the recipient has no account yet and cannot sign in.
    */
@@ -810,6 +819,7 @@ export async function sendTeamMemberInviteEmail({
   memberName,
   inviterName,
   organizationName,
+  planName,
   acceptUrl,
   expiresInDays,
 }: TeamMemberInviteEmailInput) {
@@ -818,12 +828,31 @@ export async function sendTeamMemberInviteEmail({
     (inviterName || "").trim() || organizationName?.trim() || "Your benefits advisor";
   const firm = organizationName?.trim();
 
+  /**
+   * The firm is only worth naming when it says something the inviter's name does not.
+   *
+   * `Organization.name` is a mirror of the owner's `User` row (see
+   * `lib/organization.ts`), so for a solo advisor the two are the same string and every
+   * sentence carrying both read "Eddie Taliaferro added you to Eddie Taliaferro". Dropping
+   * it in that one case is what leaves room for the plan to be the destination instead.
+   */
+  const namedFirm =
+    firm && firm.toLowerCase() !== inviter.trim().toLowerCase() ? firm : "";
+
+  /**
+   * What the recipient is being brought into: the plan they are being given access to when
+   * the caller knows which one, otherwise the firm, otherwise nothing (and the copy falls
+   * back to "their team", which is at least true).
+   */
+  const destination = planName?.trim() || namedFirm;
+
   // Interpolated user data is escaped here, unlike the older templates. A person's display
   // name and an organization name are free text an advisor typed, and this one is
   // rendered inside a styled button-adjacent block where a stray tag would break the
   // layout rather than merely look wrong.
   const safeInviter = escapeHtml(inviter);
-  const safeFirm = firm ? escapeHtml(firm) : "";
+  const safeFirm = namedFirm ? escapeHtml(namedFirm) : "";
+  const safeDestination = destination ? escapeHtml(destination) : "";
   const validFor =
     typeof expiresInDays === "number" && expiresInDays > 0
       ? `
@@ -836,8 +865,8 @@ export async function sendTeamMemberInviteEmail({
                                     </tr>`
       : "";
 
-  const subject = firm
-    ? `${safeInviter} added you to ${safeFirm} on PlanTelligence`
+  const subject = safeDestination
+    ? `${safeInviter} added you to ${safeDestination} on PlanTelligence`
     : `${safeInviter} added you to their team on PlanTelligence`;
 
   const html = `
