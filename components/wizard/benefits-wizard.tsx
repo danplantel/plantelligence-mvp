@@ -70,10 +70,23 @@ export function BenefitsWizard({
         };
     }, []);
 
-    // Handle global sidebar width shift
+    /**
+     * Handle global sidebar width shift.
+     *
+     * This reserves the panel's space for the steps whose panel is pinned to the left
+     * edge (steps 1 and 5): widening `--sidebar-width` pushes the header and the preview
+     * aside so the panel has room.
+     *
+     * Step 2 is excluded. It seats its panel *beside* the sidebar with the shared
+     * contract (`usePreviewEditorLayout` → `--editor-inset`, see
+     * lib/preview-editor-layout.ts), and widening `--sidebar-width` as well would push
+     * the panel — positioned at `var(--sidebar-width)` — and the preview out by another
+     * 36rem, and hide the nav behind the panel again.
+     */
     useEffect(() => {
         const sidebarWidth = "36rem";
-        if (isEditorOpen) {
+        const widensForThisStep = isEditorOpen && currentStep !== 2;
+        if (widensForThisStep) {
             if (originalSidebarWidthRef.current === null) {
                 originalSidebarWidthRef.current = document.documentElement.style.getPropertyValue("--sidebar-width");
             }
@@ -94,7 +107,7 @@ export function BenefitsWizard({
                 document.documentElement.style.removeProperty("--sidebar-width");
             }
         };
-    }, [isEditorOpen]);
+    }, [isEditorOpen, currentStep]);
 
     // One "busy" switch for the whole footer: while a step transition, a publish or
     // the Cancel discard is in flight nothing in the footer may fire — otherwise a

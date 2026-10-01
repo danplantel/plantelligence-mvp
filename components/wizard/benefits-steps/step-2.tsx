@@ -9,6 +9,7 @@ import { useBenefitsLenisScroll } from "./hooks/use-benefits-lenis-scroll";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { applyTypographyToElement } from "@/lib/typography-themes";
 import { fetchClientOnce } from "@/lib/fetch-client";
+import { usePreviewEditorLayout } from "@/lib/preview-editor-layout";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
 import { Smartphone, Monitor } from "lucide-react";
 
@@ -297,6 +298,24 @@ export function BenefitsStep2() {
 
     const editorIsOpen = editorState.isEditorOpen || editorState.isEditorAnimating;
 
+    /**
+     * Reserve a column for the Editing Panel *beside* the sidebar, and ask the sidebar
+     * to rail-collapse while it is open.
+     *
+     * The wizard widens `--sidebar-width` to 36rem for the steps whose panel is pinned
+     * to the left edge (see `BenefitsWizard`). That moved everything else out of the
+     * panel's way but left the panel itself painted over the nav, so the sidebar
+     * disappeared for the whole step. This is the shared contract the Preview pages use
+     * (see `lib/preview-editor-layout.ts`): `--editor-inset` carries the panel's width,
+     * the Sidebar listens for the event and collapses to its icon rail so the nav stays
+     * visible, and anything that must clear both is written as
+     * `calc(var(--sidebar-width) + var(--editor-inset))`.
+     *
+     * That is also why `BenefitsWizard` skips its widening on this step: with both in
+     * play the panel and the preview would each be pushed out by another 36rem.
+     */
+    usePreviewEditorLayout(editorIsOpen);
+
     // Total fixed vertical space: header + toggle button bar + bottom nav
     const totalFixedHeight = HEADER_HEIGHT + barHeight + BOTTOM_NAV_HEIGHT;
 
@@ -499,8 +518,10 @@ export function BenefitsStep2() {
             <div
                 className="fixed top-0 z-[45]"
                 style={{
-                    left: "var(--sidebar-width, 18rem)",
-                    width: "calc(100% - var(--sidebar-width, 18rem))",
+                    // Sidebar + the panel's reserved column — same offsets as the preview.
+                    left: "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
+                    width:
+                        "calc(100% - var(--sidebar-width, 16rem) - var(--editor-inset, 0px))",
                 }}
             >
                 {/* Spacer to clear the fixed header */}
@@ -566,6 +587,9 @@ export function BenefitsStep2() {
                 isOpen={editorState.isEditorOpen}
                 isAnimating={editorState.isEditorAnimating}
                 onClose={editorState.handleCloseEditor}
+                // Sit beside the (rail-collapsed) sidebar rather than over it. The
+                // wrapper's class-level `left-0` is what hid the nav on this step.
+                leftOffset="var(--sidebar-width, 16rem)"
                 activeSection={editorState.activeSection}
                 highlightedField={editorState.highlightedField}
                 planCompanyName={planCompanyName}
@@ -596,8 +620,11 @@ export function BenefitsStep2() {
                 className="fixed z-40 flex flex-col"
                 style={{
                     top: `${HEADER_HEIGHT + barHeight}px`,
-                    left: "var(--sidebar-width, 18rem)",
-                    width: "calc(100% - var(--sidebar-width, 18rem))",
+                    // Clears the sidebar *and* the Editing Panel's reserved column, so the
+                    // preview sits beside both instead of under the panel.
+                    left: "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
+                    width:
+                        "calc(100% - var(--sidebar-width, 16rem) - var(--editor-inset, 0px))",
                     height: `calc(100vh - ${totalFixedHeight}px)`,
                 }}
             >

@@ -76,6 +76,12 @@ interface BenefitsEditorPanelProps {
     onHeroSegmentModeChange?: (mode: HeroSegmentMode) => void;
     /** Layout variant passed through to EditorPanelWrapper */
     variant?: 'fixed' | 'inline';
+    /**
+     * Left offset for the fixed variant, passed through to EditorPanelWrapper so the
+     * panel can sit *beside* the sidebar instead of painting over it. Step 2 supplies
+     * `var(--sidebar-width, 16rem)`; the other steps omit it and keep `left-0`.
+     */
+    leftOffset?: string;
     /** Plan/company name shown next to the benefit category badge in the header */
     planCompanyName?: string;
     /** The plan's company website — analysis target for the AI typography suggestion */
@@ -98,6 +104,7 @@ export function BenefitsEditorPanel({
     onScrollEditorTo,
     editorScrollContainerRef: externalScrollRef,
     variant,
+    leftOffset,
     onHeroSegmentModeChange,
 }: BenefitsEditorPanelProps & { highlightedField?: string | null }) {
     const { stepData, saveStepData } = useBenefitsWizardStore();
@@ -412,6 +419,7 @@ export function BenefitsEditorPanel({
             onClose={onClose}
             editorScrollContainerRef={editorScrollContainerRef}
             variant={variant}
+            leftOffset={leftOffset}
             headerBadge={
                 planCompanyName || step1Data?.benefitCategory ? (
                     <span className="inline-flex items-center gap-1.5 rounded-md bg-accent-blue/10 px-2 py-0.5 text-xs font-semibold text-accent-blue">
