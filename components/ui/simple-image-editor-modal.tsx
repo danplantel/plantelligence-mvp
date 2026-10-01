@@ -268,6 +268,26 @@ export function SimpleImageEditorModal({
     guidelinePadding,
   ]);
 
+  /**
+   * Shape of the preview frame, taken from the guide rectangle the preview
+   * depicts.
+   *
+   * The preview is a crop of the guide area, so a frame of the same shape is the
+   * only one the image can fill edge to edge — the frame it replaces was a fixed
+   * 100x75 thumb, which is neither the guide's shape nor the panel's, so every
+   * slot (a 580x240 background, a 400x450 thumbnail) sat small and centred
+   * inside a box far wider than the image drew in. Deriving the ratio means a
+   * new slot is correct without touching this component, and an unmeasurable
+   * guide falls back to the wide 16:9 that background slots use.
+   */
+  const previewAspectRatio = (() => {
+    const { outerLeft, outerTop, outerRight, outerBottom } =
+      getGuidelineMetrics();
+    const width = outerRight - outerLeft;
+    const height = outerBottom - outerTop;
+    return width > 0 && height > 0 ? width / height : 16 / 9;
+  })();
+
   const checkAutoSizeMatch = useCallback(() => {
     const canvas = fabricCanvasRef.current;
     if (!canvas) return false;
@@ -1554,21 +1574,19 @@ export function SimpleImageEditorModal({
                   <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
                     Preview
                   </Label>
-                  <div className="mt-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700 flex items-center justify-center">
+                  {/* Full panel width, shaped like the guide, so the preview is
+                      as large as the column allows and the image fills the frame
+                      rather than floating in the middle of it. */}
+                  <div className="mt-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
                     <div
-                      style={{
-                        width: "100px",
-                        height: "75px",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
+                      className="w-full flex items-center justify-center"
+                      style={{ aspectRatio: previewAspectRatio }}
                     >
                       {previewSrc || imageSrc ? (
                         <img
                           src={previewSrc || imageSrc || ""}
                           alt="Preview"
-                          className="max-w-full max-h-full object-contain"
+                          className="w-full h-full object-contain"
                         />
                       ) : (
                         <span className="text-gray-400 dark:text-gray-500 text-xs">No image</span>
