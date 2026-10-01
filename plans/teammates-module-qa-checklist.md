@@ -242,11 +242,35 @@ Open **Settings → People & Access**.
       **[impl]**
 - [ ] **Remove from seat is absent on the owner's card and on a deactivated row.** The owner's
       seat is reserved, and a deactivated member holds none. **[impl]**
-- [ ] The **Collaborators** accordion sits *under* the seat cards, shows each person's partner
-      company and status, and states that a Collaborator is free and holds no seat. **[impl]**
-- [ ] **Invite Collaborator** and **Add Collaborator** are two separate buttons with different
-      meaning: Add grants access silently, Invite creates the same profile and assignment *and*
-      sends the email. **[impl]**
+- [ ] **Team Members** and **Collaborators** are two peer accordion sections, **both open** by
+      default, each with its own live count. Collapsing one leaves the other alone (the older
+      layout had a single collapsible Collaborators block, so this is the check that it is now
+      one accordion with two independent sections). **[impl]**
+- [ ] The seat meter and the "How seats work" ⓘ sit **above** both sections, not inside one —
+      the meter counts seats, and only Team Members hold one — with **Roles & permissions**
+      beside them. **[impl]**
+- [ ] Each section's action is **in its header**, so it is reachable without scrolling the
+      list: **Add Team Member** in the Team Members header, **Add Collaborator** in the
+      Collaborators header — and the two are **the same width**, so the headers read as one
+      column rather than two buttons sized to their own labels. **[impl]**
+- [ ] **Collapse a section, then press its header action:** the section expands and the modal
+      opens. Pressing a header action must not *only* toggle the accordion, and pressing the
+      header itself — anywhere outside that button — must still toggle it. **[impl]**
+- [ ] The Collaborators section lists people as **rows** (a seat is what they do not consume),
+      shows each person's partner company and status, and states that a Collaborator is free
+      and holds no seat. **[impl]**
+- [ ] **Add Collaborator** opens the modal, and that modal's **first slide** offers
+      **Invite Collaborator** as a full-width row under the two contact tiles (New Contact /
+      Existing Contact). It appears **only** for a Collaborator: adding a Team Member must not
+      offer it (an invite always creates a Collaborator). **[impl]**
+- [ ] **The modal's footer has no Invite Collaborator** on the New Contact or Existing Contact
+      slides — walking a path through the form ends in Add, and inviting is a separate choice
+      made on the first slide. **[impl]**
+- [ ] **Press that first-slide invite row:** the modal closes and the invite dialog opens empty
+      — no person has been established yet, so its own who-is-this, plan and category fields are
+      what collect the invite. The two dialogs must never stack. **[impl]**
+- [ ] With **no plans**, that invite row is disabled and its tooltip says to create a plan first
+      (an invite is scoped to one plan). **[impl]**
 - [ ] The Add modal puts **access first** on both of its slides, and its **New Contact** slide
       asks only for fields a profile can store (name, job title, email, phone + extension,
       headshot, company). See [Known gaps](#known-gaps--do-not-report-these-as-bugs) for the

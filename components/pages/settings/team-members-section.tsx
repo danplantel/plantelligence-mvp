@@ -880,6 +880,18 @@ interface PromotableContactRow {
   planCount: number;
 }
 
+/**
+ * The width shared by the two section-header actions — Add Team Member and Add Collaborator.
+ *
+ * They sit in two different accordion headers, so nothing else can line them up: sized to
+ * their own content, "Add Team Member" is a word wider than "Add Collaborator" and the two
+ * headers stop reading as the same column. A fixed width rather than `min-w`, so a longer
+ * label later cannot break the pair again; 11rem covers "Add Team Member" (the longer of the
+ * two) at `text-sm` plus the plus icon and the button's own padding, with room to spare.
+ * `justify-center` keeps the shorter label centred in the extra space.
+ */
+const SECTION_ACTION_CLASS = "w-[9rem] justify-center";
+
 /* ───────────────────────── Section ───────────────────────── */
 
 export function TeamMembersSection() {
@@ -957,7 +969,18 @@ export function TeamMembersSection() {
   // Add flow, because they are created with a different type and cannot be given
   // All Plans or the Owner/Admin presets.
   const [collaborators, setCollaborators] = useState<TeamMemberRow[]>([]);
-  const [collaboratorsOpen, setCollaboratorsOpen] = useState("collaborators");
+  /**
+   * Which of the tab's two sections are open — both, by default.
+   *
+   * A list is open by default here on purpose: an accordion exists so the reader can
+   * collapse a list they are not using, not so the tab's contents become opt-in. The
+   * value is an array because the two sections are peers — opening Collaborators must
+   * not close Team Members, which is what `type="single"` would have done.
+   */
+  const [openPeopleSections, setOpenPeopleSections] = useState<string[]>([
+    "team-members",
+    "collaborators",
+  ]);
   /** Which person type the Add modal is creating right now. */
   const [addType, setAddType] = useState<"team_member" | "collaborator">(
     "team_member",
@@ -972,10 +995,12 @@ export function TeamMembersSection() {
   /**
    * Invite Collaborator — the email-sending path.
    *
-   * Deliberately a SEPARATE action from "Add Collaborator": the latter grants scoped
-   * access silently (an Owner sharing a screen may not want mail sent yet), while this
-   * one creates the same profile and assignment AND emails the person. Two intents, two
-   * buttons, so neither has to guess.
+   * Still a SEPARATE intent from "Add Collaborator": Add saves the scoped access, Invite
+   * does the same and emails the person to fill in their own details. Where it lives is
+   * the change — it is one of the ways into the Add Collaborator modal (its first slide)
+   * rather than a button beside it in the section header, because the invite flow asks WHO
+   * the person is (Plan Sponsor HR, Outside Advisor, Provider Rep, Reviewer only) and that
+   * question belongs with the form that has just established the person.
    */
   const [isInviteOpen, setIsInviteOpen] = useState(false);
 
@@ -1123,6 +1148,46 @@ export function TeamMembersSection() {
     setConfirmUpgrade(false);
     resetAddForm();
     setIsAddOpen(true);
+  };
+
+  /** Expand one of the tab's two sections (a no-op when it is already open). */
+  const openSection = (section: "team-members" | "collaborators") =>
+    setOpenPeopleSections((prev) =>
+      prev.includes(section) ? prev : [...prev, section],
+    );
+
+  /**
+   * The header actions.
+   *
+   * Each one opens its OWN section first, every time: these buttons live in a header that
+   * is reachable while that section is collapsed, so acting on a list the reader cannot
+   * see would be the one thing worse than having hidden it.
+   */
+  const handleAddTeamMember = () => {
+    openSection("team-members");
+    openAdd();
+  };
+
+  const handleAddCollaborator = () => {
+    openSection("collaborators");
+    openAddCollaborator();
+  };
+
+  /**
+   * "Invite Collaborator", pressed on the Add modal's FIRST slide.
+   *
+   * A hand-off rather than a second submit: the invite is a flow of its own — who is this,
+   * the sponsor-domain guess, an optional note and due date, an existing-collaborator
+   * search, and the merge rule for somebody already on the plan — so a second copy of that
+   * form inside this modal would be two things to keep in step.
+   *
+   * Nothing typed here crosses over, and nothing needs to: this is the chooser slide, so
+   * there is no person yet — naming them is what the invite dialog does. The modal closes
+   * on the same commit, so the two dialogs never stack.
+   */
+  const openInviteFromAddModal = () => {
+    setIsAddOpen(false);
+    setIsInviteOpen(true);
   };
 
   /**
@@ -1512,90 +1577,151 @@ export function TeamMembersSection() {
 
   return (
     <div className="space-y-6">
-      {/* Spec T3 Part A item 3: usage, with pending invites called out. */}
+      {/* Spec T3 Part A item 3: usage, with pending invites called out.
+          The meter is the TAB's summary rather than a section's: it counts seats, and
+          only Team Members hold one, so it belongs above both lists instead of inside
+          either of them. */}
       {seats ? (
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <div>
-            <h3 className="text-base font-medium">Team Members</h3>
-            <div className="flex items-center gap-1">
-              <p className="text-sm text-muted-foreground">
-                {seats.seatsUsed} of {seats.seatsIncluded} seats used
-                {pendingCount > 0
-                  ? ` · ${pendingCount} pending invite${pendingCount === 1 ? "" : "s"}`
-                  : ""}
-              </p>
-              <SeatUsageInfoDialog
-                seats={seats}
-                ownerName={ownerRow?.name ?? null}
-                viewerIsOwner={viewerIsOwner}
-              />
-            </div>
+          <div className="flex items-center gap-1">
+            <p className="text-sm text-muted-foreground">
+              {seats.seatsUsed} of {seats.seatsIncluded} seats used
+              {pendingCount > 0
+                ? ` · ${pendingCount} pending invite${pendingCount === 1 ? "" : "s"}`
+                : ""}
+            </p>
+            <SeatUsageInfoDialog
+              seats={seats}
+              ownerName={ownerRow?.name ?? null}
+              viewerIsOwner={viewerIsOwner}
+            />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <RolesPermissionsDialog />
-            <Button onClick={openAdd}>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Team Member
-            </Button>
-          </div>
+          <RolesPermissionsDialog />
         </div>
       ) : null}
 
-      {isLoading ? (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Loading team…
-        </div>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          {seatHolders.map((row) => (
-            <FilledSeatCard
-              key={row.id}
-              row={row}
-              onEdit={openEdit}
-              // The Owner's seat is reserved, and their row is synthesized rather than
-              // stored, so there is no seat to give back and no profileId to address.
-              // A deactivated member holds nothing either, and their removal is undone
-              // from their own screen rather than from this grid.
-              onRemove={
-                row.isOwner || row.deactivatedAt
-                  ? undefined
-                  : (target) => setRemoving(target)
-              }
-            />
-          ))}
-          {Array.from({ length: emptyCards }).map((_, index) => (
-            <EmptySeatCard key={`empty-${index}`} onAdd={openAdd} />
-          ))}
-        </div>
-      )}
-
-      {/* ── Collaborators ──
-          The other half of the team: external people with scoped access and no
-          seat. They are listed here rather than as seat cards because a seat is
-          precisely what they do not consume. Rendered only once the lists have
-          loaded, so an empty organization cannot flash "No Collaborators yet"
-          while the request is still in flight. */}
-      {isLoading ? null : (
+      {/* ── The tab's two halves, as peer accordion sections ──
+          Two lists, because they are two kinds of person: a Team Member belongs to the
+          organization and holds a seat, a Collaborator is external and free. Each
+          section therefore owns its own count, its own actions and its own empty state.
+          Both start open — an accordion lets the reader collapse a list they are not
+          using; it should not make the tab's contents opt-in. */}
       <Accordion
-        type="single"
-        collapsible
-        value={collaboratorsOpen}
-        onValueChange={setCollaboratorsOpen}
-        className="rounded-xl border bg-card px-4"
+        type="multiple"
+        value={openPeopleSections}
+        onValueChange={setOpenPeopleSections}
+        className="space-y-3"
       >
-        <AccordionItem value="collaborators" className="border-b-0">
+        <AccordionItem
+          value="team-members"
+          className="rounded-xl border bg-card px-4"
+        >
           <AccordionTrigger className="hover:no-underline">
             <span className="flex flex-1 flex-wrap items-center gap-2 pr-2 text-left">
+              <UserRound className="h-4 w-4 shrink-0 text-accent-blue" />
+              <span className="text-base font-medium">Team Members</span>
+              <Badge variant="secondary">{seatHolders.length}</Badge>
+              <span className="text-xs font-normal text-muted-foreground">
+                Your organization&rsquo;s own people — each one holds a seat.
+              </span>
+            </span>
+            {/* The section's own action, in its header so it is reachable without
+                scrolling the grid — and it expands this section before acting, so the
+                list it adds to is always the list on screen. `stopPropagation` keeps a
+                click here from toggling the accordion (the idiom the Edit Client contact
+                accordions already use). */}
+            <span
+              className="flex shrink-0 items-center gap-2 pr-2"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <Button
+                size="sm"
+                className={SECTION_ACTION_CLASS}
+                onClick={handleAddTeamMember}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Team Member
+              </Button>
+            </span>
+          </AccordionTrigger>
+          <AccordionContent>
+            {isLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading team…
+              </div>
+            ) : (
+              /* One card per seat. Occupied cards are the people already on the team; the
+                 rest are open. If the organization is over its allowance (a confirmed
+                 over-limit add), the grid grows so no member is hidden. */
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                {seatHolders.map((row) => (
+                  <FilledSeatCard
+                    key={row.id}
+                    row={row}
+                    onEdit={openEdit}
+                    // The Owner's seat is reserved, and their row is synthesized rather
+                    // than stored, so there is no seat to give back and no profileId to
+                    // address. A deactivated member holds nothing either, and their
+                    // removal is undone from their own screen rather than this grid.
+                    onRemove={
+                      row.isOwner || row.deactivatedAt
+                        ? undefined
+                        : (target) => setRemoving(target)
+                    }
+                  />
+                ))}
+                {Array.from({ length: emptyCards }).map((_, index) => (
+                  <EmptySeatCard key={`empty-${index}`} onAdd={openAdd} />
+                ))}
+              </div>
+            )}
+          </AccordionContent>
+        </AccordionItem>
+
+        {/* ── Collaborators ──
+            The other half of the team: external people with scoped access and no seat.
+            They are listed as rows rather than as seat cards because a seat is precisely
+            what they do not consume. */}
+        <AccordionItem
+          value="collaborators"
+          className="rounded-xl border bg-card px-4"
+        >
+          <AccordionTrigger className="hover:no-underline">
+            <span className="flex flex-1 flex-wrap items-center gap-2 pr-2 text-left">
+              <UserRoundPlus className="h-4 w-4 shrink-0 text-accent-blue" />
               <span className="text-base font-medium">Collaborators</span>
               <Badge variant="secondary">{collaborators.length}</Badge>
               <span className="text-xs font-normal text-muted-foreground">
                 External people — free, no seat.
               </span>
             </span>
+            {/* This section's action, in its header, opening the section first. Inviting
+                is deliberately NOT a second button here: it needs to know who the person
+                is, so it lives inside the Add Collaborator modal below. */}
+            <span
+              className="flex shrink-0 items-center gap-2 pr-2"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <Button
+                size="sm"
+                className={SECTION_ACTION_CLASS}
+                onClick={handleAddCollaborator}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Collaborator
+              </Button>
+            </span>
           </AccordionTrigger>
           <AccordionContent>
-            {collaborators.length === 0 ? (
+            {/* The empty state waits for the lists, so an empty organization cannot
+                flash "No Collaborators yet" while the request is still in flight. */}
+            {isLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading collaborators…
+              </div>
+            ) : collaborators.length === 0 ? (
               <p className="text-sm text-muted-foreground">
                 No Collaborators yet. Add one when someone outside your organization
                 needs access to a plan — a provider, a TPA contact, a specialist.
@@ -1619,34 +1745,15 @@ export function TeamMembersSection() {
               </ul>
             )}
 
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs text-muted-foreground">
-                Whatever role they hold, they can never publish, invite, delete, or
-                see organization settings.
-              </p>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  onClick={() => setIsInviteOpen(true)}
-                  disabled={plans.length === 0}
-                  title={
-                    plans.length === 0
-                      ? "Create a plan before inviting a collaborator"
-                      : "Email someone an invite to complete a plan's sections"
-                  }
-                >
-                  <UserRoundPlus className="mr-2 h-4 w-4" />
-                  Invite Collaborator
-                </Button>
-                <Button variant="outline" onClick={openAddCollaborator}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Collaborator
-                </Button>
-              </div>
-            </div>
+            {/* The actions moved into this section's header, so what remains here is the
+                rule they operate under. */}
+            <p className="mt-3 text-xs text-muted-foreground">
+              Whatever role they hold, they can never publish, invite, delete, or
+              see organization settings.
+            </p>
           </AccordionContent>
         </AccordionItem>
       </Accordion>
-      )}
 
       {/* ── Invite Collaborator (sends the email) ── */}
       <InviteCollaboratorDialog
@@ -1736,6 +1843,42 @@ export function TeamMembersSection() {
                   </span>
                 </span>
               </button>
+
+              {/* The third way in, for collaborators only: hand the job to the person
+                  themselves. It is a full-width row rather than a third square because it
+                  is not a peer of the two above — with it, the advisor types nothing, so
+                  offering it on a par with "New Contact" would hide the fact that the two
+                  tiles are the ones that need work.
+
+                  This is where the invite is FIRST reachable, which matters: the modal
+                  opens on this slide, so an invite that only existed on slide 2 — or only
+                  in the footer — would look like it had been removed. */}
+              {addType === "collaborator" ? (
+                <button
+                  type="button"
+                  onClick={openInviteFromAddModal}
+                  disabled={plans.length === 0}
+                  title={
+                    plans.length === 0
+                      ? "Create a plan before inviting a collaborator"
+                      : "Email them an invitation to complete a plan's sections themselves"
+                  }
+                  className="col-span-2 flex items-center gap-3 rounded-xl border bg-card p-4 text-left transition hover:border-primary/60 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-border disabled:hover:shadow-none"
+                >
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
+                    <UserRoundPlus className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0 space-y-0.5">
+                    <span className="block text-sm font-medium">
+                      Invite Collaborator
+                    </span>
+                    <span className="block text-xs text-muted-foreground">
+                      Email them an invitation and let them fill in their own details
+                      and sections.
+                    </span>
+                  </span>
+                </button>
+              ) : null}
             </div>
           ) : (
           <div className="space-y-4">
