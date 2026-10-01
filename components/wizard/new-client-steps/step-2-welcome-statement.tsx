@@ -28,6 +28,7 @@ import { useUserAvatar } from "./sections/hooks/use-user-avatar";
 import { useScrollSync } from "./sections/hooks/use-scroll-sync";
 import { useFieldFocus } from "./sections/hooks/use-field-focus";
 import { autoCropThumbnailImage } from "./sections/utils/thumbnail-utils";
+import { THUMBNAIL_GUIDE_SIZE } from "./constants/brand-image-guides";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { Smartphone, Monitor } from "lucide-react";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
@@ -1483,7 +1484,12 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           onClose={() => { thumbnailImage.setIsThumbnailModalOpen(false); thumbnailImage.setPendingThumbnailData(null); }}
           saveButtonText="Save Thumbnail"
           canvasWidth={600} canvasHeight={600}
-          guidelineWidth={400} guidelineHeight={450} guidelinePadding={20}
+          // Square, both axes from one constant: this writes the same
+          // brandImages.thumbnail slot the step-1 cropper does, so the two must
+          // agree on the crop's shape.
+          guidelineWidth={THUMBNAIL_GUIDE_SIZE}
+          guidelineHeight={THUMBNAIL_GUIDE_SIZE}
+          guidelinePadding={20}
         />
       )}
 

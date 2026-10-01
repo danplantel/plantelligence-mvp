@@ -14,6 +14,7 @@ import { toR2BrandingKey, getR2ObjectProxyUrl } from "@/lib/branding-image-url";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { Button } from "@/components/ui/button";
+import { THUMBNAIL_GUIDE_SIZE } from "../constants/brand-image-guides";
 
 interface BrandImagesSectionProps {
   brandImages: BrandImagesData;
@@ -569,9 +570,11 @@ export function BrandImagesSection({
               ? 3.5
               : 1
           }
+          // The thumbnail's two axes read the SAME constant — it is a 1:1 slot,
+          // and a guide that is not square exports a crop that is not square.
           guidelineWidth={
             pendingImageData.slotKey === "thumbnail"
-              ? 400
+              ? THUMBNAIL_GUIDE_SIZE
               : pendingImageData.slotKey === "header" ||
                 pendingImageData.slotKey === "secondaryBanner"
               ? 580
@@ -579,7 +582,7 @@ export function BrandImagesSection({
           }
           guidelineHeight={
             pendingImageData.slotKey === "thumbnail"
-              ? 450
+              ? THUMBNAIL_GUIDE_SIZE
               : pendingImageData.slotKey === "header" ||
                 pendingImageData.slotKey === "secondaryBanner"
               ? 240
