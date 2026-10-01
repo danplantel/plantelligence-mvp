@@ -11,12 +11,47 @@
  * Server-only.
  */
 
+import { headers } from "next/headers";
 import prisma from "@/lib/prisma";
 import { inviteAcceptUrl, signInviteToken } from "./invite-token.server";
 
-/** Same precedence as the rest of the mailers (see lib/email.ts). */
+/**
+ * The origin of the request that raised this invitation, or null outside one.
+ *
+ * `x-forwarded-host` / `-proto` first: behind Vercel the bare `host` header is the
+ * internal one, not the domain the advisor is using.
+ */
+function requestOrigin(): string | null {
+  try {
+    const store = headers();
+    const host = store.get("x-forwarded-host") ?? store.get("host");
+    if (!host) return null;
+    const proto =
+      (store.get("x-forwarded-proto") ?? "https").split(",")[0].trim() || "https";
+    return `${proto}://${host}`;
+  } catch {
+    // No request scope — a verification script, a build, a cron. Fall back to the env.
+    return null;
+  }
+}
+
+/**
+ * The base URL an invitation link is built from.
+ *
+ * **The live request wins**, and that is the whole point. The token encodes a
+ * `TeammateProfile` that exists in THIS environment's database, so the link has to come
+ * back to the same environment. A locally-run app that mails the configured production URL
+ * produces a link that is broken twice over: the production deployment may not carry the
+ * accept route at all, and even when it does, it would look for a profile that only exists
+ * in the local database. That is not hypothetical — it is what sent a fresh invite to
+ * `https://plantel.pro/accept-invite/…`, which 308-redirects to `www` and 404s there.
+ *
+ * Outside a request the configured URLs still apply, with the same precedence as the rest
+ * of the mailers (see lib/email.ts).
+ */
 export function appBaseUrl(): string {
   return (
+    requestOrigin() ||
     process.env.NEXT_PUBLIC_APP_URL ||
     process.env.NEXTAUTH_URL ||
     ""

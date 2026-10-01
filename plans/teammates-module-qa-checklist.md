@@ -94,9 +94,9 @@ were failing.
 - [✓] With **no drafts on the server at all** (a fresh database), open **Create Plan**. You go
       straight into a blank wizard — **no "You have an in-progress plan" dialog**. This is the
       bug that prompted the rebuild.
-- [ ] Save a draft, confirm it appears in **View Plans**, delete it there, then revisit
+- [✓] Save a draft, confirm it appears in **View Plans**, delete it there, then revisit
       **Create Plan**. You are **not** offered to resume the deleted plan.
-- [ ] **A saved draft appears in View Plans without a multi-second wait.** The row is a
+- [✓] **A saved draft appears in View Plans without a multi-second wait.** The row is a
       `Client` like any other, and the dashboard now asks for the slim `view=table`
       projection rather than the full record. The full record ships
       `employeePortalPreview` and the legacy brand-image columns — measured at
