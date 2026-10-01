@@ -270,6 +270,48 @@ const benefitsWizardSteps: WizardStep[] = [
  */
 export const BENEFITS_WIZARD_STORAGE_KEY = "benefits-wizard";
 
+/**
+ * The plan + category the persisted Create Benefits draft belongs to, or null.
+ *
+ * Read straight from localStorage rather than from the store, because the store is
+ * `skipHydration` and is only filled once the Create Benefits page mounts — on any other
+ * page it is empty even when a draft exists.
+ *
+ * The wizard creates a Benefit row only on an explicit publish, so everything an advisor
+ * has set up before that (which is what a draft IS) exists nowhere else. That makes this
+ * the only evidence the Browse Benefits list can use to tell a started-but-unpublished
+ * category from an untouched one.
+ *
+ * Returns null when there is no draft, when storage is unavailable (private mode), or when
+ * the stored payload cannot be read: an unknown draft must never invent a label.
+ */
+export function readPersistedBenefitsDraft(): {
+    planId: string;
+    benefitCategory: string;
+} | null {
+    if (typeof window === "undefined") return null;
+    try {
+        const raw = window.localStorage.getItem(BENEFITS_WIZARD_STORAGE_KEY);
+        if (!raw) return null;
+
+        const parsed = JSON.parse(raw) as {
+            state?: {
+                stepData?: {
+                    step1?: { planId?: string; benefitCategory?: string };
+                };
+            };
+        };
+        const step1 = parsed?.state?.stepData?.step1;
+        const planId = (step1?.planId || "").trim();
+        const benefitCategory = (step1?.benefitCategory || "").trim();
+        if (!planId || !benefitCategory) return null;
+
+        return { planId, benefitCategory };
+    } catch {
+        return null;
+    }
+}
+
 export const useBenefitsWizardStore = create<BenefitsWizardState>()(
     persist(
         (set, get) => ({

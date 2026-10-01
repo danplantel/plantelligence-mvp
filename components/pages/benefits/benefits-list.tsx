@@ -23,6 +23,11 @@ import {
 } from "@/lib/plan-selector-storage";
 import { isActiveClientStatus } from "@/lib/active-client-status";
 import { categoryToSlug } from "@/lib/benefit-category-slug";
+import {
+  normalizeBenefitCategoryKey,
+  toApiBenefitCategory,
+} from "@/lib/benefit-draft";
+import { readPersistedBenefitsDraft } from "@/lib/benefits-wizard-store";
 import { Headshot } from "@/components/ui/headshot";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { InviteCollaboratorDialog } from "@/components/pages/benefits/invite-collaborator-dialog";
@@ -254,6 +259,38 @@ export function BenefitsListPage({
 
   const [selectedPlanId, setSelectedPlanId] = useState("");
   const [toggling, setToggling] = useState<Record<string, boolean>>({});
+
+  /* ── Drafts ──
+     A Benefit row is created only by an explicit publish, so a category the advisor has
+     started and not published has no row for `/api/benefits` to report — its whole state
+     is the wizard draft persisted to localStorage. Read once on mount (the wizard store is
+     `skipHydration`, so it is empty on this page) so those rows can be labelled "Draft"
+     rather than reading as untouched. */
+  const [draftTarget, setDraftTarget] = useState<{
+    planId: string;
+    benefitCategory: string;
+  } | null>(null);
+
+  useEffect(() => {
+    setDraftTarget(readPersistedBenefitsDraft());
+  }, []);
+
+  /**
+   * Is this row the plan + category that draft belongs to?
+   *
+   * Both sides are compared through the API's category naming: the wizard calls the
+   * plan-sponsor hub "Custom" while the API stores and returns "Company / Plan Sponsor".
+   * A draft for another plan or another category must not label this row, and
+   * `!row.exists` is the other half of the definition — once a row is published, its own
+   * state ("Published" / "Hidden") is the truth.
+   */
+  const isDraftRow = (row: BenefitRow): boolean =>
+    !row.exists &&
+    !!draftTarget &&
+    draftTarget.planId === row.planId &&
+    normalizeBenefitCategoryKey(
+      toApiBenefitCategory(draftTarget.benefitCategory),
+    ) === normalizeBenefitCategoryKey(row.category);
 
   const rows: BenefitRow[] = benefitsData?.benefits ?? [];
   const plans: PlanSearchBarPlan[] = useMemo(
@@ -680,6 +717,10 @@ export function BenefitsListPage({
                           }
                         />
                       </div>
+                    ) : isDraftRow(row) ? (
+                      <span className="shrink-0 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
+                        Draft
+                      </span>
                     ) : (
                       <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
                         Not created
@@ -730,7 +771,10 @@ export function BenefitsListPage({
                         }
                       >
                         <Plus className="h-3.5 w-3.5" />
-                        Add
+                        {/* Same destination either way — the wizard rehydrates the draft for
+                            this plan + category — so only the wording changes: "Continue"
+                            when there is work to return to, "Add" when there is none. */}
+                        {isDraftRow(row) ? "Continue" : "Add"}
                       </Button>
                     )}
                   </div>

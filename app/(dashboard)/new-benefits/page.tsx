@@ -20,6 +20,7 @@ import {
 } from "@/components/wizard/benefits-steps";
 import { BenefitsCategory } from "@/types/new-client-wizard";
 import { saveBenefit, normalizeCategory } from "@/lib/save-benefit";
+import { toApiBenefitCategory } from "@/lib/benefit-draft";
 import {
   purgeDraftBenefit,
   sessionCreatedBenefitRow,
@@ -273,7 +274,31 @@ function NewBenefitsPageInner() {
   useEffect(() => {
     const hasPlanParam = !!planIdParam;
 
-    const applyFromUrl = () => {
+    /** Both spellings of the plan-sponsor hub are the same category, as everywhere else. */
+    const normalizeForMatch = (raw: string | null | undefined) =>
+      normalizeCategory(toApiBenefitCategory(raw || ""));
+
+    /**
+     * Is the store's current draft for exactly this plan + category?
+     *
+     * This is the difference between the Benefits list's "Continue" and an "Add": Continue
+     * links to the plan + category the draft already names, so the URL is asking to RESUME
+     * the draft, not to start one. Read BEFORE the URL is written — afterwards the store's
+     * own plan/category ARE the URL's, and the comparison could no longer tell the two
+     * apart.
+     */
+    const isResumeOf = (
+      step1:
+        | { planId?: string | null; benefitCategory?: string | null }
+        | null
+        | undefined,
+    ): boolean =>
+      !!categoryParam &&
+      !!step1?.planId &&
+      step1.planId === planIdParam &&
+      normalizeForMatch(step1.benefitCategory) === normalizeForMatch(categoryParam);
+
+    const applyFromUrl = (resumedDraft: boolean) => {
       if (!planIdParam) return;
       const step1Data = useBenefitsWizardStore.getState().stepData.step1 || {
         planId: "",
@@ -287,14 +312,34 @@ function NewBenefitsPageInner() {
       };
       if (categoryParam) {
         next.benefitCategory = categoryParam as BenefitsCategory;
-        // A Custom category's name is the advisor's to choose, so it starts BLANK rather
-        // than inheriting the category. The storage label is checked too: the portal's
-        // Custom page is linked with `category=Company / Plan Sponsor`, and seeding that
-        // would drop the category name into the field meant to name the benefit.
-        next.benefitTitle =
-          categoryParam === "Custom" || categoryParam === "Company / Plan Sponsor"
-            ? ""
-            : categoryParam;
+        if (resumedDraft) {
+          // Resuming: the draft's own fields are the advisor's work, so nothing here
+          // replaces them. `benefitTitle` in particular is the Custom Category Name (or a
+          // headline they rewrote) — seeding it with the category name, as a fresh start
+          // does, would throw that work away.
+          //
+          // The category is also marked as already loaded, so Step 1's pre-fill does not
+          // run its "no Benefit row → clear stale content" branch over the draft it has
+          // just been asked to resume. That branch cannot tell a resumed draft from
+          // another category's leftover; on this path we can, because the draft's identity
+          // was read before the URL overwrote it.
+          next.benefitFieldsLoadedCategories = Array.from(
+            new Set([
+              ...(step1Data.benefitFieldsLoadedCategories ?? []),
+              categoryParam,
+            ]),
+          );
+        } else {
+          // A Custom category's name is the advisor's to choose, so it starts BLANK rather
+          // than inheriting the category. The storage label is checked too: the portal's
+          // Custom page is linked with `category=Company / Plan Sponsor`, and seeding that
+          // would drop the category name into the field meant to name the benefit.
+          next.benefitTitle =
+            categoryParam === "Custom" ||
+            categoryParam === "Company / Plan Sponsor"
+              ? ""
+              : categoryParam;
+        }
       } else {
         // Plan-only deep link: preselect the plan, clear any category so the
         // wizard starts at "pick a benefit category" for this plan.
@@ -315,13 +360,51 @@ function NewBenefitsPageInner() {
     };
 
     if (hasPlanParam) {
-      applyFromUrl();
-      captureBaseline();
-      setIsInitialLoading(false);
-      const t0 = setTimeout(applyFromUrl, 0);
-      const t1 = setTimeout(applyFromUrl, 50);
-      const t2 = setTimeout(applyFromUrl, 200);
+      // Hydrate FIRST, and gate every apply on that same promise.
+      //
+      // The store is `skipHydration`, so until this resolves `getState()` holds the empty
+      // defaults — and `applyFromUrl` builds its write from exactly that base. Applying the
+      // deep link first therefore wrote a record holding little more than planId +
+      // benefitCategory, which the persist middleware then stored OVER the saved draft:
+      // "Continue" on the Benefits list arrived with nothing left to continue, and the
+      // draft itself was gone. Layering the URL on top of the draft instead leaves every
+      // field it does not name intact — which is everything except the plan and category
+      // the draft identifies itself by.
+      let cancelled = false;
+      let resumedDraft = false;
+      // Typed as a Promise explicitly: zustand declares `rehydrate()` as
+      // `void | Promise<void>`, and every apply below is gated on it.
+      const hydration: Promise<void> = (async () => {
+        await useBenefitsWizardStore.persist.rehydrate();
+      })();
+      const applyOnceHydrated = () =>
+        void hydration.then(() => {
+          if (cancelled) return;
+          // Sticky: only the first apply can see the draft's own identity.
+          resumedDraft =
+            resumedDraft ||
+            isResumeOf(useBenefitsWizardStore.getState().stepData.step1);
+          applyFromUrl(resumedDraft);
+        });
+
+      applyOnceHydrated();
+      void hydration.then(() => {
+        if (cancelled) return;
+        // Captured after the URL params are applied: they are this page's entry state, not
+        // work the advisor did.
+        captureBaseline();
+        setIsInitialLoading(false);
+      });
+
+      // Re-applied on a few timeouts so a late localStorage write or a step component's own
+      // effect cannot replace the URL's values. `resumedDraft` is carried across them on
+      // purpose: after the first apply the store's category IS the URL's, so re-deriving it
+      // would report a resume for what was in fact a fresh start.
+      const t0 = setTimeout(applyOnceHydrated, 0);
+      const t1 = setTimeout(applyOnceHydrated, 50);
+      const t2 = setTimeout(applyOnceHydrated, 200);
       return () => {
+        cancelled = true;
         clearTimeout(t0);
         clearTimeout(t1);
         clearTimeout(t2);
