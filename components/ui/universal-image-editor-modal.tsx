@@ -81,6 +81,31 @@ const TRANSPARENCY_CHECKERBOARD =
 const PREVIEW_DISPLAY_SCALE = 0.3;
 
 /**
+ * How far past the guide line Auto-size pushes the image, as a fraction of that
+ * line.
+ *
+ * Auto-size used to aim ~4.5px *inside* the line it fitted (`marginPx + slackPx`),
+ * so the fitted edge came to rest in the band between the two guides — the frame
+ * was never quite filled, and the dotted line stopped reading as "reached".
+ * Fitting the line and then pushing out by this fraction puts the edge just past
+ * it instead, which is what filling the frame looks like.
+ *
+ * Two things depend on the size of this number, so it is one constant rather than
+ * a literal at each site:
+ *
+ *  - The bounds check measures against the line grown by the same margin, so the
+ *    button's own result is not reported as outside the recommended frame (which
+ *    would clear the green "Perfect!" state and untint the dotted guide).
+ *  - It must stay inside the gap between the dotted line and the solid safe zone,
+ *    or auto-sizing a logo would tip `handleSave` into the "image may be cropped"
+ *    confirmation. That gap is `0.1 × min(cw, ch)`, and the dotted line is
+ *    `cw - 0.3 × min(cw, ch)`, so the limit is `0.1m / (cw - 0.3m)` — 9.7% on the
+ *    600×450 canvas but only 4.9% in compact mode (700×300), where a wide upload
+ *    is edited. 4% clears both.
+ */
+const AUTO_SIZE_OVERSHOOT = 0.04;
+
+/**
  * Background-removal settings, fixed rather than offered.
  *
  * The editor is aimed at people who do not think in terms of colour distance, so the
@@ -1285,6 +1310,25 @@ export function UniversalImageEditorModal({
     const dottedRight = dottedLeft + dottedW;
     const dottedBottom = dottedTop + dottedH;
 
+    /**
+     * The dotted rect grown by `AUTO_SIZE_OVERSHOOT` — what the comparisons below
+     * measure against.
+     *
+     * Auto-size deliberately finishes a little *past* the dotted line, so an image
+     * the button just fitted would otherwise read as outside the recommended
+     * frame: `isPerfect` would go false, the green "Perfect!" confirmation would
+     * vanish and the dotted guide would lose its green tint even though the image
+     * covers it. Measuring against the grown rect keeps all of those states
+     * meaning "the image reaches the line". The line the user actually sees is
+     * unchanged — it is painted from its own geometry in `drawGuidelinesOverlay`.
+     */
+    const fitSlackX = dottedW * AUTO_SIZE_OVERSHOOT;
+    const fitSlackY = dottedH * AUTO_SIZE_OVERSHOOT;
+    const fitLeft = dottedLeft - fitSlackX;
+    const fitTop = dottedTop - fitSlackY;
+    const fitRight = dottedRight + fitSlackX;
+    const fitBottom = dottedBottom + fitSlackY;
+
     const solidLeft = Math.round(safePad);
     const solidTop = Math.round(safePad);
     const solidW = Math.round(cw - 2 * safePad);
@@ -1309,11 +1353,12 @@ export function UniversalImageEditorModal({
       objRight >= solidRight ||
       objBottom >= solidBottom;
 
+    // Measured to the grown rect — see `fitLeft` above.
     const isOutsideDottedLine =
-      objLeft < dottedLeft ||
-      objTop < dottedTop ||
-      objRight > dottedRight + tol ||
-      objBottom > dottedBottom + tol;
+      objLeft < fitLeft ||
+      objTop < fitTop ||
+      objRight > fitRight + tol ||
+      objBottom > fitBottom + tol;
 
     const baseDim = Math.min(cw, ch);
     const posTol = Math.max(3, 0.012 * baseDim);
@@ -1321,10 +1366,11 @@ export function UniversalImageEditorModal({
     const sizeTolY = Math.max(3, 0.012 * dottedH);
     const centerTol = Math.max(3, 0.012 * baseDim);
 
-    const dL = Math.abs(objLeft - dottedLeft);
-    const dR = Math.abs(objRight - dottedRight);
-    const dT = Math.abs(objTop - dottedTop);
-    const dB = Math.abs(objBottom - dottedBottom);
+    // Measured to the grown rect — see `fitLeft` above.
+    const dL = Math.abs(objLeft - fitLeft);
+    const dR = Math.abs(objRight - fitRight);
+    const dT = Math.abs(objTop - fitTop);
+    const dB = Math.abs(objBottom - fitBottom);
 
     const nearXEdges = dL <= posTol && dR <= posTol;
     const nearYEdges = dT <= posTol && dB <= posTol;
@@ -2880,15 +2926,18 @@ export function UniversalImageEditorModal({
     const origW = activeObject.width || 1;
     const origH = activeObject.height || 1;
 
-    const marginPx = 2.5;
-    const slackPx = 2;
-    const totalInset = marginPx + slackPx;
-
     // If fitToSolidLine is true, use solid dimensions; otherwise use dotted
     const targetW = config.fitToSolidLine ? solidW : dottedW;
     const targetH = config.fitToSolidLine ? solidH : dottedH;
-    const constraintW = Math.max(1, targetW - totalInset * 2);
-    const constraintH = Math.max(1, targetH - totalInset * 2);
+
+    // Fit the line, then push out past it — see AUTO_SIZE_OVERSHOOT. The guide is
+    // advisory here (a logo's exported crop is windowed on the artwork, not on the
+    // guide), so covering the line costs nothing and stops the fitted edge being
+    // left a sliver *inside* the frame. The overshoot is deliberately small enough
+    // to stay within the solid safe zone, so fitting a logo does not tip the save
+    // into the "may be cropped" confirmation.
+    const constraintW = Math.max(1, targetW) * (1 + AUTO_SIZE_OVERSHOOT);
+    const constraintH = Math.max(1, targetH) * (1 + AUTO_SIZE_OVERSHOOT);
 
     // Calculate image aspect ratio for dynamic fitByHeight
     const imageAspectRatio = origW / origH;

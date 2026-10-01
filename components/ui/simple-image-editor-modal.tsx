@@ -26,6 +26,47 @@ export interface CropMetadata {
   originalImage?: string;
 }
 
+/**
+ * How far past the guide Auto-size pushes the image, as a fraction of the guide.
+ *
+ * Auto-size used to aim ~4.5px *inside* the guide (`marginPx + slackPx`), which
+ * kept the bounds check quiet but left the artwork stopping short of the frame:
+ * the image edge landed in the band between the dotted and the solid guide, so the
+ * crop frame was never actually filled and the save took a sliver of background
+ * with it. Fitting the guide and then pushing out by this fraction puts the edge
+ * just past the frame instead — which is what "the image fills the crop" looks
+ * like — and leaves a little headroom for repositioning.
+ *
+ * The overshoot is the expected result of the button, not an error, so the bounds
+ * check gives it the same slack. Without that, pressing Auto-size would
+ * immediately report the photo as cropped and paint the frame red on a result the
+ * button itself produced.
+ */
+const AUTO_SIZE_OVERSHOOT = 0.04;
+
+/**
+ * Minimum size of the editing canvas, as a multiple of the crop frame.
+ *
+ * The frame is the crop; everything around it is pasteboard the user drags and
+ * scales the artwork over. That pasteboard used to be whatever the call site's
+ * `canvasWidth`/`canvasHeight` happened to leave over — 30px a side for a 580x240
+ * hero in a 640x600 canvas — so a scaled-up image (and, worse, its four corner
+ * handles, which are drawn just outside the artwork's bounds) ran off the canvas
+ * and could not be grabbed at all. The size could then only be changed from the
+ * slider.
+ *
+ * The canvas is therefore widened to at least this multiple of the frame (never
+ * narrowed, so a caller that already allows more pasteboard keeps it). 2 covers
+ * the widest mismatch that occurs in practice: a 16:9 photo covering a square
+ * frame needs 1.78x the frame's width, plus room for the handles themselves.
+ *
+ * The caller's canvas still decides the *initial* framing, so the editor opens
+ * exactly as it did before; this only adds room around it. Aspect ratios beyond
+ * the pasteboard can still overflow it when zoomed in — no fixed margin can hold
+ * a 10:1 image — and the Scale slider remains the way back.
+ */
+const MIN_CANVAS_TO_GUIDE_RATIO = 2;
+
 interface SimpleImageEditorModalProps {
   value?: string;
   originalValue?: string;
@@ -237,36 +278,84 @@ export function SimpleImageEditorModal({
     }
   };
 
+  /** The slot's padding — the gutter between the frame and the dashed line. */
+  const guidePad =
+    guidelinePadding ??
+    Math.max(10, Math.min(canvasWidth, canvasHeight) * 0.05);
+
+  /**
+   * The crop frame's size in canvas pixels, exactly as it was derived before: the
+   * slot's explicit `guidelineWidth`/`guidelineHeight`, or the caller's canvas
+   * inset by the padding.
+   */
+  const guideFrameWidth = Math.min(
+    guidelineWidth ?? canvasWidth - guidePad * 2,
+    canvasWidth - guidePad * 2,
+  );
+  const guideFrameHeight = Math.min(
+    guidelineHeight ?? canvasHeight - guidePad * 2,
+    canvasHeight - guidePad * 2,
+  );
+
+  /**
+   * The editing canvas — at least `MIN_CANVAS_TO_GUIDE_RATIO` times the crop frame,
+   * and never smaller than the canvas the caller asked for.
+   *
+   * The frame keeps the size the caller specified (it is only re-centred on the
+   * larger surface), so the crop and its resolution are untouched; what the
+   * pasteboard buys is somewhere for the artwork to go when it is scaled up. See
+   * MIN_CANVAS_TO_GUIDE_RATIO for why this exists and why it is this size.
+   */
+  const editorCanvasWidth = Math.max(
+    canvasWidth,
+    Math.round(guideFrameWidth * MIN_CANVAS_TO_GUIDE_RATIO),
+  );
+  const editorCanvasHeight = Math.max(
+    canvasHeight,
+    Math.round(guideFrameHeight * MIN_CANVAS_TO_GUIDE_RATIO),
+  );
+
   const getGuidelineMetrics = useCallback(() => {
-    const pad =
-      guidelinePadding ??
-      Math.max(10, Math.min(canvasWidth, canvasHeight) * 0.05);
-
-    const outerWidth = Math.min(
-      guidelineWidth ?? canvasWidth - pad * 2,
-      canvasWidth - pad * 2,
-    );
-    const outerHeight = Math.min(
-      guidelineHeight ?? canvasHeight - pad * 2,
-      canvasHeight - pad * 2,
-    );
-
-    const outerLeft = (canvasWidth - outerWidth) / 2;
-    const outerTop = (canvasHeight - outerHeight) / 2;
+    const outerLeft = (editorCanvasWidth - guideFrameWidth) / 2;
+    const outerTop = (editorCanvasHeight - guideFrameHeight) / 2;
 
     return {
       outerLeft,
       outerTop,
-      outerRight: outerLeft + outerWidth,
-      outerBottom: outerTop + outerHeight,
+      outerRight: outerLeft + guideFrameWidth,
+      outerBottom: outerTop + guideFrameHeight,
     };
   }, [
-    canvasWidth,
-    canvasHeight,
-    guidelineWidth,
-    guidelineHeight,
-    guidelinePadding,
+    editorCanvasWidth,
+    editorCanvasHeight,
+    guideFrameWidth,
+    guideFrameHeight,
   ]);
+
+  /**
+   * The scale Auto-size aims for — the guide covered, then pushed out by
+   * `AUTO_SIZE_OVERSHOOT` — and the reference the "is this image too large?"
+   * checks measure against.
+   *
+   * Both readings share it deliberately. While the button and the checks each did
+   * their own arithmetic, Auto-size's own result came out more than 5% above the
+   * check's idea of the correct size, so the "Perfect!" message that should follow
+   * the button was suppressed and the image was reported as oversized.
+   */
+  const getAutoSizeScale = useCallback(
+    (origW: number, origH: number) => {
+      const { outerLeft, outerTop, outerRight, outerBottom } =
+        getGuidelineMetrics();
+      const guideW = Math.max(1, outerRight - outerLeft);
+      const guideH = Math.max(1, outerBottom - outerTop);
+      const cover = Math.max(
+        guideW / Math.max(1, origW),
+        guideH / Math.max(1, origH),
+      );
+      return cover * (1 + AUTO_SIZE_OVERSHOOT);
+    },
+    [getGuidelineMetrics],
+  );
 
   /**
    * Shape of the preview frame, taken from the guide rectangle the preview
@@ -287,76 +376,6 @@ export function SimpleImageEditorModal({
     const height = outerBottom - outerTop;
     return width > 0 && height > 0 ? width / height : 16 / 9;
   })();
-
-  const checkAutoSizeMatch = useCallback(() => {
-    const canvas = fabricCanvasRef.current;
-    if (!canvas) return false;
-
-    const activeObject =
-      canvas.getActiveObject() || canvas.getObjects()?.[0] || null;
-
-    if (!activeObject) return false;
-
-    const pad =
-      guidelinePadding ??
-      Math.max(10, Math.min(canvasWidth, canvasHeight) * 0.05);
-
-    // Calculate guideline dimensions (same as autoSizeImage)
-    const outerWidth = Math.min(
-      guidelineWidth ?? canvasWidth - pad * 2,
-      canvasWidth - pad * 2,
-    );
-    const outerHeight = Math.min(
-      guidelineHeight ?? canvasHeight - pad * 2,
-      canvasHeight - pad * 2,
-    );
-
-    const origW = activeObject.width || 1;
-    const origH = activeObject.height || 1;
-
-    const marginPx = 2.5;
-    const slackPx = 2;
-    const totalInset = marginPx + slackPx;
-
-    const constraintW = Math.max(1, outerWidth - totalInset * 2);
-    const constraintH = Math.max(1, outerHeight - totalInset * 2);
-
-    // Calculate target scale (same as autoSizeImage)
-    const scaleX = constraintW / origW;
-    const scaleY = constraintH / origH;
-    const targetScale = Math.min(scaleX, scaleY);
-
-    if (!isFinite(targetScale) || targetScale <= 0) return false;
-
-    // Ensure coordinates are up to date
-    activeObject.setCoords();
-
-    // Get current scale and position
-    const currentScale = activeObject.scaleX || 1;
-    const currentLeft = activeObject.left || 0;
-    const currentTop = activeObject.top || 0;
-
-    // Tolerance for scale (within 3% of target scale)
-    const scaleTolerance = targetScale * 0.03;
-    const scaleMatch = Math.abs(currentScale - targetScale) <= scaleTolerance;
-
-    // Tolerance for position (within 15px of center)
-    const positionTolerance = 15;
-    const centerX = canvasWidth / 2;
-    const centerY = canvasHeight / 2;
-    const positionMatch =
-      Math.abs(currentLeft - centerX) <= positionTolerance &&
-      Math.abs(currentTop - centerY) <= positionTolerance;
-
-    // FINAL RESULT → only scale + position
-    return scaleMatch && positionMatch;
-  }, [
-    canvasWidth,
-    canvasHeight,
-    guidelineWidth,
-    guidelineHeight,
-    guidelinePadding,
-  ]);
 
   const evaluateGuidelineBounds = useCallback(() => {
     const canvas = fabricCanvasRef.current;
@@ -400,11 +419,21 @@ export function SimpleImageEditorModal({
 
     const hasBlankSpace = blankTop || blankLeft || blankRight || blankBottom;
 
-    // Check if image extends outside the guidelines (crop warning)
-    const isOutsideLeft = bounds.left < outerLeft;
-    const isOutsideTop = bounds.top < outerTop;
-    const isOutsideRight = bounds.left + bounds.width > outerRight;
-    const isOutsideBottom = bounds.top + bounds.height > outerBottom;
+    // Check if image extends outside the guidelines (crop warning).
+    //
+    // Measured against the guide grown by `AUTO_SIZE_OVERSHOOT`, because Auto-size
+    // deliberately finishes a little past the frame: without that slack the
+    // button's own result would report "the photo will be cropped" and paint the
+    // frame red every time it was pressed. The blank-space test above still uses
+    // the true guide, so covering the frame is what clears it.
+    const overshootX = guidelineWidth * AUTO_SIZE_OVERSHOOT;
+    const overshootY = guidelineHeight * AUTO_SIZE_OVERSHOOT;
+    const isOutsideLeft = bounds.left < outerLeft - overshootX;
+    const isOutsideTop = bounds.top < outerTop - overshootY;
+    const isOutsideRight =
+      bounds.left + bounds.width > outerRight + overshootX;
+    const isOutsideBottom =
+      bounds.top + bounds.height > outerBottom + overshootY;
     const isOutsideGuidelinesBounds =
       isOutsideLeft || isOutsideTop || isOutsideRight || isOutsideBottom;
 
@@ -416,33 +445,12 @@ export function SimpleImageEditorModal({
     // Check if image is too large (scale is significantly larger than optimal)
     // -----------------------------
     if (!ignoreScaleDifferenceCheckRef.current) {
-      const pad =
-        guidelinePadding ??
-        Math.max(10, Math.min(canvasWidth, canvasHeight) * 0.05);
-
-      const outerWidth = Math.min(
-        guidelineWidth ?? canvasWidth - pad * 2,
-        canvasWidth - pad * 2,
-      );
-      const outerHeight = Math.min(
-        guidelineHeight ?? canvasHeight - pad * 2,
-        canvasHeight - pad * 2,
-      );
-
       const origW = activeObject.width || 1;
       const origH = activeObject.height || 1;
 
-      const marginPx = 2.5;
-      const slackPx = 2;
-      const totalInset = marginPx + slackPx;
-
-      const constraintW = Math.max(1, outerWidth - totalInset * 2);
-      const constraintH = Math.max(1, outerHeight - totalInset * 2);
-
-      // Calculate optimal scale (same as autoSizeImage)
-      const scaleX = constraintW / origW;
-      const scaleY = constraintH / origH;
-      const targetScale = Math.max(scaleX, scaleY);
+      // The same scale Auto-size targets, so an image the button just fitted
+      // reads as correctly sized rather than as oversized.
+      const targetScale = getAutoSizeScale(origW, origH);
 
       if (isFinite(targetScale) && targetScale > 0) {
         const currentScale = activeObject.scaleX || 1;
@@ -502,8 +510,8 @@ export function SimpleImageEditorModal({
       }
 
       const canvas = new Canvas(canvasRef.current, {
-        width: canvasWidth,
-        height: canvasHeight,
+        width: editorCanvasWidth,
+        height: editorCanvasHeight,
         backgroundColor: "transparent",
       });
 
@@ -524,8 +532,13 @@ export function SimpleImageEditorModal({
 
             img.scale(initialScale);
             img.set({
-              left: canvasWidth / 2,
-              top: canvasHeight / 2,
+              // Centred on the editing canvas, which is also the crop frame's
+              // centre. `canvasWidth`/`canvasHeight` are deliberately still what
+              // sets the initial *scale* (the framing rule the editor has always
+              // used), but they are no longer where the artwork is anchored — the
+              // pasteboard made the canvas bigger than the caller's.
+              left: canvas.getWidth() / 2,
+              top: canvas.getHeight() / 2,
               originX: "center",
               originY: "center",
               selectable: true,
@@ -657,8 +670,8 @@ export function SimpleImageEditorModal({
   }, [
     modalOpen,
     imageSrc,
-    canvasWidth,
-    canvasHeight,
+    editorCanvasWidth,
+    editorCanvasHeight,
     evaluateGuidelineBounds,
     getGuidelineMetrics,
   ]);
@@ -864,21 +877,13 @@ export function SimpleImageEditorModal({
 
       ctx.clearRect(0, 0, topEl.width, topEl.height);
 
-      const pad =
-        guidelinePadding ??
-        Math.max(10, Math.min(canvasWidth, canvasHeight) * 0.05);
-
-      const outerWidth = Math.min(
-        guidelineWidth ?? canvasWidth - pad * 2,
-        canvasWidth - pad * 2,
-      );
-      const outerHeight = Math.min(
-        guidelineHeight ?? canvasHeight - pad * 2,
-        canvasHeight - pad * 2,
-      );
-
-      const outerLeft = (canvasWidth - outerWidth) / 2;
-      const outerTop = (canvasHeight - outerHeight) / 2;
+      // Measured from the same rect the crop uses, so the lines the user sees and
+      // the frame the export takes cannot drift — including on the pasteboard,
+      // where the frame is centred in the larger editing canvas.
+      const { outerLeft, outerTop, outerRight, outerBottom } =
+        getGuidelineMetrics();
+      const outerWidth = outerRight - outerLeft;
+      const outerHeight = outerBottom - outerTop;
 
       // Draw outer rectangle (solid line)
       ctx.save();
@@ -887,16 +892,17 @@ export function SimpleImageEditorModal({
       ctx.strokeRect(outerLeft, outerTop, outerWidth, outerHeight);
       ctx.restore();
 
-      // Draw inner rectangle (dashed line)
+      // Draw inner rectangle (dashed line), inset from the frame by half the
+      // slot's padding — `guidePad`, which is what this used to compute locally.
       ctx.save();
       ctx.setLineDash([6, 6]);
       ctx.strokeStyle = isOutsideGuidelines ? "#ef4444" : "#9ca3af";
       ctx.lineWidth = 1;
       ctx.strokeRect(
-        outerLeft + pad / 2,
-        outerTop + pad / 2,
-        outerWidth - pad,
-        outerHeight - pad,
+        outerLeft + guidePad / 2,
+        outerTop + guidePad / 2,
+        outerWidth - guidePad,
+        outerHeight - guidePad,
       );
       ctx.restore();
     };
@@ -930,6 +936,7 @@ export function SimpleImageEditorModal({
     guidelineHeight,
     guidelinePadding,
     evaluateGuidelineBounds,
+    getGuidelineMetrics,
     isOutsideGuidelines,
   ]);
 
@@ -1197,8 +1204,9 @@ export function SimpleImageEditorModal({
 
             img.scale(initialScale);
             img.set({
-              left: canvasWidth / 2,
-              top: canvasHeight / 2,
+              // The editing canvas centre — see the note in `autoSizeImage`.
+              left: canvas.getWidth() / 2,
+              top: canvas.getHeight() / 2,
               originX: "center",
               originY: "center",
               selectable: true,
@@ -1286,34 +1294,12 @@ export function SimpleImageEditorModal({
     const activeObject = canvas.getActiveObject();
     if (!activeObject) return;
 
-    const pad =
-      guidelinePadding ??
-      Math.max(10, Math.min(canvasWidth, canvasHeight) * 0.05);
-
-    // Calculate guideline dimensions
-    const outerWidth = Math.min(
-      guidelineWidth ?? canvasWidth - pad * 2,
-      canvasWidth - pad * 2,
-    );
-    const outerHeight = Math.min(
-      guidelineHeight ?? canvasHeight - pad * 2,
-      canvasHeight - pad * 2,
-    );
-
     const origW = activeObject.width || 1;
     const origH = activeObject.height || 1;
 
-    const marginPx = 2.5;
-    const slackPx = 2;
-    const totalInset = marginPx + slackPx;
-
-    const constraintW = Math.max(1, outerWidth - totalInset * 2);
-    const constraintH = Math.max(1, outerHeight - totalInset * 2);
-
-    // Calculate scale to fill guidelines - use Math.max so the smaller side fills the lines
-    const scaleX = constraintW / origW;
-    const scaleY = constraintH / origH;
-    const targetScale = Math.max(scaleX, scaleY);
+    // Cover the guide, then push out past it, so the artwork reaches over the
+    // frame instead of stopping just inside it — see AUTO_SIZE_OVERSHOOT.
+    const targetScale = getAutoSizeScale(origW, origH);
     if (!isFinite(targetScale) || targetScale <= 0) return;
 
     // Check current state before auto-size to determine if image was too large/small
@@ -1347,11 +1333,15 @@ export function SimpleImageEditorModal({
 
     ignoreScaleDifferenceCheckRef.current = true;
 
+    // Centred on the canvas — which is what centres it on the crop frame, since
+    // the frame is centred on the canvas. This must be the *editing* canvas, not
+    // the caller's: the pasteboard makes the two different, and using the caller's
+    // would drop the artwork in the top-left of the larger surface.
     activeObject.set({
       scaleX: targetScale,
       scaleY: targetScale,
-      left: canvasWidth / 2,
-      top: canvasHeight / 2,
+      left: canvas.getWidth() / 2,
+      top: canvas.getHeight() / 2,
       originX: "center",
       originY: "center",
     });
@@ -1532,16 +1522,16 @@ export function SimpleImageEditorModal({
                           50% / 20px 20px
                         `,
                         padding: "2px",
-                        width: `${canvasWidth}px`,
-                        height: `${canvasHeight}px`,
+                        width: `${editorCanvasWidth}px`,
+                        height: `${editorCanvasHeight}px`,
                         display: "inline-block",
                         position: "relative",
                       }}
                     >
                       <canvas
                         ref={canvasRef}
-                        width={canvasWidth}
-                        height={canvasHeight}
+                        width={editorCanvasWidth}
+                        height={editorCanvasHeight}
                         style={{
                           border: "1px solid #ddd",
                           display: "block",
@@ -1567,7 +1557,7 @@ export function SimpleImageEditorModal({
               </div>
 
               {/* Right: Info Panel */}
-              <div className="w-1/3 p-2 sm:p-3 md:p-4 space-y-4 flex flex-col overflow-y-auto text-xs sm:text-sm bg-white dark:bg-gray-800 dark:text-gray-100">
+              <div className="w-1/3 ml-4 p-2 sm:p-3 md:p-4 space-y-4 flex flex-col overflow-y-auto text-xs sm:text-sm bg-white dark:bg-gray-800 dark:text-gray-100">
                 {/* Preview leads the panel — it is what the user came to check,
                     and the guidance below explains it. */}
                 <div>
@@ -1603,45 +1593,15 @@ export function SimpleImageEditorModal({
                         null;
 
                       if (activeObject) {
-                        const pad =
-                          guidelinePadding ??
-                          Math.max(
-                            10,
-                            Math.min(canvasWidth, canvasHeight) * 0.05,
-                          );
-
-                        const outerWidth = Math.min(
-                          guidelineWidth ?? canvasWidth - pad * 2,
-                          canvasWidth - pad * 2,
-                        );
-                        const outerHeight = Math.min(
-                          guidelineHeight ?? canvasHeight - pad * 2,
-                          canvasHeight - pad * 2,
-                        );
-
                         const origW = activeObject.width || 1;
                         const origH = activeObject.height || 1;
 
-                        const marginPx = 2.5;
-                        const slackPx = 2;
-                        const totalInset = marginPx + slackPx;
-
-                        const constraintW = Math.max(
-                          1,
-                          outerWidth - totalInset * 2,
-                        );
-                        const constraintH = Math.max(
-                          1,
-                          outerHeight - totalInset * 2,
-                        );
-
-                        const scaleX = constraintW / origW;
-                        const scaleY = constraintH / origH;
-                        const targetScale = Math.max(scaleX, scaleY);
+                        // Same target Auto-size uses, so its own result is not
+                        // mistaken for an image that is too large.
+                        const targetScale = getAutoSizeScale(origW, origH);
 
                         if (isFinite(targetScale) && targetScale > 0) {
                           const currentScale = activeObject.scaleX || 1;
-                          // Check if current scale is more than 5% larger than target scale
                           isMoreThan5PercentLargerThanAutoSize =
                             currentScale > targetScale * 1.05;
                         }
