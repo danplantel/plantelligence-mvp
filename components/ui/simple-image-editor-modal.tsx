@@ -1115,6 +1115,41 @@ export function SimpleImageEditorModal({
     }
   };
 
+  /**
+   * Bring one of the image's vertical edges onto the same edge of the guide.
+   *
+   * The move is expressed as a delta against `getBoundingRect()` rather than an
+   * absolute `top`, so it is correct whatever the object's `originY` is, and the
+   * scale is never touched — aligning repositions the artwork, it does not
+   * resize it. The bookkeeping matches `centerImage`: an alignment is a manual
+   * edit, so the auto-size flag is cleared and the preview is regenerated.
+   */
+  const alignImageVertically = (edge: "top" | "bottom") => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject) return;
+
+    const { outerTop, outerBottom } = getGuidelineMetrics();
+    const bounds = activeObject.getBoundingRect();
+    const currentEdge =
+      edge === "top" ? bounds.top : bounds.top + bounds.height;
+    const targetEdge = edge === "top" ? outerTop : outerBottom;
+
+    setWasAutoSized(false);
+    activeObject.set({
+      top: (activeObject.top || 0) + (targetEdge - currentEdge),
+    });
+    activeObject.setCoords();
+    canvas.renderAll();
+    evaluateGuidelineBounds();
+    generatePreview();
+  };
+
+  const alignImageTop = () => alignImageVertically("top");
+  const alignImageBottom = () => alignImageVertically("bottom");
+
   const resetImage = () => {
     if (fabricCanvasRef.current && originalImageSrc) {
       const canvas = fabricCanvasRef.current;
@@ -1653,6 +1688,8 @@ export function SimpleImageEditorModal({
                   onScaleChange={handleScaleChange}
                   onScaleCommit={handleScaleCommit}
                   onCenter={centerImage}
+                  onAlignTop={alignImageTop}
+                  onAlignBottom={alignImageBottom}
                   onReset={resetImage}
                   onAutoSize={autoSizeImage}
                   disabled={isLoading}

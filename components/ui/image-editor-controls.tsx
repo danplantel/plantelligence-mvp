@@ -20,7 +20,12 @@ interface ImageEditorControlsProps {
   onScaleChange: (newScale: number) => void;
   /** Optional callback fired when the user releases the slider thumb. */
   onScaleCommit?: () => void;
+  /** Horizontally center the image inside the guide (its current height is kept). */
   onCenter: () => void;
+  /** Bring the image's top edge onto the guide's top edge. */
+  onAlignTop: () => void;
+  /** Bring the image's bottom edge onto the guide's bottom edge. */
+  onAlignBottom: () => void;
   onReset: () => void;
   onAutoSize: () => void;
   disabled?: boolean;
@@ -39,9 +44,15 @@ interface ImageEditorControlsProps {
 }
 
 /**
- * Shared Scale slider + Center/Reset/Auto-size control row used by both image
+ * Shared Scale slider + alignment/Reset/Auto-size control row used by both image
  * editor modals. Keeps the scale math and button behavior in a single place so
- * fixes (e.g. the Center button) don't need to be applied to two files.
+ * fixes (e.g. the Align Center button) don't need to be applied to two files.
+ *
+ * The three alignment buttons move the artwork, never the frame: the guide is
+ * stationary, so each one changes a single axis of the object's position and
+ * leaves its scale alone. They are separate callbacks rather than one
+ * `onAlign(edge)` so each modal can refresh whatever it tracks after a move
+ * (the universal modal also recomputes its previews).
  */
 export function ImageEditorControls({
   scale,
@@ -51,6 +62,8 @@ export function ImageEditorControls({
   onScaleChange,
   onScaleCommit,
   onCenter,
+  onAlignTop,
+  onAlignBottom,
   onReset,
   onAutoSize,
   disabled = false,
@@ -91,22 +104,47 @@ export function ImageEditorControls({
 
       {children}
 
-      <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
+      {/* flex-wrap: three alignment buttons plus Reset/Auto-size (and, in the
+          universal modal, Remove Background) no longer fit one line on a narrow
+          modal. Without wrapping the trailing buttons are clipped by the modal's
+          `overflow-hidden` wrapper. */}
+      <div className="flex flex-wrap items-center gap-1 sm:gap-1.5 md:gap-2">
         <Button
           variant="outline"
           size="sm"
           onClick={onCenter}
           disabled={disabled}
-          className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9"
+          title="Center the image horizontally"
+          className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9 whitespace-nowrap"
         >
-          Center
+          Align Center
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onAlignTop}
+          disabled={disabled}
+          title="Align the image's top edge with the guide"
+          className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9 whitespace-nowrap"
+        >
+          Align Top
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onAlignBottom}
+          disabled={disabled}
+          title="Align the image's bottom edge with the guide"
+          className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9 whitespace-nowrap"
+        >
+          Align Bottom
         </Button>
         <Button
           variant="outline"
           size="sm"
           onClick={onReset}
           disabled={disabled}
-          className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9"
+          className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9 whitespace-nowrap"
         >
           Reset
         </Button>
@@ -115,7 +153,7 @@ export function ImageEditorControls({
           size="sm"
           onClick={onAutoSize}
           disabled={disabled}
-          className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9 min-w-[80px] sm:min-w-[90px] md:min-w-[100px]"
+          className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9 min-w-[80px] sm:min-w-[90px] md:min-w-[100px] whitespace-nowrap"
         >
           Auto-size
         </Button>

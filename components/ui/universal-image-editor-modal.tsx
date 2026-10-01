@@ -2231,6 +2231,68 @@ export function UniversalImageEditorModal({
   };
 
   /**
+   * The rectangle `autoSizeImage` fits the image into: the dotted guide, or the
+   * solid one when `fitToSolidLine` is set. Alignment targets the same rectangle
+   * so an Align Top followed by an Auto-size cannot disagree about where the
+   * frame is.
+   *
+   * The padding is read exactly the way `autoSizeImage` reads it (10% then 5% of
+   * the shorter canvas edge) rather than through `config.safeZonePadding`: the
+   * auto-size path does not consult that override, so honouring it here would put
+   * the two in different places on the call sites that set it.
+   *
+   * Headshots have no drawn dotted line (the circle is the guide) and this is
+   * still the nearest sensible vertical frame — the same reading as Align Center,
+   * which already centres on the canvas rather than on the circle.
+   */
+  const getFitGuide = () => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return null;
+
+    const cw = canvas.getWidth();
+    const ch = canvas.getHeight();
+    const safePad = Math.min(cw, ch) * 0.1;
+    const innerPad = safePad * 0.5;
+    const inset = config.fitToSolidLine ? safePad : safePad + innerPad;
+
+    return { top: inset, bottom: ch - inset };
+  };
+
+  /**
+   * Bring one of the image's vertical edges onto the same edge of the guide.
+   *
+   * Expressed as a delta against `getBoundingRect()` rather than an absolute
+   * `top`, so it is correct whatever the object's `originY` is, and the scale is
+   * never touched — aligning repositions the artwork, it does not resize it.
+   */
+  const alignImageVertically = (edge: "top" | "bottom") => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject) return;
+
+    const guide = getFitGuide();
+    if (!guide) return;
+
+    const bounds = activeObject.getBoundingRect();
+    const currentEdge =
+      edge === "top" ? bounds.top : bounds.top + bounds.height;
+    const targetEdge = edge === "top" ? guide.top : guide.bottom;
+
+    activeObject.set({
+      top: (activeObject.top || 0) + (targetEdge - currentEdge),
+    });
+    activeObject.setCoords();
+    canvas.renderAll();
+    checkSafeZone();
+    generatePreviews();
+  };
+
+  const alignImageTop = () => alignImageVertically("top");
+  const alignImageBottom = () => alignImageVertically("bottom");
+
+  /**
    * Clear the background-removal state: the toolbar toggle label and whatever the
    * last run had to say about itself.
    *
@@ -3701,11 +3763,12 @@ export function UniversalImageEditorModal({
 
               {/* Controls */}
               <div className="p-4 border-t space-y-3">
-                {/* flex-wrap: the action row now carries 4 buttons plus the scale
-                    slider and the guidelines checkbox. Without wrapping, the
-                    left group overflows the row and its last child is clipped by
-                    the modal's `overflow-hidden` wrapper — which silently hid the
-                    Remove Background button. */}
+                {/* flex-wrap: this row carries the alignment, Reset and Auto-size
+                    buttons plus the scale slider, the guidelines checkbox and (for
+                    logos) Remove Background. Without wrapping, the left group
+                    overflows the row and its last child is clipped by the modal's
+                    `overflow-hidden` wrapper — which silently hid the Remove
+                    Background button. */}
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <ImageEditorControls
                     scale={scale}
@@ -3714,6 +3777,8 @@ export function UniversalImageEditorModal({
                     maxScale={maxScale}
                     onScaleChange={handleScaleChange}
                     onCenter={centerImage}
+                    onAlignTop={alignImageTop}
+                    onAlignBottom={alignImageBottom}
                     onReset={resetImage}
                     onAutoSize={autoSizeImage}
                     disabled={isLoading}
