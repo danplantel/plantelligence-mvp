@@ -47,6 +47,11 @@ export interface CategoryExplorerProps {
    * advisor-filed contact can be handed to the person it describes.
    */
   onInviteContact?: (category: BenefitsCategory, contact?: any) => void;
+  /**
+   * T5 Part A item 1, relocated here: invite someone to complete their own
+   * profile. Omitted leaves the Collaborators section out entirely.
+   */
+  onInviteCollaborator?: () => void;
 }
 
 // ==================== Constants ====================
@@ -84,6 +89,7 @@ export function CategoryExplorer({
   onEditMainContact,
   onEditContact,
   onInviteContact,
+  onInviteCollaborator,
 }: CategoryExplorerProps) {
   const { stepData, saveStepDataLocally } = useNewClientWizardStore();
 
@@ -889,6 +895,46 @@ export function CategoryExplorer({
         })}
 
       </div>
+
+      {/* ── Collaborators ────────────────────────────────────────────────────
+          The invite used to sit on the first prompt as a third option beside
+          "Company / Plan Sponsor" and "Someone Else", where it read as another
+          kind of contact. It is not one: a collaborator is someone handed access
+          so they can complete their own profile, so it gets its own section. */}
+      {onInviteCollaborator && (
+        <div className="w-full max-w-2xl">
+          <div className="flex items-center gap-2 mb-1">
+            <UserPlus className="w-6 h-6 text-accent-blue" />
+            <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+              Collaborators
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+            Give someone access to this plan so they can fill in their own
+            details. No seat is used.
+          </p>
+          <button
+            type="button"
+            onClick={onInviteCollaborator}
+            className="group w-full flex items-center justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-left transition-colors hover:border-accent-blue hover:bg-accent-blue/5 dark:hover:bg-gray-700/50"
+          >
+            <span className="flex items-center gap-3 min-w-0">
+              <span className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                <UserPlus className="w-5 h-5 text-accent-blue" />
+              </span>
+              <span className="flex flex-col min-w-0">
+                <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  Invite Collaborator to Complete Profile
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  They fill in their own details — free, and no seat used
+                </span>
+              </span>
+            </span>
+            <ArrowRight className="w-4 h-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+          </button>
+        </div>
+      )}
 
       {/* Navigation is handled by the bottom bar (Previous/Next buttons) */}
 

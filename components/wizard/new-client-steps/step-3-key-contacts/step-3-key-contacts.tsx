@@ -527,9 +527,6 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
           <FirstContactPrompt
             onContinue={handleFirstContactContinue}
             onSomeoneElseSelect={handleSomeoneElseSelect}
-            // T5 Part A item 1: the second option — invite the person to fill in
-            // their own profile and get access to this plan.
-            onInviteCollaborator={() => openInvite()}
           />
         );
       case 1:
@@ -563,6 +560,10 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
                 contact ?? { benefitsCategories: [String(category)] },
               )
             }
+            // T5 Part A item 1, relocated out of the first prompt: a collaborator
+            // is not a contact type, so the invite lives in the explorer's own
+            // Collaborators section instead of beside "Someone Else".
+            onInviteCollaborator={() => openInvite()}
             onEditContact={(category, contact) => {
               // Pre-populate step3b with the existing contact's data so the form
               // initialises with its values, and include editingContactId so
