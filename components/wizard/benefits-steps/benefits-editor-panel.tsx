@@ -4,6 +4,11 @@ import React, { useRef, useEffect, useState } from "react";
 import { useBenefitsWizardStore, HelpCardData } from "@/lib/benefits-wizard-store";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import { getCategoryDefaultInnerImageUrl } from "@/lib/portal-category-hero-background";
+import {
+    BENEFIT_CATEGORY_GALLERY,
+    toCategoryGalleryKey,
+} from "@/lib/benefit-category-gallery";
+import { ModalGallery } from "@/components/ui/modalGallery";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -125,6 +130,20 @@ export function BenefitsEditorPanel({
         step1Data.benefitCategory,
     );
 
+    /**
+     * Default backgrounds for the Header Background's "add default photo" gallery,
+     * matched to the benefit category (Retirement / Group Health / Group Life /
+     * Custom→Wellness).
+     *
+     * The same set Step 1's Branding accordion offers for this slot, from the shared
+     * module — the two screens edit one `brandImages.header`, so a different gallery on
+     * each would be a difference the advisor cannot explain.
+     */
+    const heroGalleryKey = toCategoryGalleryKey(step1Data.benefitCategory);
+    const heroGalleryImages = heroGalleryKey
+        ? BENEFIT_CATEGORY_GALLERY[heroGalleryKey] || undefined
+        : undefined;
+
     // Resolve R2 keys (org/...) to the same-origin proxy so a header background that was
     // pre-populated from the User profile in Step 1 displays correctly in the editor.
     const resolvedHeaderUrl = step1Data.brandImages?.header?.url
@@ -143,6 +162,9 @@ export function BenefitsEditorPanel({
     const internalScrollRef = useRef<HTMLDivElement>(null);
     const editorScrollContainerRef = externalScrollRef || internalScrollRef;
     const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
+
+    /** Default-photo gallery for the Branding section's Header Background. */
+    const [heroGalleryOpen, setHeroGalleryOpen] = useState(false);
 
     // Refs for scrolling
     const sectionsRef = {
@@ -561,7 +583,9 @@ export function BenefitsEditorPanel({
                                 })}
                                 onEditClick={() => {}}
                                 onFileSelect={handleBackgroundImageChange}
-                                onDefaultPhotoClick={() => {}}
+                                // Was a no-op, so the card's "add default photo" button did
+                                // nothing at all. It now opens the per-category gallery.
+                                onDefaultPhotoClick={() => setHeroGalleryOpen(true)}
                                 segmentMode={heroSegmentMode}
                                 onSegmentModeChange={(mode) => {
                                     setHeroSegmentMode(mode);
@@ -1353,6 +1377,30 @@ export function BenefitsEditorPanel({
                     </div>
                 </div>
             </div>
+
+            {/* Default-photo gallery for the Header Background. Its trigger lives inside
+                the upload card's empty state, so the dialog is mounted with the panel. */}
+            <ModalGallery
+                open={heroGalleryOpen}
+                onOpenChange={setHeroGalleryOpen}
+                images={heroGalleryImages}
+                onSelect={(url) => {
+                    // Applied as chosen, uncropped — the banner paints this with
+                    // `background-size: cover`, so any framing is preserved rather than
+                    // lost to a crop the advisor did not ask for. Their own upload path
+                    // goes through the card's "New Image" control.
+                    handleBackgroundImageChange({
+                        url,
+                        fileName: "default-header.jpg",
+                        fileSize: 0,
+                        width: 0,
+                        height: 0,
+                        recommendedSize: "1920×1080 px",
+                        status: "ok",
+                        warnings: [],
+                    });
+                }}
+            />
         </EditorPanelWrapper>
     );
 }

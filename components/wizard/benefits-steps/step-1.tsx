@@ -104,7 +104,10 @@ import { categoryToSlug } from "@/lib/benefit-category-slug";
 import { convertToDocumentFormat } from "@/lib/compliance-document-utils";
 import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboarding-advisor-contacts";
 import { BenefitsDocumentsSection } from "./benefits-documents-section";
-import benefitCategoryBackgrounds from "@/data/gallery-benefit-category-backgrounds.json";
+import {
+  BENEFIT_CATEGORY_GALLERY,
+  toCategoryGalleryKey,
+} from "@/lib/benefit-category-gallery";
 import { BenefitContactDialog } from "./benefit-contact-dialog";
 
 /** Wizard order — matches accordion below (Branding → Messaging → Contacts → Documents). */
@@ -115,40 +118,9 @@ const BENEFIT_SETUP_SECTION_ORDER = [
   { key: "documents" as const, label: "Documents" },
 ];
 
-interface GalleryBackground {
-  id: string;
-  title: string;
-  category: string;
-  mode: string;
-  src: string;
-  altText: string;
-}
-
-/** Per-benefit-category gallery images, aligned to the gallery metadata category. */
-const BENEFIT_CATEGORY_GALLERY = benefitCategoryBackgrounds as unknown as Record<
-  string,
-  GalleryBackground[]
->;
-
-/** Map a benefit-category label to its gallery key. Custom / Company hubs map
- *  to the "Wellness" metadata category. Unknown/other categories return null so
- *  the default (benefit-hub) gallery is used. */
-const toCategoryGalleryKey = (
-  category?: string,
-): "Retirement" | "Group Health" | "Group Life" | "Wellness" | null => {
-  const c = (category || "").trim().toLowerCase();
-  if (c === "retirement") return "Retirement";
-  if (c === "group health" || c === "health") return "Group Health";
-  if (c === "group life" || c === "life") return "Group Life";
-  if (
-    c === "custom" ||
-    c === "company / plan sponsor" ||
-    c === "wellness"
-  ) {
-    return "Wellness";
-  }
-  return null;
-};
+// BENEFIT_CATEGORY_GALLERY / toCategoryGalleryKey now live in
+// lib/benefit-category-gallery.ts — Step 2's editor panel offers the same gallery for
+// the same `brandImages.header` slot and must not keep its own copy of the mapping.
 
 /** The four benefit categories offered on Step 1. */
 const CATEGORY_CARDS = [
