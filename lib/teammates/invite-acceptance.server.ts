@@ -27,7 +27,10 @@
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
 import { categoryToSlug } from "@/lib/benefit-category-slug";
-import { getOrCreateOrganizationForUser } from "@/lib/organization";
+import {
+  anchorTeammateUserToInvitingOrganization,
+  getOrCreateOrganizationForUser,
+} from "@/lib/organization";
 import { activateProfile } from "./profiles.server";
 import { isInviteExpired } from "./seats.server";
 import { verifyInviteToken } from "./invite-token.server";
@@ -268,25 +271,36 @@ export async function acceptInvitation(
     createdAccount = true;
   }
 
-  // T1's invariant is that every User owns an Organization, and `signIn` creates one for
-  // every new account. This path creates an account *without* going through `signIn`, so it
-  // has to do the same — otherwise an accepted collaborator is the one User in the database
-  // with no `organizationId`, and both `verify-backfill` and the plan-creation stamps that
-  // read it fail. Idempotent, so a reused account is simply topped up.
-  //
-  // This grants nothing extra: access is resolved by `TeammateProfile.loginUserId`, not by
-  // the session's org, so the personal Organization owns no plans and the collaborator's
-  // own session still resolves only the assignments they were invited to.
-  await getOrCreateOrganizationForUser(loginUserId);
-
   // The one call T1 provided and nothing had ever made: state → active, login → linked,
   // both audited (`profile_state_changed`, `profile_login_linked`).
+  //
+  // It runs BEFORE the anchoring below, and that order is load-bearing: `activateProfile` is
+  // what writes `TeammateProfile.loginUserId`, and being somebody's teammate is precisely how
+  // the account's organization is now decided.
   await activateProfile({
     id: profileId,
     organizationId,
     actorUserId: loginUserId,
     loginUserId,
   });
+
+  // Anchor the account to the organization that invited it.
+  //
+  // NOT `getOrCreateOrganizationForUser`, which is what used to be here. That helper answers
+  // "the organization this User OWNS" and therefore MINTS one when there is none — so every
+  // accepted invitation created a brand-new, empty organization owned by the invitee, and
+  // `getOrgSession()` then scoped their whole session to it. The invited person ended up with
+  // a workspace of their own instead of the seat they were given, and the firm that invited
+  // them never saw them arrive.
+  //
+  // The T1 invariant it was guarding — every User has an `organizationId` — is still honoured:
+  // the anchor is the inviting organization. The fallback covers the one case where there is
+  // nothing to anchor to (a profile deleted between the two calls), so that invariant cannot
+  // be lost by this change.
+  const anchored = await anchorTeammateUserToInvitingOrganization(loginUserId);
+  if (!anchored) {
+    await getOrCreateOrganizationForUser(loginUserId);
+  }
 
   return {
     ok: true,

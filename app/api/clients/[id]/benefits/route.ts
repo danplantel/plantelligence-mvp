@@ -8,6 +8,7 @@ import {
   resolvePortalAdvisorId,
   isLocalDevLoopback,
 } from "@/lib/portal-access";
+import { resolvePlanAccess } from "@/lib/teammates/access.server";
 
 /**
  * Shared helper: resolve a client by ObjectId or slug.
@@ -27,12 +28,16 @@ async function resolveClient(
   // plan is resolved by id/slug alone (never enabled outside `next dev`).
   const devPublic = forPortal && isLocalDevLoopback(request);
 
-  let ownerId: string | undefined = portalAdvisorId;
-  if (!ownerId) {
+  // Session identity, tracked separately from the portal advisor: the two need different
+  // authorization rules (T2). This used to be folded into one `ownerId`, which then scoped the
+  // plan lookup by the session user — "the plan I created" — and a teammate is never
+  // `Client.userId`. So this read 404'd for every invited teammate and Step 1's benefit-rows
+  // snapshot came back empty, taking the benefit's saved support-contact selection with it.
+  let sessionUserId: string | undefined;
+  if (!portalAdvisorId) {
     const session = await getServerSession(authOptions);
-    if (session?.user?.id) {
-      ownerId = session.user.id;
-    } else if (!devPublic) {
+    sessionUserId = session?.user?.id;
+    if (!sessionUserId && !devPublic) {
       return [null, NextResponse.json({ error: "Unauthorized" }, { status: 401 })];
     }
   }
@@ -40,9 +45,15 @@ async function resolveClient(
   // Same by-id-or-slug fix as the `[category]` route, for the same reason: `ObjectId.isValid`
   // is false for a cuid, so the id lookup was skipped and the slug fallback could never match
   // an id. See that route for the full note.
+  //
+  // Scoping follows that route too: a portal request is scoped to its advisor, while a session
+  // request is looked up unscoped and authorized by assignment below.
   const client = await prisma.client.findFirst({
     where: {
-      AND: [planIdOrSlug(id), ...(ownerId ? [{ userId: ownerId }] : [])],
+      AND: [
+        planIdOrSlug(id),
+        ...(portalAdvisorId ? [{ userId: portalAdvisorId }] : []),
+      ],
     },
   });
 
@@ -50,10 +61,30 @@ async function resolveClient(
     return [null, NextResponse.json({ error: "Client not found" }, { status: 404 })];
   }
 
-  // Ownership check for session requests (portal requests are pre-scoped; the
-  // dev-local preview is intentionally open in development).
-  if (ownerId && client.userId !== ownerId) {
-    return [null, NextResponse.json({ error: "Forbidden" }, { status: 403 })];
+  // Public portal: the plan must belong to the advisor the slug resolved to.
+  if (portalAdvisorId) {
+    if (client.userId !== portalAdvisorId) {
+      return [null, NextResponse.json({ error: "Forbidden" }, { status: 403 })];
+    }
+    return [client, null];
+  }
+
+  // Dev-local preview: intentionally open in development.
+  if (!sessionUserId) return [client, null];
+
+  // Dashboard session — T2: the caller's ASSIGNMENT decides, not ownership.
+  const access = await resolvePlanAccess({
+    userId: sessionUserId,
+    clientIdOrSlug: client.id,
+  });
+  if (!access.allowed) {
+    return [
+      null,
+      NextResponse.json(
+        { error: access.message, code: access.reason },
+        { status: access.reason === "plan_not_found" ? 404 : 403 },
+      ),
+    ];
   }
 
   return [client, null];

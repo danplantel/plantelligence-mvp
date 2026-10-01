@@ -34,6 +34,7 @@
     "repair:purge-orphaned-user": "npx tsx scripts/repair/purge-orphaned-user-data.ts",
     "repair:purge-verification-fixtures": "npx tsx scripts/repair/purge-verification-fixtures.ts",
     "repair:owner-duplicate-seat": "npx tsx scripts/repair/remove-owner-duplicate-seat.ts",
+    "repair:reanchor-teammates": "npx tsx scripts/repair/reanchor-teammate-organizations.ts",
     "postinstall": "prisma generate && node -e \"try{require('fs').cpSync('node_modules/@sparticuz/chromium/bin','chromium-bin',{recursive:true})}catch(e){console.warn('chromium-bin copy skipped:',e.message)}\""
   },
   "dependencies": {

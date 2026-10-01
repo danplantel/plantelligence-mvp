@@ -1,5 +1,7 @@
 import nodemailer from 'nodemailer';
 
+import { inviterFirmLabel } from "@/lib/teammates/invite-copy";
+
 // Create a transporter using environment variables
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || process.env.MAIL_HOST || "smtp.mailgun.org",
@@ -826,18 +828,12 @@ export async function sendTeamMemberInviteEmail({
   const firstName = (memberName || "").trim().split(" ")[0] || "there";
   const inviter =
     (inviterName || "").trim() || organizationName?.trim() || "Your benefits advisor";
-  const firm = organizationName?.trim();
-
   /**
-   * The firm is only worth naming when it says something the inviter's name does not.
-   *
-   * `Organization.name` is a mirror of the owner's `User` row (see
-   * `lib/organization.ts`), so for a solo advisor the two are the same string and every
-   * sentence carrying both read "Eddie Taliaferro added you to Eddie Taliaferro". Dropping
-   * it in that one case is what leaves room for the plan to be the destination instead.
+   * The firm is only worth naming when it says something the inviter's name does not — see
+   * `inviterFirmLabel`. The accept page asks the same question for its "on behalf of …"
+   * clause, so the rule lives there and both surfaces word one invitation the same way.
    */
-  const namedFirm =
-    firm && firm.toLowerCase() !== inviter.trim().toLowerCase() ? firm : "";
+  const namedFirm = inviterFirmLabel(inviterName, organizationName);
 
   /**
    * What the recipient is being brought into: the plan they are being given access to when

@@ -669,8 +669,8 @@ export interface ObjectAccessResult {
  * May this user be issued a URL for this object?
  *
  * Plan-scoped keys are checked against the assignment — the spec's requirement.
- * Legacy org-level keys predate the plan segment, so they fall back to an
- * ownership check on the org segment, matching what the route did before T2.
+ * Org-level keys carry no plan segment, so there is no assignment to check; they
+ * fall back to membership of the organization the segment names.
  */
 export async function resolveObjectAccess({
   userId,
@@ -705,6 +705,37 @@ export async function resolveObjectAccess({
       select: { ownerUserId: true },
     });
     if (organization?.ownerUserId === userId) return { allowed: true };
+  }
+
+  // …or this user is a TEAMMATE of the organization the segment names.
+  //
+  // Org-level keys are written with the OWNER's user id as the segment —
+  // `org/{ownerUserId}/uploads/{subPath}/…` (lib/r2.ts), which is where an advisor headshot,
+  // an advisor logo and other org uploads live. They have no `/plans/{planId}` segment, so the
+  // assignment check above cannot be used and the two ownership checks above both fail for an
+  // invited teammate: the segment is neither their own id nor an Organization id.
+  //
+  // Every one of those images therefore 403'd for a teammate — the support-contact headshots
+  // on the Edit Benefit Contacts tab, and the advisor logo — while plan branding
+  // (`org/…/plans/{planId}/branding/…`) resolved fine, because that path has a plan to check
+  // against. This closes that gap: a person with a live seat in the organization may read the
+  // organization's own assets, which is what being in the organization means.
+  //
+  // `ownerUserId` carries no unique constraint (see prisma/schema.prisma), so this resolves the
+  // organization with `findFirst` rather than `findUnique`. Deactivated profiles are excluded
+  // (`isLive`), so losing a seat loses the assets.
+  if (orgSegment) {
+    const organization = await prisma.organization.findFirst({
+      where: { ownerUserId: orgSegment },
+      select: { id: true },
+    });
+    if (organization) {
+      const profile = await prisma.teammateProfile.findFirst({
+        where: { organizationId: organization.id, loginUserId: userId },
+        select: { deactivatedAt: true },
+      });
+      if (profile && isLive(profile)) return { allowed: true };
+    }
   }
 
   return { allowed: false, reason: "not_own_object" };

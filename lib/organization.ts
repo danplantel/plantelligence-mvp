@@ -184,6 +184,83 @@ export async function resolveOrganizationId(userId: string): Promise<string> {
   return getOrCreateOrganizationForUser(userId);
 }
 
+/**
+ * The organization a User is a **teammate of**: the one whose `TeammateProfile` carries this
+ * login. Null when they are nobody's teammate.
+ *
+ * The counterpart to `getOrCreateOrganizationForUser`, which answers "which organization does
+ * this User OWN". For an invited person those are two different questions, and conflating
+ * them is what made accepting a Team Member seat mint a second, empty organization owned by
+ * the invitee instead of joining the one that invited them.
+ */
+export async function findTeammateOrganizationId(
+  userId: string,
+): Promise<string | null> {
+  const profile = await prisma.teammateProfile.findFirst({
+    where: { loginUserId: userId },
+    orderBy: { createdAt: "asc" },
+    select: { organizationId: true },
+  });
+  return profile?.organizationId ?? null;
+}
+
+/**
+ * Anchor an invited teammate to the organization that invited them.
+ *
+ * Writes `User.organizationId` — the value `resolveOrganizationId` reads, and therefore what
+ * `getOrgSession()` scopes every teammate read by — to the inviting organization, and creates
+ * nothing. Returns false when there is nothing to anchor — the user is nobody's teammate, or
+ * they already run an organization of their own — so a caller that has to honour "every User
+ * has an `organizationId`" can fall back to `getOrCreateOrganizationForUser`.
+ *
+ * The teammate link must already exist when this is called: `activateProfile` is what writes
+ * `TeammateProfile.loginUserId`.
+ */
+export async function anchorTeammateUserToInvitingOrganization(
+  userId: string,
+): Promise<boolean> {
+  const organizationId = await findTeammateOrganizationId(userId);
+  if (!organizationId) return false;
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { organizationId: true },
+  });
+
+  // A dual-role account keeps its own workspace.
+  //
+  // Somebody who already RUNS an organization with plans and also holds a seat elsewhere is
+  // not the case this function exists for: `getOrCreateOrganizationForUser` never minted
+  // anything for them (it answers with the organization they own), so they were never broken
+  // by the bug this fixes. Moving them would hide a workspace that was always theirs — their
+  // own plans would disappear from the session `getOrgSession()` scopes by this very value.
+  //
+  // Returning false sends the caller to `getOrCreateOrganizationForUser`, which is exactly
+  // where they landed before. `scripts/repair/reanchor-teammate-organizations.ts` reports the
+  // same accounts and skips them unless `--include-dual-role` is passed, so the repair and the
+  // runtime cannot disagree about who is a teammate-only account.
+  if (user?.organizationId && user.organizationId !== organizationId) {
+    const current = await prisma.organization.findUnique({
+      where: { id: user.organizationId },
+      select: { ownerUserId: true },
+    });
+    if (current?.ownerUserId === userId) {
+      const plans = await prisma.client.count({
+        where: { organizationId: user.organizationId },
+      });
+      if (plans > 0) return false;
+    }
+  }
+
+  if (user?.organizationId !== organizationId) {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { organizationId },
+    });
+  }
+  return true;
+}
+
 export interface OrganizationSyncResult {
   organizationId: string;
   /** Which mirror fields actually changed. Empty when the organization was current. */
@@ -257,6 +334,7 @@ export async function syncOrganizationIdentity(
   const organization = await prisma.organization.findUnique({
     where: { id: organizationId },
     select: {
+      ownerUserId: true,
       name: true,
       organizationEmail: true,
       branding: true,
@@ -266,6 +344,16 @@ export async function syncOrganizationIdentity(
     },
   });
   if (!organization) return { organizationId, changed: [] };
+
+  // Only the OWNER's row is the source for this mirror — that is what the function is for.
+  //
+  // Without this guard an invited teammate is dangerous: they are anchored to the inviting
+  // organization (`anchorTeammateUserToInvitingOrganization`), so a teammate saving their
+  // own profile would re-derive the firm's name, organization email and branding from THEIR
+  // User row and write them onto the organization that invited them.
+  if (organization.ownerUserId !== userId) {
+    return { organizationId, changed: [] };
+  }
 
   const name = organizationNameFor(user);
   const organizationEmail = user.organizationEmail ?? null;

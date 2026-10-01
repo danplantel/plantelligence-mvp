@@ -14,6 +14,7 @@ import {
 import { fetchClientOnce } from "@/lib/fetch-client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Headshot } from "@/components/ui/headshot";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -116,6 +117,52 @@ const SEAT_STATUS_MUTED_CLASS =
   "flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-gray-100 bg-gray-50 px-3 text-xs font-semibold text-muted-foreground dark:border-gray-700 dark:bg-gray-800/60";
 const SEAT_STATUS_DONE_CLASS =
   "flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-400";
+/**
+ * The status shown while the seat lookup is still in flight.
+ *
+ * Sized like the other two (`h-8 w-full`) on purpose: the placeholder and the button it may
+ * become occupy the same box, so the card does not resize when the answer lands. Dashed and
+ * muted so it reads as "not answered yet" rather than as one of the real states.
+ */
+const SEAT_STATUS_PENDING_CLASS =
+  "flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-gray-200 bg-gray-50/60 px-3 text-xs font-medium text-muted-foreground dark:border-gray-700 dark:bg-gray-800/40";
+
+/**
+ * The placeholder roster, shown while the plan's contacts are still being read.
+ *
+ * Four cards, because that is what one row holds (`lg:grid-cols-4`), each mirroring the real
+ * card's boxes — selection control, headshot, the row of actions, the name block, and the seat
+ * slot — so the reveal is a fade rather than a relayout. Before this existed the section said
+ * "No support contacts available." for the two to three seconds the plan read took, which is a
+ * claim about the plan made while the answer was still in flight.
+ */
+function SupportContactCardsSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 4 }).map((_, index) => (
+        <Card
+          key={index}
+          aria-hidden="true"
+          className="border-gray-100 dark:border-gray-700 dark:bg-gray-800"
+        >
+          <CardContent className="space-y-2 p-3">
+            <div className="flex items-center gap-2.5">
+              <Skeleton className="h-4 w-4 shrink-0 rounded-full" />
+              <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+              <Skeleton className="ml-auto h-7 w-7 shrink-0 rounded-md" />
+            </div>
+            <div className="space-y-1.5">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+              <Skeleton className="h-3 w-2/3" />
+            </div>
+            <Skeleton className="h-8 w-full rounded-md" />
+          </CardContent>
+        </Card>
+      ))}
+    </>
+  );
+}
 
 export function BenefitsStep3({
   section,
@@ -196,6 +243,26 @@ export function BenefitsStep3({
   const [ownerEmails, setOwnerEmails] = useState<string[]>([]);
   // Bumped after an invite so the list re-reads without a page reload.
   const [collaboratorsRefreshKey, setCollaboratorsRefreshKey] = useState(0);
+  /**
+   * Whether the seat lookup has answered — the assignments AND the owner address list, which
+   * arrive in one response.
+   *
+   * Until it lands, `teammateByEmail` and `ownerEmailSet` are empty, so every card derives
+   * `seatStatus === null`: the state meaning "no seat, no invitation", which renders the
+   * button. Cards therefore looked like they were inviting somebody who was already a Team
+   * Member — or the organization owner — and then flipped to the badge a few seconds later.
+   * While this is false the card shows a placeholder instead of asserting either answer.
+   */
+  const [seatStatusResolved, setSeatStatusResolved] = useState(false);
+  /**
+   * Whether the plan's contact roster is known.
+   *
+   * `localContacts` starts empty and is filled by Step 1's full-plan read (or this step's own
+   * fallback). A plan with no contacts and a plan whose contacts have not arrived both look
+   * empty, and only the first may say "No support contacts available." — the section used to
+   * say it for both.
+   */
+  const [contactsResolved, setContactsResolved] = useState(false);
   const invitePlanId = step1Data?.planId || "";
   const inviteCategory = String(step1Data?.benefitCategory || "");
 
@@ -213,10 +280,17 @@ export function BenefitsStep3({
     if (!invitePlanId) {
       setCollaborators([]);
       setOwnerEmails([]);
+      // Nothing to wait for: without a plan there are no seats to look up.
+      setSeatStatusResolved(true);
       return;
     }
 
     let cancelled = false;
+    // Back to "unknown" on every run, including the refresh that follows an invite: the seat
+    // that invite just created is exactly what the cards are about to report, and holding the
+    // stale button until it lands is the flip this flag exists to remove.
+    setSeatStatusResolved(false);
+
     (async () => {
       try {
         const response = await fetch(
@@ -245,6 +319,10 @@ export function BenefitsStep3({
           setCollaborators([]);
           setOwnerEmails([]);
         }
+      } finally {
+        // Every path settles: a failed read falls back to the button rather than spinning
+        // forever, and the lists are already empty for it.
+        if (!cancelled) setSeatStatusResolved(true);
       }
     })();
 
@@ -284,9 +362,17 @@ export function BenefitsStep3({
         ? selectedPlan.keyContacts
         : selectedPlan.keyContacts.contacts || [];
       setLocalContacts(contacts);
+      // The roster is known — including when it is legitimately empty.
+      setContactsResolved(true);
       return;
     }
-    if (!step1Data?.planId) return;
+    if (!step1Data?.planId) {
+      // No plan to read from (a deep link that lands before Step 1 knows the plan). Settle the
+      // flag so the empty state with its "Go to Step 1" hint can render; leaving it unresolved
+      // would show the skeleton forever.
+      setContactsResolved(true);
+      return;
+    }
 
     const planId = step1Data.planId;
     let cancelled = false;
@@ -318,6 +404,10 @@ export function BenefitsStep3({
         saveStepData(1, { ...latest, selectedPlan: data });
       } catch (err) {
         console.error("Error fetching contacts in Step 3:", err);
+      } finally {
+        // Settled either way. On failure the empty state renders, and its copy ("check your
+        // connection") is the right thing to say about a read that did not come back.
+        if (!cancelled) setContactsResolved(true);
       }
     })();
 
@@ -812,7 +902,10 @@ export function BenefitsStep3({
             {/* One card per contact, laid out across the row instead of stacked, so the
                 whole roster is scannable at once. */}
             <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {planContacts.length === 0 ? (
+              {/* Unknown first, empty second: the roster is only "none" once a read has said so. */}
+              {!contactsResolved ? (
+                <SupportContactCardsSkeleton />
+              ) : planContacts.length === 0 ? (
                 <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700 sm:col-span-2 lg:col-span-4">
                   <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground font-medium">No support contacts available.</p>
@@ -975,8 +1068,21 @@ export function BenefitsStep3({
                           is not theirs to be given. The status stands in the button's place
                           rather than the button simply vanishing, so the card still says
                           why: the owner already has everything, and somebody who has been
-                          invited (or has accepted) must not be invited twice. */}
-                      {seatStatus === "owner" ? (
+                          invited (or has accepted) must not be invited twice.
+
+                          Unresolved comes FIRST. `seatStatus` is null until the assignment
+                          read lands, and null is also the real answer for "no seat, no
+                          invitation" — so rendering the ladder before that read made every
+                          card offer a seat to people who already had one. */}
+                      {!seatStatusResolved ? (
+                        <div
+                          className={SEAT_STATUS_PENDING_CLASS}
+                          title="Checking whether this person already holds a seat…"
+                        >
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          Checking…
+                        </div>
+                      ) : seatStatus === "owner" ? (
                         <div
                           className={SEAT_STATUS_MUTED_CLASS}
                           title="This is the organization owner. They already have full access to every plan and every category."

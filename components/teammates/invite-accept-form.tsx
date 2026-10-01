@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { inviterFirmLabel } from "@/lib/teammates/invite-copy";
 
 interface InvitationView {
   status:
@@ -195,6 +196,13 @@ export function InviteAcceptForm({ token }: { token: string }) {
   }
 
   // ── Redeemable ──────────────────────────────────────────────────────────────
+  //
+  // The firm is named only when it adds something. A solo advisor's organization mirrors
+  // their own `User` row, so naming it unconditionally produced "Eddie Taliaferro invited
+  // you on behalf of Eddie Taliaferro to help with …". `inviterFirmLabel` is the same rule
+  // the invitation email applies, so the two cannot word one invitation differently.
+  const inviterFirm = inviterFirmLabel(view.inviterName, view.organizationName);
+
   return (
     <Card className="w-full max-w-md">
       <CardHeader>
@@ -203,7 +211,7 @@ export function InviteAcceptForm({ token }: { token: string }) {
           {view.inviterName
             ? `${view.inviterName} invited you`
             : "You have been invited"}
-          {view.organizationName ? ` on behalf of ${view.organizationName}` : ""}
+          {inviterFirm ? ` on behalf of ${inviterFirm}` : ""}
           {view.planName ? ` to help with ${view.planName}` : ""}
           {view.sectionName ? ` — ${view.sectionName}.` : "."}
         </CardDescription>

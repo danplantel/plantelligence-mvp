@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import prisma from "@/lib/prisma";
 import { getBenefitCompleteness } from "@/lib/benefit-completeness";
+import { listAccessiblePlanIds } from "@/lib/teammates/access.server";
 
 // Reads the session (request headers), so it must never be statically prerendered.
 export const dynamic = "force-dynamic";
@@ -55,9 +56,9 @@ export interface BenefitListRow {
 /**
  * GET /api/benefits
  *
- * Browse Benefits: one row per plan x category for the signed-in advisor's
- * plans, so the list can show logo, published state, completeness, a visibility
- * toggle, and an edit action without loading each plan individually.
+ * Browse Benefits: one row per plan x category for the plans the caller may see,
+ * so the list can show logo, published state, completeness, a visibility toggle,
+ * and an edit action without loading each plan individually.
  */
 export async function GET() {
   try {
@@ -67,8 +68,20 @@ export async function GET() {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
+    // T2 parity with `/api/clients`: scope to the plans this caller may SEE — the ones they
+    // own PLUS the ones they hold a teammate assignment for — instead of `userId` alone.
+    //
+    // Without this the page contradicted itself. The plan picker directly above the list is
+    // fed by `/api/clients`, which does use `listAccessiblePlanIds`, so a Team Member could
+    // select one of their assigned plans and then be told "No benefits found for this plan."
+    // — because this route had returned no rows for that plan at all. Nothing was wrong with
+    // the plan; the read simply answered a different question ("plans you created") than the
+    // picker asked ("plans you may see"). Every plan picker in the app goes through
+    // `listAccessiblePlanIds`; this read is now the same kind of read.
+    const accessiblePlanIds = await listAccessiblePlanIds(userId);
+
     const clients = await prisma.client.findMany({
-      where: { userId },
+      where: { id: { in: accessiblePlanIds } },
       orderBy: { updatedAt: "desc" },
       take: 100,
       select: {

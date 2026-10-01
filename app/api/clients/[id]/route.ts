@@ -114,15 +114,28 @@ export async function GET(
       }
     }
 
-    // One lookup for either form. When an owner is known the lookup is scoped to them so
-    // no cross-tenant plan is ever returned.
+    // One lookup for either form. A PORTAL request is scoped to the advisor its slug resolved
+    // to, so no cross-tenant plan is ever returned to an anonymous visitor.
+    //
+    // A dashboard request is deliberately NOT scoped by `sessionUserId`, and that is the whole
+    // bug this fixes. `ownerId` here is the session user, so `userId: ownerId` asked for "the
+    // plan I created" — and a teammate is never `Client.userId`. The lookup therefore matched
+    // nothing, this route returned 404 "Client not found", and the `resolvePlanAccess` check
+    // below (which is the T2 rule that a teammate's ASSIGNMENT decides) was never reached.
+    // Every dashboard read of a single plan by an invited teammate failed: the Edit Benefit
+    // Contacts tab lost the plan's `keyContacts`, so the support-contact roster showed only the
+    // contacts the steps synthesise locally instead of the plan's own.
+    //
+    // Unscoped lookup is not a widening of access: the session authorization block below still
+    // runs and refuses any plan the caller has no assignment for. Mirrors
+    // `[id]/benefits/[category]`, which scopes by `portalAdvisorId` alone for this reason.
     //
     // The previous two-step "try ObjectId, then slug" is equivalent to this single `OR` —
     // and it had to go: a cuid fails a 24-hex test, so the id step stopped running and by-id
     // requests fell through to the slug path and matched nothing (plan §5).
-    let client = ownerId
+    let client = portalAdvisorId
       ? await prisma.client.findFirst({
-          where: { ...planIdOrSlug(clientId), userId: ownerId },
+          where: { ...planIdOrSlug(clientId), userId: portalAdvisorId },
         })
       : await prisma.client.findFirst({ where: planIdOrSlug(clientId) });
 
@@ -134,9 +147,11 @@ export async function GET(
     if (!client) {
       const resolved = await resolvePortalSlug(clientId);
       if (resolved) {
-        const found = ownerId
+        // Same rule as the lookup above: scoped for a portal request, unscoped for a session
+        // request (whose authorization is the `resolvePlanAccess` check that follows).
+        const found = portalAdvisorId
           ? await prisma.client.findFirst({
-              where: { id: resolved.clientId, userId: ownerId },
+              where: { id: resolved.clientId, userId: portalAdvisorId },
             })
           : await prisma.client.findUnique({
               where: { id: resolved.clientId },
