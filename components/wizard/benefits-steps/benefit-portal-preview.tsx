@@ -304,7 +304,7 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
             customSignatureCompany: "messaging",
             companyLogo: "messaging",
             brandImagesHeader: "messaging",
-            innerHeaderImage: "messaging",
+            innerHeaderImage: "innerHeaderImage",
             insuranceBackgroundImage: "insurance",
             insuranceContainerBlockOpacity: "insurance",
             insurancePlanId: "insurance",
@@ -451,6 +451,12 @@ export function BenefitPortalPreview({ mobile, brandColor: brandColorOverride, s
                         customSignatureCompanyItalic={step1Data?.customSignatureCompanyItalic ?? true}
                         onTitleClick={() => handleEdit("messaging", "benefitTitle")}
                         onDescriptionClick={() => handleEdit("messaging", "shortDescription")}
+                        // The Inner Header Image lives in the Branding section, and its own
+                        // control carries the matching field id, so the panel scrolls
+                        // straight to it rather than to the top of the section.
+                        onInnerHeaderImageClick={() =>
+                            handleEdit("branding", "innerHeaderImage")
+                        }
                         desktopHeroBackgroundPosition={(step1Data as any)?.desktopHeroBackgroundPosition}
                         mobileHeroBackgroundPosition={(step1Data as any)?.mobileHeroBackgroundPosition}
                     />

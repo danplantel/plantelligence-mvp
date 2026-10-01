@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useBenefitsWizardStore, HelpCardData } from "@/lib/benefits-wizard-store";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
+import { getCategoryDefaultInnerImageUrl } from "@/lib/portal-category-hero-background";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -111,6 +112,19 @@ export function BenefitsEditorPanel({
     const step1Data = (stepData.step1 || {}) as BenefitsStep1Data;
     const step3Data = (stepData.step3 || { faqs: [], supportContacts: [] }) as BenefitsStep3Data;
 
+    /**
+     * The category's stock Inner Header Image.
+     *
+     * This is what the preview shows while no custom image is uploaded
+     * (`CATEGORY_DEFAULT_INNER_IMAGES`, shared by the hub banner and the hub cards), so the
+     * Inner Header Image control below displays it too. Without it that control sat empty
+     * beside a preview showing a photo — the one field in this panel whose state disagreed
+     * with what the advisor could see.
+     */
+    const defaultInnerHeaderImageUrl = getCategoryDefaultInnerImageUrl(
+        step1Data.benefitCategory,
+    );
+
     // Resolve R2 keys (org/...) to the same-origin proxy so a header background that was
     // pre-populated from the User profile in Step 1 displays correctly in the editor.
     const resolvedHeaderUrl = step1Data.brandImages?.header?.url
@@ -146,11 +160,15 @@ export function BenefitsEditorPanel({
     const insuranceLoginUrlRef = useRef<HTMLDivElement>(null);
     const companyLogoRef = useRef<HTMLDivElement>(null);
     const brandImagesHeaderRef = useRef<HTMLDivElement>(null);
+    const innerHeaderImageRef = useRef<HTMLDivElement>(null);
     const benefitTitleRef = useRef<HTMLDivElement>(null);
     const shortDescriptionRef = useRef<HTMLDivElement>(null);
     const fieldRefs: Record<string, React.RefObject<HTMLDivElement>> = {
         companyLogo: companyLogoRef,
         "brandImages.header": brandImagesHeaderRef,
+        // Lets a click on the Inner Header Image in the preview land on this control
+        // rather than just at the top of the Branding section.
+        innerHeaderImage: innerHeaderImageRef,
         benefitTitle: benefitTitleRef,
         shortDescription: shortDescriptionRef,
         insuranceLoginUrl: insuranceLoginUrlRef,
@@ -561,7 +579,12 @@ export function BenefitsEditorPanel({
                                 }}
                             />
                         </div>
-                        <div className="space-y-4" onMouseDown={() => focusPreviewField("innerHeaderImage")}>
+                        <div
+                            ref={innerHeaderImageRef}
+                            data-field="innerHeaderImage"
+                            className="space-y-4"
+                            onMouseDown={() => focusPreviewField("innerHeaderImage")}
+                        >
                             <Label className="text-xs font-bold text-foreground">Inner Header Image</Label>
                             <BrandImageUpload
                                 slotKey="innerHeaderImage"
@@ -583,7 +606,19 @@ export function BenefitsEditorPanel({
                                     recommendedSize: "1200x1600",
                                     status: "ok",
                                     warnings: [],
-                                } as BrandImageData : undefined}
+                                } as BrandImageData : {
+                                    // Not uploaded yet — show the default the preview is using.
+                                    // Replacing it is what writing `innerHeaderImage` does, so
+                                    // editing from here behaves like any other upload.
+                                    url: defaultInnerHeaderImageUrl,
+                                    fileName: "default-inner-header.jpg",
+                                    fileSize: 0,
+                                    width: 0,
+                                    height: 0,
+                                    recommendedSize: "1200x1600",
+                                    status: "ok",
+                                    warnings: [],
+                                } as BrandImageData}
                                 onImageChange={handleInnerHeaderImageChange}
                                 onImageRemove={() => saveStepData(1, { ...step1Data, innerHeaderImage: null })}
                                 hideButtons={true}

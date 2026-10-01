@@ -18,6 +18,8 @@ interface PortalWelcomeBannerProps {
   onTitleClick?: () => void;
   /** Click handler for the summary description text. Opens the editor. */
   onDescriptionClick?: () => void;
+  /** Click handler for the Inner Header Image (right column). Opens the editor. */
+  onInnerHeaderImageClick?: () => void;
   clientData?: {
     companyName?: string;
     missionHeadline?: string;
@@ -91,6 +93,7 @@ export function PortalWelcomeBanner({
   secondaryColor = "#C89B5B",
   onTitleClick,
   onDescriptionClick,
+  onInnerHeaderImageClick,
   customHeadline,
   customDescription,
   customClosing,
@@ -503,8 +506,29 @@ export function PortalWelcomeBanner({
               </div>
             </div>
 
-            {/* RIGHT: Inner Header Image — custom image → category default image */}
-            <div className="order-1 lg:order-2 relative">
+            {/* RIGHT: Inner Header Image — custom image → category default image.
+                Editable in place, like the headline and description above it. */}
+            <div
+              // Marks the image as the scroll target for the editor's own Inner Header
+              // Image control, which asks the preview to reveal it when focused. Only
+              // present where there is an editing panel — the live portal has no such
+              // consumer, and the attribute is not part of its markup contract.
+              data-preview-field={
+                onInnerHeaderImageClick ? "innerHeaderImage" : undefined
+              }
+              className={`order-1 lg:order-2 relative ${onInnerHeaderImageClick ? "cursor-pointer group" : ""}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                onInnerHeaderImageClick?.();
+              }}
+              onMouseEnter={() =>
+                onInnerHeaderImageClick && setHoveredField("innerHeaderImage")
+              }
+              onMouseLeave={() => onInnerHeaderImageClick && setHoveredField(null)}
+            >
+              {onInnerHeaderImageClick && hoveredField === "innerHeaderImage" && (
+                <EditPencil />
+              )}
               {innerHeaderImageUrl ? (
                 <img
                   src={innerHeaderImageUrl}
