@@ -17,10 +17,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { BENEFIT_CONTACT_CATEGORIES } from "@/lib/benefit-contacts";
 import {
-  BENEFIT_CONTACT_CATEGORIES,
-  normalizeContactCategory,
-} from "@/lib/benefit-contacts";
+  CUSTOM_BENEFIT_CATEGORY,
+  isCustomHubCategory,
+} from "@/lib/benefit-custom-name";
 import { describeRole, type RoleCapability } from "@/lib/teammates/role-summary";
 import {
   PRESET_ROLE_LABELS,
@@ -173,37 +174,14 @@ function RoleHelpPopover({ role }: { role: TeammateAssignmentRole }) {
   );
 }
 
-/**
- * The category a Custom benefit is stored under.
+/*
+ * `CUSTOM_BENEFIT_CATEGORY` and `isCustomHubCategory` come from lib/benefit-custom-name.
  *
- * Duplicated as a literal rather than imported from
- * `lib/teammates/benefit-categories.server.ts`, which is server-only — importing it here
- * would drag a Prisma client into the browser bundle.
+ * They used to be defined here — the storage key as a literal, because
+ * `lib/teammates/benefit-categories.server.ts` is server-only, plus a local comparison for
+ * it. The header and the Benefits list ask the same question ("is this the Custom hub?"), so
+ * the answer now has one definition instead of three.
  */
-const CUSTOM_BENEFIT_CATEGORY = "Company / Plan Sponsor";
-
-/** The Custom hub's storage key, in the one spelling the comparisons below use. */
-const CUSTOM_HUB_KEY = "company/plan sponsor";
-
-/**
- * Is this label really the Custom hub's storage key?
- *
- * `Company / Plan Sponsor` is not a benefit anybody is granted — it is the storage key for
- * the **Custom** hub page at `/wellness-programs` (see
- * `lib/teammates/benefit-categories.server.ts`), so a checkbox named after it read as "the
- * company's own plan sponsor information", which is not a thing an advisor scopes access to.
- *
- * Compared through `normalizeContactCategory`, which already knows `"custom"` and
- * `"company / plan sponsor"` are the same category, AND with the slash spacing flattened,
- * because that helper leaves punctuation alone — a title typed by hand as
- * "Company/Plan Sponsor" is the same thing to a reader. Applied to BOTH the canonical list
- * and the org's own titles, since either could carry it.
- */
-function isCustomHubLabel(label: string): boolean {
-  return (
-    normalizeContactCategory(label).replace(/\s*\/\s*/g, "/") === CUSTOM_HUB_KEY
-  );
-}
 
 /**
  * The canonical categories the access picker offers. The Custom hub is reached through the
@@ -211,7 +189,7 @@ function isCustomHubLabel(label: string): boolean {
  * this key with them — see `categoriesForAccess`.
  */
 const GRANTABLE_BENEFIT_CATEGORIES = BENEFIT_CONTACT_CATEGORIES.filter(
-  (category) => !isCustomHubLabel(category),
+  (category) => !isCustomHubCategory(category),
 );
 
 /**
@@ -232,7 +210,7 @@ function selectableCustomTitles(customCategories: readonly string[]): string[] {
     const title = raw.trim();
     if (!title) continue;
     const key = title.toLowerCase();
-    if (taken.has(key) || isCustomHubLabel(title)) continue;
+    if (taken.has(key) || isCustomHubCategory(title)) continue;
     taken.add(key);
     titles.push(title);
   }
@@ -330,7 +308,7 @@ export function AccessFields({
    * the benefit they are working on is among the grants — which is the whole reason a seat is
    * being handed out at this moment. Skipped when it would add nothing: a title that is
    * already published is listed above it, and a title that is really the hub's storage label
-   * grants nothing the hub row does not (see `isCustomHubLabel`).
+   * grants nothing the hub row does not (see `isCustomHubCategory`).
    */
   const inProgressCustomBenefit = (currentCustomBenefit ?? "").trim();
   const inProgressAlreadyListed = customTitles.some(
@@ -339,7 +317,7 @@ export function AccessFields({
   const showInProgressCustomBenefit =
     inProgressCustomBenefit.length > 0 &&
     !inProgressAlreadyListed &&
-    !isCustomHubLabel(inProgressCustomBenefit);
+    !isCustomHubCategory(inProgressCustomBenefit);
 
   const toggle = (list: string[], item: string): string[] =>
     list.includes(item) ? list.filter((entry) => entry !== item) : [...list, item];

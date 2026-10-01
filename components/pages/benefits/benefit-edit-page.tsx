@@ -20,6 +20,7 @@ import {
 } from "@/lib/fetch-client";
 import { persistPlanSelection } from "@/lib/plan-selector-storage";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
+import { displayCategoryName } from "@/lib/benefit-custom-name";
 import {
   BenefitsStep1,
   BenefitsStep3,
@@ -98,6 +99,20 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
   const selectedPlan = step1Data?.selectedPlan as any;
   const companyName = selectedPlan?.companyName || "";
 
+  /**
+   * The category the header names.
+   *
+   * `category` arrives API-spelled, so the Custom hub reaches this page as its STORAGE key
+   * and the subtitle read "Acme Corp - Company / Plan Sponsor". Step 1 loads that hub's real
+   * name into `benefitTitle` (from `Benefit.title`, the "Custom Category Name" the advisor
+   * typed), so it is shown instead — and before it loads, or if no name was ever saved, the
+   * header says "Custom" rather than the storage key.
+   *
+   * Derived rather than read once, because `benefitTitle` is populated by Step 1's own
+   * pre-fill effect: the subtitle corrects itself when the name arrives.
+   */
+  const displayCategory = displayCategoryName(category, step1Data?.benefitTitle);
+
   useEffect(() => {
     setHeaderPortalTarget(document.getElementById("header-tabs-portal"));
   }, []);
@@ -134,11 +149,9 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
   }, [setTitle]);
 
   useEffect(() => {
-    setSubtitle(
-      companyName ? `${companyName} - ${category || ""}`.replace(/ - $/, "") : "",
-    );
+    setSubtitle(companyName ? `${companyName} - ${displayCategory}`.replace(/ - $/, "") : "");
     return () => setSubtitle("");
-  }, [companyName, category, setSubtitle]);
+  }, [companyName, displayCategory, setSubtitle]);
 
   // Deep link may target a tab, e.g. "/edit-benefit/<planId>/<category>?tab=documents".
   useEffect(() => {
