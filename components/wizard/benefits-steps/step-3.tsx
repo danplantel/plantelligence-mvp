@@ -46,6 +46,7 @@ import {
   PROFILE_STATE_LABELS,
   PRESET_ROLE_LABELS,
   type TeammateAssignmentRole,
+  type TeammatePersonType,
   type TeammateProfileState,
 } from "@/types/teammate";
 import {
@@ -99,6 +100,12 @@ interface PlanCollaboratorRow {
   name: string;
   email: string;
   headshot: string | null;
+  /**
+   * `team_member` for anyone who holds a paid seat (or an invitation that reserves one),
+   * `collaborator` for the free external people this section is about. The API has always
+   * returned it; the section needs it to keep its own promise — see `planCollaborators`.
+   */
+  personType: TeammatePersonType;
   companyName: string | null;
   role: TeammateAssignmentRole;
   categoryScope: "all" | "selected";
@@ -352,6 +359,28 @@ export function BenefitsStep3({
     }
     return map;
   }, [collaborators]);
+
+  /**
+   * The people the Collaborators section lists: everyone assigned to this plan who does NOT
+   * hold a Team Member seat.
+   *
+   * Giving a Support Contact a seat ("Give Team Seat") grants that person plan access right
+   * away, and this section renders the plan's assignments — so the person the seat was just
+   * given to appeared here too, listed a second time and described as free external help
+   * ("no seat, and no publish, invite, delete or organization settings") while in fact holding
+   * a paid seat. `personType` is what separates the two kinds of row, and it is what lets the
+   * section honour the promise in its own heading.
+   *
+   * Seat holders are not hidden anywhere: their home is Settings → People & Access, and their
+   * Support Contact card above already says "Team member" or "Invite sent".
+   *
+   * `teammateByEmail` above deliberately reads the UNFILTERED list: it answers "does this
+   * contact already hold a seat or an invitation", which is exactly the rows removed here.
+   */
+  const planCollaborators = useMemo(
+    () => collaborators.filter((person) => person.personType !== "team_member"),
+    [collaborators],
+  );
 
   const selectedPlan = step1Data?.selectedPlan;
   const [localContacts, setLocalContacts] = useState<KeyContact[]>([]);
@@ -1209,7 +1238,7 @@ export function BenefitsStep3({
                 Collaborators
               </span>
               <Badge variant="secondary" className="font-medium">
-                {collaborators.length}
+                {planCollaborators.length}
               </Badge>
               <Button
                 type="button"
@@ -1241,14 +1270,14 @@ export function BenefitsStep3({
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4 pt-0">
             <div className="space-y-3">
-              {collaborators.length === 0 ? (
+              {planCollaborators.length === 0 ? (
                 <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
                   No collaborators yet. Invite a plan sponsor, an outside advisor or a
                   provider rep to help fill in this section.
                 </p>
               ) : (
                 <ul className="space-y-2">
-                  {collaborators.map((person) => {
+                  {planCollaborators.map((person) => {
                     // The step edits ONE category, so say which people can actually
                     // work on it — an assignment scoped elsewhere is still listed,
                     // because the advisor may want to widen it.
