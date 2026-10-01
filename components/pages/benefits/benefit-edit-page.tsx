@@ -281,9 +281,12 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
         {/* In-page header — hidden on the Preview tab, exactly like Edit Plan
             hides its EditClientHeader there: the preview is a full-bleed fixed
             layout, and Save lives in the fixed bottom action bar on every tab. */}
+        {/* The band is what separates this row from the tab panels below it: every
+            section under it is a white/card surface on the page background, so the header
+            gets a muted tint and its own border instead of floating as loose text. */}
         <div
           className={cn(
-            "mb-4 flex items-center justify-between gap-4",
+            "mb-4 flex items-center justify-between gap-4 rounded-xl border bg-muted/40 px-3 py-2.5 dark:border-gray-700 dark:bg-gray-800/60",
             activeTab === "preview" && "hidden",
           )}
         >
@@ -296,13 +299,10 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold text-foreground">Edit Benefit</h1>
-              <p className="truncate text-sm text-muted-foreground">
-                {[companyName, category].filter(Boolean).join(" - ") ||
-                  "Editing benefit"}
-              </p>
-            </div>
+            {/* Just the page name. The plan and the benefit are already named in the
+                sticky bar above, so repeating them here read as a duplicate of it —
+                this band carries the controls, not the identity. */}
+            <h1 className="text-xl font-bold text-foreground">Edit Benefit</h1>
           </div>
           {/* Save is not here — the fixed bottom action bar owns it on every tab (see
               the bar at the end of this component). This end of the row holds the

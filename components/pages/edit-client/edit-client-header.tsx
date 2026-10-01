@@ -76,16 +76,20 @@ export function EditClientHeader({
   };
 
   return (
-    <div className="flex items-center justify-between mx-auto max-w-5xl ">
+    /**
+     * A muted, bordered band so the row reads as the page's header rather than as loose
+     * text above the tab panels — every panel below is a white/card surface on the page
+     * background. No bottom margin: the page already spaces this from the tabs.
+     */
+    <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 rounded-xl border bg-muted/40 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/60">
       <div className="flex items-center gap-4">
         <Button variant="ghost" onClick={onBackClick} className="p-2">
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <div>
-          <p className="text-muted-foreground">
-            Update plan information and settings
-          </p>
-        </div>
+        {/* No plan name or plan caption here. The sticky bar above owns the page's
+            identity ("Edit Plan - <company>"); this band is the controls — back,
+            status, Open Portal, Delete — and naming the plan again beside them was
+            the duplicate the sticky bar already avoids. */}
       </div>
 
       <div className="flex items-center gap-4">
