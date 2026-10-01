@@ -12,7 +12,7 @@ import {
   canAddSupportContact,
 } from "@/lib/benefit-contacts";
 import { fetchClientOnce } from "@/lib/fetch-client";
-import { CardContent } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Headshot } from "@/components/ui/headshot";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -34,6 +34,8 @@ import {
   AlertTriangle,
   Pencil,
   UserPlus,
+  Armchair,
+  X,
 } from "lucide-react";
 import { KeyContact } from "@/types/new-client-wizard";
 import {
@@ -54,7 +56,11 @@ import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BenefitContactDialog } from "./benefit-contact-dialog";
+import { GiveTeamSeatDialog } from "./give-team-seat-dialog";
 import { invalidateClientCache } from "@/lib/fetch-client";
+import { toApiBenefitCategory } from "@/lib/benefit-draft";
+import { formatPhoneWithExtension } from "@/lib/phone-utils";
+import { useDismissibleAlert } from "@/hooks/use-dismissible-alert";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Dialog,
@@ -122,6 +128,12 @@ export function BenefitsStep3({
   const [isDeletingContact, setIsDeletingContact] = useState(false);
   // Edit contact (plan-level): the contact the shared editor is open for.
   const [editingContact, setEditingContact] = useState<KeyContact | null>(null);
+  // "Give Team Seat": the contact the seat confirm dialog is asking about. Deliberately
+  // separate from `editingContact` — editing the person and giving them a paid seat are
+  // different questions, and one dialog must never answer for the other.
+  const [contactPendingSeat, setContactPendingSeat] = useState<KeyContact | null>(
+    null,
+  );
   const step1Data = stepData.step1;
   const currentStep3Data = stepData.step3 || {
     faqs: [],
@@ -136,6 +148,17 @@ export function BenefitsStep3({
   const atSupportContactLimit = !canAddSupportContact(selectedSupportCount);
   const overSupportContactLimit =
     selectedSupportCount > MAX_SUPPORT_CONTACTS_PER_BENEFIT;
+
+  // The notice above explains a rule, so it is dismissable — `useDismissibleAlert` stores
+  // the choice per device, which is the right scope for "I already know this".
+  //
+  // The one exception: a dismissal must not hide the OVER-cap warning. That state is not
+  // the same message — it is a problem the advisor has just created, and the notice is the
+  // only place the count is stated against the cap. So the notice is shown while dismissed
+  // ONLY when over the cap, and the dismissal takes effect again if they drop back under.
+  const { isDismissed: capNoticeDismissed, dismiss: dismissCapNotice } =
+    useDismissibleAlert("benefits-support-contacts-cap");
+  const showCapNotice = overSupportContactLimit || !capNoticeDismissed;
 
   /* ── Collaborators (T4) ──────────────────────────────────────────────
      The Contacts step is where an advisor thinks about who helps with the
@@ -153,6 +176,16 @@ export function BenefitsStep3({
   const [collaboratorsRefreshKey, setCollaboratorsRefreshKey] = useState(0);
   const invitePlanId = step1Data?.planId || "";
   const inviteCategory = String(step1Data?.benefitCategory || "");
+
+  /* The Custom benefit this draft is creating — Step 1's Custom Category Name. Only
+     meaningful for the Custom hub: for a canonical category `benefitTitle` is that
+     benefit's own headline, not a category, so it must not be offered as one. The
+     comparison goes through `toApiBenefitCategory` rather than naming the hub's storage
+     label here, so this cannot disagree with how the rest of the wizard spells it. */
+  const currentCustomBenefit =
+    toApiBenefitCategory(inviteCategory) === toApiBenefitCategory("Custom")
+      ? String(step1Data?.benefitTitle || "").trim()
+      : "";
 
   useEffect(() => {
     if (!invitePlanId) {
@@ -628,31 +661,15 @@ export function BenefitsStep3({
             of people on this benefit is its own collapsible block. */}
         {(!section || section === "contacts") && (
         <>
-        {/* Section header. The invite action lives HERE rather than inside the
-            Collaborators accordion, where it used to be hidden until the advisor
-            expanded that section — "Add Benefit" and "Edit Benefit" both render this
-            step, so one header serves both surfaces. */}
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3 shadow-md">
-          <div className="min-w-0">
-            <h2 className="text-lg font-bold text-foreground">Contacts & FAQs</h2>
-            <p className="text-xs text-muted-foreground">
-              Who employees reach out to, and who can help complete this section.
-            </p>
-          </div>
-          <Button
-            size="sm"
-            className="h-8 shrink-0 gap-1.5 px-3 text-xs font-semibold"
-            onClick={() => setIsInviteOpen(true)}
-            disabled={!invitePlanId || !inviteCategory}
-            title={
-              invitePlanId && inviteCategory
-                ? "Invite a collaborator to complete this section"
-                : "Save the plan first, then invite a collaborator"
-            }
-          >
-            <UserPlus className="h-3.5 w-3.5" />
-            Invite Collaborator
-          </Button>
+        {/* Section header. The per-person actions belong to the sections that own the
+            people: Support Contacts carries Preview, Collaborators carries the invite.
+            "Add Benefit" and "Edit Benefit" both render this step, so one header serves
+            both surfaces. */}
+        <div className="rounded-xl bg-card px-4 py-3">
+          <h2 className="text-lg font-bold text-foreground">Contacts & FAQs</h2>
+          <p className="text-xs text-muted-foreground">
+            Who employees reach out to, and who can help complete this section.
+          </p>
         </div>
         <Accordion
           type="multiple"
@@ -702,31 +719,46 @@ export function BenefitsStep3({
           <AccordionContent className="px-4 pb-4 pt-0">
           <CardContent className="p-3">
             {/* The cap is a rule about the benefit page rather than a technical limit,
-                so it is stated here and enforced on the rows below. */}
-            <div
-              className={`mb-3 flex items-start gap-2 rounded-lg border px-3 py-2 ${
-                overSupportContactLimit
-                  ? "border-amber-200 bg-amber-50/70 dark:border-amber-800 dark:bg-amber-950/20"
-                  : "border-blue-100 bg-blue-50/60 dark:border-blue-900/40 dark:bg-blue-950/20"
-              }`}
-            >
-              {overSupportContactLimit ? (
-                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
-              ) : (
-                <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
-              )}
-              <p className="text-[11px] leading-relaxed text-foreground/80">
-                A benefit shows{" "}
-                <b>up to {MAX_SUPPORT_CONTACTS_PER_BENEFIT} support contacts</b> —
-                these are the contact cards employees see on the benefit page.{" "}
-                {overSupportContactLimit
-                  ? `This benefit has ${selectedSupportCount} selected; keep no more than ${MAX_SUPPORT_CONTACTS_PER_BENEFIT}.`
-                  : `${selectedSupportCount} of ${MAX_SUPPORT_CONTACTS_PER_BENEFIT} selected.`}
-              </p>
-            </div>
-            <div className="grid grid-cols-1 gap-2">
+                so it is stated here and enforced on the rows below. Dismissable because it
+                is an explanation, not a task — see `showCapNotice` for the one case where a
+                stored dismissal does not keep it hidden. */}
+            {showCapNotice ? (
+              <div
+                className={`mb-3 flex items-start gap-2 rounded-lg border px-3 py-2 ${
+                  overSupportContactLimit
+                    ? "border-amber-200 bg-amber-50/70 dark:border-amber-800 dark:bg-amber-950/20"
+                    : "border-blue-100 bg-blue-50/60 dark:border-blue-900/40 dark:bg-blue-950/20"
+                }`}
+              >
+                {overSupportContactLimit ? (
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+                ) : (
+                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
+                )}
+                <p className="text-[11px] leading-relaxed text-foreground/80">
+                  A benefit shows{" "}
+                  <b>up to {MAX_SUPPORT_CONTACTS_PER_BENEFIT} support contacts</b> —
+                  these are the contact cards employees see on the benefit page.{" "}
+                  {overSupportContactLimit
+                    ? `This benefit has ${selectedSupportCount} selected; keep no more than ${MAX_SUPPORT_CONTACTS_PER_BENEFIT}.`
+                    : `${selectedSupportCount} of ${MAX_SUPPORT_CONTACTS_PER_BENEFIT} selected.`}
+                </p>
+                <button
+                  type="button"
+                  onClick={dismissCapNotice}
+                  aria-label="Dismiss this notice"
+                  title="Dismiss"
+                  className="ml-auto -mr-1 shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : null}
+            {/* One card per contact, laid out across the row instead of stacked, so the
+                whole roster is scannable at once. */}
+            <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {planContacts.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
+                <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700 sm:col-span-2 lg:col-span-4">
                   <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
                   <p className="text-sm text-muted-foreground font-medium">No support contacts available.</p>
                   <p className="text-xs text-muted-foreground mt-1">Please add contacts in Step 1 or check your connection.</p>
@@ -750,82 +782,144 @@ export function BenefitsStep3({
                 // it so the rule is visible before the click — `toggleContact` still
                 // guards, and says why.
                 const isBlockedByLimit = !isSelected && atSupportContactLimit;
+                // `(555) 123-4567`, plus the extension when the contact has one. Key
+                // Contacts are stored as digits, so the raw value would read as an
+                // unformatted string on a card meant to preview the portal's own.
+                const formattedPhone = formatPhoneWithExtension(
+                  contact.phone,
+                  contact.phoneExtension,
+                );
 
                 return (
-                  <div key={contact.id} className="space-y-1.5">
-                    <div
-                      className={`flex items-center p-2 rounded-lg border transition-all ${isSelected
-                        ? "border-accent-blue bg-accent-blue/[0.02]"
-                        : "border-gray-100 bg-white hover:border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600"
-                        } ${isBlockedByLimit ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                  <Card
+                    key={contact.id}
+                    className={`overflow-hidden transition-all ${isSelected
+                      ? "border-accent-blue shadow-sm ring-1 ring-accent-blue/20"
+                      : "border-gray-100 bg-white hover:border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600"
+                      } ${isBlockedByLimit ? "opacity-50" : ""}`}
+                  >
+                    <CardContent
+                      className={`space-y-2 p-3 ${isBlockedByLimit ? "cursor-not-allowed" : "cursor-pointer"}`}
                       onClick={() => toggleContact(contact.id)}
                     >
-                      <div
-                        className={`w-4 h-4 rounded-full border flex items-center justify-center mr-2.5 transition-colors ${isSelected
-                          ? "bg-accent-blue border-accent-blue text-white"
-                          : "bg-white border-gray-200 dark:bg-gray-700 dark:border-gray-600"
-                          }`}
-                      >
-                        {isSelected && <Check className="w-3.5 h-3.5" />}
-                      </div>
-                      {contact.headshot && (
-                        <div className="w-8 h-8 rounded-full overflow-hidden mr-2.5 border border-gray-100 dark:border-gray-700 shrink-0">
-                          <Headshot src={contact.headshot} alt={contact.name ?? "Contact"} />
+                      {/* Photo and controls only, at opposite ends, so the selection control
+                          reads as the card's top-left corner. The name deliberately is not
+                          in this row — see below. */}
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className={`w-4 h-4 shrink-0 rounded-full border flex items-center justify-center transition-colors ${isSelected
+                            ? "bg-accent-blue border-accent-blue text-white"
+                            : "bg-white border-accent-blue dark:bg-gray-700"
+                            }`}
+                        >
+                          {isSelected && <Check className="w-3.5 w-3.5" />}
                         </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-base font-semibold text-foreground leading-tight truncate">
+                        {contact.headshot && (
+                          <div className="w-8 h-8 shrink-0 overflow-hidden rounded-full border border-gray-100 dark:border-gray-700">
+                            <Headshot src={contact.headshot} alt={contact.name ?? "Contact"} />
+                          </div>
+                        )}
+                        <div className="ml-auto flex shrink-0 items-center">
+                          {/* Edit this contact's own details. `stopPropagation` keeps the
+                              card's toggle from firing as well — this is the person's data,
+                              not this benefit's inclusion of them. */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Edit this contact"
+                            aria-label="Edit this contact"
+                            className="h-7 w-7 shrink-0 text-muted-foreground hover:bg-accent-blue/10 hover:text-accent-blue"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingContact(contact);
+                            }}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          {/* Plan-level delete. `stopPropagation` is essential: the card
+                              itself toggles this contact on/off for the benefit, which is
+                              a different (non-destructive) action. */}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            title="Delete this contact from the plan"
+                            aria-label="Delete this contact from the plan"
+                            className="h-7 w-7 shrink-0 text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setContactPendingDelete(contact);
+                            }}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
+                        </div>
+                      </div>
+
+                      {/* Name over title, then the ways to reach them, as one left-aligned
+                          column at the card's full width. Reading the name BESIDE the
+                          headshot left it a strip too narrow at four-up, where it is the one
+                          thing on the card that has to stay legible. `title` carries the
+                          untruncated value on hover. */}
+                      <div className="min-w-0 space-y-0.5">
+                        <p
+                          title={contact.name ||
+                            `${contact.firstName} ${contact.lastName}`}
+                          className="truncate text-sm font-semibold leading-tight text-foreground"
+                        >
                           {contact.name ||
                             `${contact.firstName} ${contact.lastName}`}
                         </p>
-                        <p className="text-xs text-muted-foreground leading-tight mt-0.5 truncate">
+                        <p
+                          title={contact.title || "No Title"}
+                          className="truncate text-xs leading-tight text-muted-foreground"
+                        >
                           {contact.title || "No Title"}
                         </p>
-                      </div>
-                      <div className="text-right flex flex-col items-end gap-1 ml-2">
-                        <p className="text-xs text-muted-foreground font-medium leading-none truncate max-w-[150px]">
+                        <p title={contact.email} className="truncate text-xs leading-tight text-muted-foreground">
                           {contact.email}
                         </p>
-                        <p className="text-xs text-muted-foreground leading-none">
-                          {contact.phone}
-                        </p>
+                        {/* Shown in the display format, not the stored digits: the card is a
+                            preview of what employees will read on the benefit page. */}
+                        {formattedPhone ? (
+                          <p title={formattedPhone} className="truncate text-xs leading-tight text-muted-foreground">
+                            {formattedPhone}
+                          </p>
+                        ) : null}
                       </div>
-                      {/* Edit this contact's own details. `stopPropagation` keeps the
-                          row's toggle from firing as well — this is the person's data,
-                          not this benefit's inclusion of them. */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Edit this contact"
-                        aria-label="Edit this contact"
-                        className="ml-1 h-7 w-7 shrink-0 text-muted-foreground hover:bg-accent-blue/10 hover:text-accent-blue"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingContact(contact);
-                        }}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      {/* Plan-level delete. `stopPropagation` is essential: the row
-                          itself toggles this contact on/off for the benefit, which is
-                          a different (non-destructive) action. */}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        title="Delete this contact from the plan"
-                        aria-label="Delete this contact from the plan"
-                        className="ml-1 h-7 w-7 shrink-0 text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setContactPendingDelete(contact);
-                        }}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
 
+                      {/* Promote this person into a paid Team Member seat. It lives
+                          inside CardContent, which owns the on/off toggle for this
+                          benefit, so every event is stopped — otherwise pressing it
+                          would also deselect the contact it is about. */}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 w-full gap-1.5 text-xs font-semibold"
+                        title={
+                          contact.email
+                            ? "Give this contact a Team Member seat"
+                            : "Add an email address for this contact first"
+                        }
+                        disabled={!contact.email}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setContactPendingSeat(contact);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                      >
+                        <Armchair className="h-3.5 w-3.5" />
+                        Give Team Seat
+                      </Button>
+                    </CardContent>
+
+                    {/* The display copy only exists once this contact is selected for the
+                        benefit, so it is the card's footer: the card grows with it instead
+                        of a second block appearing beside a fixed-height row. It sits
+                        outside CardContent, which owns the toggle, so typing in these
+                        fields can never deselect the contact. */}
                     {isSelected && supportConfig && (
-                      <div className="ml-7 p-3 bg-gray-50 rounded-lg border border-gray-200 space-y-2.5 animate-in slide-in-from-top-1 duration-200 dark:bg-gray-800/50 dark:border-gray-700">
+                      <div className="space-y-2.5 border-t border-gray-100 bg-gray-50 p-3 animate-in slide-in-from-top-1 duration-200 dark:border-gray-700 dark:bg-gray-800/50">
                         <div className="space-y-1.5">
                           <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                             Display Title
@@ -858,7 +952,7 @@ export function BenefitsStep3({
                         </div>
                       </div>
                     )}
-                  </div>
+                  </Card>
                 );
               })}
             </div>
@@ -866,7 +960,11 @@ export function BenefitsStep3({
           </AccordionContent>
         </AccordionItem>
 
-        {/* Collaborators — external people with scoped access and no seat. */}
+        {/* Collaborators — external people with scoped access and no seat.
+            The invite action lives in THIS trigger so it is labelled by the section it
+            adds to. Both sections start open (see openContactSections), so it is never
+            hidden behind a click, and every event is stopped so pressing it opens the
+            dialog instead of collapsing the section it belongs to. */}
         <AccordionItem
           value="collaborators"
           className="rounded-xl border bg-card shadow-md"
@@ -880,6 +978,28 @@ export function BenefitsStep3({
               <Badge variant="secondary" className="font-medium">
                 {collaborators.length}
               </Badge>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 shrink-0 gap-1.5 px-3 text-xs font-semibold"
+                aria-label="Add a collaborator"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsInviteOpen(true);
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+                disabled={!invitePlanId || !inviteCategory}
+                title={
+                  invitePlanId && inviteCategory
+                    ? "Add a collaborator to complete this section"
+                    : "Save the plan first, then add a collaborator"
+                }
+              >
+                <UserPlus className="h-4 w-4" />
+                Add Collaborator
+              </Button>
               <span className="w-full text-xs font-normal text-muted-foreground">
                 External people who help with this section. Free — no seat, and no
                 publish, invite, delete or organization settings.
@@ -1007,6 +1127,20 @@ export function BenefitsStep3({
           category={inviteCategory}
           source={section === "contacts" ? "edit_benefit" : "create_benefits"}
           onInvited={() => setCollaboratorsRefreshKey((key) => key + 1)}
+        />
+
+        {/* Promote one Support Contact into a paid Team Member seat. A different
+            action from the invite above on purpose: a Collaborator is free and
+            external, a Team Member consumes a seat and shows up in Settings → People
+            & Access. `onGranted` re-reads the assignee list, because the new Team
+            Member now holds an assignment on this plan. */}
+        <GiveTeamSeatDialog
+          contact={contactPendingSeat}
+          onOpenChange={(open) => {
+            if (!open) setContactPendingSeat(null);
+          }}
+          onGranted={() => setCollaboratorsRefreshKey((key) => key + 1)}
+          currentCustomBenefit={currentCustomBenefit}
         />
 
         {/* Plan-level delete confirmation. Placed here for locality only — Radix's
