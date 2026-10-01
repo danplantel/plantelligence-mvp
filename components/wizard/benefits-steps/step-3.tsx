@@ -12,13 +12,7 @@ import {
   canAddSupportContact,
 } from "@/lib/benefit-contacts";
 import { fetchClientOnce } from "@/lib/fetch-client";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { CardContent } from "@/components/ui/card";
 import { Headshot } from "@/components/ui/headshot";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -113,6 +107,9 @@ export function BenefitsStep3({
 } = {}) {
   const { stepData, saveStepData } = useBenefitsWizardStore();
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Which FAQ block sections are open. Starts open, like the Contacts sections above, so
+  // nothing is hidden behind a click the advisor did not ask for.
+  const [openFaqSection, setOpenFaqSection] = useState<string[]>(["faqs"]);
   const [savePending, setSavePending] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   // Support Contacts preview — the portal's "Have Questions?" cards. Its own state
@@ -1039,57 +1036,79 @@ export function BenefitsStep3({
           loadingText="Deleting..."
         />
 
-        {/* FAQ Section */}
+        {/* FAQ Section — an accordion block of its own, in the same language as the
+            Contacts sections above. Each question keeps its own expand/collapse (still
+            driven by `expandedId`, not by this accordion), so opening the section reveals
+            the list and opening a question reveals its fields. */}
         {(!section || section === "faqs") && (
-        <Card className="border-none shadow-md overflow-hidden bg-card">
-          <CardHeader className="py-2 border-b bg-gray-50/50 dark:bg-gray-800 dark:border-gray-700">
-            <div className="flex justify-between items-center">
-              <div className="flex items-center gap-2">
-                <HelpCircle className="w-5 h-5 text-accent-blue" />
-                <div>
-                  <CardTitle className="text-lg font-bold text-foreground">
-                    Popular Questions (FAQ)
-                  </CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground">
-                    Manage frequently asked questions for this benefit.
-                  </CardDescription>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={() => setPreviewOpen(true)}
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1.5 px-3 text-xs font-semibold"
+        <Accordion
+          type="multiple"
+          value={openFaqSection}
+          onValueChange={setOpenFaqSection}
+          className="space-y-4"
+        >
+          <AccordionItem
+            value="faqs"
+            className="rounded-xl border bg-card shadow-md"
+          >
+            <AccordionTrigger className="px-4 py-3 hover:no-underline">
+              <span className="flex flex-1 flex-wrap items-center gap-2 text-left">
+                <HelpCircle className="w-5 h-5 shrink-0 text-accent-blue" />
+                <span className="text-lg font-bold text-foreground">
+                  Popular Questions (FAQ)
+                </span>
+                <Badge variant="secondary" className="font-medium">
+                  {resolvedFaqs.length}
+                </Badge>
+                {/* The actions stay in the header, where they were. Their events are
+                    stopped at this wrapper rather than on each button: the header is the
+                    accordion's trigger, so without it saving an FAQ would also collapse
+                    the section being saved. */}
+                <span
+                  className="flex shrink-0 flex-wrap items-center gap-2"
+                  onClick={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onKeyDown={(e) => e.stopPropagation()}
                 >
-                  <Eye className="w-4 h-4" /> Preview
-                </Button>
-                <Button
-                  onClick={handleSaveFaqs}
-                  variant="default"
-                  size="sm"
-                  className="h-8 gap-1.5 px-3 text-xs font-semibold"
-                  disabled={savePending}
-                >
-                  {savePending ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
-                  )}
-                  {savePending ? "Saving..." : "Save"}
-                </Button>
-                <Button
-                  onClick={addFaq}
-                  variant="outline"
-                  size="sm"
-                  className="h-8 gap-1 px-3 text-xs font-semibold"
-                >
-                  <Plus className="w-4 h-4" /> Add Question
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-3">
+                  <Button
+                    onClick={() => setPreviewOpen(true)}
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1.5 px-3 text-xs font-semibold"
+                  >
+                    <Eye className="w-4 h-4" /> Preview
+                  </Button>
+                  <Button
+                    onClick={handleSaveFaqs}
+                    variant="default"
+                    size="sm"
+                    className="h-8 gap-1.5 px-3 text-xs font-semibold"
+                    disabled={savePending}
+                  >
+                    {savePending ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    {savePending ? "Saving..." : "Save"}
+                  </Button>
+                  <Button
+                    onClick={addFaq}
+                    variant="outline"
+                    size="sm"
+                    className="h-8 gap-1 px-3 text-xs font-semibold"
+                  >
+                    <Plus className="w-4 h-4" /> Add Question
+                  </Button>
+                </span>
+                <span className="w-full text-xs font-normal text-muted-foreground">
+                  Manage frequently asked questions for this benefit — drag the handle to
+                  reorder, and each question opens on its own.
+                </span>
+              </span>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-4 pt-0">
+            <CardContent className="p-3">
             {resolvedFaqs.length === 0 ? (
               <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
                 <HelpCircle className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-1" />
@@ -1123,8 +1142,10 @@ export function BenefitsStep3({
                 </DndContext>
               </div>
             )}
-          </CardContent>
-        </Card>
+            </CardContent>
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
         )}
 
       </div>
