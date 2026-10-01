@@ -1099,6 +1099,32 @@ export function BenefitsStep1({
     return `${prefix}${trimmed}!`;
   };
 
+  /**
+   * Is this value NOT a real Custom Category Name, but something the wizard generated?
+   *
+   * `benefitTitle` doubles as the Intro Headline for the normal categories, but for the
+   * Custom hub it is the advisor's own name for the benefit ("Wellness Programs"). Two
+   * values can therefore land in that field that no advisor ever typed:
+   *   • a hub label ("Custom" / "Company / Plan Sponsor") carried over from the category,
+   *     and
+   *   • the auto-generated intro headline ("Welcome to <company>!"), which the contact
+   *     pre-fill used to seed before the Benefit-rows snapshot arrived — the flash that
+   *     showed a headline in the Custom Category Name field until a later pass cleared it.
+   * Both are wrong there: the advisor cannot tell they need replacing, and because
+   * validation only requires a non-empty title, either could be saved as the benefit's
+   * name. This is scoped to the Custom hub — the same headline IS the intended default
+   * for every other category.
+   */
+  const isNonTitleCustomValue = (
+    raw: string | null | undefined,
+    category: string | null | undefined,
+  ): boolean => {
+    if (!isCustomHubCategory(category)) return false;
+    if (isCustomHubCategory(raw)) return true;
+    const v = (raw || "").trim();
+    return v.length > 0 && v === getDefaultIntroHeadline("Custom");
+  };
+
   /** Default Intro Message: a personalized welcome that fills in the
    *  Company (Plan Sponsor) Name (the plan/client) and the Organization Name
    *  (the advisor) in the placeholder spots. Kept ≤ 450 chars (Intro Message max). */
@@ -1532,7 +1558,14 @@ export function BenefitsStep1({
   ): BenefitsStep1Data => {
     return {
       ...baseData,
-      benefitTitle: baseData.benefitTitle || getDefaultIntroHeadline(category),
+      // A Custom category's `benefitTitle` is the advisor's own name for the benefit, not
+      // an intro headline. This path runs the moment the plan's key contacts land — well
+      // before the Benefit-rows snapshot — so defaulting it here flashed "Welcome to
+      // <company>!" into the Custom Category Name field until the no-benefit pre-fill pass
+      // cleared it a few seconds later. Leave it blank for the hub; the advisor names it.
+      benefitTitle:
+        baseData.benefitTitle ||
+        (isCustomHubCategory(category) ? "" : getDefaultIntroHeadline(category)),
       contactId: contact.id,
     };
   };
@@ -2711,7 +2744,10 @@ export function BenefitsStep1({
                   </Label>
                   <Input
                     value={
-                      isCustomHubCategory(currentStepData.benefitTitle)
+                      isNonTitleCustomValue(
+                        currentStepData.benefitTitle,
+                        currentStepData.benefitCategory,
+                      )
                         ? ""
                         : currentStepData.benefitTitle
                     }
