@@ -71,6 +71,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
+import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions-faq";
 import {
   DndContext,
   closestCenter,
@@ -114,6 +115,9 @@ export function BenefitsStep3({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [savePending, setSavePending] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  // Support Contacts preview — the portal's "Have Questions?" cards. Its own state
+  // because `previewOpen` previews the FAQ section, a different part of the page.
+  const [contactsPreviewOpen, setContactsPreviewOpen] = useState(false);
   // Plan-level delete: the contact the confirm dialog is asking about, and whether the
   // request is in flight.
   const [contactPendingDelete, setContactPendingDelete] =
@@ -633,7 +637,7 @@ export function BenefitsStep3({
             step, so one header serves both surfaces. */}
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border bg-card px-4 py-3 shadow-md">
           <div className="min-w-0">
-            <h2 className="text-lg font-bold text-foreground">Contacts</h2>
+            <h2 className="text-lg font-bold text-foreground">Contacts & FAQs</h2>
             <p className="text-xs text-muted-foreground">
               Who employees reach out to, and who can help complete this section.
             </p>
@@ -672,6 +676,26 @@ export function BenefitsStep3({
               <Badge variant="secondary" className="font-medium">
                 {selectedSupportCount} of {MAX_SUPPORT_CONTACTS_PER_BENEFIT}
               </Badge>
+              {/* Preview the cards the advisor is choosing. Sits in the trigger (rather
+                  than beside the accordion) so it reads as part of this section's header,
+                  and every event is stopped so a click opens the preview instead of
+                  collapsing the section it belongs to. */}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 shrink-0 gap-1.5 px-3 text-xs font-semibold"
+                aria-label="Preview support contacts"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setContactsPreviewOpen(true);
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
+              >
+                <Eye className="h-4 w-4" />
+                Preview
+              </Button>
               <span className="w-full text-xs font-normal text-muted-foreground">
                 Select the contacts users should reach out to — up to{" "}
                 {MAX_SUPPORT_CONTACTS_PER_BENEFIT} per benefit.
@@ -1129,6 +1153,38 @@ export function BenefitsStep3({
                 <HelpCircle className="w-10 h-10 mx-auto mb-2 opacity-40" />
                 <p>No enabled FAQs to preview.</p>
                 <p className="text-xs mt-1">Add questions above and ensure they are enabled.</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Support Contacts preview — the portal's own "Have Questions?" cards, fed the
+          same `previewContacts` the FAQ preview above already builds, so the two cannot
+          disagree about who employees will be shown (and with what details). */}
+      <Dialog open={contactsPreviewOpen} onOpenChange={setContactsPreviewOpen}>
+        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Support Contacts Preview</DialogTitle>
+            <DialogDescription>
+              The portal shows these cards in its Have Questions section, exactly as
+              the selections above define them.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto bg-white">
+            {previewContacts && previewContacts.length > 0 ? (
+              <HaveQuestions
+                brandColor={brandColor}
+                secondaryColor={secondaryColor}
+                contacts={previewContacts}
+              />
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <Users className="w-10 h-10 mx-auto mb-2 opacity-40" />
+                <p>No support contacts to preview.</p>
+                <p className="text-xs mt-1">
+                  Select the contacts employees should reach out to above.
+                </p>
               </div>
             )}
           </div>
