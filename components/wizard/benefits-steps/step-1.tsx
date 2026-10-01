@@ -1668,6 +1668,23 @@ export function BenefitsStep1({
     contacts: KeyContact[],
     baseData: BenefitsStep1Data,
   ): BenefitsStep1Data => {
+    /**
+     * The Custom hub never assumes a Key Contact.
+     *
+     * It is the advisor's own name for a benefit the plan sponsor offers — not one of
+     * the advisor's primary service categories — so there is no contact to pre-select.
+     * The category match below only ever found one by accident of filing: the plan's own
+     * "Company / Plan Sponsor" contact, or the advisor's own row seeded for their
+     * primary categories. Either way the wizard was answering a question the advisor had
+     * not been asked, on a benefit the organization does not serve. The field starts
+     * empty; the advisor picks or creates the right contact.
+     *
+     * Note this is a guard on the RESOLVER, not on its caller, so every path that
+     * pre-fills a contact passes through it. A contact already saved on this category's
+     * Benefit row is untouched — that one the advisor chose.
+     */
+    if (isCustomHubCategory(category)) return baseData;
+
     const target = (category || "").toLowerCase();
 
     // Helper to check if contact matches category
