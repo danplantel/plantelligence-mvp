@@ -316,6 +316,12 @@ export function BenefitsStep1({
    * "Acme Corp - Retirement" for the Create Benefit banner. Mirrors the page
    * header's subtitle mapping, where the store keeps the Custom hub under
    * "Company / Plan Sponsor".
+   *
+   * The Custom hub is the one category whose stored name is not a name the advisor
+   * chose — it is the hub's own label, and naming the benefit is the whole point of the
+   * flow. Appending it gave the banner a second, unexplained target ("Acme Corp -
+   * Company / Plan Sponsor"), so the hub contributes no suffix and the banner names
+   * the plan alone.
    */
   const benefitBannerTarget = useMemo(() => {
     const planName =
@@ -323,10 +329,12 @@ export function BenefitsStep1({
       ((currentStepData.selectedPlan as { companyName?: string } | null)
         ?.companyName ??
         "");
-    const category =
-      currentStepData.benefitCategory === "Custom"
-        ? "Company / Plan Sponsor"
-        : currentStepData.benefitCategory;
+    // Both labels: the deep link passes "Custom" while the store and the database
+    // keep "Company / Plan Sponsor".
+    const isCustomHub =
+      currentStepData.benefitCategory === "Custom" ||
+      currentStepData.benefitCategory === "Company / Plan Sponsor";
+    const category = isCustomHub ? "" : currentStepData.benefitCategory;
     return [planName, category].filter(Boolean).join(" - ");
   }, [
     selectedPlanName,

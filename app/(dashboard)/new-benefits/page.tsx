@@ -126,6 +126,11 @@ function NewBenefitsPageInner() {
   const benefitCategoryName = useBenefitsWizardStore(
     (s) => s.stepData.step1?.benefitCategory ?? "",
   );
+  // The Custom Category Name the advisor typed on Step 1. A Custom benefit is named by
+  // it — the hub's storage label is not a name — so the header reads this instead.
+  const customBenefitTitle = useBenefitsWizardStore(
+    (s) => s.stepData.step1?.benefitTitle ?? "",
+  );
   const hasUnsavedChanges = useBenefitsWizardStore((s) =>
     hasUnsavedBenefitsWork(
       {
@@ -212,11 +217,27 @@ function NewBenefitsPageInner() {
   // Show the selected plan's company name + benefit category in the page header
   // (next to the "Create Benefits" title) instead of inside the plan selection
   // card, e.g. "Loading Company - Retirement".
+  //
+  // The Custom hub is the exception. "Company / Plan Sponsor" is only its label in the
+  // database; the benefit the advisor is creating is named by them, and that name is
+  // the Custom Category Name on Step 1. So the header carries what they typed — and
+  // while the field is still empty the header names the plan alone, rather than falling
+  // back to the storage label.
   useEffect(() => {
-    const category =
-      benefitCategoryName === "Custom"
-        ? "Company / Plan Sponsor"
-        : benefitCategoryName.trim();
+    const normalize = (raw: string) =>
+      raw.toLowerCase().trim().replace(/\s+/g, " ");
+    // Either spelling of the hub (the deep link passes "Custom", the store and the
+    // database keep "Company / Plan Sponsor") means the same category.
+    const isCustomHub =
+      normalize(benefitCategoryName) === "custom" ||
+      normalize(benefitCategoryName) === "company / plan sponsor";
+    // A stored value that IS a hub label is not a name the advisor chose — it is the
+    // label the field exists to replace — so it contributes nothing either.
+    const storedName = normalize(customBenefitTitle);
+    const isHubLabel =
+      storedName === "custom" || storedName === "company / plan sponsor";
+    const customName = isHubLabel ? "" : customBenefitTitle.trim();
+    const category = isCustomHub ? customName : benefitCategoryName.trim();
     setSubtitle(
       selectedPlanName
         ? category
@@ -224,7 +245,7 @@ function NewBenefitsPageInner() {
           : selectedPlanName
         : "",
     );
-  }, [selectedPlanName, benefitCategoryName, setSubtitle]);
+  }, [selectedPlanName, benefitCategoryName, customBenefitTitle, setSubtitle]);
 
   // Scroll to the top whenever the user navigates between steps so each step
   // starts at its beginning (e.g. going back from Step 5 to Step 1).
