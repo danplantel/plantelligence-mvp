@@ -2,6 +2,17 @@ import { useState, useEffect, useRef } from "react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { MISSION_STATEMENT_PRESETS } from "../../constants/welcome-statements";
 
+/**
+ * Collapse every run of whitespace to a single space.
+ *
+ * Used to recognise a Mission Statement that is still the untouched default.
+ * The presets carry paragraph breaks and those have changed over time, so an
+ * exact string comparison treats the auto-applied default from an earlier
+ * version as if the user had written it — leaving them on the old, unparagraphed
+ * copy. Comparing the collapsed wording is what "untouched default" means.
+ */
+const collapseWhitespace = (value: string) => value.replace(/\s+/g, " ").trim();
+
 export function useMissionData() {
   const { stepData, saveStepDataLocally } = useNewClientWizardStore();
   // The plan/company name from Step 1 (Company Basics) is used to fill the
@@ -71,11 +82,14 @@ export function useMissionData() {
     const currentBody = stepData.companyBasics?.missionBody;
     const isDefaultTemplate =
       !!currentBody &&
-      (currentBody === defaultMissionBody ||
-        currentBody ===
-          MISSION_STATEMENT_PRESETS[0].bodyText.replace(
-            /\{\{COMPANY_NAME\}\}/g,
-            "our company",
+      (collapseWhitespace(currentBody) ===
+        collapseWhitespace(defaultMissionBody) ||
+        collapseWhitespace(currentBody) ===
+          collapseWhitespace(
+            MISSION_STATEMENT_PRESETS[0].bodyText.replace(
+              /\{\{COMPANY_NAME\}\}/g,
+              "our company",
+            ),
           ) ||
         (currentBody.trim().startsWith("At ") &&
           currentBody.includes("this employee benefits portal is one way")));

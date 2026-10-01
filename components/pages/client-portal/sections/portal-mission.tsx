@@ -73,7 +73,15 @@ export function PortalMission({
 
         {/* ── Left column: Image ── */}
         <div className="w-full">
-          <div className="w-full h-[260px] sm:h-[340px] lg:h-[460px] overflow-hidden rounded-lg">
+          {/* Square, and sized by the column rather than a fixed height.
+           *
+           * The slot is a 1:1 crop, so a square frame shows exactly what the
+           * advisor framed — a fixed 460px height in a ~590px column was
+           * landscape, which left `object-cover` re-cropping the very crop they
+           * had just made. It also lets the image grow with the column, which is
+           * what keeps it in step with the mission paragraphs beside it now that
+           * the default text carries paragraph breaks. */}
+          <div className="w-full aspect-square overflow-hidden rounded-lg">
             {company?.thumbnailImg ? (
               <BrandingImage
                 src={company.thumbnailImg}
@@ -142,7 +150,7 @@ export function PortalMission({
             </div>
             <div className="relative">
               <p
-                className={`text-[#6B6B6B] font-red-hat sm:text-base lg:text-[1.3em] leading-[1.8] mb-4 sm:mb-5 ${onMissionBodyClick
+                className={`text-[#6B6B6B] font-red-hat sm:text-base lg:text-[1.3em] leading-[1.8] mb-4 sm:mb-5 whitespace-pre-line ${onMissionBodyClick
                   ? `${showEditIndicators
                       ? `cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70 ${hoveredElement === "body"
                           ? "opacity-90 ring-2 ring-blue-500/50 rounded-md px-2 -mx-2"
