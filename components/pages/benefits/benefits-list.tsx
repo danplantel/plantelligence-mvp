@@ -243,7 +243,24 @@ export function BenefitsListPage({
     isLoading: isBenefitsLoading,
     error: benefitsError,
     mutate,
-  } = useSWR("/api/benefits", fetcher);
+  } = useSWR("/api/benefits", fetcher, {
+    // A benefit's NAME is edited on the Edit Benefit page and read here, and the two are often
+    // visited back-to-back. SWR's default 2s dedupe window served this page's previous payload for
+    // that whole window, so a renamed Custom benefit kept its old name until the window lapsed.
+    // Refetch on every mount instead — one cheap read — so the list is never a stale snapshot.
+    dedupingInterval: 0,
+    revalidateOnMount: true,
+    revalidateOnFocus: false,
+  });
+
+  // A save on the Edit Benefit page dispatches `benefits-updated` (see lib/save-benefit.ts). When
+  // THIS page is mounted (a second tab, or a retained instance), refresh so the new name lands
+  // without a manual reload.
+  useEffect(() => {
+    const onUpdated = () => void mutate();
+    window.addEventListener("benefits-updated", onUpdated);
+    return () => window.removeEventListener("benefits-updated", onUpdated);
+  }, [mutate]);
   const {
     data: planListData,
     isLoading: isPlanListLoading,

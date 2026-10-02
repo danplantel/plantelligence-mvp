@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { mutate as mutateSwr } from "swr";
 import { ArrowLeft, Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -109,8 +110,12 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
   // below); a string (including "") = the advisor's own text, so clearing the field is not undone
   // by the fallback. Reset when the route points at another plan or benefit.
   const [customNameDraft, setCustomNameDraft] = useState<string | null>(null);
+  // Step 1 renders its own skeleton while it loads the plan; the name field sits above it, so it
+  // must not appear until Step 1 reports ready (see `BenefitsStep1`'s `onReady`).
+  const [step1Ready, setStep1Ready] = useState(false);
   useEffect(() => {
     setCustomNameDraft(null);
+    setStep1Ready(false);
   }, [planId, category]);
 
   /**
@@ -214,6 +219,25 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
    * components keeps the draft current in between.
    */
   const handleSave = async () => {
+    // Re-assert the Custom benefit's name before saving.
+    //
+    // `benefitTitle` is the field `saveBenefit()` writes to `Benefit.title`, and for the Custom
+    // hub that column IS the benefit's name. This page seeds `benefitTitle` from the route's
+    // category key (a placeholder), and Step 1's own "Custom Category Name" input — the only
+    // thing that would restore the saved name — is hidden in edit mode (`!isEditMode`). So the
+    // value could still be the placeholder at save time, and `saveBenefit()` wrote
+    // "Company / Plan Sponsor" over the name; `/api/benefits` then returned it and Browse
+    // Benefits fell back to "Custom". Writing the field's current value here means what the
+    // advisor sees in the input is exactly what is saved.
+    if (isCustomHubCategory(category)) {
+      const current = (useBenefitsWizardStore.getState().stepData.step1 ||
+        {}) as Record<string, unknown>;
+      const name = customBenefitName.trim();
+      if (name && current.benefitTitle !== name) {
+        saveStepData(1, { ...current, benefitTitle: name });
+      }
+    }
+
     const stepData = useBenefitsWizardStore.getState().stepData;
     if (!stepData.step1?.planId) {
       toast.error("Plan ID missing. Cannot save benefit.");
@@ -226,6 +250,34 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
       setSaved(true);
       toast.success("Benefit saved successfully!");
       setTimeout(() => setSaved(false), 2500);
+
+      // Browse Benefits is a different route with its own SWR cache for `/api/benefits`, so a
+      // rename would not show there until that read refetched — the delay the advisor saw.
+      // Patch the cached payload in place so the new name is on screen the moment they navigate
+      // back, and let the next read confirm it. Only the Custom hub has a name distinct from its
+      // category label.
+      if (isCustomHubCategory(category)) {
+        const newName = customBenefitName.trim();
+        if (newName) {
+          void mutateSwr(
+            "/api/benefits",
+            (current: any) =>
+              current?.benefits
+                ? {
+                    ...current,
+                    benefits: current.benefits.map((row: any) =>
+                      row.planId === planId &&
+                      (row.category === "Company / Plan Sponsor" ||
+                        row.visibilityKey === "Other")
+                        ? { ...row, title: newName }
+                        : row,
+                    ),
+                  }
+                : current,
+            { revalidate: false },
+          );
+        }
+      }
     } catch (error: any) {
       console.error("Benefit save error:", error);
       toast.error("Cannot save benefit:", {
@@ -377,7 +429,7 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
                 the plan's contacts from it). */}
             {!STEP1_VISIBLE_TABS.includes(activeTab) && (
               <div className="hidden" aria-hidden="true">
-                <BenefitsStep1 mode="edit" />
+                <BenefitsStep1 mode="edit" onReady={() => setStep1Ready(true)} />
               </div>
             )}
 
@@ -386,7 +438,7 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
                 edit mode, so a Custom benefit could not be renamed from this page at all. Only the
                 Custom hub gets it: every canonical category names itself. */}
             <TabsContent value="branding" className="mt-0">
-              {isCustomHubCategory(category) && (
+              {isCustomHubCategory(category) && step1Ready && (
                 <Card className="mb-4 border-gray-200 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                   <CardContent className="pt-5">
                     <div className="space-y-2">
@@ -412,7 +464,7 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
                   </CardContent>
                 </Card>
               )}
-              <BenefitsStep1 mode="edit" />
+              <BenefitsStep1 mode="edit" onReady={() => setStep1Ready(true)} />
             </TabsContent>
 
             {/* Preview — live portal preview + inline Editing Panel, scaled down

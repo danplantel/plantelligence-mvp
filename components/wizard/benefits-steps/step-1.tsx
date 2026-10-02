@@ -134,6 +134,7 @@ export function BenefitsStep1({
   mode = "wizard",
   sections,
   hideCategoryPicker = false,
+  onReady,
 }: {
   /** "edit" hides the plan/category picker and the per-accordion CONTINUE
    *  buttons — used by the Edit Benefit page, which has its own tab bar. */
@@ -148,6 +149,15 @@ export function BenefitsStep1({
    * dashboard tasks) leave this false so a category can still be chosen.
    */
   hideCategoryPicker?: boolean;
+  /**
+   * Called once the plan data has settled and this component has left its skeleton state.
+   *
+   * The Edit Benefit page renders its own Custom Benefit Name field ABOVE this component (the
+   * wizard's copy lives in the Plan & Benefit Selection card, which `mode="edit"` hides). Without
+   * this signal that field appeared beside the skeleton; it must wait for the same readiness this
+   * component does.
+   */
+  onReady?: () => void;
 } = {}) {
   const isEditMode = mode === "edit";
   /** Every section shows in the wizard; `sections` narrows them when provided. */
@@ -182,6 +192,15 @@ export function BenefitsStep1({
     setActiveAccordions(["branding", "messaging", "contacts", "documents"]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode]);
+
+  // Announce readiness once the plan fetch settles. The ref keeps this effect from re-running on
+  // every render just because the host passed a fresh closure.
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
+  useEffect(() => {
+    if (!loading) onReadyRef.current?.();
+  }, [loading]);
+
   const router = useRouter();
 
   /**
