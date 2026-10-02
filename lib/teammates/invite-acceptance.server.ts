@@ -221,8 +221,12 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
         select: { companyName: true },
       })
     : null;
-  const categories = Array.isArray(singleAssignment?.categories)
-    ? (singleAssignment.categories as string[])
+  // Read through a local rather than `Array.isArray(singleAssignment?.categories) ? singleAssignment.categories`:
+  // `Array.isArray` narrows the *expression* it is given, not `singleAssignment` itself, so the
+  // direct dereference still reads as possibly-null to the type checker (and failed the build).
+  const assignmentCategories = singleAssignment?.categories;
+  const categories: string[] = Array.isArray(assignmentCategories)
+    ? assignmentCategories
     : [];
 
   return {
