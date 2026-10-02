@@ -19,6 +19,10 @@
  */
 
 import { prisma } from "@/lib/prisma";
+import {
+  mostPrivilegedRole,
+  type TeammateAssignmentRole,
+} from "@/types/teammate";
 
 /**
  * Branding snapshot copied onto an Organization at creation time.
@@ -319,6 +323,8 @@ export interface TeammateSeatProfile {
   phone: string | null;
   phoneExtension: string | null;
   designations: string[];
+  /** The most privileged role across this person's plan assignments; null when they hold none. */
+  role: TeammateAssignmentRole | null;
 }
 
 export async function findTeammateProfileForUser(
@@ -328,6 +334,7 @@ export async function findTeammateProfileForUser(
     where: { loginUserId: userId },
     orderBy: { createdAt: "asc" },
     select: {
+      id: true,
       headshot: true,
       jobTitle: true,
       firstName: true,
@@ -339,6 +346,14 @@ export async function findTeammateProfileForUser(
   });
   if (!profile) return null;
 
+  // The role is per-assignment (one row per plan), so a person on several plans can hold several
+  // roles. Summarise with the same `mostPrivilegedRole` rule Settings → People & Access uses, so
+  // the dashboard cannot chip someone as "Viewer" while the team list calls them "Admin".
+  const assignments = await prisma.planAssignment.findMany({
+    where: { profileId: profile.id },
+    select: { role: true },
+  });
+
   return {
     headshot: profile.headshot ?? null,
     jobTitle: profile.jobTitle ?? null,
@@ -347,6 +362,12 @@ export async function findTeammateProfileForUser(
     phone: profile.phone ?? null,
     phoneExtension: profile.phoneExtension ?? null,
     designations: profile.designations ?? [],
+    role:
+      assignments.length === 0
+        ? null
+        : mostPrivilegedRole(
+            assignments.map((assignment) => assignment.role as TeammateAssignmentRole),
+          ),
   };
 }
 

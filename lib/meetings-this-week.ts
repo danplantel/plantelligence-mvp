@@ -57,19 +57,39 @@ export function getSchedulingWeekRange(
   };
 }
 
+/** Who the week's meetings belong to — the reader, and the plans they may see. */
+export interface MeetingScope {
+  userId: string;
+  /** Plan ids the reader may see (see `listAccessiblePlanIds`). */
+  accessiblePlanIds: readonly string[];
+}
+
 /**
- * Prisma `where` for a user's meetings in the current scheduling week.
+ * Prisma `where` for the meetings in the current scheduling week that this reader may see.
  *
  * Shared by `/api/dashboard/stats` and `/api/dashboard/meetings-this-week` so the tile's
  * count and the list it expands into are always defined by the same rule.
+ *
+ * The plan clause is what makes a teammate's dashboard match the owner's: a meeting on a
+ * shared plan carries the OWNER's `userId`, so filtering on `userId` alone showed a teammate
+ * nothing. `OR [{ userId }, { clientId in accessiblePlanIds }]` keeps an owner's planless
+ * meetings while also surfacing — to both — every meeting on a plan they can reach.
  */
-export function meetingsThisWeekWhere(userId: string, now: Date = new Date()) {
+export function meetingsThisWeekWhere(
+  scope: MeetingScope,
+  now: Date = new Date(),
+) {
   const { startUtc, endUtc } = getSchedulingWeekRange(now);
 
   return {
-    userId,
     archived: false,
     status: { notIn: EXCLUDED_STATUSES },
     date: { gte: startUtc, lte: endUtc },
+    OR: [
+      { userId: scope.userId },
+      ...(scope.accessiblePlanIds.length > 0
+        ? [{ clientId: { in: [...scope.accessiblePlanIds] } }]
+        : []),
+    ],
   };
 }

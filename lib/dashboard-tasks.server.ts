@@ -46,11 +46,19 @@ function systemTaskTitle(issue: PlanAttentionIssue): string {
 const isDraft = (status: string | null | undefined) =>
   (status ?? "").trim().toLowerCase() === "draft";
 
-export async function listSystemTasks(userId: string): Promise<SystemTask[]> {
+export async function listSystemTasks(
+  accessiblePlanIds: readonly string[],
+): Promise<SystemTask[]> {
   // Drafts are included alongside live plans: a draft with nothing outstanding is "ready to
   // publish", which is the only task that applies to a plan with no issues at all.
+  //
+  // Scoped by the reader's accessible plan ids rather than `userId`, so a teammate sees the same
+  // derived tasks for a shared plan that its owner does.
   const plans = await prisma.client.findMany({
-    where: { userId, status: { in: [...ACTIVE_CLIENT_STATUSES, "Draft"] } },
+    where: {
+      id: { in: [...accessiblePlanIds] },
+      status: { in: [...ACTIVE_CLIENT_STATUSES, "Draft"] },
+    },
     orderBy: { updatedAt: "desc" },
     take: MAX_PLANS_SCANNED,
     select: PLAN_ATTENTION_SELECT,
@@ -88,7 +96,10 @@ export async function listSystemTasks(userId: string): Promise<SystemTask[]> {
   return tasks;
 }
 
-export async function listManualTasks(userId: string): Promise<ManualTask[]> {
+export async function listManualTasks(
+  userId: string,
+  accessiblePlanIds: readonly string[],
+): Promise<ManualTask[]> {
   const tasks = await prisma.task.findMany({
     where: { userId },
     // Open first, then newest, so ticking a task off sinks it without losing it.
@@ -110,10 +121,16 @@ export async function listManualTasks(userId: string): Promise<ManualTask[]> {
 
   const nameById = new Map<string, string>();
   if (linkedIds.length > 0) {
-    const plans = await prisma.client.findMany({
-      where: { id: { in: linkedIds }, userId },
-      select: { id: true, companyName: true },
-    });
+    // A task may point at a plan the reader reaches through their seat, not only one they own —
+    // so resolve names against the accessible set rather than `userId`.
+    const accessible = new Set(accessiblePlanIds);
+    const visibleLinkedIds = linkedIds.filter((id) => accessible.has(id));
+    const plans = visibleLinkedIds.length
+      ? await prisma.client.findMany({
+          where: { id: { in: visibleLinkedIds } },
+          select: { id: true, companyName: true },
+        })
+      : [];
     for (const plan of plans) nameById.set(plan.id, plan.companyName);
   }
 

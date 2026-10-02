@@ -45,21 +45,40 @@ export function startOfSchedulingDayUtc(now: Date = new Date()): Date {
   );
 }
 
+/** Who the upcoming meetings belong to — the reader, and the plans they may see. */
+export interface UpcomingMeetingScope {
+  userId: string;
+  /** Plan ids the reader may see (see `listAccessiblePlanIds`). */
+  accessiblePlanIds: readonly string[];
+}
+
 /**
- * Prisma `where` for a user's *candidate* upcoming meetings — a superset the caller must
+ * Prisma `where` for this reader's *candidate* upcoming meetings — a superset the caller must
  * narrow by exact start time.
  *
  * The day-scoped window is the most this query can express: a row with no stored instant has
  * nothing to compare, and `date` is only a day. Keeping it inclusive also means no meeting is
  * ever hidden by a field it does not carry.
+ *
+ * `OR [{ userId }, { clientId in accessiblePlanIds }]` mirrors `meetingsThisWeekWhere`: an
+ * owner's planless meetings stay visible, and a teammate sees the owner's meetings on the plans
+ * their seat reaches (which a bare `userId` filter hid, because the owner created them).
  */
-export function upcomingMeetingsWhere(userId: string, now: Date = new Date()) {
+export function upcomingMeetingsWhere(
+  scope: UpcomingMeetingScope,
+  now: Date = new Date(),
+) {
   return {
-    userId,
     // `not: true` rather than `false`: it excludes only rows explicitly archived, and still
     // matches documents written before the `archived` field existed.
     archived: { not: true },
     status: { notIn: [...NON_UPCOMING_STATUSES] },
     date: { gte: startOfSchedulingDayUtc(now) },
+    OR: [
+      { userId: scope.userId },
+      ...(scope.accessiblePlanIds.length > 0
+        ? [{ clientId: { in: [...scope.accessiblePlanIds] } }]
+        : []),
+    ],
   };
 }

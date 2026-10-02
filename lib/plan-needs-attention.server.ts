@@ -51,17 +51,19 @@ export interface PlanNeedingAttention {
 }
 
 /**
- * The user's active plans that need attention, most recently updated first.
+ * The active plans among `accessiblePlanIds` that need attention, most recently updated first.
  *
- * Only active plans are considered — an unpublished draft is not live, so it cannot be
- * "incomplete" in a way the advisor needs to act on.
+ * Takes the reader's accessible plan ids (see `listAccessiblePlanIds`) rather than their
+ * `userId`: a teammate's own id owns no plans, so keying on `userId` returned an empty tile for
+ * everyone but the owner. Only active plans are considered — an unpublished draft is not live, so
+ * it cannot be "incomplete" in a way the advisor needs to act on.
  */
 export async function listPlansNeedingAttention(
-  userId: string,
+  accessiblePlanIds: readonly string[],
 ): Promise<PlanNeedingAttention[]> {
   const plans = await prisma.client.findMany({
     where: {
-      userId,
+      id: { in: [...accessiblePlanIds] },
       status: ACTIVE_CLIENT_STATUS_FILTER,
     },
     orderBy: { updatedAt: "desc" },
@@ -86,10 +88,10 @@ export async function listPlansNeedingAttention(
   return flagged;
 }
 
-/** Number of active plans that need attention. */
+/** Number of active plans among `accessiblePlanIds` that need attention. */
 export async function countPlansNeedingAttention(
-  userId: string,
+  accessiblePlanIds: readonly string[],
 ): Promise<number> {
-  const flagged = await listPlansNeedingAttention(userId);
+  const flagged = await listPlansNeedingAttention(accessiblePlanIds);
   return flagged.length;
 }

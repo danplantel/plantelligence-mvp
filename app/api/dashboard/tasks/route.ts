@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { listManualTasks, listSystemTasks } from "@/lib/dashboard-tasks.server";
+import { listAccessiblePlanIds } from "@/lib/teammates/access.server";
 
 /** Task titles are free text but short by nature; this bounds abuse and keeps rows readable. */
 const MAX_TITLE_LENGTH = 200;
@@ -25,9 +26,14 @@ export async function GET(request: NextRequest) {
 
     const userId = session.user.id;
 
+    // System tasks are derived from the reader's accessible plans (owned + assigned), so a
+    // teammate sees the same derived work for a shared plan as the owner. Manual tasks stay the
+    // reader's own to-do list.
+    const accessiblePlanIds = await listAccessiblePlanIds(userId);
+
     const [system, manual] = await Promise.all([
-      listSystemTasks(userId),
-      listManualTasks(userId),
+      listSystemTasks(accessiblePlanIds),
+      listManualTasks(userId, accessiblePlanIds),
     ]);
 
     return NextResponse.json({ success: true, data: { system, manual } });
@@ -66,11 +72,10 @@ export async function POST(request: NextRequest) {
         : null;
 
     if (requestedClientId) {
-      const owned = await prisma.client.findFirst({
-        where: { id: requestedClientId, userId },
-        select: { id: true },
-      });
-      if (!owned) {
+      // A task may be linked to any plan the reader can reach — owned OR assigned through a seat —
+      // not only one they own, so a teammate can file work against a shared plan.
+      const accessiblePlanIds = await listAccessiblePlanIds(userId);
+      if (!accessiblePlanIds.includes(requestedClientId)) {
         return NextResponse.json({ error: "Unknown plan" }, { status: 400 });
       }
     }

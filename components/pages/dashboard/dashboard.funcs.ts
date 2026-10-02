@@ -110,5 +110,6 @@ export const userInfo = {
   title: "Senior Financial Advisor",
   avatar: "",
   rawAvatar: "",
+  role: null,
   logo: "/logo-2.png",
 };

@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import type { ActivityItem } from "@/lib/recent-activity";
+import { listAccessiblePlanIds } from "@/lib/teammates/access.server";
 
 /** Rows pulled from each source before merging; the feed only needs the newest few. */
 const PER_SOURCE_LIMIT = 8;
@@ -36,12 +37,15 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session.user.id;
+    const accessiblePlanIds = await listAccessiblePlanIds(userId);
 
-    // The user's plans. One query serves three purposes: the "plan created" events, the
-    // plan-name lookup the other sources need, and the id list for sources reached through
-    // the client rather than carrying a userId of their own.
+    // The accessible plans — owned OR assigned — not just the ones this user owns: keying on
+    // `userId` showed a teammate an empty feed, because the plans belong to the owner. One query
+    // serves three purposes: the "plan created" events, the plan-name lookup the other sources
+    // need, and the id list for sources reached through the client rather than carrying a userId
+    // of their own.
     const clients = await prisma.client.findMany({
-      where: { userId },
+      where: { id: { in: accessiblePlanIds } },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -101,7 +105,17 @@ export async function GET(request: NextRequest) {
         : Promise.resolve([]),
 
       prisma.meeting.findMany({
-        where: { userId, archived: { not: true } },
+        // Own meetings plus any meeting on a plan the reader can reach — a meeting on a shared
+        // plan carries the owner's `userId`, so the bare filter hid it from a teammate.
+        where: {
+          OR: [
+            { userId },
+            ...(accessiblePlanIds.length > 0
+              ? [{ clientId: { in: [...accessiblePlanIds] } }]
+              : []),
+          ],
+          archived: { not: true },
+        },
         orderBy: { createdAt: "desc" },
         take: PER_SOURCE_LIMIT,
         select: {
@@ -114,7 +128,14 @@ export async function GET(request: NextRequest) {
       }),
 
       prisma.marketingAsset.findMany({
-        where: { userId },
+        where: {
+          OR: [
+            { userId },
+            ...(accessiblePlanIds.length > 0
+              ? [{ clientId: { in: [...accessiblePlanIds] } }]
+              : []),
+          ],
+        },
         orderBy: { createdAt: "desc" },
         take: PER_SOURCE_LIMIT,
         select: {

@@ -47,6 +47,7 @@ import {
   type SeatUsage,
 } from "./seats.server";
 import {
+  mostPrivilegedRole,
   normalizePermissionSet,
   type TeammateAssignmentRole,
   type TeammateCategoryScope,
@@ -1065,16 +1066,8 @@ export interface TeamMemberRow {
   deactivatedAt: Date | null;
 }
 
-/** Most-privileged-first, for summarising a person's role across assignments. */
-const ROLE_RANK: Record<TeammateAssignmentRole, number> = {
-  owner: 6,
-  admin: 5,
-  editor: 4,
-  custom: 3,
-  contributor: 2,
-  reviewer: 1,
-  viewer: 0,
-};
+// `ROLE_RANK` and `mostPrivilegedRole` moved to `@/types/teammate`: the profile route now
+// summarises the reader's own role too, and both callers must apply one definition.
 
 /**
  * The Settings → Team Team-Member list.
@@ -1727,11 +1720,3 @@ export async function getMembershipDetail({
   };
 }
 
-function mostPrivilegedRole(
-  roles: TeammateAssignmentRole[],
-): TeammateAssignmentRole {
-  if (roles.length === 0) return "contributor";
-  return roles.reduce((best, role) =>
-    ROLE_RANK[role] > ROLE_RANK[best] ? role : best,
-  );
-}

@@ -9,6 +9,7 @@ import {
   startOfSchedulingDayUtc,
   upcomingMeetingsWhere,
 } from "@/lib/upcoming-meetings";
+import { listAccessiblePlanIds } from "@/lib/teammates/access.server";
 
 /** Size of the dashboard's "Upcoming Meetings" list. */
 const MAX_UPCOMING_MEETINGS = 4;
@@ -77,9 +78,10 @@ export async function GET(request: NextRequest) {
     }
 
     const now = new Date();
+    const accessiblePlanIds = await listAccessiblePlanIds(userId);
 
     const candidates = await prisma.meeting.findMany({
-      where: upcomingMeetingsWhere(userId, now),
+      where: upcomingMeetingsWhere({ userId, accessiblePlanIds }, now),
       orderBy: [{ date: "asc" }, { time: "asc" }],
       take: MAX_CANDIDATES,
       select: {

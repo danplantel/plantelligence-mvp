@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { ACTIVE_CLIENT_STATUS_FILTER } from "@/lib/active-client-status";
+import { listAccessiblePlanIds } from "@/lib/teammates/access.server";
 
 /** Upper bound for the dashboard list. The tile's count is intentionally not capped. */
 const MAX_ACTIVE_PLANS = 25;
@@ -24,9 +25,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Owned + assigned plans, so a teammate sees the same Active Plans list as the owner for the
+    // plans they share (a teammate's own id owns none, so `userId` returned nothing).
+    const accessiblePlanIds = await listAccessiblePlanIds(session.user.id);
+
     const plans = await prisma.client.findMany({
       where: {
-        userId: session.user.id,
+        id: { in: accessiblePlanIds },
         status: ACTIVE_CLIENT_STATUS_FILTER,
       },
       orderBy: { updatedAt: "desc" },

@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { listPlansNeedingAttention } from "@/lib/plan-needs-attention.server";
+import { listAccessiblePlanIds } from "@/lib/teammates/access.server";
 
 /**
  * Active plans that need attention, backing the "Needs Attention" detail panel.
@@ -18,7 +19,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const flagged = await listPlansNeedingAttention(session.user.id);
+    // Owned + assigned plans, so a teammate evaluates the same plans the owner does.
+    const accessiblePlanIds = await listAccessiblePlanIds(session.user.id);
+    const flagged = await listPlansNeedingAttention(accessiblePlanIds);
 
     return NextResponse.json({
       success: true,

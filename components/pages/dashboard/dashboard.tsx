@@ -20,6 +20,10 @@ import {
   userInfo as defaultUserInfo,
 } from "./dashboard.funcs";
 import { resolveBrandingImageUrl } from "@/lib/branding-image-url";
+import {
+  PRESET_ROLE_LABELS,
+  type TeammateAssignmentRole,
+} from "@/types/teammate";
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -82,11 +86,18 @@ export function Dashboard() {
     // two sources left an Admin, Editor or Viewer with an empty avatar and the generic
     // `/logo-2.png` while the owner saw both.
     const seat = profileData.seat as
-      | { headshot?: string | null; jobTitle?: string | null }
+      | {
+          headshot?: string | null;
+          jobTitle?: string | null;
+          role?: TeammateAssignmentRole | null;
+        }
       | null
       | undefined;
     const organization = profileData.organization as
-      | { source?: { logo?: string | null } | null }
+      | {
+          viewerIsOwner?: boolean;
+          source?: { logo?: string | null } | null;
+        }
       | null
       | undefined;
 
@@ -103,6 +114,10 @@ export function Dashboard() {
     return {
       name: userSetup?.name || profileData.name || "User",
       title: userSetup?.title || profileData.title || seat?.jobTitle || "Advisor",
+      // The organisation's owner is not a teammate and holds no seat, so their role is derived from
+      // `viewerIsOwner`; everyone else takes the seat's summarised assignment role. Null means
+      // "nothing to show" — the row then renders the title alone, as it did before.
+      role: organization?.viewerIsOwner ? "owner" : seat?.role ?? null,
       // The org logo is a fallback only: it sits AFTER the reader's own logo so an owner (whose
       // `branding.logo` / `advisorLogoUrl` are set) is unaffected, and it is what a teammate — who
       // has neither — sees instead of the generic placeholder.
@@ -196,8 +211,15 @@ export function Dashboard() {
                       <h4 className="truncate text-xl font-semibold dark:text-gray-100">
                         Welcome back, {userInfo.name}!
                       </h4>
-                      <p className="truncate text-sm font-normal text-muted-foreground">
-                        {userInfo.title || "Advisor"}
+                      <p className="flex min-w-0 items-center gap-1.5 text-sm font-normal text-muted-foreground">
+                        {userInfo.role ? (
+                          <span className="shrink-0 rounded-full bg-accent-blue/10 px-2 py-0.5 text-[10px] font-semibold text-accent-blue dark:bg-accent-blue/20">
+                            {PRESET_ROLE_LABELS[userInfo.role]}
+                          </span>
+                        ) : null}
+                        <span className="truncate">
+                          {userInfo.title || "Advisor"}
+                        </span>
                       </p>
                     </div>
                   </div>

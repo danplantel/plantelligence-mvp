@@ -507,6 +507,8 @@ Adoption goes through [`lib/teammates/plan-guard.server.ts`](../lib/teammates/pl
 | `GET/POST /api/marketing/assets` | `marketing: edit` |
 | `/api/marketing/flyers/{render,generate-copy,[id],[id]/file}` | `marketing` via `getAuthorizedPlanClient` / `resolvePlanAccess` |
 | `GET/POST /api/webinars` | `marketing` at `view` / `edit`; list scoped by accessible plans |
+| `/api/dashboard/{stats,active-plans,needs-attention,tasks}` | client reads scoped by `listAccessiblePlanIds` (was `userId`, so a teammate saw zeros) |
+| `/api/dashboard/{meetings-this-week,upcoming-meetings,recent-activity}` | meetings matched by `OR [{ userId }, { clientId in accessiblePlanIds }]` |
 
 ### Plan lists
 
@@ -518,6 +520,18 @@ dashboard), and that route now scopes its `where` to
 assigned teammate plans — instead of `userId` alone. A teammate is therefore
 structurally unable to select a plan they have no assignment for, and a
 deactivated teammate's plans drop out of the list.
+
+The **dashboard** follows the same rule, because a teammate's `User.id` owns no
+`Client` rows, so keying on `userId` made every tile read zero for anyone but the
+owner. `stats`, `active-plans`, `needs-attention` and `tasks` now read
+`id: { in: accessiblePlanIds }`, and the meeting feeds (`meetings-this-week`,
+`upcoming-meetings`, `recent-activity`) match
+`OR [{ userId }, { clientId: { in: accessiblePlanIds } }]` — which keeps an
+owner's planless meetings visible while letting a teammate see the owner's
+meetings on the plans they share (a teammate's own `userId` owns neither the plan
+nor its meetings). Recent Activity's marketing assets use the same `OR`. Manual
+tasks stay the reader's own to-do list; only their plan-name lookup is resolved
+against the accessible set.
 
 ### Still owner-scoped
 

@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { meetingsThisWeekWhere } from "@/lib/meetings-this-week";
+import { listAccessiblePlanIds } from "@/lib/teammates/access.server";
 
 /** Upper bound for the dashboard list. The tile's count is intentionally not capped. */
 const MAX_MEETINGS = 25;
@@ -24,8 +25,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const userId = session.user.id;
+    const accessiblePlanIds = await listAccessiblePlanIds(userId);
+
     const meetings = await prisma.meeting.findMany({
-      where: meetingsThisWeekWhere(session.user.id),
+      where: meetingsThisWeekWhere({ userId, accessiblePlanIds }),
       orderBy: [{ date: "asc" }, { time: "asc" }],
       take: MAX_MEETINGS,
       select: {

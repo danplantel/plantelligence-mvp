@@ -336,6 +336,41 @@ export const PRESET_ROLE_LABELS: Record<TeammateAssignmentRole, string> = {
   custom: "Custom",
 };
 
+/**
+ * Most-privileged-first ranking, used to summarise a person's role when they hold several
+ * assignments (one per plan).
+ *
+ * `custom` sits between Editor and Contributor: it is an edited grid rather than a preset, and
+ * ranking it above the read-only presets but below the fixed Editor preset is the same order the
+ * Settings team list has always applied.
+ */
+export const ROLE_RANK: Record<TeammateAssignmentRole, number> = {
+  owner: 6,
+  admin: 5,
+  editor: 4,
+  custom: 3,
+  contributor: 2,
+  reviewer: 1,
+  viewer: 0,
+};
+
+/**
+ * The single role to show for a person who may hold several assignments — the most privileged of
+ * them.
+ *
+ * Lives in this dependency-free module (not in a server file) so the Settings team list and the
+ * profile route cannot disagree about what a multi-plan teammate's role is. Falls back to
+ * `contributor`, the assignment default, only when given nothing to summarise.
+ */
+export function mostPrivilegedRole(
+  roles: readonly TeammateAssignmentRole[],
+): TeammateAssignmentRole {
+  if (roles.length === 0) return "contributor";
+  return roles.reduce((best, role) =>
+    ROLE_RANK[role] > ROLE_RANK[best] ? role : best,
+  );
+}
+
 export const PERSON_TYPE_LABELS: Record<TeammatePersonType, string> = {
   team_member: "Team Member",
   collaborator: "Collaborator",
