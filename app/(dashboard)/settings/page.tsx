@@ -258,6 +258,17 @@ export default function SettingsPage() {
     return (
       source?.wizardSessions?.[0]?.branding?.organizationName?.trim() ||
       source?.organizationName?.trim() ||
+      // The ORGANIZATION's own name, for a reader who is not its owner.
+      //
+      // The two sources above are the reader's own row and their onboarding session, and an
+      // invited teammate has neither: the acceptance flow wrote a name and an email, and there is
+      // no session. The subtitle was therefore simply missing for them — while the Branding tab
+      // beside it showed the firm's name, from this same payload.
+      //
+      // It sits AFTER them on purpose. For an owner the value is their own (the organization's
+      // identity is derived from their row), so their precedence is unchanged; `organizationType`
+      // stays last as the legacy fallback it always was.
+      source?.organization?.source?.organizationName?.trim() ||
       source?.organizationType?.trim() ||
       ""
     );
