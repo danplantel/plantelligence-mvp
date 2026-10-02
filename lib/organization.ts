@@ -161,10 +161,17 @@ export async function organizationProfileForViewer(
     where: { id: userId },
     select: { organizationId: true },
   });
-  if (!viewer?.organizationId) return null;
+
+  // The anchor first; when it is missing, the seat that carries this login. A teammate whose
+  // `User.organizationId` was never rewritten (an acceptance from before the anchoring fix) is
+  // still a member of the organization that invited them, and every value below — `viewerIsOwner`
+  // with it — has to resolve for them too.
+  const organizationId =
+    viewer?.organizationId ?? (await findTeammateOrganizationId(userId));
+  if (!organizationId) return null;
 
   const organization = await prisma.organization.findUnique({
-    where: { id: viewer.organizationId },
+    where: { id: organizationId },
     select: {
       id: true,
       name: true,

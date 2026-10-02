@@ -44,6 +44,8 @@ import {
   Loader2,
   CheckCircle2,
   UserPlus,
+  CreditCard,
+  Lock,
 } from "lucide-react";
 
 /**
@@ -269,6 +271,21 @@ export default function SettingsPage() {
     setSubtitle(organizationName);
     return () => setSubtitle("");
   }, [organizationName, setSubtitle]);
+
+  /**
+   * Whether the reader owns the organization — the Billing tab's gate.
+   *
+   * Ownership IS the billing rule: `billing` is `edit` for the Owner and `no_access` for every
+   * other role in the teammate permission grid (`types/teammate.ts`) — Admin included — and
+   * collaborators can never hold it. `GET /api/profile` reports it as `organization.viewerIsOwner`.
+   *
+   * `false` is what renders the denial, so `undefined` (the payload has not resolved yet, or there
+   * is no organization on the account) leaves the tab empty rather than accusing the owner of
+   * something they can do.
+   */
+  const viewerIsOrganizationOwner = cachedProfile?.organization?.viewerIsOwner as
+    | boolean
+    | undefined;
 
   // Load data for specific tab
   const loadTabData = async (tab: string) => {
@@ -1210,6 +1227,13 @@ export default function SettingsPage() {
           Icon: UserPlus,
           dirty: false,
         },
+        {
+          // Offered to everyone; its CONTENT is Owner-only — see the tab's own TabsContent.
+          value: "billing",
+          label: "Billing",
+          Icon: CreditCard,
+          dirty: false,
+        },
       ].map(({ value, label, Icon, dirty }) => (
         <TabsTrigger
           key={value}
@@ -1235,12 +1259,6 @@ export default function SettingsPage() {
   return (
     <TooltipProvider>
       <div className="flex flex-col min-h-screen max-w-4xl mx-auto py-6 pb-28">
-        <div className="mb-6">
-          <p className="mt-2 text-muted-foreground">
-            Manage your profile, branding, and organization settings
-          </p>
-        </div>
-
         <Tabs
           value={activeTab}
           onValueChange={handleTabChange}
@@ -1323,6 +1341,34 @@ export default function SettingsPage() {
               and the size-5 grid above keep working; only the label changed. */}
           <TabsContent value="members" className="space-y-6">
             <TeamMembersSection />
+          </TabsContent>
+
+          {/* Billing Tab — deliberately empty for the Owner.
+              There is no billing surface yet: no payment provider, no invoices and no
+              subscription model, and `/api/organization` exposes `seatsIncluded` / `planTier` as
+              "read-only until a billing surface exists". The tab exists so the section has a home
+              to be filled in, and so the permission boundary is in place from the start.
+
+              Everyone else gets the denial rather than a blank panel: `billing` is `edit` for the
+              Owner and `no_access` for every other role in the grid, so a member should be told
+              why the tab is empty instead of being left to wonder whether it is broken. */}
+          <TabsContent value="billing" className="space-y-6">
+            {viewerIsOrganizationOwner === false ? (
+              <Card>
+                <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+                  <Lock className="h-5 w-5 text-muted-foreground" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">
+                      You don&rsquo;t have permission to view billing
+                    </p>
+                    <p className="max-w-md text-sm text-muted-foreground">
+                      Billing is limited to the account owner. Ask them if anything here needs to
+                      change.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : null}
           </TabsContent>
 
           {/* Disclaimers Tab */}
