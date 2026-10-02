@@ -10,7 +10,8 @@ import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { fetchProfileOnce, invalidateProfileCache } from "@/lib/fetch-profile";
 import { step2ServicesToCategories } from "@/lib/service-categories";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -45,7 +46,7 @@ import {
   CheckCircle2,
   UserPlus,
   CreditCard,
-  Lock,
+  type LucideIcon,
 } from "lucide-react";
 
 /**
@@ -189,6 +190,16 @@ export default function SettingsPage() {
   // Track which tabs have been loaded
   const [loadedTabs, setLoadedTabs] = useState<Set<string>>(new Set());
 
+  /**
+   * Whether People & Access has been opened in this page's lifetime.
+   *
+   * `TeamMembersSection` owns its own request (the roster plus a 500-plan summary), so it is not
+   * covered by `loadedTabs` above — and Radix unmounts an inactive `TabsContent`, which meant every
+   * return to the tab remounted the section and re-ran both fetches. Once opened, the tab keeps the
+   * section mounted (`forceMount`) so its own `load()` runs exactly once.
+   */
+  const [membersTabOpened, setMembersTabOpened] = useState(false);
+
   // Force re-render key for forms
   const [formKey, setFormKey] = useState(0);
 
@@ -284,15 +295,16 @@ export default function SettingsPage() {
   }, [organizationName, setSubtitle]);
 
   /**
-   * Whether the reader owns the organization — the Billing tab's gate.
+   * Whether the reader owns the organization — what decides whether the Billing tab exists at all.
    *
    * Ownership IS the billing rule: `billing` is `edit` for the Owner and `no_access` for every
    * other role in the teammate permission grid (`types/teammate.ts`) — Admin included — and
    * collaborators can never hold it. `GET /api/profile` reports it as `organization.viewerIsOwner`.
    *
-   * `false` is what renders the denial, so `undefined` (the payload has not resolved yet, or there
-   * is no organization on the account) leaves the tab empty rather than accusing the owner of
-   * something they can do.
+   * The tab bar reads it as `=== true`, so `undefined` (the payload has not resolved yet, or there
+   * is no organization on the account) leaves the tab absent rather than offered: the cost is a
+   * moment's absence for the Owner, and the alternative — showing it until the answer arrives —
+   * would flash a page a member cannot open and then take it back.
    */
   const viewerIsOrganizationOwner = cachedProfile?.organization?.viewerIsOwner as
     | boolean
@@ -515,6 +527,8 @@ export default function SettingsPage() {
   // mount, since activeTab defaults to "profile"). No separate mount-only
   // effect, which previously caused the initial tab to be loaded twice.
   useEffect(() => {
+    if (activeTab === "members") setMembersTabOpened(true);
+
     if (activeTab === "profile") {
       loadTabData(activeTab);
     } else if (!loadedTabs.has(activeTab)) {
@@ -1190,6 +1204,67 @@ export default function SettingsPage() {
       ? tabDirty.team
       : false;
 
+  /**
+   * The tab bar's entries, in display order.
+   *
+   * The bar itself is portalled into the header's `#header-tabs-portal` (see `settingsTabList`
+   * below), so the HEADER renders it but this list defines it — which is why the Owner-only
+   * decision below lives here rather than in `components/layout/header.tsx`.
+   *
+   * Billing is `edit` for the Owner and `no_access` for every other role in the teammate permission
+   * grid, so the entry is REMOVED for anyone else rather than shown-and-denied: a member is never
+   * offered a page they cannot open, and the tab's own content needs no denial branch behind it.
+   *
+   * Gated on `=== true`, not `!== false`: the flag comes from `/api/profile`, so before it resolves
+   * the entry is simply absent. For the Owner that is a brief absence that fills in; `!== false`
+   * would instead show a member the tab for that same moment and then take it away.
+   */
+  const settingsTabs: {
+    value: string;
+    label: string;
+    Icon: LucideIcon;
+    dirty: boolean;
+    ownerOnly?: boolean;
+  }[] = [
+    {
+      value: "profile",
+      label: "Profile",
+      Icon: User,
+      dirty: tabDirty.profile,
+    },
+    {
+      value: "branding",
+      label: "Branding",
+      Icon: Building2,
+      dirty: tabDirty.branding,
+    },
+    {
+      value: "organization",
+      label: "Organization",
+      Icon: Briefcase,
+      dirty: tabDirty.organization,
+    },
+    {
+      value: "team",
+      label: "Disclaimers",
+      Icon: UsersIcon,
+      dirty: tabDirty.team,
+    },
+    {
+      value: "members",
+      label: "People & Access",
+      Icon: UserPlus,
+      dirty: false,
+    },
+    {
+      value: "billing",
+      label: "Billing",
+      Icon: CreditCard,
+      dirty: false,
+      ownerOnly: true,
+    },
+  ];
+
   // ── The tab bar ─────────────────────────────────────────────────────────
   // Rendered into the fixed header through a portal (see `headerPortalTarget`), so the
   // tabs stay visible while the page scrolls — the same bar Edit Client and Edit Benefit
@@ -1207,45 +1282,9 @@ export default function SettingsPage() {
         "[&>*:first-child]:ml-auto [&>*:last-child]:mr-auto",
       )}
     >
-      {[
-        {
-          value: "profile",
-          label: "Profile",
-          Icon: User,
-          dirty: tabDirty.profile,
-        },
-        {
-          value: "branding",
-          label: "Branding",
-          Icon: Building2,
-          dirty: tabDirty.branding,
-        },
-        {
-          value: "organization",
-          label: "Organization",
-          Icon: Briefcase,
-          dirty: tabDirty.organization,
-        },
-        {
-          value: "team",
-          label: "Disclaimers",
-          Icon: UsersIcon,
-          dirty: tabDirty.team,
-        },
-        {
-          value: "members",
-          label: "People & Access",
-          Icon: UserPlus,
-          dirty: false,
-        },
-        {
-          // Offered to everyone; its CONTENT is Owner-only — see the tab's own TabsContent.
-          value: "billing",
-          label: "Billing",
-          Icon: CreditCard,
-          dirty: false,
-        },
-      ].map(({ value, label, Icon, dirty }) => (
+      {settingsTabs
+        .filter((tab) => !tab.ownerOnly || viewerIsOrganizationOwner === true)
+        .map(({ value, label, Icon, dirty }) => (
         <TabsTrigger
           key={value}
           value={value}
@@ -1349,37 +1388,61 @@ export default function SettingsPage() {
           </TabsContent>
 
           {/* People & Access Tab — the tab's value stays "members" so existing links
-              and the size-5 grid above keep working; only the label changed. */}
-          <TabsContent value="members" className="space-y-6">
+              and the size-5 grid above keep working; only the label changed.
+
+              Once opened, `forceMount` keeps the section mounted so its own roster fetch runs once
+              rather than on every return to the tab (Radix unmounts an inactive TabsContent by
+              default). `data-[state=inactive]:hidden` replaces the unmount — without it a
+              force-mounted panel stays visible underneath the active one. */}
+          <TabsContent
+            value="members"
+            forceMount={membersTabOpened ? true : undefined}
+            className="space-y-6 data-[state=inactive]:hidden"
+          >
             <TeamMembersSection />
           </TabsContent>
 
-          {/* Billing Tab — deliberately empty for the Owner.
-              There is no billing surface yet: no payment provider, no invoices and no
-              subscription model, and `/api/organization` exposes `seatsIncluded` / `planTier` as
-              "read-only until a billing surface exists". The tab exists so the section has a home
-              to be filled in, and so the permission boundary is in place from the start.
+          {/* Billing Tab — a "coming soon" placeholder, reachable by the Owner only.
+              Its tab entry is filtered out of `settingsTabs` for every other role, so there is no
+              denial branch here: the permission boundary IS the missing tab, and a member is never
+              offered this page in the first place.
 
-              Everyone else gets the denial rather than a blank panel: `billing` is `edit` for the
-              Owner and `no_access` for every other role in the grid, so a member should be told
-              why the tab is empty instead of being left to wonder whether it is broken. */}
+              Nothing is wired up behind it yet — no payment provider, no invoices and no
+              subscription model, and `/api/organization` exposes `seatsIncluded` / `planTier` as
+              "read-only until a billing surface exists" — so the tab says so rather than rendering
+              an empty panel that reads as broken. */}
           <TabsContent value="billing" className="space-y-6">
-            {viewerIsOrganizationOwner === false ? (
-              <Card>
-                <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
-                  <Lock className="h-5 w-5 text-muted-foreground" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">
-                      You don&rsquo;t have permission to view billing
-                    </p>
-                    <p className="max-w-md text-sm text-muted-foreground">
-                      Billing is limited to the account owner. Ask them if anything here needs to
-                      change.
-                    </p>
+            <Card>
+              <CardHeader className="border-b">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <CardTitle className="flex items-center gap-2">
+                      <CreditCard className="h-5 w-5 text-accent-blue" />
+                      Billing
+                    </CardTitle>
+                    <Badge
+                      variant="outline"
+                      className="border-accent-blue text-accent-blue"
+                    >
+                      Coming Soon
+                    </Badge>
                   </div>
-                </CardContent>
-              </Card>
-            ) : null}
+                  <CardDescription className="mt-1">
+                    Manage your organization&rsquo;s subscription, seats and payment details.
+                  </CardDescription>
+                </div>
+              </CardHeader>
+              <CardContent className="flex flex-col items-center gap-4 py-16 text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent-blue-light">
+                  <CreditCard className="h-6 w-6 text-accent-blue" />
+                </div>
+                <p className="max-w-md text-sm text-muted-foreground">
+                  Billing isn&rsquo;t available yet. Seats, invoices and payment details will live
+                  here — there is nothing to set up in the meantime, and it will be switched on for
+                  your organization when it&rsquo;s ready.
+                </p>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Disclaimers Tab */}
