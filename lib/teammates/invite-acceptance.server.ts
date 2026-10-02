@@ -30,6 +30,7 @@ import { categoryToSlug } from "@/lib/benefit-category-slug";
 import {
   anchorTeammateUserToInvitingOrganization,
   getOrCreateOrganizationForUser,
+  organizationDisplayName,
 } from "@/lib/organization";
 import { activateProfile } from "./profiles.server";
 import { isInviteExpired } from "./seats.server";
@@ -139,11 +140,11 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
   if (profile.state !== "invited") return { status: "revoked" };
   if (isInviteExpired(profile.invitedAt)) return { status: "expired" };
 
-  const [organization, inviter, assignment, account] = await Promise.all([
-    prisma.organization.findUnique({
-      where: { id: organizationId },
-      select: { name: true },
-    }),
+  // The firm's NAME, resolved exactly as the invitation email resolves it
+  // (`organizationDisplayName`), so the page and the email cannot name the firm differently —
+  // including the "on behalf of …" clause, which reads this value.
+  const [organizationName, inviter, assignment, account] = await Promise.all([
+    organizationDisplayName(organizationId),
     profile.invitedByUserId
       ? prisma.user.findUnique({
           where: { id: profile.invitedByUserId },
@@ -175,7 +176,7 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
     status: "ok",
     email: profile.email,
     inviterName: inviter?.name ?? inviter?.email ?? null,
-    organizationName: organization?.name ?? null,
+    organizationName,
     planName: plan?.companyName ?? null,
     sectionName:
       assignment?.categoryScope === "selected" && categories.length > 0

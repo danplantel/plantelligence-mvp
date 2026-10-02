@@ -252,6 +252,50 @@ export async function organizationProfileForViewer(
 }
 
 /**
+ * What to CALL this organization in outbound copy — an email, an acceptance page.
+ *
+ * `Organization.name` is a mirror of the owner's `User` row (`syncOrganizationIdentity`), so it is
+ * only ever as fresh as the last sync — and for a solo advisor the row is created at SIGNUP, from
+ * their login name, before they have told us what their firm is called. The stored value is
+ * therefore literally the person's own name while the firm they go by lives in
+ * `User.organizationName`, which is the field Branding edits. That is why a Team Seat invitation
+ * read "Organization: Eddie Taliaferro" for a firm called Final Boss Advisory Group.
+ *
+ * Read live from the owner's row, in the same precedence `organizationProfileForViewer` uses, and
+ * only then fall back to the mirror: the mirror is still the better answer for an organization
+ * whose owner row is gone, and the owner's login name is the last resort (a name is a poor name
+ * for a firm, but it is what the mirror would have held anyway).
+ *
+ * Returns null when there is no such organization and nothing to call it, so callers can omit the
+ * line rather than print a placeholder at a recipient.
+ */
+export async function organizationDisplayName(
+  organizationId: string,
+): Promise<string | null> {
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { name: true, ownerUserId: true },
+  });
+  if (!organization) return null;
+
+  const owner = organization.ownerUserId
+    ? await prisma.user.findUnique({
+        where: { id: organization.ownerUserId },
+        select: { name: true, organizationName: true },
+      })
+    : null;
+
+  const brand = (owner?.organizationName ?? "").trim();
+  if (brand) return brand;
+
+  const mirrored = (organization.name ?? "").trim();
+  if (mirrored) return mirrored;
+
+  const ownerName = (owner?.name ?? "").trim();
+  return ownerName || null;
+}
+
+/**
  * The caller's own seat in an organization, when they hold one.
  *
  * Settings → Profile fills from the reader's `User` row plus their wizard session, and for an

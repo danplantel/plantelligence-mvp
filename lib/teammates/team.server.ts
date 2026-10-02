@@ -15,6 +15,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { organizationDisplayName } from "@/lib/organization";
 import { sendTeamMemberInviteEmail } from "@/lib/email";
 import { assertOrganizationKeepsAnOwner } from "./access.server";
 import { recordTeammateAuditEvent } from "./audit.server";
@@ -460,11 +461,11 @@ export async function addTeamMember(
 
     // Resolved here rather than passed in: this layer holds ids, and the email needs human
     // names to open with.
-    const [organization, actor, invitePlan, scopedPlans] = await Promise.all([
-      prisma.organization.findUnique({
-        where: { id: input.organizationId },
-        select: { name: true },
-      }),
+    const [organizationName, actor, invitePlan, scopedPlans] = await Promise.all([
+      // The firm's NAME, resolved from the owner's row rather than from `Organization.name` —
+      // that column is a mirror created at signup, so it holds the advisor's own name until it
+      // is synced. See `organizationDisplayName`.
+      organizationDisplayName(input.organizationId),
       prisma.user.findUnique({
         where: { id: input.actorUserId },
         select: { name: true },
@@ -496,7 +497,7 @@ export async function addTeamMember(
             trimmedName ||
             null,
           inviterName: actor?.name ?? null,
-          organizationName: organization?.name ?? null,
+          organizationName,
           planName: invitePlan?.companyName ?? null,
           acceptUrl: link.url,
           expiresInDays: INVITE_SEAT_HOLD_DAYS,
@@ -658,11 +659,9 @@ export async function resendTeamMemberInvite(input: {
   // The same context the first invitation carried, re-derived rather than stored. See
   // `addTeamMember`: the email describes what was WRITTEN, so the role and the permissions are
   // read back off the assignments instead of off the role's preset.
-  const [organization, actor, assignments] = await Promise.all([
-    prisma.organization.findUnique({
-      where: { id: input.organizationId },
-      select: { name: true },
-    }),
+  const [organizationName, actor, assignments] = await Promise.all([
+    // Same resolution as the first invitation — see `organizationDisplayName`.
+    organizationDisplayName(input.organizationId),
     prisma.user.findUnique({
       where: { id: input.actorUserId },
       select: { name: true },
@@ -737,7 +736,7 @@ export async function resendTeamMemberInvite(input: {
       memberName:
         [current.firstName, current.lastName].filter(Boolean).join(" ") || null,
       inviterName: actor?.name ?? null,
-      organizationName: organization?.name ?? null,
+      organizationName,
       // Named only when there is exactly ONE plan, for the same reason the add path names one:
       // the subject reads "…added you to Acme Corp", and a list there is worse than the firm.
       planName:

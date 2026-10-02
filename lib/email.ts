@@ -992,11 +992,25 @@ export async function sendTeamMemberInviteEmail({
   }
   detailLines.push(...permissionLines);
 
+  /**
+   * One two-column row per detail.
+   *
+   * Two COLUMNS rather than one sentence: the labels differ in length ("Role" against "Benefit
+   * categories"), so `Label: value` started every value at a different x-position and the block
+   * read as a ragged paragraph. A fixed label column lines the values up, which is what makes the
+   * details scannable — and every row is one `<tr>` of the same shape, so the vertical rhythm is
+   * even by construction rather than held together by ad-hoc padding.
+   *
+   * `valign="top"` keeps a value level with ITS label when it wraps (the permission lists do)
+   * instead of drifting to the middle of the row. The label keeps its colon because that is how
+   * the plain-text alternative writes the same row.
+   */
   const detailRows = detailLines
     .map(
       ({ label, value }) => `
                                                 <tr>
-                                                    <td align="left" class="email-text-secondary" style="padding-bottom: 8px; font-size: 14px; color: #666680; line-height: 1.6;">${escapeHtml(label)}: <span class="email-text" style="font-weight: 600; color: #1a1a2e;">${escapeHtml(value)}</span></td>
+                                                    <td align="left" valign="top" width="150" class="email-text-secondary" style="padding: 0 12px 8px 0; font-size: 14px; line-height: 1.6; color: #666680;">${escapeHtml(label)}:</td>
+                                                    <td align="left" valign="top" class="email-text" style="padding: 0 0 8px 0; font-size: 14px; font-weight: 600; line-height: 1.6; color: #1a1a2e;">${escapeHtml(value)}</td>
                                                 </tr>`,
     )
     .join("");
@@ -1012,7 +1026,10 @@ export async function sendTeamMemberInviteEmail({
     ? `
                                     <tr>
                                         <td align="center" style="padding-bottom: 20px;">
-                                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 420px;">
+                                            <!-- Full width of the card rather than a 420px column: the
+                                                 rows are tabular now, and the fixed label column
+                                                 comes out of the value's room. -->
+                                            <table width="100%" cellpadding="0" cellspacing="0" border="0">
                                                 <tr>
                                                     <td align="center" style="padding-bottom: 10px;">
                                                         <p class="email-text" style="margin: 0; font-size: 15px; font-weight: 600; color: #1a1a2e;">Your invitation</p>

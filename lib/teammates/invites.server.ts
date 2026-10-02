@@ -28,6 +28,7 @@
 import prisma from "@/lib/prisma";
 import { TeammateDataError } from "./errors";
 import { recordTeammateAuditEvent } from "./audit.server";
+import { organizationDisplayName } from "@/lib/organization";
 import { getAssignment, upsertAssignment } from "./assignments.server";
 import {
   createTeammateProfile,
@@ -549,11 +550,11 @@ export async function inviteCollaboratorToPlan(
   if (!input.skipEmail) {
     // Resolved here rather than passed in: `OrgSession` carries only the ids, and
     // the email needs a human name to open with.
-    const [organization, actor] = await Promise.all([
-      prisma.organization.findUnique({
-        where: { id: input.organizationId },
-        select: { name: true },
-      }),
+    const [organizationName, actor] = await Promise.all([
+      // The firm's NAME, not `Organization.name`: that column mirrors the owner's row and is
+      // written at signup, so it still reads as the advisor's own name. See
+      // `organizationDisplayName`.
+      organizationDisplayName(input.organizationId),
       prisma.user.findUnique({
         where: { id: input.actorUserId },
         select: { name: true },
@@ -566,7 +567,7 @@ export async function inviteCollaboratorToPlan(
         collaboratorName:
           [profile.firstName, profile.lastName].filter(Boolean).join(" ") || null,
         inviterName: actor?.name ?? null,
-        organizationName: organization?.name ?? null,
+        organizationName,
         planName: plan.companyName,
         category: targetCategories[0],
         categories: targetCategories,
