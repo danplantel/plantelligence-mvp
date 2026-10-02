@@ -99,13 +99,16 @@ const InviteCodeModal = ({ open, handleClose }: InviteCodeModalProps) => {
                 value={char}
                 onChange={(e) => handleChange(e.target.value, index)}
                 onKeyDown={(e) => handleKeyDown(e, index)}
-                className="w-12 h-12 text-center bg-transparent text-black dark:text-white font-bold border border-[#efefef] dark:border-[#1c1c1c] rounded-md focus:outline-none focus:ring-2 focus:ring-[#005F73] text-[18px]"
+                // Accent-blue at full strength, and the focus ring is the same token rather than
+                // the hard-coded teal (#005F73) that used to sit beside a grey border — so the
+                // empty boxes, the focused box and the button all read as one accent family.
+                className="w-12 h-12 text-center bg-transparent text-black dark:text-white font-bold border border-accent-blue rounded-md focus:outline-none focus:ring-2 focus:ring-accent-blue text-[18px]"
               />
             ))}
           </div>
           <button
             onClick={handleSubmit}
-            className="mt-6 inline-flex items-center justify-center rounded-full text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2"
+            className="mt-6 inline-flex items-center justify-center rounded-full text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-accent-blue text-white hover:bg-accent-blue/90 h-10 px-4 py-2"
           >
             <span>Enter Code</span>
           </button>
