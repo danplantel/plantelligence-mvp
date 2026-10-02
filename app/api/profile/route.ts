@@ -232,6 +232,13 @@ export async function POST(request: Request) {
         }),
         ...(data.teamSize !== undefined && { teamSize: data.teamSize || null }),
         ...(data.primaryServiceCategories !== undefined && { primaryServiceCategories: data.primaryServiceCategories }),
+        // The professional designations ("CRPS®", "AIF®") — a `User` column, and the one the portal
+        // banner, the benefit pages' "Your Designations" and the public profile read. The Profile
+        // tab only ever wrote them into the wizard session, so a designation added in Settings
+        // reached that tab (which reads the session first) and nowhere else.
+        ...(data.designations !== undefined && {
+          designations: Array.isArray(data.designations) ? data.designations : [],
+        }),
       } as any,
     });
 

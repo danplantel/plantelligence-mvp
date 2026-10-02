@@ -13,6 +13,7 @@ import { FormError } from "@/components/ui/form-error";
 import { MultiSelectDropdown } from "@/components/ui/multi-select-dropdown";
 import {
   UserSetupData,
+  designationGroups,
   onTitleChange,
   onHeadshotChange,
   formatPhoneNumber,
@@ -38,6 +39,21 @@ interface UserSetupSectionProps {
   showPrimaryServiceCategories?: boolean;
   /** When true, replaces the plain email input with a verified email-change flow (Settings page). */
   emailChangeMode?: boolean;
+  /**
+   * Render the Designations field even when this reader's title maps to none for it.
+   *
+   * `getRelevantDesignations` returns `[]` for two very different situations — a title that
+   * carries no designations by design (relationship / success / plan / compliance roles), and a
+   * title that is simply empty or unrecognised. The field was rendered only when that list was
+   * non-empty, so in Settings anybody with no title saved (an invited teammate, before the seat
+   * pre-fill reached them) or one of those roles saw NO Designations section at all, with no way
+   * to record a designation they actually hold.
+   *
+   * Settings always shows the field, offering the full list when the title suggests nothing.
+   * Onboarding keeps the curated behaviour: there the title has just been chosen and it is what
+   * drives the suggestions.
+   */
+  alwaysShowDesignations?: boolean;
   /** Auth provider (e.g. "google", "credentials") — Google accounts have no password to change. */
   authProvider?: string;
 }
@@ -49,6 +65,7 @@ export function UserSetupSection({
   hideCard = false,
   showPrimaryServiceCategories = false,
   emailChangeMode = false,
+  alwaysShowDesignations = false,
   authProvider,
 }: UserSetupSectionProps) {
   const {
@@ -81,6 +98,14 @@ export function UserSetupSection({
 
   // Get relevant designations based on title
   const relevantDesignations = getRelevantDesignations(watchedTitle);
+
+  // What the picker offers: the title's own suggestions when it has any, otherwise the full list —
+  // which is what `alwaysShowDesignations` (Settings) needs, since "no suggestion for this title"
+  // must not mean "no field". See the prop's doc.
+  const designationOptions =
+    relevantDesignations.length > 0
+      ? relevantDesignations
+      : [...designationGroups.financial, ...designationGroups.hr];
 
   const content = (
     <div className="grid grid-cols-1 gap-6">
@@ -420,13 +445,13 @@ export function UserSetupSection({
 
        {/* Row 5: Designations */}
        <div>
-        {relevantDesignations.length > 0 && (
+        {(alwaysShowDesignations || relevantDesignations.length > 0) && (
           <div className="space-y-2">
             <label className="block font-medium text-sm dark:text-gray-200">
               Designations (Optional)
             </label>
             <MultiSelectDropdown
-              options={relevantDesignations}
+              options={designationOptions}
               selectedValues={watchedDesignations || []}
               onSelectionChange={(values) => {
                 setValue("designations", values);

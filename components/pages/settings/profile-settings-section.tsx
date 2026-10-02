@@ -61,6 +61,9 @@ export function ProfileSettingsSection({
               // happened to be filling the form. See organization-settings-section.tsx, where the
               // control and its save now live.
               emailChangeMode={true}
+              // Show Designations even when the reader's title suggests none: the field is optional
+              // and free-form, so "no suggestion" must not mean "no field". See the prop's doc.
+              alwaysShowDesignations={true}
               authProvider={authProvider}
             />
           </FormProvider>

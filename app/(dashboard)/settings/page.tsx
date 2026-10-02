@@ -744,6 +744,10 @@ export default function SettingsPage() {
               ...(data.organizationEmail !== undefined && {
                 organizationEmail: data.organizationEmail || null,
               }),
+              // Designations are a `User` column, so they are written on this request rather than
+              // only into the wizard session — otherwise the Profile tab showed the new value (it
+              // reads the session first) while the portal and the benefit pages kept the old one.
+              designations: Array.isArray(data.designations) ? data.designations : [],
               // `primaryServiceCategories` is NOT sent from here any more — it belongs to the
               // Organization tab's save. Sending the Profile form's (absent) value would have
               // cleared the organization's categories on every profile save.
