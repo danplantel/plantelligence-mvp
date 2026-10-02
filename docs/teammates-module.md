@@ -502,6 +502,7 @@ Adoption goes through [`lib/teammates/plan-guard.server.ts`](../lib/teammates/pl
 | `POST /api/documents/reorder` | `documents: edit` per plan (was a `client: { userId }` relation filter) |
 | `GET /api/clients/[id]` | assignment required to read the plan |
 | `GET/PUT /api/clients/[id]/benefits/[category]` | `create_benefits` at `view` / `edit` + category scope |
+| `PUT /api/clients/[id]` | assignment required, then `create_benefits: edit` **or** `plan_details_branding: edit` — the plan-level half of the Benefits save and the Edit Plan save. Was `Client.userId`, which 403'd every teammate |
 | `GET/POST /api/clients/[id]/meetings` | `meetings: view` (replaced the local `assertClientOwner`) |
 | `PATCH/DELETE /api/clients/[id]/meetings/[meetingId]` | `meetings: view` (replaced the `userId` column filter) |
 | `GET/POST /api/marketing/assets` | `marketing: edit` |

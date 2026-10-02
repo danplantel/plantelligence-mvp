@@ -7,7 +7,11 @@ import {
   resolvePortalAdvisorId,
   isLocalDevLoopback,
 } from "@/lib/portal-access";
-import { resolvePlanAccess } from "@/lib/teammates/access.server";
+import {
+  NO_ACCESS_MESSAGE,
+  permissionAllows,
+  resolvePlanAccess,
+} from "@/lib/teammates/access.server";
 import {
   renameClientSlug,
   isSlugTaken,
@@ -466,8 +470,37 @@ export async function PUT(
       );
     }
 
-    if (existingClient.userId !== session.user.id) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // T2: authorization is the caller's ASSIGNMENT, not `Client.userId`.
+    //
+    // A teammate is never `Client.userId`, so the old equality check refused every Editor/Admin
+    // with a 403 — the exact error the Benefits wizard's save hit, because `saveBenefit()` PUTs
+    // here (the plan-level half: branding, contacts, the benefits mirror) BEFORE writing the
+    // category row via `/api/clients/[id]/benefits/[category]`.
+    //
+    // This one route is shared by two flows, so the caller must hold edit rights for either:
+    //  - `create_benefits` — the Benefits wizard / Edit Benefit save, and
+    //  - `plan_details_branding` — Edit Plan's save (`hooks/useEditClient.ts`).
+    // Owners short-circuit (resolvePlanAccess returns kind "owner"); a caller with no assignment,
+    // a deactivated profile, or a read-only role (Viewer) is still refused.
+    const access = await resolvePlanAccess({
+      userId: session.user.id,
+      clientIdOrSlug: existingClient.id,
+    });
+    if (!access.allowed) {
+      return NextResponse.json(
+        { error: access.message, code: access.reason },
+        { status: access.reason === "plan_not_found" ? 404 : 403 },
+      );
+    }
+    if (
+      access.kind === "teammate" &&
+      !permissionAllows(access.permissionSet, "create_benefits", "edit") &&
+      !permissionAllows(access.permissionSet, "plan_details_branding", "edit")
+    ) {
+      return NextResponse.json(
+        { error: NO_ACCESS_MESSAGE, code: "permission_denied" },
+        { status: 403 },
+      );
     }
 
     // After resolving by slug, use the actual MongoDB ObjectId for all subsequent DB queries

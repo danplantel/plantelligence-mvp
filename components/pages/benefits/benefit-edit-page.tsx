@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
@@ -20,7 +21,11 @@ import {
 } from "@/lib/fetch-client";
 import { persistPlanSelection } from "@/lib/plan-selector-storage";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
-import { displayCategoryName } from "@/lib/benefit-custom-name";
+import {
+  displayCategoryName,
+  isCustomHubCategory,
+  isPlaceholderBenefitName,
+} from "@/lib/benefit-custom-name";
 import {
   BenefitsStep1,
   BenefitsStep3,
@@ -96,22 +101,52 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
   );
 
   const step1Data = useBenefitsWizardStore((s) => s.stepData.step1);
+  const saveStepData = useBenefitsWizardStore((s) => s.saveStepData);
   const selectedPlan = step1Data?.selectedPlan as any;
   const companyName = selectedPlan?.companyName || "";
+
+  // Local draft for the Custom Benefit Name input. `null` = untouched (show the resolved value
+  // below); a string (including "") = the advisor's own text, so clearing the field is not undone
+  // by the fallback. Reset when the route points at another plan or benefit.
+  const [customNameDraft, setCustomNameDraft] = useState<string | null>(null);
+  useEffect(() => {
+    setCustomNameDraft(null);
+  }, [planId, category]);
+
+  /**
+   * The Custom benefit's name.
+   *
+   * The wizard's "Custom Category Name" input lives in the Plan & Benefit Selection card, which is
+   * hidden in edit mode (`!isEditMode` inside `BenefitsStep1`), and `benefitTitle` is only hydrated
+   * from the Benefit row by `handleCategoryChange` — which edit mode never calls. So the name is
+   * read from the live draft when it holds a real one, and otherwise from the persisted Benefit row
+   * this plan already loaded into the store (`categoryBenefitByApi`, keyed by the API-spelled
+   * category). `isPlaceholderBenefitName` filters out the storage label and the generated
+   * "Welcome to …" headline, neither of which is a name.
+   */
+  const storedCustomName = isPlaceholderBenefitName(step1Data?.benefitTitle)
+    ? ""
+    : String(step1Data?.benefitTitle ?? "").trim();
+  const rowCustomName = String(
+    (step1Data?.categoryBenefitByApi as any)?.["company / plan sponsor"]?.title ?? "",
+  ).trim();
+  const customBenefitName = customNameDraft ?? (storedCustomName || rowCustomName);
+
+  const handleCustomNameChange = (value: string) => {
+    setCustomNameDraft(value);
+    const current = useBenefitsWizardStore.getState().stepData.step1 || {};
+    saveStepData(1, { ...current, benefitTitle: value });
+  };
 
   /**
    * The category the header names.
    *
    * `category` arrives API-spelled, so the Custom hub reaches this page as its STORAGE key
-   * and the subtitle read "Acme Corp - Company / Plan Sponsor". Step 1 loads that hub's real
-   * name into `benefitTitle` (from `Benefit.title`, the "Custom Category Name" the advisor
-   * typed), so it is shown instead — and before it loads, or if no name was ever saved, the
-   * header says "Custom" rather than the storage key.
-   *
-   * Derived rather than read once, because `benefitTitle` is populated by Step 1's own
-   * pre-fill effect: the subtitle corrects itself when the name arrives.
+   * and the subtitle read "Acme Corp - Company / Plan Sponsor". `customBenefitName` is the
+   * advisor's own name for that hub (read from the draft or the Benefit row), and for every other
+   * category `displayCategoryName` simply returns the category back.
    */
-  const displayCategory = displayCategoryName(category, step1Data?.benefitTitle);
+  const displayCategory = displayCategoryName(category, customBenefitName);
 
   useEffect(() => {
     setHeaderPortalTarget(document.getElementById("header-tabs-portal"));
@@ -346,8 +381,37 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
               </div>
             )}
 
-            {/* Branding — the wizard's Step 1 accordions, unchanged. */}
+            {/* Branding — the wizard's Step 1 accordions, plus the Custom Benefit Name field.
+                That field's only home is Step 1's Plan & Benefit Selection card, which is hidden in
+                edit mode, so a Custom benefit could not be renamed from this page at all. Only the
+                Custom hub gets it: every canonical category names itself. */}
             <TabsContent value="branding" className="mt-0">
+              {isCustomHubCategory(category) && (
+                <Card className="mb-4 border-gray-200 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+                  <CardContent className="pt-5">
+                    <div className="space-y-2">
+                      <Label
+                        htmlFor="custom-benefit-name"
+                        className="block font-medium text-sm"
+                      >
+                        Custom Benefit Name <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="custom-benefit-name"
+                        value={customBenefitName}
+                        onChange={(e) => handleCustomNameChange(e.target.value)}
+                        placeholder="e.g. Disability Insurance, Wellness Program, HSA..."
+                        data-field="benefitTitle"
+                        className="h-10"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        The name shown for this benefit in the Benefits list and on the
+                        portal.
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
               <BenefitsStep1 mode="edit" />
             </TabsContent>
 
@@ -449,7 +513,11 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
           if (!open) setDeleteConfirmText("");
         }}
         onConfirm={handleDeleteBenefit}
-        title={`Delete the ${category || "benefit"} benefit?`}
+        // `displayCategory`, not `category`: the Custom hub's stored key is literally
+        // "Company / Plan Sponsor", which told the reader nothing about which benefit they were
+        // deleting. `displayCategory` is the advisor's own name (the header's subtitle reads the
+        // same value), and for every other category it is simply the category back.
+        title={`Delete the ${displayCategory || "benefit"} benefit?`}
         description="This removes this benefit page — its content, contacts, FAQs and documents — for this plan. The plan's other benefit categories are not affected. This cannot be undone."
         confirmText="Yes, delete"
         cancelText="No, keep it"
