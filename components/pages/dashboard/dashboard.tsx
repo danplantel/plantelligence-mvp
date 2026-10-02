@@ -71,16 +71,46 @@ export function Dashboard() {
     const wizardSession = profileData.wizardSessions?.[0];
     const userSetup = wizardSession?.userSetup;
     const branding = wizardSession?.branding;
+
+    // Two of these four values live outside the reader's own rows for anyone who is not the
+    // organization's owner. `/api/profile` resolves them and already returns them — the dashboard
+    // was just not reading them. An invited teammate's `User` row is created from a name and an
+    // email and has no wizard session, so `userSetup` and `branding` are undefined for them: their
+    // photo and job title are on the seat (`profileData.seat`, mirrored from the Key Contact the
+    // seat was granted from) and the firm's logo is on the organization
+    // (`profileData.organization.source`, resolved from the owner's row). Reading only the first
+    // two sources left an Admin, Editor or Viewer with an empty avatar and the generic
+    // `/logo-2.png` while the owner saw both.
+    const seat = profileData.seat as
+      | { headshot?: string | null; jobTitle?: string | null }
+      | null
+      | undefined;
+    const organization = profileData.organization as
+      | { source?: { logo?: string | null } | null }
+      | null
+      | undefined;
+
     const rawAvatar =
       branding?.aiAvatar ||
       profileData.headshot ||
       userSetup?.headshot ||
       (userSetup?.headshotData as any)?.previewDataUrl ||
+      // Last of the editable sources, matching the precedence in `/api/profile/header`: the seat
+      // is the organization's copy of the person, so a photo the teammate uploaded themselves
+      // (which writes `User.headshot`, arriving via `profileData.headshot` above) wins over it.
+      seat?.headshot ||
       "";
     return {
       name: userSetup?.name || profileData.name || "User",
-      title: userSetup?.title || profileData.title || "Advisor",
-      logo: branding?.logo || profileData.advisorLogoUrl || "/logo-2.png",
+      title: userSetup?.title || profileData.title || seat?.jobTitle || "Advisor",
+      // The org logo is a fallback only: it sits AFTER the reader's own logo so an owner (whose
+      // `branding.logo` / `advisorLogoUrl` are set) is unaffected, and it is what a teammate — who
+      // has neither — sees instead of the generic placeholder.
+      logo:
+        branding?.logo ||
+        profileData.advisorLogoUrl ||
+        organization?.source?.logo ||
+        "/logo-2.png",
       rawAvatar,
     };
   }, [profileData]);
@@ -113,7 +143,10 @@ export function Dashboard() {
   }, [statsData]);
 
   return (
-    <div className="px-6">
+    // `pt-8` adds the gap the fixed header does not: the dashboard <main> clears it with `pt-16`
+    // (see `components/layout/layout-client.tsx`), which puts the identity row flush under the
+    // header. This is scoped to the dashboard, so other pages keep their own top spacing.
+    <div className="px-6 pt-8">
       <div className="w-full space-y-6 max-w-7xl mx-auto">
         {/* ── Top row: identity · branding ─────────────────────────────────────
             Two zones across the parent width: who you are on the left, the
