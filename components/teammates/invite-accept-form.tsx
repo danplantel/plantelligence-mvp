@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
+  Info,
   Loader2,
   Lock,
   Mail,
@@ -57,6 +58,13 @@ function formatPhoneNumber(value: string): string {
   if (digits.length <= 3) return digits;
   if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6, 10)}`;
+}
+
+/** `["a"]` → `a`; `["a","b"]` → `a and b`; `["a","b","c"]` → `a, b, and c`. */
+function formatSentenceList(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
 }
 
 /**
@@ -153,6 +161,26 @@ export function InviteAcceptForm({ token }: { token: string }) {
   useEffect(() => {
     void load();
   }, [load]);
+
+  // This is a public page reached from an invitation email, often by someone who has never seen
+  // the product — it must read the same for everyone rather than inheriting the advisor's
+  // dashboard preference. The dashboard sets a global `.dark` class on <html> via next-themes,
+  // which activates every `dark:` utility below. Mirror the portal layout
+  // (`app/(portal)/[id]/layout.tsx`) and strip `.dark` while this page is mounted, restoring it on
+  // the way out so a signed-in user's own theme is left untouched.
+  useEffect(() => {
+    const root = document.documentElement;
+    const hadDark = root.classList.contains("dark");
+    const prevColorScheme = root.style.colorScheme;
+
+    root.classList.remove("dark");
+    root.style.colorScheme = "light";
+
+    return () => {
+      root.classList.toggle("dark", hadDark);
+      root.style.colorScheme = prevColorScheme;
+    };
+  }, []);
 
   const creatingAccount = view ? !view.accountExists : false;
 
@@ -318,6 +346,23 @@ export function InviteAcceptForm({ token }: { token: string }) {
   const inviterFirm = inviterFirmLabel(view.inviterName, view.organizationName);
 
   /**
+   * What the organization filled in for the invitee, said in the order the fields appear.
+   *
+   * The seat is often created from a contact the advisor already had, so some of these values are
+   * not the invitee's own typing. Naming them — rather than one blanket line — is what lets the
+   * notice read as a fact about this form: the headshot is usually the surprise, since a photo is
+   * the one thing nobody expects to already be there. `headshotFromOrg` narrows that to a photo
+   * the invitee has not replaced yet, so its note disappears the moment they upload their own.
+   */
+  const prefilledLabels: string[] = [];
+  if (view.headshot) prefilledLabels.push("headshot");
+  if (view.firstName || view.lastName) prefilledLabels.push("name");
+  if (view.jobTitle) prefilledLabels.push("job title");
+  if (view.phone || view.phoneExtension) prefilledLabels.push("phone number");
+
+  const headshotFromOrg = Boolean(view.headshot) && headshot === view.headshot;
+
+  /**
    * What they were given, worded from what the seat actually covers.
    *
    * Three different invitations used to read the same way: "…to help with Team Members LLC" was
@@ -365,6 +410,20 @@ export function InviteAcceptForm({ token }: { token: string }) {
 
       <Card className="w-full max-w-lg dark:bg-gray-800 dark:border-gray-700 shadow-sm">
         <CardContent className="pt-3 space-y-2.5">
+          {/* Some of these fields came from the organization's own entry, not from the invitee's
+              typing. Said once, at the top, before the fields — so it frames everything below as
+              editable rather than looking like a warning bolted onto the photo. */}
+          {prefilledLabels.length > 0 ? (
+            <div className="flex items-start gap-2 rounded-lg border border-accent-blue/30 bg-accent-blue/5 px-3 py-2">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-blue" />
+              <p className="text-[11px] leading-relaxed text-gray-600 dark:text-gray-300">
+                {inviterFirm ?? "The organization"} pre-filled your{" "}
+                {formatSentenceList(prefilledLabels)}. You can edit everything on this page — your
+                changes replace what they entered.
+              </p>
+            </div>
+          ) : null}
+
           {/* Headshot first, as the contact form has it: the photo is the part of this form that
               cannot be typed, so it is offered before the fields that usually arrive filled in. */}
           <div className="space-y-1" data-field="headshot">
@@ -390,6 +449,11 @@ export function InviteAcceptForm({ token }: { token: string }) {
               autoSizeOnOpen={true}
               forceCircularGuidelines={true}
             />
+            {headshotFromOrg ? (
+              <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                Added by {inviterFirm ?? "the organization"} — upload a new photo to replace it.
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-1" data-field="firstName">
