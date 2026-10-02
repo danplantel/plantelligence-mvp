@@ -6,7 +6,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/prisma';
 import { step2ServicesToCategories } from '@/lib/service-categories';
 import { getEffectiveWizardUserSetup } from '@/lib/effective-wizard-user-setup';
-import { syncOrganizationIdentity } from '@/lib/organization';
+import {
+  findTeammateProfileForUser,
+  organizationProfileForViewer,
+  syncOrganizationIdentity,
+} from '@/lib/organization';
 import { resolvePortalAdvisorId } from '@/lib/portal-access';
 
 export async function GET(request: NextRequest) {
@@ -91,23 +95,31 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const profile = await prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        wizardSessions: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-          include: {
-            branding: true,
-            userSetup: true,
-            clientProfile: true,
-            teamSize: true,
-            services: true,
-            disclaimers: true,
+    // The organization is read ALONGSIDE the profile rather than after it: the two reads are
+    // independent, and serialising them would add a round trip to every Settings load.
+    const [profile, organization, seat] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: userId },
+        include: {
+          wizardSessions: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+            include: {
+              branding: true,
+              userSetup: true,
+              clientProfile: true,
+              teamSize: true,
+              services: true,
+              disclaimers: true,
+            },
           },
         },
-      },
-    });
+      }),
+      organizationProfileForViewer(userId),
+      // The reader's own seat, when an invitation gave them one. Three independent reads, so
+      // none of them waits on another.
+      findTeammateProfileForUser(userId),
+    ]);
 
     if (!profile) {
       return NextResponse.json({ error: 'Profile not found' }, { status: 404 });
@@ -145,6 +157,21 @@ export async function GET(request: NextRequest) {
       headshotData: userSetup?.headshotData || (profile as any).headshotData || null,
       saveAsContact: userSetup?.saveAsContact ?? true,
       primaryServiceCategories,
+      // The organization's own values, with `viewerIsOwner`. An invited teammate's row carries
+      // none of them (the acceptance flow created it from a name and an email), so Settings →
+      // Branding AND Settings → Organization opened blank for a teammate of an organization that
+      // plainly has a name, logo, colours, mission statement, type and team size.
+      // `viewerIsOwner` is what tells the client whether to prefer these values or the reader's
+      // own; they never override a value the reader set themselves.
+      //
+      // Also carries `primaryServiceCategories` and the firm email — the two Profile-tab values a
+      // teammate's own row has none of.
+      organization,
+      // The reader's own seat profile — job title, phone, extension, designations, photo. For an
+      // invited teammate this is where Settings → Profile's details actually are; the route's
+      // `User` row was created from a name and an email at acceptance. Null for anyone without a
+      // seat, so an owner's payload is unchanged.
+      seat,
       wizardSessions: profile.wizardSessions.map((s) => ({
         ...s,
         userSetup: s === firstSession ? userSetup : (s as any).userSetup,

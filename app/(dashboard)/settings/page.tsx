@@ -46,6 +46,53 @@ import {
   UserPlus,
 } from "lucide-react";
 
+/**
+ * The organization's own values, when the signed-in account is NOT its owner.
+ *
+ * Settings → Branding and Settings → Organization both fill from the reader's own `User` row,
+ * which is right for an owner and empty for an invited teammate: the acceptance flow creates that
+ * row from a name and an email, so it carries no logo, colours, website, mission statement,
+ * organization type or team size — and both tabs opened blank for a teammate of an organization
+ * that plainly has all of them.
+ *
+ * `GET /api/profile` therefore reports the organization's brand (resolved from the owner's row —
+ * the same source the owner's own tab reads) together with `viewerIsOwner`. This returns it for a
+ * non-owner only: for an owner the two are the same values, and leaving the owner's row in front
+ * keeps their own unsaved local edits authoritative. Returning null (an owner, or a payload that
+ * predates the field) leaves every existing fallback exactly as it was, so this can only fill
+ * values that were previously blank.
+ */
+function organizationProfileSource(profile: any) {
+  const organization = profile?.organization;
+  if (!organization || organization.viewerIsOwner !== false) return null;
+  return organization.source ?? null;
+}
+
+/**
+ * The reader's own seat, when an invitation gave them one.
+ *
+ * Settings → Profile fills from the reader's `User` row plus their wizard session, and an invited
+ * teammate has neither in any useful form: that row was created from a name, an email and a
+ * password, and there is no session. Their job title, phone, extension, designations and photo
+ * were captured from the Key Contact they were invited as and live on the `TeammateProfile` —
+ * which is also where People & Access and the header read them from. Reported by
+ * `GET /api/profile` as `seat`, null for anyone without one.
+ *
+ * Always a fallback, never a source of truth: the wizard store is the reader's own unsaved edit
+ * and their own row is what the tab saves to, so this only fills what is otherwise blank.
+ */
+function seatProfileSource(profile: any) {
+  return profile?.seat ?? null;
+}
+
+/** The first list that actually has entries — `[]` is truthy, so `||` cannot be used here. */
+function firstNonEmptyList<T>(...lists: (T[] | null | undefined)[]): T[] {
+  for (const list of lists) {
+    if (Array.isArray(list) && list.length > 0) return list;
+  }
+  return [];
+}
+
 export default function SettingsPage() {
   const { setTitle, setSubtitle } = usePageTitleContext();
   const { stepData } = useOnboardingWizardStore();
@@ -256,6 +303,18 @@ export default function SettingsPage() {
           if (primaryServiceCategories.length === 0 && Array.isArray(servicesArray) && servicesArray.length > 0) {
             primaryServiceCategories = step2ServicesToCategories(servicesArray);
           }
+          // The organization's categories, for a reader whose own row has none — the same source
+          // the Browse Benefits strip falls back to. Read LAST, so nothing already chosen is
+          // replaced.
+          const organizationCategories =
+            profileFallback?.organization?.source?.primaryServiceCategories ?? [];
+          if (primaryServiceCategories.length === 0 && organizationCategories.length > 0) {
+            primaryServiceCategories = [...organizationCategories];
+          }
+
+          // The reader's own seat: where an invited teammate's title, phone, designations and
+          // photo actually are. See seatProfileSource.
+          const seat = seatProfileSource(profileFallback);
 
           const profileData = {
             name: userSetup.name || profileFallback?.name || "",
@@ -263,13 +322,22 @@ export default function SettingsPage() {
             organizationEmail:
               userSetup.organizationEmail ||
               profileFallback?.organizationEmail ||
+              profileFallback?.organization?.organizationEmail ||
               "",
-            phone: userSetup.phone || profileFallback?.phone || "",
+            phone: userSetup.phone || seat?.phone || profileFallback?.phone || "",
             phoneExtension:
-              userSetup.phoneExtension || profileFallback?.phoneExtension || "",
-            title: userSetup.title || profileFallback?.title || "",
-            designations: userSetup.designations || profileFallback?.designations || [],
-            headshot: userSetup.headshot || profileFallback?.headshot || "",
+              userSetup.phoneExtension ||
+              seat?.phoneExtension ||
+              profileFallback?.phoneExtension ||
+              "",
+            title: userSetup.title || seat?.jobTitle || profileFallback?.title || "",
+            designations: firstNonEmptyList<string>(
+              userSetup.designations,
+              seat?.designations,
+              profileFallback?.designations,
+            ),
+            headshot:
+              userSetup.headshot || seat?.headshot || profileFallback?.headshot || "",
             headshotFileName: userSetup.headshotFileName || "",
             headshotData: userSetup.headshotData || profileFallback?.headshotData || null,
             backgroundImage: userSetup.backgroundImage || "",
@@ -297,31 +365,52 @@ export default function SettingsPage() {
             useOnboardingWizardStore.getState().stepData?.branding ??
             {};
 
+          // The organization's own values — the ones a teammate's row does not carry. See
+          // organizationProfileSource.
+          const organizationSource = organizationProfileSource(profileFallback);
+
           const brandingData = {
             organizationName:
               branding.organizationName ||
+              organizationSource?.organizationName ||
               profileFallback?.organizationName ||
               profileFallback?.organizationType ||
               "",
             website:
-              branding.website || profileFallback?.website || "",
+              branding.website ||
+              organizationSource?.website ||
+              profileFallback?.website ||
+              "",
             logo:
-              branding.logo || profileFallback?.advisorLogo || "",
+              branding.logo ||
+              organizationSource?.logo ||
+              profileFallback?.advisorLogo ||
+              "",
             logoFileName: branding.logoFileName || "",
             brandColor:
               branding.brandColor || profileFallback?.brandColor || "#1F3A60",
             primaryColor:
-              branding.primaryColor || profileFallback?.primaryColor || "",
+              branding.primaryColor ||
+              organizationSource?.primaryColor ||
+              profileFallback?.primaryColor ||
+              "",
             secondaryColor:
-              branding.secondaryColor || profileFallback?.secondaryColor || "",
-            missionStatement: branding.missionStatement || "",
+              branding.secondaryColor ||
+              organizationSource?.secondaryColor ||
+              profileFallback?.secondaryColor ||
+              "",
+            missionStatement:
+              branding.missionStatement ||
+              organizationSource?.missionStatement ||
+              "",
             backgroundImage:
               branding.backgroundImage ||
+              organizationSource?.backgroundImage ||
               profileFallback?.advisorBackgroundImage ||
               profileFallback?.backgroundImage ||
               "",
             backgroundFileName: branding.backgroundFileName || "",
-            aiAvatar: branding.aiAvatar || "",
+            aiAvatar: branding.aiAvatar || organizationSource?.aiAvatar || "",
             avatarFileName: branding.avatarFileName || "",
             isColorPickerOpen: false,
             isGenerating: false,
@@ -352,17 +441,24 @@ export default function SettingsPage() {
             profileFallback?.wizardSessions?.[0]?.clientProfile;
           const legacyTeamSize = profileFallback?.wizardSessions?.[0]?.teamSize;
 
+          // Same source as the Branding tab above: for a teammate the organization's values are
+          // what this tab has to fill from. See organizationProfileSource.
+          const organizationSource = organizationProfileSource(profileFallback);
+
           const orgData = {
             organizationType:
               profileFallback?.organizationType ||
+              organizationSource?.organizationType ||
               legacyClientProfile?.organizationType ||
               "",
             customOrganization:
               profileFallback?.customOrganization ||
+              organizationSource?.customOrganization ||
               legacyClientProfile?.customOrganization ||
               "",
             teamSize:
               profileFallback?.teamSize ||
+              organizationSource?.teamSize ||
               legacyTeamSize?.teamSize ||
               "",
           };
@@ -415,16 +511,43 @@ export default function SettingsPage() {
     if (primaryServiceCategories.length === 0 && stepData.services?.services?.length) {
       primaryServiceCategories = step2ServicesToCategories(stepData.services.services);
     }
+    // The organization's categories, last in the chain and only when nothing else answered: for a
+    // teammate their own row and session hold none, and the organization's list is the same one
+    // the Browse Benefits strip falls back to.
+    if (primaryServiceCategories.length === 0) {
+      const organizationCategories =
+        profile.organization?.source?.primaryServiceCategories ?? [];
+      if (organizationCategories.length > 0) {
+        primaryServiceCategories = [...organizationCategories];
+      }
+    }
+
+    // The reader's own seat and the organization's shared email — where an invited teammate's
+    // title, phone, designations and photo come from (see seatProfileSource). Both sit behind the
+    // store and the reader's own row, so they only fill what is otherwise blank.
+    const seat = seatProfileSource(profile);
+
     const userData = {
       name: userSetup.name || profile.name || "",
       email: userSetup.email || profile.email || "",
       organizationEmail:
-        userSetup.organizationEmail || profile.organizationEmail || "",
-      phone: userSetup.phone || profile.phone || "",
-      phoneExtension: userSetup.phoneExtension || profile.phoneExtension || "",
-      title: userSetup.title || profile.title || "",
-      designations: userSetup.designations || profile.designations || [],
-      headshot: userSetup.headshot || profile.headshot || "",
+        userSetup.organizationEmail ||
+        profile.organizationEmail ||
+        profile.organization?.organizationEmail ||
+        "",
+      phone: userSetup.phone || seat?.phone || profile.phone || "",
+      phoneExtension:
+        userSetup.phoneExtension ||
+        seat?.phoneExtension ||
+        profile.phoneExtension ||
+        "",
+      title: userSetup.title || seat?.jobTitle || profile.title || "",
+      designations: firstNonEmptyList<string>(
+        userSetup.designations,
+        seat?.designations,
+        profile.designations,
+      ),
+      headshot: userSetup.headshot || seat?.headshot || profile.headshot || "",
       headshotFileName: userSetup.headshotFileName || "",
       headshotData: userSetup.headshotData || profile.headshotData || null,
       backgroundImage: userSetup.backgroundImage || "",
@@ -444,22 +567,29 @@ export default function SettingsPage() {
     // primary value.
     const persistedProfile: any = cachedProfile ?? userProfile;
     const completedBranding = persistedProfile?.wizardSessions?.[0]?.branding;
+    // One lookup behind BOTH tabs this effect populates: a teammate's row carries none of the
+    // organization's values, so they are what this fills Branding and Organization from. A local
+    // edit still wins — the wizard store is read first for every field below.
+    const organizationSource = organizationProfileSource(persistedProfile);
 
     const brandingData = {
       organizationName:
         branding.organizationName ||
         completedBranding?.organizationName ||
+        organizationSource?.organizationName ||
         userProfile?.organizationName ||
         userProfile?.organizationType ||
         "",
       website:
         branding.website ||
         completedBranding?.website ||
+        organizationSource?.website ||
         userProfile?.website ||
         "",
       logo:
         branding.logo ||
         completedBranding?.logo ||
+        organizationSource?.logo ||
         persistedProfile?.advisorLogo ||
         "",
       logoFileName:
@@ -472,18 +602,24 @@ export default function SettingsPage() {
       primaryColor:
         branding.primaryColor ||
         completedBranding?.primaryColor ||
+        organizationSource?.primaryColor ||
         userProfile?.primaryColor ||
         "",
       secondaryColor:
         branding.secondaryColor ||
         completedBranding?.secondaryColor ||
+        organizationSource?.secondaryColor ||
         userProfile?.secondaryColor ||
         "",
       missionStatement:
-        branding.missionStatement || completedBranding?.missionStatement || "",
+        branding.missionStatement ||
+        completedBranding?.missionStatement ||
+        organizationSource?.missionStatement ||
+        "",
       backgroundImage:
         branding.backgroundImage ||
         completedBranding?.backgroundImage ||
+        organizationSource?.backgroundImage ||
         userProfile?.advisorBackgroundImage ||
         userProfile?.backgroundImage ||
         "",
@@ -491,7 +627,11 @@ export default function SettingsPage() {
         branding.backgroundFileName ||
         completedBranding?.backgroundFileName ||
         "",
-      aiAvatar: branding.aiAvatar || completedBranding?.aiAvatar || "",
+      aiAvatar:
+        branding.aiAvatar ||
+        completedBranding?.aiAvatar ||
+        organizationSource?.aiAvatar ||
+        "",
       avatarFileName:
         branding.avatarFileName || completedBranding?.avatarFileName || "",
       isColorPickerOpen: false,
@@ -511,18 +651,25 @@ export default function SettingsPage() {
     // store / session is only leftover onboarding data. Letting stepData win would overwrite
     // a deliberate edit with the value captured during onboarding.
     const orgData = {
+      // `organizationSource` is declared with the branding fields above: the organization's own
+      // answer for a reader who is not its owner, which is the case this tab used to open blank
+      // for. It sits after the reader's own row and before the wizard store — the row wins when
+      // it holds a value, and the store is only this reader's own onboarding draft.
       organizationType:
         persistedProfile?.organizationType ||
+        organizationSource?.organizationType ||
         stepData.clientProfile?.organizationType ||
         completedClientProfile?.organizationType ||
         "",
       customOrganization:
         persistedProfile?.customOrganization ||
+        organizationSource?.customOrganization ||
         stepData.clientProfile?.customOrganization ||
         completedClientProfile?.customOrganization ||
         "",
       teamSize:
         persistedProfile?.teamSize ||
+        organizationSource?.teamSize ||
         stepData.teamSize?.teamSize ||
         completedTeamSize?.teamSize ||
         "",

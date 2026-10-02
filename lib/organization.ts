@@ -101,6 +101,205 @@ export function brandingSnapshotFromUser(
 }
 
 /**
+ * The organization-level fields a viewer's Settings tabs resolve to.
+ *
+ * Covers BOTH tabs that read organization-level values: Branding (name, website, logo, colours,
+ * background, mission statement, avatar) and Organization (type, custom type, team size). They are
+ * resolved together because they share one source and one reason — an invited teammate's own
+ * `User` row carries none of them.
+ */
+export interface OrganizationProfileSource {
+  organizationName: string | null;
+  website: string | null;
+  logo: string | null;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+  backgroundImage: string | null;
+  missionStatement: string | null;
+  aiAvatar: string | null;
+  organizationType: string | null;
+  customOrganization: string | null;
+  teamSize: string | null;
+  /**
+   * The categories the organization offers. Read by the Profile tab, which otherwise shows none
+   * for a teammate (they live on the owner's row), and the same source the Browse Benefits strip
+   * falls back to.
+   */
+  primaryServiceCategories: string[];
+}
+
+export interface OrganizationProfileForViewer {
+  organizationId: string;
+  ownerUserId: string | null;
+  /** Whether the viewer IS the owner — the client keeps its own values when so. */
+  viewerIsOwner: boolean;
+  name: string;
+  organizationEmail: string | null;
+  source: OrganizationProfileSource;
+}
+
+/**
+ * The organization's brand, resolved for a viewer who may not be its owner.
+ *
+ * Settings → Branding populates from the signed-in account's own `User` row, which is correct
+ * for an owner and empty for an invited teammate: the acceptance flow creates that row from a
+ * name, an email and a password, so `organizationName`, `website`, `advisorLogo` and the colours
+ * are all null. The tab therefore opened blank for a teammate of an organization that plainly
+ * has a logo, colours and a mission statement.
+ *
+ * The values themselves live on the OWNER's row — that is the row `syncOrganizationIdentity`
+ * mirrors the Organization from — so this returns exactly the fields those tabs read, resolved
+ * from there. The owner's live row wins over the Organization row (and over
+ * `Organization.branding`, the mirrored branding snapshot), because the tabs EDIT the row:
+ * reading the mirror would show a value one save behind. The mirror is the fallback, which also
+ * covers an organization whose owner row is gone.
+ */
+export async function organizationProfileForViewer(
+  userId: string,
+): Promise<OrganizationProfileForViewer | null> {
+  const viewer = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { organizationId: true },
+  });
+  if (!viewer?.organizationId) return null;
+
+  const organization = await prisma.organization.findUnique({
+    where: { id: viewer.organizationId },
+    select: {
+      id: true,
+      name: true,
+      organizationEmail: true,
+      ownerUserId: true,
+      branding: true,
+      organizationType: true,
+      customOrganization: true,
+      teamSize: true,
+    },
+  });
+  if (!organization) return null;
+
+  const ownerUserId = organization.ownerUserId ?? null;
+  const snapshot = (organization.branding ?? {}) as Partial<OrganizationBranding>;
+
+  const owner = ownerUserId
+    ? await prisma.user.findUnique({
+        where: { id: ownerUserId },
+        select: {
+          organizationName: true,
+          organizationEmail: true,
+          website: true,
+          organizationType: true,
+          customOrganization: true,
+          teamSize: true,
+          primaryServiceCategories: true,
+          advisorLogo: true,
+          advisorLogoUrl: true,
+          primaryColor: true,
+          secondaryColor: true,
+          backgroundImage: true,
+          wizardSessions: {
+            orderBy: { createdAt: "desc" },
+            take: 1,
+            select: {
+              branding: { select: { missionStatement: true, aiAvatar: true } },
+            },
+          },
+        },
+      })
+    : null;
+
+  // The mission statement and the AI avatar are not `User` columns: the Branding tab keeps
+  // them on the wizard session, so they are read from the owner's newest session the same way
+  // the owner's own tab resolves them.
+  const ownerSessionBranding = owner?.wizardSessions?.[0]?.branding;
+
+  return {
+    organizationId: organization.id,
+    ownerUserId,
+    viewerIsOwner: ownerUserId === userId,
+    name: organization.name,
+    // The owner's row is the canonical firm email; `Organization.organizationEmail` is its mirror
+    // and can lag it (it is written by `syncOrganizationIdentity` on a profile save). This is the
+    // address the Profile tab pre-fills and REQUIRES before it will save, so a teammate must not be
+    // handed an empty one.
+    organizationEmail: owner?.organizationEmail ?? organization.organizationEmail ?? null,
+    source: {
+      organizationName: owner?.organizationName ?? organization.name ?? null,
+      website: owner?.website ?? null,
+      logo: owner?.advisorLogo ?? owner?.advisorLogoUrl ?? snapshot.logo ?? null,
+      primaryColor: owner?.primaryColor ?? snapshot.primaryColor ?? null,
+      secondaryColor: owner?.secondaryColor ?? snapshot.secondaryColor ?? null,
+      backgroundImage: owner?.backgroundImage ?? snapshot.backgroundImage ?? null,
+      missionStatement: ownerSessionBranding?.missionStatement ?? null,
+      aiAvatar: ownerSessionBranding?.aiAvatar ?? null,
+      // The Organization tab's three fields. The comment above applies unchanged: the owner's
+      // live row is what the tab edits, and the Organization row — which `syncOrganizationIdentity`
+      // writes them onto — covers an organization whose owner row is gone.
+      organizationType: owner?.organizationType ?? organization.organizationType ?? null,
+      customOrganization:
+        owner?.customOrganization ?? organization.customOrganization ?? null,
+      teamSize: owner?.teamSize ?? organization.teamSize ?? null,
+      primaryServiceCategories: owner?.primaryServiceCategories ?? [],
+    },
+  };
+}
+
+/**
+ * The caller's own seat in an organization, when they hold one.
+ *
+ * Settings → Profile fills from the reader's `User` row plus their wizard session, and for an
+ * invited teammate both are thin: the acceptance flow wrote a name, an email and a password, and
+ * there is no session at all. Their professional details — job title, phone, extension,
+ * designations, photo — were captured when the seat was granted (copied from the Key Contact they
+ * were invited as) and live on the `TeammateProfile`. That is also where People & Access and the
+ * dashboard header read them from, so the Profile tab showing blank for them was the same gap.
+ *
+ * `orderBy: createdAt: "asc"` matches `findTeammateOrganizationId`: if a person somehow holds more
+ * than one seat, the earliest is the one the rest of the app treats as theirs.
+ *
+ * Purely a read: the Profile tab still writes the reader's own `User` row, so nothing here can
+ * change what the organization has on file for them.
+ */
+export interface TeammateSeatProfile {
+  headshot: string | null;
+  jobTitle: string | null;
+  firstName: string | null;
+  lastName: string | null;
+  phone: string | null;
+  phoneExtension: string | null;
+  designations: string[];
+}
+
+export async function findTeammateProfileForUser(
+  userId: string,
+): Promise<TeammateSeatProfile | null> {
+  const profile = await prisma.teammateProfile.findFirst({
+    where: { loginUserId: userId },
+    orderBy: { createdAt: "asc" },
+    select: {
+      headshot: true,
+      jobTitle: true,
+      firstName: true,
+      lastName: true,
+      phone: true,
+      phoneExtension: true,
+      designations: true,
+    },
+  });
+  if (!profile) return null;
+
+  return {
+    headshot: profile.headshot ?? null,
+    jobTitle: profile.jobTitle ?? null,
+    firstName: profile.firstName ?? null,
+    lastName: profile.lastName ?? null,
+    phone: profile.phone ?? null,
+    phoneExtension: profile.phoneExtension ?? null,
+    designations: profile.designations ?? [],
+  };
+}
+
+/**
  * Resolve the Organization id that owns this User, creating one if the user
  * predates the T1 migration and stamping `User.organizationId` plus every
  * `Client.organizationId` for their plans.
