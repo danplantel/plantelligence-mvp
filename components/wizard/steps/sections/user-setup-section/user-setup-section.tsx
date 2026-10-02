@@ -56,6 +56,15 @@ interface UserSetupSectionProps {
   alwaysShowDesignations?: boolean;
   /** Auth provider (e.g. "google", "credentials") — Google accounts have no password to change. */
   authProvider?: string;
+  /**
+   * Render the Headshot before "Your Name" instead of after the email fields.
+   *
+   * Settings → Profile wants the photo first: it is the one field that cannot be typed, so it
+   * reads as the identity the rest of the form describes. Onboarding Step 4 keeps the original
+   * order (name, title, email, then photo), so this is opt-in rather than a reorder of the shared
+   * component.
+   */
+  headshotFirst?: boolean;
 }
 
 export function UserSetupSection({
@@ -67,6 +76,7 @@ export function UserSetupSection({
   emailChangeMode = false,
   alwaysShowDesignations = false,
   authProvider,
+  headshotFirst = false,
 }: UserSetupSectionProps) {
   const {
     name,
@@ -107,8 +117,58 @@ export function UserSetupSection({
       ? relevantDesignations
       : [...designationGroups.financial, ...designationGroups.hr];
 
+  // Defined once and positioned by `headshotFirst`: Settings renders it first (above "Your Name"),
+  // onboarding keeps it after the email fields. One definition means the two placements cannot
+  // drift apart.
+  const headshotField = (
+    <div className="space-y-2">
+      <label className="block font-medium text-sm text-left">
+        Your Headshot{" "}
+        <span className="text-muted-foreground font-normal">(optional)</span>
+      </label>
+      <Controller
+        name="headshot"
+        control={control}
+        render={({ field }) => (
+          <div className="flex flex-col gap-4" data-field="headshot">
+            <div>
+              <UniversalImageEditorModal
+                value={field.value || ""}
+                fileName={headshotFileName || ""}
+                onChange={(value, fileName, headshotDataFromModal) => {
+                  field.onChange(value);
+                  onDataChange("headshot", value);
+                  onDataChange("headshotFileName", fileName);
+                  if (headshotDataFromModal != null) {
+                    onDataChange("headshotData", headshotDataFromModal);
+                  }
+                }}
+                onRemove={async () => {
+                  await deleteFromR2(field.value);
+                  field.onChange("");
+                  onDataChange("headshot", "");
+                  onDataChange("headshotFileName", "");
+                  onDataChange("headshotData", null);
+                }}
+                placeholder="Upload Headshot"
+                modalTitle="Edit Headshot"
+                modalDescription="Upload a clear, front-facing photo. Keep your face inside the circle guide for best results."
+                saveButtonText="Save Headshot"
+                type="headshot"
+                autoSizeOnOpen={true}
+              />
+            </div>
+          </div>
+        )}
+      />
+    </div>
+  );
+
   const content = (
     <div className="grid grid-cols-1 gap-6">
+      {/* Settings → Profile leads with the photo, before the name it depicts. */}
+      {headshotFirst && headshotField}
+
       {/* Row 1: Name & Title */}
       <div className="space-y-2">
         <label className="block font-medium text-sm">
@@ -192,7 +252,8 @@ export function UserSetupSection({
         />
       )}
 
-      {/* Row 2: Email & Headshot */}
+      {/* Row 2: Email — a verified email-change flow in Settings, Organization Email in onboarding.
+          The Headshot is rendered separately (see `headshotField`) so its position can differ. */}
       {emailChangeMode ? (
         <EmailChangeSection
           currentEmail={data.email || ""}
@@ -304,47 +365,9 @@ export function UserSetupSection({
         </div>
       )}
 
-      <div className="space-y-2">
-        <label className="block font-medium text-sm text-left">
-          Your Headshot{" "}
-          <span className="text-muted-foreground font-normal">(optional)</span>
-        </label>
-        <Controller
-          name="headshot"
-          control={control}
-          render={({ field }) => (
-            <div className="flex flex-col gap-4" data-field="headshot">
-              <div>
-                <UniversalImageEditorModal
-                  value={field.value || ""}
-                  fileName={headshotFileName || ""}
-                  onChange={(value, fileName, headshotDataFromModal) => {
-                    field.onChange(value);
-                    onDataChange("headshot", value);
-                    onDataChange("headshotFileName", fileName);
-                    if (headshotDataFromModal != null) {
-                      onDataChange("headshotData", headshotDataFromModal);
-                    }
-                  }}
-                  onRemove={async () => {
-                    await deleteFromR2(field.value);
-                    field.onChange("");
-                    onDataChange("headshot", "");
-                    onDataChange("headshotFileName", "");
-                    onDataChange("headshotData", null);
-                  }}
-                  placeholder="Upload Headshot"
-                  modalTitle="Edit Headshot"
-                  modalDescription="Upload a clear, front-facing photo. Keep your face inside the circle guide for best results."
-                  saveButtonText="Save Headshot"
-                  type="headshot"
-                  autoSizeOnOpen={true}
-                />
-              </div>
-            </div>
-          )}
-        />
-      </div>
+      {/* Onboarding keeps the photo here, after the email fields; Settings renders it at the top
+          through the `headshotFirst` block above. */}
+      {!headshotFirst && headshotField}
 
       {/* Row 3: Phone */}
       <div className="space-y-2">

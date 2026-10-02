@@ -56,6 +56,10 @@ export function ProfileSettingsSection({
                 });
               }}
               hideCard={true}
+              // Settings → Profile leads with the photo, before "Your Name". This section is
+              // Settings-only, so the flag is set here rather than plumbed as a prop; onboarding
+              // Step 4 renders the same component without it and keeps the original order.
+              headshotFirst={true}
               // Primary Service Categories moved to the Organization tab — for EVERY profile, not
               // just a teammate's: they describe the organization rather than the person who
               // happened to be filling the form. See organization-settings-section.tsx, where the
