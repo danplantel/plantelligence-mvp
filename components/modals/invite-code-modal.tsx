@@ -49,11 +49,29 @@ const InviteCodeModal = ({ open, handleClose }: InviteCodeModalProps) => {
     <Dialog open={open} onOpenChange={() => {}}>
       <DialogContent className="max-w-[390px] mb-3 py-8 [&>button]:hidden shadow-none rounded-none border-0 bg-white dark:bg-[#030303] z-[60]">
         <div className="flex flex-col items-center mb-3 md:mb-0">
-          <div className="h-[46px] w-[46px] rounded-[6px] mb-3 shadow-md overflow-hidden">
+          {/* The tile is square; the mark is not — `object-contain` so the whole bulb is drawn
+              inside it. `object-cover` scaled the portrait artwork to FILL the square and cropped
+              the overflow, which is why it looked cut off.
+
+              The path was also relative with backslashes ("plantelligence-logos\pt_icon_light.png"):
+              no leading slash means it resolves against the CURRENT route, so any nested page
+              requested e.g. /settings/plantelligence-logos/... and got a 404. Every other surface
+              in the app uses "/plantelligence-logos/pt_icon_*.png" — this now matches.
+
+              Both variants are rendered and CSS picks one. That avoids pulling `useTheme` and a
+              mounted flag into a modal that has neither, and it cannot flash the wrong artwork on
+              first paint: the light-mode icon is dark artwork, which is near-invisible against
+              this modal's dark background (`dark:bg-[#030303]` above). */}
+          <div className="h-[46px] w-[46px] rounded-[6px] mb-3 overflow-hidden">
             <img
-              src="/plan.png"
+              src="/plantelligence-logos/pt_icon_light.png"
               alt="PlanTelligence"
-              className="w-full h-full object-cover"
+              className="h-full w-full object-contain dark:hidden"
+            />
+            <img
+              src="/plantelligence-logos/pt_icon_dark.png"
+              alt="PlanTelligence"
+              className="hidden h-full w-full object-contain dark:block"
             />
           </div>
           <h2 className="text-[24px] font-semibold text-black dark:text-white">
