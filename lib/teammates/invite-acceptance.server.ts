@@ -26,13 +26,14 @@
 
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/prisma";
+import { buildUploadKey, putObjectBuffer } from "@/lib/r2";
 import { categoryToSlug } from "@/lib/benefit-category-slug";
 import {
   anchorTeammateUserToInvitingOrganization,
   getOrCreateOrganizationForUser,
   organizationDisplayName,
 } from "@/lib/organization";
-import { activateProfile } from "./profiles.server";
+import { activateProfile, updateTeammateProfile } from "./profiles.server";
 import { isInviteExpired } from "./seats.server";
 import { verifyInviteToken } from "./invite-token.server";
 import type { TeammatePersonType } from "@/types/teammate";
@@ -57,13 +58,51 @@ export interface InvitationView {
   email?: string;
   inviterName?: string | null;
   organizationName?: string | null;
+  /**
+   * The plan being offered, and ONLY when the invitation covers exactly one.
+   *
+   * Null for several plans and for a seat that covers all of them: naming the first assignment
+   * would tell the person they were invited to that plan and quietly leave out the rest of what
+   * they were given.
+   */
   planName?: string | null;
+  /**
+   * A named section, and only under the same condition as `planName` — with several assignments
+   * a single "— Group Health." clause describes the first one and reads as the whole invitation.
+   */
   sectionName?: string | null;
+  /**
+   * How many plans the invitation covers today. Paired with `allPlans`, this is what the page
+   * words the scope from, so "…to help with Team Members LLC" cannot appear on an invitation
+   * that gave somebody three plans.
+   */
+  planCount?: number;
+  /**
+   * The seat's own "All Plans" flag — every plan the organization has AND every one it creates
+   * later. Deliberately not derived from `planCount`: one plan today with the flag set is still
+   * "all of their plans", and that is the honest thing to say about a seat that will grow.
+   */
+  allPlans?: boolean;
   personType?: TeammatePersonType;
   /** Drives "create an account" vs "sign in to accept". */
   accountExists?: boolean;
   /** Where the person lands after accepting. */
   landingUrl?: string;
+  /**
+   * What the seat already holds for this person, so the acceptance form opens FILLED IN.
+   *
+   * These are the fields the advisor captured on the Key Contact they invited (or that the
+   * profile has carried since), and asking the person to retype their own name and job title is
+   * exactly the kind of duplicate entry the contact picker exists to avoid. They are also the
+   * person's OWN details, sent to the holder of their invitation token and to nobody else.
+   */
+  firstName?: string | null;
+  lastName?: string | null;
+  jobTitle?: string | null;
+  phone?: string | null;
+  phoneExtension?: string | null;
+  /** An R2 key — the form's editor resolves it for display. */
+  headshot?: string | null;
 }
 
 /** Where a person goes once they are active: the section they were invited to, or the hub. */
@@ -118,6 +157,15 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
       deactivatedAt: true,
       loginUserId: true,
       invitedByUserId: true,
+      // Decides how the invitation's scope is worded — see `InvitationView`.
+      allPlans: true,
+      // Prefilled into the acceptance form — see `InvitationView`.
+      firstName: true,
+      lastName: true,
+      jobTitle: true,
+      phone: true,
+      phoneExtension: true,
+      headshot: true,
     },
   });
   if (!profile) return { status: "revoked" };
@@ -143,7 +191,7 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
   // The firm's NAME, resolved exactly as the invitation email resolves it
   // (`organizationDisplayName`), so the page and the email cannot name the firm differently —
   // including the "on behalf of …" clause, which reads this value.
-  const [organizationName, inviter, assignment, account] = await Promise.all([
+  const [organizationName, inviter, assignments, account] = await Promise.all([
     organizationDisplayName(organizationId),
     profile.invitedByUserId
       ? prisma.user.findUnique({
@@ -151,7 +199,9 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
           select: { name: true, email: true },
         })
       : Promise.resolve(null),
-    prisma.planAssignment.findFirst({
+    // ALL of them rather than the first: how many plans this invitation covers is exactly what
+    // the page's sentence has to get right.
+    prisma.planAssignment.findMany({
       where: { organizationId, profileId },
       orderBy: { createdAt: "asc" },
       select: { clientId: true, categoryScope: true, categories: true },
@@ -162,28 +212,39 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
     }),
   ]);
 
-  const plan = assignment
+  /** The one assignment, when there is exactly one — see `planName` above. */
+  const singleAssignment = assignments.length === 1 ? assignments[0] : null;
+
+  const plan = singleAssignment
     ? await prisma.client.findUnique({
-        where: { id: assignment.clientId },
+        where: { id: singleAssignment.clientId },
         select: { companyName: true },
       })
     : null;
-  const categories = Array.isArray(assignment?.categories)
-    ? (assignment?.categories as string[])
+  const categories = Array.isArray(singleAssignment?.categories)
+    ? (singleAssignment.categories as string[])
     : [];
 
   return {
     status: "ok",
     email: profile.email,
+    firstName: profile.firstName,
+    lastName: profile.lastName,
+    jobTitle: profile.jobTitle,
+    phone: profile.phone,
+    phoneExtension: profile.phoneExtension,
+    headshot: profile.headshot,
     inviterName: inviter?.name ?? inviter?.email ?? null,
     organizationName,
     planName: plan?.companyName ?? null,
     sectionName:
-      assignment?.categoryScope === "selected" && categories.length > 0
+      singleAssignment?.categoryScope === "selected" && categories.length > 0
         ? categories.length === 1
           ? categories[0]
           : `${categories.length} sections`
         : null,
+    planCount: assignments.length,
+    allPlans: profile.allPlans,
     personType: profile.type as TeammatePersonType,
     accountExists: Boolean(account),
     landingUrl: await landingUrlFor(organizationId, profileId),
@@ -195,6 +256,79 @@ export interface AcceptInvitationInput {
   /** Ignored when an account already exists for the invited email. */
   name?: string | null;
   password?: string | null;
+  /**
+   * The invited person's own details, collected while they accept.
+   *
+   * The acceptance form asks for the same fields the Key Contact form does, so an invited
+   * teammate finishes their own profile instead of arriving as a name and an email — which is
+   * what the invited-teammate gap was: the seat held whatever the inviting advisor had on the
+   * Key Contact, and nothing else could ever fill it in until they signed in and found Settings.
+   *
+   * Written onto the SEAT (see the note in `acceptInvitation`), and only when supplied: an
+   * absent key leaves whatever the invite seeded in place.
+   */
+  firstName?: string | null;
+  lastName?: string | null;
+  jobTitle?: string | null;
+  phone?: string | null;
+  phoneExtension?: string | null;
+  /** An R2 key, an absolute URL, or a `data:` URL from a visitor who could not upload. */
+  headshot?: string | null;
+}
+
+/**
+ * Store whatever the image editor handed back as an R2 KEY.
+ *
+ * On this PUBLIC page the invitee has no session, and every upload route is session-gated
+ * (`/api/r2/upload`, `/api/r2/presign-upload`), so `uploadFileToR2` fails and
+ * `universal-image-editor-modal` deliberately falls back to handing back the cropped image as an
+ * inline `data:` URL. Writing that verbatim would put a few hundred kilobytes of base64 in a text
+ * column, so it is uploaded from here instead — under the organization's own prefix, in the same
+ * `org/{orgId}/uploads/advisor/headshot/` shape every other teammate headshot uses, which is what
+ * `resolveObjectAccess` and `<Headshot>` expect to find.
+ *
+ * An R2 key or absolute URL (an invitee who happens to be signed in) is passed through untouched.
+ * A failed upload returns null: no photo is the honest outcome, and a half-valid value would
+ * render as a broken image on every contact card they appear on.
+ */
+async function storeInviteeHeadshot(
+  organizationId: string,
+  headshot: string | null | undefined,
+): Promise<string | null> {
+  const value = (headshot ?? "").trim();
+  if (!value) return null;
+  if (!value.startsWith("data:")) return value;
+
+  const match = /^data:([^;,]+);base64,(.+)$/s.exec(value);
+  if (!match) return null;
+
+  const [, contentType, base64] = match;
+  const extension = /png/i.test(contentType)
+    ? "png"
+    : /jpe?g/i.test(contentType)
+      ? "jpg"
+      : "png";
+  // The R2 prefix is keyed by the OWNER's userId, not by the Organization id: every existing
+  // teammate headshot lives at `org/{ownerUserId}/uploads/advisor/headshot/…`, and
+  // `resolveObjectAccess` reads that segment as a user. Filing this photo under the organization
+  // id would put it somewhere the rest of the app never looks — the seat would hold a key that
+  // renders as a broken image.
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { ownerUserId: true },
+  });
+  const key = buildUploadKey({
+    orgId: organization?.ownerUserId ?? organizationId,
+    subPath: "advisor/headshot",
+    fileName: `invitee-headshot.${extension}`,
+  });
+
+  const stored = await putObjectBuffer({
+    key,
+    body: Buffer.from(base64, "base64"),
+    contentType,
+  });
+  return stored ? key : null;
 }
 
 export type AcceptInvitationResult =
@@ -249,6 +383,14 @@ export async function acceptInvitation(
     select: { id: true },
   });
 
+  // The name the account is created with, preferring the two parts the form now collects: a
+  // single "Your name" cannot be split reliably ("Mary Jane Watson"), and the profile is what
+  // people see.
+  const firstName = (input.firstName ?? "").trim();
+  const lastName = (input.lastName ?? "").trim();
+  const displayName =
+    [firstName, lastName].filter(Boolean).join(" ") || (input.name ?? "").trim();
+
   if (existing) {
     loginUserId = existing.id;
   } else {
@@ -262,7 +404,7 @@ export async function acceptInvitation(
     }
     const created = await prisma.user.create({
       data: {
-        name: (input.name ?? "").trim() || view.email,
+        name: displayName || view.email,
         email: view.email,
         password: bcrypt.hashSync(password, bcrypt.genSaltSync(10)),
       },
@@ -284,6 +426,38 @@ export async function acceptInvitation(
     actorUserId: loginUserId,
     loginUserId,
   });
+
+  // ── Their own details, onto their SEAT ─────────────────────────────────────────
+  //
+  // The seat is where an invited teammate's title, phone, extension and photo actually live:
+  // People & Access, the dashboard header and the plan's contact cards all read them from
+  // `TeammateProfile` (see `seatProfileSource`), and the Profile tab treats them as the fallback
+  // behind the account's own row. Writing them onto the account instead would put them somewhere
+  // nothing reads for a teammate.
+  //
+  // Only the fields that were supplied are patched, because an ABSENT key means "leave it alone"
+  // to this writer: the invite seeded several of these from the Key Contact the person was
+  // invited as, and somebody who fills in their phone but no title must not blank the title.
+  const headshot = await storeInviteeHeadshot(organizationId, input.headshot);
+  const jobTitle = (input.jobTitle ?? "").trim();
+  const phone = (input.phone ?? "").trim();
+  const phoneExtension = (input.phoneExtension ?? "").trim();
+
+  if (firstName || lastName || jobTitle || phone || phoneExtension || headshot) {
+    await updateTeammateProfile({
+      id: profileId,
+      organizationId,
+      actorUserId: loginUserId,
+      data: {
+        ...(firstName ? { firstName } : {}),
+        ...(lastName ? { lastName } : {}),
+        ...(jobTitle ? { jobTitle } : {}),
+        ...(phone ? { phone } : {}),
+        ...(phoneExtension ? { phoneExtension } : {}),
+        ...(headshot ? { headshot } : {}),
+      },
+    });
+  }
 
   // Anchor the account to the organization that invited it.
   //

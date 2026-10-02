@@ -124,6 +124,18 @@ export async function POST(request: NextRequest) {
       token: body.token,
       name: typeof body.name === "string" ? body.name : null,
       password: typeof body.password === "string" ? body.password : null,
+      // The profile fields the acceptance form collects. An ABSENT key means "not supplied" and
+      // leaves what the invite seeded alone, which is why each one is passed as `undefined`
+      // rather than as an empty string when the client did not send it.
+      firstName: typeof body.firstName === "string" ? body.firstName : undefined,
+      lastName: typeof body.lastName === "string" ? body.lastName : undefined,
+      jobTitle: typeof body.jobTitle === "string" ? body.jobTitle : undefined,
+      phone: typeof body.phone === "string" ? body.phone : undefined,
+      phoneExtension:
+        typeof body.phoneExtension === "string" ? body.phoneExtension : undefined,
+      // Usually a `data:` URL: the invitee has no session, so the editor cannot upload and hands
+      // the cropped image back inline. The service stores it under the organization's prefix.
+      headshot: typeof body.headshot === "string" ? body.headshot : undefined,
     });
 
     if (!result.ok) {
