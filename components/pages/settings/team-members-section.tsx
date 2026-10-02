@@ -316,20 +316,48 @@ function FilledSeatCard({
   row,
   onEdit,
   onRemove,
+  isViewer,
 }: {
   row: TeamMemberRow;
-  onEdit: (row: TeamMemberRow) => void;
+  /**
+   * Opens the management dialog. Absent for a reader who may not manage — a teammate without
+   * `org_settings`, i.e. an Editor or a Viewer — and the card then renders as plain content.
+   */
+  onEdit?: (row: TeamMemberRow) => void;
   onRemove?: (row: TeamMemberRow) => void;
+  /** This seat belongs to the reader — see `viewerUserId`. */
+  isViewer?: boolean;
 }) {
   return (
-    <div className="group relative flex h-full flex-col items-center gap-3 rounded-xl border bg-card p-4 text-center transition hover:border-primary/60 hover:shadow-sm">
+    <div
+      className={`group relative flex h-full flex-col items-center gap-2.5 rounded-xl border shadow-md bg-card p-4 text-center transition hover:border-primary/60 hover:shadow-sm${
+        /**
+         * The highlight is the BORDER, never a `ring`.
+         *
+         * `ring-1` paints a 1px shadow OUTSIDE the card's box, and this grid sits in a Radix
+         * `AccordionContent` that is `overflow-hidden` with `pt-0`
+         * (components/ui/accordion.tsx), so the first row starts exactly at the content's own
+         * top edge. That top pixel was clipped — while the bottom (the content's `pb-4`) and the
+         * sides (the item's `px-4`) had room for it — which is why the highlight drew on three
+         * sides and looked like it was missing its top edge. A border paints inside the box, so
+         * no ancestor can clip it.
+         *
+         * Full-strength accent colour rather than `/60`: without the ring's extra pixel the
+         * softer tone read as a hover state rather than as "this one is you".
+         */
+        isViewer ? " border-accent-blue" : ""
+      }`}
+    >
       <button
         type="button"
-        onClick={() => onEdit(row)}
+        onClick={onEdit ? () => onEdit(row) : undefined}
+        disabled={!onEdit}
         aria-label={`Manage ${row.name}`}
-        className="flex w-full flex-1 flex-col items-center gap-3 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="flex w-full flex-1 flex-col items-center gap-2.5 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
       >
-        <Pencil className="absolute right-3 top-3 h-3.5 w-3.5 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
+        {onEdit ? (
+          <Pencil className="absolute right-3 top-3 h-3.5 w-3.5 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
+        ) : null}
 
         {/* Headshot falls back to a monogram of the name, so an owner who has not
             uploaded a photo still renders something rather than a blank circle. */}
@@ -342,9 +370,26 @@ function FilledSeatCard({
           />
         </span>
 
-        <span className="w-full space-y-1">
-          <span className="block truncate text-sm font-medium">{row.name}</span>
-          <span className="block truncate text-xs text-muted-foreground">
+        {/* Identity, top to bottom: the "You" sticker, the name, the address.
+         *
+         * The sticker row exists on EVERY card — empty on the cards that are not the reader —
+         * because the grid lays its columns out from each card's own boxes: an extra line on
+         * one card pushed that card's name down and left the row visibly mis-set. A fixed
+         * `h-[18px]` means the badge cannot change the card's height when it does appear, so
+         * the names stay on one line across the row either way.
+         *
+         * The label is on its own line rather than beside the name so a long name cannot
+         * squeeze it: the name truncates, the sticker never does. */}
+        <span className="flex w-full flex-col items-center gap-0.5">
+          <span className="flex h-[18px] items-center justify-center">
+            {isViewer ? (
+              <span className="rounded-full bg-accent-blue px-2 py-[3px] text-[10px] font-semibold uppercase leading-none tracking-wide text-white">
+                You
+              </span>
+            ) : null}
+          </span>
+          <span className="block w-full truncate text-sm font-medium">{row.name}</span>
+          <span className="block w-full truncate text-xs text-muted-foreground">
             {row.email}
           </span>
         </span>
@@ -414,12 +459,17 @@ function CollaboratorRow({
   onRemove,
 }: {
   row: TeamMemberRow;
-  onEdit: (row: TeamMemberRow) => void;
-  onToggleActive: (row: TeamMemberRow) => void;
+  /** All three are optional: a reader who may not manage gets the row, without its actions. */
+  onEdit?: (row: TeamMemberRow) => void;
+  onToggleActive?: (row: TeamMemberRow) => void;
   /** Removes the person and the access that goes with them. Absent while loading. */
-  onRemove: (row: TeamMemberRow) => void;
+  onRemove?: (row: TeamMemberRow) => void;
 }) {
   const isDeactivated = Boolean(row.deactivatedAt);
+  // The action cluster renders only when the caller supplied it — that is how the read-only
+  // view (a teammate without `org_settings`) gets a row with no buttons rather than buttons the
+  // server would refuse. See the route's `canManage`.
+  const showsActions = Boolean(onEdit && onToggleActive && onRemove);
 
   return (
     <li className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
@@ -456,26 +506,28 @@ function CollaboratorRow({
         )}
       </span>
 
-      <span className="flex shrink-0 flex-wrap items-center gap-1">
-        <Button variant="ghost" size="sm" onClick={() => onEdit(row)}>
-          <Pencil className="mr-1.5 h-3.5 w-3.5" />
-          Edit
-        </Button>
-        <Button variant="ghost" size="sm" onClick={() => onToggleActive(row)}>
-          {isDeactivated ? "Reactivate" : "Deactivate"}
-        </Button>
-        {/* Deactivate ends access but keeps the person; Remove is the way out of the
-            organization, which is what "I added this collaborator by mistake" asks for. */}
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-red-600 hover:text-red-700"
-          onClick={() => onRemove(row)}
-        >
-          <UserRoundMinus className="mr-1.5 h-3.5 w-3.5" />
-          Remove
-        </Button>
-      </span>
+      {showsActions ? (
+        <span className="flex shrink-0 flex-wrap items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => onEdit?.(row)}>
+            <Pencil className="mr-1.5 h-3.5 w-3.5" />
+            Edit
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => onToggleActive?.(row)}>
+            {isDeactivated ? "Reactivate" : "Deactivate"}
+          </Button>
+          {/* Deactivate ends access but keeps the person; Remove is the way out of the
+              organization, which is what "I added this collaborator by mistake" asks for. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-red-600 hover:text-red-700"
+            onClick={() => onRemove?.(row)}
+          >
+            <UserRoundMinus className="mr-1.5 h-3.5 w-3.5" />
+            Remove
+          </Button>
+        </span>
+      ) : null}
     </li>
   );
 }
@@ -637,6 +689,17 @@ export function TeamMembersSection() {
    */
   const [isInviteOpen, setIsInviteOpen] = useState(false);
 
+  /**
+   * Whether this reader may change the roster.
+   *
+   * Reported by the server (`/api/teammates/team` returns `canManage`, resolved from the same
+   * `org_settings` grid its write verbs enforce) and never inferred here. An Editor can read
+   * People & Access but may not add, edit, deactivate or remove anyone, so this is what decides
+   * whether the tab renders a control or just the information. False until the read answers,
+   * which also means nothing actionable is on screen during the first paint.
+   */
+  const [canManage, setCanManage] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
 
@@ -658,15 +721,20 @@ export function TeamMembersSection() {
           collaborators?: TeamMemberRow[];
           seats?: SeatUsageSummary;
           customCategories?: string[];
+          canManage?: boolean;
         };
         setTeam(body.team ?? []);
         setCollaborators(body.collaborators ?? []);
         setSeats(body.seats ?? null);
         // Read with the same response so the category list is complete on first paint.
         setCustomCategories(body.customCategories ?? []);
+        setCanManage(body.canManage === true);
       } else {
+        // A refused read (or a failed one) leaves the tab in its read-only shape rather than
+        // offering controls whose requests would be refused.
         setTeam([]);
         setCollaborators([]);
+        setCanManage(false);
       }
 
       if (plansResponse.ok) {
@@ -1208,6 +1276,17 @@ export function TeamMembersSection() {
     ownerRow?.userId && session?.user?.id && ownerRow.userId === session.user.id,
   );
 
+  /**
+   * The reader's own login id, for the "You" sticker on their seat card.
+   *
+   * Matched against the `userId` each row reports, which every signed-in person has — the
+   * synthesized owner row included, so the sticker appears for the owner as well as for a
+   * teammate looking at their own seat. Those are exactly the two cases where "which of these
+   * is me?" is a question the grid otherwise leaves the reader to answer from the photo. A
+   * seat whose person has never signed in has no `userId` and so cannot be the reader.
+   */
+  const viewerUserId = session?.user?.id ?? null;
+
   return (
     <div className="space-y-6">
       {/* Spec T3 Part A item 3: usage, with pending invites called out.
@@ -1231,6 +1310,16 @@ export function TeamMembersSection() {
           </div>
           <RolesPermissionsDialog />
         </div>
+      ) : null}
+
+      {/* A reader who cannot manage is told what the tab is for. Without this the tab would
+          simply have no buttons where the owner sees them, which reads as a broken page rather
+          than as a permission — and the reason is worth stating once, above both lists. */}
+      {!canManage && !isLoading ? (
+        <p className="text-xs text-muted-foreground">
+          You can see who is in your organization and what they can reach. Only the owner and
+          admins can change access.
+        </p>
       ) : null}
 
       {/* ── The tab's two halves, as peer accordion sections ──
@@ -1262,20 +1351,22 @@ export function TeamMembersSection() {
                 scrolling the grid — and it expands this section before acting, so the
                 list it adds to is always the list on screen. `stopPropagation` keeps a
                 click here from toggling the accordion (the idiom the Edit Client contact
-                accordions already use). */}
-            <span
-              className="flex shrink-0 items-center gap-2 pr-2"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <Button
-                size="sm"
-                className={SECTION_ACTION_CLASS}
-                onClick={handleAddTeamMember}
+                accordions already use). Rendered only for a reader who may manage. */}
+            {canManage ? (
+              <span
+                className="flex shrink-0 items-center gap-2 pr-2"
+                onClick={(event) => event.stopPropagation()}
               >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Team Member
-              </Button>
-            </span>
+                <Button
+                  size="sm"
+                  className={SECTION_ACTION_CLASS}
+                  onClick={handleAddTeamMember}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Team Member
+                </Button>
+              </span>
+            ) : null}
           </AccordionTrigger>
           <AccordionContent>
             {isLoading ? (
@@ -1292,21 +1383,29 @@ export function TeamMembersSection() {
                   <FilledSeatCard
                     key={row.id}
                     row={row}
-                    onEdit={openEdit}
+                    isViewer={Boolean(viewerUserId) && row.userId === viewerUserId}
+                    // Both actions are withheld from a reader who may not manage, which is
+                    // also what turns the card into plain content.
+                    onEdit={canManage ? openEdit : undefined}
                     // The Owner's seat is reserved, and their row is synthesized rather
                     // than stored, so there is no seat to give back and no profileId to
                     // address. A deactivated member holds nothing either, and their
                     // removal is undone from their own screen rather than this grid.
                     onRemove={
-                      row.isOwner || row.deactivatedAt
+                      !canManage || row.isOwner || row.deactivatedAt
                         ? undefined
                         : (target) => setRemoving(target)
                     }
                   />
                 ))}
-                {Array.from({ length: emptyCards }).map((_, index) => (
-                  <EmptySeatCard key={`empty-${index}`} onAdd={openAdd} />
-                ))}
+                {/* Open seats are an invitation to add somebody, so they are the manager's
+                    view of this grid — a reader without the permission sees the people who
+                    hold seats and nothing suggesting they could fill one. */}
+                {canManage
+                  ? Array.from({ length: emptyCards }).map((_, index) => (
+                      <EmptySeatCard key={`empty-${index}`} onAdd={openAdd} />
+                    ))
+                  : null}
               </div>
             )}
           </AccordionContent>
@@ -1331,20 +1430,23 @@ export function TeamMembersSection() {
             </span>
             {/* This section's action, in its header, opening the section first. Inviting
                 is deliberately NOT a second button here: it needs to know who the person
-                is, so it lives inside the Add Collaborator modal below. */}
-            <span
-              className="flex shrink-0 items-center gap-2 pr-2"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <Button
-                size="sm"
-                className={SECTION_ACTION_CLASS}
-                onClick={handleAddCollaborator}
+                is, so it lives inside the Add Collaborator modal below. Manager-only, like
+                the Team Member action above. */}
+            {canManage ? (
+              <span
+                className="flex shrink-0 items-center gap-2 pr-2"
+                onClick={(event) => event.stopPropagation()}
               >
-                <Plus className="mr-2 h-4 w-4" />
-                Add Collaborator
-              </Button>
-            </span>
+                <Button
+                  size="sm"
+                  className={SECTION_ACTION_CLASS}
+                  onClick={handleAddCollaborator}
+                >
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Collaborator
+                </Button>
+              </span>
+            ) : null}
           </AccordionTrigger>
           <AccordionContent>
             {/* The empty state waits for the lists, so an empty organization cannot
@@ -1365,14 +1467,24 @@ export function TeamMembersSection() {
                   <CollaboratorRow
                     key={row.id}
                     row={row}
-                    onEdit={openEdit}
-                    onToggleActive={(target) => {
-                      // Reactivating is safe and immediate; deactivating ends access,
-                      // so it asks first.
-                      if (target.deactivatedAt) void submitToggleActive(target);
-                      else setDeactivating(target);
-                    }}
-                    onRemove={(target) => setRemovingPerson(target)}
+                    // Absent for a reader who may not manage: the row keeps the person and
+                    // their access, and renders without the three action buttons.
+                    onEdit={canManage ? openEdit : undefined}
+                    onToggleActive={
+                      canManage
+                        ? (target) => {
+                            // Reactivating is safe and immediate; deactivating ends
+                            // access, so it asks first.
+                            if (target.deactivatedAt) void submitToggleActive(target);
+                            else setDeactivating(target);
+                          }
+                        : undefined
+                    }
+                    onRemove={
+                      canManage
+                        ? (target) => setRemovingPerson(target)
+                        : undefined
+                    }
                   />
                 ))}
               </ul>

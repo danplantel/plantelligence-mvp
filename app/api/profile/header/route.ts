@@ -31,7 +31,7 @@ export async function GET() {
 
     const userId = session.user.id;
 
-    const [user, latestSession] = await Promise.all([
+    const [user, latestSession, teammateProfile] = await Promise.all([
       prisma.user.findUnique({
         where: { id: userId },
         select: { name: true, email: true, title: true, headshot: true },
@@ -46,6 +46,26 @@ export async function GET() {
           },
         },
       }),
+      /**
+       * The caller's own seat in somebody else's organization, when they hold one.
+       *
+       * An invited teammate's `User` row is created by the acceptance flow from a name, an
+       * email and a password — nothing else — so `User.headshot` and `User.title` are null for
+       * them, and they have no wizard session either. Their details do exist, on the
+       * `TeammateProfile` the seat was granted from (the Key Contact's headshot and job title,
+       * mirrored onto the profile), and that is what People & Access renders them from. The
+       * header was reading only the first two sources, so those four fields came back empty and
+       * the avatar fell through to a monogram.
+       *
+       * Deliberately the EARLIEST profile, matching `findTeammateOrganizationId`'s
+       * `orderBy: { createdAt: "asc" }`: if a person somehow holds more than one, the one the
+       * rest of the app treats as theirs is the one that names them here.
+       */
+      prisma.teammateProfile.findFirst({
+        where: { loginUserId: userId },
+        orderBy: { createdAt: "asc" },
+        select: { headshot: true, jobTitle: true },
+      }),
     ]);
 
     const setup = latestSession?.userSetup ?? null;
@@ -54,12 +74,18 @@ export async function GET() {
     // so what it displays is unchanged.
     const name = setup?.name || user?.name || session.user.name || "";
     const email = setup?.email || user?.email || session.user.email || "";
-    const title = setup?.title || user?.title || "";
+    // `jobTitle` is the seat record's name for the same field the User row calls `title`.
+    const title = setup?.title || user?.title || teammateProfile?.jobTitle || "";
 
+    // The teammate profile sits LAST of the editable sources and ahead of the session: it is
+    // the organization's record of the person, so a headshot they set themselves (which writes
+    // `User.headshot`) must win, but it must beat an empty `User` row and a null session image —
+    // which is exactly the invited teammate's situation.
     const rawAvatar =
       latestSession?.branding?.aiAvatar ||
       setup?.headshot ||
       user?.headshot ||
+      teammateProfile?.headshot ||
       session.user.image ||
       null;
 

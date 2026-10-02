@@ -2,7 +2,10 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getOrgSession } from "@/lib/organization-session";
-import { requireOrganizationPermission } from "@/lib/teammates/access.server";
+import {
+  requireOrganizationPermission,
+  resolveOrganizationPermission,
+} from "@/lib/teammates/access.server";
 import { TeammateDataError } from "@/lib/teammates/errors";
 import { expireStaleInvites, getSeatUsage } from "@/lib/teammates/seats.server";
 import {
@@ -15,10 +18,14 @@ import { listCustomBenefitTitles } from "@/lib/teammates/benefit-categories.serv
 /**
  * Team Member management (spec T3).
  *
- * Both verbs are gated on the `org_settings` permission rather than a bespoke
- * rule, which gives the spec's "Owner/Admin only" outcome for free and keeps the
- * collaborators hard-block (they can never hold Org Settings) enforced in one
- * place. A collaborator therefore cannot list or add Team Members.
+ * The WRITE verbs are gated on the `org_settings` permission rather than a bespoke rule, which
+ * gives the spec's "Owner/Admin only" outcome for free and keeps the collaborators hard-block
+ * (they can never hold Org Settings) enforced in one place. A collaborator therefore cannot add
+ * or edit Team Members.
+ *
+ * GET is deliberately wider — see the note inside it. The roster is readable by anyone in the
+ * organization, because an Editor needs a view of the team they belong to, and the response
+ * reports whether the caller may manage it.
  */
 
 function errorResponse(error: unknown): NextResponse {
@@ -47,16 +54,36 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    await requireOrganizationPermission({
+    /**
+     * Reading the roster is open to everyone in the organization; changing it is not.
+     *
+     * This used to require `org_settings` on GET as well — the same gate as the writes — which
+     * meant an Editor could not open People & Access AT ALL: their grid is
+     * `org_settings: "no_access"`, so the route answered 403, `TeamMembersSection` fell back to
+     * its empty state, and a teammate had no view of the team they belong to. Who is in your
+     * organization, and what they can reach, is context every member needs; reading it grants
+     * nothing. Adding, editing, deactivating and removing stay behind `org_settings` on the
+     * verbs below, and so does anything that writes.
+     *
+     * `canManage` is resolved from the SAME grid those write verbs enforce (`level: "edit"`, the
+     * level POST uses), so the client never has to infer its own rights and a control the server
+     * would refuse is a control the client is told not to render.
+     */
+    const canManage = await resolveOrganizationPermission({
       userId: session.userId,
       organizationId: session.organizationId,
       permission: "org_settings",
-      level: "view",
-    });
+      level: "edit",
+    }).catch(() => false);
 
-    // Release invites past their 14-day hold before reporting state, so the list
-    // and the meter never show a seat that has already been released.
-    await expireStaleInvites(session.organizationId, session.userId);
+    // Release invites past their 14-day hold before reporting state, so the list and the meter
+    // never show a seat that has already been released.
+    //
+    // A WRITE, so only a manager's read performs it: for everyone else this route stays a pure
+    // read, and an expired invite is released by the next manager who opens the tab.
+    if (canManage) {
+      await expireStaleInvites(session.organizationId, session.userId);
+    }
 
     const [team, collaborators, seats, customCategories] = await Promise.all([
       listTeamMembers(session.organizationId),
@@ -70,7 +97,13 @@ export async function GET() {
       listCustomBenefitTitles(session.organizationId),
     ]);
 
-    return NextResponse.json({ team, collaborators, seats, customCategories });
+    return NextResponse.json({
+      team,
+      collaborators,
+      seats,
+      customCategories,
+      canManage,
+    });
   } catch (error) {
     return errorResponse(error);
   }
