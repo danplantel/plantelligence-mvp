@@ -144,7 +144,6 @@ export default function SettingsPage() {
       headshotData: null as any,
       backgroundImage: "",
       backgroundFileName: "",
-      primaryServiceCategories: [] as string[],
       saveAsContact: true,
     },
   });
@@ -175,6 +174,9 @@ export default function SettingsPage() {
       organizationType: "",
       customOrganization: "",
       teamSize: "",
+      // Moved here from the Profile form: the field describes the organization, and this is the
+      // form whose save writes organization-level values.
+      primaryServiceCategories: [] as string[],
     },
   });
 
@@ -293,24 +295,8 @@ export default function SettingsPage() {
             useOnboardingWizardStore.getState().stepData?.userSetup ??
             {};
 
-          let primaryServiceCategories: string[] = Array.isArray(userSetup.primaryServiceCategories)
-            ? [...userSetup.primaryServiceCategories]
-            : [];
-          if (primaryServiceCategories.length === 0 && profileFallback?.primaryServiceCategories?.length > 0) {
-            primaryServiceCategories = [...profileFallback.primaryServiceCategories];
-          }
-          const servicesArray = useOnboardingWizardStore.getState().stepData?.services?.services ?? [];
-          if (primaryServiceCategories.length === 0 && Array.isArray(servicesArray) && servicesArray.length > 0) {
-            primaryServiceCategories = step2ServicesToCategories(servicesArray);
-          }
-          // The organization's categories, for a reader whose own row has none — the same source
-          // the Browse Benefits strip falls back to. Read LAST, so nothing already chosen is
-          // replaced.
-          const organizationCategories =
-            profileFallback?.organization?.source?.primaryServiceCategories ?? [];
-          if (primaryServiceCategories.length === 0 && organizationCategories.length > 0) {
-            primaryServiceCategories = [...organizationCategories];
-          }
+          // Primary Service Categories are no longer read here: the control moved to the
+          // Organization tab, which populates them from the same sources.
 
           // The reader's own seat: where an invited teammate's title, phone, designations and
           // photo actually are. See seatProfileSource.
@@ -342,7 +328,6 @@ export default function SettingsPage() {
             headshotData: userSetup.headshotData || profileFallback?.headshotData || null,
             backgroundImage: userSetup.backgroundImage || "",
             backgroundFileName: userSetup.backgroundFileName || "",
-            primaryServiceCategories,
             saveAsContact: userSetup.saveAsContact ?? true,
           };
           userSetupForm.reset(profileData, { keepDirtyValues: false });
@@ -445,6 +430,24 @@ export default function SettingsPage() {
           // what this tab has to fill from. See organizationProfileSource.
           const organizationSource = organizationProfileSource(profileFallback);
 
+          // Primary Service Categories, moved here from the Profile tab for every profile: they
+          // describe the ORGANIZATION — they seed a new plan's benefit visibility (Create Benefit
+          // Step 1) and decide which benefits are expected — so they follow the same precedence as
+          // this tab's other three fields. The onboarding Step 2 answer is the last resort, for an
+          // account that has never had them saved on either row.
+          let primaryServiceCategories = firstNonEmptyList<string>(
+            profileFallback?.primaryServiceCategories,
+            organizationSource?.primaryServiceCategories,
+            legacyClientProfile?.primaryServiceCategories,
+          );
+          if (primaryServiceCategories.length === 0) {
+            const servicesArray =
+              useOnboardingWizardStore.getState().stepData?.services?.services ?? [];
+            if (servicesArray.length > 0) {
+              primaryServiceCategories = step2ServicesToCategories(servicesArray);
+            }
+          }
+
           const orgData = {
             organizationType:
               profileFallback?.organizationType ||
@@ -461,6 +464,7 @@ export default function SettingsPage() {
               organizationSource?.teamSize ||
               legacyTeamSize?.teamSize ||
               "",
+            primaryServiceCategories,
           };
           organizationForm.reset(orgData, { keepDirtyValues: false });
           setInitialOrganization(JSON.parse(JSON.stringify(orgData)));
@@ -501,26 +505,8 @@ export default function SettingsPage() {
       ({} as any);
     const profile = userProfile || ({} as any);
 
-    let primaryServiceCategories: string[] = Array.isArray(userSetup.primaryServiceCategories)
-      ? [...userSetup.primaryServiceCategories]
-      : [];
-    // Fallback to User-level primaryServiceCategories from /api/profile
-    if (primaryServiceCategories.length === 0 && profile.primaryServiceCategories?.length > 0) {
-      primaryServiceCategories = [...profile.primaryServiceCategories];
-    }
-    if (primaryServiceCategories.length === 0 && stepData.services?.services?.length) {
-      primaryServiceCategories = step2ServicesToCategories(stepData.services.services);
-    }
-    // The organization's categories, last in the chain and only when nothing else answered: for a
-    // teammate their own row and session hold none, and the organization's list is the same one
-    // the Browse Benefits strip falls back to.
-    if (primaryServiceCategories.length === 0) {
-      const organizationCategories =
-        profile.organization?.source?.primaryServiceCategories ?? [];
-      if (organizationCategories.length > 0) {
-        primaryServiceCategories = [...organizationCategories];
-      }
-    }
+    // Primary Service Categories are no longer part of this form — they moved to the Organization
+    // tab, which resolves them in its own branch below.
 
     // The reader's own seat and the organization's shared email — where an invited teammate's
     // title, phone, designations and photo come from (see seatProfileSource). Both sit behind the
@@ -552,7 +538,6 @@ export default function SettingsPage() {
       headshotData: userSetup.headshotData || profile.headshotData || null,
       backgroundImage: userSetup.backgroundImage || "",
       backgroundFileName: userSetup.backgroundFileName || "",
-      primaryServiceCategories,
       saveAsContact: userSetup.saveAsContact ?? true,
     };
     userSetupForm.reset(userData, { keepDirtyValues: false });
@@ -673,6 +658,16 @@ export default function SettingsPage() {
         stepData.teamSize?.teamSize ||
         completedTeamSize?.teamSize ||
         "",
+      // Categories follow the same precedence as the three fields above: the reader's row, then
+      // the organization, then this reader's own onboarding draft.
+      primaryServiceCategories: firstNonEmptyList<string>(
+        persistedProfile?.primaryServiceCategories,
+        organizationSource?.primaryServiceCategories,
+        completedClientProfile?.primaryServiceCategories,
+        stepData.services?.services?.length
+          ? step2ServicesToCategories(stepData.services.services)
+          : [],
+      ),
     };
     organizationForm.reset(orgData, { keepDirtyValues: false });
     setInitialOrganization(JSON.parse(JSON.stringify(orgData)));
@@ -696,29 +691,10 @@ export default function SettingsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formKey]);
 
-  // ── Sync primaryServiceCategories from userProfile when it becomes available ──
-  // This ensures categories from the User DB record are applied even if
-  // cachedProfile resolved after the initial form reset.
-  const profileCategoriesSyncedRef = useRef(false);
-  useEffect(() => {
-    if (!userProfile) return;
-    if (profileCategoriesSyncedRef.current) return;
-
-    const currentCategories = userSetupForm.getValues("primaryServiceCategories") || [];
-    if (currentCategories.length === 0 && userProfile.primaryServiceCategories?.length > 0) {
-      const categories = [...userProfile.primaryServiceCategories];
-      userSetupForm.setValue("primaryServiceCategories", categories, {
-        shouldDirty: false,
-        shouldTouch: false,
-      });
-      // Also sync to initialUserSetup so the dirty-comparison snapshot reflects the categories
-      setInitialUserSetup((prev: any) => {
-        if (!prev) return prev;
-        return { ...prev, primaryServiceCategories: categories };
-      });
-    }
-    profileCategoriesSyncedRef.current = true;
-  }, [userProfile, userSetupForm]);
+  // The late-sync effect that used to live here is gone with the field: it existed only to write
+  // `User.primaryServiceCategories` into the Profile form once `/api/profile` resolved after the
+  // initial reset. That value now reaches the Organization tab through its own load, so there is
+  // no second writer to race.
 
   const handleSaveUserSetup = async () => {
     setIsSaving(true);
@@ -768,9 +744,9 @@ export default function SettingsPage() {
               ...(data.organizationEmail !== undefined && {
                 organizationEmail: data.organizationEmail || null,
               }),
-              ...(Array.isArray(data.primaryServiceCategories) && {
-                primaryServiceCategories: data.primaryServiceCategories,
-              }),
+              // `primaryServiceCategories` is NOT sent from here any more — it belongs to the
+              // Organization tab's save. Sending the Profile form's (absent) value would have
+              // cleared the organization's categories on every profile save.
             }),
           });
           if (!profileRes.ok) {
@@ -955,6 +931,9 @@ export default function SettingsPage() {
           organizationType: formData.organizationType,
           customOrganization: formData.customOrganization ?? "",
           teamSize: formData.teamSize,
+          // Written to `User.primaryServiceCategories` by the same route, which then mirrors the
+          // organization-level fields onto the Organization row.
+          primaryServiceCategories: formData.primaryServiceCategories ?? [],
         }),
       });
 

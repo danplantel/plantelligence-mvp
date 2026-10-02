@@ -56,7 +56,10 @@ export function ProfileSettingsSection({
                 });
               }}
               hideCard={true}
-              showPrimaryServiceCategories={true}
+              // Primary Service Categories moved to the Organization tab — for EVERY profile, not
+              // just a teammate's: they describe the organization rather than the person who
+              // happened to be filling the form. See organization-settings-section.tsx, where the
+              // control and its save now live.
               emailChangeMode={true}
               authProvider={authProvider}
             />
