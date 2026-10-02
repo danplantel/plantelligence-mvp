@@ -30,8 +30,13 @@ const STATUS_COPY: Record<InvitationStatus, string> = {
     "This invitation has already been accepted. Sign in to continue.",
   deactivated:
     "Access for this invitation has been switched off by the organization.",
+  // Revoked means the profile the token names is GONE (or was never moved to `invited`) —
+  // the token itself verified, so "the link is broken" is not the story. The common real
+  // cause is a person removed from the organization and added again: that deletes the old
+  // profile and mints a new link, and the newest email is the one to use. Saying so here is
+  // what stops a valid, recent-looking link from reading as "this never worked".
   revoked:
-    "This invitation is no longer active. It may have been withdrawn, or the invitation was never sent.",
+    "This invitation is no longer active — the person it was for may have been removed from the organization, or the invitation withdrawn. If there is a newer invitation email for this address, use that link instead.",
 };
 
 function statusCode(status: InvitationStatus): number {

@@ -6,6 +6,7 @@ import {
   HelpCircle,
   Loader2,
   Mail,
+  MailPlus,
   Pencil,
   Plus,
   Search,
@@ -316,6 +317,8 @@ function FilledSeatCard({
   row,
   onEdit,
   onRemove,
+  onResend,
+  isResending,
   isViewer,
 }: {
   row: TeamMemberRow;
@@ -325,6 +328,17 @@ function FilledSeatCard({
    */
   onEdit?: (row: TeamMemberRow) => void;
   onRemove?: (row: TeamMemberRow) => void;
+  /**
+   * Re-sends the invitation this seat is holding.
+   *
+   * Supplied only while that invitation is still OPEN, which the caller decides: the card cannot
+   * tell an unanswered invite from one nobody has accepted yet, and the server refuses the
+   * states a resend cannot mean anything in anyway (already accepted, deactivated, a Contact).
+   * Absent for the Owner — their row is synthesized, so there is no profile to address.
+   */
+  onResend?: (row: TeamMemberRow) => void;
+  /** This card's invitation is in flight, so only its own button shows the wait. */
+  isResending?: boolean;
   /** This seat belongs to the reader — see `viewerUserId`. */
   isViewer?: boolean;
 }) {
@@ -409,15 +423,38 @@ function FilledSeatCard({
         </span>
       </button>
 
-      {onRemove ? (
-        <button
-          type="button"
-          onClick={() => onRemove(row)}
-          className="mt-auto inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <UserRoundMinus className="h-3 w-3" />
-          Remove from seat
-        </button>
+      {onRemove || onResend ? (
+        <span className="mt-auto flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5">
+          {/* Chasing an unanswered invitation and giving the seat up are both reactions to the
+              SAME card state ("Invited"), so they sit together at the foot of the card. The
+              resend label is kept as short as the action is narrow; the pair may wrap to two
+              lines on a narrow card, which is why `mt-auto` moved to this wrapper. */}
+          {onResend ? (
+            <button
+              type="button"
+              onClick={() => onResend(row)}
+              disabled={isResending}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-accent-blue transition hover:bg-accent-blue/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isResending ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <MailPlus className="h-3 w-3" />
+              )}
+              {isResending ? "Sending…" : "Resend invite"}
+            </button>
+          ) : null}
+          {onRemove ? (
+            <button
+              type="button"
+              onClick={() => onRemove(row)}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              <UserRoundMinus className="h-3 w-3" />
+              Remove from seat
+            </button>
+          ) : null}
+        </span>
       ) : null}
     </div>
   );
@@ -457,13 +494,21 @@ function CollaboratorRow({
   onEdit,
   onToggleActive,
   onRemove,
+  onResend,
+  isResending,
 }: {
   row: TeamMemberRow;
-  /** All three are optional: a reader who may not manage gets the row, without its actions. */
+  /** All of these are optional: a reader who may not manage gets the row, without its actions. */
   onEdit?: (row: TeamMemberRow) => void;
   onToggleActive?: (row: TeamMemberRow) => void;
   /** Removes the person and the access that goes with them. Absent while loading. */
   onRemove?: (row: TeamMemberRow) => void;
+  /**
+   * Re-sends an open invitation. A collaborator is invited by email too, so the same unanswered
+   * invitation can need chasing here — see `FilledSeatCard`, which gates it the same way.
+   */
+  onResend?: (row: TeamMemberRow) => void;
+  isResending?: boolean;
 }) {
   const isDeactivated = Boolean(row.deactivatedAt);
   // The action cluster renders only when the caller supplied it — that is how the read-only
@@ -508,6 +553,25 @@ function CollaboratorRow({
 
       {showsActions ? (
         <span className="flex shrink-0 flex-wrap items-center gap-1">
+          {/* "Invited" is the only state with an unanswered invitation to chase, and the caller
+              supplies this handler for exactly that state — so the button appears when it can
+              work and is absent rather than refused when it cannot. */}
+          {onResend ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-accent-blue hover:text-accent-blue"
+              disabled={isResending}
+              onClick={() => onResend(row)}
+            >
+              {isResending ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <MailPlus className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {isResending ? "Sending…" : "Resend"}
+            </Button>
+          ) : null}
           <Button variant="ghost" size="sm" onClick={() => onEdit?.(row)}>
             <Pencil className="mr-1.5 h-3.5 w-3.5" />
             Edit
@@ -701,6 +765,14 @@ export function TeamMembersSection() {
   const [canManage, setCanManage] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  /**
+   * The profile whose invitation is being re-sent.
+   *
+   * Its own state rather than `isSubmitting`, which belongs to the dialogs: the roster is on
+   * screen the whole time, and a resend must put exactly ONE card's button into its waiting
+   * state. It also stops a double click from sending two emails.
+   */
+  const [resendingProfileId, setResendingProfileId] = useState<string | null>(null);
   const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
 
   // Used only to answer "is the signed-in user the organization owner?" for the
@@ -961,17 +1033,28 @@ export function TeamMembersSection() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          // A PICKED contact pins the type to the button the advisor pressed. The domain
-          // guess is moot once the profile is known, and guessing "collaborator" for an
-          // external address would contradict a button that said "Add Team Member".
+          // The button the advisor pressed decides the TYPE — it is never left to the email
+          // domain.
           //
-          // The typed path does NOT pin the type for a Team Member, because the modal's copy
-          // tells the advisor the domain decides — that behaviour predates this form and is
-          // left intact rather than changed quietly.
+          // The typed path used to omit this for a Team Member, so the server fell back to
+          // `guessPersonTypeForEmail` and an address off the organization's domain — a gmail
+          // one, a spouse's, a TPA's — was filed as a free Collaborator under a button that
+          // said "Add Team Member": the person appeared in the wrong list, holding no seat,
+          // while the dialog's copy blamed the domain for it.
+          //
+          // Spec T3 item 4 is explicit that the domain guess is only a DEFAULT ("the user can
+          // override"), and choosing the Team Member flow is that override. The benefits
+          // wizard's Give Team Seat dialog has always sent `type: "team_member"` for this same
+          // reason (`give-team-seat-dialog.tsx`), so this brings the two writers of a seat in
+          // line rather than inventing a rule.
+          //
+          // A full seat allowance now surfaces as the upgrade confirm (`seat_limit`) instead of
+          // being silently downgraded, which is what the seat meter beside this list already
+          // promises.
+          type: addType,
           ...(pickedContact
             ? {
                 profileId: pickedContact.profileId,
-                type: addType,
                 // The picked contact's own name, so the record matches what the advisor
                 // just chose. Its parts are not sent: the server keeps the stored first and
                 // last names rather than re-splitting this single string.
@@ -985,9 +1068,6 @@ export function TeamMembersSection() {
                 phoneExtension,
                 headshot,
                 companyName,
-                ...(addType === "collaborator"
-                  ? { type: "collaborator" as const }
-                  : {}),
               }),
           role: addAccess.role,
           planScope: addAccess.planScope,
@@ -1033,6 +1113,14 @@ export function TeamMembersSection() {
       } else if (body.member?.state === "active") {
         toast.success(
           `${summary} They already have an account, so no invitation was needed.`,
+        );
+      } else if (body.member?.state === "invited") {
+        // Reachable only when the invite window was ALREADY open: `startedInviteWindow` is
+        // false for an `invited` profile, so the server neither moved the state nor sent
+        // anything. The advisor sees a success with no email and would otherwise wait for
+        // one — and the link they would go looking for is the one already in their inbox.
+        toast.success(
+          `${summary} Their invitation was already open, so no new email was sent.`,
         );
       } else {
         toast.success(summary);
@@ -1126,6 +1214,72 @@ export function TeamMembersSection() {
       toast.error("Could not update this person");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  /**
+   * Re-send an invitation that is still open.
+   *
+   * Reports what the server actually did rather than assuming: a LAPSED hold is re-opened, so
+   * the email carries a fresh link and a full window, while a live one is redelivered with the
+   * window it has left. The message says which, so an advisor does not tell the recipient to
+   * expect a fortnight that is not there.
+   *
+   * The invitation itself is never rolled back by a mail failure — the server reports it in
+   * `emailError` — so that is shown as a delivery problem (a warning) rather than an error that
+   * invites the reader to retry a write that already happened.
+   */
+  const submitResendInvite = async (row: TeamMemberRow) => {
+    if (!row.profileId) return;
+    setResendingProfileId(row.profileId);
+    try {
+      const response = await fetch(`/api/teammates/team/${row.profileId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "resend_invite" }),
+      });
+
+      const body = (await response.json()) as {
+        error?: string;
+        seats?: SeatUsageSummary;
+        emailSent?: boolean;
+        emailError?: string | null;
+        member?: {
+          refreshedWindow?: boolean;
+          expiresInDays?: number;
+        };
+      };
+
+      if (!response.ok) {
+        toast.error(body.error ?? "Could not resend the invitation");
+        return;
+      }
+
+      if (body.seats) setSeats(body.seats);
+
+      const days = body.member?.expiresInDays;
+      const windowNote =
+        typeof days === "number"
+          ? body.member?.refreshedWindow
+            ? ` A fresh invitation was issued and expires in ${days} day${days === 1 ? "" : "s"}.`
+            : ` Their invitation has ${days} day${days === 1 ? "" : "s"} left.`
+          : "";
+
+      if (body.emailSent) {
+        toast.success(`Invitation re-sent to ${row.email}.${windowNote}`);
+      } else {
+        toast.warning(
+          body.emailError
+            ? `Could not send the invitation: ${body.emailError}`
+            : "The invitation was not sent.",
+        );
+      }
+
+      await load();
+    } catch {
+      toast.error("Could not resend the invitation");
+    } finally {
+      setResendingProfileId(null);
     }
   };
 
@@ -1396,6 +1550,19 @@ export function TeamMembersSection() {
                         ? undefined
                         : (target) => setRemoving(target)
                     }
+                    // Only for an invitation that has not been answered yet: the badge on the
+                    // card says "Invited", and an accepted member has no email to chase. The
+                    // Owner has no profile to address at all.
+                    onResend={
+                      canManage &&
+                      !row.isOwner &&
+                      !row.deactivatedAt &&
+                      row.status === "invited" &&
+                      row.profileId
+                        ? submitResendInvite
+                        : undefined
+                    }
+                    isResending={resendingProfileId === row.profileId}
                   />
                 ))}
                 {/* Open seats are an invitation to add somebody, so they are the manager's
@@ -1485,6 +1652,17 @@ export function TeamMembersSection() {
                         ? (target) => setRemovingPerson(target)
                         : undefined
                     }
+                    // Same gate as the seat card: an open invitation is the only state with an
+                    // email to re-send.
+                    onResend={
+                      canManage &&
+                      !row.deactivatedAt &&
+                      row.status === "invited" &&
+                      row.profileId
+                        ? submitResendInvite
+                        : undefined
+                    }
+                    isResending={resendingProfileId === row.profileId}
                   />
                 ))}
               </ul>
@@ -1530,14 +1708,20 @@ export function TeamMembersSection() {
                   : "Existing contact"}
             </DialogTitle>
             <DialogDescription>
+              {/* The copy states what the BUTTON does, because that is now what decides the
+                  type. It used to promise that the email domain would decide and that an
+                  off-domain address would come out as a Collaborator — which the form no
+                  longer does, so leaving it would be a description of the previous
+                  behaviour. The Collaborator route is named where it matters instead of
+                  being left to a guess. */}
               {addStep === "choose"
                 ? addType === "collaborator"
                   ? "Someone outside your organization. No seat is used — scope them to the plans and benefit categories they should reach."
-                  : "Someone with an email on your organization's domain uses a seat; anyone else is added as a free Collaborator."
+                  : "One of your organization's own people. They hold a seat — scope them to the plans and benefit categories they should reach."
                 : addStep === "new"
                   ? addType === "collaborator"
                     ? "Enter their details, then scope them to the plans and benefit categories they should reach."
-                    : "Enter their details. The email domain decides the default: a match with your organization adds a Team Member (uses a seat), any other domain adds a Collaborator (free)."
+                    : "Enter their details, then scope them to the plans and benefit categories they should reach. They are added as a Team Member and hold a seat; use Add Collaborator for anyone outside your organization."
                   : "Pick somebody already on one of your plans. Their name and email come from the contact, so there is nothing to retype."}
             </DialogDescription>
           </DialogHeader>

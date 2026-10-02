@@ -10,6 +10,7 @@ import {
   getMembershipDetail,
   removePersonFromOrganization,
   removeTeamMemberFromSeat,
+  resendTeamMemberInvite,
   setTeamMemberActive,
   updateTeamMember,
 } from "@/lib/teammates/team.server";
@@ -62,7 +63,7 @@ export async function GET(
 /**
  * PATCH /api/teammates/team/[profileId]
  *
- * Five operations, chosen by `action`:
+ * Six operations, chosen by `action`:
  *
  *  - **no action** — edit: display name, role, plan access and benefits access.
  *    The scope is reconciled against the existing assignments through the same
@@ -73,6 +74,12 @@ export async function GET(
  *    profile is kept either way (deactivating ends access; reactivating restores
  *    it), and a deactivated Team Member's seat is released, which is why the
  *    response carries a fresh meter.
+ *  - **`action: "resend_invite"`** — re-deliver an invitation that is still open. A
+ *    delivery retry rather than a new grant: the link is derived from `invitedAt`, so an
+ *    open invitation goes out with the same link and the same remaining window (the email
+ *    states the days actually left). A LAPSED hold is re-opened instead, because its link
+ *    is already dead — `resendTeamMemberInvite` owns both paths, plus the seat re-check
+ *    and the refusals for a deactivated, already-accepted or un-invited person.
  *  - **`action: "delete"`** — spec T6 item 3, the third of the three separate
  *    actions. Only reachable with no assignments left: `deleteTeammateProfile`
  *    owns that guard (409 `profile_has_assignments`), so the client's disabled
@@ -131,6 +138,31 @@ export async function PATCH(
         success: true,
         member: { profileId: changed.profileId },
         seats: changed.seats,
+      });
+    }
+
+    if (body.action === "resend_invite") {
+      const resent = await resendTeamMemberInvite({
+        organizationId: session.organizationId,
+        actorUserId: session.userId,
+        profileId: params.profileId,
+      });
+
+      // `emailSent`/`emailError` are reported rather than thrown: a mail failure leaves the
+      // invitation exactly as it was, so it is a delivery problem to show the advisor, not a
+      // failed action to retry blindly.
+      return NextResponse.json({
+        success: true,
+        member: {
+          profileId: resent.profileId,
+          state: resent.state,
+          refreshedWindow: resent.refreshedWindow,
+          expiresInDays: resent.expiresInDays,
+        },
+        emailSent: resent.emailSent,
+        emailError: resent.emailError,
+        // A lapsed hold was re-taken, so the meter can move.
+        seats: resent.seats,
       });
     }
 

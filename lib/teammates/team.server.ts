@@ -20,6 +20,7 @@ import { assertOrganizationKeepsAnOwner } from "./access.server";
 import { recordTeammateAuditEvent } from "./audit.server";
 import { TeammateDataError } from "./errors";
 import { acceptanceUrlForProfile } from "./invite-link.server"
+import { inviteTokenExpiry } from "./invite-token.server";
 import {
   createTeammateProfile,
   deactivateTeammateProfile,
@@ -41,6 +42,7 @@ import {
   getSeatUsage,
   guessPersonTypeForEmail,
   INVITE_SEAT_HOLD_DAYS,
+  isInviteExpired,
   type SeatUsage,
 } from "./seats.server";
 import {
@@ -382,6 +384,17 @@ export async function addTeamMember(
     input.role ?? (personType === "team_member" ? "editor" : "contributor");
 
   const assignmentIds: string[] = [];
+  /**
+   * The grid the assignments actually STORE, kept so the invitation can name the access that
+   * was granted.
+   *
+   * Every assignment this loop writes carries the same grid (`upsertAssignment` settles it from
+   * the role, applying the auto-enforced rules and the collaborator hard blocks), so the first
+   * one is the whole story for the invitation. Captured from the written row rather than
+   * restated from the role's preset because that same row is where a Custom grid lives — and
+   * the email is a promise about access, not about a role name.
+   */
+  let grantedPermissions: TeammatePermissionSet | null = null;
   for (const clientId of targetPlanIds) {
     const assignment = await upsertAssignment({
       organizationId: input.organizationId,
@@ -393,6 +406,9 @@ export async function addTeamMember(
       categories,
     });
     assignmentIds.push(assignment.id);
+    if (!grantedPermissions) {
+      grantedPermissions = normalizePermissionSet(assignment.permissionSet);
+    }
   }
 
   // The state this call actually produced. `startedInviteWindow` above is exactly the
@@ -421,9 +437,30 @@ export async function addTeamMember(
     const contextPlanId =
       input.planId ?? (targetPlanIds.length === 1 ? targetPlanIds[0] : null);
 
+    /**
+     * Names for the plans a NARROWED invitation covers, so the email can list what the person
+     * is being given instead of only naming the firm.
+     *
+     * Not resolved for All Plans: enumerating every plan in the organization would be a wall of
+     * names where "All plans" is both shorter and more accurate — it is exactly the `allPlans`
+     * flag the profile now carries. The email shows that label only when a caller says so
+     * explicitly (`null`), which is why this resolves to an empty array rather than to nothing.
+     */
+    const scopedPlanNamesPromise =
+      planScope === "all_plans" || targetPlanIds.length === 0
+        ? Promise.resolve([] as { companyName: string }[])
+        : prisma.client.findMany({
+            where: {
+              id: { in: targetPlanIds },
+              organizationId: input.organizationId,
+            },
+            select: { companyName: true },
+            orderBy: { companyName: "asc" },
+          });
+
     // Resolved here rather than passed in: this layer holds ids, and the email needs human
     // names to open with.
-    const [organization, actor, invitePlan] = await Promise.all([
+    const [organization, actor, invitePlan, scopedPlans] = await Promise.all([
       prisma.organization.findUnique({
         where: { id: input.organizationId },
         select: { name: true },
@@ -438,6 +475,7 @@ export async function addTeamMember(
             select: { companyName: true },
           })
         : Promise.resolve(null),
+      scopedPlanNamesPromise,
     ]);
 
     try {
@@ -462,6 +500,22 @@ export async function addTeamMember(
           planName: invitePlan?.companyName ?? null,
           acceptUrl: link.url,
           expiresInDays: INVITE_SEAT_HOLD_DAYS,
+          // ── What the recipient is being given ──────────────────────────────────────
+          // Described from what was WRITTEN a few lines up rather than from the request: the
+          // role the assignment holds, the grid it stores, and the scope it covers. A mail that
+          // repeated the request could promise access the finalise step changed.
+          role,
+          permissions: grantedPermissions,
+          // `null` = "every plan", which is the honest label for an org-wide invite. A narrowed
+          // scope lists its plans; if a name cannot be resolved the list is empty and the email
+          // omits the row rather than claiming either.
+          planNames:
+            planScope === "all_plans"
+              ? null
+              : scopedPlans.map((plan) => plan.companyName),
+          // Omitted (not "all") unless the caller scoped the person to named categories: an
+          // empty list means "all categories", which is a claim only the caller can make.
+          categories: categoryScope === "selected" ? categories : null,
         });
         emailSent = true;
       }
@@ -477,6 +531,247 @@ export async function addTeamMember(
     personType,
     state,
     assignmentIds,
+    emailSent,
+    emailError,
+    seats: await getSeatUsage(input.organizationId),
+  };
+}
+
+export interface ResendInviteResult {
+  profileId: string;
+  /** Always `invited` when this returns — the call refuses anything else. */
+  state: TeammateProfileState;
+  /**
+   * True when the previous window had LAPSED and this call opened a fresh one, so the emailed
+   * link is new. False for a straight redelivery, which carries the link and the window the
+   * person already had.
+   */
+  refreshedWindow: boolean;
+  /** Days the emailed link has left. What the email states, so the two cannot disagree. */
+  expiresInDays: number;
+  emailSent: boolean;
+  emailError: string | null;
+  seats: SeatUsage;
+}
+
+/**
+ * Re-send an invitation that is still open.
+ *
+ * A resend is a DELIVERY retry, not a new grant. The link is minted from `invitedAt`
+ * (`invite-token.server.ts`), so an open invitation goes out again with the same link and the
+ * SAME window — the advisor is chasing an email, not extending a seat hold. The email is told
+ * the days that are actually left, because "expires in 14 days" on a twelve-day-old invite would
+ * be a lie.
+ *
+ * The one case that does start a new window is a LAPSED hold, and it has to: until a manager's
+ * next read sweeps it, the profile is still `invited` in the database while its link is already
+ * dead, so redelivering the old token would deliver a link that is refused on arrival.
+ * `expireStaleInvites`' own two steps are replayed for this one person — release to `contact`,
+ * then invite again — which refreshes `invitedAt`, re-takes the seat through the same
+ * `assertSeatAvailable` check the add flow uses, and leaves two audited transitions behind.
+ *
+ * The three refusals are the states a resend cannot mean anything in: deactivated (there is no
+ * access to invite them to), already accepted (they have an account — sign in, not another
+ * email), and a Contact (no open invitation to re-send; inviting them is `addTeamMember`, which
+ * also decides the seat and the access).
+ */
+export async function resendTeamMemberInvite(input: {
+  organizationId: string;
+  actorUserId: string;
+  profileId: string;
+}): Promise<ResendInviteResult> {
+  const profile = await getTeammateProfile(input.profileId, input.organizationId);
+  if (!profile) {
+    throw new TeammateDataError(
+      "Teammate profile not found in this organization.",
+      404,
+    );
+  }
+  if (profile.deactivatedAt) {
+    throw new TeammateDataError(
+      "This person is deactivated. Reactivate them before sending an invitation.",
+      409,
+      "profile_deactivated",
+    );
+  }
+  if (profile.state === "active") {
+    throw new TeammateDataError(
+      "They have already accepted their invitation, so there is nothing to resend. They can sign in.",
+      409,
+      "invite_already_accepted",
+    );
+  }
+  if (profile.state !== "invited") {
+    throw new TeammateDataError(
+      "This person has no open invitation. Add them again to invite them.",
+      409,
+      "no_open_invitation",
+    );
+  }
+
+  let refreshedWindow = false;
+  if (isInviteExpired(profile.invitedAt)) {
+    // Only a Team Member holds a seat (spec T3 item 1), so only a Team Member's refreshed invite
+    // has to fit in the allowance. The released hold is what pays for it: `getSeatUsage`
+    // discounts a stale pending invite, so this is a re-take rather than a second seat.
+    if (profile.type === "team_member") {
+      await assertSeatAvailable({
+        organizationId: input.organizationId,
+        actorUserId: input.actorUserId,
+        confirmUpgrade: false,
+      });
+    }
+    await setProfileState({
+      id: profile.id,
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      state: "contact",
+    });
+    await upgradeContactToInvited({
+      id: profile.id,
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+    });
+    refreshedWindow = true;
+  }
+
+  // Re-read either way: `invitedAt` is what the link and the reported window derive from.
+  const current =
+    (await getTeammateProfile(input.profileId, input.organizationId)) ?? profile;
+
+  const email = current.email.trim();
+  const link = await acceptanceUrlForProfile({
+    id: current.id,
+    organizationId: input.organizationId,
+    email,
+  });
+  if (!link) {
+    // Without a window there is nothing to encode, and the link would be refused on arrival, so
+    // this is reported instead of emailed.
+    throw new TeammateDataError(
+      "This profile has no invite window to mint a link from.",
+      409,
+      "no_invite_window",
+    );
+  }
+
+  // The same context the first invitation carried, re-derived rather than stored. See
+  // `addTeamMember`: the email describes what was WRITTEN, so the role and the permissions are
+  // read back off the assignments instead of off the role's preset.
+  const [organization, actor, assignments] = await Promise.all([
+    prisma.organization.findUnique({
+      where: { id: input.organizationId },
+      select: { name: true },
+    }),
+    prisma.user.findUnique({
+      where: { id: input.actorUserId },
+      select: { name: true },
+    }),
+    prisma.planAssignment.findMany({
+      where: { profileId: current.id, organizationId: input.organizationId },
+      orderBy: { createdAt: "asc" },
+    }),
+  ]);
+
+  const clientIds = [
+    ...new Set(assignments.map((assignment) => assignment.clientId)),
+  ];
+  const clients = clientIds.length
+    ? await prisma.client.findMany({
+        where: { id: { in: clientIds }, organizationId: input.organizationId },
+        select: { id: true, companyName: true },
+      })
+    : [];
+  const companyNameById = new Map(
+    clients.map((client) => [client.id, client.companyName]),
+  );
+
+  /**
+   * Role and permissions are reported only while the assignments AGREE.
+   *
+   * One add writes one grid across every assignment, so agreement is the normal case; a per-plan
+   * edit can make them differ, and naming one grid as "your permissions" would then describe
+   * access the person does not hold everywhere. Reporting nothing is the honest option — the
+   * email simply leaves those lines out (see `permissionLines` in lib/email.ts).
+   */
+  const grids = assignments.map((assignment) =>
+    normalizePermissionSet(assignment.permissionSet),
+  );
+  const singleRole =
+    assignments.length > 0 &&
+    assignments.every((assignment) => assignment.role === assignments[0].role);
+  const singleGrid =
+    grids.length > 0 &&
+    grids.every((grid) => JSON.stringify(grid) === JSON.stringify(grids[0]));
+
+  const planNames = assignments
+    .map((assignment) => companyNameById.get(assignment.clientId))
+    .filter((name): name is string => Boolean(name));
+
+  // "All categories" is claimed only when EVERY assignment covers them; otherwise the union of
+  // the named ones, which can understate a scope but never overstate one.
+  const allCategories = assignments.every(
+    (assignment) => assignment.categoryScope === "all",
+  );
+  const categoryNames = [
+    ...new Set(
+      assignments.flatMap((assignment) =>
+        Array.isArray(assignment.categories)
+          ? (assignment.categories as string[])
+          : [],
+      ),
+    ),
+  ];
+
+  const windowEnd = inviteTokenExpiry(current.invitedAt ?? new Date());
+  const expiresInDays = Math.max(
+    1,
+    Math.ceil((windowEnd.getTime() - Date.now()) / (24 * 60 * 60 * 1000)),
+  );
+
+  let emailSent = false;
+  let emailError: string | null = null;
+  try {
+    await sendTeamMemberInviteEmail({
+      to: email,
+      memberName:
+        [current.firstName, current.lastName].filter(Boolean).join(" ") || null,
+      inviterName: actor?.name ?? null,
+      organizationName: organization?.name ?? null,
+      // Named only when there is exactly ONE plan, for the same reason the add path names one:
+      // the subject reads "…added you to Acme Corp", and a list there is worse than the firm.
+      planName:
+        assignments.length === 1
+          ? companyNameById.get(assignments[0].clientId) ?? null
+          : null,
+      acceptUrl: link.url,
+      expiresInDays,
+      role: singleRole ? (assignments[0].role as TeammateAssignmentRole) : null,
+      permissions: singleGrid ? grids[0] : null,
+      planNames: current.allPlans ? null : planNames,
+      categories: allCategories ? null : categoryNames,
+    });
+    emailSent = true;
+  } catch (error) {
+    emailError = error instanceof Error ? error.message : "Unknown email error";
+    console.error("[teammates/team] invitation resend failed", error);
+  }
+
+  // Logged whether or not the mail left: "we chased this person" and "the chase failed" are both
+  // worth answering later, and the details say which happened.
+  await recordTeammateAuditEvent({
+    organizationId: input.organizationId,
+    actorUserId: input.actorUserId,
+    action: "invite_resent",
+    profileId: current.id,
+    details: { emailSent, refreshedWindow, expiresInDays, to: email },
+  });
+
+  return {
+    profileId: current.id,
+    state: current.state as TeammateProfileState,
+    refreshedWindow,
+    expiresInDays,
     emailSent,
     emailError,
     seats: await getSeatUsage(input.organizationId),

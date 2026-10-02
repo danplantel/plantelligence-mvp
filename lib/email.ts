@@ -1,6 +1,15 @@
 import nodemailer from 'nodemailer';
 
 import { inviterFirmLabel } from "@/lib/teammates/invite-copy";
+import { describeRole } from "@/lib/teammates/role-summary";
+import {
+  PERMISSION_FUNCTIONS,
+  PERMISSION_FUNCTION_LABELS,
+  PRESET_ROLE_LABELS,
+  type PermissionFunction,
+  type TeammateAssignmentRole,
+  type TeammatePermissionSet,
+} from "@/types/teammate";
 
 // Create a transporter using environment variables
 const transporter = nodemailer.createTransport({
@@ -776,6 +785,30 @@ export interface CollaboratorInviteEmailInput {
   dueDate?: Date | null;
 }
 
+/**
+ * The value for one scope row of the invitation details, or `null` to leave the row out.
+ *
+ * The three inputs mean different things and must not collapse into each other:
+ *
+ *   - `null`      — the caller states the scope covers EVERYTHING → the "all" label is shown;
+ *   - a list      — the named members are listed;
+ *   - `undefined` — the caller did not report a scope at all → the row is omitted, because
+ *                   claiming "All plans" from silence is a promise we cannot keep, and an
+ *                   empty row would be worse than no row.
+ *
+ * An empty ARRAY therefore also omits the row: the caller told us the scope is narrowed but
+ * could not name what it covers, and neither the label nor a blank is true.
+ */
+function scopeRowValue(
+  names: string[] | null | undefined,
+  allLabel: string,
+): string | null {
+  if (names === null) return allLabel;
+  if (!Array.isArray(names)) return null;
+  const cleaned = names.map((name) => (name || "").trim()).filter(Boolean);
+  return cleaned.length > 0 ? cleaned.join(", ") : null;
+}
+
 /** Payload for the promotion email: a Contact becoming a Team Member. */
 export interface TeamMemberInviteEmailInput {
   to: string;
@@ -801,6 +834,30 @@ export interface TeamMemberInviteEmailInput {
   acceptUrl: string;
   /** How long the invitation stays valid, in days, for the copy. */
   expiresInDays?: number;
+  /**
+   * The role recorded on the assignment, rendered with its preset label ("Editor").
+   *
+   * The preset's one-line description is added from `lib/teammates/role-summary.ts`, which
+   * derives it from the very grids `PRESET_PERMISSION_GRIDS` feeds the API — so the sentence
+   * cannot describe a role the enforcement would not recognise.
+   */
+  role?: TeammateAssignmentRole | null;
+  /**
+   * The permission grid STORED on the assignment — never the preset the role name implies.
+   *
+   * The stored grid is what the API enforces, and a Custom role stores an edited one on this
+   * same row, so reading it back is the only way to show the recipient the access that was
+   * given rather than the access their role usually carries. Omitted, or nothing to report →
+   * the permission lines are left out and the email says nothing about them.
+   */
+  permissions?: TeammatePermissionSet | null;
+  /**
+   * Plan names the invitation covers, when it is narrower than the whole organization.
+   * `null` means "every plan" (the caller knows the scope is org-wide) and renders "All plans".
+   */
+  planNames?: string[] | null;
+  /** Benefit categories covered; `null` means all of them. See `scopeRowValue`. */
+  categories?: string[] | null;
 }
 
 /**
@@ -824,6 +881,10 @@ export async function sendTeamMemberInviteEmail({
   planName,
   acceptUrl,
   expiresInDays,
+  role,
+  permissions,
+  planNames,
+  categories,
 }: TeamMemberInviteEmailInput) {
   const firstName = (memberName || "").trim().split(" ")[0] || "there";
   const inviter =
@@ -860,6 +921,107 @@ export async function sendTeamMemberInviteEmail({
                                         </td>
                                     </tr>`
       : "";
+
+  // ── What is being offered ───────────────────────────────────────────────────────
+  //
+  // Rendered twice — the HTML block in the body and the plain-text alternative — so the two
+  // halves of one email cannot describe different access. The labels are ours; every VALUE
+  // arrives from the caller and is escaped, because an organization name, a plan name and a
+  // benefit-category name are all free text an advisor typed.
+  const roleLabel = role ? PRESET_ROLE_LABELS[role] : "";
+  /**
+   * The role's one-line description, DERIVED from the same preset grids the API enforces
+   * (`lib/teammates/role-summary.ts`). Skipped for a Custom role: there is no preset to
+   * describe, and the grid lines below say what this person was actually given.
+   */
+  const roleSummary = role && role !== "custom" ? describeRole(role).summary : "";
+
+  /**
+   * The stored grid, grouped by what it allows.
+   *
+   * Read from `permissions` — the grid the assignment STORES — rather than from the role's
+   * preset: a Custom role stores an edited grid on that same row, so only the stored grid can
+   * be promised back to the recipient. The caller passes it through `normalizePermissionSet`,
+   * so every one of the 14 functions is decided and none can be omitted by accident.
+   *
+   * `no_access` and `not_allowed` are grouped into one line: different radio labels in the UI,
+   * the same outcome here, and together they are the honest answer to "what can't I do?".
+   */
+  const permissionLines: { label: string; value: string }[] = [];
+  if (permissions) {
+    const canEdit: string[] = [];
+    const canView: string[] = [];
+    const canDo: string[] = [];
+    const noAccess: string[] = [];
+    for (const fn of PERMISSION_FUNCTIONS as readonly PermissionFunction[]) {
+      const access = permissions[fn];
+      const label = PERMISSION_FUNCTION_LABELS[fn];
+      if (access === "edit") canEdit.push(label);
+      else if (access === "view") canView.push(label);
+      else if (access === "allowed") canDo.push(label);
+      else noAccess.push(label);
+    }
+    if (canEdit.length) {
+      permissionLines.push({ label: "Can edit", value: canEdit.join(", ") });
+    }
+    if (canView.length) {
+      permissionLines.push({ label: "Can view", value: canView.join(", ") });
+    }
+    if (canDo.length) {
+      permissionLines.push({ label: "Can do", value: canDo.join(", ") });
+    }
+    if (noAccess.length) {
+      permissionLines.push({ label: "No access", value: noAccess.join(", ") });
+    }
+  }
+
+  const detailLines: { label: string; value: string }[] = [];
+  const firm = (organizationName || "").trim();
+  if (firm) detailLines.push({ label: "Organization", value: firm });
+  if (roleLabel) {
+    detailLines.push({
+      label: "Role",
+      value: roleSummary ? `${roleLabel} — ${roleSummary}` : roleLabel,
+    });
+  }
+  const planValue = scopeRowValue(planNames, "All plans");
+  if (planValue) detailLines.push({ label: "Plans", value: planValue });
+  const categoryValue = scopeRowValue(categories, "All benefit categories");
+  if (categoryValue) {
+    detailLines.push({ label: "Benefit categories", value: categoryValue });
+  }
+  detailLines.push(...permissionLines);
+
+  const detailRows = detailLines
+    .map(
+      ({ label, value }) => `
+                                                <tr>
+                                                    <td align="left" class="email-text-secondary" style="padding-bottom: 8px; font-size: 14px; color: #666680; line-height: 1.6;">${escapeHtml(label)}: <span class="email-text" style="font-weight: 600; color: #1a1a2e;">${escapeHtml(value)}</span></td>
+                                                </tr>`,
+    )
+    .join("");
+
+  /**
+   * The details block, or nothing at all when the caller reported none of them.
+   *
+   * Built from the existing `.email-text` / `.email-text-secondary` classes so it adapts to a
+   * dark client's colour scheme (both have overrides above) — a hard-coded fill would have
+   * needed a third class and a second place to keep the two templates in step.
+   */
+  const detailsBlock = detailLines.length
+    ? `
+                                    <tr>
+                                        <td align="center" style="padding-bottom: 20px;">
+                                            <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 420px;">
+                                                <tr>
+                                                    <td align="center" style="padding-bottom: 10px;">
+                                                        <p class="email-text" style="margin: 0; font-size: 15px; font-weight: 600; color: #1a1a2e;">Your invitation</p>
+                                                    </td>
+                                                </tr>${detailRows}
+                                            </table>
+                                        </td>
+                                    </tr>`
+    : "";
 
   const subject = safeDestination
     ? `${safeInviter} added you to ${safeDestination} on PlanTelligence`
@@ -918,7 +1080,7 @@ export async function sendTeamMemberInviteEmail({
                                                 ${safeInviter}${safeFirm && inviterName?.trim() ? ` (${safeFirm})` : ""} added you as a <strong style="color: #1a1a2e;">Team Member</strong> on PlanTelligence.
                                             </p>
                                         </td>
-                                    </tr>
+                                    </tr>${detailsBlock}
                                     <tr>
                                         <td align="center" style="padding-bottom: 20px;">
                                             <p class="email-text-secondary" style="margin: 0; font-size: 15px; color: #666680; line-height: 1.6;">
@@ -980,6 +1142,11 @@ export async function sendTeamMemberInviteEmail({
       `Hi ${firstName},`,
       ``,
       `${inviter} added you as a Team Member on PlanTelligence.`,
+      // The same rows as the HTML block, then a blank line so the "what you can do" list is
+      // visually separated from the sentence that follows it.
+      ...(detailLines.length
+        ? ["", ...detailLines.map(({ label, value }) => `${label}: ${value}`), ""]
+        : []),
       `Choose a password to activate your account, then you can sign in at any time.`,
       ``,
       `Accept the invitation: ${acceptUrl}`,

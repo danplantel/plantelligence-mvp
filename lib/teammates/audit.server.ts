@@ -36,6 +36,10 @@ export type TeammateAuditAction =
   | "assignment_visibility_changed"
   | "assignment_removed"
   | "collaborator_invited"
+  // Re-sending an invitation is its own action rather than a stray silence in the trail: it is
+  // the one way access is chased without anything about the grant changing, and "we chased them,
+  // and the mail failed" is exactly the kind of question the trail exists to answer.
+  | "invite_resent"
   | "custom_access_set"
   | "seat_limit_upgrade_confirmed";
 
