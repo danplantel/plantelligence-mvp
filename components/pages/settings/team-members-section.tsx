@@ -319,6 +319,7 @@ function FilledSeatCard({
   onRemove,
   onResend,
   isResending,
+  resendCooldownSeconds,
   isViewer,
 }: {
   row: TeamMemberRow;
@@ -339,6 +340,8 @@ function FilledSeatCard({
   onResend?: (row: TeamMemberRow) => void;
   /** This card's invitation is in flight, so only its own button shows the wait. */
   isResending?: boolean;
+  /** Seconds left of the resend cooldown; the button counts down and locks while it is above 0. */
+  resendCooldownSeconds?: number;
   /** This seat belongs to the reader — see `viewerUserId`. */
   isViewer?: boolean;
 }) {
@@ -433,7 +436,9 @@ function FilledSeatCard({
             <button
               type="button"
               onClick={() => onResend(row)}
-              disabled={isResending}
+              // Locked while the cooldown runs, exactly as the server would refuse it. Only the
+              // in-flight case gets the spinner: a countdown is a wait, not work in progress.
+              disabled={isResending || (resendCooldownSeconds ?? 0) > 0}
               className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-accent-blue transition hover:bg-accent-blue/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isResending ? (
@@ -441,7 +446,11 @@ function FilledSeatCard({
               ) : (
                 <MailPlus className="h-3 w-3" />
               )}
-              {isResending ? "Sending…" : "Resend invite"}
+              {isResending
+                ? "Sending…"
+                : (resendCooldownSeconds ?? 0) > 0
+                  ? `Resend in ${resendCooldownSeconds}s`
+                  : "Resend invite"}
             </button>
           ) : null}
           {onRemove ? (
@@ -496,6 +505,7 @@ function CollaboratorRow({
   onRemove,
   onResend,
   isResending,
+  resendCooldownSeconds,
 }: {
   row: TeamMemberRow;
   /** All of these are optional: a reader who may not manage gets the row, without its actions. */
@@ -509,6 +519,8 @@ function CollaboratorRow({
    */
   onResend?: (row: TeamMemberRow) => void;
   isResending?: boolean;
+  /** Seconds left of the resend cooldown; the button counts down and locks while it is above 0. */
+  resendCooldownSeconds?: number;
 }) {
   const isDeactivated = Boolean(row.deactivatedAt);
   // The action cluster renders only when the caller supplied it — that is how the read-only
@@ -561,7 +573,7 @@ function CollaboratorRow({
               variant="ghost"
               size="sm"
               className="text-accent-blue hover:text-accent-blue"
-              disabled={isResending}
+              disabled={isResending || (resendCooldownSeconds ?? 0) > 0}
               onClick={() => onResend(row)}
             >
               {isResending ? (
@@ -569,7 +581,11 @@ function CollaboratorRow({
               ) : (
                 <MailPlus className="mr-1.5 h-3.5 w-3.5" />
               )}
-              {isResending ? "Sending…" : "Resend"}
+              {isResending
+                ? "Sending…"
+                : (resendCooldownSeconds ?? 0) > 0
+                  ? `Resend in ${resendCooldownSeconds}s`
+                  : "Resend"}
             </Button>
           ) : null}
           <Button variant="ghost" size="sm" onClick={() => onEdit?.(row)}>
@@ -773,6 +789,51 @@ export function TeamMembersSection() {
    * state. It also stops a double click from sending two emails.
    */
   const [resendingProfileId, setResendingProfileId] = useState<string | null>(null);
+  /**
+   * When each profile's next resend becomes possible (epoch ms), and the clock the countdowns are
+   * measured against.
+   *
+   * The SERVER owns the rule and refuses inside the window (`INVITE_RESEND_COOLDOWN_SECONDS`);
+   * this is the honest mirror of it, so the button can be disabled with a countdown instead of
+   * inviting a click that comes back as a refusal. Nothing here decides anything: the successful
+   * response and the refusal each hand over the seconds, and `startResendCooldown` is the only
+   * writer — there is deliberately no copy of the duration in this file to drift from the API's.
+   */
+  const [resendCooldownUntil, setResendCooldownUntil] = useState<Record<string, number>>({});
+  const [cooldownNow, setCooldownNow] = useState(() => Date.now());
+
+  const startResendCooldown = useCallback((profileId: string, seconds: number) => {
+    if (seconds <= 0) return;
+    // The clock is refreshed here rather than left at its last tick: a stale `cooldownNow` would
+    // make the countdown OPEN at more than the server's window, since it measures `until - now`.
+    setCooldownNow(Date.now());
+    setResendCooldownUntil((prev) => ({
+      ...prev,
+      [profileId]: Date.now() + seconds * 1000,
+    }));
+  }, []);
+
+  /** True while some row is inside its cooldown — the only time the ticker needs to run. */
+  const resendCooldownActive = useMemo(
+    () => Object.values(resendCooldownUntil).some((until) => until > cooldownNow),
+    [resendCooldownUntil, cooldownNow],
+  );
+
+  // A second is the right granularity for a wait measured in seconds, and the interval exists
+  // only while one is running — an always-on timer on a settings tab would be a render a second
+  // for nothing.
+  useEffect(() => {
+    if (!resendCooldownActive) return;
+    const id = setInterval(() => setCooldownNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [resendCooldownActive]);
+
+  /** Seconds before this profile may be re-sent; 0 when it may be re-sent now. */
+  const resendCooldownSecondsLeft = (profileId: string | null): number => {
+    const until = profileId ? resendCooldownUntil[profileId] : undefined;
+    return until ? Math.max(0, Math.ceil((until - cooldownNow) / 1000)) : 0;
+  };
+
   const [showUpgradeConfirm, setShowUpgradeConfirm] = useState(false);
 
   // Used only to answer "is the signed-in user the organization owner?" for the
@@ -1228,6 +1289,14 @@ export function TeamMembersSection() {
    * The invitation itself is never rolled back by a mail failure — the server reports it in
    * `emailError` — so that is shown as a delivery problem (a warning) rather than an error that
    * invites the reader to retry a write that already happened.
+   *
+   * Deliberately does NOT re-read the roster. `load()` blanks BOTH lists behind their loading
+   * spinners, and a resend changes nothing either list renders: the person already has a row
+   * reading "Invited" — the state the server holds for a live hold AND for a lapsed one that no
+   * sweep has reached yet — no assignment moves, and the role, plan and category access are
+   * untouched. The one thing that CAN change is the meter, when a lapsed hold is re-taken, and
+   * that arrives in this response as `seats`. Refetching the world to learn it would trade a
+   * visible jolt across both sections for no new information.
    */
   const submitResendInvite = async (row: TeamMemberRow) => {
     if (!row.profileId) return;
@@ -1244,13 +1313,25 @@ export function TeamMembersSection() {
         seats?: SeatUsageSummary;
         emailSent?: boolean;
         emailError?: string | null;
+        retryAfterSeconds?: number;
         member?: {
           refreshedWindow?: boolean;
           expiresInDays?: number;
+          cooldownSeconds?: number;
         };
       };
 
       if (!response.ok) {
+        // A cooldown refusal is a "not yet" rather than a failure: the server names the seconds it
+        // would enforce, so the same countdown a successful resend starts runs from here — which
+        // means the NEXT click is prevented rather than refused again.
+        if (
+          row.profileId &&
+          typeof body.retryAfterSeconds === "number" &&
+          body.retryAfterSeconds > 0
+        ) {
+          startResendCooldown(row.profileId, body.retryAfterSeconds);
+        }
         toast.error(body.error ?? "Could not resend the invitation");
         return;
       }
@@ -1266,8 +1347,16 @@ export function TeamMembersSection() {
           : "";
 
       if (body.emailSent) {
+        // Locked the moment the mail leaves, from the server's own number — so the countdown on
+        // screen IS the window the API will enforce.
+        if (row.profileId && typeof body.member?.cooldownSeconds === "number") {
+          startResendCooldown(row.profileId, body.member.cooldownSeconds);
+        }
         toast.success(`Invitation re-sent to ${row.email}.${windowNote}`);
       } else {
+        // No cooldown on a failure: the server does not start one either, because the rule
+        // protects the recipient's inbox and nothing reached it. Locking the button here would
+        // take the button away at exactly the moment mail is broken.
         toast.warning(
           body.emailError
             ? `Could not send the invitation: ${body.emailError}`
@@ -1275,7 +1364,8 @@ export function TeamMembersSection() {
         );
       }
 
-      await load();
+      // No `load()` here on purpose — see the note on this handler. The meter was already folded
+      // in from the response above, and nothing else in either list changed.
     } catch {
       toast.error("Could not resend the invitation");
     } finally {
@@ -1563,6 +1653,7 @@ export function TeamMembersSection() {
                         : undefined
                     }
                     isResending={resendingProfileId === row.profileId}
+                    resendCooldownSeconds={resendCooldownSecondsLeft(row.profileId)}
                   />
                 ))}
                 {/* Open seats are an invitation to add somebody, so they are the manager's
@@ -1663,6 +1754,7 @@ export function TeamMembersSection() {
                         : undefined
                     }
                     isResending={resendingProfileId === row.profileId}
+                    resendCooldownSeconds={resendCooldownSecondsLeft(row.profileId)}
                   />
                 ))}
               </ul>

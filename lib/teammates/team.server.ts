@@ -538,6 +538,31 @@ export async function addTeamMember(
   };
 }
 
+/**
+ * How long one invitation must wait between resends — SIXTY SECONDS, and the number is the whole
+ * decision, so here is the reasoning rather than just the digit.
+ *
+ * The action is deliberate and manual, and it has exactly one legitimate reason to be repeated:
+ * "the first one never arrived". The two ways to get this wrong pull in opposite directions.
+ * Shorter — 5 or 10 seconds — does not stop the thing a cooldown exists to stop: an advisor
+ * clicks, finds nothing in the inbox a beat later, and clicks again, which is how one recipient
+ * ends up with three copies of one invitation inside a minute (and how a sending domain starts
+ * looking like a spammer to a provider). Longer — five minutes or more — starts refusing requests
+ * that are reasonable by then: the only lever a cooldown has is the reader's patience, and asking
+ * for minutes of it to re-send an email is a poor trade for a button an advisor presses on
+ * purpose.
+ *
+ * A minute is also what people have already been taught elsewhere: verification-email resends
+ * (Firebase Auth, and most products that copy it) lock for exactly 60 seconds, so a disabled
+ * button with a countdown reads as normal rather than as a limit this product invented.
+ *
+ * Enforced from the audit trail rather than a new column: every attempt is already recorded as
+ * `invite_resent`, so the rule needs no schema change, works across instances (unlike the
+ * in-process throttle on the accept endpoint), and cannot drift from the record of what actually
+ * happened.
+ */
+export const INVITE_RESEND_COOLDOWN_SECONDS = 60;
+
 export interface ResendInviteResult {
   profileId: string;
   /** Always `invited` when this returns — the call refuses anything else. */
@@ -552,6 +577,13 @@ export interface ResendInviteResult {
   expiresInDays: number;
   emailSent: boolean;
   emailError: string | null;
+  /**
+   * How long this profile must now wait before another resend is allowed.
+   *
+   * Reported rather than duplicated on the client: the UI shows a countdown from this number, so
+   * the lock it displays is the same one the server enforces.
+   */
+  cooldownSeconds: number;
   seats: SeatUsage;
 }
 
@@ -608,6 +640,37 @@ export async function resendTeamMemberInvite(input: {
       409,
       "no_open_invitation",
     );
+  }
+
+  // ── The resend cooldown ────────────────────────────────────────────────────────
+  //
+  // Checked BEFORE the lapsed-hold branch below, which mutates state: a refusal must never leave
+  // a released-then-reopened window behind. A previous attempt that FAILED to send does not start
+  // the cooldown — the rule protects the recipient's inbox, and a send that failed never reached
+  // it — so a broken mail server cannot also lock the advisor out of retrying.
+  const lastResend = await prisma.teammateAuditEvent.findFirst({
+    where: { profileId: profile.id, action: "invite_resent" },
+    orderBy: { createdAt: "desc" },
+    select: { createdAt: true, details: true },
+  });
+  if (
+    lastResend &&
+    (lastResend.details as { emailSent?: boolean } | null)?.emailSent !== false
+  ) {
+    const remainingMs =
+      INVITE_RESEND_COOLDOWN_SECONDS * 1000 -
+      (Date.now() - lastResend.createdAt.getTime());
+    if (remainingMs > 0) {
+      const retryAfterSeconds = Math.ceil(remainingMs / 1000);
+      throw new TeammateDataError(
+        `This invitation was re-sent less than a minute ago. Try again in ${retryAfterSeconds} second${
+          retryAfterSeconds === 1 ? "" : "s"
+        }.`,
+        429,
+        "invite_resend_cooldown",
+        retryAfterSeconds,
+      );
+    }
   }
 
   let refreshedWindow = false;
@@ -773,6 +836,7 @@ export async function resendTeamMemberInvite(input: {
     expiresInDays,
     emailSent,
     emailError,
+    cooldownSeconds: INVITE_RESEND_COOLDOWN_SECONDS,
     seats: await getSeatUsage(input.organizationId),
   };
 }

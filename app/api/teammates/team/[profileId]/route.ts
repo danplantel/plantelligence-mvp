@@ -158,6 +158,9 @@ export async function PATCH(
           state: resent.state,
           refreshedWindow: resent.refreshedWindow,
           expiresInDays: resent.expiresInDays,
+          // The window the server will enforce before another resend is allowed, so the button's
+          // countdown is the real lock rather than a second guess at it.
+          cooldownSeconds: resent.cooldownSeconds,
         },
         emailSent: resent.emailSent,
         emailError: resent.emailError,
@@ -247,7 +250,15 @@ export async function PATCH(
   } catch (error) {
     if (error instanceof TeammateDataError) {
       return NextResponse.json(
-        { error: error.message, code: error.code },
+        {
+          error: error.message,
+          code: error.code,
+          // Carried only when the refusal is a WAIT rather than a wall (the resend cooldown), so
+          // the client can start the same countdown a successful resend starts.
+          ...(error.retryAfterSeconds !== undefined
+            ? { retryAfterSeconds: error.retryAfterSeconds }
+            : {}),
+        },
         { status: error.status },
       );
     }
