@@ -6,11 +6,15 @@ import { format } from "date-fns";
 import {
   ArrowUpRight,
   Calendar,
+  CalendarClock,
   Clock,
+  History,
   Languages,
   MapPin,
   MessageCircle,
+  PlayCircle,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import {
@@ -19,6 +23,50 @@ import {
 } from "@/hooks/useWebinarHoverPreview";
 import { WebinarHoverPreviewLayer } from "@/components/webinars/webinar-hover-preview";
 import { cn } from "@/lib/utils";
+
+/**
+ * The empty state shared by the three meeting/webinar sections.
+ *
+ * An empty section is a normal, expected state — not an error — so it reads as an
+ * intentional invitation rather than a broken placeholder: one centred card, a
+ * brand-tinted icon, a plain-language heading, and a short line on what will appear
+ * here. Keeping one component means all three sections feel the same and the copy
+ * can't drift apart.
+ */
+function SectionEmptyState({
+  icon: Icon,
+  title,
+  description,
+  hint,
+  brandColor = "#1F3A60",
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+  /** Optional short nudge, e.g. "Check back soon". */
+  hint?: string;
+  brandColor?: string;
+}) {
+  return (
+    <div className="mx-auto flex w-full max-w-lg flex-col items-center rounded-2xl border border-gray-100 bg-gray-50/70 px-6 py-10 text-center">
+      <span
+        className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-100"
+        style={{ color: brandColor }}
+      >
+        <Icon className="h-6 w-6" strokeWidth={1.75} aria-hidden="true" />
+      </span>
+      <p className="text-base font-semibold text-gray-900">{title}</p>
+      <p className="mt-1 max-w-md text-sm leading-relaxed text-gray-500">
+        {description}
+      </p>
+      {hint ? (
+        <p className="mt-3 text-[11px] font-medium uppercase tracking-wide text-gray-400">
+          {hint}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 export interface UpcomingWebinar {
   id?: number | string;
@@ -974,68 +1022,13 @@ export function WebinarsSection({
             <p className="text-sm text-gray-500">Loading upcoming sessions…</p>
           )}
           {!isLoading && upcomingWebinars.length === 0 && (
-            <div className="flex items-center gap-4 rounded-xl border border-dashed border-gray-200 bg-white/70 p-4 text-gray-600 max-w-3xl mx-auto">
-              <svg
-                width="48"
-                height="48"
-                viewBox="0 0 48 48"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="text-gray-400"
-              >
-                <rect
-                  x="6"
-                  y="10"
-                  width="36"
-                  height="32"
-                  rx="4"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-                <line
-                  x1="6"
-                  y1="18"
-                  x2="42"
-                  y2="18"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-                <path
-                  d="M16 6V12"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M32 6V12"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-                <circle
-                  cx="24"
-                  cy="30"
-                  r="6"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-                <path
-                  d="M24 27V30L26 32"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <div>
-                <p className="font-semibold text-gray-800">
-                  No meetings currently scheduled
-                </p>
-                <p className="text-sm">
-                  New sessions will appear here as soon as they are added.
-                </p>
-              </div>
-            </div>
+            <SectionEmptyState
+              icon={CalendarClock}
+              brandColor={brandColor}
+              title="No upcoming sessions"
+              description="New meetings and webinars appear here as soon as they're scheduled, with the date, time, and a way to join."
+              hint="Check back soon"
+            />
           )}
           {upcomingWebinars.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1062,29 +1055,12 @@ export function WebinarsSection({
             </p>
           )}
           {!isLoading && pastMeetings.length === 0 && clientId && (
-            <div className="flex items-center gap-4 rounded-xl border border-dashed border-gray-200 bg-white/70 p-4 text-gray-600 max-w-3xl mx-auto">
-              <svg
-                width="48"
-                height="48"
-                viewBox="0 0 48 48"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="text-gray-400 shrink-0"
-              >
-                <rect x="6" y="10" width="36" height="32" rx="4" stroke="currentColor" strokeWidth="2" />
-                <line x1="6" y1="18" x2="42" y2="18" stroke="currentColor" strokeWidth="2" />
-                <path d="M16 6V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                <path d="M32 6V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-                <circle cx="24" cy="30" r="6" stroke="currentColor" strokeWidth="2" />
-                <path d="M24 27V30L26 32" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-              <div>
-                <p className="font-semibold text-gray-800">No past meetings</p>
-                <p className="text-sm">
-                  Completed sessions will appear here for this plan.
-                </p>
-              </div>
-            </div>
+            <SectionEmptyState
+              icon={History}
+              brandColor={brandColor}
+              title="No past meetings"
+              description="Completed sessions will be listed here once they've taken place, so you can look back on what was covered."
+            />
           )}
           {!isLoading && pastMeetings.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1110,68 +1086,12 @@ export function WebinarsSection({
             <p className="text-sm text-gray-500">Loading replays…</p>
           )}
           {!isLoadingReplays && webinarReplays.length === 0 && (
-            <div className="flex items-center gap-4 rounded-xl border border-dashed border-gray-200 bg-white/70 p-4 text-gray-600 max-w-3xl mx-auto">
-              <svg
-                width="48"
-                height="48"
-                viewBox="0 0 48 48"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-                className="text-gray-400"
-              >
-                <rect
-                  x="6"
-                  y="10"
-                  width="36"
-                  height="32"
-                  rx="4"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-                <line
-                  x1="6"
-                  y1="18"
-                  x2="42"
-                  y2="18"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-                <path
-                  d="M16 6V12"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-                <path
-                  d="M32 6V12"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                />
-                <circle
-                  cx="24"
-                  cy="30"
-                  r="6"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-                <path
-                  d="M24 27V30L26 32"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-              <div>
-                <p className="font-semibold text-gray-800">
-                  No webinar replays available
-                </p>
-                <p className="text-sm">
-                  Replays will appear here once webinars are added to this plan.
-                </p>
-              </div>
-            </div>
+            <SectionEmptyState
+              icon={PlayCircle}
+              brandColor={brandColor}
+              title="No replays yet"
+              description="Recorded webinars will appear here to watch on demand. When a session is recorded, it will show up in this list."
+            />
           )}
           {webinarReplays.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
