@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { mutate as mutateSwr } from "swr";
@@ -111,13 +111,59 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
   // below); a string (including "") = the advisor's own text, so clearing the field is not undone
   // by the fallback. Reset when the route points at another plan or benefit.
   const [customNameDraft, setCustomNameDraft] = useState<string | null>(null);
+  // True once the advisor edits the name here, so the load-time sync below never fights them.
+  const customNameEditedRef = useRef(false);
   // Step 1 renders its own skeleton while it loads the plan; the name field sits above it, so it
   // must not appear until Step 1 reports ready (see `BenefitsStep1`'s `onReady`).
   const [step1Ready, setStep1Ready] = useState(false);
   useEffect(() => {
     setCustomNameDraft(null);
+    customNameEditedRef.current = false;
     setStep1Ready(false);
   }, [planId, category]);
+
+  /**
+   * Load the Custom benefit's SAVED name straight from its Benefit row.
+   *
+   * The field's value otherwise comes from the persisted wizard draft AND Step 1's cached row
+   * snapshot, both of which can lag a rename made elsewhere (the Benefits list, another session) —
+   * which is exactly why this page showed a stale name while Browse Benefits showed the current
+   * one. `fetchBenefitRowsOnce` caches rows for 5s, so this read deliberately bypasses it with
+   * `cache: "no-store"`. When the DB holds a name it re-seeds `benefitTitle` — the column
+   * `saveBenefit()` writes — so the field, the page header and Step 1's Messaging headline all
+   * show the same value. An advisor who has already typed here is left alone, and an empty DB
+   * value leaves the existing draft/row fallbacks in place.
+   */
+  useEffect(() => {
+    if (!planId || !isCustomHubCategory(category)) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/clients/${encodeURIComponent(planId)}/benefits/${encodeURIComponent(
+            "Company / Plan Sponsor",
+          )}`,
+          { cache: "no-store", credentials: "same-origin" },
+        );
+        if (!res.ok) return;
+        const body = await res.json().catch(() => null);
+        if (cancelled || customNameEditedRef.current) return;
+        const saved =
+          typeof body?.benefit?.title === "string" ? body.benefit.title.trim() : "";
+        if (!saved) return;
+        const current = (useBenefitsWizardStore.getState().stepData.step1 ||
+          {}) as Record<string, unknown>;
+        if (current.benefitTitle !== saved) {
+          saveStepData(1, { ...current, benefitTitle: saved });
+        }
+      } catch {
+        // Fall back to the draft/row value already in the store.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [planId, category, saveStepData]);
 
   /**
    * The Custom benefit's name.
@@ -139,6 +185,7 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
   const customBenefitName = customNameDraft ?? (storedCustomName || rowCustomName);
 
   const handleCustomNameChange = (value: string) => {
+    customNameEditedRef.current = true;
     setCustomNameDraft(value);
     const current = useBenefitsWizardStore.getState().stepData.step1 || {};
     saveStepData(1, { ...current, benefitTitle: value });
