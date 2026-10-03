@@ -16,6 +16,16 @@
 export const CUSTOM_BENEFIT_CATEGORY = "Company / Plan Sponsor";
 
 /**
+ * Longest a benefit's name may be.
+ *
+ * A Custom benefit's name is stored in `Benefit.title` — the SAME column the Messaging **Intro
+ * Headline** writes for the canonical categories, which has always been capped at 35. The Custom
+ * Category Name therefore carries the identical cap: a value that is accepted in one field cannot
+ * be too long for the other, and both end up rendered in the same headline slot on the portal.
+ */
+export const BENEFIT_TITLE_MAX_LENGTH = 35;
+
+/**
  * Is this the Custom hub?
  *
  * Every spelling in play is accepted: the stored label, the wizard's `"Custom"`, and a

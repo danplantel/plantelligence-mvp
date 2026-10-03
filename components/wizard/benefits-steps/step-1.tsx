@@ -27,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { persistPlanSelection } from "@/lib/plan-selector-storage";
 import { storePendingDraftSelection } from "@/lib/draft-utils";
+import { BENEFIT_TITLE_MAX_LENGTH } from "@/lib/benefit-custom-name";
 import {
   Select,
   SelectContent,
@@ -2799,12 +2800,31 @@ export function BenefitsStep1({
                     data-field="benefitTitle"
                     destructive={isFieldInvalid("benefitTitle")}
                     placeholder="e.g. Disability Insurance, Wellness Program, HSA..."
+                    // `Benefit.title` is the same column the Messaging Intro Headline caps at 35,
+                    // so the Custom hub's name carries the identical limit.
+                    maxLength={BENEFIT_TITLE_MAX_LENGTH}
                     className={cn(
                       "bg-white border-gray-200 focus-visible:ring-[#23919C] h-10 dark:bg-gray-700 dark:border-gray-600",
                       isFieldInvalid("benefitTitle") &&
                         "border-red-500 dark:border-red-500",
                     )}
                   />
+                  <div className="flex justify-end">
+                    <span
+                      className={cn(
+                        "text-[10px] font-bold",
+                        getCustomCategoryNameValue().length >=
+                          BENEFIT_TITLE_MAX_LENGTH
+                          ? "text-red-500"
+                          : getCustomCategoryNameValue().length < 10
+                            ? "text-amber-500"
+                            : "text-green-500",
+                      )}
+                    >
+                      {getCustomCategoryNameValue().length} /{" "}
+                      {BENEFIT_TITLE_MAX_LENGTH} characters
+                    </span>
+                  </div>
                 </div>
               )}
 

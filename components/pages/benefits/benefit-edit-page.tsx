@@ -23,6 +23,7 @@ import {
 import { persistPlanSelection } from "@/lib/plan-selector-storage";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import {
+  BENEFIT_TITLE_MAX_LENGTH,
   displayCategoryName,
   isCustomHubCategory,
   isPlaceholderBenefitName,
@@ -454,12 +455,29 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
                         onChange={(e) => handleCustomNameChange(e.target.value)}
                         placeholder="e.g. Disability Insurance, Wellness Program, HSA..."
                         data-field="benefitTitle"
+                        // Same cap as the wizard's Custom Category Name and the Messaging Intro
+                        // Headline — all three write `Benefit.title`.
+                        maxLength={BENEFIT_TITLE_MAX_LENGTH}
                         className="h-10"
                       />
-                      <p className="text-xs text-muted-foreground">
-                        The name shown for this benefit in the Benefits list and on the
-                        portal.
-                      </p>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-xs text-muted-foreground">
+                          The name shown for this benefit in the Benefits list and on the
+                          portal.
+                        </p>
+                        <span
+                          className={cn(
+                            "shrink-0 text-[10px] font-semibold",
+                            customBenefitName.length >= BENEFIT_TITLE_MAX_LENGTH
+                              ? "text-red-500"
+                              : customBenefitName.length < 10
+                                ? "text-amber-500"
+                                : "text-muted-foreground",
+                          )}
+                        >
+                          {customBenefitName.length}/{BENEFIT_TITLE_MAX_LENGTH}
+                        </span>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
