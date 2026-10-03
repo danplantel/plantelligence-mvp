@@ -1,7 +1,11 @@
 "use client";
 
 import { AlertTriangle } from "lucide-react";
-import type { ContactEmailConflict } from "@/lib/contact-email-conflict";
+import { useContactEmailConflict } from "@/hooks/useContactEmailConflict";
+import type {
+  ContactEmailConflict,
+  ContactEmailEntry,
+} from "@/lib/contact-email-conflict";
 
 /**
  * Inline, blocking explanation for a reused contact email.
@@ -25,4 +29,41 @@ export function ContactEmailConflictNotice({
       <span>{conflict.message}</span>
     </p>
   );
+}
+
+/**
+ * Self-contained conflict hint for lists that render many contacts in one map.
+ *
+ * A hook cannot be called inside the map body, so this tiny component owns the hook
+ * call per row — the auto-saving Create Plan inline editor (`ContactSectionEditor`)
+ * uses it under each Email field. There is no save gate to block (the row persists on
+ * every keystroke), so this surfaces the conflict rather than refusing the write.
+ * Pass `planId={null}` to keep it to the in-memory duplicate check and avoid an
+ * owner/teammate false positive on a row that legitimately is that person.
+ */
+export function ContactEmailConflictHint({
+  planId = null,
+  email,
+  excludeContactId,
+  originalEmail,
+  genericMessage = false,
+  contacts,
+}: {
+  planId?: string | null;
+  email?: string | null;
+  excludeContactId?: string | null;
+  originalEmail?: string | null;
+  /** Replace the specific holder with one generic sentence (Create Plan). */
+  genericMessage?: boolean;
+  contacts?: ContactEmailEntry[] | null;
+}) {
+  const { conflict } = useContactEmailConflict({
+    planId,
+    email,
+    excludeContactId,
+    originalEmail,
+    genericMessage,
+    contacts,
+  });
+  return <ContactEmailConflictNotice conflict={conflict} />;
 }

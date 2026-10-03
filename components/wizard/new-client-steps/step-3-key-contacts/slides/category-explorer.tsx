@@ -28,6 +28,7 @@ import { BenefitsCategory } from "@/types/new-client-wizard";
 import { cn } from "@/lib/utils";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { getContactCountForCategory } from "@/lib/contact-info";
+import { ContactCard, formatContactPhone } from "@/components/contacts/contact-card";
 
 // ==================== Types ====================
 
@@ -70,14 +71,6 @@ const CATEGORY_ICON: Record<string, React.ComponentType<{ className?: string }>>
   "Group Life": Heart,
   "Other Benefits": Puzzle,
   "Third Party Contact": Users,
-};
-
-/** Format a 10-digit phone as (XXX)-XXX-XXXX (e.g. 3333333333 → (333)-333-3333). */
-const formatContactPhone = (phone?: string): string => {
-  const digits = (phone || "").replace(/\D/g, "");
-  const national = digits.length > 10 ? digits.slice(1) : digits;
-  if (national.length !== 10) return phone || "";
-  return `(${national.slice(0, 3)})-${national.slice(3, 6)}-${national.slice(6, 10)}`;
 };
 
 // ==================== Component ====================
@@ -393,8 +386,7 @@ export function CategoryExplorer({
 
   // Delete a contact
   const handleDeleteContact = useCallback(
-    (contactId: string, e: React.MouseEvent) => {
-      e.stopPropagation();
+    (contactId: string) => {
       const updatedContacts = contacts.filter(
         (c: any) => c.id !== contactId,
       );
@@ -518,7 +510,7 @@ export function CategoryExplorer({
       )}
 
       {/* Header */}
-      <div className="text-center space-y-2 max-w-2xl">
+      <div className="text-center space-y-2 max-w-3xl">
         <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
           Add contacts for specific benefit categories.
         </h2>
@@ -535,7 +527,7 @@ export function CategoryExplorer({
 
       {/* Main Contact Section — shows Plan Sponsor (if chosen) or the first contact (Someone Else) */}
       {mainContacts.length > 0 && (
-        <div className="w-full max-w-2xl">
+        <div className="w-full max-w-6xl">
           <div className="flex items-center gap-2 mb-1">
             <Building2 className="w-6 h-6 text-accent-blue" />
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
@@ -623,7 +615,7 @@ export function CategoryExplorer({
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={(e) => handleDeleteContact(contact.id, e)}
+                      onClick={() => handleDeleteContact(contact.id)}
                       className="h-8 w-8 p-0 rounded-full text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
                       title={`Delete ${name}`}
                     >
@@ -638,7 +630,7 @@ export function CategoryExplorer({
       )}
 
       {/* Benefit Categories Section Header */}
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-6xl">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
@@ -657,7 +649,7 @@ export function CategoryExplorer({
       </div>
 
       {/* Expandable Category Rows */}
-      <div className="w-full max-w-2xl space-y-2">
+      <div className="w-full max-w-6xl space-y-2">
         {orderedCategories.map((category) => {
           const count = getCategoryStatus(category);
           const isCovered = count > 0;
@@ -748,145 +740,38 @@ export function CategoryExplorer({
                 </div>
               </button>
 
-              {/* Expanded Contact List */}
+              {/* Expanded Contact List — the SAME grid cards the Edit Client Key Contacts
+                  tab renders. The seat control is omitted: this draft has no persisted plan
+                  to grant a seat against. */}
               {isExpanded && (
-                <div className="border-t border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
+                <div className="border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3">
                   {categoryContacts.length > 0 ? (
-                    categoryContacts.map((contact: any) => {
-                      const name = getContactDisplayName(contact);
-                      const companyName = contact.companyName || contact.organization || "";
-                      const email = contact.email || "";
-                      const phone = contact.phone || "";
-                      const formattedPhone = formatContactPhone(phone);
-
-                      return (
-                        <div
+                    <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      {categoryContacts.map((contact: any) => (
+                        <ContactCard
                           key={contact.id}
-                          className="flex items-center justify-between px-4 py-2.5 bg-white dark:bg-gray-800"
-                        >
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            {contact.contactType === "team_support" &&
-                            (contact.companyLogo || contact.logo) ? (
-                              <div className="w-7 h-7 rounded-full overflow-hidden bg-white dark:bg-gray-800 flex items-center justify-center flex-shrink-0 border border-gray-100 dark:border-gray-600">
-                                <BrandingImage
-                                  src={contact.companyLogo || contact.logo || ""}
-                                  alt={name}
-                                  className="w-full h-full object-contain p-0.5"
-                                />
-                              </div>
-                            ) : contact.headshot ? (
-                              <div className="w-7 h-7 rounded-full overflow-hidden flex-shrink-0">
-                                <Headshot src={contact.headshot} alt={name} />
-                              </div>
-                            ) : (
-                              <div className="w-7 h-7 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
-                                <User className="w-3.5 h-3.5 text-gray-500 dark:text-gray-400" />
-                              </div>
-                            )}
-                            <div className="flex flex-col min-w-0">
-                              <span className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
-                                {name}
-                              </span>
-                              <div className="flex items-center gap-3 text-xs text-gray-400 dark:text-gray-500">
-                                {companyName && category === "Third Party Contact" && (
-                                  <span className="flex items-center gap-1 truncate max-w-[120px]">
-                                    <Building2 className="w-3 h-3 flex-shrink-0" />
-                                    {companyName}
-                                  </span>
-                                )}
-                                {email && (
-                                  <span className="flex items-center gap-1 truncate">
-                                    <Mail className="w-3 h-3 flex-shrink-0" />
-                                    {email}
-                                  </span>
-                                )}
-                                {formattedPhone && (
-                                  <span className="flex items-center gap-1">
-                                    <Phone className="w-3 h-3 flex-shrink-0" />
-                                    {formattedPhone}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-                            {/* Primary toggle */}
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleSetPrimary(contact.id, category);
-                              }}
-                              className={cn(
-                                "flex items-center gap-1 px-1.5 py-1 rounded text-xs transition-colors",
-                                contact.isPrimaryOverall || contact.isPrimary
-                                  ? "text-amber-500 hover:text-amber-600"
-                                  : "text-gray-300 hover:text-gray-400 dark:text-gray-600 dark:hover:text-gray-400",
-                              )}
-                              title={
-                                contact.isPrimaryOverall || contact.isPrimary
-                                  ? "Primary contact"
-                                  : "Mark as primary"
-                              }
-                            >
-                              <Star
-                                className={cn(
-                                  "w-3.5 h-3.5",
-                                  (contact.isPrimaryOverall || contact.isPrimary) && "fill-amber-500",
-                                )}
-                              />
-                            </button>
-                            {onEditContact && (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleEditContact(category, contact);
-                                }}
-                                className="h-7 px-1.5 text-xs text-accent-blue hover:text-accent-blue/80 hover:bg-accent-blue/10 rounded-md"
-                                title={`Edit ${name}`}
-                              >
-                                <Pencil className="w-3 h-3 mr-1" />
-                                Edit
-                              </Button>
-                            )}
-                            {onInviteContact && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onInviteContact(category, contact);
-                                }}
-                                className="h-7 px-1.5 text-xs text-muted-foreground hover:text-foreground"
-                                title={`Invite ${name} to collaborate`}
-                              >
-                                <UserPlus className="w-3 h-3 mr-1" />
-                                Invite
-                              </Button>
-                            )}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={(e) => handleDeleteContact(contact.id, e)}
-                              className="h-7 w-7 p-0 rounded-full text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                              title={`Delete ${name}`}
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="px-4 py-4 text-center bg-white dark:bg-gray-800">
-                      <p className="text-xs text-gray-400 dark:text-gray-500">
-                        No contacts added yet.
-                      </p>
+                          contact={contact}
+                          isPrimary={!!(contact.isPrimaryOverall || contact.isPrimary)}
+                          showSeatControl={false}
+                          onTogglePrimary={() => handleSetPrimary(contact.id, category)}
+                          onEdit={
+                            onEditContact
+                              ? () => handleEditContact(category, contact)
+                              : undefined
+                          }
+                          onInvite={
+                            onInviteContact
+                              ? () => onInviteContact(category, contact)
+                              : undefined
+                          }
+                          onDelete={() => handleDeleteContact(contact.id)}
+                        />
+                      ))}
                     </div>
+                  ) : (
+                    <p className="text-center text-xs text-gray-400 dark:text-gray-500 py-4">
+                      No contacts added yet.
+                    </p>
                   )}
                 </div>
               )}
@@ -902,7 +787,7 @@ export function CategoryExplorer({
           kind of contact. It is not one: a collaborator is someone handed access
           so they can complete their own profile, so it gets its own section. */}
       {onInviteCollaborator && (
-        <div className="w-full max-w-2xl">
+        <div className="w-full max-w-6xl">
           <div className="flex items-center gap-2 mb-1">
             <UserPlus className="w-6 h-6 text-accent-blue" />
             <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">

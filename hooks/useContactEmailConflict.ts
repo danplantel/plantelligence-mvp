@@ -35,20 +35,29 @@ export function useContactEmailConflict({
   email,
   excludeContactId,
   originalEmail,
+  genericMessage = false,
   contacts,
 }: {
   planId?: string | null;
   email?: string | null;
   excludeContactId?: string | null;
   originalEmail?: string | null;
+  /** Replace the specific holder with one generic sentence (Create Plan). */
+  genericMessage?: boolean;
   contacts?: ContactEmailEntry[] | null;
 }): { conflict: ContactEmailConflict | null; checking: boolean } {
   const normalized = normalizeContactEmail(email);
 
   const localConflict = useMemo(
     () =>
-      findContactEmailConflict({ email, excludeContactId, originalEmail, contacts }),
-    [email, excludeContactId, originalEmail, contacts],
+      findContactEmailConflict({
+        email,
+        excludeContactId,
+        originalEmail,
+        genericMessage,
+        contacts,
+      }),
+    [email, excludeContactId, originalEmail, genericMessage, contacts],
   );
 
   const shouldFetch = !!planId && !!normalized && !localConflict;
@@ -67,11 +76,20 @@ export function useContactEmailConflict({
       email,
       excludeContactId,
       originalEmail,
+      genericMessage,
       contacts: [],
       ownerEmails: data.ownerEmails ?? [],
       teammates: data.assignments ?? [],
     });
-  }, [localConflict, normalized, data, email, excludeContactId, originalEmail]);
+  }, [
+    localConflict,
+    normalized,
+    data,
+    email,
+    excludeContactId,
+    originalEmail,
+    genericMessage,
+  ]);
 
   return { conflict, checking: shouldFetch && isLoading };
 }

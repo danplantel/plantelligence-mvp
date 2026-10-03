@@ -57,6 +57,14 @@ export function normalizeContactEmail(email?: string | null): string {
   return (email || "").trim().toLowerCase();
 }
 
+/**
+ * Wording used when the caller wants to hide WHY the address is taken (Create Plan).
+ * The advisor only needs to know the address is not free, not that it belongs to the
+ * owner or a teammate.
+ */
+export const GENERIC_CONTACT_EMAIL_CONFLICT_MESSAGE =
+  "Another contact is already using this email address. Each contact needs a unique email.";
+
 /** Best display name for a contact row. */
 function contactDisplayName(entry: ContactEmailEntry): string {
   const explicit = (entry.name || "").trim();
@@ -92,6 +100,7 @@ export function findContactEmailConflict({
   email,
   excludeContactId,
   originalEmail,
+  genericMessage = false,
   contacts = [],
   ownerEmails = [],
   teammates = [],
@@ -108,6 +117,8 @@ export function findContactEmailConflict({
    * only a NEWLY borrowed address is refused. A changed address is checked in full.
    */
   originalEmail?: string | null;
+  /** Replace the specific holder with one generic sentence (Create Plan). */
+  genericMessage?: boolean;
   contacts?: ContactEmailEntry[] | null;
   ownerEmails?: string[] | null;
   teammates?: TeammateEmailEntry[] | null;
@@ -127,8 +138,9 @@ export function findContactEmailConflict({
       kind: "owner",
       email: normalized,
       label: "your organization's owner",
-      message:
-        "This email belongs to your organization's owner. A contact using the same address would be shown as the organization owner, so each needs its own email. Enter a different address.",
+      message: genericMessage
+        ? GENERIC_CONTACT_EMAIL_CONFLICT_MESSAGE
+        : "This email belongs to your organization's owner. A contact using the same address would be shown as the organization owner, so each needs its own email. Enter a different address.",
     };
   }
 
@@ -144,7 +156,9 @@ export function findContactEmailConflict({
       kind: "teammate",
       email: normalized,
       label,
-      message: `${label} already uses this email as a Team Member. A contact with the same address would be labelled as that teammate. Enter a different address.`,
+      message: genericMessage
+        ? GENERIC_CONTACT_EMAIL_CONFLICT_MESSAGE
+        : `${label} already uses this email as a Team Member. A contact with the same address would be labelled as that teammate. Enter a different address.`,
     };
   }
 
@@ -159,7 +173,9 @@ export function findContactEmailConflict({
       kind: "contact",
       email: normalized,
       label,
-      message: `${label} already uses this email on this plan. Each contact needs a unique address.`,
+      message: genericMessage
+        ? GENERIC_CONTACT_EMAIL_CONFLICT_MESSAGE
+        : `${label} already uses this email on this plan. Each contact needs a unique address.`,
     };
   }
 

@@ -36,6 +36,8 @@ import type { ContactFormTopic } from "@/lib/contact-form-topics";
 import { SupportIconPicker } from "@/components/ui/support-icon-picker";
 import { normalizeSupportIconId } from "@/lib/support-icons";
 import type { SupportIconId } from "@/lib/support-icons";
+import { ContactEmailConflictNotice } from "@/components/ui/contact-email-conflict-notice";
+import { useContactEmailConflict } from "@/hooks/useContactEmailConflict";
 
 // ==================== Types ====================
 
@@ -651,6 +653,25 @@ export function ContactFormSlide({
   // Whether the live Plantelligence `/contact` page preview modal is open.
   const [contactPreviewOpen, setContactPreviewOpen] = useState(false);
 
+  /**
+   * A contact's email must be unique across the plan and must not belong to the
+   * organization owner or a Team Member: the seat ladder matches the two by email, so
+   * a borrowed address would mislabel the card. Same rule the Client and Benefits
+   * editors enforce, resolved through the shared hook. The draft's plan id scopes the
+   * owner/assignment lookup; a brand-new plan has none, so only the in-memory roster
+   * (the contacts already added to this plan) is consulted.
+   */
+  const { conflict: emailConflict } = useContactEmailConflict({
+    planId: draftClientId,
+    email,
+    excludeContactId: step3bData.editingContactId || null,
+    originalEmail: contactBeingEdited?.email,
+    // Create Plan shows the generic "another contact is using this email" copy rather
+    // than naming the owner / teammate — the advisor only needs to know it is taken.
+    genericMessage: true,
+    contacts: (stepData.keyContacts?.contacts || []) as any[],
+  });
+
   // Validation state
   const [validationAttempted, setValidationAttempted] = useState(false);
   const [localErrors, setLocalErrors] = useState<string[]>([]);
@@ -1012,6 +1033,14 @@ export function ContactFormSlide({
   // Supports both creating new contacts and editing existing ones
   const saveContact = useCallback(
     (): string => {
+      // A reused email would make this contact read as the owner / a Team Member (the
+      // seat ladder matches by email), so refuse to persist it — the same rule the
+      // Client and Benefits editors enforce. Returning "" marks the save failed for
+      // the bottom-bar Next button.
+      if (emailConflict) {
+        toast.error(emailConflict.message);
+        return "";
+      }
       const keyContactsData = stepData.keyContacts || { contacts: [] };
       const savedContacts = keyContactsData.contacts || [];
       const shouldBePrimary = isPrimary;
@@ -1248,6 +1277,7 @@ export function ContactFormSlide({
       contactFormTopics,
       customBenefitTitle,
       supportIcon,
+      emailConflict,
       saveStepDataLocally,
     ],
   );
@@ -1329,6 +1359,13 @@ export function ContactFormSlide({
       if (!errors.includes("email")) errors.push("email");
     }
 
+    // A reused address would make this contact read as the organization owner or as an
+    // existing Team Member (the seat ladder matches by email), so it is a blocking
+    // error at the field — the same rule the Client and Benefits editors enforce.
+    if (emailConflict) {
+      if (!errors.includes("email")) errors.push("email");
+    }
+
     setLocalErrors(errors);
     setValidationAttempted(true);
 
@@ -1355,9 +1392,11 @@ export function ContactFormSlide({
         targetRef.current.focus();
       }
       toast.error(
-        enableCtaButton && ctaType === "contact" && !emailValid
-          ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
-          : "Please fill out all required fields",
+        emailConflict
+          ? emailConflict.message
+          : enableCtaButton && ctaType === "contact" && !emailValid
+            ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
+            : "Please fill out all required fields",
       );
     }
 
@@ -1376,6 +1415,7 @@ export function ContactFormSlide({
     ctaType,
     schedulingUrl,
     websiteUrl,
+    emailConflict,
   ]);
 
   // Handle Continue
@@ -1883,11 +1923,15 @@ export function ContactFormSlide({
                   }
                 }}
                 placeholder="e.g. john@company.com"
-                className={cn("h-8 text-sm", hasError("email") && "border-red-500")}
+                className={cn(
+                  "h-8 text-sm",
+                  (hasError("email") || emailConflict) && "border-red-500",
+                )}
               />
               {hasError("email") && (
                 <p className="text-[10px] text-red-500">Please enter a valid email address</p>
               )}
+              <ContactEmailConflictNotice conflict={emailConflict} />
             </div>
 
             {/* Email / Phone Visibility Toggles — shown directly below the Email

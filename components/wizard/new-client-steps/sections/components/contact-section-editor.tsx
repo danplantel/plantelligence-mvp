@@ -11,6 +11,7 @@ import { RotateCcw, ChevronDown, ChevronUp, Globe, Calendar, Mail, Phone, Buildi
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { cn } from "@/lib/utils";
 import { ContactFormFields } from "@/components/ui/contact-form-fields";
+import { ContactEmailConflictHint } from "@/components/ui/contact-email-conflict-notice";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { useEffect, useRef, useMemo } from "react";
 import { BenefitsCategory, KeyContact } from "@/types/new-client-wizard";
@@ -354,6 +355,17 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                                             placeholder="email@example.com"
                                                         />
                                                     </div>
+                                                    {/* Duplicate-address check only: this row auto-saves on every
+                                                        keystroke, so there is no save to block, and skipping the
+                                                        seat lookup avoids flagging a contact that legitimately is
+                                                        the owner / a teammate. */}
+                                                    <ContactEmailConflictHint
+                                                        planId={null}
+                                                        email={contact.email}
+                                                        excludeContactId={contact.id}
+                                                        genericMessage
+                                                        contacts={savedContacts}
+                                                    />
                                                 </div>
                                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                     <div className="space-y-1">
