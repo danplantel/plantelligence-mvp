@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -16,6 +17,14 @@ import { toast } from "sonner";
 import { ArrowLeft, ExternalLink, Trash2 } from "lucide-react";
 import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
 
+/**
+ * Phrase the advisor must type to unlock Delete Plan. Deleting removes the whole plan — its
+ * benefit pages, documents, contacts and meetings — so a single click is too cheap a
+ * confirmation. Mirrors the Delete Benefit dialog's gate; the phrase names the thing being
+ * deleted so the two cannot be confused when both are open in different tabs.
+ */
+const DELETE_PLAN_PHRASE = "delete plan";
+
 interface EditClientHeaderProps {
   clientStatus: string;
   onStatusChange: (status: string) => void;
@@ -24,6 +33,8 @@ interface EditClientHeaderProps {
   isFormValid: boolean;
   clientId?: string;
   slug?: string;
+  /** The plan being edited — this band's own title, beside the back button. */
+  planName?: string;
 }
 
 export function EditClientHeader({
@@ -34,10 +45,17 @@ export function EditClientHeader({
   isFormValid,
   clientId,
   slug,
+  planName,
 }: EditClientHeaderProps) {
   const router = useRouter();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Type-to-confirm gate for the delete dialog.
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  // Trimmed + case-insensitive: forgiving about a pasted trailing space, but still
+  // requires the phrase to be typed rather than merely acknowledged.
+  const isDeleteConfirmed =
+    deleteConfirmText.trim().toLowerCase() === DELETE_PLAN_PHRASE;
 
   const handleOpenPortal = () => {
     if (clientId) {
@@ -56,20 +74,20 @@ export function EditClientHeader({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to delete client");
+        throw new Error("Failed to delete plan");
       }
 
       const result = await response.json();
       if (result.success) {
-        toast.success("Client deleted successfully");
+        toast.success("Plan deleted successfully");
         setDeleteDialogOpen(false);
         router.push("/clients");
       } else {
-        throw new Error(result.error || "Failed to delete client");
+        throw new Error(result.error || "Failed to delete plan");
       }
     } catch (err) {
-      console.error("Error deleting client:", err);
-      toast.error("Failed to delete client");
+      console.error("Error deleting plan:", err);
+      toast.error("Failed to delete plan");
     } finally {
       setIsDeleting(false);
     }
@@ -82,14 +100,25 @@ export function EditClientHeader({
      * background. No bottom margin: the page already spaces this from the tabs.
      */
     <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 rounded-xl border bg-muted/40 px-4 py-3 dark:border-gray-700 dark:bg-gray-800/60">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" onClick={onBackClick} className="p-2">
+      <div className="flex min-w-0 items-center gap-2">
+        <Button
+          variant="ghost"
+          onClick={onBackClick}
+          className="p-2 shrink-0"
+          title="Back to Plans"
+        >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        {/* No plan name or plan caption here. The sticky bar above owns the page's
-            identity ("Edit Plan - <company>"); this band is the controls — back,
-            status, Open Portal, Delete — and naming the plan again beside them was
-            the duplicate the sticky bar already avoids. */}
+        {/* The band's own title: which plan is being edited. The sticky bar above carries
+            the full "Edit Plan - <company>", so this names the plan rather than repeating
+            that prefix — it is what makes this band read as the page's header instead of a
+            bare control strip. Truncated so a long company name cannot squeeze the status
+            and action controls on the right. */}
+        {planName ? (
+          <h1 className="min-w-0 truncate text-lg font-semibold text-foreground">
+            {planName}
+          </h1>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-4">
@@ -141,22 +170,53 @@ export function EditClientHeader({
           className="font-medium w-32 justify-center text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40 dark:hover:text-red-300"
         >
           <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-          Delete
+          Delete Plan
         </Button>
       </div>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Deleting a plan is destructive and irreversible, so it asks first and requires the
+          advisor to type the phrase — Radix's AlertDialog ignores Escape and outside clicks,
+          so the answer is explicit. Mirrors the Delete Benefit dialog. */}
       <ConfirmDialog
         open={deleteDialogOpen}
-        onOpenChange={setDeleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          // Clear the typed phrase on every close, so a reopen starts locked again
+          // instead of leaving the button already unlocked.
+          if (!open) setDeleteConfirmText("");
+        }}
         onConfirm={handleDeleteClient}
-        title="Delete Client?"
-        description="Are you sure you want to delete this client? This action cannot be undone and will also delete all associated documents, meetings, and other data."
-        confirmText="Delete"
-        cancelText="Cancel"
+        title="Delete Plan?"
+        description="This removes this plan — its benefit pages, documents, contacts and meetings — and cannot be undone."
+        confirmText="Yes, delete"
+        cancelText="No, keep it"
         variant="destructive"
         isLoading={isDeleting}
-      />
+        loadingText="Deleting..."
+        confirmDisabled={!isDeleteConfirmed}
+      >
+        <div className="mt-1 space-y-1.5">
+          <Label
+            htmlFor="delete-plan-confirm"
+            className="text-xs font-normal text-muted-foreground"
+          >
+            Type{" "}
+            <span className="font-mono font-semibold text-foreground">
+              {DELETE_PLAN_PHRASE}
+            </span>{" "}
+            to confirm
+          </Label>
+          <Input
+            id="delete-plan-confirm"
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            placeholder={DELETE_PLAN_PHRASE}
+            autoComplete="off"
+            autoCorrect="off"
+            spellCheck={false}
+          />
+        </div>
+      </ConfirmDialog>
     </div>
   );
 }

@@ -3680,6 +3680,14 @@ export default function EditClientPage() {
             isFormValid={isFormValid()}
             clientId={clientId}
             slug={(client as any)?.slug}
+            // The same name the sticky header shows, and the same fallback: the band's title
+            // beside the back button. `client` is read as a secondary source so the name appears
+            // as soon as the row loads, before the wizard-shaped `companyData` is populated.
+            planName={
+              companyData.companyName?.trim() ||
+              (client as any)?.companyName?.trim() ||
+              "Edit Plan"
+            }
           />
         )}
 
