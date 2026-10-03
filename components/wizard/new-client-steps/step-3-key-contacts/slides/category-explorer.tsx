@@ -28,7 +28,12 @@ import { BenefitsCategory } from "@/types/new-client-wizard";
 import { cn } from "@/lib/utils";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { getContactCountForCategory } from "@/lib/contact-info";
-import { ContactCard, formatContactPhone } from "@/components/contacts/contact-card";
+import {
+  ContactCard,
+  formatContactPhone,
+  type SeatStatus,
+} from "@/components/contacts/contact-card";
+import { GiveTeamSeatDialog } from "@/components/wizard/benefits-steps/give-team-seat-dialog";
 
 // ==================== Types ====================
 
@@ -73,6 +78,16 @@ const CATEGORY_ICON: Record<string, React.ComponentType<{ className?: string }>>
   "Third Party Contact": Users,
 };
 
+/** One plan assignment, as `/api/teammates/plan-assignments` returns it — only the
+ *  fields the seat ladder reads. */
+interface PlanAssignmentRow {
+  email?: string;
+  name?: string;
+  state?: string;
+  deactivatedAt?: string | null;
+  inviteDueDate?: string | null;
+}
+
 // ==================== Component ====================
 
 export function CategoryExplorer({
@@ -84,12 +99,109 @@ export function CategoryExplorer({
   onInviteContact,
   onInviteCollaborator,
 }: CategoryExplorerProps) {
-  const { stepData, saveStepDataLocally } = useNewClientWizardStore();
+  const { stepData, saveStepDataLocally, draftClientId } = useNewClientWizardStore();
 
   const contacts = useMemo(
     () => (stepData.keyContacts?.contacts || []) as any[],
     [stepData.keyContacts],
   );
+
+  /* ── Seats (T3/T4) ──────────────────────────────────────────────
+     The same read the Edit Client Key Contacts tab makes, so a card here shows the
+     seat ladder the saved-plan surfaces show: the plan's assignments (looked up by
+     email) plus the organization owner's addresses. A draft with no plan id has
+     nothing to look up, so `seatStatusResolved` settles at true with no seats and the
+     cards fall back to the "Give Team Seat" button. */
+  const [seatCollaborators, setSeatCollaborators] = useState<PlanAssignmentRow[]>([]);
+  const [seatOwnerEmails, setSeatOwnerEmails] = useState<string[]>([]);
+  const [seatStatusResolved, setSeatStatusResolved] = useState(false);
+  const [contactPendingSeat, setContactPendingSeat] = useState<any | null>(null);
+  const [seatRefreshKey, setSeatRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (!draftClientId) {
+      setSeatCollaborators([]);
+      setSeatOwnerEmails([]);
+      // Nothing to wait for: without a plan there are no seats to look up.
+      setSeatStatusResolved(true);
+      return;
+    }
+
+    let cancelled = false;
+    // Back to "unknown" on every run, including the refresh that follows a grant.
+    setSeatStatusResolved(false);
+
+    (async () => {
+      try {
+        const response = await fetch(
+          `/api/teammates/plan-assignments?planId=${encodeURIComponent(draftClientId)}`,
+          { cache: "no-store" },
+        );
+        if (!response.ok) {
+          // No access to the plan (or it is gone): show nobody rather than an error.
+          if (!cancelled) {
+            setSeatCollaborators([]);
+            setSeatOwnerEmails([]);
+          }
+          return;
+        }
+        const body = (await response.json().catch(() => ({}))) as {
+          assignments?: PlanAssignmentRow[];
+          ownerEmails?: string[];
+        };
+        if (!cancelled) {
+          setSeatCollaborators(body.assignments ?? []);
+          setSeatOwnerEmails(body.ownerEmails ?? []);
+        }
+      } catch {
+        if (!cancelled) {
+          setSeatCollaborators([]);
+          setSeatOwnerEmails([]);
+        }
+      } finally {
+        if (!cancelled) setSeatStatusResolved(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [draftClientId, seatRefreshKey]);
+
+  const seatOwnerEmailSet = useMemo(
+    () => new Set(seatOwnerEmails.map((address) => address.trim().toLowerCase())),
+    [seatOwnerEmails],
+  );
+  const seatTeammateByEmail = useMemo(() => {
+    const map = new Map<string, PlanAssignmentRow>();
+    for (const person of seatCollaborators) {
+      const address = person.email?.trim().toLowerCase();
+      // First wins: the earliest assignment is the one the invitation was raised against.
+      if (address && !map.has(address)) map.set(address, person);
+    }
+    return map;
+  }, [seatCollaborators]);
+
+  /** What the seat control on a contact card should show. */
+  const seatForContact = (
+    contact: any,
+  ): { status: SeatStatus; inviteDueDate: string | null } => {
+    const email = (contact.email || "").trim().toLowerCase();
+    if (!email) return { status: null, inviteDueDate: null };
+    if (seatOwnerEmailSet.has(email)) return { status: "owner", inviteDueDate: null };
+    const teammate = seatTeammateByEmail.get(email);
+    if (teammate?.deactivatedAt) return { status: "deactivated", inviteDueDate: null };
+    if (teammate?.state === "invited") {
+      return {
+        status: "invited",
+        inviteDueDate: teammate.inviteDueDate
+          ? new Date(teammate.inviteDueDate).toLocaleDateString()
+          : null,
+      };
+    }
+    if (teammate?.state === "active") return { status: "active", inviteDueDate: null };
+    return { status: null, inviteDueDate: null };
+  };
 
   const companyContactCount = useMemo(
     () => getContactCountForCategory(contacts, "Company / Plan Sponsor"),
@@ -741,32 +853,37 @@ export function CategoryExplorer({
               </button>
 
               {/* Expanded Contact List — the SAME grid cards the Edit Client Key Contacts
-                  tab renders. The seat control is omitted: this draft has no persisted plan
-                  to grant a seat against. */}
+                  tab renders, seat ladder included. */}
               {isExpanded && (
                 <div className="border-t border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3">
                   {categoryContacts.length > 0 ? (
                     <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                      {categoryContacts.map((contact: any) => (
-                        <ContactCard
-                          key={contact.id}
-                          contact={contact}
-                          isPrimary={!!(contact.isPrimaryOverall || contact.isPrimary)}
-                          showSeatControl={false}
-                          onTogglePrimary={() => handleSetPrimary(contact.id, category)}
-                          onEdit={
-                            onEditContact
-                              ? () => handleEditContact(category, contact)
-                              : undefined
-                          }
-                          onInvite={
-                            onInviteContact
-                              ? () => onInviteContact(category, contact)
-                              : undefined
-                          }
-                          onDelete={() => handleDeleteContact(contact.id)}
-                        />
-                      ))}
+                      {categoryContacts.map((contact: any) => {
+                        const seat = seatForContact(contact);
+                        return (
+                          <ContactCard
+                            key={contact.id}
+                            contact={contact}
+                            isPrimary={!!(contact.isPrimaryOverall || contact.isPrimary)}
+                            seatStatus={seat.status}
+                            seatStatusResolved={seatStatusResolved}
+                            inviteDueDate={seat.inviteDueDate}
+                            onTogglePrimary={() => handleSetPrimary(contact.id, category)}
+                            onEdit={
+                              onEditContact
+                                ? () => handleEditContact(category, contact)
+                                : undefined
+                            }
+                            onInvite={
+                              onInviteContact
+                                ? () => onInviteContact(category, contact)
+                                : undefined
+                            }
+                            onDelete={() => handleDeleteContact(contact.id)}
+                            onGiveSeat={() => setContactPendingSeat(contact)}
+                          />
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-center text-xs text-gray-400 dark:text-gray-500 py-4">
@@ -820,6 +937,17 @@ export function CategoryExplorer({
           </button>
         </div>
       )}
+
+      {/* "Give Team Seat" — promotes a Key Contact into a paid Team Member seat, the same
+          dialog and endpoint the Edit Client / Edit Benefit contacts use. */}
+      <GiveTeamSeatDialog
+        contact={contactPendingSeat}
+        onOpenChange={(open) => {
+          if (!open) setContactPendingSeat(null);
+        }}
+        onGranted={() => setSeatRefreshKey((key) => key + 1)}
+        planId={draftClientId || ""}
+      />
 
       {/* Navigation is handled by the bottom bar (Previous/Next buttons) */}
 
