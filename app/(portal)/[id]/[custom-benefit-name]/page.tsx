@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, notFound } from "next/navigation";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import useSWR from "swr";
 import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
@@ -27,6 +27,7 @@ import {
   mapMergedRowsToBenefitHubItems,
 } from "@/lib/map-plan-documents-for-benefit-hub";
 import { getBenefitFromPreview } from "@/lib/benefit-data-helpers";
+import { isCustomBenefitRouteSegment } from "@/lib/benefit-custom-name";
 import type { BenefitData } from "@/types/benefit";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -36,10 +37,22 @@ const WELLNESS_DOCUMENT_HUB = benefitCategoryToDocumentHubLabel("Company / Plan 
 const WELLNESS_FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=1600&q=80";
 
-export default function WellnessProgramsPage() {
+/**
+ * The Custom benefit's portal page.
+ *
+ * Served at `/[planId]/[custom-benefit-name]` — the segment is the advisor's own name
+ * for the benefit (slugified), not a fixed "wellness-programs" path. The legacy
+ * segment is still accepted so already-published links keep working. An unknown
+ * segment renders the portal's not-found.
+ */
+export default function CustomBenefitPage() {
   const { clientData, profile } = useClientPortal();
   const params = useParams();
   const clientId = params.id as string;
+  // The `[custom-benefit-name]` segment — the URL's own claim about which benefit this is.
+  const routeSegment = decodeURIComponent(
+    String((params as Record<string, string | string[] | undefined>)["custom-benefit-name"] || ""),
+  );
   const [wellnessDocs, setWellnessDocs] = useState<RetirementDocumentItem[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(true);
 
@@ -59,6 +72,18 @@ export default function WellnessProgramsPage() {
     if (benefitFromApi) return benefitFromApi;
     return getBenefitFromPreview((clientData as any)?.employeePortalPreview, "Company / Plan Sponsor");
   }, [benefitFromApi, clientData]);
+
+  /**
+   * The segment must resolve to this plan's Custom benefit: either its name's slug, or
+   * the legacy "wellness-programs" alias. Validate only once the benefit read has
+   * answered, so a slow load is not mistaken for a bad URL.
+   */
+  if (
+    benefitApiData !== undefined &&
+    !isCustomBenefitRouteSegment(routeSegment, benefitData?.title)
+  ) {
+    notFound();
+  }
 
   /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
   const documentsSig = useMemo(() => {
@@ -195,7 +220,8 @@ export default function WellnessProgramsPage() {
           planVideoFallbackImage={WELLNESS_FALLBACK_IMAGE}
         />
 
-        {/* Videos published to this page from Communications → Webinars. */}
+        {/* Videos published to this page from Communications → Webinars. The key stays
+            "wellness-programs" — it is the stored placement value on every saved row. */}
         <BenefitsHubWebinarsSection
           placement="wellness-programs"
           brandColor={brandColor}

@@ -13,6 +13,12 @@ interface PortalPopUpOverlayProps {
   clientId?: string;
   companyName?: string;
   companyLogo?: string;
+  /**
+   * Extra portal paths that should count as a "benefits" page for pop-up targeting —
+   * e.g. the Custom benefit's own name-slug route, which is not one of the fixed
+   * `/retirement` / `/health-insurance` / `/life-insurance` paths.
+   */
+  benefitPagePaths?: string[];
 }
 
 /**
@@ -28,6 +34,7 @@ export function PortalPopUpOverlay({
   clientId,
   companyName,
   companyLogo,
+  benefitPagePaths = [],
 }: PortalPopUpOverlayProps) {
   const pathname = usePathname();
   const { assets, isLoading } = usePopUpAssets(clientId);
@@ -96,12 +103,12 @@ export function PortalPopUpOverlay({
       if (dismissedIds.has(asset.id)) continue;
       if (pageViewDismissedIds.has(asset.id)) continue;
       const data = asset.data as Record<string, unknown> | null | undefined;
-      if (shouldShowPopUpOnPage(data, pathname)) {
+      if (shouldShowPopUpOnPage(data, pathname, benefitPagePaths)) {
         return asset;
       }
     }
     return null;
-  }, [assets, dismissedIds, pageViewDismissedIds, pathname, isLoading]);
+  }, [assets, dismissedIds, pageViewDismissedIds, pathname, isLoading, benefitPagePaths]);
 
   // Show the pop-up when one becomes active
   useEffect(() => {

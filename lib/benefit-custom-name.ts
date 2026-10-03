@@ -82,3 +82,53 @@ export function displayCategoryName(
   const name = (benefitTitle || "").trim();
   return isPlaceholderBenefitName(name) ? "Custom" : name;
 }
+
+/*
+ * ── Portal route segment ────────────────────────────────────────────────────
+ *
+ * The Custom benefit's portal page used to live at a fixed `/wellness-programs`
+ * segment. It is now addressed by the advisor's own name for the benefit, so the URL
+ * reads like the benefit ("/acme/mindfulness-and-me" rather than "/acme/wellness-
+ * programs"). The legacy segment is still accepted everywhere so links already
+ * published — hub buttons, stored webinar placements, bookmarks — keep resolving.
+ */
+
+/** The portal route segment the Custom benefit is still reachable at (legacy alias). */
+export const CUSTOM_BENEFIT_LEGACY_SLUG = "wellness-programs";
+
+/**
+ * URL slug for a Custom benefit name — lowercase, hyphenated, punctuation dropped.
+ *
+ * Returns "" when there is nothing nameable, so a caller can fall back to the legacy
+ * segment instead of linking to "/".
+ */
+export function customBenefitNameToSlug(name?: string | null): string {
+  return (name || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+/** The route segment the Custom benefit should link to: its name's slug, or the legacy alias. */
+export function customBenefitRouteSlug(name?: string | null): string {
+  return customBenefitNameToSlug(name) || CUSTOM_BENEFIT_LEGACY_SLUG;
+}
+
+/**
+ * Does `segment` resolve to this plan's Custom benefit hub?
+ *
+ * Accepts the name's slug AND the legacy segment, so old links keep working. A
+ * placeholder name (the storage label, or the "Welcome to …" headline default) has no
+ * slug of its own, so only the legacy segment matches.
+ */
+export function isCustomBenefitRouteSegment(
+  segment: string | null | undefined,
+  name?: string | null,
+): boolean {
+  const value = decodeURIComponent((segment || "").trim());
+  if (!value) return false;
+  if (value === CUSTOM_BENEFIT_LEGACY_SLUG) return true;
+  if (isPlaceholderBenefitName(name)) return false;
+  return value === customBenefitNameToSlug(name);
+}

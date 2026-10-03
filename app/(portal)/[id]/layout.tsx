@@ -17,6 +17,11 @@ import {
   resolveOrgOnlyDisclaimerText,
 } from "@/lib/disclaimer-constants";
 import { getTypographyCssVars } from "@/lib/typography-themes";
+import { benefitCategoryToVisibilityKey } from "@/lib/portal-category-visibility";
+import {
+  customBenefitNameToSlug,
+  isPlaceholderBenefitName,
+} from "@/lib/benefit-custom-name";
 
 interface BannerAsset {
   id: string;
@@ -86,6 +91,24 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     "";
   const basePath = clientId ? `/${clientId}` : "";
 
+  /**
+   * The Custom benefit's own portal slug, derived from its advisor-chosen name
+   * (`Benefit.title` on the "Company / Plan Sponsor" hub). Null when the hub is still
+   * unnamed: the page is then reachable only at the legacy `/wellness-programs` segment.
+   */
+  const customHubSlug = (() => {
+    const hubs = (clientData as any)?.benefitHubs;
+    if (!Array.isArray(hubs)) return null;
+    const hub = hubs.find(
+      (h: any) =>
+        benefitCategoryToVisibilityKey(String(h?.category || "")) === "Other",
+    );
+    const title = String(hub?.title || "").trim();
+    return title && !isPlaceholderBenefitName(title)
+      ? customBenefitNameToSlug(title)
+      : null;
+  })();
+
   useEffect(() => {
     const prev = sessionStorage.getItem("previousPage");
     setPreviousPage(false);
@@ -126,6 +149,10 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     if (pathname?.includes("/health-insurance")) return "Group Health / Dental / Vision";
     if (pathname?.includes("/life-insurance")) return "Group Life / Disability";
     if (pathname?.includes("/wellness-programs")) return "Wellness Programs";
+    // The Custom benefit's own name-slug segment addresses the same page.
+    if (customHubSlug && pathname?.includes(`/${customHubSlug}`)) {
+      return "Wellness Programs";
+    }
     return "Benefits Hub / Client Website"; // Default to hub for main page or other plan pages
   };
 
@@ -516,6 +543,9 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
         clientId={clientId}
         companyName={clientData?.companyName}
         companyLogo={clientData?.companyLogo}
+        // Extra paths that count as "benefits" pages for pop-up targeting, so a
+        // pop-up scoped to the benefit hubs still shows on the Custom benefit page.
+        benefitPagePaths={customHubSlug ? [`/${customHubSlug}`] : []}
       />
 
       <Footer

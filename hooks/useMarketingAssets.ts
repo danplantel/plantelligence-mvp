@@ -74,6 +74,8 @@ export function usePortalNoticeAssets(clientId?: string) {
 export function shouldShowPopUpOnPage(
   popupData: Record<string, unknown> | null | undefined,
   currentPath: string,
+  /** Extra paths that count as a "benefits" page (e.g. the Custom benefit's slug). */
+  extraBenefitPaths: string[] = [],
 ): boolean {
   if (!popupData) return false;
   const pages = popupData.popupPages as string[] | undefined;
@@ -82,9 +84,18 @@ export function shouldShowPopUpOnPage(
   // "all" means show on every page
   if (pages.includes("all")) return true;
 
+  // The fixed benefit hubs, plus the Custom benefit's own name-slug route.
+  const benefitPaths = [
+    "/retirement",
+    "/health-insurance",
+    "/life-insurance",
+    "/wellness-programs",
+    ...extraBenefitPaths,
+  ];
+
   for (const page of pages) {
     if (page === "home" && (currentPath === "/" || currentPath === "")) return true;
-    if (page === "benefits" && (currentPath.includes("/retirement") || currentPath.includes("/health-insurance") || currentPath.includes("/life-insurance") || currentPath.includes("/wellness-programs"))) return true;
+    if (page === "benefits" && benefitPaths.some((p) => currentPath.includes(p))) return true;
     if (page === "news-events" && currentPath.includes("/news-events")) return true;
     if (page === "my-benefits-team" && currentPath.includes("/my-benefits-team")) return true;
   }

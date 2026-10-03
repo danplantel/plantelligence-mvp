@@ -17,7 +17,10 @@ import {
   benefitCategoryToVisibilityKey,
   getCategoryPortalVisibility,
 } from "@/lib/portal-category-visibility";
-import { isPlaceholderBenefitName } from "@/lib/benefit-custom-name";
+import {
+  customBenefitNameToSlug,
+  isPlaceholderBenefitName,
+} from "@/lib/benefit-custom-name";
 import { BrandingImage } from "@/components/ui/branding-image";
 import {
   HEADER_LOGO_BAND_PX,
@@ -123,15 +126,15 @@ export function PortalHeader({
   const benefitHubsList = Array.isArray(benefitHubs) ? benefitHubs : null;
 
   /**
-   * The advisor's OWN name for the Custom benefit, which labels the "Wellness
-   * Programs" link.
+   * The advisor's OWN name for the Custom benefit, which labels AND addresses the
+   * "Wellness Programs" link.
    *
    * A Custom benefit is stored under "Company / Plan Sponsor" and its name lives in
    * `Benefit.title` — the wizard's "Custom Category Name". That category maps to the
    * "Other" visibility key, so this is the title of the very hub the "Wellness
    * Programs" link opens. Placeholder titles (the storage label, or the "Welcome to …"
-   * headline default) mean the benefit was never named, so the link keeps its label.
-   * The PATH is untouched — only the visible label changes.
+   * headline default) mean the benefit was never named, so the link keeps the generic
+   * label and the legacy `/wellness-programs` path.
    */
   const customHubTitle = (() => {
     if (!benefitHubsList) return null;
@@ -142,6 +145,11 @@ export function PortalHeader({
     const title = String(hub?.title || "").trim();
     return title && !isPlaceholderBenefitName(title) ? title : null;
   })();
+  // The Custom benefit's own route segment — its name, slugified. The legacy
+  // `/wellness-programs` segment still resolves, but new links carry the name.
+  const customHubPath = customHubTitle
+    ? `/${customBenefitNameToSlug(customHubTitle)}`
+    : null;
 
   const benefitsNavItems: { label: string; path: string }[] =
     BENEFITS_NAV_ITEMS.filter((item) => {
@@ -155,8 +163,10 @@ export function PortalHeader({
       if (!hub) return false; // not created yet
       return hub.isEnabled !== false; // created but Hidden
     }).map((item) =>
-      BENEFITS_NAV_TO_VISIBILITY_KEY[item.label] === "Other" && customHubTitle
-        ? { ...item, label: customHubTitle }
+      BENEFITS_NAV_TO_VISIBILITY_KEY[item.label] === "Other" &&
+      customHubTitle &&
+      customHubPath
+        ? { ...item, label: customHubTitle, path: customHubPath }
         : item,
     );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -203,13 +213,23 @@ export function PortalHeader({
 
   const isActive = (path: string) => pathname?.includes(path);
   const baseUrl = clientId ? `/${clientId}` : "";
-  const isBenefitsActive = () =>
-    [
-      "/retirement",
-      "/health-insurance",
-      "/life-insurance",
-      "/wellness-programs",
-    ].some((path) => isActive(path));
+  // Every path that belongs to the "Your Benefits" group: the three canonical hubs,
+  // the legacy Custom segment, and the Custom benefit's own slug when it has a name.
+  const benefitsPaths = [
+    "/retirement",
+    "/health-insurance",
+    "/life-insurance",
+    "/wellness-programs",
+    ...(customHubPath ? [customHubPath] : []),
+  ];
+  const isBenefitsActive = benefitsPaths.some((path) => isActive(path));
+  // "Home" is the landing page: not one of the benefit hubs, news, or the team page.
+  const isHomeActive =
+    pathname === baseUrl ||
+    (!!pathname &&
+      !benefitsPaths.some((path) => isActive(path)) &&
+      !isActive("/news-events") &&
+      !isActive("/my-benefits-team"));
 
   // Sync showBanner with showAlertBanner prop
   useEffect(() => {
@@ -400,7 +420,7 @@ export function PortalHeader({
                     <Button
                       variant="ghost"
                       className={`font-medium transition-colors duration-200 ${
-                        isBenefitsActive()
+                        isBenefitsActive
                           ? "text-gray-900"
                           : "text-gray-600 hover:text-gray-800"
                       }`}
@@ -586,12 +606,12 @@ export function PortalHeader({
                   href={baseUrl}
                   onClick={() => setMobileMenuOpen(false)}
                   className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    pathname === baseUrl || (pathname && !isActive("/retirement") && !isActive("/health-insurance") && !isActive("/life-insurance") && !isActive("/wellness-programs") && !isActive("/news-events") && !isActive("/my-benefits-team"))
+                    isHomeActive
                       ? "text-white"
                       : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
                   }`}
                   style={
-                    pathname === baseUrl || (pathname && !isActive("/retirement") && !isActive("/health-insurance") && !isActive("/life-insurance") && !isActive("/wellness-programs") && !isActive("/news-events") && !isActive("/my-benefits-team"))
+                    isHomeActive
                       ? { backgroundColor: brandColor }
                       : undefined
                   }
