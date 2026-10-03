@@ -48,12 +48,18 @@ import {
 // Shared with the wizard's Key Contacts step, Add/Edit Benefit and Settings → Team
 // Members — one dialog, so the invite cannot mean something different here.
 import { InviteCollaboratorDialog } from "@/components/teammates/invite-collaborator-dialog";
+// "Give Team Seat" — the same seat grant the Edit Benefit Contacts tab offers, posting to the
+// same endpoint with the same access picker.
+import { GiveTeamSeatDialog } from "@/components/wizard/benefits-steps/give-team-seat-dialog";
 import { SaveButton } from "@/components/pages/edit-client/save-button";
 import { useEditClient } from "@/hooks/useEditClient";
 // Import components from new-client-steps
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { ContactFormFields } from "@/components/ui/contact-form-fields";
 import { ContactFormPage } from "@/components/pages/contact-form-page";
+import { ContactEmailConflictNotice } from "@/components/ui/contact-email-conflict-notice";
+import { useContactEmailConflict } from "@/hooks/useContactEmailConflict";
+import type { ContactEmailEntry } from "@/lib/contact-email-conflict";
 import { buildContactFormHref } from "@/lib/contact-form-link";
 import { ContactFormTopicBuilder } from "@/components/ui/contact-form-topic-builder";
 import { SupportIconPicker } from "@/components/ui/support-icon-picker";
@@ -107,6 +113,10 @@ import {
   CheckCircle2,
   XCircle,
   AlertCircle,
+  Armchair,
+  BadgeCheck,
+  MailCheck,
+  UserCheck,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { PRIMARY_SERVICE_CATEGORY_OPTIONS } from "@/lib/service-categories";
@@ -347,6 +357,252 @@ function ContactRow({
   );
 }
 
+/**
+ * One person assigned to this plan, as `/api/teammates/plan-assignments` returns it. Mirrors
+ * the same-named interface in `BenefitsStep3`, so the seat ladder below reads the same fields.
+ */
+interface PlanCollaboratorRow {
+  assignmentId: string;
+  profileId: string;
+  name: string;
+  email: string;
+  headshot: string | null;
+  role: string;
+  categoryScope: "all" | "selected";
+  categories: string[];
+  personType?: string;
+  state?: string;
+  deactivatedAt?: string | null;
+  inviteDueDate?: string | null;
+}
+
+type SeatStatus = "owner" | "invited" | "active" | "deactivated" | null;
+
+/** Full-width seat chrome for a grid card (mirrors the Edit Benefit Contacts tab exactly). */
+const SEAT_STATUS_MUTED_CLASS =
+  "flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-gray-100 bg-gray-50 px-3 text-xs font-semibold text-muted-foreground dark:border-gray-700 dark:bg-gray-800/60";
+const SEAT_STATUS_DONE_CLASS =
+  "flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-400";
+const SEAT_STATUS_PENDING_CLASS =
+  "flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-gray-200 bg-gray-50/60 px-3 text-xs font-medium text-muted-foreground dark:border-gray-700 dark:bg-gray-800/40";
+
+/**
+ * Horizontal contact card for the Key Contacts tab — mirrors the cards the Edit Benefit
+ * Contacts tab renders: the person and their details on the left, the seat control (status, or
+ * "Give Team Seat") and the row actions on the right.
+ */
+function ContactCard({
+  contact,
+  isPrimary,
+  seatStatus,
+  seatStatusResolved,
+  inviteDueDate,
+  onTogglePrimary,
+  onEdit,
+  onDelete,
+  onInvite,
+  onGiveSeat,
+}: {
+  contact: KeyContact;
+  isPrimary?: boolean;
+  seatStatus: SeatStatus;
+  seatStatusResolved: boolean;
+  inviteDueDate?: string | null;
+  onTogglePrimary?: () => void;
+  onEdit: () => void;
+  onDelete?: () => void;
+  onInvite?: () => void;
+  onGiveSeat?: () => void;
+}) {
+  const displayName =
+    contact.firstName || contact.lastName
+      ? `${contact.firstName || ""} ${contact.lastName || ""}`.trim()
+      : contact.name || "Unnamed Contact";
+  const role = contact.title || contact.customRole || contact.role || "";
+  const formattedPhone = contact.phone
+    ? `${formatContactPhone(contact.phone)}${
+        contact.phoneExtension ? ` ext. ${contact.phoneExtension}` : ""
+      }`
+    : "";
+
+  return (
+    <Card className="overflow-hidden transition-all border-gray-100 bg-white hover:border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600">
+      <CardContent className="space-y-3 p-4">
+        {/* Photo and row actions only — the name sits below at full width so it stays legible
+            at four-up, exactly as the Edit Benefit Contacts tab renders it. */}
+        <div className="flex items-center gap-2">
+          <div className="h-8 w-8 shrink-0 overflow-hidden rounded-full border border-gray-100 bg-gray-100 dark:border-gray-700 dark:bg-gray-700">
+            {contact.contactType === "team_support" && contact.companyLogo ? (
+              <BrandingImage
+                src={contact.companyLogo}
+                alt={displayName}
+                className="h-full w-full bg-white object-contain p-0.5 dark:bg-gray-800"
+              />
+            ) : (
+              <Headshot
+                src={contact.headshot || undefined}
+                alt={displayName}
+                monogramName={displayName}
+                className="h-full w-full object-cover"
+              />
+            )}
+          </div>
+          <div className="ml-auto flex shrink-0 items-center gap-0.5">
+            {onTogglePrimary && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className={cn(
+                  "h-7 w-7 shrink-0",
+                  isPrimary
+                    ? "text-amber-500 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10"
+                    : "text-muted-foreground hover:bg-amber-50 hover:text-amber-500 dark:hover:bg-amber-500/10",
+                )}
+                onClick={onTogglePrimary}
+                title={isPrimary ? "Remove as primary" : "Mark as primary"}
+                aria-label={isPrimary ? "Remove as primary" : "Mark as primary"}
+              >
+                <Star className={cn("h-3.5 w-3.5", isPrimary && "fill-amber-500")} />
+              </Button>
+            )}
+            {onInvite && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+                onClick={onInvite}
+                title="Invite this contact to complete their sections"
+                aria-label="Invite this contact"
+              >
+                <UserRoundPlus className="h-3.5 w-3.5" />
+              </Button>
+            )}
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
+              onClick={onEdit}
+              title="Edit this contact"
+              aria-label="Edit this contact"
+            >
+              <Pencil className="h-3.5 w-3.5" />
+            </Button>
+            {onDelete && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 shrink-0 text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                onClick={onDelete}
+                title="Delete this contact"
+                aria-label="Delete this contact"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Name over title, then the ways to reach them, as one left-aligned column at the
+            card's full width — the same stack the Edit Benefit Contacts tab uses. */}
+        <div className="min-w-0 space-y-0.5">
+          <div className="flex min-w-0 items-center gap-1.5">
+            <p title={displayName} className="truncate text-sm font-semibold leading-tight text-foreground">
+              {displayName}
+            </p>
+            {isPrimary && (
+              <Badge
+                variant="secondary"
+                className="shrink-0 border-amber-200 bg-amber-50 px-1.5 py-0 text-[9px] font-semibold text-amber-700 dark:border-amber-500/40 dark:bg-amber-500/20 dark:text-amber-300"
+              >
+                Primary
+              </Badge>
+            )}
+          </div>
+          <p title={role || "No Title"} className="truncate text-xs leading-tight text-muted-foreground">
+            {role || "No Title"}
+          </p>
+          {contact.email ? (
+            <p title={contact.email} className="truncate text-xs leading-tight text-muted-foreground">
+              {contact.email}
+            </p>
+          ) : null}
+          {formattedPhone ? (
+            <p title={formattedPhone} className="truncate text-xs leading-tight text-muted-foreground">
+              {formattedPhone}
+            </p>
+          ) : null}
+        </div>
+
+        {/* Seat control — the same ladder the Edit Benefit Contacts tab renders, so one person
+            never shows a different seat state on the two surfaces. */}
+        {!seatStatusResolved ? (
+          <div
+            className={SEAT_STATUS_PENDING_CLASS}
+            title="Checking whether this person already holds a seat…"
+          >
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            Checking…
+          </div>
+        ) : seatStatus === "owner" ? (
+          <div
+            className={SEAT_STATUS_MUTED_CLASS}
+            title="This is the organization owner. They already have full access to every plan and every category."
+          >
+            <BadgeCheck className="h-3.5 w-3.5" />
+            Organization owner
+          </div>
+        ) : seatStatus === "invited" ? (
+          <div
+            className={SEAT_STATUS_DONE_CLASS}
+            title={
+              inviteDueDate
+                ? `Invitation sent · expires ${inviteDueDate}`
+                : "Invitation sent"
+            }
+          >
+            <MailCheck className="h-3.5 w-3.5" />
+            Invite sent
+          </div>
+        ) : seatStatus === "active" ? (
+          <div
+            className={SEAT_STATUS_DONE_CLASS}
+            title="Already a Team Member of your organization."
+          >
+            <UserCheck className="h-3.5 w-3.5" />
+            Team member
+          </div>
+        ) : seatStatus === "deactivated" ? (
+          <div
+            className={SEAT_STATUS_MUTED_CLASS}
+            title="This person was deactivated. Reactivate them in Settings → People & Access rather than adding them again — the server refuses a re-add for a deactivated address."
+          >
+            <UserCheck className="h-3.5 w-3.5" />
+            Deactivated
+          </div>
+        ) : (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 w-full gap-1.5 text-xs font-semibold"
+            title={
+              contact.email
+                ? "Give this contact a Team Member seat"
+                : "Add an email address for this contact first"
+            }
+            disabled={!contact.email}
+            onClick={onGiveSeat}
+          >
+            <Armchair className="h-3.5 w-3.5" />
+            Give Team Seat
+          </Button>
+        )}
+
+      </CardContent>
+    </Card>
+  );
+}
+
 // ── Edit Contact Dialog — mini contact form (mirrors the Create Key Contact
 //    modal) with a live Portal Preview ──
 function EditContactDialog({
@@ -366,6 +622,7 @@ function EditContactDialog({
   addContactType = "individual",
   addExternal = false,
   addDefaults,
+  existingContacts,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -387,6 +644,8 @@ function EditContactDialog({
   addExternal?: boolean;
   /** Base field values for a newly created contact (orgType, description, logo…). */
   addDefaults?: Partial<KeyContact>;
+  /** The plan's other contacts, so a reused email can be named on the spot. */
+  existingContacts?: ContactEmailEntry[];
 }) {
   const isAddMode = mode === "add";
 
@@ -479,6 +738,21 @@ function EditContactDialog({
   const isPlanSponsorContact = isAddMode
     ? form.benefitsCategory === "Company / Plan Sponsor"
     : contactCategories.includes("Company / Plan Sponsor");
+
+  /**
+   * A contact's email must be unique across the plan and must not belong to the
+   * organization owner or a Team Member: the seat ladder matches contacts to seats by
+   * email alone, so a shared address would mislabel this card. The hook checks the
+   * roster passed in, then the owner/assignment list; `handleSave` refuses a
+   * conflicted address and the notice below names the holder.
+   */
+  const { conflict: emailConflict } = useContactEmailConflict({
+    planId,
+    email: form.email,
+    excludeContactId: contact?.id,
+    originalEmail: contact?.email,
+    contacts: existingContacts,
+  });
 
   // Derived values used to build the first-party /contact CTA link.
   const ctaName =
@@ -680,6 +954,15 @@ function EditContactDialog({
             ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
             : "Please fill out all required fields",
       );
+      return;
+    }
+
+    // A reused address would make this contact read as the owner / a Team Member (the
+    // seat ladder matches by email), so it is a blocking error, reported at the field.
+    if (emailConflict) {
+      setErrors(["email"]);
+      emailRef.current?.focus();
+      toast.error(emailConflict.message);
       return;
     }
 
@@ -1188,7 +1471,8 @@ function EditContactDialog({
                   placeholder="e.g. john@company.com"
                   className={cn(
                     "h-8 text-sm",
-                    errors.includes("email") && "border-red-500",
+                    (errors.includes("email") || emailConflict) &&
+                      "border-red-500",
                   )}
                 />
                 {errors.includes("email") && (
@@ -1196,6 +1480,7 @@ function EditContactDialog({
                     Please enter a valid email address (or provide a phone)
                   </p>
                 )}
+                <ContactEmailConflictNotice conflict={emailConflict} />
               </div>
             </div>
 
@@ -1480,6 +1765,106 @@ function EditKeyContactsSection({
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   // Contact pending deletion (awaiting confirmation dialog)
   const [deleteContact, setDeleteContact] = useState<KeyContact | null>(null);
+
+  /* ── Seats (T3/T4) ──────────────────────────────────────────────
+     The same read the Edit Benefit Contacts tab makes, so a contact's seat status here matches
+     what that tab shows: the plan's assignments (looked up by email) plus the organization
+     owner's addresses — the owner is deliberately NOT a teammate, so they appear only in the
+     latter. `teammateByEmail` reads the unfiltered list on purpose: it answers "does this
+     contact already hold a seat or an invitation", which is exactly what the card reports. */
+  const [contactPendingSeat, setContactPendingSeat] = useState<KeyContact | null>(null);
+  const [seatRefreshKey, setSeatRefreshKey] = useState(0);
+  const [seatCollaborators, setSeatCollaborators] = useState<PlanCollaboratorRow[]>([]);
+  const [seatOwnerEmails, setSeatOwnerEmails] = useState<string[]>([]);
+  const [seatStatusResolved, setSeatStatusResolved] = useState(false);
+
+  useEffect(() => {
+    if (!planId) {
+      setSeatCollaborators([]);
+      setSeatOwnerEmails([]);
+      // Nothing to wait for: without a plan there are no seats to look up.
+      setSeatStatusResolved(true);
+      return;
+    }
+
+    let cancelled = false;
+    // Back to "unknown" on every run, including the refresh that follows a grant: the seat that
+    // grant just created is exactly what the card is about to report.
+    setSeatStatusResolved(false);
+
+    (async () => {
+      try {
+        const response = await fetch(
+          `/api/teammates/plan-assignments?planId=${encodeURIComponent(planId)}`,
+          { cache: "no-store" },
+        );
+        if (!response.ok) {
+          // No access to the plan (or it is gone): show nobody rather than an error state.
+          if (!cancelled) {
+            setSeatCollaborators([]);
+            setSeatOwnerEmails([]);
+          }
+          return;
+        }
+        const body = (await response.json().catch(() => ({}))) as {
+          assignments?: PlanCollaboratorRow[];
+          ownerEmails?: string[];
+        };
+        if (!cancelled) {
+          setSeatCollaborators(body.assignments ?? []);
+          setSeatOwnerEmails(body.ownerEmails ?? []);
+        }
+      } catch {
+        if (!cancelled) {
+          setSeatCollaborators([]);
+          setSeatOwnerEmails([]);
+        }
+      } finally {
+        // Every path settles: a failed read falls back to the button rather than spinning.
+        if (!cancelled) setSeatStatusResolved(true);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [planId, seatRefreshKey]);
+
+  const seatOwnerEmailSet = useMemo(
+    () => new Set(seatOwnerEmails.map((address) => address.trim().toLowerCase())),
+    [seatOwnerEmails],
+  );
+  const seatTeammateByEmail = useMemo(() => {
+    const map = new Map<string, PlanCollaboratorRow>();
+    for (const person of seatCollaborators) {
+      const address = person.email?.trim().toLowerCase();
+      // First wins: `listPlanAssignments` orders by createdAt, so the earliest assignment is
+      // the one the invitation was raised against.
+      if (address && !map.has(address)) map.set(address, person);
+    }
+    return map;
+  }, [seatCollaborators]);
+
+  /** What the seat control on a contact card should show. */
+  const seatForContact = (
+    contact: KeyContact,
+  ): { status: SeatStatus; inviteDueDate: string | null } => {
+    const email = (contact.email || "").trim().toLowerCase();
+    if (!email) return { status: null, inviteDueDate: null };
+    if (seatOwnerEmailSet.has(email)) return { status: "owner", inviteDueDate: null };
+    const teammate = seatTeammateByEmail.get(email);
+    if (teammate?.deactivatedAt) return { status: "deactivated", inviteDueDate: null };
+    if (teammate?.state === "invited") {
+      return {
+        status: "invited",
+        inviteDueDate: teammate.inviteDueDate
+          ? new Date(teammate.inviteDueDate).toLocaleDateString()
+          : null,
+      };
+    }
+    if (teammate?.state === "active") return { status: "active", inviteDueDate: null };
+    return { status: null, inviteDueDate: null };
+  };
 
   // Company / Plan Sponsor contacts — listed in their own accordion. The primary
   // contact populates this section whenever it's a Company / Plan Sponsor contact.
@@ -1771,19 +2156,28 @@ function EditKeyContactsSection({
                 No Company / Plan Sponsor contacts assigned. Click &ldquo;Add&rdquo; to create one.
               </p>
             ) : (
-              companyPlanSponsorContacts.map((contact) => (
-                <ContactRow
-                  key={contact.id}
-                  contact={contact}
-                  isPrimary={!!(contact.isPrimaryOverall || contact.isPrimary)}
-                  onTogglePrimary={() => handleTogglePrimary(contact)}
-                  onEdit={() => handleOpenEdit(contact)}
-                  onDelete={() => handleDeleteContact(contact)}
-                  onInvite={
-                    onInviteContact ? () => onInviteContact(contact) : undefined
-                  }
-                />
-              ))
+              <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {companyPlanSponsorContacts.map((contact) => {
+                  const seat = seatForContact(contact);
+                  return (
+                    <ContactCard
+                      key={contact.id}
+                      contact={contact}
+                      isPrimary={!!(contact.isPrimaryOverall || contact.isPrimary)}
+                      seatStatus={seat.status}
+                      seatStatusResolved={seatStatusResolved}
+                      inviteDueDate={seat.inviteDueDate}
+                      onTogglePrimary={() => handleTogglePrimary(contact)}
+                      onEdit={() => handleOpenEdit(contact)}
+                      onDelete={() => handleDeleteContact(contact)}
+                      onInvite={
+                        onInviteContact ? () => onInviteContact(contact) : undefined
+                      }
+                      onGiveSeat={() => setContactPendingSeat(contact)}
+                    />
+                  );
+                })}
+              </div>
             )}
           </AccordionContent>
         </AccordionItem>
@@ -1825,21 +2219,30 @@ function EditKeyContactsSection({
                     No contacts assigned to {category.label}. Click &ldquo;Add&rdquo; to create one.
                   </p>
                 ) : (
-                  categoryContacts.map((contact) => (
-                    <ContactRow
-                      key={contact.id}
-                      contact={contact}
-                      isPrimary={!!(contact.isPrimaryOverall || contact.isPrimary)}
-                      onTogglePrimary={() => handleTogglePrimary(contact)}
-                      onEdit={() => handleOpenEdit(contact)}
-                      onDelete={() => handleDeleteContact(contact)}
-                      onInvite={
-                        onInviteContact
-                          ? () => onInviteContact(contact)
-                          : undefined
-                      }
-                    />
-                  ))
+                  <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    {categoryContacts.map((contact) => {
+                      const seat = seatForContact(contact);
+                      return (
+                        <ContactCard
+                          key={contact.id}
+                          contact={contact}
+                          isPrimary={!!(contact.isPrimaryOverall || contact.isPrimary)}
+                          seatStatus={seat.status}
+                          seatStatusResolved={seatStatusResolved}
+                          inviteDueDate={seat.inviteDueDate}
+                          onTogglePrimary={() => handleTogglePrimary(contact)}
+                          onEdit={() => handleOpenEdit(contact)}
+                          onDelete={() => handleDeleteContact(contact)}
+                          onInvite={
+                            onInviteContact
+                              ? () => onInviteContact(contact)
+                              : undefined
+                          }
+                          onGiveSeat={() => setContactPendingSeat(contact)}
+                        />
+                      );
+                    })}
+                  </div>
                 )}
               </AccordionContent>
             </AccordionItem>
@@ -1881,19 +2284,28 @@ function EditKeyContactsSection({
                 No external HR contacts. Click &ldquo;Add&rdquo; to create one.
               </p>
             ) : (
-              externalContacts.map((contact) => (
-                <ContactRow
-                  key={contact.id}
-                  contact={contact}
-                  isPrimary={!!(contact.isPrimaryOverall || contact.isPrimary)}
-                  onTogglePrimary={() => handleTogglePrimary(contact)}
-                  onEdit={() => handleOpenEdit(contact)}
-                  onDelete={() => handleDeleteContact(contact)}
-                  onInvite={
-                    onInviteContact ? () => onInviteContact(contact) : undefined
-                  }
-                />
-              ))
+              <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                {externalContacts.map((contact) => {
+                  const seat = seatForContact(contact);
+                  return (
+                    <ContactCard
+                      key={contact.id}
+                      contact={contact}
+                      isPrimary={!!(contact.isPrimaryOverall || contact.isPrimary)}
+                      seatStatus={seat.status}
+                      seatStatusResolved={seatStatusResolved}
+                      inviteDueDate={seat.inviteDueDate}
+                      onTogglePrimary={() => handleTogglePrimary(contact)}
+                      onEdit={() => handleOpenEdit(contact)}
+                      onDelete={() => handleDeleteContact(contact)}
+                      onInvite={
+                        onInviteContact ? () => onInviteContact(contact) : undefined
+                      }
+                      onGiveSeat={() => setContactPendingSeat(contact)}
+                    />
+                  );
+                })}
+              </div>
             )}
           </AccordionContent>
         </AccordionItem>
@@ -1904,12 +2316,25 @@ function EditKeyContactsSection({
         open={isEditModalOpen}
         onOpenChange={setIsEditModalOpen}
         contact={editingContact}
+        existingContacts={contacts}
         onSave={handleSaveContact}
         companyName={companyData.companyName || ""}
         companyLogo={companyData.companyLogo?.url || ""}
         brandColor={companyData.primaryColor || "#1F3A60"}
         secondaryColor={companyData.secondaryColor || "#6B7280"}
         appointmentLink={companyData.appointmentLink || ""}
+        planId={planId}
+      />
+
+      {/* "Give Team Seat" — promotes a Key Contact into a paid Team Member seat. The same dialog
+          and endpoint the Edit Benefit Contacts tab uses, so a person added here and a person
+          added there are granted identically. */}
+      <GiveTeamSeatDialog
+        contact={contactPendingSeat}
+        onOpenChange={(open) => {
+          if (!open) setContactPendingSeat(null);
+        }}
+        onGranted={() => setSeatRefreshKey((key) => key + 1)}
         planId={planId}
       />
 
@@ -4795,6 +5220,7 @@ export default function EditClientPage() {
             addContactType={addContactPreset.contactType}
             addExternal={addContactPreset.external}
             addDefaults={addContactPreset.defaults}
+            existingContacts={keyContacts}
             onSave={handleAddContactSave}
             companyName={companyData.companyName || ""}
             companyLogo={companyData.companyLogo?.url || ""}

@@ -1356,6 +1356,7 @@ export function BenefitsStep3({
           }}
           mode="edit"
           contact={editingContact}
+          existingContacts={localContacts}
           planId={step1Data?.planId || ""}
           category={String(step1Data?.benefitCategory || "")}
           planCompanyName={step1Data?.selectedPlan?.companyName || ""}

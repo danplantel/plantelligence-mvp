@@ -3523,6 +3523,7 @@ export function BenefitsStep1({
         open={isFormDialogOpen}
         onOpenChange={setIsFormDialogOpen}
         mode="create"
+        existingContacts={selectedPlanContacts}
         planId={currentStepData.planId || ""}
         category={String(modalCategory)}
         planCompanyName={selectedPlanName}

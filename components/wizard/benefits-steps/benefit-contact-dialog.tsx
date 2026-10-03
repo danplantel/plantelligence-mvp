@@ -38,6 +38,9 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { ContactFormFields } from "@/components/ui/contact-form-fields";
 import { ContactFormTopicBuilder } from "@/components/ui/contact-form-topic-builder";
+import { ContactEmailConflictNotice } from "@/components/ui/contact-email-conflict-notice";
+import { useContactEmailConflict } from "@/hooks/useContactEmailConflict";
+import type { ContactEmailEntry } from "@/lib/contact-email-conflict";
 import { ContactFormPage } from "@/components/pages/contact-form-page";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
@@ -83,6 +86,8 @@ export interface BenefitContactDialogProps {
   categoryBenefitByApi?: Record<string, any> | null;
   /** The contact being edited (`mode="edit"`). */
   contact?: KeyContact | null;
+  /** The plan's other contacts, so a reused email can be named on the spot. */
+  existingContacts?: ContactEmailEntry[];
   /** Receives the finished contact. Throwing keeps the dialog open and toasts. */
   onSubmit: (contact: KeyContact) => void | Promise<void>;
 }
@@ -194,6 +199,7 @@ export function BenefitContactDialog({
   benefitTitle = "",
   categoryBenefitByApi = null,
   contact = null,
+  existingContacts,
   onSubmit,
 }: BenefitContactDialogProps) {
   const isEdit = mode === "edit";
@@ -215,6 +221,21 @@ export function BenefitContactDialog({
    *  are always primary and don't require a Company / Org or custom logo. */
   const isPlanSponsorContact =
     category === "Company / Plan Sponsor" || String(category) === "Custom";
+
+  /**
+   * A contact's email must be unique across this plan AND must not belong to the
+   * organization owner or a Team Member: the seat ladder matches the two by email, so
+   * a borrowed address would mislabel the card. The hook checks the roster the caller
+   * passed in, then the owner/assignment list; `handleSubmit` refuses a conflicted
+   * address and the notice below names the holder.
+   */
+  const { conflict: emailConflict } = useContactEmailConflict({
+    planId,
+    email: form.email,
+    excludeContactId: contact?.id,
+    originalEmail: contact?.email,
+    contacts: existingContacts,
+  });
 
   /** Update the form and optionally clear the given error fields. */
   const updateForm = (
@@ -470,6 +491,16 @@ export function BenefitContactDialog({
       );
       return;
     }
+
+    // A reused address would make this contact read as the owner / a Team Member (the
+    // seat ladder matches by email), so it is a blocking error, reported at the field.
+    if (emailConflict) {
+      setErrors(["email"]);
+      emailRef.current?.focus();
+      toast.error(emailConflict.message);
+      return;
+    }
+
     setErrors([]);
 
     const shouldBePrimary = isPlanSponsorContact || form.isPrimary === true;
@@ -799,7 +830,8 @@ export function BenefitContactDialog({
                     placeholder="e.g. john@company.com"
                     className={cn(
                       "h-8 text-sm",
-                      errors.includes("email") && "border-red-500",
+                      (errors.includes("email") || emailConflict) &&
+                        "border-red-500",
                     )}
                   />
                   {errors.includes("email") && (
@@ -807,6 +839,7 @@ export function BenefitContactDialog({
                       Please enter a valid email address (or provide a phone)
                     </p>
                   )}
+                  <ContactEmailConflictNotice conflict={emailConflict} />
                 </div>
               </div>
 
