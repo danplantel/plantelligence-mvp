@@ -409,33 +409,42 @@ export function BenefitsListPage({
   );
 
   /**
-   * Category → the assignment shown on that card.
+   * Category → EVERY person assigned to it.
    *
-   * Explicit category scope wins; an assignment with "all categories" on this plan
-   * is the fallback for the cards nobody claimed, because otherwise a card would
-   * read "unassigned" while a collaborator can in fact edit it.
+   * A Map to a single row was the bug: two or three people can hold an assignment on the same
+   * plan — one per scope — and the old `if (!map.has(key))` kept only the first, so a card read
+   * "Assigned to Jane" while Bob and Cara were assigned too.
+   *
+   * Explicit per-category scope is listed first. An assignment covering "all categories" applies
+   * to every one of the plan's cards, so it is ADDED to each (not used only as a fallback for
+   * unclaimed cards): the person really is assigned to that category, and the list is now meant to
+   * show everyone. De-duplicated by assignment id so the two passes can never double-list a row.
    */
-  const assignmentByCategory = useMemo(() => {
+  const assigneesByCategory = useMemo(() => {
     const assignments: PlanAssignmentRow[] = assignmentData?.assignments ?? [];
     const normalize = (value: string) =>
       value.trim().toLowerCase().replace(/\s+/g, " ");
-    const map = new Map<string, PlanAssignmentRow>();
+    const map = new Map<string, PlanAssignmentRow[]>();
+
+    const add = (key: string, assignment: PlanAssignmentRow) => {
+      const list = map.get(key) ?? [];
+      if (!list.some((a) => a.assignmentId === assignment.assignmentId)) {
+        list.push(assignment);
+        map.set(key, list);
+      }
+    };
 
     for (const assignment of assignments) {
       if (assignment.categoryScope === "all") continue;
       for (const category of assignment.categories) {
-        const key = normalize(category);
-        if (!map.has(key)) map.set(key, assignment);
+        add(normalize(category), assignment);
       }
     }
 
-    const allCategories = assignments.find(
-      (assignment) => assignment.categoryScope === "all",
-    );
-    if (allCategories) {
+    for (const assignment of assignments) {
+      if (assignment.categoryScope !== "all") continue;
       for (const row of planRows) {
-        const key = normalize(row.category);
-        if (!map.has(key)) map.set(key, allCategories);
+        add(normalize(row.category), assignment);
       }
     }
 
@@ -585,11 +594,12 @@ export function BenefitsListPage({
                 // T4 Part A item 6: who is already on this section, and how much of
                 // it is still missing. The count is the SAME `missingInfo` the amber
                 // chips below render, so the two lines cannot disagree.
-                const assignment = assignmentByCategory.get(
-                  row.category.trim().toLowerCase().replace(/\s+/g, " "),
-                );
+                const assignees =
+                  assigneesByCategory.get(
+                    row.category.trim().toLowerCase().replace(/\s+/g, " "),
+                  ) ?? [];
                 const assignmentMissingFields =
-                  assignment && row.exists && !row.isComplete
+                  assignees.length > 0 && row.exists && !row.isComplete
                     ? row.missingInfo.length
                     : 0;
                 // Headline is the benefit's own name — see isCustomBenefitTitle().
@@ -662,18 +672,32 @@ export function BenefitsListPage({
                       {/* T4 Part A item 6: who is already on this section. The
                           missing-field count is the same `missingInfo` the chips
                           above render, so the two cannot disagree. */}
-                      {assignment ? (
+                      {assignees.length > 0 ? (
                         <div className="mt-1 flex items-center gap-1.5">
-                          <span className="block h-5 w-5 shrink-0 overflow-hidden rounded-full bg-muted">
-                            <Headshot
-                              src={assignment.headshot}
-                              alt={assignment.name}
-                              monogramName={assignment.name}
-                              wrapperClassName="rounded-full"
-                            />
+                          {/* Overlapping headshots — the row is the whole team on this section, not
+                              one person. Beyond three, a "+N" keeps the line from running away. */}
+                          <span className="flex shrink-0 -space-x-1.5">
+                            {assignees.slice(0, 3).map((assignee) => (
+                              <span
+                                key={assignee.assignmentId}
+                                className="block h-5 w-5 shrink-0 overflow-hidden rounded-full bg-muted ring-1 ring-background"
+                              >
+                                <Headshot
+                                  src={assignee.headshot}
+                                  alt={assignee.name}
+                                  monogramName={assignee.name}
+                                  wrapperClassName="rounded-full"
+                                />
+                              </span>
+                            ))}
+                            {assignees.length > 3 && (
+                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-semibold text-muted-foreground ring-1 ring-background">
+                                +{assignees.length - 3}
+                              </span>
+                            )}
                           </span>
                           <span className="truncate text-[11px] text-muted-foreground">
-                            Assigned to {assignment.name}
+                            Assigned to {assignees.map((a) => a.name).join(", ")}
                             {assignmentMissingFields > 0
                               ? ` · ${assignmentMissingFields} field${
                                   assignmentMissingFields === 1 ? "" : "s"
