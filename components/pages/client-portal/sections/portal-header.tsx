@@ -17,6 +17,7 @@ import {
   benefitCategoryToVisibilityKey,
   getCategoryPortalVisibility,
 } from "@/lib/portal-category-visibility";
+import { isPlaceholderBenefitName } from "@/lib/benefit-custom-name";
 import { BrandingImage } from "@/components/ui/branding-image";
 import {
   HEADER_LOGO_BAND_PX,
@@ -63,7 +64,9 @@ interface PortalHeaderProps {
    * `/benefits`. When it is absent (the wizards' preview chrome, which has no plan
    * data), only the visibility map filters, so those previews keep every hub.
    */
-  benefitHubs?: { category?: string; isEnabled?: boolean }[] | null;
+  benefitHubs?:
+    | { category?: string; isEnabled?: boolean; title?: string | null }[]
+    | null;
   /**
    * Legacy `employeePortalPreview.benefits` mirror.
    *
@@ -118,6 +121,28 @@ export function PortalHeader({
    * map, so those previews keep showing every hub.
    */
   const benefitHubsList = Array.isArray(benefitHubs) ? benefitHubs : null;
+
+  /**
+   * The advisor's OWN name for the Custom benefit, which labels the "Wellness
+   * Programs" link.
+   *
+   * A Custom benefit is stored under "Company / Plan Sponsor" and its name lives in
+   * `Benefit.title` — the wizard's "Custom Category Name". That category maps to the
+   * "Other" visibility key, so this is the title of the very hub the "Wellness
+   * Programs" link opens. Placeholder titles (the storage label, or the "Welcome to …"
+   * headline default) mean the benefit was never named, so the link keeps its label.
+   * The PATH is untouched — only the visible label changes.
+   */
+  const customHubTitle = (() => {
+    if (!benefitHubsList) return null;
+    const hub = benefitHubsList.find(
+      (h) =>
+        benefitCategoryToVisibilityKey(String(h?.category || "")) === "Other",
+    );
+    const title = String(hub?.title || "").trim();
+    return title && !isPlaceholderBenefitName(title) ? title : null;
+  })();
+
   const benefitsNavItems: { label: string; path: string }[] =
     BENEFITS_NAV_ITEMS.filter((item) => {
       const key = BENEFITS_NAV_TO_VISIBILITY_KEY[item.label];
@@ -129,7 +154,11 @@ export function PortalHeader({
       );
       if (!hub) return false; // not created yet
       return hub.isEnabled !== false; // created but Hidden
-    });
+    }).map((item) =>
+      BENEFITS_NAV_TO_VISIBILITY_KEY[item.label] === "Other" && customHubTitle
+        ? { ...item, label: customHubTitle }
+        : item,
+    );
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [showBanner, setShowBanner] = useState(showAlertBanner);
   // The logo band is a fixed contract (see lib/header-logo-band), so the logo

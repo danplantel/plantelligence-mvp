@@ -38,6 +38,7 @@ import {
   Trash2,
   Info,
   UserRoundPlus,
+  ArrowRight,
 } from "lucide-react";
 import {
   EditClientHeader,
@@ -4622,7 +4623,7 @@ export default function EditClientPage() {
                         }
                       >
                         <UserRoundPlus className="w-4 h-4 mr-2" />
-                        Invite Collaborator
+                        Add Collaborator
                       </Button>
                     </div>
                     <div className="flex items-center gap-3">
@@ -4681,6 +4682,53 @@ export default function EditClientPage() {
                     onInviteContact={openInviteForContact}
                     planId={clientId || ""}
                   />
+
+                  {/* ── Collaborators ──────────────────────────────────────────
+                      Matches the Create Plan Category Explorer: a plan-level invite that
+                      hands someone access so they can complete their own profile. No seat is
+                      used. The tab header used to host this; it lives here so the section
+                      reads the same on both surfaces. */}
+                  <div className="mt-6 border-t border-gray-100 dark:border-gray-700 pt-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <UserRoundPlus className="w-5 h-5 text-accent-blue" />
+                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+                        Collaborators
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
+                      Give someone access to this plan so they can fill in their own
+                      details. No seat is used.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setInvitePrefill(null);
+                        setIsInviteOpen(true);
+                      }}
+                      disabled={!clientId}
+                      title={
+                        clientId
+                          ? "Invite someone to complete this plan's benefit sections"
+                          : "Save this plan before inviting"
+                      }
+                      className="group w-full flex items-center justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-left transition-colors hover:border-accent-blue hover:bg-accent-blue/5 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-gray-700/50"
+                    >
+                      <span className="flex items-center gap-3 min-w-0">
+                        <span className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                          <UserRoundPlus className="w-5 h-5 text-accent-blue" />
+                        </span>
+                        <span className="flex flex-col min-w-0">
+                          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                            Invite Collaborator to Complete Profile
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            They fill in their own details — free, and no seat used
+                          </span>
+                        </span>
+                      </span>
+                      <ArrowRight className="w-4 h-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+                    </button>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

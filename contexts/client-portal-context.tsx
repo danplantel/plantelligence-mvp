@@ -36,7 +36,7 @@ interface ClientData {
    * `employeePortalPreview.benefits` mirror, which also carries Step 5 template
    * entries for hubs the advisor never created.
    */
-  benefitHubs?: { category: string; isEnabled: boolean }[];
+  benefitHubs?: { category: string; isEnabled: boolean; title?: string | null }[];
   spdFile?: string;
   spdFileName?: string;
   sbcFiles?: any[];

@@ -277,11 +277,15 @@ export async function GET(
       ? (
           await prisma.benefit.findMany({
             where: { clientId: client.id },
-            select: { category: true, isEnabled: true },
+            select: { category: true, isEnabled: true, title: true },
           })
         ).map((b) => ({
           category: b.category,
           isEnabled: b.isEnabled !== false,
+          // The Custom benefit's advisor-chosen name lives in `title` (see
+          // lib/benefit-custom-name). Carried so the portal header can label the
+          // "Wellness Programs" link with it instead of the generic hub name.
+          title: b.title ?? null,
         }))
       : undefined;
 
