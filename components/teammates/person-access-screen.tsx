@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
+  Check,
   Loader2,
-  Search,
   ShieldAlert,
   Trash2,
   UserCheck,
@@ -33,7 +33,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Headshot } from "@/components/ui/headshot";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -44,6 +43,7 @@ import {
 } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { BENEFIT_CONTACT_CATEGORIES } from "@/lib/benefit-contacts";
+import { CUSTOM_BENEFIT_CATEGORY } from "@/lib/benefit-custom-name";
 import { cn } from "@/lib/utils";
 import {
   COLLABORATOR_PRESET_ROLES,
@@ -60,6 +60,15 @@ import {
  */
 import type { MembershipDetail } from "@/lib/teammates/team.server";
 import { CustomRoleScreen } from "@/components/teammates/custom-role-screen";
+
+/**
+ * The canonical categories the picker offers. "Company / Plan Sponsor" is the
+ * storage category for Custom benefits, so it is dropped here and each plan's
+ * Custom benefits are listed by name instead (see `customBenefitOptions`).
+ */
+const CANONICAL_CATEGORY_OPTIONS = BENEFIT_CONTACT_CATEGORIES.filter(
+  (category) => category !== CUSTOM_BENEFIT_CATEGORY,
+);
 
 export interface PersonAccessScreenProps {
   open: boolean;
@@ -114,7 +123,6 @@ export function PersonAccessScreen({
     "certain_plans",
   );
   const [planIds, setPlanIds] = useState<string[]>([]);
-  const [planQuery, setPlanQuery] = useState("");
   const [categoryScope, setCategoryScope] = useState<"all" | "certain">("all");
   const [categories, setCategories] = useState<string[]>([]);
 
@@ -149,8 +157,8 @@ export function PersonAccessScreen({
         ...new Set(next.assignments.flatMap((assignment) => assignment.categories)),
       ];
       // A "Certain" scope with nothing ticked would be refused by the server, so fall
-      // back to the plan categories rather than presenting an unsaveable state.
-      setCategories(union.length > 0 ? union : [...BENEFIT_CONTACT_CATEGORIES]);
+      // back to the canonical categories rather than presenting an unsaveable state.
+      setCategories(union.length > 0 ? union : [...CANONICAL_CATEGORY_OPTIONS]);
     }
   }, []);
 
@@ -176,7 +184,6 @@ export function PersonAccessScreen({
     setIsLoading(true);
     setLoadError(null);
     setDetail(null);
-    setPlanQuery("");
     (async () => {
       try {
         await reload();
@@ -199,14 +206,21 @@ export function PersonAccessScreen({
   const isDeactivated = Boolean(detail?.profile.deactivatedAt);
   const roleOptions = presetRolesFor(personType);
 
-  const visiblePlans = useMemo(() => {
-    const term = planQuery.trim().toLowerCase();
-    const plans = detail?.plans ?? [];
-    if (!term) return plans;
-    return plans.filter((plan) =>
-      plan.companyName.toLowerCase().includes(term),
-    );
-  }, [detail?.plans, planQuery]);
+  /**
+   * Every Custom benefit, flattened to one row per plan it exists on, so the
+   * "Which categories?" list can offer it by name beneath its plan's label. A
+   * Custom benefit is stored under the Custom category and lives on its own plan,
+   * which is why the plan travels alongside the title.
+   */
+  const customBenefitOptions = useMemo(() => {
+    const rows: { planId: string; planName: string; title: string }[] = [];
+    for (const plan of detail?.plans ?? []) {
+      for (const title of plan.customBenefits) {
+        rows.push({ planId: plan.id, planName: plan.companyName, title });
+      }
+    }
+    return rows;
+  }, [detail?.plans]);
 
   const togglePlan = (planId: string) =>
     setPlanIds((prev) =>
@@ -221,6 +235,36 @@ export function PersonAccessScreen({
         ? prev.filter((entry) => entry !== category)
         : [...prev, category],
     );
+
+  /**
+   * Ticking a Custom benefit also pins the plan it lives on when access is scoped
+   * to Certain Plans: the benefit only exists on that plan, so granting the
+   * category without the plan would silently grant nothing. Unticking leaves the
+   * plan selected — removing it is the advisor's call, not a side effect.
+   */
+  const toggleCustomBenefit = (planId: string, title: string) => {
+    const wasSelected = categories.includes(title);
+    toggleCategory(title);
+    if (!wasSelected && planScope === "certain_plans") {
+      setPlanIds((prev) => (prev.includes(planId) ? prev : [...prev, planId]));
+    }
+  };
+
+  /**
+   * Choosing "Certain Plans" pulls in the plan behind every Custom benefit already
+   * ticked above it — the categories section is rendered first, so the tick often
+   * happens before the scope is chosen.
+   */
+  const handlePlanScopeChange = (value: string) => {
+    const next = value as "certain_plans" | "all_plans";
+    setPlanScope(next);
+    if (next !== "certain_plans") return;
+    const impliedPlanIds = customBenefitOptions
+      .filter((option) => categories.includes(option.title))
+      .map((option) => option.planId);
+    if (impliedPlanIds.length === 0) return;
+    setPlanIds((prev) => [...new Set([...prev, ...impliedPlanIds])]);
+  };
 
   /** The access block: which plans, and which categories on them. */
   const saveAccess = async () => {
@@ -475,28 +519,10 @@ export function PersonAccessScreen({
                   </span>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Which plans?</Label>
-                    <Select
-                      value={planScope}
-                      onValueChange={(value) =>
-                        setPlanScope(value as "certain_plans" | "all_plans")
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="certain_plans">Certain Plans</SelectItem>
-                        {/* Spec T2a: All Plans is a Team-Member-only concept. */}
-                        {!isCollaborator ? (
-                          <SelectItem value="all_plans">All Plans</SelectItem>
-                        ) : null}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
+                <div className="space-y-4">
+                  {/* Categories first, then plans. Each section stacks its own
+                      label, select and (when scoped) its picker directly beneath
+                      the control it belongs to, rather than sitting side by side. */}
                   <div className="space-y-2">
                     <Label>Which categories?</Label>
                     <Select
@@ -513,63 +539,114 @@ export function PersonAccessScreen({
                         <SelectItem value="certain">Certain categories</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-                </div>
-
-                {planScope === "all_plans" ? (
-                  <p className="rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2 text-[11px] text-muted-foreground dark:border-blue-900/40 dark:bg-blue-950/20">
-                    Includes plans created in the future.
-                  </p>
-                ) : (
-                  <div className="space-y-2 rounded-lg border p-3">
-                    <div className="relative">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        value={planQuery}
-                        onChange={(event) => setPlanQuery(event.target.value)}
-                        placeholder="Search plans"
-                        className="pl-9"
-                      />
-                    </div>
-                    <div className="max-h-48 space-y-1 overflow-y-auto">
-                      {visiblePlans.length === 0 ? (
-                        <p className="py-3 text-center text-xs text-muted-foreground">
-                          No plans match that search.
-                        </p>
-                      ) : (
-                        visiblePlans.map((plan) => (
+                    {categoryScope === "certain" ? (
+                      <div className="grid gap-2 rounded-lg border p-3 sm:grid-cols-2">
+                        {CANONICAL_CATEGORY_OPTIONS.map((category) => (
                           <label
-                            key={plan.id}
-                            className="flex items-center gap-2 rounded-md px-1 py-1 text-sm"
+                            key={category}
+                            className="flex min-w-0 items-center gap-2 text-sm"
                           >
                             <Checkbox
-                              checked={planIds.includes(plan.id)}
-                              onCheckedChange={() => togglePlan(plan.id)}
+                              checked={categories.includes(category)}
+                              onCheckedChange={() => toggleCategory(category)}
                             />
-                            <span className="truncate">{plan.companyName}</span>
+                            <span className="truncate">{category}</span>
                           </label>
-                        ))
-                      )}
-                    </div>
+                        ))}
+                        {/* Custom benefits, each under its plan's name. A title
+                            reused across plans appears once per plan, matching how
+                            a Custom benefit is stored. Ticking one selects that
+                            plan below (see `toggleCustomBenefit`). */}
+                        {customBenefitOptions.map((option) => (
+                          <label
+                            key={`${option.planId}:${option.title}`}
+                            className="flex min-w-0 items-center gap-2 text-sm"
+                          >
+                            <Checkbox
+                              checked={categories.includes(option.title)}
+                              onCheckedChange={() =>
+                                toggleCustomBenefit(option.planId, option.title)
+                              }
+                            />
+                            <span className="min-w-0">
+                              <span
+                                className="block truncate"
+                                title={option.title}
+                              >
+                                {option.title}
+                              </span>
+                              <span
+                                className="block truncate text-[11px] text-muted-foreground"
+                                title={option.planName}
+                              >
+                                {option.planName}
+                              </span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
-                )}
 
-                {categoryScope === "certain" ? (
-                  <div className="grid gap-2 rounded-lg border p-3 sm:grid-cols-2">
-                    {BENEFIT_CONTACT_CATEGORIES.map((category) => (
-                      <label
-                        key={category}
-                        className="flex items-center gap-2 text-sm"
-                      >
-                        <Checkbox
-                          checked={categories.includes(category)}
-                          onCheckedChange={() => toggleCategory(category)}
-                        />
-                        {category}
-                      </label>
-                    ))}
+                  <div className="space-y-2">
+                    <Label>Which plans?</Label>
+                    <Select
+                      value={planScope}
+                      onValueChange={handlePlanScopeChange}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="certain_plans">Certain Plans</SelectItem>
+                        {/* Spec T2a: All Plans is a Team-Member-only concept. */}
+                        {!isCollaborator ? (
+                          <SelectItem value="all_plans">All Plans</SelectItem>
+                        ) : null}
+                      </SelectContent>
+                    </Select>
+                    {planScope === "all_plans" ? (
+                      <p className="rounded-lg border border-blue-100 bg-blue-50/60 px-3 py-2 text-[11px] text-muted-foreground dark:border-blue-900/40 dark:bg-blue-950/20">
+                        Includes plans created in the future.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {/* Every plan as a toggleable pill — ticking one grants this
+                            person access to that plan. The chip styling mirrors the
+                            plan selector's pills (see
+                            components/plan-selector/plan-search-bar.tsx). */}
+                        {detail.plans.length === 0 ? (
+                          <p className="text-xs text-muted-foreground">
+                            No plans yet.
+                          </p>
+                        ) : (
+                          <div className="flex max-h-48 flex-wrap gap-1.5 overflow-y-auto rounded-lg border p-3">
+                            {detail.plans.map((plan) => {
+                              const selected = planIds.includes(plan.id);
+                              return (
+                                <button
+                                  key={plan.id}
+                                  type="button"
+                                  onClick={() => togglePlan(plan.id)}
+                                  aria-pressed={selected}
+                                  className={cn(
+                                    "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-all",
+                                    selected
+                                      ? "bg-[#23919C]/10 text-[#23919C] border-[#23919C]/30"
+                                      : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 dark:text-muted-foreground dark:border-gray-600 dark:hover:border-[#23919C]/50",
+                                  )}
+                                >
+                                  {selected ? <Check className="size-3" /> : null}
+                                  {plan.companyName}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                ) : null}
+                </div>
 
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[11px] text-muted-foreground">

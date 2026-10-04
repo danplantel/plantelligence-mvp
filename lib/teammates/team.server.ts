@@ -37,6 +37,7 @@ import {
   upgradeContactToInvited,
 } from "./profiles.server";
 import { removeAssignment, upsertAssignment } from "./assignments.server";
+import { CUSTOM_BENEFIT_CATEGORY } from "./benefit-categories.server";
 import { findOrCreatePartnerCompany } from "./companies.server";
 import {
   assertSeatAvailable,
@@ -1606,8 +1607,14 @@ export interface MembershipDetail {
   };
   /** Spec T6 Part A item 1: "assignments listed below by plan". */
   assignments: MembershipAssignmentDetail[];
-  /** The organization's plans, for the "Certain Plans" searchable checklist. */
-  plans: { id: string; companyName: string }[];
+  /**
+   * The organization's plans, for the "Certain Plans" checklist, each with the
+   * Custom benefit titles created on it (stored as `Benefit` rows under the
+   * Custom category — see `benefit-categories.server`). The access screen lists
+   * them alongside the canonical categories so a Custom benefit can be granted by
+   * name, and so ticking one can pin the plan it lives on.
+   */
+  plans: { id: string; companyName: string; customBenefits: string[] }[];
   seats: SeatUsage;
   /**
    * Spec T6 Part B item 3: "Delete Profile: allowed only when the person has no
@@ -1660,6 +1667,32 @@ export async function getMembershipDetail({
     }),
     getSeatUsage(organizationId),
   ]);
+
+  // Custom benefits are per plan and per organisation (the advisor names them in
+  // Create Benefits → Step 1), so they are read from the `Benefit` rows rather than
+  // assumed. Grouped by plan and de-duplicated within a plan, matching the order the
+  // canonical categories are presented in.
+  const customBenefitRows =
+    plans.length > 0
+      ? await prisma.benefit.findMany({
+          where: {
+            clientId: { in: plans.map((plan) => plan.id) },
+            category: CUSTOM_BENEFIT_CATEGORY,
+          },
+          select: { clientId: true, title: true },
+        })
+      : [];
+  const customBenefitsByPlan = new Map<string, string[]>();
+  for (const row of customBenefitRows) {
+    const title = (row.title ?? "").trim();
+    if (!title) continue;
+    const list = customBenefitsByPlan.get(row.clientId) ?? [];
+    if (!list.includes(title)) list.push(title);
+    customBenefitsByPlan.set(row.clientId, list);
+  }
+  for (const list of customBenefitsByPlan.values()) {
+    list.sort((a, b) => a.localeCompare(b));
+  }
 
   const planIds = [...new Set(assignments.map((row) => row.clientId))];
   const planRows =
@@ -1714,6 +1747,7 @@ export async function getMembershipDetail({
     plans: plans.map((plan) => ({
       id: plan.id,
       companyName: plan.companyName ?? "Untitled plan",
+      customBenefits: customBenefitsByPlan.get(plan.id) ?? [],
     })),
     seats,
     canDeleteProfile: assignments.length === 0,
