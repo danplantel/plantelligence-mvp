@@ -116,6 +116,17 @@ export default function SettingsPage() {
   useEffect(() => {
     setHeaderPortalTarget(document.getElementById("header-tabs-portal"));
   }, []);
+
+  // Deep link support: `/settings?tab=members` opens that tab. The dashboard's team panel
+  // ("View all") links here so it lands straight on People & Access. Read from the URL in an
+  // effect rather than `useSearchParams` so this client page needs no Suspense boundary; an
+  // unknown value is ignored rather than switching to a tab that does not exist.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("tab");
+    if (!requested) return;
+    const knownTabs = ["profile", "branding", "organization", "members", "billing"];
+    if (knownTabs.includes(requested)) setActiveTab(requested);
+  }, []);
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] =
     useState(false);
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);

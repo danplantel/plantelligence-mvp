@@ -14,6 +14,7 @@ import { MeetingsThisWeekPanel } from "./meetings-this-week-panel";
 import { NeedsAttentionPanel } from "./needs-attention-panel";
 import { RecentActivity } from "./recent-activity";
 import { TasksAndMeetings } from "./tasks-and-meetings";
+import { DashboardTeam } from "./dashboard-team";
 import {
   quickActions,
   quickInsights as defaultQuickInsights,
@@ -174,13 +175,14 @@ export function Dashboard() {
     [viewerReadOnly],
   );
 
-  // `publish` is allowed for the Owner and Admin only — Editor, Contributor, Reviewer and Viewer
-  // are `not_allowed`, and a collaborator can never hold it. The dashboard's one publish surface
-  // is the task list's "Ready to publish" row, so that capability is handed to the task list;
-  // every other dashboard control maps to an `edit` row that an Editor holds, so nothing else
-  // changes for them.
   const readerRole = userInfo.role as string | null;
-  const canPublish = readerRole === "owner" || readerRole === "admin";
+  // `owner`/`admin` is the whole difference that matters on the dashboard:
+  //  - `publish` is allowed for them alone, so the task list's "Ready to publish" row is theirs.
+  //  - `org_settings` is allowed for them alone, so the team panel is theirs to see.
+  // Every other dashboard control maps to an `edit` row a non-Viewer role already holds.
+  const isOwnerOrAdmin = readerRole === "owner" || readerRole === "admin";
+  const canPublish = isOwnerOrAdmin;
+  const canManageOrg = isOwnerOrAdmin;
 
   return (
     // `pt-8` adds the gap the fixed header does not: the dashboard <main> clears it with `pt-16`
@@ -188,24 +190,18 @@ export function Dashboard() {
     // header. This is scoped to the dashboard, so other pages keep their own top spacing.
     <div className="px-6 pt-8">
       <div className="w-full space-y-6 max-w-7xl mx-auto">
-        {/* ── Top row: identity · branding ─────────────────────────────────────
-            Two zones across the parent width: who you are on the left, the
-            organization's logo pinned right. The seat meter used to hold the middle
+        {/* ── Top row: identity (+ logo) · team ────────────────────────────────
+            Who you are on the left, the organization's team on the right. The
+            organization's logo moved INTO the left identity zone — its old pinned-right
+            slot now holds the team panel. The seat meter used to hold the middle
             column — see the note at the top of `Dashboard` for why it no longer does.
 
-            Two details that are load-bearing rather than cosmetic:
-
-            1. `[minmax(0,1fr)_auto]` gives the identity card all the flexible space
-               while the logo keeps its intrinsic width. `minmax(0, …)` rather than a
-               bare `1fr`: `1fr` has an `auto` minimum, so a long name could push the
-               logo out of the row instead of truncating inside its own column.
-            2. The logo is deliberately NOT its own Card. It is a bare grid child
-               pinned to the right, which keeps the row to one card instead of
-               inventing a bordered box to hold a single image.
-            Below `lg` the two stack, because the logo is a fixed 156×104 and cannot
-            shrink. `items-stretch` (the grid default, stated for intent) makes both
-            children the same height, and the `h-full` below is what lets the identity
-            content centre vertically against the taller logo. */}
+            `[minmax(0,1fr)_auto]` gives the identity card all the flexible space while
+            the team panel keeps its intrinsic width. `minmax(0, …)` rather than a bare
+            `1fr`: `1fr` has an `auto` minimum, so a long name could push the panel out
+            of the row instead of truncating inside its own column. Below `lg` the two
+            stack, and `items-stretch` (the grid default, stated for intent) plus each
+            child's `h-full` keeps the two cards the same height. */}
         <div className="grid items-stretch grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_auto]">
           {/* Identity — left */}
           <Card className="px-5 bg-transparent">
@@ -223,6 +219,18 @@ export function Dashboard() {
                 </>
               ) : (
                 <>
+                  {/* Organization logo — moved to the LEFT, with the identity, so the
+                      right zone can hold the team panel. Sized down from the old
+                      156×104 pin so it reads as a brand mark beside the greeting. */}
+                  {userInfo.logo ? (
+                    <div className="flex h-14 max-w-[120px] shrink-0 items-center justify-start overflow-hidden">
+                      <BrandingImage
+                        src={userInfo.logo}
+                        alt="Organization logo"
+                        className="h-full w-auto object-contain"
+                      />
+                    </div>
+                  ) : null}
                   {/* Identity: avatar + greeting — flush left */}
                   <div className="flex min-w-0 flex-1 items-center gap-4 text-left">
                     <div className="size-16 flex-shrink-0 overflow-hidden rounded-full border border-border dark:border-gray-600">
@@ -253,25 +261,10 @@ export function Dashboard() {
             </CardContent>
           </Card>
 
-          {/* Branding logo — pinned right. Deliberately not a Card: a single image
-              does not need a bordered box, and this keeps the row to two cards. The
-              logo is also fixed at 156×104 and cannot shrink, which is why the whole
-              row stacks below `lg` instead of squeezing it. */}
-          {isLoadingUserInfo ? (
-            <div className="flex items-center justify-end">
-              <div className="h-[104px] w-[156px] flex-shrink-0 animate-pulse rounded bg-gray-200 dark:bg-gray-700" />
-            </div>
-          ) : userInfo.logo ? (
-            <div className="flex items-center justify-end">
-              <div className="flex h-[104px] w-[156px] flex-shrink-0 items-center justify-center overflow-hidden rounded">
-                <BrandingImage
-                  src={userInfo.logo}
-                  alt="Logo"
-                  className="h-full w-full object-contain"
-                />
-              </div>
-            </div>
-          ) : null}
+          {/* Right zone: the team panel, in the space the logo used to hold.
+              Owner/Admin only — the roster is `org_settings` data, the same rule that
+              keeps Settings → People & Access off every other role. */}
+          {canManageOrg ? <DashboardTeam /> : null}
         </div>
 
       {/* Quick Actions */}
