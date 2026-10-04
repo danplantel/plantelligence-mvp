@@ -47,7 +47,7 @@ function errorResponse(error: unknown): NextResponse {
  * team.server.ts because only one of them synthesizes the owner row, and the
  * client renders them in different places (seat cards vs an accordion).
  */
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getOrgSession();
     if (!session) {
@@ -97,9 +97,18 @@ export async function GET() {
       listCustomBenefitTitles(session.organizationId),
     ]);
 
+    // `?profileId=` narrows BOTH lists to one person, so the Manage Access screen can refresh
+    // just that row after a save instead of pulling (and re-rendering) the whole roster. The seat
+    // meter and the custom-category list stay whole — they are org-wide, and the meter can change
+    // when a membership does.
+    const singleProfileId = request.nextUrl.searchParams.get("profileId");
     return NextResponse.json({
-      team,
-      collaborators,
+      team: singleProfileId
+        ? team.filter((row) => row.profileId === singleProfileId)
+        : team,
+      collaborators: singleProfileId
+        ? collaborators.filter((row) => row.profileId === singleProfileId)
+        : collaborators,
       seats,
       customCategories,
       canManage,

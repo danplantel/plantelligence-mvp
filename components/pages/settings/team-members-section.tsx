@@ -93,7 +93,13 @@ interface TeamMemberRow {
   personType: "team_member" | "collaborator";
   /** Partner/Provider company (T1); null for the owner and people without one. */
   companyName?: string | null;
-  planAccess: { scope: "all" | "certain" | "none"; planIds: string[]; planNames: string[] };
+  planAccess: {
+    scope: "all" | "certain" | "none";
+    planIds: string[];
+    planNames: string[];
+    /** Selected plans cover every plan in the organisation (display-only; see the server type). */
+    coversAll?: boolean;
+  };
   categoryAccess: { scope: "all" | "certain" | "none"; categories: string[] };
   allPlans: boolean;
   /** ISO timestamp while deactivated; null/absent for a live profile. */
@@ -104,6 +110,8 @@ interface TeamMemberRow {
 function planAccessLabel(row: TeamMemberRow): string {
   if (row.isOwner || row.planAccess.scope === "all") return "All Plans";
   if (row.planAccess.scope === "none") return "No plan access";
+  // Chosen plan-by-plan but covering every available plan still reads as "All Plans".
+  if (row.planAccess.coversAll) return "All Plans";
   if (row.planAccess.planNames.length <= 2) {
     return row.planAccess.planNames.join(", ");
   }
@@ -898,6 +906,47 @@ export function TeamMembersSection({
       }
     } finally {
       setIsLoading(false);
+    }
+  }, []);
+
+  /**
+   * Refresh ONE person's row after the Manage Access screen changes their access.
+   *
+   * Calling `load()` here re-set `isLoading` and re-rendered every seat card and collaborator row
+   * for a change that touches a single person. This asks the list endpoint for just that profile
+   * (`?profileId=`), then swaps only the matching row in place — every other row keeps its
+   * identity and no loading state is shown.
+   *
+   * A failure is non-fatal: the save already succeeded, so the row simply keeps its previous
+   * summary until the tab is next opened.
+   */
+  const refreshPerson = useCallback(async (profileId: string) => {
+    try {
+      const response = await fetch(
+        `/api/teammates/team?profileId=${encodeURIComponent(profileId)}`,
+        { cache: "no-store" },
+      );
+      if (!response.ok) return;
+      const body = (await response.json()) as {
+        team?: TeamMemberRow[];
+        collaborators?: TeamMemberRow[];
+        seats?: SeatUsageSummary;
+      };
+      const fresh =
+        body.team?.find((row) => row.profileId === profileId) ??
+        body.collaborators?.find((row) => row.profileId === profileId) ??
+        null;
+      if (fresh) {
+        setTeam((prev) =>
+          prev.map((row) => (row.profileId === profileId ? fresh : row)),
+        );
+        setCollaborators((prev) =>
+          prev.map((row) => (row.profileId === profileId ? fresh : row)),
+        );
+      }
+      if (body.seats) setSeats(body.seats);
+    } catch {
+      // Non-fatal — the modal's save already succeeded.
     }
   }, []);
 
@@ -2228,7 +2277,13 @@ export function TeamMembersSection({
           if (!open) setManagingProfileId(null);
         }}
         profileId={managingProfileId}
-        onChanged={() => void load()}
+        onChanged={() => {
+          // Only this person's row — not the whole roster.
+          if (managingProfileId) void refreshPerson(managingProfileId);
+        }}
+        // Deleting the profile removes the row entirely, which the in-place refresh cannot
+        // express, so that one action still reloads the list.
+        onDeleted={() => void load()}
       />
 
       {/* ── Read-only dialog for the owner (no profile to manage) ── */}

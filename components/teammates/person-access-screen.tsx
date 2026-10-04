@@ -77,6 +77,12 @@ export interface PersonAccessScreenProps {
   profileId: string | null;
   /** Called after any successful change so the list behind the screen refreshes. */
   onChanged: () => void;
+  /**
+   * Called instead of `onChanged` when the profile itself is deleted. Deletion removes the row
+   * from the list, which the in-place per-row refresh `onChanged` performs cannot express, so the
+   * caller reloads the whole roster here.
+   */
+  onDeleted?: () => void;
 }
 
 /** The two sets of presets differ by person type, and so does All Plans. */
@@ -113,6 +119,7 @@ export function PersonAccessScreen({
   onOpenChange,
   profileId,
   onChanged,
+  onDeleted,
 }: PersonAccessScreenProps) {
   const [detail, setDetail] = useState<MembershipDetail | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -132,6 +139,18 @@ export function PersonAccessScreen({
   );
   /** A plan whose "instant add" request is in flight, so its pill can show a spinner. */
   const [addingPlanId, setAddingPlanId] = useState<string | null>(null);
+
+  /**
+   * Per-assignment edits — role and "Show on Benefits Hub" — held here until Save access.
+   *
+   * These used to PATCH the assignment and re-read the person on every change, which spun a
+   * spinner on the row and re-hydrated the whole modal (discarding any other draft) mid-edit.
+   * Now they are local; Save access is the only place the writes happen, so a row tweak never
+   * blocks the modal. Keyed by assignment id.
+   */
+  const [assignmentDrafts, setAssignmentDrafts] = useState<
+    Record<string, { role?: TeammateAssignmentRole; showOnBenefitsHub?: boolean }>
+  >({});
   const [isWorking, setIsWorking] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   /** T2a: the plan-first grid, opened from the role dropdown's Custom entry. */
@@ -144,6 +163,8 @@ export function PersonAccessScreen({
     setDetail(next);
     setPlanScope(next.profile.allPlans ? "all_plans" : "certain_plans");
     setPlanIds(next.assignments.map((assignment) => assignment.clientId));
+    // A fresh read is the new baseline: any pending row edits are now reflected server-side.
+    setAssignmentDrafts({});
 
     // Pre-fill benefits access from what the person already holds: "All" only when
     // every assignment covers every category, otherwise the union of what they have.
@@ -361,7 +382,14 @@ export function PersonAccessScreen({
     }
   };
 
-  /** The access block: which plans, and which categories on them. */
+  /**
+   * Commit the whole draft: the access block AND every per-assignment edit.
+   *
+   * This is the modal's only write. The plan/category block is saved first (it materialises the
+   * plan set), then each changed row's role / hub visibility is PATCHed, and only then does the
+   * dialog dismiss — the success toast is shown AFTER it closes, so the confirmation belongs to
+   * a modal that is already gone rather than competing with it.
+   */
   const saveAccess = async () => {
     if (!profileId) return;
     if (planScope === "certain_plans" && planIds.length === 0) {
@@ -394,14 +422,43 @@ export function PersonAccessScreen({
         return;
       }
 
+      // Per-row edits, now that the plan set is settled. Only the fields that actually changed
+      // are sent, so an untouched row is not rewritten.
+      for (const [assignmentId, draft] of Object.entries(assignmentDrafts)) {
+        const current = detail?.assignments.find((row) => row.id === assignmentId);
+        if (!current) continue;
+        const patch: {
+          role?: TeammateAssignmentRole;
+          showOnBenefitsHub?: boolean;
+        } = {};
+        if (draft.role !== undefined && draft.role !== current.role) {
+          patch.role = draft.role;
+        }
+        if (
+          draft.showOnBenefitsHub !== undefined &&
+          draft.showOnBenefitsHub !== current.showOnBenefitsHub
+        ) {
+          patch.showOnBenefitsHub = draft.showOnBenefitsHub;
+        }
+        if (Object.keys(patch).length === 0) continue;
+        await fetch(`/api/teammates/assignments/${assignmentId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(patch),
+        });
+      }
+
       const removed = body.member?.removedAssignments ?? 0;
+
+      // Dismiss first, toast second — sequentially, as the confirmation reads better on a
+      // closed modal.
+      onChanged();
+      onOpenChange(false);
       toast.success(
         `Access saved — ${body.member?.assignmentCount ?? 0} plan assignment${
           (body.member?.assignmentCount ?? 0) === 1 ? "" : "s"
         }${removed > 0 ? `, ${removed} removed` : ""}.`,
       );
-      await reload();
-      onChanged();
     } catch {
       toast.error("Could not save access");
     } finally {
@@ -409,42 +466,26 @@ export function PersonAccessScreen({
     }
   };
 
-  /** One assignment's row controls (spec T6 Part A item 4). */
-  const patchAssignmentRow = async (
+  /**
+   * One assignment's row controls (spec T6 Part A item 4) — recorded locally, not written.
+   *
+   * Save access commits them (see `saveAccess`), which is why neither setter touches the network
+   * and neither shows a spinner.
+   */
+  const setAssignmentRole = (
     assignmentId: string,
-    patch: { role?: TeammateAssignmentRole; showOnBenefitsHub?: boolean },
-  ) => {
-    setPendingAssignmentId(assignmentId);
-    try {
-      const response = await fetch(`/api/teammates/assignments/${assignmentId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patch),
-      });
-      const body = (await response.json().catch(() => ({}))) as {
-        error?: string;
-      };
-      if (!response.ok) {
-        toast.error(body.error ?? "Could not update this assignment");
-        return;
-      }
-      if (patch.role) {
-        toast.success(`Role set to ${PRESET_ROLE_LABELS[patch.role as never] ?? patch.role}.`);
-      } else if (patch.showOnBenefitsHub !== undefined) {
-        toast.success(
-          patch.showOnBenefitsHub
-            ? "Shown on the Benefits Hub."
-            : "Hidden from the Benefits Hub — they keep their admin access.",
-        );
-      }
-      await reload();
-      onChanged();
-    } catch {
-      toast.error("Could not update this assignment");
-    } finally {
-      setPendingAssignmentId(null);
-    }
-  };
+    role: TeammateAssignmentRole,
+  ) =>
+    setAssignmentDrafts((prev) => ({
+      ...prev,
+      [assignmentId]: { ...prev[assignmentId], role },
+    }));
+
+  const setAssignmentHub = (assignmentId: string, showOnBenefitsHub: boolean) =>
+    setAssignmentDrafts((prev) => ({
+      ...prev,
+      [assignmentId]: { ...prev[assignmentId], showOnBenefitsHub },
+    }));
 
   /** The first of the three actions (spec T6 Part A item 5). */
   const removeAssignmentRow = async (assignmentId: string, planName: string) => {
@@ -460,9 +501,29 @@ export function PersonAccessScreen({
         toast.error(body.error ?? "Could not remove this assignment");
         return;
       }
-      toast.success(`Removed their access to ${planName}.`);
-      await reload();
+      // Drop the row, its plan and any pending edit locally rather than re-reading the person:
+      // a reload here would discard every other unsaved change in the modal.
+      const removedClientId = detail?.assignments.find(
+        (row) => row.id === assignmentId,
+      )?.clientId;
+      setDetail((prev) =>
+        prev
+          ? {
+              ...prev,
+              assignments: prev.assignments.filter((row) => row.id !== assignmentId),
+            }
+          : prev,
+      );
+      if (removedClientId) {
+        setPlanIds((prev) => prev.filter((id) => id !== removedClientId));
+      }
+      setAssignmentDrafts((prev) => {
+        const next = { ...prev };
+        delete next[assignmentId];
+        return next;
+      });
       onChanged();
+      toast.success(`Removed their access to ${planName}.`);
     } catch {
       toast.error("Could not remove this assignment");
     } finally {
@@ -531,7 +592,10 @@ export function PersonAccessScreen({
       );
       setIsDeleteOpen(false);
       onOpenChange(false);
-      onChanged();
+      // The person is gone, so the row must be removed — the targeted per-row refresh used for an
+      // access change cannot express that, so deletion asks for the full list.
+      if (onDeleted) onDeleted();
+      else onChanged();
     } catch {
       toast.error("Could not delete this profile");
     } finally {
@@ -804,7 +868,10 @@ export function PersonAccessScreen({
                                 Role on this plan
                               </Label>
                               <Select
-                                value={assignment.role}
+                                value={
+                                  assignmentDrafts[assignment.id]?.role ??
+                                  assignment.role
+                                }
                                 onValueChange={(value) => {
                                   // T2a: Custom is not written from here. Choosing it
                                   // opens the plan-first grid, which decides the plans,
@@ -814,11 +881,12 @@ export function PersonAccessScreen({
                                     setIsCustomOpen(true);
                                     return;
                                   }
-                                  void patchAssignmentRow(assignment.id, {
-                                    role: value as TeammateAssignmentRole,
-                                  });
+                                  // Recorded locally; Save access writes it.
+                                  setAssignmentRole(
+                                    assignment.id,
+                                    value as TeammateAssignmentRole,
+                                  );
                                 }}
-                                disabled={isPending}
                               >
                                 <SelectTrigger className="h-8 w-[190px]">
                                   <SelectValue />
@@ -854,13 +922,15 @@ export function PersonAccessScreen({
                               </Label>
                               <Switch
                                 id={`hub-${assignment.id}`}
-                                checked={assignment.showOnBenefitsHub}
-                                onCheckedChange={(checked) =>
-                                  void patchAssignmentRow(assignment.id, {
-                                    showOnBenefitsHub: checked,
-                                  })
+                                checked={
+                                  assignmentDrafts[assignment.id]
+                                    ?.showOnBenefitsHub ??
+                                  assignment.showOnBenefitsHub
                                 }
-                                disabled={isPending}
+                                // Recorded locally; Save access writes it.
+                                onCheckedChange={(checked) =>
+                                  setAssignmentHub(assignment.id, checked)
+                                }
                               />
                             </div>
                           </div>

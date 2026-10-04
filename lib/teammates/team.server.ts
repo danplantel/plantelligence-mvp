@@ -1033,6 +1033,16 @@ export interface TeamMemberPlanSummary {
   scope: "all" | "certain" | "none";
   planIds: string[];
   planNames: string[];
+  /**
+   * Whether the selected plans cover EVERY plan in the organisation.
+   *
+   * Distinct from `scope: "all"` on purpose: `scope` is the stored `allPlans` flag, which also
+   * auto-assigns future plans. Someone set up plan-by-plan (scope "certain") whose ticks happen
+   * to be every plan *today* has the same reach right now but is not the same setting, so this is
+   * reported separately and used only for display — the roster says "All Plans" without silently
+   * turning on the flag that would sweep in plans created later.
+   */
+  coversAll: boolean;
 }
 
 export interface TeamMemberCategorySummary {
@@ -1213,6 +1223,7 @@ async function listOrgPeople(
         scope: "all",
         planIds: plans.map((plan) => plan.id),
         planNames: plans.map((plan) => plan.companyName),
+        coversAll: true,
       },
       categoryAccess: { scope: "all", categories: [] },
       allPlans: true,
@@ -1232,6 +1243,11 @@ async function listOrgPeople(
       : planIds.length > 0
         ? "certain"
         : "none";
+
+    // Every plan in the organisation ticked individually is "certain" in the stored sense but
+    // reads as all-plans access, so the roster can say so without flipping the `allPlans` flag.
+    const coversAllPlans =
+      plans.length > 0 && plans.every((plan) => planIds.includes(plan.id));
 
     const allCategories = memberAssignments.some(
       (assignment) => assignment.categoryScope === "all",
@@ -1262,6 +1278,7 @@ async function listOrgPeople(
         scope: planScope,
         planIds,
         planNames: planIds.map((id) => planNameById.get(id) ?? id),
+        coversAll: profile.allPlans || coversAllPlans,
       },
       categoryAccess:
         allCategories || memberAssignments.length === 0
