@@ -130,6 +130,8 @@ export function PersonAccessScreen({
   const [pendingAssignmentId, setPendingAssignmentId] = useState<string | null>(
     null,
   );
+  /** A plan whose "instant add" request is in flight, so its pill can show a spinner. */
+  const [addingPlanId, setAddingPlanId] = useState<string | null>(null);
   const [isWorking, setIsWorking] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   /** T2a: the plan-first grid, opened from the role dropdown's Custom entry. */
@@ -222,12 +224,98 @@ export function PersonAccessScreen({
     return rows;
   }, [detail?.plans]);
 
-  const togglePlan = (planId: string) =>
-    setPlanIds((prev) =>
-      prev.includes(planId)
-        ? prev.filter((id) => id !== planId)
-        : [...prev, planId],
-    );
+  /** Plan id → display name, for the row an instant add appends. */
+  const planNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const plan of detail?.plans ?? []) map.set(plan.id, plan.companyName);
+    return map;
+  }, [detail?.plans]);
+
+  /**
+   * Add a plan to the person's access and create its assignment immediately.
+   *
+   * The per-plan controls (Role, Show on Benefits Hub) address an assignment by id, so a plan
+   * that exists only as a draft cannot be edited. This writes the one assignment now — via
+   * `POST /api/teammates/assignments`, which touches only that plan — and appends the returned
+   * row to the screen, so its controls work at once instead of only after Save access.
+   *
+   * The append is deliberate rather than a full `reload()`: a reload re-hydrates `planIds`,
+   * `categoryScope` and `categories` from the server and would discard the reader's in-progress
+   * draft (an untick, or a category they just picked).
+   *
+   * Removal is unchanged — unticking leaves the assignment in place and Save access removes it.
+   */
+  const addPlanToAccess = useCallback(
+    async (planId: string) => {
+      if (!profileId) return;
+      if (planIds.includes(planId)) return;
+
+      setPlanIds((prev) => (prev.includes(planId) ? prev : [...prev, planId]));
+      setAddingPlanId(planId);
+      try {
+        const response = await fetch("/api/teammates/assignments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ profileId, clientId: planId }),
+        });
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          assignment?: {
+            id?: string;
+            role?: string;
+            categoryScope?: string;
+            categories?: string[];
+            showOnBenefitsHub?: boolean;
+            permissionSet?: unknown;
+          };
+        };
+        const created = body.assignment;
+        if (!response.ok || !created?.id) {
+          setPlanIds((prev) => prev.filter((id) => id !== planId));
+          toast.error(body.error ?? "Could not add this plan");
+          return;
+        }
+
+        const newAssignment = {
+          id: created.id,
+          clientId: planId,
+          planName: planNameById.get(planId) ?? "Unknown plan",
+          role: created.role,
+          categoryScope: created.categoryScope,
+          categories: Array.isArray(created.categories) ? created.categories : [],
+          showOnBenefitsHub: created.showOnBenefitsHub !== false,
+          permissionSet: created.permissionSet,
+          inviteNote: null,
+          inviteDueDate: null,
+          invitedAt: null,
+          lastChangedAt: null,
+        } as MembershipDetail["assignments"][number];
+
+        setDetail((prev) =>
+          prev
+            ? { ...prev, assignments: [...prev.assignments, newAssignment] }
+            : prev,
+        );
+        onChanged();
+      } catch {
+        setPlanIds((prev) => prev.filter((id) => id !== planId));
+        toast.error("Could not add this plan");
+      } finally {
+        setAddingPlanId(null);
+      }
+    },
+    [profileId, planIds, planNameById, onChanged],
+  );
+
+  const togglePlan = (planId: string) => {
+    if (planIds.includes(planId)) {
+      // Deselect: membership is removed when Save access runs, as the section states.
+      setPlanIds((prev) => prev.filter((id) => id !== planId));
+      return;
+    }
+    // Select: create the assignment now so its Role + hub toggle are usable immediately.
+    void addPlanToAccess(planId);
+  };
 
   const toggleCategory = (category: string) =>
     setCategories((prev) =>
@@ -246,7 +334,8 @@ export function PersonAccessScreen({
     const wasSelected = categories.includes(title);
     toggleCategory(title);
     if (!wasSelected && planScope === "certain_plans") {
-      setPlanIds((prev) => (prev.includes(planId) ? prev : [...prev, planId]));
+      // Instant add, same as ticking the plan's pill.
+      void addPlanToAccess(planId);
     }
   };
 
@@ -259,11 +348,17 @@ export function PersonAccessScreen({
     const next = value as "certain_plans" | "all_plans";
     setPlanScope(next);
     if (next !== "certain_plans") return;
-    const impliedPlanIds = customBenefitOptions
-      .filter((option) => categories.includes(option.title))
-      .map((option) => option.planId);
-    if (impliedPlanIds.length === 0) return;
-    setPlanIds((prev) => [...new Set([...prev, ...impliedPlanIds])]);
+    const impliedPlanIds = [
+      ...new Set(
+        customBenefitOptions
+          .filter((option) => categories.includes(option.title))
+          .map((option) => option.planId),
+      ),
+    ];
+    // Create each implied plan's assignment immediately, matching a pill tick.
+    for (const impliedPlanId of impliedPlanIds) {
+      void addPlanToAccess(impliedPlanId);
+    }
   };
 
   /** The access block: which plans, and which categories on them. */
@@ -632,14 +727,20 @@ export function PersonAccessScreen({
                                   type="button"
                                   onClick={() => togglePlan(plan.id)}
                                   aria-pressed={selected}
+                                  disabled={addingPlanId === plan.id}
                                   className={cn(
                                     "inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs font-medium transition-all",
                                     selected
                                       ? "bg-[#23919C]/10 text-[#23919C] border-[#23919C]/30"
                                       : "bg-gray-50 text-gray-600 border-gray-200 hover:border-[#23919C]/40 hover:text-[#23919C] dark:bg-gray-700 dark:text-muted-foreground dark:border-gray-600 dark:hover:border-[#23919C]/50",
+                                    addingPlanId === plan.id && "opacity-60",
                                   )}
                                 >
-                                  {selected ? <Check className="size-3" /> : null}
+                                  {addingPlanId === plan.id ? (
+                                    <Loader2 className="size-3 animate-spin" />
+                                  ) : selected ? (
+                                    <Check className="size-3" />
+                                  ) : null}
                                   {plan.companyName}
                                 </button>
                               );

@@ -1592,6 +1592,53 @@ export interface MembershipAssignmentDetail {
   lastChangedAt: string | null;
 }
 
+/**
+ * Add ONE plan assignment to an existing membership.
+ *
+ * This backs the Manage Access screen's "instant add": ticking a plan pill under Certain Plans
+ * creates that plan's assignment straight away, so its per-plan role and Show on Benefits Hub
+ * controls work without waiting for Save access.
+ *
+ * Deliberately narrow. `updateTeamMember` reconciles the WHOLE plan set and re-applies the
+ * requested category scope to every survivor, which would clobber the category scope of the
+ * other assignments; this writes exactly one plan and leaves the rest untouched.
+ *
+ * The default role follows the person's type — Editor for a Team Member, Contributor for a
+ * Collaborator — matching `addTeamMember`. The category scope starts at All; the normal Save
+ * access (or the row's own controls) adjusts it afterwards.
+ */
+export async function addPlanAssignment({
+  organizationId,
+  actorUserId,
+  profileId,
+  clientId,
+}: {
+  organizationId: string;
+  actorUserId: string;
+  profileId: string;
+  clientId: string;
+}) {
+  const profile = await prisma.teammateProfile.findFirst({
+    where: { id: profileId, organizationId },
+    select: { id: true, type: true },
+  });
+  if (!profile) {
+    throw new TeammateDataError("Teammate profile not found.", 404);
+  }
+
+  const role: TeammateAssignmentRole =
+    profile.type === "team_member" ? "editor" : "contributor";
+
+  return upsertAssignment({
+    organizationId,
+    actorUserId,
+    profileId,
+    clientId,
+    role,
+    categoryScope: "all",
+  });
+}
+
 export interface MembershipDetail {
   profile: {
     id: string;
