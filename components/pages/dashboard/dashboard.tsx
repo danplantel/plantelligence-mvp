@@ -157,6 +157,23 @@ export function Dashboard() {
     });
   }, [statsData]);
 
+  // A Viewer is read-only across the grid, so the dashboard's write entry points are withheld:
+  // Quick Actions keeps only a read, and the Needs Attention / Active Plans rows stop offering
+  // edit destinations. The data itself is already scoped by `listAccessiblePlanIds` (doc §8),
+  // so what remains is exactly what a Viewer may see.
+  const viewerReadOnly = Boolean(
+    !profileData?.organization?.viewerIsOwner &&
+      (profileData as any)?.seat?.role === "viewer",
+  );
+
+  const visibleQuickActions = useMemo(
+    () =>
+      viewerReadOnly
+        ? quickActions.filter((action) => action.viewerAllowed)
+        : quickActions,
+    [viewerReadOnly],
+  );
+
   return (
     // `pt-8` adds the gap the fixed header does not: the dashboard <main> clears it with `pt-16`
     // (see `components/layout/layout-client.tsx`), which puts the identity row flush under the
@@ -250,7 +267,7 @@ export function Dashboard() {
         </div>
 
       {/* Quick Actions */}
-      <QuickActions actions={quickActions} />
+      <QuickActions actions={visibleQuickActions} />
       
       {/* Quick Insights */}
       <QuickInsights
@@ -259,11 +276,11 @@ export function Dashboard() {
         renderDetail={(insight) => {
           switch (insight.id) {
             case "active-plans":
-              return <ActivePlansPanel />;
+              return <ActivePlansPanel viewerReadOnly={viewerReadOnly} />;
             case "meetings-this-week":
               return <MeetingsThisWeekPanel />;
             case "needs-attention":
-              return <NeedsAttentionPanel />;
+              return <NeedsAttentionPanel viewerReadOnly={viewerReadOnly} />;
             default:
               return null;
           }
@@ -271,7 +288,7 @@ export function Dashboard() {
       />
 
       {/* Tasks & Meetings */}
-      <TasksAndMeetings />
+      <TasksAndMeetings viewerReadOnly={viewerReadOnly} />
 
       {/* Recent Activity */}
       <RecentActivity />

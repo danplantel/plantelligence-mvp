@@ -23,12 +23,20 @@ interface ActivePlansResponse {
   data: ActivePlanSummary[];
 }
 
+interface ActivePlansPanelProps {
+  /**
+   * A read-only Viewer: the action reads "View" rather than "View/Edit", so the row does not
+   * advertise an edit the grid (`plan_details_branding: view`) does not grant.
+   */
+  viewerReadOnly?: boolean;
+}
+
 /**
  * Detail panel for the Active Plans tile: a minified list of the user's active plans
  * showing logo and name, each with a View/Edit action into the client editor.
  * Fetches lazily — it only mounts once the tile is selected.
  */
-export function ActivePlansPanel() {
+export function ActivePlansPanel({ viewerReadOnly = false }: ActivePlansPanelProps) {
   const { data, isLoading, error } = useSWR<ActivePlansResponse>(
     "/api/dashboard/active-plans",
     jsonFetcher,
@@ -91,9 +99,13 @@ export function ActivePlansPanel() {
           <Button asChild variant="outline" size="sm" className="shrink-0">
             <Link
               href={`/edit-client/${plan.id}`}
-              aria-label={`View or edit ${plan.companyName}`}
+              aria-label={
+                viewerReadOnly
+                  ? `View ${plan.companyName}`
+                  : `View or edit ${plan.companyName}`
+              }
             >
-              View/Edit
+              {viewerReadOnly ? "View" : "View/Edit"}
             </Link>
           </Button>
         </li>

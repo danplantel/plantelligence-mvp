@@ -14,7 +14,14 @@ import { UpcomingMeetingsList } from "./upcoming-meetings-list";
  * The task list carries its own "+ Add Task" affordance at the foot, so its card is a flex
  * column too — that keeps the entry row anchored regardless of how long the list gets.
  */
-export function TasksAndMeetings() {
+interface TasksAndMeetingsProps {
+  /** Forwarded to the meetings rail so a read-only Viewer is not offered scheduling. */
+  viewerReadOnly?: boolean;
+}
+
+export function TasksAndMeetings({
+  viewerReadOnly = false,
+}: TasksAndMeetingsProps) {
   return (
     <section className="grid grid-cols-1 gap-4 lg:grid-cols-5">
       {/* Task List — three fifths of the row. */}
@@ -42,7 +49,7 @@ export function TasksAndMeetings() {
           {/* `flex-1` gives the list a definite height so its footer link can sit at the
               foot of the card even when the task list column is taller. */}
           <CardContent className="flex-1">
-            <UpcomingMeetingsList />
+            <UpcomingMeetingsList viewerReadOnly={viewerReadOnly} />
           </CardContent>
         </Card>
       </div>

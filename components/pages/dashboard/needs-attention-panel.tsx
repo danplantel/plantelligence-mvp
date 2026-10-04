@@ -83,13 +83,24 @@ function chipsForIssues(issues: PlanAttentionIssue[]): IssueChip[] {
   return chips;
 }
 
+interface NeedsAttentionPanelProps {
+  /**
+   * A read-only Viewer: only destinations that do not require edit access are offered (the
+   * "View Benefit" link), so the panel cannot route them into a page that will refuse the
+   * save. The issue chips stay — they are still useful context about the plan.
+   */
+  viewerReadOnly?: boolean;
+}
+
 /**
  * Detail panel for the "Needs Attention" tile: active plans with incomplete benefit
  * content, uncategorized documents or no disclaimer content. Each plan shows why it was
  * flagged — including the specific fields still to complete — and the action that fixes
  * it. Fetches lazily — it only mounts once the tile is selected.
  */
-export function NeedsAttentionPanel() {
+export function NeedsAttentionPanel({
+  viewerReadOnly = false,
+}: NeedsAttentionPanelProps) {
   const { data, isLoading, error } = useSWR<NeedsAttentionResponse>(
     "/api/dashboard/needs-attention",
     jsonFetcher,
@@ -132,7 +143,11 @@ export function NeedsAttentionPanel() {
 
   return (
     <ul>
-      {plans.map((plan) => (
+      {plans.map((plan) => {
+        const actions = issueDestinations(plan.id, plan.issues, {
+          readOnly: viewerReadOnly,
+        });
+        return (
         <li
           key={plan.id}
           className="border-b border-[#efefef] py-3 transition-colors hover:bg-muted/50 dark:border-gray-700"
@@ -168,27 +183,30 @@ export function NeedsAttentionPanel() {
               )}
             </div>
 
-            <div className="ml-auto flex shrink-0 items-center gap-1.5">
-              {issueDestinations(plan.id, plan.issues).map((action: IssueDestination) => (
-                <Button
-                  key={action.href}
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className="shrink-0"
-                >
-                  <Link
-                    href={action.href}
-                    aria-label={`${action.label} for ${plan.companyName}`}
+            {actions.length > 0 ? (
+              <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                {actions.map((action: IssueDestination) => (
+                  <Button
+                    key={action.href}
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
                   >
-                    {action.label}
-                  </Link>
-                </Button>
-              ))}
-            </div>
+                    <Link
+                      href={action.href}
+                      aria-label={`${action.label} for ${plan.companyName}`}
+                    >
+                      {action.label}
+                    </Link>
+                  </Button>
+                ))}
+              </div>
+            ) : null}
           </div>
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }

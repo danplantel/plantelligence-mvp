@@ -34,6 +34,11 @@ export interface QuickAction {
   label: string;
   href: string;
   description: string;
+  /**
+   * Safe for a read-only Viewer. Only pure reads set this; every other action creates or
+   * edits something a Viewer's grid grants `view` at most, so the dashboard hides them.
+   */
+  viewerAllowed?: boolean;
 }
 
 export const quickInsights: QuickInsight[] = [
@@ -84,6 +89,7 @@ export const quickActions: QuickAction[] = [
     label: "View Plans",
     href: "/clients",
     description: "Update & manage clients & prospects",
+    viewerAllowed: true,
   },
   {
     icon: Calendar,

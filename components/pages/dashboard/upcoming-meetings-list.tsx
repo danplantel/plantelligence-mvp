@@ -44,12 +44,23 @@ interface UpcomingMeetingsResponse {
   data: UpcomingMeeting[];
 }
 
+interface UpcomingMeetingsListProps {
+  /**
+   * A read-only Viewer: the empty state drops the "Schedule Meeting" CTA, because scheduling
+   * is a `meetings: edit` action a Viewer's grid grants `view` at most. The list itself (and
+   * the "View All Meetings" link) stays.
+   */
+  viewerReadOnly?: boolean;
+}
+
 /**
  * The next few meetings for the dashboard rail — day, time, title and plan, soonest
  * first — with a link through to the full list. Fetches its own data so the surrounding
  * card stays presentational.
  */
-export function UpcomingMeetingsList() {
+export function UpcomingMeetingsList({
+  viewerReadOnly = false,
+}: UpcomingMeetingsListProps) {
   const { data, isLoading, error } = useSWR<UpcomingMeetingsResponse>(
     "/api/dashboard/upcoming-meetings",
     jsonFetcher,
@@ -85,12 +96,16 @@ export function UpcomingMeetingsList() {
     return (
       <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border px-4 py-8 text-center dark:border-gray-700">
         <p className="text-sm text-muted-foreground">No upcoming meetings</p>
-        <Button asChild variant="outline" size="sm">
-          <Link href={MEETINGS_HREF}>
-            <Plus className="size-4" />
-            Schedule Meeting
-          </Link>
-        </Button>
+        {/* Scheduling is a `meetings: edit` action, so a read-only Viewer gets the empty
+            state without the CTA rather than a button that would be refused. */}
+        {!viewerReadOnly ? (
+          <Button asChild variant="outline" size="sm">
+            <Link href={MEETINGS_HREF}>
+              <Plus className="size-4" />
+              Schedule Meeting
+            </Link>
+          </Button>
+        ) : null}
       </div>
     );
   }

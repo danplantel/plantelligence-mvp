@@ -58,10 +58,21 @@ export function issueDestination(
  * Falls back to the plan editor, so a row is never left without a way in, including when the
  * issues present are of a kind this build does not route.
  */
+export interface IssueDestinationsOptions {
+  /**
+   * A read-only reader (a Viewer): return only destinations that do not require edit access.
+   * "View Benefit" stays; "Categorize Documents", "Add Disclaimers" and the "View/Edit"
+   * fallback are withheld, because a Viewer's grid grants those functions `view` at most.
+   */
+  readOnly?: boolean;
+}
+
 export function issueDestinations(
   planId: string,
   issues: PlanAttentionIssue[],
+  options: IssueDestinationsOptions = {},
 ): IssueDestination[] {
+  const readOnly = options.readOnly === true;
   const byKind = new Map<PlanAttentionIssueKind, PlanAttentionIssue[]>();
   for (const issue of issues) {
     byKind.set(issue.kind, [...(byKind.get(issue.kind) ?? []), issue]);
@@ -88,21 +99,24 @@ export function issueDestinations(
     );
   }
 
-  if (byKind.has("uncategorized-documents")) {
+  if (!readOnly && byKind.has("uncategorized-documents")) {
     destinations.push({
       label: "Categorize Documents",
       href: `/documents?planId=${id}`,
     });
   }
 
-  if (byKind.has("missing-disclaimers")) {
+  if (!readOnly && byKind.has("missing-disclaimers")) {
     destinations.push({
       label: "Add Disclaimers",
       href: `/edit-client/${id}?tab=disclaimers`,
     });
   }
 
-  if (destinations.length === 0) {
+  // The generic fallback edits the plan, which a read-only Viewer may not do — so it is
+  // withheld for them rather than pointing at an edit the save would refuse. A row with no
+  // read destination simply renders no action; the issue chips still explain the problem.
+  if (destinations.length === 0 && !readOnly) {
     destinations.push({ label: "View/Edit", href: `/edit-client/${id}` });
   }
 
