@@ -6,9 +6,7 @@ PlanTelligence® is an independent technology platform and is not affiliated wit
 
 Links to external websites are provided for informational purposes only and do not constitute an endorsement or approval by PlanTelligence® or any associated firms.
 
-PlanTelligence®, [Organization Name], and [Company Name] are separate and unaffiliated entities.
-
-© 2026 PlanTelligence®. All rights reserved.`;
+PlanTelligence®, [Organization Name], and [Company Name] are separate and unaffiliated entities.`;
 
 /**
  * Flyer footer disclaimer text per benefit category, used by the Marketing
@@ -96,4 +94,49 @@ export function resolveOrgOnlyDisclaimerText(
  */
 export function ensurePlanTelligenceTrademark(text: string): string {
   return (text || "").replace(/PlanTelligence(?!\s*®)/g, "PlanTelligence®");
+}
+
+/**
+ * The trademark line every disclaimer ends with in the OUTPUT (the rendered
+ * portal footer).
+ *
+ * It is deliberately NOT part of the editable/stored disclaimer text: every
+ * editor strips it on load (`stripDisclaimerCopyright`) so it never appears in a
+ * textarea, and the renderers append it (`appendDisclaimerCopyright`) so the
+ * published disclaimer always carries it — exactly once.
+ */
+export const DISCLAIMER_COPYRIGHT =
+  "© 2026 PlanTelligence®. All rights reserved.";
+
+/** Matches the copyright line in its canonical form. */
+const DISCLAIMER_COPYRIGHT_PATTERN =
+  /©\s*2026\s*PlanTelligence®?\.\s*All rights reserved\./i;
+
+/**
+ * Appends `DISCLAIMER_COPYRIGHT` for OUTPUT, unless it is already present (so a
+ * legacy text that still carries it is not doubled). Blank text is untouched.
+ */
+export function appendDisclaimerCopyright(
+  text: string | null | undefined,
+): string {
+  const body = (text || "").trimEnd();
+  if (!body) return body;
+  if (DISCLAIMER_COPYRIGHT_PATTERN.test(body)) return body;
+  return `${body}\n\n${DISCLAIMER_COPYRIGHT}`;
+}
+
+/**
+ * Removes `DISCLAIMER_COPYRIGHT` so the editable value — and therefore every
+ * textarea — never shows it. Applied when loading stored text into an editor;
+ * the renderers add it back on output.
+ */
+export function stripDisclaimerCopyright(
+  text: string | null | undefined,
+): string {
+  return (text || "")
+    .replace(
+      /\n*\s*©\s*2026\s*PlanTelligence®?\.\s*All rights reserved\.\s*/i,
+      "",
+    )
+    .trimEnd();
 }

@@ -34,7 +34,7 @@ export function OrganizationSettingsSection({
               Organization Settings
             </CardTitle>
             <p className="text-sm text-gray-600 mt-1 dark:text-gray-400">
-              Configure your organization type, services, and team information
+              Configure your organization type, services, team information, and disclaimers.
             </p>
           </div>
         </CardHeader>

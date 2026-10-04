@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment } from "react";
+import { appendDisclaimerCopyright } from "@/lib/disclaimer-constants";
 
 interface PortalDisclaimersProps {
   companyData?: {
@@ -118,7 +119,7 @@ export function PortalDisclaimers({
                 <div className="space-y-2">
                   {/* Render newlines explicitly (paragraphs on \n\n, line
                       breaks on \n) so breaks are preserved regardless of CSS. */}
-                  {String(companyData.disclaimers)
+                  {appendDisclaimerCopyright(String(companyData.disclaimers))
                     .replace(/\r\n/g, "\n")
                     .replace(/\r/g, "\n")
                     .split("\n\n")

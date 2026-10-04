@@ -1,4 +1,5 @@
 import { Fragment } from "react";
+import { appendDisclaimerCopyright } from "@/lib/disclaimer-constants";
 
 interface FooterProps {
   brandColor?: string;
@@ -22,10 +23,15 @@ export function Footer({
 
   // Resolve any leftover [Organization Name] / [Company Name] placeholders in
   // the provided disclosure text so they never render literally.
+  // Append the PlanTelligence copyright line to the OUTPUT only — it is never
+  // stored in the editable disclaimer, so textareas stay clean. Idempotent, so a
+  // legacy stored text that still carries it does not double up.
   const resolvedDisclosuresText = disclosuresText
-    ? disclosuresText
-        .replace(/\[Organization Name\]/g, resolvedOrg)
-        .replace(/\[Company Name\]/g, resolvedCompany)
+    ? appendDisclaimerCopyright(
+        disclosuresText
+          .replace(/\[Organization Name\]/g, resolvedOrg)
+          .replace(/\[Company Name\]/g, resolvedCompany),
+      )
     : null;
 
   return (

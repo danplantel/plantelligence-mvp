@@ -18,6 +18,7 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import {
   resolveDefaultDisclosuresText,
   ensurePlanTelligenceTrademark,
+  stripDisclaimerCopyright,
 } from "@/lib/disclaimer-constants";
 
 interface AddDisclaimerModalProps {
@@ -101,7 +102,8 @@ export function AddDisclaimerModal({
         });
 
         setSelectedLocations(locations);
-        setDisclaimerText(initialData.text);
+        // Never surface the copyright footer in the editable text.
+        setDisclaimerText(stripDisclaimerCopyright(initialData.text));
         setDisclaimerScope(initialData.scope || "plan");
         setApplyAllBenefitsCategories(initialData.apply_all_benefits_categories || false);
       } else {

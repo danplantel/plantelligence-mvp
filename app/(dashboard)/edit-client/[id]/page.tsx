@@ -146,6 +146,7 @@ import {
 import {
   resolveDefaultDisclosuresText,
   ensurePlanTelligenceTrademark,
+  stripDisclaimerCopyright,
 } from "@/lib/disclaimer-constants";
 import { DisclaimerUpdateConfirmDialog } from "@/components/pages/settings/disclaimer-update-confirm-dialog";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
@@ -3818,9 +3819,13 @@ export default function EditClientPage() {
     const base = rawText
       ? rawText
       : resolveDefaultDisclosuresText(disclaimerOrgName);
-    return base
-      .replace(/\[Organization Name\]/g, disclaimerOrgName)
-      .replace(/\[Company Name\]/g, disclaimerCompName);
+    // The editor never shows the copyright footer — it is appended only to the
+    // rendered output (PortalDisclaimers / the portal Footer).
+    return stripDisclaimerCopyright(
+      base
+        .replace(/\[Organization Name\]/g, disclaimerOrgName)
+        .replace(/\[Company Name\]/g, disclaimerCompName),
+    );
   };
 
   // Footer preview text: resolves the placeholders but keeps the previous empty

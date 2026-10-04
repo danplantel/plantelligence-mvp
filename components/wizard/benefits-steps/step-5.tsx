@@ -25,6 +25,7 @@ import {
 import {
   resolveDefaultDisclosuresText,
   ensurePlanTelligenceTrademark,
+  stripDisclaimerCopyright,
 } from "@/lib/disclaimer-constants";
 import { Footer } from "@/components/layout/footer";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -128,9 +129,14 @@ function DisclaimerModal({
     CATEGORY_PORTAL_LABELS[benefitCategory] || "Global";
 
   const [text, setText] = useState(
-    (disclaimer?.text || "").replace(/\[Organization Name\]/g, organizationName) ||
-      inheritedText ||
-      buildDefaultDisclaimerText(organizationName, companyName),
+    stripDisclaimerCopyright(
+      (disclaimer?.text || "").replace(
+        /\[Organization Name\]/g,
+        organizationName,
+      ) ||
+        inheritedText ||
+        buildDefaultDisclaimerText(organizationName, companyName),
+    ),
   );
   const [locations, setLocations] = useState<string[]>(
     disclaimer?.locations || [defaultLocation],

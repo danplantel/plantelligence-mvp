@@ -22,6 +22,7 @@ import { Disclaimer } from "@/types/new-client-wizard";
 import {
   resolveDefaultDisclosuresText,
   ensurePlanTelligenceTrademark,
+  stripDisclaimerCopyright,
 } from "@/lib/disclaimer-constants";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -105,8 +106,10 @@ function DisclaimerModal({
   onClose,
 }: DisclaimerModalProps) {
   const [text, setText] = useState(
-    disclaimer?.text ||
-      resolveDefaultDisclosuresText(organizationName, companyName, true),
+    stripDisclaimerCopyright(
+      disclaimer?.text ||
+        resolveDefaultDisclosuresText(organizationName, companyName, true),
+    ),
   );
   const [locations, setLocations] = useState<string[]>(
     disclaimer?.locations || ["Home Page"],

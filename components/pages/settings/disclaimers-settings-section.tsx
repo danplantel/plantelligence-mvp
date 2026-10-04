@@ -17,7 +17,10 @@ import { Disclaimer } from "@/types/wizard";
 import { Skeleton } from "@/components/ui/skeleton";
 import { DisclaimerUpdateConfirmDialog } from "@/components/pages/settings/disclaimer-update-confirm-dialog";
 import { fetchProfileOnce, invalidateProfileCache } from "@/lib/fetch-profile";
-import { ensurePlanTelligenceTrademark } from "@/lib/disclaimer-constants";
+import {
+  ensurePlanTelligenceTrademark,
+  stripDisclaimerCopyright,
+} from "@/lib/disclaimer-constants";
 
 const LOCATION_OPTIONS = [
   { id: "benefits_hub", label: "Benefits Hub / Client Website" },
@@ -122,7 +125,11 @@ export const DisclaimersSettingsSection = forwardRef<
     return {
       selectedLocations: [...knownIds, ...(custom ? ["other"] : [])],
       customLocation: custom,
-      disclaimerText: normalizeDisclaimerText(disclaimer.text || ""),
+      // The editor never shows the copyright footer; it is appended only to the
+      // rendered output (see `appendDisclaimerCopyright`).
+      disclaimerText: stripDisclaimerCopyright(
+        normalizeDisclaimerText(disclaimer.text || ""),
+      ),
     };
   };
 
