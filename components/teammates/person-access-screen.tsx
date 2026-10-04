@@ -449,8 +449,11 @@ export function PersonAccessScreen({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-3xl">
-          <DialogHeader>
+        {/* `p-0` + flex: the dialog owns no padding of its own, so the sticky
+            footer below reaches the very bottom edge (no gap under the bar) and
+            each region carries its own padding instead. */}
+        <DialogContent className="flex max-h-[90vh] flex-col overflow-y-auto p-0 sm:max-w-3xl">
+          <DialogHeader className="px-6 pt-6 pb-4">
             <DialogTitle>Manage access</DialogTitle>
             <DialogDescription>
               Plan and category access live on assignments — one per plan. Change one
@@ -459,12 +462,12 @@ export function PersonAccessScreen({
           </DialogHeader>
 
           {isLoading ? (
-            <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+            <div className="flex items-center justify-center gap-2 px-6 py-16 text-sm text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading access…
             </div>
           ) : loadError ? (
-            <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <div className="flex flex-col items-center gap-3 px-6 py-16 text-center">
               <AlertTriangle className="h-5 w-5 text-amber-500" />
               <p className="text-sm text-muted-foreground">{loadError}</p>
               <Button variant="outline" size="sm" onClick={() => void reload()}>
@@ -472,7 +475,7 @@ export function PersonAccessScreen({
               </Button>
             </div>
           ) : detail ? (
-            <div className="space-y-6">
+            <div className="space-y-6 px-6 pb-6">
               {/* ── Profile (T6 Part A item 1) ── */}
               <div className="flex flex-wrap items-center gap-3 rounded-xl border bg-card p-4">
                 <span className="block h-12 w-12 shrink-0 overflow-hidden rounded-full bg-muted">
@@ -648,27 +651,9 @@ export function PersonAccessScreen({
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-[11px] text-muted-foreground">
-                    Saving removes any assignment whose plan is no longer ticked.
-                  </p>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void saveAccess()}
-                    disabled={isSavingAccess || isDeactivated}
-                    title={
-                      isDeactivated
-                        ? "Reactivate this person before changing their plans"
-                        : undefined
-                    }
-                  >
-                    {isSavingAccess ? (
-                      <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
-                    ) : null}
-                    Save access
-                  </Button>
-                </div>
+                {/* The save/cancel pair lives in the sticky bar at the bottom of
+                    the dialog (see the end of DialogContent) so the access draft
+                    can be committed without scrolling back up here. */}
               </section>
 
               {/* ── Assignments by plan (T6 Part A item 1 again, item 4) ── */}
@@ -849,6 +834,41 @@ export function PersonAccessScreen({
                   </p>
                 ) : null}
               </section>
+            </div>
+          ) : null}
+
+          {/* Fixed action bar: Cancel closes and discards the draft (the screen
+              re-hydrates from the server next time it opens); Save commits the
+              plan/category scope. Sticky so it stays reachable however far the
+              assignments list scrolls. */}
+          {detail ? (
+            <div className="sticky bottom-0 z-10 flex items-center justify-between gap-2 border-t bg-background px-6 py-4">
+              <div className="flex items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={isSavingAccess}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => void saveAccess()}
+                  disabled={isSavingAccess || isDeactivated}
+                  title={
+                    isDeactivated
+                      ? "Reactivate this person before changing their plans"
+                      : undefined
+                  }
+                  className="bg-accent-blue hover:bg-accent-blue/90"
+                >
+                  {isSavingAccess ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  {isSavingAccess ? "Saving…" : "Save"}
+                </Button>
+              </div>
             </div>
           ) : null}
         </DialogContent>
