@@ -659,7 +659,22 @@ const SECTION_ACTION_CLASS = "w-[9rem] justify-center";
 
 /* ───────────────────────── Section ───────────────────────── */
 
-export function TeamMembersSection() {
+interface TeamMembersSectionProps {
+  /**
+   * Render the section for a read-only Viewer.
+   *
+   * Two things change: the **Collaborators** list is removed (the roster of external firms
+   * — names, emails and plan access — is organization-management data, and `org_settings`
+   * is No Access for a Viewer), and the **Team Members** list loses its accordion, becoming
+   * plain always-visible content. The seat cards themselves stay, so a Viewer still sees who
+   * they work with, just read-only and without any collapsible chrome.
+   */
+  viewerReadOnly?: boolean;
+}
+
+export function TeamMembersSection({
+  viewerReadOnly = false,
+}: TeamMembersSectionProps) {
   const [team, setTeam] = useState<TeamMemberRow[]>([]);
   const [seats, setSeats] = useState<SeatUsageSummary | null>(null);
   const [plans, setPlans] = useState<PlanOption[]>([]);
@@ -1531,6 +1546,63 @@ export function TeamMembersSection() {
    */
   const viewerUserId = session?.user?.id ?? null;
 
+  /**
+   * The Team Member seat grid — shared by the accordion (managers, Editors) and the plain,
+   * non-collapsible section a read-only Viewer gets, so the two cannot drift.
+   */
+  const teamCardsContent = isLoading ? (
+    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+      <Loader2 className="h-4 w-4 animate-spin" />
+      Loading team…
+    </div>
+  ) : (
+    /* One card per seat. Occupied cards are the people already on the team; the rest are
+       open. If the organization is over its allowance (a confirmed over-limit add), the
+       grid grows so no member is hidden. */
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      {seatHolders.map((row) => (
+        <FilledSeatCard
+          key={row.id}
+          row={row}
+          isViewer={Boolean(viewerUserId) && row.userId === viewerUserId}
+          // Both actions are withheld from a reader who may not manage, which is also what
+          // turns the card into plain content.
+          onEdit={canManage ? openEdit : undefined}
+          // The Owner's seat is reserved, and their row is synthesized rather than stored,
+          // so there is no seat to give back and no profileId to address. A deactivated
+          // member holds nothing either, and their removal is undone from their own screen.
+          onRemove={
+            !canManage || row.isOwner || row.deactivatedAt
+              ? undefined
+              : (target) => setRemoving(target)
+          }
+          // Only for an invitation that has not been answered yet: the badge on the card
+          // says "Invited", and an accepted member has no email to chase. The Owner has no
+          // profile to address at all.
+          onResend={
+            canManage &&
+            !row.isOwner &&
+            !row.deactivatedAt &&
+            row.status === "invited" &&
+            row.profileId
+              ? submitResendInvite
+              : undefined
+          }
+          isResending={resendingProfileId === row.profileId}
+          resendCooldownSeconds={resendCooldownSecondsLeft(row.profileId)}
+        />
+      ))}
+      {/* Open seats are an invitation to add somebody, so they are the manager's view of
+          this grid — a reader without the permission sees the people who hold seats and
+          nothing suggesting they could fill one. */}
+      {canManage
+        ? Array.from({ length: emptyCards }).map((_, index) => (
+            <EmptySeatCard key={`empty-${index}`} onAdd={openAdd} />
+          ))
+        : null}
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       {/* Spec T3 Part A item 3: usage, with pending invites called out.
@@ -1566,12 +1638,26 @@ export function TeamMembersSection() {
         </p>
       ) : null}
 
-      {/* ── The tab's two halves, as peer accordion sections ──
-          Two lists, because they are two kinds of person: a Team Member belongs to the
-          organization and holds a seat, a Collaborator is external and free. Each
-          section therefore owns its own count, its own actions and its own empty state.
-          Both start open — an accordion lets the reader collapse a list they are not
-          using; it should not make the tab's contents opt-in. */}
+      {/* For a read-only Viewer the team is plain content — no collapsible accordion, and no
+          Collaborators list at all (that item exists only in the accordion branch). Everyone
+          else gets the tab's two halves as peer accordion sections: a Team Member belongs to
+          the organization and holds a seat, a Collaborator is external and free, so each
+          section owns its own count, actions and empty state. Both start open — the accordion
+          lets the reader collapse a list they are not using; it should not make the tab's
+          contents opt-in. */}
+      {viewerReadOnly ? (
+        <div className="rounded-xl border bg-card px-4">
+          <div className="flex flex-wrap items-center gap-2 py-4 text-left">
+            <UserRound className="h-4 w-4 shrink-0 text-accent-blue" />
+            <span className="text-base font-medium">Team Members</span>
+            <Badge variant="secondary">{seatHolders.length}</Badge>
+            <span className="text-xs font-normal text-muted-foreground">
+              Your organization&rsquo;s own people — each one holds a seat.
+            </span>
+          </div>
+          <div className="pb-4">{teamCardsContent}</div>
+        </div>
+      ) : (
       <Accordion
         type="multiple"
         value={openPeopleSections}
@@ -1613,66 +1699,14 @@ export function TeamMembersSection() {
             ) : null}
           </AccordionTrigger>
           <AccordionContent>
-            {isLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading team…
-              </div>
-            ) : (
-              /* One card per seat. Occupied cards are the people already on the team; the
-                 rest are open. If the organization is over its allowance (a confirmed
-                 over-limit add), the grid grows so no member is hidden. */
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-                {seatHolders.map((row) => (
-                  <FilledSeatCard
-                    key={row.id}
-                    row={row}
-                    isViewer={Boolean(viewerUserId) && row.userId === viewerUserId}
-                    // Both actions are withheld from a reader who may not manage, which is
-                    // also what turns the card into plain content.
-                    onEdit={canManage ? openEdit : undefined}
-                    // The Owner's seat is reserved, and their row is synthesized rather
-                    // than stored, so there is no seat to give back and no profileId to
-                    // address. A deactivated member holds nothing either, and their
-                    // removal is undone from their own screen rather than this grid.
-                    onRemove={
-                      !canManage || row.isOwner || row.deactivatedAt
-                        ? undefined
-                        : (target) => setRemoving(target)
-                    }
-                    // Only for an invitation that has not been answered yet: the badge on the
-                    // card says "Invited", and an accepted member has no email to chase. The
-                    // Owner has no profile to address at all.
-                    onResend={
-                      canManage &&
-                      !row.isOwner &&
-                      !row.deactivatedAt &&
-                      row.status === "invited" &&
-                      row.profileId
-                        ? submitResendInvite
-                        : undefined
-                    }
-                    isResending={resendingProfileId === row.profileId}
-                    resendCooldownSeconds={resendCooldownSecondsLeft(row.profileId)}
-                  />
-                ))}
-                {/* Open seats are an invitation to add somebody, so they are the manager's
-                    view of this grid — a reader without the permission sees the people who
-                    hold seats and nothing suggesting they could fill one. */}
-                {canManage
-                  ? Array.from({ length: emptyCards }).map((_, index) => (
-                      <EmptySeatCard key={`empty-${index}`} onAdd={openAdd} />
-                    ))
-                  : null}
-              </div>
-            )}
+            {teamCardsContent}
           </AccordionContent>
         </AccordionItem>
 
         {/* ── Collaborators ──
             The other half of the team: external people with scoped access and no seat.
             They are listed as rows rather than as seat cards because a seat is precisely
-            what they do not consume. */}
+            what they do not consume. Removed entirely for a read-only Viewer. */}
         <AccordionItem
           value="collaborators"
           className="rounded-xl border bg-card px-4"
@@ -1769,6 +1803,7 @@ export function TeamMembersSection() {
           </AccordionContent>
         </AccordionItem>
       </Accordion>
+      )}
 
       {/* ── Invite Collaborator (sends the email) ── */}
       <InviteCollaboratorDialog

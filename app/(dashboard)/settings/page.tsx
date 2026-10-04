@@ -310,6 +310,35 @@ export default function SettingsPage() {
     | boolean
     | undefined;
 
+  /**
+   * Whether the reader is a teammate whose summarised role is Viewer — i.e. read-only across the
+   * whole grid (`READ_ONLY_GRID` in `types/teammate.ts`: every content row is `view`, and
+   * `org_settings` / `billing` are `no_access`).
+   *
+   * `/api/profile` reports the reader's own seat as `seat.role` — the same summarised role the
+   * dashboard header and People & Access show — so this cannot disagree with what those surfaces
+   * call the person. Settings → Branding and Settings → Organization are organization-level writes
+   * (they persist the firm identity to the `User`/`Organization` rows), which is exactly the
+   * `org_settings` row a Viewer does not hold.
+   *
+   * `!viewerIsOrganizationOwner` is belt-and-braces: an owner holds no seat, so this is already
+   * false for them, but the guard states the intent.
+   */
+  const readOnlyViewer =
+    !viewerIsOrganizationOwner && cachedProfile?.seat?.role === "viewer";
+
+  // Safety net for the async role: if the seat resolves as a Viewer while an organization-level
+  // tab is already open (the profile lands a tick after the first paint), fall back to Profile
+  // rather than leaving that content on screen with its tab removed from the bar.
+  useEffect(() => {
+    if (
+      readOnlyViewer &&
+      (activeTab === "branding" || activeTab === "organization")
+    ) {
+      setActiveTab("profile");
+    }
+  }, [readOnlyViewer, activeTab]);
+
   // Load data for specific tab
   const loadTabData = async (tab: string) => {
     if (loadedTabs.has(tab) && tab !== "profile") return;
@@ -1222,6 +1251,11 @@ export default function SettingsPage() {
    * Gated on `=== true`, not `!== false`: the flag comes from `/api/profile`, so before it resolves
    * the entry is simply absent. For the Owner that is a brief absence that fills in; `!== false`
    * would instead show a member the tab for that same moment and then take it away.
+   *
+   * `viewerHidden` marks the organization-level tabs (Branding, Organization) that a Viewer's
+   * read-only grid must not open — `org_settings` is `no_access` for a Viewer. They are REMOVED
+   * from the bar rather than shown-and-denied, matching how Billing is handled for a non-owner:
+   * a member is never offered a page they cannot open.
    */
   const settingsTabs: {
     value: string;
@@ -1229,6 +1263,7 @@ export default function SettingsPage() {
     Icon: LucideIcon;
     dirty: boolean;
     ownerOnly?: boolean;
+    viewerHidden?: boolean;
   }[] = [
     {
       value: "profile",
@@ -1241,12 +1276,14 @@ export default function SettingsPage() {
       label: "Branding",
       Icon: Building2,
       dirty: tabDirty.branding,
+      viewerHidden: true,
     },
     {
       value: "organization",
       label: "Organization",
       Icon: Briefcase,
       dirty: tabDirty.organization,
+      viewerHidden: true,
     },
     {
       value: "members",
@@ -1282,6 +1319,8 @@ export default function SettingsPage() {
     >
       {settingsTabs
         .filter((tab) => !tab.ownerOnly || viewerIsOrganizationOwner === true)
+        // A Viewer is read-only, so the organization-level tabs are removed rather than denied.
+        .filter((tab) => !(tab.viewerHidden && readOnlyViewer))
         .map(({ value, label, Icon, dirty }) => (
         <TabsTrigger
           key={value}
@@ -1405,7 +1444,7 @@ export default function SettingsPage() {
             forceMount={membersTabOpened ? true : undefined}
             className="space-y-6 data-[state=inactive]:hidden"
           >
-            <TeamMembersSection />
+            <TeamMembersSection viewerReadOnly={readOnlyViewer} />
           </TabsContent>
 
           {/* Billing Tab — a "coming soon" placeholder, reachable by the Owner only.
