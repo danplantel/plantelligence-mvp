@@ -17,10 +17,13 @@ import { UpcomingMeetingsList } from "./upcoming-meetings-list";
 interface TasksAndMeetingsProps {
   /** Forwarded to the meetings rail so a read-only Viewer is not offered scheduling. */
   viewerReadOnly?: boolean;
+  /** Forwarded to the task list so a reader without `publish` is not offered the publish task. */
+  canPublish?: boolean;
 }
 
 export function TasksAndMeetings({
   viewerReadOnly = false,
+  canPublish = true,
 }: TasksAndMeetingsProps) {
   return (
     <section className="grid grid-cols-1 gap-4 lg:grid-cols-5">
@@ -33,7 +36,7 @@ export function TasksAndMeetings({
             </CardTitle>
           </CardHeader>
           <CardContent className="flex-1">
-            <TaskList />
+            <TaskList canPublish={canPublish} />
           </CardContent>
         </Card>
       </div>

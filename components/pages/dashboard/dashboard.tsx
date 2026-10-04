@@ -174,6 +174,14 @@ export function Dashboard() {
     [viewerReadOnly],
   );
 
+  // `publish` is allowed for the Owner and Admin only — Editor, Contributor, Reviewer and Viewer
+  // are `not_allowed`, and a collaborator can never hold it. The dashboard's one publish surface
+  // is the task list's "Ready to publish" row, so that capability is handed to the task list;
+  // every other dashboard control maps to an `edit` row that an Editor holds, so nothing else
+  // changes for them.
+  const readerRole = userInfo.role as string | null;
+  const canPublish = readerRole === "owner" || readerRole === "admin";
+
   return (
     // `pt-8` adds the gap the fixed header does not: the dashboard <main> clears it with `pt-16`
     // (see `components/layout/layout-client.tsx`), which puts the identity row flush under the
@@ -288,7 +296,10 @@ export function Dashboard() {
       />
 
       {/* Tasks & Meetings */}
-      <TasksAndMeetings viewerReadOnly={viewerReadOnly} />
+      <TasksAndMeetings
+        viewerReadOnly={viewerReadOnly}
+        canPublish={canPublish}
+      />
 
       {/* Recent Activity */}
       <RecentActivity />

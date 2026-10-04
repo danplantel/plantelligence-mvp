@@ -49,7 +49,19 @@ const KINDS: Record<SystemTask["kind"], { icon: LucideIcon; className: string }>
  * they clear when the plan is fixed, and each links to the exact page that fixes it. Manual
  * tasks are the advisor's own, ticked off with a checkbox.
  */
-export function TaskList() {
+interface TaskListProps {
+  /**
+   * Whether the reader holds `publish`. Only the Owner and Admin do — Editor, Contributor,
+   * Reviewer and Viewer are `not_allowed`, and a collaborator can never hold it — so the derived
+   * "Ready to publish" system task is dropped for everyone else: it links straight into the
+   * publish flow (with its attestation dialog) that the reader would be refused.
+   *
+   * Defaults to true so a caller without role context is not silently stripped of tasks.
+   */
+  canPublish?: boolean;
+}
+
+export function TaskList({ canPublish = true }: TaskListProps) {
   const { data, isLoading, error, mutate } = useSWR<DashboardTasksResponse>(
     TASKS_KEY,
     jsonFetcher,
@@ -60,7 +72,11 @@ export function TaskList() {
   const [isAdding, setIsAdding] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
 
-  const system = data?.data.system ?? [];
+  // System tasks are derived server-side from plan state; the publish one is the only task gated
+  // by a permission, so it is the only one filtered here, against the reader's capability.
+  const system = (data?.data.system ?? []).filter(
+    (task) => canPublish || task.kind !== "ready-to-publish",
+  );
   const manual = data?.data.manual ?? [];
   const isEmpty = system.length === 0 && manual.length === 0;
 
