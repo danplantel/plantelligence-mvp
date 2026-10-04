@@ -37,7 +37,6 @@ import {
   User,
   Building2,
   Briefcase,
-  Users as UsersIcon,
   AlertTriangle,
   Circle,
   Trash2,
@@ -123,7 +122,8 @@ export default function SettingsPage() {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletionSuccess, setDeletionSuccess] = useState(false);
 
-  // Disclaimers tab — dirty state + imperative handle for save/reset
+  // Disclaimers section (folded into the Organization tab) — dirty state +
+  // imperative handle for save/reset.
   const [teamDirty, setTeamDirty] = useState(false);
   const disclaimersRef = useRef<DisclaimersSettingsSectionHandle>(null);
 
@@ -510,8 +510,6 @@ export default function SettingsPage() {
           setInitialOrganization(JSON.parse(JSON.stringify(orgData)));
           break;
         }
-        case "team":
-          break;
       }
 
       setLoadedTabs((prev) => new Set(prev).add(tab));
@@ -1014,10 +1012,12 @@ export default function SettingsPage() {
     branding: initialBranding
       ? JSON.stringify(watchedBranding) !== JSON.stringify(initialBranding)
       : false,
-    organization: initialOrganization
-      ? JSON.stringify(watchedOrg) !== JSON.stringify(initialOrganization)
-      : false,
-    team: teamDirty,
+    // Organization now also carries the Disclaimers section, so the tab is
+    // dirty when either the organization form or the disclaimers form is.
+    organization:
+      (initialOrganization
+        ? JSON.stringify(watchedOrg) !== JSON.stringify(initialOrganization)
+        : false) || teamDirty,
   };
 
   // ── Tab change with unsaved check ───────────────────────────────────────
@@ -1029,8 +1029,6 @@ export default function SettingsPage() {
         ? tabDirty.branding
         : activeTab === "organization"
         ? tabDirty.organization
-        : activeTab === "team"
-        ? tabDirty.team
         : false;
 
     if (currentDirty) {
@@ -1052,12 +1050,20 @@ export default function SettingsPage() {
         case "branding":
           await handleSaveBranding();
           break;
-        case "organization":
-          await handleSaveOrganization();
+        case "organization": {
+          // One Save covers both stacked sections, but each is written only when
+          // it actually changed — so saving a disclaimer does not also report an
+          // "organization updated" toast, and vice versa.
+          const orgDirty = initialOrganization
+            ? JSON.stringify(organizationForm.getValues()) !==
+              JSON.stringify(initialOrganization)
+            : false;
+          if (disclaimersRef.current?.isDirty()) {
+            await disclaimersRef.current.save();
+          }
+          if (orgDirty) await handleSaveOrganization();
           break;
-        case "team":
-          await disclaimersRef.current?.save();
-          break;
+        }
       }
     } finally {
       setIsSaving(false);
@@ -1081,8 +1087,6 @@ export default function SettingsPage() {
         if (initialOrganization) {
           organizationForm.reset(initialOrganization);
         }
-        break;
-      case "team":
         disclaimersRef.current?.reset();
         break;
     }
@@ -1102,12 +1106,16 @@ export default function SettingsPage() {
         case "branding":
           await handleSaveBranding();
           break;
-        case "organization":
-          await handleSaveOrganization();
-          break;
-        case "team": {
-          const ok = await disclaimersRef.current?.save(true);
-          if (ok === false) return; // validation failed — stay on this tab
+        case "organization": {
+          const orgDirty = initialOrganization
+            ? JSON.stringify(organizationForm.getValues()) !==
+              JSON.stringify(initialOrganization)
+            : false;
+          if (disclaimersRef.current?.isDirty()) {
+            const ok = await disclaimersRef.current.save(true);
+            if (ok === false) return; // validation failed — stay on this tab
+          }
+          if (orgDirty) await handleSaveOrganization();
           break;
         }
       }
@@ -1177,8 +1185,6 @@ export default function SettingsPage() {
               teamSize: "",
             },
           );
-          break;
-        case "team":
           disclaimersRef.current?.reset();
           break;
       }
@@ -1200,8 +1206,6 @@ export default function SettingsPage() {
       ? tabDirty.branding
       : activeTab === "organization"
       ? tabDirty.organization
-      : activeTab === "team"
-      ? tabDirty.team
       : false;
 
   /**
@@ -1243,12 +1247,6 @@ export default function SettingsPage() {
       label: "Organization",
       Icon: Briefcase,
       dirty: tabDirty.organization,
-    },
-    {
-      value: "team",
-      label: "Disclaimers",
-      Icon: UsersIcon,
-      dirty: tabDirty.team,
     },
     {
       value: "members",
@@ -1377,13 +1375,21 @@ export default function SettingsPage() {
             />
           </TabsContent>
 
-          {/* Organization Tab */}
+          {/* Organization Tab — also carries the Disclaimers section. The old
+              Disclaimers tab was folded in here so every organization-level
+              setting shares one tab and one Save. */}
           <TabsContent value="organization" className="space-y-6">
             <OrganizationSettingsSection
               isLoading={isLoading}
               isSaving={isSaving}
               organizationForm={organizationForm}
               onSave={noopSave}
+            />
+
+            <TeamAndDisclaimersSection
+              isLoading={isLoading}
+              disclaimersRef={disclaimersRef}
+              onDisclaimersDirtyChange={setTeamDirty}
             />
           </TabsContent>
 
@@ -1445,14 +1451,6 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
-          {/* Disclaimers Tab */}
-          <TabsContent value="team" className="space-y-6">
-            <TeamAndDisclaimersSection
-              isLoading={isLoading}
-              disclaimersRef={disclaimersRef}
-              onDisclaimersDirtyChange={setTeamDirty}
-            />
-          </TabsContent>
         </Tabs>
 
         {/* ── Sticky Bottom Save Bar ──────────────────────────────────────── */}
