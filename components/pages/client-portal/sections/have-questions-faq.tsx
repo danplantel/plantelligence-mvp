@@ -82,7 +82,24 @@ export function HaveQuestions({
                     onMouseEnter={(e) => (e.currentTarget.style.color = brandColor)}
                     onMouseLeave={(e) => (e.currentTarget.style.color = secondaryColor)}
                   >
-                    <Phone className="h-4 w-4 mr-2" />
+                    {/* The contact's own photo stands in for the generic phone glyph when
+                        there is one — the same picture as the card's avatar, so the row
+                        reads as a person rather than a switchboard. Falls back to the icon
+                        while the contact has no headshot. */}
+                    {contact.headshot ? (
+                      <span
+                        aria-hidden="true"
+                        className="mr-2 h-4 w-4 shrink-0 overflow-hidden rounded-full"
+                      >
+                        <Headshot
+                          src={contact.headshot}
+                          alt=""
+                          wrapperClassName="h-full w-full rounded-full"
+                        />
+                      </span>
+                    ) : (
+                      <Phone className="h-4 w-4 mr-2" />
+                    )}
                     {contact.phone}
                   </a>
                 )}

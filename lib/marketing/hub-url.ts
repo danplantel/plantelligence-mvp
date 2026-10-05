@@ -6,6 +6,11 @@
  * resolves both via dual lookup in GET /api/clients/[id].
  */
 
+import {
+  customBenefitRouteSlug,
+  isCustomHubCategory,
+} from "@/lib/benefit-custom-name";
+
 export function getBenefitsHubPath(clientIdOrSlug: string): string {
   const id = String(clientIdOrSlug || "").trim();
   if (!id) {
@@ -93,4 +98,34 @@ export function getBenefitsHubOpenPortalUrl(clientIdOrSlug: string): string {
     .toLowerCase();
 
   return `https://${portalRoot}${path}`;
+}
+
+/**
+ * The portal route segment for a benefit category.
+ *
+ * The portal addresses each benefit page by its own segment, which is NOT the same as the
+ * dashboard's category key: Retirement is `/retirement`, but Group Health is
+ * `/health-insurance` and Group Life is `/life-insurance`. The Custom hub has no fixed
+ * segment — it is addressed by the advisor's own name for the benefit, slugified, with the
+ * legacy `/wellness-programs` alias while it is still unnamed.
+ *
+ * Returns "" for a category with no dedicated page, so the caller can open the plan root
+ * rather than link to a segment that would 404. Callers append this to the plan's own hub
+ * URL (`getBenefitsHubOpenPortalUrl(planSlug)`).
+ */
+export function getBenefitPortalSegment(
+  category: string | null | undefined,
+  customBenefitName?: string | null,
+): string {
+  if (isCustomHubCategory(category)) {
+    return customBenefitRouteSlug(customBenefitName);
+  }
+  const value = (category || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\/\s*/g, "/");
+  if (value === "retirement") return "retirement";
+  if (value === "group health") return "health-insurance";
+  if (value === "group life") return "life-insurance";
+  return "";
 }

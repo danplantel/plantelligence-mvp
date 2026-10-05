@@ -135,6 +135,18 @@ const SEAT_STATUS_PENDING_CLASS =
   "flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-gray-200 bg-gray-50/60 px-3 text-xs font-medium text-muted-foreground dark:border-gray-700 dark:bg-gray-800/40";
 
 /**
+ * Caps for a Support Contact's portal copy.
+ *
+ * These two fields are what employees read on the benefit page's "Have Questions?" card,
+ * so the limits are set by what fits that card rather than by the database: a title is a
+ * short role label and a description is one or two lines beside it. Enforced on the
+ * inputs (with a counter) so an overlong value cannot be typed in the first place, the
+ * same way the FAQ answer is capped by `MAX_ANSWER_LENGTH`.
+ */
+const MAX_SUPPORT_CONTACT_TITLE_LENGTH = 30;
+const MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH = 100;
+
+/**
  * The placeholder roster, shown while the plan's contacts are still being read.
  *
  * Four cards, because that is what one row holds (`lg:grid-cols-4`), each mirroring the real
@@ -1188,29 +1200,74 @@ export function BenefitsStep3({
                           </Label>
                           <Input
                             value={supportConfig.title}
-                            onChange={(e) =>
-                              updateSupportContact(contact.id, {
-                                title: e.target.value,
-                              })
-                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (
+                                val.length <= MAX_SUPPORT_CONTACT_TITLE_LENGTH
+                              ) {
+                                updateSupportContact(contact.id, { title: val });
+                              }
+                            }}
                             placeholder="e.g. Retirement Plan Advisor"
+                            maxLength={MAX_SUPPORT_CONTACT_TITLE_LENGTH}
                             className="h-8 text-xs"
                           />
+                          <div className="flex justify-end">
+                            <span
+                              className={`text-[10px] font-medium tabular-nums transition-colors duration-200 ${
+                                supportConfig.title.length >=
+                                MAX_SUPPORT_CONTACT_TITLE_LENGTH
+                                  ? "text-red-500"
+                                  : "text-muted-foreground"
+                              }`}
+                            >
+                              {supportConfig.title.length}
+                              <span className="text-muted-foreground/60">
+                                /{MAX_SUPPORT_CONTACT_TITLE_LENGTH}
+                              </span>
+                            </span>
+                          </div>
                         </div>
                         <div className="space-y-1.5">
                           <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
                             Display Description
                           </Label>
                           <Textarea
+                            rows={5}
                             value={supportConfig.description}
-                            onChange={(e) =>
-                              updateSupportContact(contact.id, {
-                                description: e.target.value,
-                              })
-                            }
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (
+                                val.length <=
+                                MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH
+                              ) {
+                                updateSupportContact(contact.id, {
+                                  description: val,
+                                });
+                              }
+                            }}
                             placeholder="Short description..."
+                            maxLength={MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH}
                             className="min-h-[50px] text-xs py-1.5"
                           />
+                          <div className="flex justify-end">
+                            <span
+                              className={`text-[10px] font-medium tabular-nums transition-colors duration-200 ${
+                                supportConfig.description.length >=
+                                MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH
+                                  ? "text-red-500"
+                                  : supportConfig.description.length >=
+                                      MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH * 0.9
+                                    ? "text-amber-500"
+                                    : "text-muted-foreground"
+                              }`}
+                            >
+                              {supportConfig.description.length}
+                              <span className="text-muted-foreground/60">
+                                /{MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH}
+                              </span>
+                            </span>
+                          </div>
                         </div>
                       </div>
                     )}

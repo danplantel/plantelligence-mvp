@@ -48,15 +48,11 @@ import { Label } from "@/components/ui/label";
 import { Headshot } from "@/components/ui/headshot";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import type { SeatUsageSummary } from "@/components/pages/seat-meter";
-// The same dialog Edit Client, the Create Plan wizard and Add/Edit Benefit use, so an
-// invite means one thing everywhere.
-import { InviteCollaboratorDialog } from "@/components/teammates/invite-collaborator-dialog";
 // The access picker (Role / Plan access / Benefits access) is shared with the benefits
 // wizard's "Give Team Seat" dialog, so both surfaces offer exactly the same controls.
 import {
   AccessFields,
   EMPTY_ACCESS,
-  EMPTY_COLLABORATOR_ACCESS,
   RoleCapabilityBody,
   TEAM_MEMBER_ROLES,
   categoriesForAccess,
@@ -71,7 +67,6 @@ import {
   type RoleCapability,
 } from "@/lib/teammates/role-summary";
 import {
-  COLLABORATOR_PRESET_ROLES,
   PRESET_ROLE_LABELS,
   PROFILE_STATE_LABELS,
   type TeammateAssignmentRole,
@@ -557,130 +552,6 @@ function EmptySeatCard({ onAdd }: { onAdd: () => void }) {
 }
 
 /**
- * One Collaborator: an external person with scoped access and no seat.
- *
- * Rendered as a row rather than a card because the card grid means "seats", and a
- * Collaborator is defined by not holding one. The company is shown because a
- * partner firm usually sends several people (T1 groups them on one
- * `TeammateCompany`).
- */
-function CollaboratorRow({
-  row,
-  onEdit,
-  onToggleActive,
-  onRemove,
-  onResend,
-  isResending,
-  resendCooldownSeconds,
-}: {
-  row: TeamMemberRow;
-  /** All of these are optional: a reader who may not manage gets the row, without its actions. */
-  onEdit?: (row: TeamMemberRow) => void;
-  onToggleActive?: (row: TeamMemberRow) => void;
-  /** Removes the person and the access that goes with them. Absent while loading. */
-  onRemove?: (row: TeamMemberRow) => void;
-  /**
-   * Re-sends an open invitation. A collaborator is invited by email too, so the same unanswered
-   * invitation can need chasing here — see `FilledSeatCard`, which gates it the same way.
-   */
-  onResend?: (row: TeamMemberRow) => void;
-  isResending?: boolean;
-  /** Seconds left of the resend cooldown; the button counts down and locks while it is above 0. */
-  resendCooldownSeconds?: number;
-}) {
-  const isDeactivated = Boolean(row.deactivatedAt);
-  // The action cluster renders only when the caller supplied it — that is how the read-only
-  // view (a teammate without `org_settings`) gets a row with no buttons rather than buttons the
-  // server would refuse. See the route's `canManage`.
-  const showsActions = Boolean(onEdit && onToggleActive && onRemove);
-
-  return (
-    <li className="flex flex-wrap items-center gap-3 rounded-lg border p-3">
-      <span className="block h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted">
-        <Headshot
-          src={row.headshot}
-          alt={row.name}
-          monogramName={row.name}
-          wrapperClassName="rounded-full"
-        />
-      </span>
-
-      <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{row.name}</span>
-        <span className="block truncate text-xs text-muted-foreground">
-          {row.email}
-          {row.companyName ? ` · ${row.companyName}` : ""}
-        </span>
-        <span className="mt-0.5 block truncate text-[11px] text-muted-foreground">
-          {planAccessLabel(row)} · {categoryAccessLabel(row)}
-        </span>
-      </span>
-
-      <span className="flex shrink-0 flex-wrap items-center gap-1">
-        <Badge variant="secondary">{PRESET_ROLE_LABELS[row.role]}</Badge>
-        {isDeactivated ? (
-          <Badge variant="outline" className="text-muted-foreground">
-            Deactivated
-          </Badge>
-        ) : (
-          <Badge variant="outline">
-            {PROFILE_STATE_LABELS[row.status] ?? row.status}
-          </Badge>
-        )}
-      </span>
-
-      {showsActions ? (
-        <span className="flex shrink-0 flex-wrap items-center gap-1">
-          {/* "Invited" is the only state with an unanswered invitation to chase, and the caller
-              supplies this handler for exactly that state — so the button appears when it can
-              work and is absent rather than refused when it cannot. */}
-          {onResend ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-accent-blue hover:text-accent-blue"
-              disabled={isResending || (resendCooldownSeconds ?? 0) > 0}
-              onClick={() => onResend(row)}
-            >
-              {isResending ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <MailPlus className="mr-1.5 h-3.5 w-3.5" />
-              )}
-              {isResending
-                ? "Sending…"
-                : (resendCooldownSeconds ?? 0) > 0
-                  ? `Resend in ${resendCooldownSeconds}s`
-                  : "Resend"}
-            </Button>
-          ) : null}
-          <Button variant="ghost" size="sm" onClick={() => onEdit?.(row)}>
-            <Pencil className="mr-1.5 h-3.5 w-3.5" />
-            Edit
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => onToggleActive?.(row)}>
-            {isDeactivated ? "Reactivate" : "Deactivate"}
-          </Button>
-          {/* Deactivate ends access but keeps the person; Remove is the way out of the
-              organization, which is what "I added this collaborator by mistake" asks for. */}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-red-600 hover:text-red-700"
-            onClick={() => onRemove?.(row)}
-          >
-            <UserRoundMinus className="mr-1.5 h-3.5 w-3.5" />
-            Remove
-          </Button>
-        </span>
-      ) : null}
-    </li>
-  );
-}
-
-
-
-/**
  * `(555) 123-4567` from whatever the advisor types.
  *
  * The digits are what get stored; the punctuation is presentation. Mirrors how Create Plan →
@@ -712,35 +583,15 @@ interface PromotableContactRow {
 }
 
 /**
- * The width shared by the two section-header actions — Add Team Member and Add Collaborator.
- *
- * They sit in two different accordion headers, so nothing else can line them up: sized to
- * their own content, "Add Team Member" is a word wider than "Add Collaborator" and the two
- * headers stop reading as the same column. A fixed width rather than `min-w`, so a longer
- * label later cannot break the pair again; 11rem covers "Add Team Member" (the longer of the
- * two) at `text-sm` plus the plus icon and the button's own padding, with room to spare.
- * `justify-center` keeps the shorter label centred in the extra space.
+ * The width of the section header's "Add Team Member" action. A fixed width rather than
+ * `min-w`, so the label gets room without the button growing with it; `justify-center` keeps
+ * the icon+label pair centred in the fixed box.
  */
 const SECTION_ACTION_CLASS = "w-[9rem] justify-center";
 
 /* ───────────────────────── Section ───────────────────────── */
 
-interface TeamMembersSectionProps {
-  /**
-   * Render the section for a read-only Viewer.
-   *
-   * Two things change: the **Collaborators** list is removed (the roster of external firms
-   * — names, emails and plan access — is organization-management data, and `org_settings`
-   * is No Access for a Viewer), and the **Team Members** list loses its accordion, becoming
-   * plain always-visible content. The seat cards themselves stay, so a Viewer still sees who
-   * they work with, just read-only and without any collapsible chrome.
-   */
-  viewerReadOnly?: boolean;
-}
-
-export function TeamMembersSection({
-  viewerReadOnly = false,
-}: TeamMembersSectionProps) {
+export function TeamMembersSection() {
   const [team, setTeam] = useState<TeamMemberRow[]>([]);
   const [seats, setSeats] = useState<SeatUsageSummary | null>(null);
   const [plans, setPlans] = useState<PlanOption[]>([]);
@@ -749,17 +600,6 @@ export function TeamMembersSection({
    * does not render an incomplete category list and then shift.
    */
   const [customCategories, setCustomCategories] = useState<string[]>([]);
-  /**
-   * The organisation's plans, each with its own Custom benefit titles.
-   *
-   * Read with the roster so the Invite Collaborator dialog can offer a Custom benefit by the
-   * name the advisor gave it, under the plan it belongs to — the same shape Manage Access
-   * reads. Distinct from `customCategories` above, which is the flat org-wide list the
-   * Add/Edit access picker uses.
-   */
-  const [planCustomBenefits, setPlanCustomBenefits] = useState<
-    { id: string; companyName: string; customBenefits: string[] }[]
-  >([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Add modal
@@ -822,47 +662,11 @@ export function TeamMembersSection({
   const [editName, setEditName] = useState("");
   const [editAccess, setEditAccess] = useState<AccessDraft>(EMPTY_ACCESS);
 
-  // Collaborators: external people, no seat. They get their own list and their own
-  // Add flow, because they are created with a different type and cannot be given
-  // All Plans or the Owner/Admin presets.
-  const [collaborators, setCollaborators] = useState<TeamMemberRow[]>([]);
-  /**
-   * Which of the tab's two sections are open — both, by default.
-   *
-   * A list is open by default here on purpose: an accordion exists so the reader can
-   * collapse a list they are not using, not so the tab's contents become opt-in. The
-   * value is an array because the two sections are peers — opening Collaborators must
-   * not close Team Members, which is what `type="single"` would have done.
-   */
-  const [openPeopleSections, setOpenPeopleSections] = useState<string[]>([
-    "team-members",
-    "collaborators",
-  ]);
-  /** Which person type the Add modal is creating right now. */
-  const [addType, setAddType] = useState<"team_member" | "collaborator">(
-    "team_member",
-  );
-  /** The collaborator awaiting a deactivate confirmation. */
-  const [deactivating, setDeactivating] = useState<TeamMemberRow | null>(null);
   /** The seat holder awaiting a "remove from seat" confirmation. */
   const [removing, setRemoving] = useState<TeamMemberRow | null>(null);
-  /** The person awaiting a "remove from the organization" confirmation. */
-  const [removingPerson, setRemovingPerson] = useState<TeamMemberRow | null>(null);
   /** The self-deleted profile awaiting an Owner/Admin's confirmation. */
   const [confirmingSelfDeletion, setConfirmingSelfDeletion] =
     useState<TeamMemberRow | null>(null);
-
-  /**
-   * Invite Collaborator — the email-sending path.
-   *
-   * Still a SEPARATE intent from "Add Collaborator": Add saves the scoped access, Invite
-   * does the same and emails the person to fill in their own details. Where it lives is
-   * the change — it is one of the ways into the Add Collaborator modal (its first slide)
-   * rather than a button beside it in the section header, because the invite flow asks WHO
-   * the person is (Plan Sponsor HR, Outside Advisor, Provider Rep, Reviewer only) and that
-   * question belongs with the form that has just established the person.
-   */
-  const [isInviteOpen, setIsInviteOpen] = useState(false);
 
   /**
    * Whether this reader may change the roster.
@@ -946,29 +750,19 @@ export function TeamMembersSection({
       if (teamResponse.ok) {
         const body = (await teamResponse.json()) as {
           team?: TeamMemberRow[];
-          collaborators?: TeamMemberRow[];
           seats?: SeatUsageSummary;
           customCategories?: string[];
-          plans?: {
-            id: string;
-            companyName: string;
-            customBenefits: string[];
-          }[];
           canManage?: boolean;
         };
         setTeam(body.team ?? []);
-        setCollaborators(body.collaborators ?? []);
         setSeats(body.seats ?? null);
         // Read with the same response so the category list is complete on first paint.
         setCustomCategories(body.customCategories ?? []);
-        setPlanCustomBenefits(body.plans ?? []);
         setCanManage(body.canManage === true);
       } else {
         // A refused read (or a failed one) leaves the tab in its read-only shape rather than
         // offering controls whose requests would be refused.
         setTeam([]);
-        setCollaborators([]);
-        setPlanCustomBenefits([]);
         setCanManage(false);
       }
 
@@ -1008,18 +802,12 @@ export function TeamMembersSection({
       if (!response.ok) return;
       const body = (await response.json()) as {
         team?: TeamMemberRow[];
-        collaborators?: TeamMemberRow[];
         seats?: SeatUsageSummary;
       };
       const fresh =
-        body.team?.find((row) => row.profileId === profileId) ??
-        body.collaborators?.find((row) => row.profileId === profileId) ??
-        null;
+        body.team?.find((row) => row.profileId === profileId) ?? null;
       if (fresh) {
         setTeam((prev) =>
-          prev.map((row) => (row.profileId === profileId ? fresh : row)),
-        );
-        setCollaborators((prev) =>
           prev.map((row) => (row.profileId === profileId ? fresh : row)),
         );
       }
@@ -1090,9 +878,7 @@ export function TeamMembersSection({
   /**
    * Clear every field the Add modal owns, so it always opens empty.
    *
-   * Extracted because the two entry points must reset the SAME set: a field added to one
-   * and forgotten in the other is how a stale company name ends up attached to the next
-   * person. Also always returns to the chooser, never to whichever slide was used last.
+   * Always returns to the chooser, never to whichever slide was used last.
    */
   const resetAddForm = () => {
     setEmail("");
@@ -1111,60 +897,10 @@ export function TeamMembersSection({
   };
 
   const openAdd = () => {
-    setAddType("team_member");
     setAddAccess(EMPTY_ACCESS);
     setConfirmUpgrade(false);
     resetAddForm();
     setIsAddOpen(true);
-  };
-
-  /** The same modal, forced to the free Collaborator type and its own defaults. */
-  const openAddCollaborator = () => {
-    setAddType("collaborator");
-    setAddAccess(EMPTY_COLLABORATOR_ACCESS);
-    setConfirmUpgrade(false);
-    resetAddForm();
-    setIsAddOpen(true);
-  };
-
-  /** Expand one of the tab's two sections (a no-op when it is already open). */
-  const openSection = (section: "team-members" | "collaborators") =>
-    setOpenPeopleSections((prev) =>
-      prev.includes(section) ? prev : [...prev, section],
-    );
-
-  /**
-   * The header actions.
-   *
-   * Each one opens its OWN section first, every time: these buttons live in a header that
-   * is reachable while that section is collapsed, so acting on a list the reader cannot
-   * see would be the one thing worse than having hidden it.
-   */
-  const handleAddTeamMember = () => {
-    openSection("team-members");
-    openAdd();
-  };
-
-  const handleAddCollaborator = () => {
-    openSection("collaborators");
-    openAddCollaborator();
-  };
-
-  /**
-   * "Invite Collaborator", pressed on the Add modal's FIRST slide.
-   *
-   * A hand-off rather than a second submit: the invite is a flow of its own — who is this,
-   * the sponsor-domain guess, an optional note and due date, an existing-collaborator
-   * search, and the merge rule for somebody already on the plan — so a second copy of that
-   * form inside this modal would be two things to keep in step.
-   *
-   * Nothing typed here crosses over, and nothing needs to: this is the chooser slide, so
-   * there is no person yet — naming them is what the invite dialog does. The modal closes
-   * on the same commit, so the two dialogs never stack.
-   */
-  const openInviteFromAddModal = () => {
-    setIsAddOpen(false);
-    setIsInviteOpen(true);
   };
 
   /**
@@ -1201,16 +937,8 @@ export function TeamMembersSection({
     setEditName(row.name);
     setEditAccess({
       role: row.isOwner ? "owner" : row.role,
-      // A Collaborator is never offered All Plans (T2a). A collaborator whose
-      // assignments happen to cover every plan reports scope "all", so that maps
-      // back to the explicit list of plans they actually have — the same access,
-      // expressed in the only form their editor accepts.
       planScope:
-        row.personType === "collaborator"
-          ? "certain_plans"
-          : row.planAccess.scope === "all"
-            ? "all_plans"
-            : "certain_plans",
+        row.planAccess.scope === "all" ? "all_plans" : "certain_plans",
       planIds: row.planAccess.planIds,
       categoryScope: row.categoryAccess.scope === "all" ? "all" : "certain",
       categories: row.categoryAccess.categories,
@@ -1237,25 +965,12 @@ export function TeamMembersSection({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email,
-          // The button the advisor pressed decides the TYPE — it is never left to the email
-          // domain.
-          //
-          // The typed path used to omit this for a Team Member, so the server fell back to
-          // `guessPersonTypeForEmail` and an address off the organization's domain — a gmail
-          // one, a spouse's, a TPA's — was filed as a free Collaborator under a button that
-          // said "Add Team Member": the person appeared in the wrong list, holding no seat,
-          // while the dialog's copy blamed the domain for it.
-          //
-          // Spec T3 item 4 is explicit that the domain guess is only a DEFAULT ("the user can
-          // override"), and choosing the Team Member flow is that override. The benefits
-          // wizard's Give Team Seat dialog has always sent `type: "team_member"` for this same
-          // reason (`give-team-seat-dialog.tsx`), so this brings the two writers of a seat in
-          // line rather than inventing a rule.
-          //
-          // A full seat allowance now surfaces as the upgrade confirm (`seat_limit`) instead of
-          // being silently downgraded, which is what the seat meter beside this list already
-          // promises.
-          type: addType,
+          // Always a Team Member: Settings → People & Access no longer creates Collaborators
+          // at all — those are invited from inside a plan (Create Benefits / Key Contacts),
+          // per the spec. `type` is still sent explicitly rather than left to the server's
+          // email-domain guess, which would file an off-domain address (a gmail one, a
+          // spouse's) as a Collaborator under a button that says "Add Team Member".
+          type: "team_member",
           ...(pickedContact
             ? {
                 profileId: pickedContact.profileId,
@@ -1373,49 +1088,6 @@ export function TeamMembersSection({
       await load();
     } catch {
       toast.error("Could not save the Team Member");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  /**
-   * Deactivate or reactivate a person (spec T6): deactivating ends their access but
-   * keeps the profile, reactivating restores it. Neither touches a seat — seats
-   * belong to Team Members — so this needs no upgrade confirm. The response's meter
-   * is folded back in anyway so the header stays truthful if that ever changes.
-   */
-  const submitToggleActive = async (row: TeamMemberRow) => {
-    const reactivating = Boolean(row.deactivatedAt);
-    setIsSubmitting(true);
-    try {
-      const response = await fetch(
-        `/api/teammates/team/${row.profileId ?? row.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            action: reactivating ? "reactivate" : "deactivate",
-          }),
-        },
-      );
-
-      const body = (await response.json()) as {
-        error?: string;
-        seats?: SeatUsageSummary;
-      };
-      if (!response.ok) {
-        toast.error(body.error ?? "Could not update this person");
-        return;
-      }
-
-      if (body.seats) setSeats(body.seats);
-      setDeactivating(null);
-      toast.success(
-        reactivating ? `${row.name} reactivated.` : `${row.name} deactivated.`,
-      );
-      await load();
-    } catch {
-      toast.error("Could not update this person");
     } finally {
       setIsSubmitting(false);
     }
@@ -1565,56 +1237,6 @@ export function TeamMembersSection({
       await load();
     } catch {
       toast.error("Could not remove the seat");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  /**
-   * Remove a person from the organization outright — their plan access goes with them.
-   *
-   * Nothing in this tab can drop a single assignment, and the T6 screen's Delete used to
-   * refuse while any remained (spec T6 item 3), so a Collaborator on any plan had no route
-   * out at all. The server does the two writes in order (assignments, then profile) for one
-   * confirm, because "remove this person" is one decision; the dialog names the access that
-   * goes with it so it is never a surprise.
-   */
-  const submitRemovePerson = async (row: TeamMemberRow) => {
-    setIsSubmitting(true);
-    try {
-      const response = await fetch(
-        `/api/teammates/team/${row.profileId ?? row.id}`,
-        {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "remove_from_organization" }),
-        },
-      );
-
-      const body = (await response.json()) as {
-        error?: string;
-        seats?: SeatUsageSummary;
-        member?: { removedAssignments?: number };
-      };
-      if (!response.ok) {
-        toast.error(body.error ?? "Could not remove this person");
-        return;
-      }
-
-      if (body.seats) setSeats(body.seats);
-      setRemovingPerson(null);
-
-      const revoked = body.member?.removedAssignments ?? 0;
-      toast.success(
-        revoked > 0
-          ? `${row.name} removed, along with their access to ${revoked} plan${
-              revoked === 1 ? "" : "s"
-            }.`
-          : `${row.name} removed.`,
-      );
-      await load();
-    } catch {
-      toast.error("Could not remove this person");
     } finally {
       setIsSubmitting(false);
     }
@@ -1851,196 +1473,35 @@ export function TeamMembersSection({
         </p>
       ) : null}
 
-      {/* For a read-only Viewer the team is plain content — no collapsible accordion, and no
-          Collaborators list at all (that item exists only in the accordion branch). Everyone
-          else gets the tab's two halves as peer accordion sections: a Team Member belongs to
-          the organization and holds a seat, a Collaborator is external and free, so each
-          section owns its own count, actions and empty state. Both start open — the accordion
-          lets the reader collapse a list they are not using; it should not make the tab's
-          contents opt-in. */}
-      {viewerReadOnly ? (
-        <div className="rounded-xl border bg-card px-4">
-          <div className="flex flex-wrap items-center gap-2 py-4 text-left">
-            <UserRound className="h-4 w-4 shrink-0 text-accent-blue" />
-            <span className="text-base font-medium">Team Members</span>
-            <Badge variant="secondary">{seatHolders.length}</Badge>
-            <span className="text-xs font-normal text-muted-foreground">
-              Your organization&rsquo;s own people — each one holds a seat.
+      {/* Team Members is the tab's only list, so it is plain content rather than an
+          accordion: a one-item accordion is chrome that hides the thing it exists to show. */}
+      <div className="rounded-xl border bg-card px-4">
+        <div className="flex flex-wrap items-center gap-2 py-4 text-left">
+          <UserRound className="h-4 w-4 shrink-0 text-accent-blue" />
+          <span className="text-base font-medium">Team Members</span>
+          <Badge variant="secondary">{seatHolders.length}</Badge>
+          <span className="text-xs font-normal text-muted-foreground">
+            Your organization&rsquo;s own people — each one holds a seat.
+          </span>
+          {/* The section's own action, in its header so it is reachable without scrolling
+              the grid. Rendered only for a reader who may manage. */}
+          {canManage ? (
+            <span className="ml-auto shrink-0">
+              <Button
+                size="sm"
+                className={SECTION_ACTION_CLASS}
+                onClick={openAdd}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Add Team Member
+              </Button>
             </span>
-          </div>
-          <div className="pb-4">{teamCardsContent}</div>
+          ) : null}
         </div>
-      ) : (
-      <Accordion
-        type="multiple"
-        value={openPeopleSections}
-        onValueChange={setOpenPeopleSections}
-        className="space-y-3"
-      >
-        <AccordionItem
-          value="team-members"
-          className="rounded-xl border bg-card px-4"
-        >
-          <AccordionTrigger className="hover:no-underline">
-            <span className="flex flex-1 flex-wrap items-center gap-2 pr-2 text-left">
-              <UserRound className="h-4 w-4 shrink-0 text-accent-blue" />
-              <span className="text-base font-medium">Team Members</span>
-              <Badge variant="secondary">{seatHolders.length}</Badge>
-              <span className="text-xs font-normal text-muted-foreground">
-                Your organization&rsquo;s own people — each one holds a seat.
-              </span>
-            </span>
-            {/* The section's own action, in its header so it is reachable without
-                scrolling the grid — and it expands this section before acting, so the
-                list it adds to is always the list on screen. `stopPropagation` keeps a
-                click here from toggling the accordion (the idiom the Edit Client contact
-                accordions already use). Rendered only for a reader who may manage. */}
-            {canManage ? (
-              <span
-                className="flex shrink-0 items-center gap-2 pr-2"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <Button
-                  size="sm"
-                  className={SECTION_ACTION_CLASS}
-                  onClick={handleAddTeamMember}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Team Member
-                </Button>
-              </span>
-            ) : null}
-          </AccordionTrigger>
-          <AccordionContent>
-            {teamCardsContent}
-          </AccordionContent>
-        </AccordionItem>
+        <div className="pb-4">{teamCardsContent}</div>
+      </div>
 
-        {/* ── Collaborators ──
-            The other half of the team: external people with scoped access and no seat.
-            They are listed as rows rather than as seat cards because a seat is precisely
-            what they do not consume. Removed entirely for a read-only Viewer. */}
-        <AccordionItem
-          value="collaborators"
-          className="rounded-xl border bg-card px-4"
-        >
-          <AccordionTrigger className="hover:no-underline">
-            <span className="flex flex-1 flex-wrap items-center gap-2 pr-2 text-left">
-              <UserRoundPlus className="h-4 w-4 shrink-0 text-accent-blue" />
-              <span className="text-base font-medium">Collaborators</span>
-              <Badge variant="secondary">{collaborators.length}</Badge>
-              <span className="text-xs font-normal text-muted-foreground">
-                External people — free, no seat.
-              </span>
-            </span>
-            {/* This section's action, in its header, opening the section first. Inviting
-                is deliberately NOT a second button here: it needs to know who the person
-                is, so it lives inside the Add Collaborator modal below. Manager-only, like
-                the Team Member action above. */}
-            {canManage ? (
-              <span
-                className="flex shrink-0 items-center gap-2 pr-2"
-                onClick={(event) => event.stopPropagation()}
-              >
-                <Button
-                  size="sm"
-                  className={SECTION_ACTION_CLASS}
-                  onClick={handleAddCollaborator}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Collaborator
-                </Button>
-              </span>
-            ) : null}
-          </AccordionTrigger>
-          <AccordionContent>
-            {/* The empty state waits for the lists, so an empty organization cannot
-                flash "No Collaborators yet" while the request is still in flight. */}
-            {isLoading ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading collaborators…
-              </div>
-            ) : collaborators.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No Collaborators yet. Add one when someone outside your organization
-                needs access to a plan — a provider, a TPA contact, a specialist.
-              </p>
-            ) : (
-              <ul className="space-y-2">
-                {collaborators.map((row) => (
-                  <CollaboratorRow
-                    key={row.id}
-                    row={row}
-                    // Absent for a reader who may not manage: the row keeps the person and
-                    // their access, and renders without the three action buttons.
-                    onEdit={canManage ? openEdit : undefined}
-                    onToggleActive={
-                      canManage
-                        ? (target) => {
-                            // Reactivating is safe and immediate; deactivating ends
-                            // access, so it asks first.
-                            if (target.deactivatedAt) void submitToggleActive(target);
-                            else setDeactivating(target);
-                          }
-                        : undefined
-                    }
-                    onRemove={
-                      canManage
-                        ? (target) => setRemovingPerson(target)
-                        : undefined
-                    }
-                    // Same gate as the seat card: an open invitation is the only state with an
-                    // email to re-send.
-                    onResend={
-                      canManage &&
-                      !row.deactivatedAt &&
-                      row.status === "invited" &&
-                      row.profileId
-                        ? submitResendInvite
-                        : undefined
-                    }
-                    isResending={resendingProfileId === row.profileId}
-                    resendCooldownSeconds={resendCooldownSecondsLeft(row.profileId)}
-                  />
-                ))}
-              </ul>
-            )}
-
-            {/* The actions moved into this section's header, so what remains here is the
-                rule they operate under. */}
-            <p className="mt-3 text-xs text-muted-foreground">
-              Whatever role they hold, they can never publish, invite, delete, or
-              see organization settings.
-            </p>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
-      )}
-
-      {/* ── Invite Collaborator (sends the email) ── */}
-      <InviteCollaboratorDialog
-        open={isInviteOpen}
-        onOpenChange={setIsInviteOpen}
-        planOptions={plans.map((plan) => ({
-          id: plan.id,
-          name: plan.companyName,
-        }))}
-        // Every Custom benefit, flattened to one row per plan it exists on — the same shape
-        // Manage Access offers, so the invite can scope the person to a named Custom benefit
-        // rather than to the hub's storage label.
-        customBenefitOptions={planCustomBenefits.flatMap((plan) =>
-          plan.customBenefits.map((title) => ({
-            planId: plan.id,
-            planName: plan.companyName,
-            title,
-          })),
-        )}
-        source="settings"
-        onInvited={() => void load()}
-      />
-
-      {/* ── Add Team Member / Collaborator ── */}
+      {/* ── Add Team Member ── */}
       <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
         {/* A flex column rather than a scrolling box: the header and the footer stay put
             while the middle scrolls, so Back / Cancel / Add are always reachable without
@@ -2050,28 +1511,19 @@ export function TeamMembersSection({
           <DialogHeader className="shrink-0">
             <DialogTitle>
               {addStep === "choose"
-                ? addType === "collaborator"
-                  ? "Add Collaborator"
-                  : "Add Team Member"
+                ? "Add Team Member"
                 : addStep === "new"
                   ? "New contact"
                   : "Existing contact"}
             </DialogTitle>
             <DialogDescription>
-              {/* The copy states what the BUTTON does, because that is now what decides the
-                  type. It used to promise that the email domain would decide and that an
-                  off-domain address would come out as a Collaborator — which the form no
-                  longer does, so leaving it would be a description of the previous
-                  behaviour. The Collaborator route is named where it matters instead of
-                  being left to a guess. */}
+              {/* Settings → People & Access only ever adds Team Members. Collaborators are
+                  invited from inside a plan (Create Benefits / Key Contacts), per the spec,
+                  so this is not a place to create one. */}
               {addStep === "choose"
-                ? addType === "collaborator"
-                  ? "Someone outside your organization. No seat is used — scope them to the plans and benefit categories they should reach."
-                  : "One of your organization's own people. They hold a seat — scope them to the plans and benefit categories they should reach."
+                ? "One of your organization's own people. They hold a seat — scope them to the plans and benefit categories they should reach."
                 : addStep === "new"
-                  ? addType === "collaborator"
-                    ? "Enter their details, then scope them to the plans and benefit categories they should reach."
-                    : "Enter their details, then scope them to the plans and benefit categories they should reach. They are added as a Team Member and hold a seat; use Add Collaborator for anyone outside your organization."
+                  ? "Enter their details, then scope them to the plans and benefit categories they should reach. They are added as a Team Member and hold a seat."
                   : "Pick somebody already on one of your plans. Their name and email come from the contact, so there is nothing to retype."}
             </DialogDescription>
           </DialogHeader>
@@ -2123,41 +1575,6 @@ export function TeamMembersSection({
                 </span>
               </button>
 
-              {/* The third way in, for collaborators only: hand the job to the person
-                  themselves. It is a full-width row rather than a third square because it
-                  is not a peer of the two above — with it, the advisor types nothing, so
-                  offering it on a par with "New Contact" would hide the fact that the two
-                  tiles are the ones that need work.
-
-                  This is where the invite is FIRST reachable, which matters: the modal
-                  opens on this slide, so an invite that only existed on slide 2 — or only
-                  in the footer — would look like it had been removed. */}
-              {addType === "collaborator" ? (
-                <button
-                  type="button"
-                  onClick={openInviteFromAddModal}
-                  disabled={plans.length === 0}
-                  title={
-                    plans.length === 0
-                      ? "Create a plan before inviting a collaborator"
-                      : "Email them an invitation to complete a plan's sections themselves"
-                  }
-                  className="col-span-2 flex items-center gap-3 rounded-xl border bg-card p-4 text-left transition hover:border-primary/60 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-border disabled:hover:shadow-none"
-                >
-                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted">
-                    <UserRoundPlus className="h-5 w-5" />
-                  </span>
-                  <span className="min-w-0 space-y-0.5">
-                    <span className="block text-sm font-medium">
-                      Invite Collaborator
-                    </span>
-                    <span className="block text-xs text-muted-foreground">
-                      Email them an invitation and let them fill in their own details
-                      and sections.
-                    </span>
-                  </span>
-                </button>
-              ) : null}
             </div>
           ) : (
           <div className="space-y-4">
@@ -2169,12 +1586,8 @@ export function TeamMembersSection({
               value={addAccess}
               onChange={setAddAccess}
               plans={plans}
-              roles={
-                addType === "collaborator"
-                  ? COLLABORATOR_PRESET_ROLES
-                  : TEAM_MEMBER_ROLES
-              }
-              allowAllPlans={addType !== "collaborator"}
+              roles={TEAM_MEMBER_ROLES}
+              allowAllPlans
               customCategories={customCategories}
             />
 
@@ -2437,7 +1850,7 @@ export function TeamMembersSection({
                 {isSubmitting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : null}
-                {addType === "collaborator" ? "Add Collaborator" : "Add Team Member"}
+                Add Team Member
               </Button>
             )}
           </DialogFooter>
@@ -2515,12 +1928,8 @@ export function TeamMembersSection({
                 value={editAccess}
                 onChange={setEditAccess}
                 plans={plans}
-                roles={
-                  editing.personType === "collaborator"
-                    ? COLLABORATOR_PRESET_ROLES
-                    : TEAM_MEMBER_ROLES
-                }
-                allowAllPlans={editing.personType !== "collaborator"}
+                roles={TEAM_MEMBER_ROLES}
+                allowAllPlans
                 disabled={editing.isOwner}
               />
             </div>
@@ -2609,46 +2018,6 @@ export function TeamMembersSection({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Removing a person is destructive and irreversible — unlike Deactivate, which
-          keeps them — so the copy leads with what goes with the profile: their plan
-          access. Stated up front because the T6 screen used to refuse this while any
-          assignment remained, so the reader may have learned to expect a block. */}
-      <AlertDialog
-        open={removingPerson !== null}
-        onOpenChange={(open) => !open && setRemovingPerson(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Remove {removingPerson?.name}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              They are removed from your organization
-              {(removingPerson?.planAccess.planIds.length ?? 0) > 0
-                ? `, and their access to ${
-                    removingPerson?.planAccess.planIds.length
-                  } plan${
-                    removingPerson?.planAccess.planIds.length === 1 ? "" : "s"
-                  } is revoked first`
-                : ""}
-              . Their profile is deleted and this cannot be undone. Content they
-              created stays where it is. If you only want to end their access, use
-              Deactivate instead — that keeps the person.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isSubmitting}
-              onClick={(event) => {
-                event.preventDefault();
-                if (removingPerson) void submitRemovePerson(removingPerson);
-              }}
-            >
-              {isSubmitting ? "Removing…" : "Remove person"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-
       {/* Confirming a member's own deletion. Destructive and irreversible — the profile and
           its plan access are removed — but the seat it was holding is only released now, so
           the copy names what happens to the seat as well as to the person. */}
@@ -2692,37 +2061,6 @@ export function TeamMembersSection({
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Spec T6: deactivate ends access but keeps the profile, so it is reversible
-          and asks for confirmation rather than warning about data loss. */}
-      <AlertDialog
-        open={deactivating !== null}
-        onOpenChange={(open) => !open && setDeactivating(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Deactivate {deactivating?.name}?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              They immediately lose access to every plan they were assigned to. Their
-              profile, notes and history are kept, and you can reactivate them at any
-              time. No seat is affected — Collaborators never use one.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={isSubmitting}
-              onClick={(event) => {
-                event.preventDefault();
-                if (deactivating) void submitToggleActive(deactivating);
-              }}
-            >
-              {isSubmitting ? "Deactivating…" : "Deactivate"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

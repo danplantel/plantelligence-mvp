@@ -343,6 +343,26 @@ export async function mirrorPlanContacts(
       continue;
     }
 
+    // `contactId` is NOT "individual info" — it is the link the Benefits Hub resolves
+    // through. `Benefit.supportContacts[].contactId` is matched against the hub card
+    // id, and the card id is `assignment.contactId ?? assignment.id`. A person who was
+    // added as a Team Member FIRST and then mirrored as a Key Contact (or vice versa)
+    // has an assignment created before the id was known, so it stays null and every
+    // benefit that points at that contact renders with no headshot, email or phone.
+    // Backfilling the link restores those references and changes nothing else.
+    if (contactId && !existing.contactId) {
+      await prisma.planAssignment.update({
+        where: { id: existing.id },
+        data: {
+          contactId,
+          lastChangedByUserId: input.actorUserId,
+          lastChangedAt: new Date(),
+        },
+      });
+      byContactId.set(contactId, existing);
+      result.assignmentsUpdated += 1;
+    }
+
     // Only a mirrored, still-a-Contact assignment is synced. An invited or active
     // person's assignment belongs to T6: the advisor sets its role, categories and
     // visibility there, and this must not fight them.

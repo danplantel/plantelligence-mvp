@@ -1472,7 +1472,7 @@ export default function SettingsPage() {
             forceMount={membersTabOpened ? true : undefined}
             className="space-y-6 data-[state=inactive]:hidden"
           >
-            <TeamMembersSection viewerReadOnly={readOnlyViewer} />
+            <TeamMembersSection />
           </TabsContent>
 
           {/* Billing Tab — a "coming soon" placeholder, reachable by the Owner only.

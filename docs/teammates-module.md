@@ -597,8 +597,8 @@ Both are centralised so they are one-line changes:
 
 | Route | Purpose |
 |---|---|
-| `GET /api/teammates/team` | Both Settings → Team lists (`team` + `collaborators`) plus the seat meter. Sweeps expired invites first. |
-| `POST /api/teammates/team` | Add a Team Member/Collaborator: domain guess, seat check, then profile + one assignment per plan. |
+| `GET /api/teammates/team` | The Settings → Team list (`team`) plus the seat meter. The response also carries a `collaborators` array, which no surface renders now that Settings manages Team Members only. Sweeps expired invites first. |
+| `POST /api/teammates/team` | Add a Team Member: seat check, then profile + one assignment per plan. Settings always sends `type: "team_member"`; the endpoint still accepts a `type` for other callers. |
 | `GET /api/teammates/seats` | The meter alone. Nothing renders it at present — its only caller was the dashboard meter, which has been removed (see the seats note in §9). |
 | `PATCH /api/teammates/team/[profileId]` | Edit a membership (name, role, plan access, benefits access), or `action: "deactivate" \\| "reactivate"` for the spec T6 state transition. |
 
@@ -615,27 +615,24 @@ spec's "Owner/Admin only" outcome — a Collaborator can never hold Org Settings
   the organization is over its allowance no member is hidden. Usage and the pending
   invite count sit above the grid, with the upgrade-confirm dialog on a
   seat-limited add.
-- **Collaborators** get their own accordion *under* the seat cards, because a seat
-  is exactly what they do not consume: listing them as cards would imply they hold
-  one. Each row shows headshot, name, email, the partner company (T1's
-  `TeammateCompany`, which is how one firm's several people are recognisable), the
-  summarised role and status, plan + category access, and Edit /
-  Deactivate–Reactivate actions. "Add Collaborator" reuses the same modal, pinned
-  to `type: "collaborator"` so a same-domain address is still created as a
-  Collaborator; the modal's Team-Member mode still leaves the type to the server's
-  email-domain guess, which its own copy explains.
-- The client renders that list from a **separate server reader**,
-  `listCollaborators`, and the two lists are deliberately disjoint: only
-  `listTeamMembers` synthesizes the owner row, and each filters on
-  `TeammateProfile.type`. Both now share one internal row builder (`listOrgPeople`),
-  so plan scope, category scope and the summarised role are computed identically —
-  a Collaborator row cannot report access differently from a seat card.
-- `AccessFields` gained two props so the collaborator flow reuses it honestly:
-  `roles` (Contributors/Reviewer/Viewer via `COLLABORATOR_PRESET_ROLES` — a
-  Collaborator can never be Owner or Admin) and `allowAllPlans` (spec T2a: "All
-  Plans is shown for Team Members only"). Since a collaborator whose assignments
-  cover every plan reports scope `all`, `openEdit` maps that back to the explicit
-  plan list — the same access, expressed in the only form their editor offers.
+- **Collaborators are not managed here.** Per the spec's Core Concepts, a Collaborator
+  is *"created from: Inside a plan: Create Benefits or Key Contacts"* — Settings → Team
+  is a Team-Members surface (T3 Part A item 1). So the tab offers no Collaborators
+  accordion and no "Add Collaborator": a Collaborator enters as a plan-scoped **Contact**
+  ("Complete Profile Myself") or through an **invite**, from a plan screen. An earlier
+  build carried a Settings Collaborators list plus a silent "Add Collaborator" (and even
+  a Settings invite); all three were removed to match the spec — see §9d.
+- **The Team Members list is plain content, not an accordion.** With Collaborators gone it
+  is the tab's only list, so a one-item accordion would be chrome that hides the thing it
+  exists to show; the seat grid and its "Add Team Member" header render directly.
+- `listCollaborators` / `listOrgPeople` remain in the data layer (each list filters on
+  `TeammateProfile.type`, and only `listTeamMembers` synthesizes the owner row), and the
+  team endpoint still returns a `collaborators` array. The Settings tab no longer renders
+  it; the plan-scoped screens read a plan's assignments directly.
+- `AccessFields` keeps its `roles` and `allowAllPlans` props (spec T2a: "All Plans is
+  shown for Team Members only"), so it can be reused wherever a teammate is scoped. The
+  Settings add/edit pickers now always pass `TEAM_MEMBER_ROLES` and allow All Plans,
+  because this surface no longer creates Collaborators.
 - `updateTeamMember` was widened from Team-Member-only to **any membership**. The
   old `type !== "team_member"` rejection was redundant rather than protective: the
   permission grid already refuses a role the person's type may not hold, and the
@@ -960,7 +957,7 @@ inviting is what creates a profile. Nothing about the hub's data source changed.
 | The step (4 slides: prompt → details → categories → preview) | [`step-3-key-contacts.tsx`](../components/wizard/new-client-steps/step-3-key-contacts/step-3-key-contacts.tsx) |
 | The two options on the opening prompt | [`first-contact-prompt.tsx`](../components/wizard/new-client-steps/step-3-key-contacts/slides/first-contact-prompt.tsx) |
 | Per-contact "Invite" action (Part A item 4) | [`category-explorer.tsx`](../components/wizard/new-client-steps/step-3-key-contacts/slides/category-explorer.tsx) |
-| The invite dialog | [`invite-collaborator-dialog.tsx`](../components/teammates/invite-collaborator-dialog.tsx) — shared with the other three entry points since §9d |
+| The invite dialog | [`invite-collaborator-dialog.tsx`](../components/teammates/invite-collaborator-dialog.tsx) — shared with the other entry points since §9d |
 | The shared invite itself | [`inviteCollaboratorToPlan`](../lib/teammates/invites.server.ts) |
 
 ### One invite, two entry points
@@ -1018,7 +1015,7 @@ hub onto profile + assignment.
 
 ---
 
-## 9d. Invite entry points — one dialog, four surfaces
+## 9d. Invite entry points — one dialog, three surfaces
 
 The invite is a single verb ("put this person on this plan's sections and email
 them"), so it now has a single UI. Every entry point mounts
@@ -1031,39 +1028,47 @@ rule set to drift.
 |---|---|---|---|
 | **Create Plan → Key Contacts** (T5) | second prompt card, or per-contact "Invite" in the Category Explorer | draft persisted on demand (`ensurePlanId`) | `key_contacts` |
 | **Edit Client → Key Contacts** | tab header button, or the row action on any contact | the saved plan (`clientId`) | `edit_client` |
-| **Add / Edit Benefit → Contacts** | section header button (was inside the collapsed Collaborators accordion) | the plan being edited | `create_benefits` / `edit_benefit` |
-| **Settings → Team Members → Collaborators** | "Invite Collaborator", beside "Add Collaborator" | chosen from a plan list | `settings` |
+| **Add / Edit Benefit → Contacts** | section header button | the plan being edited | `create_benefits` / `edit_benefit` |
+
+Settings → Team Members is deliberately **not** a surface: the spec creates a Collaborator
+from inside a plan (Create Benefits / Key Contacts), so the tab's old "Invite Collaborator"
+and "Add Collaborator" were removed (see §9). The remaining callers are the three above.
 
 ### How the plan is resolved
 
 One prop decides, never a fallback chain that could pick the wrong plan:
 
-1. `planOptions` — a plan picker, used by Settings, which has no plan in context;
-2. `planId` — a plan the caller already holds (Edit Client, Add/Edit Benefit);
-3. `ensurePlanId()` — the wizard's draft-on-demand resolution.
+1. `planId` — a plan the caller already holds (Edit Client, Add/Edit Benefit);
+2. `ensurePlanId()` — the wizard's draft-on-demand resolution.
 
 If none yields a plan the invite is **refused** rather than written against nothing.
+`planOptions` (a plan picker) remains on the dialog for a caller with no plan in context,
+but the Settings surface that used it is gone, so no current caller passes it.
 
 ### Why the source is recorded
 
 `InviteCollaboratorDialog` renders in the Create *and* Edit benefit flows, and there
-are now four places an invite can come from. `INVITE_SOURCES` is a named union, the
+are three places an invite can come from. `INVITE_SOURCES` is a named union, the
 endpoint validates the incoming value with `isInviteSource()` instead of accepting any
 string, and the audit row records which surface asked. Without it "where do invites
 come from?" is unanswerable, and a Guest-list problem in one surface would be
-invisible.
+invisible. (`settings` remains a valid source value for audit rows written before the
+Settings surface was removed.)
 
 ### Two deliberate distinctions
 
-- **Settings: "Invite Collaborator" ≠ "Add Collaborator".** The latter grants scoped
-  access silently — an Owner sharing a screen may not want mail sent yet. The former
-  creates the same profile and assignment *and* emails the person. Two intents, two
-  buttons, so neither has to guess.
-- **The dialog's category list is not fixed at four.** It shows the canonical four
-  from [`BENEFIT_CONTACT_CATEGORIES`](lib/benefit-contacts.ts) plus any pre-filled
-  category that is not among them (a contact filed under "Third Party Contact", say).
-  Filtering those out — as the T5-only version did — would tick nothing for a contact
-  the advisor explicitly asked to invite.
+- **Collaborators are invited from a plan, not created in Settings.** The spec's Core
+  Concepts create a Collaborator *inside a plan* (Create Benefits / Key Contacts), as a
+  plan-scoped Contact or through an invite, and Settings → Team is a Team-Members surface.
+  A Settings "Add/Invite Collaborator" pair was removed for exactly that reason (§9).
+- **The dialog's sections are the canonical categories plus the plan's Custom benefits.**
+  It shows the canonical categories from
+  [`BENEFIT_CONTACT_CATEGORIES`](lib/benefit-contacts.ts) with the `Company / Plan Sponsor`
+  hub key dropped, each plan's own Custom benefit titles by name (so the reader recognises
+  "Wellness Programs", not the storage label), and any pre-filled category that is not
+  among them (a contact filed under "Third Party Contact", say). Filtering the extras out —
+  as the T5-only version did — would tick nothing for a contact the advisor explicitly
+  asked to invite.
 
 ### Files
 

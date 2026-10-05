@@ -4,8 +4,9 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
-import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
+import { FAQSection, DynamicFAQItem } from "@/components/faq-section";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
+import { buildFaqSupportContacts } from "@/lib/faq-support-contacts";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions-faq";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import {
@@ -97,33 +98,18 @@ export default function RetirementPage() {
     return list;
   }, [benefitData]);
 
-  // Resolve support contacts from the benefit's supportContacts (selected in wizard Step 3).
-  // Cross-references contactId with keyContacts for email/phone/headshot.
-  // Returns undefined when no support contacts are selected — hides the card entirely.
-  const supportContactsForFAQ = useMemo(() => {
-    const rawContacts = Array.isArray(clientData?.keyContacts)
-      ? clientData?.keyContacts
-      : (clientData?.keyContacts as any)?.contacts || [];
-
-    const rawSupportContacts = benefitData?.supportContacts;
-    if (!Array.isArray(rawSupportContacts)) return undefined;
-
-    const enabled = rawSupportContacts.filter((sc: any) => sc.enabled !== false);
-    if (enabled.length === 0) return undefined;
-
-    return enabled.map((sc: any) => {
-      const matched = rawContacts.find((c: any) => c.id === sc.contactId);
-      return {
-        id: sc.contactId,
-        title: sc.title || matched?.name || `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() || "Support Contact",
-        description: sc.description || matched?.customRole || matched?.title || "",
-        email: matched?.email || "",
-        phone: matched?.phone || "",
-        phoneExtension: matched?.phoneExtension,
-        headshot: matched?.headshot || undefined,
-      } as FAQContact;
-    });
-  }, [benefitData, clientData?.keyContacts]);
+  // Resolve the category's support contacts from the benefit's selection. The resolver
+  // matches each `contactId` against the plan's LIVE contacts (profile + assignment) and
+  // drops ids that no longer resolve, so the card always reflects the person's current
+  // headshot, email and phone — and a stale id can't render a photo-less phantom card.
+  const supportContactsForFAQ = useMemo(
+    () =>
+      buildFaqSupportContacts({
+        keyContacts: clientData?.keyContacts,
+        supportContacts: benefitData?.supportContacts,
+      }),
+    [benefitData?.supportContacts, clientData?.keyContacts],
+  );
 
   // Same data as Benefits Step 4: GET /api/documents/client + embedded docs from context
   useEffect(() => {

@@ -28,6 +28,7 @@
 
 import prisma from "@/lib/prisma";
 import { BENEFIT_CONTACT_CATEGORIES } from "@/lib/benefit-contacts";
+import { readPlanContacts } from "./contact-mirror.server";
 
 /**
  * A hub card. Deliberately shaped like the historical `KeyContact` row, because the
@@ -190,32 +191,32 @@ export async function buildPortalKeyContacts(input: {
     clientId: input.clientId,
   });
 
+  // Presentation settings (layout, card colours, logo scale) only exist on the object
+  // shape. A bare array carries contacts and nothing else, so it has no settings to
+  // preserve — but its contacts must still be read.
   const presentation =
     input.presentation && typeof input.presentation === "object" && !Array.isArray(input.presentation)
       ? (input.presentation as Record<string, unknown>)
       : null;
 
-  if (!presentation) return contacts;
-
   /**
    * Pass through any contact the mirror could not represent.
    *
    * A `TeammateProfile` requires an email, so a contact row without one cannot be
-   * mirrored — and it must not silently vanish from a live hub because of that. Any
+   * mirrored — and the organization OWNER is deliberately never mirrored (they are not
+   * a teammate). Neither must silently vanish from a live hub because of that. Any
    * stored contact whose id is absent from the derived cards is appended unchanged, so
    * the switch to profile + assignment is non-destructive by construction rather than by
    * having migrated everything perfectly. The set shrinks to empty as coverage grows,
    * and it is residue rather than a second source of truth: nothing here is ever read
    * for a contact that DID mirror.
+   *
+   * `readPlanContacts` is what makes this work for the historical ARRAY shape: reading
+   * `presentation.contacts` alone found nothing there, so the residue pass silently
+   * dropped every unmirrored contact from array-shaped plans.
    */
   const derivedIds = new Set(contacts.map((card) => String(card.id)));
-  const stored = Array.isArray(presentation.contacts)
-    ? (presentation.contacts as Record<string, unknown>[])
-    : Array.isArray(presentation.Contacts)
-      ? (presentation.Contacts as Record<string, unknown>[])
-      : [];
-
-  const residue = stored.filter((contact) => {
+  const residue = readPlanContacts(input.presentation).filter((contact) => {
     const id = contact?.id;
     if (id === undefined || id === null || String(id).trim() === "") {
       // No id to match on, so it cannot be proven mirrored — keep it visible.
@@ -224,5 +225,11 @@ export async function buildPortalKeyContacts(input: {
     return !derivedIds.has(String(id));
   });
 
-  return { ...presentation, contacts: [...contacts, ...residue] };
+  const merged = [...contacts, ...residue];
+
+  // Array shape in, array shape out — the portal's readers accept either, and the
+  // historical shape carried no settings to lose.
+  if (!presentation) return merged;
+
+  return { ...presentation, contacts: merged };
 }

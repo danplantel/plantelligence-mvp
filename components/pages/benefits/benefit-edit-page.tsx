@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { mutate as mutateSwr } from "swr";
-import { ArrowLeft, Loader2, Save, Trash2 } from "lucide-react";
+import { ArrowLeft, ExternalLink, Loader2, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,10 @@ import {
 } from "@/lib/fetch-client";
 import { persistPlanSelection } from "@/lib/plan-selector-storage";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
+import {
+  getBenefitPortalSegment,
+  getBenefitsHubOpenPortalUrl,
+} from "@/lib/marketing/hub-url";
 import {
   BENEFIT_TITLE_MAX_LENGTH,
   displayCategoryName,
@@ -376,6 +380,25 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
     }
   };
 
+  /**
+   * Open this benefit on the employee portal.
+   *
+   * The plan segment is the plan's own portal slug (falling back to its id, which the
+   * portal resolves too), and the benefit segment is the category's portal page —
+   * `/retirement`, `/health-insurance`, `/life-insurance`, or the Custom hub's own
+   * name-slug. `getBenefitPortalSegment` returns "" for a category with no dedicated
+   * page, so the plan root opens rather than a segment that would 404.
+   */
+  const handleOpenPortal = () => {
+    const slugOrId = String(selectedPlan?.slug || planId || "").trim();
+    if (!slugOrId) return;
+    const segment = getBenefitPortalSegment(category, customBenefitName);
+    const url = `${getBenefitsHubOpenPortalUrl(slugOrId)}${
+      segment ? `/${segment}` : ""
+    }`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   const tabList = (
     // `border-0` kills the shared TabsList border so the nav has no outline,
     // and `bg-transparent dark:bg-transparent` overrides the base TabsList
@@ -441,18 +464,32 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
           </div>
           {/* Save is not here — the fixed bottom action bar owns it on every tab (see
               the bar at the end of this component). This end of the row holds the
-              destructive action instead; the parent's `justify-between` is what puts it
-              hard against the end. */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="shrink-0 gap-1.5 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
-            onClick={() => setIsDeleteOpen(true)}
-            disabled={!isHydrated || isDeleting}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-            Delete Benefit
-          </Button>
+              page-level actions instead: open the published benefit on the employee
+              portal, or delete it. The parent's `justify-between` puts them hard against
+              the end. */}
+          <div className="flex shrink-0 items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={handleOpenPortal}
+              disabled={!isHydrated || !planId}
+              title="Open this benefit on the employee portal"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open Portal
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950/40"
+              onClick={() => setIsDeleteOpen(true)}
+              disabled={!isHydrated || isDeleting}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete Benefit
+            </Button>
+          </div>
         </div>
 
         {!isHydrated ? (
