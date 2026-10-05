@@ -48,7 +48,11 @@ import {
 } from "@/components/pages/edit-client";
 // Shared with the wizard's Key Contacts step, Add/Edit Benefit and Settings → Team
 // Members — one dialog, so the invite cannot mean something different here.
-import { InviteCollaboratorDialog } from "@/components/teammates/invite-collaborator-dialog";
+import {
+  InviteCollaboratorDialog,
+  type InviteCustomBenefitOption,
+} from "@/components/teammates/invite-collaborator-dialog";
+import { isPlaceholderBenefitName } from "@/lib/benefit-custom-name";
 // "Give Team Seat" — the same seat grant the Edit Benefit Contacts tab offers, posting to the
 // same endpoint with the same access picker.
 import { GiveTeamSeatDialog } from "@/components/wizard/benefits-steps/give-team-seat-dialog";
@@ -3003,6 +3007,42 @@ export default function EditClientPage() {
     setIsInviteOpen(true);
   }, []);
 
+  /**
+   * The plan's Custom benefit, as the Invite dialog's "Which sections may they complete?"
+   * list offers it.
+   *
+   * A Custom benefit is a `Benefit` row stored under "Company / Plan Sponsor" and named by
+   * the advisor, so it is read from that same row — the source `listPlanCustomBenefits`
+   * feeds the Manage Access picker, which is the list this one is meant to match.
+   * `isPlaceholderBenefitName` keeps the hub's storage label and its generated
+   * "Welcome to …" headline out of the list: neither is a name an advisor would recognise,
+   * and a plan with no Custom benefit simply offers the canonical categories.
+   */
+  const { data: inviteCustomBenefitResponse } = useSWR(
+    clientId
+      ? `/api/clients/${clientId}/benefits/${encodeURIComponent(
+          "Company / Plan Sponsor",
+        )}`
+      : null,
+    (url: string) => fetch(url).then((r) => r.json()),
+    { revalidateOnFocus: false },
+  );
+  const inviteCustomBenefitOptions = useMemo<
+    InviteCustomBenefitOption[] | undefined
+  >(() => {
+    const title = String(
+      inviteCustomBenefitResponse?.benefit?.title ?? "",
+    ).trim();
+    if (!clientId || !title || isPlaceholderBenefitName(title)) return undefined;
+    return [
+      {
+        planId: clientId,
+        planName: companyData.companyName || "this plan",
+        title,
+      },
+    ];
+  }, [clientId, inviteCustomBenefitResponse, companyData.companyName]);
+
   // Preset for the Add Contact dialog. Entry points just open the dialog with a
   // pre-seeded category/type — the contact is created only when the user saves.
   const [addContactPreset, setAddContactPreset] = useState<{
@@ -5020,6 +5060,10 @@ export default function EditClientPage() {
           onOpenChange={setIsInviteOpen}
           planId={clientId || ""}
           planName={companyData.companyName || "this plan"}
+          customBenefitOptions={inviteCustomBenefitOptions}
+          // This surface opens the invite from the contact it is about, so the
+          // "Add Existing Contact / Collaborator" search is redundant here.
+          showExistingContactSearch={false}
           prefill={invitePrefill}
           source="edit_client"
         />

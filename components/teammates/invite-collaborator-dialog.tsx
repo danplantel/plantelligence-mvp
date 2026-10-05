@@ -109,6 +109,14 @@ export interface InviteCollaboratorDialogProps {
     email?: string | null;
     categories?: string[];
   } | null;
+  /**
+   * Whether to offer "Add Existing Contact / Collaborator". Default true.
+   *
+   * Edit Client turns it off: that surface opens the invite from the contact it is about
+   * (or from an empty tab header), so a search for an already-saved person would re-ask a
+   * question the advisor has just answered.
+   */
+  showExistingContactSearch?: boolean;
   /** Which surface raised the invite — recorded on the audit row. */
   source?: "create_benefits" | "key_contacts" | "edit_client" | "settings";
   onInvited?: () => void;
@@ -137,6 +145,7 @@ export function InviteCollaboratorDialog({
   planName,
   planOptions,
   customBenefitOptions,
+  showExistingContactSearch = true,
   ensurePlanId,
   prefill,
   source,
@@ -199,7 +208,7 @@ export function InviteCollaboratorDialog({
 
   // ── "Add Existing Contact / Collaborator" search ──
   useEffect(() => {
-    if (!open) return;
+    if (!open || !showExistingContactSearch) return;
     const term = query.trim();
     if (term.length < 2) {
       setResults([]);
@@ -234,7 +243,7 @@ export function InviteCollaboratorDialog({
       controller.abort();
       clearTimeout(timer);
     };
-  }, [query, open]);
+  }, [query, open, showExistingContactSearch]);
 
   const toggleCategory = (category: string) =>
     setCategories((prev) =>
@@ -493,7 +502,10 @@ export function InviteCollaboratorDialog({
             />
           </div>
 
-          {/* ── Add Existing Contact / Collaborator ── */}
+          {/* ── Add Existing Contact / Collaborator ──
+              Optional — off in Edit Client, where the invite is opened from the contact it
+              is about (`showExistingContactSearch`). */}
+          {showExistingContactSearch ? (
           <div className="space-y-2 rounded-lg border p-3">
             <Label htmlFor="invite-search">Add Existing Contact / Collaborator</Label>
             {picked ? (
@@ -568,6 +580,7 @@ export function InviteCollaboratorDialog({
               </>
             )}
           </div>
+          ) : null}
         </div>
 
         <DialogFooter>
