@@ -27,6 +27,20 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { BENEFIT_CONTACT_CATEGORIES } from "@/lib/benefit-contacts";
+import { isCustomHubCategory } from "@/lib/benefit-custom-name";
+import { categoriesForAccess } from "@/components/teammates/access-fields";
+
+/**
+ * The canonical categories the invite offers.
+ *
+ * "Company / Plan Sponsor" is deliberately absent: it is the storage key for a plan's Custom
+ * benefit, not a section an advisor would recognise. A Custom benefit is offered by the name
+ * it was given, against the plan it lives on — see `customBenefitOptions`. This is the same
+ * rule the Manage Access picker applies.
+ */
+const INVITE_CATEGORY_OPTIONS = BENEFIT_CONTACT_CATEGORIES.filter(
+  (category) => !isCustomHubCategory(category),
+);
 
 /** A person returned by the "Add Existing Contact / Collaborator" search. */
 interface CollaboratorSearchRow {
@@ -42,6 +56,19 @@ interface CollaboratorSearchRow {
 export interface InvitePlanChoice {
   id: string;
   name?: string | null;
+}
+
+/**
+ * One Custom benefit the invite may scope the person to, with the plan it lives on.
+ *
+ * A Custom benefit is stored under "Company / Plan Sponsor" and named by the advisor, so the
+ * title only means something next to its plan. Mirrors the Manage Access picker's own rows
+ * (`PersonAccessScreen`), which is the surface this list is meant to match.
+ */
+export interface InviteCustomBenefitOption {
+  planId: string;
+  planName: string;
+  title: string;
 }
 
 export interface InviteCollaboratorDialogProps {
@@ -61,6 +88,15 @@ export interface InviteCollaboratorDialogProps {
    * knows the plan or offers a list.
    */
   planOptions?: InvitePlanChoice[];
+  /**
+   * The Custom benefits this invite may scope the person to, each with the plan it lives on.
+   *
+   * Offered by the advisor's own name for the benefit rather than by the hub's storage label
+   * ("Company / Plan Sponsor"), and scoped to the plan this invite will land on. Optional: a
+   * caller with no Custom benefits (the Key Contacts draft) simply offers the canonical
+   * categories.
+   */
+  customBenefitOptions?: InviteCustomBenefitOption[];
   /**
    * The wizard path (T5): there is no plan row yet, so the caller persists the draft on
    * demand and returns its id. Resolving to null refuses the invite instead of writing
@@ -100,6 +136,7 @@ export function InviteCollaboratorDialog({
   planId,
   planName,
   planOptions,
+  customBenefitOptions,
   ensurePlanId,
   prefill,
   source,
@@ -118,18 +155,25 @@ export function InviteCollaboratorDialog({
 
   const hasPlanPicker = Boolean(planOptions && planOptions.length > 0);
 
+  /** Every Custom benefit title the caller described, for `categoriesForAccess`. */
+  const allCustomTitles = useMemo(
+    () => (customBenefitOptions ?? []).map((option) => option.title),
+    [customBenefitOptions],
+  );
+
   /**
-   * The canonical four benefit categories, plus anything the caller pre-filled that is
-   * not among them (a "Third Party Contact" from Edit Client, say). Dropping the extras
-   * would silently leave the checkbox list empty for a contact the advisor explicitly
-   * asked to invite, so instead they appear as an extra ticked row.
+   * The canonical rows, plus anything the caller pre-filled that is none of: a canonical
+   * category, the Custom hub's own storage key, or a Custom benefit already offered by name.
+   * Dropping the extras would silently leave the list empty for a contact the advisor
+   * explicitly asked to invite, so they appear as an extra row instead.
    */
   const categoryOptions = useMemo(() => {
+    const listed = new Set<string>([...INVITE_CATEGORY_OPTIONS, ...allCustomTitles]);
     const extras = [...new Set(prefill?.categories ?? [])].filter(
-      (value) => !(BENEFIT_CONTACT_CATEGORIES as string[]).includes(value),
+      (value) => !listed.has(value) && !isCustomHubCategory(value),
     );
-    return [...BENEFIT_CONTACT_CATEGORIES, ...extras];
-  }, [prefill]);
+    return [...INVITE_CATEGORY_OPTIONS, ...extras];
+  }, [allCustomTitles, prefill]);
 
   // Fresh state per opening, seeded from whatever the caller handed us.
   useEffect(() => {
@@ -137,7 +181,13 @@ export function InviteCollaboratorDialog({
     setEmail((prefill?.email ?? "").trim());
     setName((prefill?.name ?? "").trim());
     setNote("");
-    setCategories([...new Set(prefill?.categories ?? [])]);
+    // The Custom hub's storage key is dropped rather than ticked: the invite offers Custom
+    // benefits by name, so a pre-filled hub label would be a grant the advisor cannot see.
+    setCategories(
+      [...new Set(prefill?.categories ?? [])].filter(
+        (value) => !isCustomHubCategory(value),
+      ),
+    );
     // Default the picker to the only plan when there is no real choice to make.
     setChosenPlanId(
       planId ?? (planOptions?.length === 1 ? planOptions[0].id : ""),
@@ -193,6 +243,37 @@ export function InviteCollaboratorDialog({
         : [...prev, category],
     );
 
+  /** The plan this invite will land on — the picker's answer, or the caller's fixed plan. */
+  const effectivePlanId = hasPlanPicker ? chosenPlanId : planId ?? "";
+
+  /**
+   * The Custom benefits to show beneath the canonical rows.
+   *
+   * Scoped to the plan this invite will land on, so a benefit is never offered against a
+   * plan it does not belong to. While the plan picker is still unanswered, every plan's
+   * Custom benefits are shown, each naming its plan.
+   */
+  const visibleCustomBenefits = useMemo(() => {
+    const options = customBenefitOptions ?? [];
+    if (!effectivePlanId) return options;
+    return options.filter((option) => option.planId === effectivePlanId);
+  }, [customBenefitOptions, effectivePlanId]);
+
+  /**
+   * Tick a Custom benefit, answering the plan question first when the picker is still blank.
+   *
+   * The invite creates ONE assignment on one plan, so a Custom benefit can only be granted
+   * against the plan it lives on. Selecting its title therefore chooses that plan rather
+   * than letting the two disagree — the same rule Manage Access applies.
+   */
+  const toggleCustomBenefit = (option: InviteCustomBenefitOption) => {
+    const wasSelected = categories.includes(option.title);
+    toggleCategory(option.title);
+    if (!wasSelected && hasPlanPicker && chosenPlanId !== option.planId) {
+      setChosenPlanId(option.planId);
+    }
+  };
+
   /** The label for whatever plan the invite will land on, for the toast and the chip. */
   const resolvedPlanName = useMemo(() => {
     if (hasPlanPicker) {
@@ -232,7 +313,10 @@ export function InviteCollaboratorDialog({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           clientId: resolved,
-          categories,
+          // A Custom benefit is stored under the hub's key, so selecting one by name also
+          // sends that key — otherwise the person is granted the benefit and refused its
+          // page. Canonical categories pass through untouched.
+          categories: categoriesForAccess(categories, allCustomTitles),
           email: email.trim(),
           name: name.trim() || picked?.name || null,
           note: note.trim() || null,
@@ -353,10 +437,47 @@ export function InviteCollaboratorDialog({
                   {category}
                 </label>
               ))}
+              {/* The plan's own Custom benefits, listed by the name the advisor gave them
+                  beneath the canonical categories — a title reused across plans appears once
+                  per plan, matching how a Custom benefit is stored and how Manage Access
+                  lists it. Ticking one answers the plan picker (see `toggleCustomBenefit`). */}
+              {visibleCustomBenefits.length > 0 ? (
+                <p className="col-span-2 mt-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                  Custom benefits
+                </p>
+              ) : null}
+              {visibleCustomBenefits.map((option) => (
+                <label
+                  key={`${option.planId}:${option.title}`}
+                  className="flex min-w-0 items-center gap-2 text-sm"
+                >
+                  <Checkbox
+                    checked={categories.includes(option.title)}
+                    onCheckedChange={() => toggleCustomBenefit(option)}
+                  />
+                  <span className="min-w-0">
+                    <span className="block truncate" title={option.title}>
+                      {option.title}
+                    </span>
+                    <span
+                      className="block truncate text-[11px] text-muted-foreground"
+                      title={option.planName}
+                    >
+                      {option.planName}
+                    </span>
+                  </span>
+                </label>
+              ))}
             </div>
             <p className="text-[11px] text-muted-foreground">
               Pick at least one. They see only the sections you tick.
             </p>
+            {visibleCustomBenefits.length > 0 ? (
+              <p className="text-[11px] text-muted-foreground">
+                Custom benefits are listed by the name you gave them, under the plan they
+                belong to. Selecting one also grants its Custom benefit page.
+              </p>
+            ) : null}
           </div>
 
           <div className="space-y-2">

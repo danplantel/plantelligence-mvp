@@ -749,6 +749,17 @@ export function TeamMembersSection({
    * does not render an incomplete category list and then shift.
    */
   const [customCategories, setCustomCategories] = useState<string[]>([]);
+  /**
+   * The organisation's plans, each with its own Custom benefit titles.
+   *
+   * Read with the roster so the Invite Collaborator dialog can offer a Custom benefit by the
+   * name the advisor gave it, under the plan it belongs to — the same shape Manage Access
+   * reads. Distinct from `customCategories` above, which is the flat org-wide list the
+   * Add/Edit access picker uses.
+   */
+  const [planCustomBenefits, setPlanCustomBenefits] = useState<
+    { id: string; companyName: string; customBenefits: string[] }[]
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Add modal
@@ -938,6 +949,11 @@ export function TeamMembersSection({
           collaborators?: TeamMemberRow[];
           seats?: SeatUsageSummary;
           customCategories?: string[];
+          plans?: {
+            id: string;
+            companyName: string;
+            customBenefits: string[];
+          }[];
           canManage?: boolean;
         };
         setTeam(body.team ?? []);
@@ -945,12 +961,14 @@ export function TeamMembersSection({
         setSeats(body.seats ?? null);
         // Read with the same response so the category list is complete on first paint.
         setCustomCategories(body.customCategories ?? []);
+        setPlanCustomBenefits(body.plans ?? []);
         setCanManage(body.canManage === true);
       } else {
         // A refused read (or a failed one) leaves the tab in its read-only shape rather than
         // offering controls whose requests would be refused.
         setTeam([]);
         setCollaborators([]);
+        setPlanCustomBenefits([]);
         setCanManage(false);
       }
 
@@ -2008,6 +2026,16 @@ export function TeamMembersSection({
           id: plan.id,
           name: plan.companyName,
         }))}
+        // Every Custom benefit, flattened to one row per plan it exists on — the same shape
+        // Manage Access offers, so the invite can scope the person to a named Custom benefit
+        // rather than to the hub's storage label.
+        customBenefitOptions={planCustomBenefits.flatMap((plan) =>
+          plan.customBenefits.map((title) => ({
+            planId: plan.id,
+            planName: plan.companyName,
+            title,
+          })),
+        )}
         source="settings"
         onInvited={() => void load()}
       />

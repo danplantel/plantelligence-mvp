@@ -38,7 +38,7 @@ import {
   upgradeContactToInvited,
 } from "./profiles.server";
 import { removeAssignment, upsertAssignment } from "./assignments.server";
-import { CUSTOM_BENEFIT_CATEGORY } from "./benefit-categories.server";
+import { listPlanCustomBenefits } from "./benefit-categories.server";
 import { findOrCreatePartnerCompany } from "./companies.server";
 import {
   assertSeatAvailable,
@@ -1817,41 +1817,14 @@ export async function getMembershipDetail({
           select: { name: true },
         })
       : Promise.resolve(null),
-    // Scoped the same way `resolveTargetPlanIds` scopes All Plans, so the checklist
-    // and the write path agree on what "every plan" means.
-    prisma.client.findMany({
-      where: { organizationId },
-      select: { id: true, companyName: true },
-      orderBy: { companyName: "asc" },
-    }),
+    // The organisation's plans, each with the Custom benefit titles authored on it —
+    // scoped the same way `resolveTargetPlanIds` scopes All Plans, so the checklist and
+    // the write path agree on what "every plan" means. Shared with the People & Access
+    // roster (see `listPlanCustomBenefits`), so the two pickers cannot disagree about the
+    // Custom benefits a plan offers.
+    listPlanCustomBenefits(organizationId),
     getSeatUsage(organizationId),
   ]);
-
-  // Custom benefits are per plan and per organisation (the advisor names them in
-  // Create Benefits → Step 1), so they are read from the `Benefit` rows rather than
-  // assumed. Grouped by plan and de-duplicated within a plan, matching the order the
-  // canonical categories are presented in.
-  const customBenefitRows =
-    plans.length > 0
-      ? await prisma.benefit.findMany({
-          where: {
-            clientId: { in: plans.map((plan) => plan.id) },
-            category: CUSTOM_BENEFIT_CATEGORY,
-          },
-          select: { clientId: true, title: true },
-        })
-      : [];
-  const customBenefitsByPlan = new Map<string, string[]>();
-  for (const row of customBenefitRows) {
-    const title = (row.title ?? "").trim();
-    if (!title) continue;
-    const list = customBenefitsByPlan.get(row.clientId) ?? [];
-    if (!list.includes(title)) list.push(title);
-    customBenefitsByPlan.set(row.clientId, list);
-  }
-  for (const list of customBenefitsByPlan.values()) {
-    list.sort((a, b) => a.localeCompare(b));
-  }
 
   const planIds = [...new Set(assignments.map((row) => row.clientId))];
   const planRows =
@@ -1903,11 +1876,7 @@ export async function getMembershipDetail({
         ? row.lastChangedAt.toISOString()
         : null,
     })),
-    plans: plans.map((plan) => ({
-      id: plan.id,
-      companyName: plan.companyName ?? "Untitled plan",
-      customBenefits: customBenefitsByPlan.get(plan.id) ?? [],
-    })),
+    plans,
     seats,
     canDeleteProfile: assignments.length === 0,
   };

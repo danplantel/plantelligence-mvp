@@ -13,7 +13,10 @@ import {
   listCollaborators,
   listTeamMembers,
 } from "@/lib/teammates/team.server";
-import { listCustomBenefitTitles } from "@/lib/teammates/benefit-categories.server";
+import {
+  listCustomBenefitTitles,
+  listPlanCustomBenefits,
+} from "@/lib/teammates/benefit-categories.server";
 
 /**
  * Team Member management (spec T3).
@@ -85,17 +88,23 @@ export async function GET(request: NextRequest) {
       await expireStaleInvites(session.organizationId, session.userId);
     }
 
-    const [team, collaborators, seats, customCategories] = await Promise.all([
-      listTeamMembers(session.organizationId),
-      listCollaborators(session.organizationId),
-      getSeatUsage(session.organizationId),
-      // The organisation's own Custom benefit titles, so the access picker can offer them
-      // alongside the four canonical categories. Read here rather than from a second
-      // endpoint because this response is already the one the Settings tab fetches, and a
-      // picker that renders before its category list arrives is a picker that briefly
-      // cannot be used.
-      listCustomBenefitTitles(session.organizationId),
-    ]);
+    const [team, collaborators, seats, customCategories, planCustomBenefits] =
+      await Promise.all([
+        listTeamMembers(session.organizationId),
+        listCollaborators(session.organizationId),
+        getSeatUsage(session.organizationId),
+        // The organisation's own Custom benefit titles, so the access picker can offer them
+        // alongside the four canonical categories. Read here rather than from a second
+        // endpoint because this response is already the one the Settings tab fetches, and a
+        // picker that renders before its category list arrives is a picker that briefly
+        // cannot be used.
+        listCustomBenefitTitles(session.organizationId),
+        // The same titles, but attached to the plan each one lives on. The People & Access
+        // invite is scoped to one plan, and a Custom benefit only means anything beside its
+        // plan — a title reused across plans is a different benefit on each. Shares its
+        // definition with the Manage Access reader (`getMembershipDetail`).
+        listPlanCustomBenefits(session.organizationId),
+      ]);
 
     // `?profileId=` narrows BOTH lists to one person, so the Manage Access screen can refresh
     // just that row after a save instead of pulling (and re-rendering) the whole roster. The seat
@@ -111,6 +120,8 @@ export async function GET(request: NextRequest) {
         : collaborators,
       seats,
       customCategories,
+      // Per-plan Custom benefits, for the invite dialog's "Which sections?" list.
+      plans: planCustomBenefits,
       canManage,
     });
   } catch (error) {

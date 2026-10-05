@@ -50,3 +50,58 @@ export async function listCustomBenefitTitles(
 
   return [...new Set(titles)].sort((a, b) => a.localeCompare(b));
 }
+
+/** One plan and the Custom benefits authored on it. */
+export interface PlanCustomBenefits {
+  id: string;
+  companyName: string;
+  customBenefits: string[];
+}
+
+/**
+ * Every plan, each with the Custom benefit titles authored on it.
+ *
+ * The per-plan counterpart to `listCustomBenefitTitles`: the access pickers list a Custom
+ * benefit by the name the advisor gave it, and that name only means something alongside the
+ * plan it lives on — the benefit is stored as a `Benefit` row under
+ * `category: "Company / Plan Sponsor"`, so two plans can share a title without sharing the
+ * benefit. Titles are de-duplicated and sorted within a plan, so the list does not reshuffle
+ * between loads. Plans with none are returned with an empty list rather than omitted, so the
+ * caller can render a plan's row set without a second lookup.
+ */
+export async function listPlanCustomBenefits(
+  organizationId: string,
+): Promise<PlanCustomBenefits[]> {
+  const plans = await prisma.client.findMany({
+    where: { organizationId },
+    select: { id: true, companyName: true },
+    orderBy: { companyName: "asc" },
+  });
+  if (plans.length === 0) return [];
+
+  const benefits = await prisma.benefit.findMany({
+    where: {
+      clientId: { in: plans.map((plan) => plan.id) },
+      category: CUSTOM_BENEFIT_CATEGORY,
+    },
+    select: { clientId: true, title: true },
+  });
+
+  const byPlan = new Map<string, string[]>();
+  for (const benefit of benefits) {
+    const title = (benefit.title ?? "").trim();
+    if (!title) continue;
+    const list = byPlan.get(benefit.clientId) ?? [];
+    if (!list.includes(title)) list.push(title);
+    byPlan.set(benefit.clientId, list);
+  }
+  for (const list of byPlan.values()) {
+    list.sort((a, b) => a.localeCompare(b));
+  }
+
+  return plans.map((plan) => ({
+    id: plan.id,
+    companyName: plan.companyName ?? "Untitled plan",
+    customBenefits: byPlan.get(plan.id) ?? [],
+  }));
+}
