@@ -29,6 +29,7 @@ import {
   findProfileByEmail,
   getTeammateProfile,
   reactivateTeammateProfile,
+  reviveSelfDeletedProfile,
   type UpdateTeammateProfileInput,
   setProfileAllPlans,
   setProfileState,
@@ -178,7 +179,7 @@ export async function addTeamMember(
   //
   // By email — the original path — nothing changes: the address is the identity, and an
   // existing profile is reused rather than duplicated.
-  const existing = input.profileId
+  let existing = input.profileId
     ? await getTeammateProfile(input.profileId, input.organizationId)
     : await findProfileByEmail(input.organizationId, providedEmail);
 
@@ -190,6 +191,20 @@ export async function addTeamMember(
       404,
       "profile_not_found",
     );
+  }
+
+  // A profile whose login deleted itself is revived BEFORE anything else looks at it. The
+  // old login is gone, so this is a fresh add, not a no-op on an `active` member:
+  // `reviveSelfDeletedProfile` clears the marker and the dangling link and returns the
+  // profile to Contact, which is what lets the invite window open again below. Without
+  // this, re-adding the person would reuse an `active` profile, skip the invitation and
+  // leave them unable to sign in.
+  if (existing?.selfDeletedAt) {
+    existing = await reviveSelfDeletedProfile({
+      id: existing.id,
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+    });
   }
 
   const email = existing?.email ?? providedEmail;
@@ -1075,6 +1090,12 @@ export interface TeamMemberRow {
   allPlans: boolean;
   invitedAt: Date | null;
   deactivatedAt: Date | null;
+  /**
+   * Set when the person deleted their OWN login. The profile and its seat are deliberately
+   * retained until an Owner/Admin confirms (`confirmSelfDeletedProfile`), so the seat card
+   * can surface the state and offer that confirmation.
+   */
+  selfDeletedAt: Date | null;
 }
 
 // `ROLE_RANK` and `mostPrivilegedRole` moved to `@/types/teammate`: the profile route now
@@ -1229,6 +1250,8 @@ async function listOrgPeople(
       allPlans: true,
       invitedAt: null,
       deactivatedAt: null,
+      // The owner is synthesized from their User row, so they can never be self-deleted.
+      selfDeletedAt: null,
     });
   }
 
@@ -1287,6 +1310,7 @@ async function listOrgPeople(
       allPlans: profile.allPlans,
       invitedAt: profile.invitedAt ?? null,
       deactivatedAt: profile.deactivatedAt ?? null,
+      selfDeletedAt: profile.selfDeletedAt ?? null,
     });
   }
 
@@ -1583,6 +1607,77 @@ export async function removePersonFromOrganization({
     profileId,
     removedAssignments: assignments.length,
     seats: await getSeatUsage(organizationId),
+  };
+}
+
+/**
+ * Finalise a self-service account deletion.
+ *
+ * A Team Member who deletes their own login leaves their `TeammateProfile` behind with
+ * `selfDeletedAt` set (see `markProfilesSelfDeletedByLogin`) so the seat they occupied is
+ * not handed back silently. This is the Owner/Admin's side of that: confirming the deletion
+ * removes the person and their assignments and releases the seat.
+ *
+ * Refuses anything that was not self-deleted, so this cannot be used as a second, quieter
+ * route to `remove_from_organization` — the marker is the whole precondition. The removal
+ * itself reuses `removePersonFromOrganization`, so the last-Owner guard and the
+ * per-assignment audit rows still apply.
+ */
+export async function confirmSelfDeletedProfile({
+  organizationId,
+  actorUserId,
+  profileId,
+}: {
+  organizationId: string;
+  actorUserId: string;
+  profileId: string;
+}): Promise<{
+  profileId: string;
+  removedAssignments: number;
+  releasedSeats: number;
+  seats: SeatUsage;
+}> {
+  const profile = await getTeammateProfile(profileId, organizationId);
+  if (!profile) {
+    throw new TeammateDataError("Teammate profile not found.", 404);
+  }
+  if (!profile.selfDeletedAt) {
+    throw new TeammateDataError(
+      "This profile has not been deleted by its owner, so there is nothing to confirm.",
+      409,
+      "profile_not_self_deleted",
+    );
+  }
+
+  // Measured, not assumed: `getSeatUsage` owns the metering rules, so diffing its own
+  // number stays correct even if those rules change.
+  const before = await getSeatUsage(organizationId);
+  const removed = await removePersonFromOrganization({
+    organizationId,
+    actorUserId,
+    profileId,
+  });
+  const releasedSeats = Math.max(before.seatsUsed - removed.seats.seatsUsed, 0);
+
+  // The underlying writers audit the removals they perform; this records the intent, so the
+  // trail reads as "an admin confirmed a self-deletion" rather than as a bare delete.
+  await recordTeammateAuditEvent({
+    organizationId,
+    actorUserId,
+    action: "profile_deletion_confirmed",
+    profileId,
+    details: {
+      email: profile.email,
+      removedAssignments: removed.removedAssignments,
+      releasedSeats,
+    },
+  });
+
+  return {
+    profileId: removed.profileId,
+    removedAssignments: removed.removedAssignments,
+    releasedSeats,
+    seats: removed.seats,
   };
 }
 

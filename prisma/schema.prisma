@@ -1251,6 +1251,18 @@ model TeammateProfile {
   // kept." Set instead of deleting so the audit trail and any content the person
   // created stay attributable. Null means the profile is live.
   deactivatedAt   DateTime?
+
+  // Set when the person deletes their OWN account (`DELETE /api/profile/delete`).
+  //
+  // The profile is deliberately KEPT and its seat stays counted: `getSeatUsage`
+  // counts every `state: "active"` profile that is not deactivated, so a member
+  // deleting their own login does not silently hand the organization back a seat
+  // nobody chose to release. An Owner or Admin then confirms the deletion from the
+  // seat card, which removes the profile and only then releases the seat.
+  //
+  // Distinct from `deactivatedAt`, which RELEASES the seat and leaves the login
+  // linked. Null means the profile has not been self-deleted.
+  selfDeletedAt   DateTime?
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 

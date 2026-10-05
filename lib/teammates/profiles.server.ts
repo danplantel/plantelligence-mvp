@@ -570,6 +570,118 @@ export async function reactivateTeammateProfile({
 }
 
 /**
+ * Flag every profile linked to a login that is being deleted by its own owner.
+ *
+ * This is the data half of "a Team Member deleted their own profile". The profile is
+ * deliberately KEPT — and so is the seat it holds — because `getSeatUsage` counts every
+ * `state: "active"` profile that is not deactivated. Without this flag the organization
+ * would be left with an Active-looking seat whose login no longer exists, and nothing on
+ * screen would explain it; with it, the seat card can ask an Owner or Admin to confirm.
+ *
+ * Called from `DELETE /api/profile/delete` BEFORE the `User` row is removed, so the link
+ * is still resolvable when the profiles are found. The flag is the only thing written —
+ * the `loginUserId` link is left in place as the record of whose login it was, and clearing
+ * it here would make a re-add indistinguishable from any other profile.
+ *
+ * Only profiles that actually HOLD a seat are flagged: a Team Member, not deactivated, and
+ * `active` (or inside a pending invite window). A deactivated or Contact profile consumes no
+ * seat, so flagging it would leave a "seat still held" notice pointing at a seat nobody is
+ * holding.
+ *
+ * Returns the number of profiles flagged and the organizations they belong to, so the
+ * caller can report what survived the deletion.
+ */
+export async function markProfilesSelfDeletedByLogin(
+  loginUserId: string,
+): Promise<{ profiles: number; organizations: string[] }> {
+  const profiles = await prisma.teammateProfile.findMany({
+    where: {
+      loginUserId,
+      selfDeletedAt: null,
+      deactivatedAt: null,
+      type: "team_member",
+      state: { in: ["active", "invited"] },
+    },
+    select: { id: true, organizationId: true },
+  });
+  if (profiles.length === 0) return { profiles: 0, organizations: [] };
+
+  const now = new Date();
+  await prisma.teammateProfile.updateMany({
+    where: { id: { in: profiles.map((profile) => profile.id) } },
+    data: { selfDeletedAt: now },
+  });
+
+  for (const profile of profiles) {
+    await recordTeammateAuditEvent({
+      organizationId: profile.organizationId,
+      actorUserId: loginUserId,
+      action: "profile_self_deleted",
+      profileId: profile.id,
+      details: {
+        reason: "account_deleted_by_owner",
+        // The profile and its seat were intentionally retained; the confirmation that
+        // releases them is a separate, audited action.
+        seatRetained: true,
+      },
+    });
+  }
+
+  return {
+    profiles: profiles.length,
+    organizations: [...new Set(profiles.map((profile) => profile.organizationId))],
+  };
+}
+
+/**
+ * Undo the self-deleted marker when the person is added back.
+ *
+ * A self-deleted profile is `active` with a `loginUserId` that no longer resolves to a
+ * `User`, so it cannot simply be reused: `upgradeContactToInvited` would treat it as an
+ * already-accepted member, skip the invite window and send nothing. Re-adding them is
+ * really a new invitation, so this resets the profile to a Contact with no login link —
+ * the same shape a brand-new person starts from — and clears the flag so the seat card
+ * stops reading "Profile deleted" for somebody who is being added back.
+ *
+ * The `active → contact` reset is written directly rather than through `setProfileState`,
+ * whose guard exists to stop a live member being demoted. That guard assumes the login
+ * still exists; here it deliberately does not.
+ */
+export async function reviveSelfDeletedProfile({
+  id,
+  organizationId,
+  actorUserId,
+}: {
+  id: string;
+  organizationId: string;
+  actorUserId: string;
+}) {
+  const existing = await getTeammateProfile(id, organizationId);
+  if (!existing) {
+    throw new TeammateDataError("Teammate profile not found.", 404);
+  }
+
+  const updated = await prisma.teammateProfile.update({
+    where: { id },
+    data: {
+      selfDeletedAt: null,
+      loginUserId: null,
+      state: "contact",
+    },
+  });
+
+  await recordTeammateAuditEvent({
+    organizationId,
+    actorUserId,
+    action: "profile_self_deletion_reverted",
+    profileId: id,
+    details: { from: existing.state, to: "contact" },
+  });
+
+  return updated;
+}
+
+/**
  * Spec T6 item 3: "Delete Profile: allowed only when the person has no remaining
  * assignments." The guard lives here so it cannot be skipped by a caller.
  */

@@ -3,6 +3,7 @@
 import { type ComponentProps, useCallback, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
 import {
+  AlertTriangle,
   HelpCircle,
   Loader2,
   Mail,
@@ -104,6 +105,12 @@ interface TeamMemberRow {
   allPlans: boolean;
   /** ISO timestamp while deactivated; null/absent for a live profile. */
   deactivatedAt?: string | null;
+  /**
+   * ISO timestamp when the person deleted their OWN login. Their profile — and therefore
+   * their seat — is deliberately kept until an Owner/Admin confirms the deletion from this
+   * card, so this is both the state to render and the precondition for that action.
+   */
+  selfDeletedAt?: string | null;
 }
 
 
@@ -326,7 +333,9 @@ function FilledSeatCard({
   onEdit,
   onRemove,
   onResend,
+  onConfirmDeletion,
   isResending,
+  isConfirmingDeletion,
   resendCooldownSeconds,
   isViewer,
 }: {
@@ -346,13 +355,27 @@ function FilledSeatCard({
    * Absent for the Owner — their row is synthesized, so there is no profile to address.
    */
   onResend?: (row: TeamMemberRow) => void;
+  /**
+   * Confirms a self-service account deletion — the person deleted their own login, so there
+   * is nobody left to invite or remove. Supplied only for a manager, and only while the
+   * profile actually carries the self-deleted marker.
+   */
+  onConfirmDeletion?: (row: TeamMemberRow) => void;
   /** This card's invitation is in flight, so only its own button shows the wait. */
   isResending?: boolean;
+  /** This card's deletion is being confirmed, so only its own button shows the wait. */
+  isConfirmingDeletion?: boolean;
   /** Seconds left of the resend cooldown; the button counts down and locks while it is above 0. */
   resendCooldownSeconds?: number;
   /** This seat belongs to the reader — see `viewerUserId`. */
   isViewer?: boolean;
 }) {
+  /**
+   * The profile's login was deleted by its owner. The marker is what keeps the seat counted
+   * until a manager confirms; it also changes what this card offers — there is no login to
+   * invite and no member to remove, only a deletion to acknowledge.
+   */
+  const isSelfDeleted = Boolean(row.selfDeletedAt);
   return (
     <div
       className={`group relative flex h-full flex-col items-center gap-2.5 rounded-xl border shadow-md bg-card p-4 text-center transition hover:border-primary/60 hover:shadow-sm${
@@ -370,7 +393,11 @@ function FilledSeatCard({
          * Full-strength accent colour rather than `/60`: without the ring's extra pixel the
          * softer tone read as a hover state rather than as "this one is you".
          */
-        isViewer ? " border-accent-blue" : ""
+        isSelfDeleted
+          ? " border-destructive/60"
+          : isViewer
+            ? " border-accent-blue"
+            : ""
       }`}
     >
       <button
@@ -423,9 +450,21 @@ function FilledSeatCard({
           <Badge variant={row.isOwner ? "default" : "secondary"}>
             {row.isOwner ? "Owner" : PRESET_ROLE_LABELS[row.role]}
           </Badge>
-          <Badge variant="outline">
-            {PROFILE_STATE_LABELS[row.status] ?? row.status}
-          </Badge>
+          {isSelfDeleted ? (
+            // Deliberately NOT `PROFILE_STATE_LABELS[row.status]`: the profile is still
+            // `active` in the data (that is what keeps the seat counted), so the card says
+            // what actually happened rather than repeating a now-misleading stored state.
+            <Badge
+              variant="outline"
+              className="border-destructive/60 text-destructive"
+            >
+              Profile deleted
+            </Badge>
+          ) : (
+            <Badge variant="outline">
+              {PROFILE_STATE_LABELS[row.status] ?? row.status}
+            </Badge>
+          )}
         </span>
 
         <span className="mt-auto w-full space-y-0.5 text-[11px] leading-tight text-muted-foreground">
@@ -434,8 +473,27 @@ function FilledSeatCard({
         </span>
       </button>
 
-      {onRemove || onResend ? (
+      {onConfirmDeletion || onRemove || onResend ? (
         <span className="mt-auto flex flex-wrap items-center justify-center gap-x-1 gap-y-0.5">
+          {/* The ONE action a self-deleted seat offers: acknowledge that the person deleted
+              their own login, which removes the profile and releases the seat. It replaces
+              Resend / Remove from seat rather than sitting beside them — neither of those can
+              mean anything for a person who no longer has an account. */}
+          {onConfirmDeletion ? (
+            <button
+              type="button"
+              onClick={() => onConfirmDeletion(row)}
+              disabled={isConfirmingDeletion}
+              className="inline-flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-destructive transition hover:bg-destructive/10 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {isConfirmingDeletion ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <UserRoundMinus className="h-3 w-3" />
+              )}
+              {isConfirmingDeletion ? "Confirming…" : "Confirm deletion"}
+            </button>
+          ) : null}
           {/* Chasing an unanswered invitation and giving the seat up are both reactions to the
               SAME card state ("Invited"), so they sit together at the foot of the card. The
               resend label is kept as short as the action is narrow; the pair may wrap to two
@@ -779,6 +837,9 @@ export function TeamMembersSection({
   const [removing, setRemoving] = useState<TeamMemberRow | null>(null);
   /** The person awaiting a "remove from the organization" confirmation. */
   const [removingPerson, setRemovingPerson] = useState<TeamMemberRow | null>(null);
+  /** The self-deleted profile awaiting an Owner/Admin's confirmation. */
+  const [confirmingSelfDeletion, setConfirmingSelfDeletion] =
+    useState<TeamMemberRow | null>(null);
 
   /**
    * Invite Collaborator — the email-sending path.
@@ -1542,6 +1603,52 @@ export function TeamMembersSection({
   };
 
   /**
+   * Confirm that a member deleted their own profile.
+   *
+   * The member deleted their login, not their membership: their profile was flagged and its
+   * seat deliberately kept, so this is the Owner/Admin's side of that deletion. Confirming
+   * removes the person and their assignments and releases the seat. The server refuses a
+   * profile that was not self-deleted, so this button cannot be used as a second, quieter
+   * "remove person".
+   */
+  const submitConfirmSelfDeletion = async (row: TeamMemberRow) => {
+    if (!row.profileId) return;
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`/api/teammates/team/${row.profileId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "confirm_self_deletion" }),
+      });
+
+      const body = (await response.json()) as {
+        error?: string;
+        seats?: SeatUsageSummary;
+        releasedSeats?: number;
+      };
+      if (!response.ok) {
+        toast.error(body.error ?? "Could not confirm the deletion");
+        return;
+      }
+
+      if (body.seats) setSeats(body.seats);
+      setConfirmingSelfDeletion(null);
+
+      const freed = body.releasedSeats ?? 0;
+      const suffix =
+        freed > 0 && body.seats
+          ? ` Seat released — ${body.seats.seatsUsed} of ${body.seats.seatsIncluded} now in use.`
+          : "";
+      toast.success(`${row.name}'s deletion confirmed.${suffix}`);
+      await load();
+    } catch {
+      toast.error("Could not confirm the deletion");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /**
    * The rows that actually occupy a seat — which is what this grid is a picture of.
    *
    * `listOrgPeople` filters on `type` alone, so a `contact`-state profile still comes back
@@ -1569,6 +1676,12 @@ export function TeamMembersSection({
   }, [seats?.seatsIncluded, seatHolders.length]);
 
   const pendingCount = seats?.seatsPending ?? 0;
+
+  /** Self-deleted profiles still holding their seat, awaiting a manager's confirmation. */
+  const selfDeletedCount = useMemo(
+    () => seatHolders.filter((row) => row.selfDeletedAt).length,
+    [seatHolders],
+  );
 
   /**
    * The reserved seat is a property of the ORGANIZATION, not of the viewer: an
@@ -1609,38 +1722,56 @@ export function TeamMembersSection({
        open. If the organization is over its allowance (a confirmed over-limit add), the
        grid grows so no member is hidden. */
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-      {seatHolders.map((row) => (
-        <FilledSeatCard
-          key={row.id}
-          row={row}
-          isViewer={Boolean(viewerUserId) && row.userId === viewerUserId}
-          // Both actions are withheld from a reader who may not manage, which is also what
-          // turns the card into plain content.
-          onEdit={canManage ? openEdit : undefined}
-          // The Owner's seat is reserved, and their row is synthesized rather than stored,
-          // so there is no seat to give back and no profileId to address. A deactivated
-          // member holds nothing either, and their removal is undone from their own screen.
-          onRemove={
-            !canManage || row.isOwner || row.deactivatedAt
-              ? undefined
-              : (target) => setRemoving(target)
-          }
-          // Only for an invitation that has not been answered yet: the badge on the card
-          // says "Invited", and an accepted member has no email to chase. The Owner has no
-          // profile to address at all.
-          onResend={
-            canManage &&
-            !row.isOwner &&
-            !row.deactivatedAt &&
-            row.status === "invited" &&
-            row.profileId
-              ? submitResendInvite
-              : undefined
-          }
-          isResending={resendingProfileId === row.profileId}
-          resendCooldownSeconds={resendCooldownSecondsLeft(row.profileId)}
-        />
-      ))}
+      {seatHolders.map((row) => {
+        // A self-deleted profile holds its seat on purpose and offers exactly one action —
+        // confirming the deletion — so every other control is withheld from it.
+        const isSelfDeleted = Boolean(row.selfDeletedAt);
+        return (
+          <FilledSeatCard
+            key={row.id}
+            row={row}
+            isViewer={Boolean(viewerUserId) && row.userId === viewerUserId}
+            // Both actions are withheld from a reader who may not manage, which is also what
+            // turns the card into plain content. A self-deleted profile has no login left to
+            // edit, so its management screen would offer changes it cannot keep.
+            onEdit={canManage && !isSelfDeleted ? openEdit : undefined}
+            // The Owner's seat is reserved, and their row is synthesized rather than stored,
+            // so there is no seat to give back and no profileId to address. A deactivated
+            // member holds nothing either, and their removal is undone from their own screen.
+            // A self-deleted profile is confirmed, not removed — see onConfirmDeletion.
+            onRemove={
+              !canManage || row.isOwner || row.deactivatedAt || isSelfDeleted
+                ? undefined
+                : (target) => setRemoving(target)
+            }
+            // Only for an invitation that has not been answered yet: the badge on the card
+            // says "Invited", and an accepted member has no email to chase. The Owner has no
+            // profile to address at all.
+            onResend={
+              canManage &&
+              !row.isOwner &&
+              !row.deactivatedAt &&
+              !isSelfDeleted &&
+              row.status === "invited" &&
+              row.profileId
+                ? submitResendInvite
+                : undefined
+            }
+            // The Owner/Admin's confirmation of the member's own deletion. Manager-only, and
+            // only while the marker is actually set.
+            onConfirmDeletion={
+              canManage && isSelfDeleted
+                ? (target) => setConfirmingSelfDeletion(target)
+                : undefined
+            }
+            isResending={resendingProfileId === row.profileId}
+            isConfirmingDeletion={
+              isSubmitting && confirmingSelfDeletion?.profileId === row.profileId
+            }
+            resendCooldownSeconds={resendCooldownSecondsLeft(row.profileId)}
+          />
+        );
+      })}
       {/* Open seats are an invitation to add somebody, so they are the manager's view of
           this grid — a reader without the permission sees the people who hold seats and
           nothing suggesting they could fill one. */}
@@ -1684,6 +1815,21 @@ export function TeamMembersSection({
         <p className="text-xs text-muted-foreground">
           You can see who is in your organization and what they can reach. Only the owner and
           admins can change access.
+        </p>
+      ) : null}
+
+      {/* A member who deleted their own profile keeps their seat until somebody acknowledges
+          it. Without this line the seat would simply look used by an Active member, and the
+          only way to discover the confirmation would be to inspect every card. Manager-only,
+          because only a manager has the action this points at. */}
+      {canManage && selfDeletedCount > 0 && !isLoading ? (
+        <p className="flex items-start gap-2 rounded-lg border border-amber-500/50 bg-amber-50/50 px-3 py-2 text-xs text-amber-700 dark:border-amber-500/40 dark:bg-amber-950/20 dark:text-amber-400">
+          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span>
+            {selfDeletedCount === 1
+              ? "1 Team Member deleted their own profile. Their seat is still held — confirm the deletion from their seat card to release it."
+              : `${selfDeletedCount} Team Members deleted their own profiles. Their seats are still held — confirm each deletion from its seat card to release them.`}
+          </span>
         </p>
       ) : null}
 
@@ -2470,6 +2616,49 @@ export function TeamMembersSection({
               }}
             >
               {isSubmitting ? "Removing…" : "Remove person"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirming a member's own deletion. Destructive and irreversible — the profile and
+          its plan access are removed — but the seat it was holding is only released now, so
+          the copy names what happens to the seat as well as to the person. */}
+      <AlertDialog
+        open={confirmingSelfDeletion !== null}
+        onOpenChange={(open) => !open && setConfirmingSelfDeletion(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Confirm {confirmingSelfDeletion?.name}&rsquo;s deletion?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              They deleted their own profile, so their account and login are already gone.
+              Their seat has been held until now. Confirming removes them from your
+              organization
+              {(confirmingSelfDeletion?.planAccess.planIds.length ?? 0) > 0
+                ? `, revokes their access to ${
+                    confirmingSelfDeletion?.planAccess.planIds.length
+                  } plan${
+                    confirmingSelfDeletion?.planAccess.planIds.length === 1 ? "" : "s"
+                  }`
+                : ""}
+              , and releases the seat. Their profile is deleted and this cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isSubmitting}
+              onClick={(event) => {
+                event.preventDefault();
+                if (confirmingSelfDeletion) {
+                  void submitConfirmSelfDeletion(confirmingSelfDeletion);
+                }
+              }}
+            >
+              {isSubmitting ? "Confirming…" : "Confirm deletion"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

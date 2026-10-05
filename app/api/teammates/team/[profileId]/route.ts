@@ -7,6 +7,7 @@ import { TeammateDataError } from "@/lib/teammates/errors";
 import { deleteTeammateProfile } from "@/lib/teammates/profiles.server";
 import { getSeatUsage } from "@/lib/teammates/seats.server";
 import {
+  confirmSelfDeletedProfile,
   getMembershipDetail,
   removePersonFromOrganization,
   removeTeamMemberFromSeat,
@@ -84,6 +85,12 @@ export async function GET(
  *    actions. Only reachable with no assignments left: `deleteTeammateProfile`
  *    owns that guard (409 `profile_has_assignments`), so the client's disabled
  *    button is a courtesy rather than the enforcement.
+ *  - **`action: "confirm_self_deletion"`** — the Owner/Admin's side of a member deleting
+ *    their OWN login. The profile was flagged `selfDeletedAt` by
+ *    `DELETE /api/profile/delete` and its seat deliberately kept; confirming removes the
+ *    person and their assignments and releases the seat. `confirmSelfDeletedProfile`
+ *    refuses a profile that was not self-deleted, so this is not a second route to
+ *    `remove_from_organization`.
  *  - **`action: "remove_from_seat"`** — give the seat up without deleting the person.
  *    This is one intent but not one write: the state machine forbids `active →
  *    contact`, so an un-accepted invite returns to Contact while an accepted member is
@@ -180,6 +187,25 @@ export async function PATCH(
         success: true,
         member: { profileId: removed.id, deleted: true },
         seats: await getSeatUsage(session.organizationId),
+      });
+    }
+
+    if (body.action === "confirm_self_deletion") {
+      const confirmed = await confirmSelfDeletedProfile({
+        organizationId: session.organizationId,
+        actorUserId: session.userId,
+        profileId: params.profileId,
+      });
+
+      return NextResponse.json({
+        success: true,
+        member: {
+          profileId: confirmed.profileId,
+          removedAssignments: confirmed.removedAssignments,
+          deleted: true,
+        },
+        releasedSeats: confirmed.releasedSeats,
+        seats: confirmed.seats,
       });
     }
 

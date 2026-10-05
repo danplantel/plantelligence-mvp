@@ -15,6 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { ProfileSettingsSection } from "@/components/pages/settings/profile-settings-section";
 import { BrandingSettingsSection } from "@/components/pages/settings/branding-settings-section";
 import { OrganizationSettingsSection } from "@/components/pages/settings/organization-settings-section";
@@ -95,6 +97,13 @@ function firstNonEmptyList<T>(...lists: (T[] | null | undefined)[]): T[] {
   return [];
 }
 
+/**
+ * Phrase the reader must type to unlock Delete Profile. Deleting removes the whole
+ * account and cannot be undone, so a single click is too cheap a confirmation. Mirrors
+ * the Delete Benefit and Delete Plan dialogs, which gate the same way.
+ */
+const DELETE_PROFILE_PHRASE = "delete profile";
+
 export default function SettingsPage() {
   const { setTitle, setSubtitle } = usePageTitleContext();
   const { stepData } = useOnboardingWizardStore();
@@ -132,6 +141,12 @@ export default function SettingsPage() {
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletionSuccess, setDeletionSuccess] = useState(false);
+  // Type-to-confirm gate for the delete dialog. Trimmed + case-insensitive so a pasted
+  // trailing space is forgiven, but the phrase still has to be typed rather than merely
+  // acknowledged — the same rule Delete Benefit and Delete Plan apply.
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const isDeleteProfileConfirmed =
+    deleteConfirmText.trim().toLowerCase() === DELETE_PROFILE_PHRASE;
 
   // Disclaimers section (folded into the Organization tab) — dirty state +
   // imperative handle for save/reset.
@@ -1401,6 +1416,8 @@ export default function SettingsPage() {
                       variant="destructive"
                       onClick={() => {
                         setDeletionSuccess(false);
+                        // Always reopen locked, even if the phrase was typed on a previous visit.
+                        setDeleteConfirmText("");
                         setShowDeleteConfirmDialog(true);
                       }}
                       className="bg-red-600 hover:bg-red-700 text-white"
@@ -1553,6 +1570,9 @@ export default function SettingsPage() {
           if (!open) {
             setDeletionSuccess(false);
             setIsDeleting(false);
+            // Clear the typed phrase on every close, so a reopen starts locked again
+            // instead of leaving the button already unlocked.
+            setDeleteConfirmText("");
           }
         }}
       >
@@ -1597,6 +1617,38 @@ export default function SettingsPage() {
                   </p>
                 </AlertDialogDescription>
               </AlertDialogHeader>
+
+              {/* Type-to-confirm gate: the confirm button stays locked until the phrase
+                  below is typed. Radix's AlertDialog ignores Escape and outside clicks, so
+                  the answer is explicit — and typing the phrase is what stops a stray click
+                  from deleting the whole account. */}
+              <div className="mt-4 space-y-1.5">
+                <Label
+                  htmlFor="delete-profile-confirm"
+                  className="text-xs font-normal text-muted-foreground"
+                >
+                  Type{" "}
+                  <span className="font-mono font-semibold text-foreground">
+                    {DELETE_PROFILE_PHRASE}
+                  </span>{" "}
+                  to confirm
+                </Label>
+                <Input
+                  id="delete-profile-confirm"
+                  value={deleteConfirmText}
+                  onChange={(event) => setDeleteConfirmText(event.target.value)}
+                  onKeyDown={(event) => {
+                    // Enter must not submit the dialog while the gate is still locked.
+                    if (event.key === "Enter" && !isDeleteProfileConfirmed) {
+                      event.preventDefault();
+                    }
+                  }}
+                  placeholder={DELETE_PROFILE_PHRASE}
+                  autoComplete="off"
+                  disabled={isDeleting}
+                />
+              </div>
+
               <AlertDialogFooter className="flex flex-row items-center gap-2 sm:gap-2 mt-4">
                 <AlertDialogCancel
                   disabled={isDeleting}
@@ -1629,7 +1681,8 @@ export default function SettingsPage() {
                       setIsDeleting(false);
                     }
                   }}
-                  disabled={isDeleting}
+                  // Locked until the phrase is typed — see the gate above the footer.
+                  disabled={isDeleting || !isDeleteProfileConfirmed}
                   variant="destructive"
                   className="flex-1 bg-red-600 text-white hover:bg-red-700"
                 >

@@ -4,6 +4,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { deletePlansAndScopedDataForUser } from "@/lib/delete-user-plans-and-scoped-data";
 import { deleteOrganizationForOwner } from "@/lib/teammates/organization-cleanup.server";
+import { markProfilesSelfDeletedByLogin } from "@/lib/teammates/profiles.server";
 
 /**
  * DELETE /api/profile/delete
@@ -66,6 +67,30 @@ export async function DELETE() {
     // "every Organization references a real User as owner — 1 orphaned". See
     // lib/teammates/organization-cleanup.server.ts.
     await deleteOrganizationForOwner(userId);
+
+    // 4b. Preserve the seats this login was holding in organizations it does NOT own.
+    //
+    // A person invited into somebody else's organization holds a `TeammateProfile` there
+    // whose `loginUserId` is this account. Step 4 only touches organizations this user
+    // OWNS, so without this those profiles would survive as Active-looking seats whose
+    // owner no longer exists — still counted by the meter, but with nothing on screen to
+    // explain it and no way to release it.
+    //
+    // The profile is flagged, not deleted, and the flag deliberately does NOT release the
+    // seat: an Owner or Admin confirms the deletion from the People & Access seat card,
+    // which removes the profile and only then gives the seat back. Runs BEFORE the `User`
+    // row is deleted, because the profiles are found by `loginUserId`.
+    try {
+      await markProfilesSelfDeletedByLogin(userId);
+    } catch (error) {
+      // Best-effort: deleting your own account must not be blocked by a teammate
+      // bookkeeping write. The profiles simply stay unmarked, which is the state they were
+      // already in before this feature existed.
+      console.error(
+        "[profile/delete] failed to flag teammate profiles as self-deleted",
+        error,
+      );
+    }
 
     // 5. Delete the user account itself
     await prisma.user.delete({ where: { id: userId } });

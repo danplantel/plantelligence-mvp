@@ -28,6 +28,13 @@ export type TeammateAuditAction =
   | "profile_deactivated"
   | "profile_reactivated"
   | "profile_deleted"
+  // A member deleting their OWN login. Distinct from `profile_deleted` (an Owner/Admin
+  // removing the person): the profile and its seat SURVIVE this one on purpose, and it is
+  // later finalised by `profile_deletion_confirmed`. Re-adding the person records
+  // `profile_self_deletion_reverted`, which is what retires the marker.
+  | "profile_self_deleted"
+  | "profile_self_deletion_reverted"
+  | "profile_deletion_confirmed"
   | "company_created"
   | "company_updated"
   | "assignment_created"
