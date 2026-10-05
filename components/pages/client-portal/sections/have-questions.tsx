@@ -4,7 +4,7 @@ import { Phone, Mail } from "lucide-react";
 import { Headshot } from "@/components/ui/headshot";
 import type { FAQContact } from "@/components/faq-section";
 
-interface HaveQuestionsFAQProps {
+interface HaveQuestionsProps {
   brandColor?: string;
   secondaryColor?: string;
   contacts?: FAQContact[];
@@ -14,7 +14,7 @@ export function HaveQuestions({
   brandColor = "#1F3A60",
   secondaryColor = "#6B7280",
   contacts,
-}: HaveQuestionsFAQProps) {
+}: HaveQuestionsProps) {
   if (!contacts || contacts.length === 0) return null;
 
   return (

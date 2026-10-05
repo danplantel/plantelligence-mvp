@@ -7,7 +7,7 @@ import useSWR from "swr";
 import { FAQSection, DynamicFAQItem } from "@/components/faq-section";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { buildFaqSupportContacts } from "@/lib/faq-support-contacts";
-import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions-faq";
+import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import {
   BenefitsVideoSection,

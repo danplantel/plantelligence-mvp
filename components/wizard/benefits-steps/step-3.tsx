@@ -76,7 +76,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
-import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions-faq";
+import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import {
   DndContext,
   closestCenter,
