@@ -26,6 +26,8 @@ export const VIEWER_ACCESS_KEY = "/api/teammates/viewer-access";
 export interface ViewerAccessData {
   isCollaborator: boolean;
   functions: TeammatePermissionSet | null;
+  /** Owner or Admin — may add a Team Member, invite, or grant a seat. */
+  canManageTeam: boolean;
 }
 
 /**
@@ -45,6 +47,7 @@ export interface ViewerAccessData {
  */
 export function useViewerAccess(initialData?: ViewerAccessData | null): {
   isCollaborator: boolean;
+  canManageTeam: boolean;
   can: (fn: PermissionFunction, level?: RequiredLevel) => boolean;
 } {
   const { data } = useSWR<ViewerAccessData>(
@@ -58,10 +61,13 @@ export function useViewerAccess(initialData?: ViewerAccessData | null): {
   );
 
   const isCollaborator = Boolean(data?.isCollaborator);
+  // Fail-open, like the rest of the summary: an unanswered read must never hide an
+  // action that the server would allow.
+  const canManageTeam = data ? Boolean(data.canManageTeam) : true;
   const can = useMemo(
     () => createPermissionChecker(data?.functions ?? null),
     [data?.functions],
   );
 
-  return { isCollaborator, can };
+  return { isCollaborator, canManageTeam, can };
 }

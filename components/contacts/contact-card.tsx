@@ -13,6 +13,7 @@
  * only, while the saved plan shows the full seat ladder.
  */
 
+import type { MouseEvent, ReactNode } from "react";
 import { Armchair, BadgeCheck, Loader2, MailCheck, Pencil, Star, Trash2, UserCheck, UserRoundPlus } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +21,6 @@ import { Button } from "@/components/ui/button";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { Headshot } from "@/components/ui/headshot";
 import { cn } from "@/lib/utils";
-import type { KeyContact } from "@/types/new-client-wizard";
 
 /** Format a 10-digit phone as (XXX)-XXX-XXXX (e.g. 3333333333 → (333)-333-3333). */
 export const formatContactPhone = (phone?: string): string => {
@@ -40,8 +40,31 @@ const SEAT_STATUS_DONE_CLASS =
 const SEAT_STATUS_PENDING_CLASS =
   "flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-gray-200 bg-gray-50/60 px-3 text-xs font-medium text-muted-foreground dark:border-gray-700 dark:bg-gray-800/40";
 
+/**
+ * The fields this card renders.
+ *
+ * Structural rather than `KeyContact` so the SAME card can render a Collaborator (an
+ * assignment row) as well as a Key Contact — see `CollaboratorCard`. A `KeyContact`
+ * satisfies it unchanged.
+ */
+export interface ContactCardSubject {
+  contactType?: string | null;
+  companyLogo?: string | null;
+  headshot?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  name?: string | null;
+  displayName?: string | null;
+  title?: string | null;
+  customRole?: string | null;
+  role?: string | null;
+  phone?: string | null;
+  phoneExtension?: string | null;
+  email?: string | null;
+}
+
 export interface ContactCardProps {
-  contact: KeyContact;
+  contact: ContactCardSubject;
   isPrimary?: boolean;
   seatStatus?: SeatStatus;
   seatStatusResolved?: boolean;
@@ -53,6 +76,17 @@ export interface ContactCardProps {
   onDelete?: () => void;
   onInvite?: () => void;
   onGiveSeat?: () => void;
+  /**
+   * Extra icon buttons for the card's action cluster (top-right, beside edit / delete).
+   * The Collaborator card uses it for its "Resend" action.
+   */
+  actions?: ReactNode;
+  /**
+   * Replaces the seat ladder (including the "Give Team Seat" button) with your own
+   * footer. Used by a Collaborator card, whose call to action is different: a
+   * collaborator holds no seat, so the ladder would describe the wrong thing.
+   */
+  footer?: ReactNode;
 }
 
 export function ContactCard({
@@ -67,6 +101,8 @@ export function ContactCard({
   onDelete,
   onInvite,
   onGiveSeat,
+  actions,
+  footer,
 }: ContactCardProps) {
   const displayName =
     contact.firstName || contact.lastName
@@ -78,6 +114,18 @@ export function ContactCard({
         contact.phoneExtension ? ` ext. ${contact.phoneExtension}` : ""
       }`
     : "";
+
+  /**
+   * A card can be a single click target — the Collaborator card wraps it in a
+   * `role="button"` div that opens a modal — so its own buttons must not also fire the
+   * surface click. Stopping here covers every action uniformly, and is a no-op wherever
+   * the card is not clickable.
+   */
+  const actionHandler =
+    (handler?: () => void) => (event: MouseEvent) => {
+      event.stopPropagation();
+      handler?.();
+    };
 
   return (
     <Card className="overflow-hidden transition-all border-gray-100 bg-white hover:border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600">
@@ -112,7 +160,7 @@ export function ContactCard({
                     ? "text-amber-500 hover:bg-amber-50 hover:text-amber-600 dark:hover:bg-amber-500/10"
                     : "text-muted-foreground hover:bg-amber-50 hover:text-amber-500 dark:hover:bg-amber-500/10",
                 )}
-                onClick={onTogglePrimary}
+                onClick={actionHandler(onTogglePrimary)}
                 title={isPrimary ? "Remove as primary" : "Mark as primary"}
                 aria-label={isPrimary ? "Remove as primary" : "Mark as primary"}
               >
@@ -124,7 +172,7 @@ export function ContactCard({
                 size="icon"
                 variant="ghost"
                 className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
-                onClick={onInvite}
+                onClick={actionHandler(onInvite)}
                 title="Invite this contact to complete their sections"
                 aria-label="Invite this contact"
               >
@@ -136,7 +184,7 @@ export function ContactCard({
                 size="icon"
                 variant="ghost"
                 className="h-7 w-7 shrink-0 text-muted-foreground hover:text-foreground"
-                onClick={onEdit}
+                onClick={actionHandler(onEdit)}
                 title="Edit this contact"
                 aria-label="Edit this contact"
               >
@@ -148,13 +196,14 @@ export function ContactCard({
                 size="icon"
                 variant="ghost"
                 className="h-7 w-7 shrink-0 text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                onClick={onDelete}
+                onClick={actionHandler(onDelete)}
                 title="Delete this contact"
                 aria-label="Delete this contact"
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>
             )}
+            {actions}
           </div>
         </div>
 
@@ -191,7 +240,9 @@ export function ContactCard({
 
         {/* Seat control — the same ladder the Edit Benefit Contacts tab renders, so one person
             never shows a different seat state on the two surfaces. */}
-        {showSeatControl &&
+        {footer !== undefined ? footer : null}
+        {footer === undefined &&
+          showSeatControl &&
           (!seatStatusResolved ? (
             <div
               className={SEAT_STATUS_PENDING_CLASS}

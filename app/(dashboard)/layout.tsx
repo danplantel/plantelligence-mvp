@@ -14,7 +14,11 @@ export const metadata: Metadata = {
 };
 
 /** The answer the chrome uses before any client read: never narrowed. */
-const OPEN_ACCESS: ViewerAccess = { isCollaborator: false, functions: null };
+const OPEN_ACCESS: ViewerAccess = {
+  isCollaborator: false,
+  functions: null,
+  canManageTeam: true,
+};
 
 /**
  * Resolve the viewer's chrome access on the SERVER and hand it to the client layout.

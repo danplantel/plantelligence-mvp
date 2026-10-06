@@ -22,7 +22,10 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
-import { PRESET_ROLE_LABELS, type TeammateAssignmentRole } from "@/types/teammate";
+import {
+  CollaboratorCategoryAccordions,
+  type CollaboratorCategoryGroup,
+} from "@/components/teammates/collaborator-category-accordions";
 import {
   Plus,
   Users,
@@ -53,10 +56,18 @@ import {
   InviteCollaboratorDialog,
   type InviteCustomBenefitOption,
 } from "@/components/teammates/invite-collaborator-dialog";
-import { isPlaceholderBenefitName } from "@/lib/benefit-custom-name";
+import {
+  CUSTOM_BENEFIT_CATEGORY,
+  isPlaceholderBenefitName,
+} from "@/lib/benefit-custom-name";
 // "Give Team Seat" — the same seat grant the Edit Benefit Contacts tab offers, posting to the
 // same endpoint with the same access picker.
 import { GiveTeamSeatDialog } from "@/components/wizard/benefits-steps/give-team-seat-dialog";
+import {
+  CollaboratorDetailDialog,
+  type CollaboratorDetailPerson,
+} from "@/components/teammates/collaborator-detail-dialog";
+import { useViewerAccess } from "@/hooks/useViewerAccess";
 import { SaveButton } from "@/components/pages/edit-client/save-button";
 import { useEditClient } from "@/hooks/useEditClient";
 // Import components from new-client-steps
@@ -375,21 +386,6 @@ interface PlanCollaboratorRow {
   state?: string;
   deactivatedAt?: string | null;
   inviteDueDate?: string | null;
-}
-
-/**
- * The status a Collaborators list item shows.
- *
- * A live invite reads "Invite Pending": the profile's own state is `invited` (a seat
- * hold), but what the advisor is looking at is an unanswered invitation, so the row says
- * that rather than the lifecycle word.
- */
-function collaboratorStatusLabel(person: PlanCollaboratorRow): string {
-  if (person.deactivatedAt) return "Deactivated";
-  if (person.state === "invited") return "Invite Pending";
-  if (person.state === "active") return "Active";
-  if (person.state === "contact") return "Contact";
-  return "Collaborator";
 }
 
 // ── Edit Contact Dialog — mini contact form (mirrors the Create Key Contact
@@ -1563,6 +1559,42 @@ function EditKeyContactsSection({
      contact already hold a seat or an invitation", which is exactly what the card reports. */
   const [contactPendingSeat, setContactPendingSeat] = useState<KeyContact | null>(null);
   const [seatRefreshKey, setSeatRefreshKey] = useState(0);
+
+  /* ── The plan's Custom benefit name ─────────────────────────────
+     "Other Benefits" is where a Custom benefit's people live: the benefit itself is stored
+     as a Benefit row under the "Company / Plan Sponsor" key, and the advisor named it on
+     Create Benefit. That name — not the generic category label — is what the row should say,
+     so this is the same read the Add/Edit Contact dialog makes (which names the benefit in
+     the Contact Form topic list). `isPlaceholderBenefitName` drops a stored hub label or a
+     generated headline, which are not names anybody chose. */
+  const { data: customBenefitResponse } = useSWR(
+    planId
+      ? `/api/clients/${planId}/benefits/${encodeURIComponent(
+          CUSTOM_BENEFIT_CATEGORY,
+        )}`
+      : null,
+    (url: string) => fetch(url).then((r) => r.json()),
+    { revalidateOnFocus: false },
+  );
+  const customBenefitName = (() => {
+    const title = String(customBenefitResponse?.benefit?.title ?? "").trim();
+    return title && !isPlaceholderBenefitName(title) ? title : "";
+  })();
+
+  /**
+   * What a category row is called.
+   *
+   * Every category names itself except "Other Benefits", which is the Custom benefit's
+   * home: it reads the advisor's own name for that benefit, falling back to the category
+   * label while the plan has no named Custom benefit yet.
+   */
+  const categoryDisplayLabel = (category: {
+    id: BenefitsCategory;
+    label: string;
+  }): string =>
+    category.id === "Other Benefits" && customBenefitName
+      ? customBenefitName
+      : category.label;
   const [seatCollaborators, setSeatCollaborators] = useState<PlanCollaboratorRow[]>([]);
   const [seatOwnerEmails, setSeatOwnerEmails] = useState<string[]>([]);
   const [seatStatusResolved, setSeatStatusResolved] = useState(false);
@@ -1987,7 +2019,9 @@ function EditKeyContactsSection({
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
                     {categoryContacts.length}
                   </Badge>
-                  <span className="text-base font-semibold">{category.label}</span>
+                  <span className="text-base font-semibold">
+                    {categoryDisplayLabel(category)}
+                  </span>
                 </div>
                 <Button
                   size="sm"
@@ -2959,6 +2993,10 @@ export default function EditClientPage() {
     setCategoryPortalVisibility,
   } = useEditClient();
 
+  // Owner/Admin only: the seat grant is offered only to a viewer who may manage the team.
+  // The API refuses anyone else regardless of what is rendered.
+  const { canManageTeam } = useViewerAccess();
+
   const [activeTab, setActiveTab] = useState<EditTabId>("company");
   // Deep links may target a tab, e.g. "/edit-client/<id>?tab=disclaimers" from the
   // dashboard's Needs Attention panel, or "?tab=contacts" from the client list. Read via
@@ -3095,10 +3133,59 @@ export default function EditClientPage() {
     [collaboratorAssignmentsData],
   );
 
+  /**
+   * The Collaborators accordion set: the categories the Contacts above use, minus
+   * "External HR / Administrator" and minus "Company / Plan Sponsor".
+   *
+   * Nobody is invited to collaborate on the plan-sponsor contact itself. A Custom benefit,
+   * however, is STORED under the "Company / Plan Sponsor" key — the Custom hub's — with
+   * the advisor's own name for the benefit written beside it, so its people get a group of
+   * their own, labelled with that name, instead of a "Company / Plan Sponsor" header.
+   */
+  const collaboratorCategoryGroups = useMemo<CollaboratorCategoryGroup[]>(() => {
+    const groups: CollaboratorCategoryGroup[] = CATEGORY_ACCORDIONS.filter(
+      // "Other Benefits" is not one a collaborator is scoped in here, so it is left out —
+      // the Contacts accordions above still show it.
+      (category) => String(category.id) !== "Other Benefits",
+    ).map((category) => ({
+      id: String(category.id),
+      label: category.label,
+      icon: category.icon,
+    }));
+
+    const customTitle = (inviteCustomBenefitOptions?.[0]?.title ?? "").trim();
+    const hasCustomKey = planCollaborators.some((person) =>
+      person.categories.some(
+        (category) =>
+          category.trim().toLowerCase() ===
+          CUSTOM_BENEFIT_CATEGORY.toLowerCase(),
+      ),
+    );
+    if (customTitle || hasCustomKey) {
+      groups.push({
+        id: "custom",
+        label: customTitle || "Custom Benefits",
+        icon: <Gift className="w-5 h-5 text-accent-blue" />,
+        match: [CUSTOM_BENEFIT_CATEGORY],
+        prefill: customTitle || CUSTOM_BENEFIT_CATEGORY,
+      });
+    }
+    return groups;
+  }, [planCollaborators, inviteCustomBenefitOptions]);
+
   // The collaborator whose "Resend Request" is in flight, so only that row shows a wait.
   const [resendingProfileId, setResendingProfileId] = useState<string | null>(
     null,
   );
+
+  // The Collaborator whose detail modal is open (opened by clicking their row).
+  const [selectedCollaborator, setSelectedCollaborator] =
+    useState<CollaboratorDetailPerson | null>(null);
+
+  // The Collaborator whose removal is awaiting confirmation, and whether it is in flight.
+  const [pendingDeleteCollaborator, setPendingDeleteCollaborator] =
+    useState<PlanCollaboratorRow | null>(null);
+  const [deletingCollaborator, setDeletingCollaborator] = useState(false);
 
   /**
    * Re-deliver a pending collaborator's invitation.
@@ -3158,6 +3245,40 @@ export default function EditClientPage() {
     },
     [refreshCollaborators],
   );
+
+  /**
+   * Remove a Collaborator from THIS plan.
+   *
+   * `DELETE /api/teammates/assignments/:id` is the module's own writer (spec T6 item 1),
+   * so access to the plan and its categories ends immediately and the change is audited.
+   * The person's profile survives — they may collaborate on another plan, or be invited
+   * again later — which is why this is not `removePersonFromOrganization`.
+   */
+  const confirmDeleteCollaborator = useCallback(async () => {
+    const person = pendingDeleteCollaborator;
+    if (!person) return;
+    setDeletingCollaborator(true);
+    try {
+      const response = await fetch(
+        `/api/teammates/assignments/${encodeURIComponent(person.assignmentId)}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        toast.error(body.error ?? "Could not remove the collaborator");
+        return;
+      }
+      toast.success(`${person.name} was removed from this plan.`);
+      // Re-read in place — not by changing the key — so the list never blanks.
+      void refreshCollaborators();
+    } catch {
+      toast.error("Could not remove the collaborator");
+    } finally {
+      setDeletingCollaborator(false);
+    }
+  }, [pendingDeleteCollaborator, refreshCollaborators]);
 
   // Preset for the Add Contact dialog. Entry points just open the dialog with a
   // pre-seeded category/type — the contact is created only when the user saves.
@@ -4847,17 +4968,20 @@ export default function EditClientPage() {
                   {/* ── Collaborators ──────────────────────────────────────────
                       Matches the Create Plan Category Explorer: a plan-level invite that
                       hands someone access so they can complete their own profile. No seat is
-                      used. The tab header used to host this; it lives here so the section
-                      reads the same on both surfaces. */}
+                      used. Grouped by the same benefit categories the Contacts above use —
+                      everything except External HR, which is not a place a collaborator works. */}
                   <div className="mt-6 border-t border-gray-100 dark:border-gray-700 pt-4">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="flex items-center gap-2">
-                        <UserRoundPlus className="w-5 h-5 text-accent-blue" />
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <UserRoundPlus className="w-5 h-5 shrink-0 text-accent-blue" />
                         <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
                           Collaborators
                         </span>
+                        <Badge variant="secondary" className="font-medium">
+                          {planCollaborators.length}
+                        </Badge>
                       </span>
-                      {/* Once there is a list, the invite moves up beside the header — the
+                      {/* Once there is a list, the invite sits beside the header — the
                           full-width card below is retired for that case. */}
                       {planCollaborators.length > 0 ? (
                         <Button
@@ -4886,122 +5010,60 @@ export default function EditClientPage() {
                       details. No seat is used.
                     </p>
                     {planCollaborators.length > 0 ? (
-                      <ul className="mb-3 space-y-2">
-                        {planCollaborators.map((person) => {
-                          const isPending =
-                            !person.deactivatedAt && person.state === "invited";
-                          const roleLabel =
-                            PRESET_ROLE_LABELS[
-                              person.role as TeammateAssignmentRole
-                            ] ?? person.role;
-                          return (
-                            <li
-                              key={person.assignmentId}
-                              className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800"
-                            >
-                              <span className="block h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted">
-                                <Headshot
-                                  src={person.headshot}
-                                  alt={person.name}
-                                  monogramName={person.name}
-                                  wrapperClassName="rounded-full"
-                                />
-                              </span>
-                              <span className="min-w-0 flex-1">
-                                <span className="block truncate text-sm font-medium text-gray-900 dark:text-gray-100">
-                                  {person.name}
-                                </span>
-                                <span className="block truncate text-xs text-muted-foreground">
-                                  {person.email}
-                                  {person.companyName ? ` · ${person.companyName}` : ""}
-                                </span>
-                              </span>
-                              <span className="flex shrink-0 flex-wrap items-center gap-1">
-                                {/* "Contributor" is the role every invited collaborator gets by
-                                    default, so its badge only restates what the section already
-                                    is — shown only when the role says something else. */}
-                                {roleLabel !== "Contributor" ? (
-                                  <Badge variant="secondary">{roleLabel}</Badge>
-                                ) : null}
-                                <Badge
-                                  variant="outline"
-                                  className={
-                                    isPending
-                                      ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400"
-                                      : person.deactivatedAt
-                                        ? "text-muted-foreground"
-                                        : undefined
-                                  }
-                                >
-                                  {collaboratorStatusLabel(person)}
-                                </Badge>
-                                {isPending ? (
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-7 shrink-0 gap-1.5 px-2.5 text-[11px] font-medium"
-                                    onClick={() =>
-                                      void resendCollaboratorInvite(person)
-                                    }
-                                    disabled={
-                                      resendingProfileId === person.profileId
-                                    }
-                                  >
-                                    {resendingProfileId === person.profileId ? (
-                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    ) : (
-                                      <Mail className="h-3.5 w-3.5" />
-                                    )}
-                                    {resendingProfileId === person.profileId
-                                      ? "Sending…"
-                                      : "Resend Request"}
-                                  </Button>
-                                ) : null}
-                              </span>
-                              {person.inviteDueDate && isPending ? (
-                                <span className="w-full text-[11px] text-muted-foreground">
-                                  Invitation expires{" "}
-                                  {new Date(person.inviteDueDate).toLocaleDateString()}
-                                </span>
-                              ) : null}
-                            </li>
-                          );
-                        })}
-                      </ul>
+                      <CollaboratorCategoryAccordions
+                        collaborators={planCollaborators}
+                        categories={collaboratorCategoryGroups}
+                        onAddToCategory={(categoryId) => {
+                          setInvitePrefill({ categories: [categoryId] });
+                          setIsInviteOpen(true);
+                        }}
+                        onOpen={(person) => setSelectedCollaborator(person)}
+                        onEdit={(person) => setSelectedCollaborator(person)}
+                        onDelete={
+                          canManageTeam
+                            ? (person) => setPendingDeleteCollaborator(person)
+                            : undefined
+                        }
+                        onResendInvite={
+                          canManageTeam
+                            ? (person) => void resendCollaboratorInvite(person)
+                            : undefined
+                        }
+                        resendingProfileId={resendingProfileId}
+                      />
                     ) : null}
                     {/* Below zero collaborators only — the invite lives in the header row
                         once there is a list to sit beneath (see `planCollaborators.length === 0`). */}
                     {planCollaborators.length === 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setInvitePrefill(null);
-                        setIsInviteOpen(true);
-                      }}
-                      disabled={!clientId}
-                      title={
-                        clientId
-                          ? "Invite someone to complete this plan's benefit sections"
-                          : "Save this plan before inviting"
-                      }
-                      className="group w-full flex items-center justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-left transition-colors hover:border-accent-blue hover:bg-accent-blue/5 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-gray-700/50"
-                    >
-                      <span className="flex items-center gap-3 min-w-0">
-                        <span className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
-                          <UserRoundPlus className="w-5 h-5 text-accent-blue" />
-                        </span>
-                        <span className="flex flex-col min-w-0">
-                          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                            Invite Collaborator to Complete Profile
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInvitePrefill(null);
+                          setIsInviteOpen(true);
+                        }}
+                        disabled={!clientId}
+                        title={
+                          clientId
+                            ? "Invite someone to complete this plan's benefit sections"
+                            : "Save this plan before inviting"
+                        }
+                        className="group w-full flex items-center justify-between gap-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-4 py-3 text-left transition-colors hover:border-accent-blue hover:bg-accent-blue/5 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-gray-700/50"
+                      >
+                        <span className="flex items-center gap-3 min-w-0">
+                          <span className="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center flex-shrink-0">
+                            <UserRoundPlus className="w-5 h-5 text-accent-blue" />
                           </span>
-                          <span className="text-xs text-muted-foreground">
-                            They fill in their own details — free, and no seat used
+                          <span className="flex flex-col min-w-0">
+                            <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                              Invite Collaborator to Complete Profile
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              They fill in their own details — free, and no seat used
+                            </span>
                           </span>
                         </span>
-                      </span>
-                      <ArrowRight className="w-4 h-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
-                    </button>
+                        <ArrowRight className="w-4 h-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+                      </button>
                     ) : null}
                   </div>
                 </CardContent>
@@ -5298,6 +5360,40 @@ export default function EditClientPage() {
           source="edit_client"
           // Re-read the list so the person just invited appears as "Invite Pending".
           onInvited={() => void refreshCollaborators()}
+        />
+
+        {/* A Collaborator row opens this: who they are, plus — for an Owner or Admin —
+            the ability to give them a Team seat on this organization. */}
+        <CollaboratorDetailDialog
+          person={selectedCollaborator}
+          onOpenChange={(open) => {
+            if (!open) setSelectedCollaborator(null);
+          }}
+          planId={clientId || ""}
+          canManageSeats={canManageTeam}
+          onGranted={() => void refreshCollaborators()}
+        />
+
+        {/* Removing a Collaborator from the plan. Confirmed first because it revokes
+            access immediately and is not undone by re-inviting (that issues a new,
+            unrelated assignment). */}
+        <ConfirmDialog
+          open={!!pendingDeleteCollaborator}
+          onOpenChange={(open) => {
+            if (!open && !deletingCollaborator) setPendingDeleteCollaborator(null);
+          }}
+          onConfirm={confirmDeleteCollaborator}
+          title="Remove this collaborator?"
+          description={
+            pendingDeleteCollaborator
+              ? `${pendingDeleteCollaborator.name} will lose access to this plan and its benefit categories right away. You can invite them again later.`
+              : ""
+          }
+          confirmText="Yes, remove"
+          cancelText="No, keep"
+          variant="destructive"
+          isLoading={deletingCollaborator}
+          loadingText="Removing..."
         />
 
         {/* Add Contact Modal — same form as the Edit Contact dialog. The contact

@@ -43,8 +43,6 @@ import {
 } from "lucide-react";
 import { KeyContact } from "@/types/new-client-wizard";
 import {
-  PROFILE_STATE_LABELS,
-  PRESET_ROLE_LABELS,
   type TeammateAssignmentRole,
   type TeammatePersonType,
   type TeammateProfileState,
@@ -77,6 +75,12 @@ import {
 } from "@/components/ui/dialog";
 import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
+import {
+  CollaboratorDetailDialog,
+  type CollaboratorDetailPerson,
+} from "@/components/teammates/collaborator-detail-dialog";
+import { CollaboratorCard } from "@/components/teammates/collaborator-card";
+import { useViewerAccess } from "@/hooks/useViewerAccess";
 import {
   DndContext,
   closestCenter,
@@ -262,6 +266,15 @@ export function BenefitsStep3({
   const [ownerEmails, setOwnerEmails] = useState<string[]>([]);
   // Bumped after an invite so the list re-reads without a page reload.
   const [collaboratorsRefreshKey, setCollaboratorsRefreshKey] = useState(0);
+  // The Collaborator whose detail modal is open (opened by clicking their row).
+  const [selectedCollaborator, setSelectedCollaborator] =
+    useState<CollaboratorDetailPerson | null>(null);
+  // The Collaborator whose removal is awaiting confirmation, and whether it is in flight.
+  const [collaboratorPendingDelete, setCollaboratorPendingDelete] =
+    useState<CollaboratorDetailPerson | null>(null);
+  const [isDeletingCollaborator, setIsDeletingCollaborator] = useState(false);
+  // Owner/Admin only: whether the seat grant is offered at all. The API enforces it too.
+  const { canManageTeam } = useViewerAccess();
   /**
    * Whether the seat lookup has answered — the assignments AND the owner address list, which
    * arrive in one response.
@@ -769,6 +782,41 @@ export function BenefitsStep3({
       });
     } finally {
       setIsDeletingContact(false);
+    }
+  };
+
+  /**
+   * Remove a Collaborator from this plan.
+   *
+   * `DELETE /api/teammates/assignments/:id` is the module's own writer (spec T6 item 1):
+   * the person keeps their profile but loses access to this plan and its categories at
+   * once, and the change is audited. `collaboratorsRefreshKey` re-reads the list — the
+   * delete touches an assignment, not a contact, so `deleteContact` above is not it.
+   */
+  const deleteCollaboratorFromPlan = async (person: CollaboratorDetailPerson) => {
+    setIsDeletingCollaborator(true);
+    try {
+      const response = await fetch(
+        `/api/teammates/assignments/${encodeURIComponent(person.assignmentId)}`,
+        { method: "DELETE" },
+      );
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        toast.error(body.error ?? "Could not remove the collaborator");
+        return;
+      }
+      toast.success(`${person.name} was removed from this plan.`);
+      // If their detail modal is open, it now describes someone off the plan.
+      setSelectedCollaborator((current) =>
+        current?.assignmentId === person.assignmentId ? null : current,
+      );
+      setCollaboratorsRefreshKey((key) => key + 1);
+    } catch {
+      toast.error("Could not remove the collaborator");
+    } finally {
+      setIsDeletingCollaborator(false);
     }
   };
 
@@ -1333,73 +1381,21 @@ export function BenefitsStep3({
                   provider rep to help fill in this section.
                 </p>
               ) : (
-                <ul className="space-y-2">
-                  {planCollaborators.map((person) => {
-                    // The step edits ONE category, so say which people can actually
-                    // work on it — an assignment scoped elsewhere is still listed,
-                    // because the advisor may want to widen it.
-                    const onThisSection =
-                      person.categoryScope === "all" ||
-                      person.categories.some(
-                        (candidate) =>
-                          candidate.trim().toLowerCase() ===
-                          inviteCategory.trim().toLowerCase(),
-                      );
-
-                    return (
-                      <li
-                        key={person.assignmentId}
-                        className="flex flex-wrap items-center gap-3 rounded-lg border p-3"
-                      >
-                        <span className="block h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted">
-                          <Headshot
-                            src={person.headshot}
-                            alt={person.name}
-                            monogramName={person.name}
-                            wrapperClassName="rounded-full"
-                          />
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-medium">
-                            {person.name}
-                          </span>
-                          <span className="block truncate text-xs text-muted-foreground">
-                            {person.email}
-                            {person.companyName ? ` · ${person.companyName}` : ""}
-                          </span>
-                        </span>
-                        <span className="flex shrink-0 flex-wrap items-center gap-1">
-                          {/* "Contributor" is the role every invited collaborator gets by
-                              default, so its badge only restates what the section already is
-                              — shown only when the role says something else. */}
-                          {PRESET_ROLE_LABELS[person.role] !== "Contributor" ? (
-                            <Badge variant="secondary">
-                              {PRESET_ROLE_LABELS[person.role]}
-                            </Badge>
-                          ) : null}
-                          {person.deactivatedAt ? (
-                            <Badge variant="outline" className="text-muted-foreground">
-                              Deactivated
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline">
-                              {PROFILE_STATE_LABELS[person.state]}
-                            </Badge>
-                          )}
-                          <Badge variant={onThisSection ? "default" : "outline"}>
-                            {onThisSection ? "This section" : "Other sections"}
-                          </Badge>
-                        </span>
-                        {person.inviteDueDate ? (
-                          <span className="w-full text-[11px] text-muted-foreground">
-                            Due{" "}
-                            {new Date(person.inviteDueDate).toLocaleDateString()}
-                          </span>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
+                <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  {planCollaborators.map((person) => (
+                    <CollaboratorCard
+                      key={person.assignmentId}
+                      person={person}
+                      onOpen={() => setSelectedCollaborator(person)}
+                      onEdit={() => setSelectedCollaborator(person)}
+                      onDelete={
+                        canManageTeam
+                          ? () => setCollaboratorPendingDelete(person)
+                          : undefined
+                      }
+                    />
+                  ))}
+                </div>
               )}
             </div>
           </AccordionContent>
@@ -1469,6 +1465,46 @@ export function BenefitsStep3({
           // The plan this benefit belongs to: the invitation email names it, so the
           // recipient reads "added you to <Plan> on PlanTelligence".
           planId={invitePlanId || null}
+        />
+
+        {/* A Collaborator row opens this: who they are, plus — for an Owner or Admin —
+            the ability to give them a Team seat on this organization. */}
+        <CollaboratorDetailDialog
+          person={selectedCollaborator}
+          onOpenChange={(open) => {
+            if (!open) setSelectedCollaborator(null);
+          }}
+          planId={invitePlanId || null}
+          canManageSeats={canManageTeam}
+          currentCustomBenefit={currentCustomBenefit}
+          onGranted={() => setCollaboratorsRefreshKey((key) => key + 1)}
+        />
+
+        {/* Removing a Collaborator from the plan. Confirmed first because access ends
+            immediately and re-inviting issues a new assignment rather than restoring
+            this one. Radix portals the dialog, so position here is locality only. */}
+        <ConfirmDialog
+          open={!!collaboratorPendingDelete}
+          onOpenChange={(open) => {
+            if (!open && !isDeletingCollaborator) setCollaboratorPendingDelete(null);
+          }}
+          onConfirm={async () => {
+            if (collaboratorPendingDelete) {
+              await deleteCollaboratorFromPlan(collaboratorPendingDelete);
+            }
+            setCollaboratorPendingDelete(null);
+          }}
+          title="Remove this collaborator?"
+          description={
+            collaboratorPendingDelete
+              ? `${collaboratorPendingDelete.name} will lose access to this plan and its benefit categories right away. You can invite them again later.`
+              : ""
+          }
+          confirmText="Yes, remove"
+          cancelText="No, keep"
+          variant="destructive"
+          isLoading={isDeletingCollaborator}
+          loadingText="Removing..."
         />
 
         {/* Plan-level delete confirmation. Placed here for locality only — Radix's

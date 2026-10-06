@@ -562,8 +562,14 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             }
             // T5 Part A item 1, relocated out of the first prompt: a collaborator
             // is not a contact type, so the invite lives in the explorer's own
-            // Collaborators section instead of beside "Someone Else".
-            onInviteCollaborator={() => openInvite()}
+            // Collaborators section instead of beside "Someone Else". The optional
+            // category is the one whose "Add" button was pressed, so the invite opens
+            // with that section already ticked.
+            onInviteCollaborator={(categoryId) =>
+              openInvite(
+                categoryId ? { benefitsCategories: [categoryId] } : undefined,
+              )
+            }
             onEditContact={(category, contact) => {
               // Pre-populate step3b with the existing contact's data so the form
               // initialises with its values, and include editingContactId so

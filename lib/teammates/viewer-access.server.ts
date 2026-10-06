@@ -1,20 +1,21 @@
 /**
- * viewer-access.server — what the signed-in user may see in the dashboard chrome.
+ * viewer-access.server — what the signed-in user may see and do at the chrome level.
  *
  * The sidebar is an ORGANIZATION-level surface, but a Collaborator's permission is
- * per assignment (per plan), so the chrome cannot be decided from one plan. It needs
- * one summary instead: the UNION of the grids the caller holds, with the collaborator
- * hard blocks applied — the same question `resolvePlanAccess` answers for a single
- * plan, collapsed to "any of my plans".
+ * per assignment (per plan), so the chrome cannot be decided from one plan. It needs one
+ * summary instead: the UNION of the grids the caller holds, with the collaborator hard
+ * blocks applied — the same question `resolvePlanAccess` answers for a single plan,
+ * collapsed to "any of my plans".
  *
- * Presentation only. Every mutating route still enforces the real rule, so a client
- * that ignores this response is refused anyway; this exists so the nav does not offer
- * a destination the viewer cannot use.
+ * Presentation only. Every mutating route still enforces the real rule, so a client that
+ * ignores this response is refused anyway; this exists so the chrome does not offer a
+ * destination or an action the viewer cannot use.
  *
  * Server-only.
  */
 
 import prisma from "@/lib/prisma";
+import { resolveOrganizationId } from "@/lib/organization";
 import {
   BINARY_PERMISSION_FUNCTIONS,
   PERMISSION_FUNCTIONS,
@@ -22,7 +23,10 @@ import {
   type TeammatePersonType,
   type TeammatePermissionSet,
 } from "@/types/teammate";
-import { effectivePermissionSet } from "./access.server";
+import {
+  effectivePermissionSet,
+  isOwnerOrAdminOfOrganization,
+} from "./access.server";
 
 export interface ViewerAccess {
   /**
@@ -36,6 +40,15 @@ export interface ViewerAccess {
    * `createPermissionChecker` reads as "everything allowed" (the owner rule).
    */
   functions: TeammatePermissionSet | null;
+  /**
+   * May this viewer manage the organization's team — add a Team Member, invite a
+   * collaborator, grant a seat?
+   *
+   * TRUE for an Owner or an Admin, false for everyone else. This is the spec's Open
+   * Decision ("Can Editors invite Collaborators? No: Owner/Admin only") expressed once,
+   * so a surface can offer a seat grant without a second read. The API still enforces it.
+   */
+  canManageTeam: boolean;
 }
 
 /** A grid with every row at its denied value. A missing row is denied, never implied. */
@@ -61,19 +74,24 @@ function rankOf(access: PermissionAccess): number {
 }
 
 export async function getViewerAccess(userId: string): Promise<ViewerAccess> {
+  const organizationId = await resolveOrganizationId(userId);
+
   /**
    * Found by `loginUserId` ALONE — deliberately not scoped to an organization.
    *
    * A Collaborator's login OWNS its own, personal Organization (created when the
    * invitation was accepted), which is NOT the organization their profile lives in.
-   * Scoping this lookup to the login's organization therefore found nothing, and the
-   * nav was never narrowed. `resolvePlanAccess` has the same rule for the same
-   * reason: access is resolved by login, against the PLAN's organization.
+   * Scoping this lookup to the login's organization therefore found nothing, and the nav
+   * was never narrowed. `resolvePlanAccess` has the same rule for the same reason: access
+   * is resolved by login, against the PLAN's organization.
    */
-  const profiles = await prisma.teammateProfile.findMany({
-    where: { loginUserId: userId },
-    select: { id: true, type: true },
-  });
+  const [profiles, canManageTeam] = await Promise.all([
+    prisma.teammateProfile.findMany({
+      where: { loginUserId: userId },
+      select: { id: true, type: true },
+    }),
+    isOwnerOrAdminOfOrganization({ userId, organizationId }),
+  ]);
 
   // No profile at all means the owner (who is synthesized and never has one), and a
   // `team_member` profile means a Team Member or Admin. Both hold organization-level
@@ -82,7 +100,7 @@ export async function getViewerAccess(userId: string): Promise<ViewerAccess> {
     profiles.length === 0 ||
     profiles.some((profile) => profile.type === "team_member")
   ) {
-    return { isCollaborator: false, functions: null };
+    return { isCollaborator: false, functions: null, canManageTeam };
   }
 
   const assignments = await prisma.planAssignment.findMany({
@@ -105,5 +123,5 @@ export async function getViewerAccess(userId: string): Promise<ViewerAccess> {
     }
   }
 
-  return { isCollaborator: true, functions: union };
+  return { isCollaborator: true, functions: union, canManageTeam };
 }

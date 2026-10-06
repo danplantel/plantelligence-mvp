@@ -25,7 +25,6 @@ import {
 } from "@/components/teammates/access-fields";
 import type { SeatUsageSummary } from "@/components/pages/seat-meter";
 import { cn } from "@/lib/utils";
-import type { KeyContact } from "@/types/new-client-wizard";
 
 /**
  * "Give Team Seat" — promote a plan Contact into one of the organization's paid Team
@@ -40,6 +39,29 @@ import type { KeyContact } from "@/types/new-client-wizard";
  * (`POST /api/teammates/team`) with the same access picker, so a person added here and a
  * person added there are the same thing, granted the same way, by the same rules engine.
  */
+
+/**
+ * Who a seat is being given to.
+ *
+ * Structural rather than `KeyContact`: a seat is granted from two places — a plan
+ * Contact (a `KeyContact`) and a Collaborator (a `PlanCollaboratorRow`) — and both carry
+ * the same handful of fields. Naming the shape here lets the collaborator detail modal
+ * reuse this dialog without inventing a fake contact row.
+ */
+export interface SeatGrantSubject {
+  /** Stable key for "opened for a different person", which resets the form. */
+  id?: string | null;
+  name?: string | null;
+  displayName?: string | null;
+  email?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  /** The person's role/title; sent as `jobTitle`. */
+  title?: string | null;
+  phone?: string | null;
+  phoneExtension?: string | null;
+  headshot?: string | null;
+}
 
 /** The success half of the response. */
 interface AddTeamMemberSuccess {
@@ -57,8 +79,11 @@ interface ApiErrorBody {
 }
 
 export interface GiveTeamSeatDialogProps {
-  /** The contact to promote. `null` keeps the dialog closed. */
-  contact: KeyContact | null;
+  /**
+   * The person to promote. `null` keeps the dialog closed. Accepts a plan Contact or a
+   * Collaborator — see `SeatGrantSubject`.
+   */
+  contact: SeatGrantSubject | null;
   onOpenChange: (open: boolean) => void;
   /** Runs after a successful add, so the caller can re-read what it displays. */
   onGranted?: () => void;
@@ -82,7 +107,7 @@ export interface GiveTeamSeatDialogProps {
 }
 
 /** The best name this contact shape can offer — the same precedence the card uses. */
-function displayName(contact: KeyContact): string {
+function displayName(contact: SeatGrantSubject): string {
   const named = contact.displayName?.trim() || contact.name?.trim();
   if (named) return named;
   const parts = [contact.firstName, contact.lastName]
