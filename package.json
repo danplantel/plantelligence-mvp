@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "next dev",
     "dev:host": "next dev -H 192.168.0.134",
-    "build": "next build",
+    "//build": "Apply pending Prisma migrations BEFORE building, so the deployed database always matches the client that is generated and bundled. `next build` alone left `TeammateProfile.selfDeletedAt` missing on the deployed databases while the generated client expected it (Prisma P2022 at runtime).",
+    "build": "prisma migrate deploy && next build",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "db:migrate:status": "prisma migrate status",
     "start": "next start",
     "start:host": "next start -H 0.0.0.0",
     "lint": "next lint",
