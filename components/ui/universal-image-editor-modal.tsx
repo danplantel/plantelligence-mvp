@@ -936,21 +936,12 @@ export function UniversalImageEditorModal({
 
   const processImageFile = async (file: File) => {
     setError(null);
-    setIsLoading(true);
 
-    const validation = await validateImage(
-      file,
-      config.maxFileSize,
-      config.minResolution,
-      config.acceptedTypes,
-    );
-
-    if (!validation.valid) {
-      setError(validation.message || "Invalid file");
-      setIsLoading(false);
-      return;
-    }
-
+    // Read the file to a data URL FIRST and open the editor with it. The read is
+    // local, so the preview is on screen in the same tick and no busy state is
+    // needed — validation used to run before this (`await validateImage(...)`),
+    // which decodes the image to measure it and therefore held the preview back
+    // behind a spinner.
     const reader = new FileReader();
     reader.onload = () => {
       const dataURL = reader.result as string;
@@ -966,8 +957,21 @@ export function UniversalImageEditorModal({
       generateWarnings(dataURL);
       // Open the modal regardless of mode (standalone or controlled)
       setInternalModalOpen(true);
-      setIsLoading(false);
+
+      // Everything that is not the preview happens in the background, off the
+      // critical path: type, size and resolution. Validation only *reports* — a
+      // rejected file surfaces its message in the trigger area while the editor
+      // stays usable, and nothing has to wait for it either way.
+      void validateImage(
+        file,
+        config.maxFileSize,
+        config.minResolution,
+        config.acceptedTypes,
+      ).then((validation) => {
+        if (!validation.valid) setError(validation.message || "Invalid file");
+      });
     };
+    reader.onerror = () => setError("Could not read that file.");
     reader.readAsDataURL(file);
   };
 
@@ -976,18 +980,20 @@ export function UniversalImageEditorModal({
   // resulting image through the existing validation → crop → save flow.
   const handleFile = async (file: File) => {
     setError(null);
-    setIsLoading(true);
 
     if (isZipFile(file)) {
+      // Unpacking a .zip is genuine work, so this is the one path that keeps a busy
+      // state; a plain image goes straight to the preview instead.
+      setIsLoading(true);
       try {
         const extracted = await extractImagesFromZip(file);
+        setIsLoading(false);
         if (extracted.length === 1) {
           await processImageFile(extracted[0].file);
           return;
         }
         setPendingZipImages(extracted);
         setIsZipPickerOpen(true);
-        setIsLoading(false);
         return;
       } catch (err) {
         setError((err as Error).message || "Could not read that .zip file.");
@@ -2180,74 +2186,82 @@ export function UniversalImageEditorModal({
 
     const finalize = async () => {
       try {
-        let finalOriginalImage = originalImageSrc;
-        if (originalImageSrc.length > 300000) { // Compress if > 300KB
-          try {
-            const { compressImage } = await import("@/lib/image-compression");
-            finalOriginalImage = await compressImage(originalImageSrc, { maxWidth: 1600, maxHeight: 1600, quality: 0.8 });
-          } catch (err) {
-            console.warn("Failed to compress original image in modal", err);
-          }
+        const shouldStoreInR2 =
+          type === "headshot" || type === "logo" || type === "custom";
+
+        /**
+         * Hand the crop over NOW, as the data URL the editor just produced.
+         *
+         * Every preview the caller owns paints from this value, so the image appears
+         * the instant Save is pressed — no spinner, nothing to wait for. Compressing
+         * the original and uploading to R2 both happen in the background below; the
+         * R2 key replaces this data URL through a second `onChange` once it lands.
+         *
+         * `cropMeta.originalImage` is the uncompressed source here on purpose: it is
+         * the "reset to original" copy, and the compressed version arrives with the
+         * second call, which is the one persisted last.
+         */
+        onChange(
+          croppedPreview,
+          newFileName,
+          { previewDataUrl: croppedPreview },
+          { ...cropMeta, originalImage: originalImageSrc },
+        );
+        setIsSaving(false);
+        handleClose();
+        // Scroll to bottom after modal closes (only for custom type like background images)
+        if (type === "custom") {
+          window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
         }
 
-        const cropData: CropMetadata = {
-          ...cropMeta,
-          originalImage: finalOriginalImage, // Always use originalImageSrc for backend
-        };
+        if (!shouldStoreInR2) return;
 
-        // Upload to R2 for all image types (headshot, logo, custom/background), store only key in DB
-        if (type === "headshot" || type === "logo" || type === "custom") {
-          onUploadStateChange?.(true);
-          try {
-            const res = await fetch(croppedPreview);
-            const blob = await res.blob();
-            const mime = exportFormat === "image/png" ? "image/png" : "image/jpeg";
-            const file = new File([blob], newFileName, { type: mime });
-            let subPath: string;
-            if (type === "headshot") {
-              subPath = "advisor/headshot";
-            } else if (type === "logo") {
-              subPath = "advisor/logo";
-            } else {
-              subPath = "advisor/background";
+        // ── Background: nothing below can hold the preview back ──
+        onUploadStateChange?.(true);
+        try {
+          let finalOriginalImage = originalImageSrc;
+          if (originalImageSrc.length > 300000) { // Compress if > 300KB
+            try {
+              const { compressImage } = await import("@/lib/image-compression");
+              finalOriginalImage = await compressImage(originalImageSrc, { maxWidth: 1600, maxHeight: 1600, quality: 0.8 });
+            } catch (err) {
+              console.warn("Failed to compress original image in modal", err);
             }
-            const r2Key = await uploadFileToR2({
-              file,
-              purpose: "upload",
-              subPath,
-              fileName: newFileName,
+          }
+
+          const res = await fetch(croppedPreview);
+          const blob = await res.blob();
+          const mime = exportFormat === "image/png" ? "image/png" : "image/jpeg";
+          const file = new File([blob], newFileName, { type: mime });
+          let subPath: string;
+          if (type === "headshot") {
+            subPath = "advisor/headshot";
+          } else if (type === "logo") {
+            subPath = "advisor/logo";
+          } else {
+            subPath = "advisor/background";
+          }
+          const r2Key = await uploadFileToR2({
+            file,
+            purpose: "upload",
+            subPath,
+            fileName: newFileName,
+          });
+          if (r2Key) {
+            // Second call: swap the data URL for the stored key, which is what the
+            // plan keeps. Pass croppedPreview DataURL as headshotData so callers can
+            // use it for logo preview and color extraction without fetching R2.
+            onChange(r2Key, newFileName, { previewDataUrl: croppedPreview }, {
+              ...cropMeta,
+              originalImage: finalOriginalImage,
             });
-            if (r2Key) {
-              // Pass croppedPreview DataURL as headshotData so callers can use it
-              // for logo preview and color extraction without fetching the R2 URL
-              onChange(r2Key, newFileName, { previewDataUrl: croppedPreview }, cropData);
-              // Reset saving state and close modal after a delay to show spinner
-              setTimeout(() => {
-                setIsSaving(false);
-                handleClose();
-              }, 500);
-              return;
-            }
-          } catch (err) {
-            console.warn(`[${type}] R2 upload failed, falling back to inline`, err);
-          } finally {
-            onUploadStateChange?.(false);
           }
+        } catch (err) {
+          // The data URL handed over above stands, so the image is never lost.
+          console.warn(`[${type}] R2 upload failed, keeping the data URL`, err);
+        } finally {
+          onUploadStateChange?.(false);
         }
-
-        const result = onChange(croppedPreview, newFileName, undefined, cropData);
-        if (result != null && typeof (result as Promise<unknown>).then === "function") {
-          await (result as Promise<unknown>);
-        }
-        // Reset saving state and close modal after a delay to show spinner
-        setTimeout(() => {
-          setIsSaving(false);
-          handleClose();
-          // Scroll to bottom after modal closes (only for custom type like background images)
-          if (type === "custom") {
-            window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
-          }
-        }, 500);
       } catch (error) {
         console.error("Error saving image:", error);
         setIsSaving(false);

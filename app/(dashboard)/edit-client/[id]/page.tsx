@@ -3761,10 +3761,15 @@ export default function EditClientPage() {
   /**
    * Persist brand images.
    *
-   * Returns the R2 upload's promise so callers can await it: `BrandImagesSection`
-   * uses that to keep the card's spinner up until the data-URL crops have been
-   * replaced by R2 keys (and to keep the Delete spinner up until the removal is
-   * really persisted).
+   * Two phases, deliberately: the state with the editor's data URLs is applied FIRST,
+   * so the card paints the crop the moment Save is pressed, and the R2 keys are
+   * swapped in when the uploads land. Applying only the final value (which is what
+   * this used to do) left the previous image on screen — under a busy overlay —
+   * while the new crop, already handed over in full, waited on the network. Because
+   * each swapped entry keeps its `previewUrl`, the preview stays inline throughout,
+   * which is also what tells `BrandImageUpload` it has nothing to wait for.
+   *
+   * Returns the R2 upload's promise so callers can await the stored value.
    */
   const handleBrandImagesChange = (
     brandImages: BrandImagesData,
@@ -3784,6 +3789,10 @@ export default function EditClientPage() {
       handleInputChange("brandImages", brandImages);
       return;
     }
+
+    // Phase 1 — show the crop now.
+    handleInputChange("brandImages", brandImages);
+
     const updated = { ...brandImages };
     return Promise.all(
       slots.map(async ({ key, r2Slot }) => {

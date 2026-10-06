@@ -220,22 +220,23 @@ export function SimpleImageEditorModal({
     if (!file) return;
 
     setError(null);
-    setIsLoading(true);
 
-    // Basic validation
+    // Basic validation. Size is knowable without touching the file, it is instant,
+    // and it is what keeps an oversized file from replacing the preview — so it
+    // stays up front and needs no busy state of its own.
     const maxFileSize = 15 * 1024 * 1024; // 15MB
     if (file.size > maxFileSize) {
       setError("File size must be less than 15MB");
-      setIsLoading(false);
       return;
     }
 
+    // The read is local, so the editor opens with the data URL in the same tick and
+    // the preview is populated immediately — no loading spinner to sit through.
     const reader = new FileReader();
     reader.onload = () => {
       const dataURL = reader.result as string;
       setImageSrc(dataURL);
       setOriginalImageSrc(dataURL);
-      setIsLoading(false);
 
       // Open modal after image is loaded
       if (externalIsOpen === undefined) {
@@ -248,6 +249,7 @@ export function SimpleImageEditorModal({
         }, 50);
       }
     };
+    reader.onerror = () => setError("Could not read that file.");
     reader.readAsDataURL(file);
   };
 
@@ -1159,17 +1161,12 @@ export function SimpleImageEditorModal({
             originalImage: originalImageSrc,
           };
 
-          const result = onChange(
-            croppedPreview,
-            newFileName,
-            cropDataWithOriginal,
-          );
-          if (
-            result != null &&
-            typeof (result as Promise<unknown>).then === "function"
-          ) {
-            await (result as Promise<unknown>);
-          }
+          // Hand the crop over straight away, as the data URL the editor produced:
+          // the caller's preview paints from it immediately, so there is nothing to
+          // wait for. Anything the caller returns (an R2 upload, say) is left to run
+          // in the background — awaiting it here is what kept the modal open on a
+          // spinner and held the preview back until the upload finished.
+          void onChange(croppedPreview, newFileName, cropDataWithOriginal);
         } else {
           // Fallback to original export if crop canvas creation fails
           const dataURL = canvas.toDataURL({
@@ -1186,19 +1183,12 @@ export function SimpleImageEditorModal({
           canvas.renderAll();
 
           // If crop failed, don't send crop data (image not cropped)
-          const result = onChange(dataURL, newFileName);
-          if (
-            result != null &&
-            typeof (result as Promise<unknown>).then === "function"
-          ) {
-            await (result as Promise<unknown>);
-          }
+          void onChange(dataURL, newFileName);
         }
-        // Reset saving state and close modal after a delay to show spinner
-        setTimeout(() => {
-          setIsSaving(false);
-          handleClose();
-        }, 500);
+        // Close immediately: the preview already holds the data URL, so the delay
+        // that used to show a spinner has nothing left to show.
+        setIsSaving(false);
+        handleClose();
       } catch (error) {
         console.error("Error saving image:", error);
         setIsSaving(false);

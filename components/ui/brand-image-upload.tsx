@@ -148,6 +148,18 @@ export function BrandImageUpload({
       ? displayUrl ?? undefined
       : displayUrl ?? storedLogoUrl ?? undefined);
 
+  /**
+   * True when the preview is the finished image already — a `data:`/`blob:` URL the
+   * editor handed over — rather than a stored key still being fetched.
+   *
+   * There is nothing to wait for in that case, so the busy overlay is suppressed
+   * while the R2 upload continues behind it: the image the user just chose is on
+   * screen, and a spinner over it would only say "your image is loading" about an
+   * image that has already loaded. It is still shown when there is no image to look
+   * at yet (a raw file pick still uploading).
+   */
+  const previewIsInline = /^(data|blob):/.test(previewSrc || "");
+
   // Show a spinner in the preview box while the image decodes. Without it, an
   // object-contain <img> has no intrinsic size during load and collapses to a
   // thin vertical line inside the centred flex container.
@@ -543,7 +555,7 @@ export function BrandImageUpload({
         onDrop={handleDrop}
         onMouseDown={() => onFocus?.()}
       >
-        {isUploading && (
+        {isUploading && !previewIsInline && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/70 dark:bg-gray-900/70 rounded-lg backdrop-blur-[1px]">
             <Loader2 className="w-6 h-6 animate-spin text-accent-blue" />
           </div>
