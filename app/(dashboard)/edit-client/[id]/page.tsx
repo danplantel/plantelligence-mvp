@@ -3758,7 +3758,17 @@ export default function EditClientPage() {
     handleInputChange("companyLogo", logoData);
   };
 
-  const handleBrandImagesChange = (brandImages: BrandImagesData) => {
+  /**
+   * Persist brand images.
+   *
+   * Returns the R2 upload's promise so callers can await it: `BrandImagesSection`
+   * uses that to keep the card's spinner up until the data-URL crops have been
+   * replaced by R2 keys (and to keep the Delete spinner up until the removal is
+   * really persisted).
+   */
+  const handleBrandImagesChange = (
+    brandImages: BrandImagesData,
+  ): void | Promise<void> => {
     if (!clientId) {
       handleInputChange("brandImages", brandImages);
       return;
@@ -3775,7 +3785,7 @@ export default function EditClientPage() {
       return;
     }
     const updated = { ...brandImages };
-    Promise.all(
+    return Promise.all(
       slots.map(async ({ key, r2Slot }) => {
         const img = updated[key];
         if (img?.url?.startsWith?.("data:")) {
@@ -4847,6 +4857,10 @@ export default function EditClientPage() {
                 onHeadshotChange={handleHeadshotChange}
                 onBackgroundChange={handleBackgroundChange}
                 onLogoChange={handleLogoChange}
+                // Featured Image changes in the preview panel go through the same
+                // R2-aware handler the Company tab's Brand Images area uses, so the
+                // crop lands in `brandImages.thumbnail` once, not twice.
+                onBrandImagesChange={handleBrandImagesChange}
                 defaultWelcomeMessage={defaultWelcomeMessage}
                 useDefaultWelcomeMessage={useDefaultWelcomeMessage}
                 setUseDefaultWelcomeMessage={setUseDefaultWelcomeMessage}

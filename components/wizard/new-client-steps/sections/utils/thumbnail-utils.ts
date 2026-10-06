@@ -1,6 +1,8 @@
 import {
   THUMBNAIL_GUIDE_WIDTH,
   THUMBNAIL_GUIDE_HEIGHT,
+  THUMBNAIL_RECOMMENDED_WIDTH,
+  THUMBNAIL_RECOMMENDED_HEIGHT,
 } from "../../constants/brand-image-guides";
 
 /**
@@ -38,15 +40,9 @@ export function autoCropThumbnailImage(
     const img = new Image();
     img.crossOrigin = "anonymous";
     img.onload = () => {
-      const tempCanvas = document.createElement("canvas");
-      tempCanvas.width = canvasWidth;
-      tempCanvas.height = canvasHeight;
-      const tempCtx = tempCanvas.getContext("2d");
-      if (!tempCtx) {
-        reject(new Error("Failed to get canvas context"));
-        return;
-      }
-
+      // Cover-fit the source across the editor canvas, exactly as the cropper does.
+      // That mapping is what turns the guide rectangle into a region of the source
+      // image, so the region can be sampled straight from the original.
       const scaleX = canvasWidth / img.width;
       const scaleY = canvasHeight / img.height;
       const scale = Math.max(scaleX, scaleY);
@@ -57,11 +53,13 @@ export function autoCropThumbnailImage(
       const x = (canvasWidth - scaledWidth) / 2;
       const y = (canvasHeight - scaledHeight) / 2;
 
-      tempCtx.drawImage(img, x, y, scaledWidth, scaledHeight);
-
+      // Export at the slot's recommended size (900×1000), not at the on-screen
+      // frame size (396×440). Sampling the original directly — instead of the
+      // 600px cover-fit canvas — keeps the resolution the source actually has, so
+      // the crop is not softer than the default image it replaces.
       const cropCanvas = document.createElement("canvas");
-      cropCanvas.width = outerWidth;
-      cropCanvas.height = outerHeight;
+      cropCanvas.width = THUMBNAIL_RECOMMENDED_WIDTH;
+      cropCanvas.height = THUMBNAIL_RECOMMENDED_HEIGHT;
       const cropCtx = cropCanvas.getContext("2d");
       if (!cropCtx) {
         reject(new Error("Failed to get crop canvas context"));
@@ -69,22 +67,22 @@ export function autoCropThumbnailImage(
       }
 
       cropCtx.drawImage(
-        tempCanvas,
-        outerLeft,
-        outerTop,
-        outerWidth,
-        outerHeight,
+        img,
+        (outerLeft - x) / scale,
+        (outerTop - y) / scale,
+        outerWidth / scale,
+        outerHeight / scale,
         0,
         0,
-        outerWidth,
-        outerHeight,
+        cropCanvas.width,
+        cropCanvas.height,
       );
 
       const croppedUrl = cropCanvas.toDataURL("image/png");
       resolve({
         croppedUrl,
-        width: outerWidth,
-        height: outerHeight,
+        width: cropCanvas.width,
+        height: cropCanvas.height,
       });
     };
 

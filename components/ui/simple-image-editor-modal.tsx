@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, ReactNode } from "react";
-import { flushSync } from "react-dom";
+import { createPortal, flushSync } from "react-dom";
 import { Canvas, Image as FabricImage, Rect } from "fabric";
 import { Button } from "./button";
 import { Label } from "./label";
@@ -167,6 +167,16 @@ export function SimpleImageEditorModal({
   const [showCropWarning, setShowCropWarning] = useState(false);
   const [hasTooMuchBlankSpace, setHasTooMuchBlankSpace] = useState(false);
   const [hasLargeScaleDifference, setHasLargeScaleDifference] = useState(false);
+
+  // The editor overlay is portalled to <body> (below). Rendered inline it would be a
+  // `fixed` child of whatever renders it — inside the Editing Panel that means a
+  // `transform`ed ancestor, which becomes the containing block of `fixed` elements, so
+  // `inset-0` was measured against the panel and the editor appeared confined to it.
+  // `isMounted` keeps the portal out of the server render, where `document` is absent.
+  const [isMounted, setIsMounted] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const modalOpen =
     externalIsOpen !== undefined ? externalIsOpen : internalModalOpen;
@@ -1583,8 +1593,11 @@ export function SimpleImageEditorModal({
 
       {error && <div className="mt-2 text-sm text-red-600">{error}</div>}
 
-      {/* Modal */}
-      {modalOpen && (
+      {/* Modal — portalled to <body> so a transformed ancestor (the Editing Panel)
+          cannot become the containing block of this `fixed` overlay. */}
+      {modalOpen &&
+        isMounted &&
+        createPortal(
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-2 sm:p-4">
           <div className="bg-white dark:bg-gray-900 rounded-lg w-full max-w-6xl mx-auto max-h-[95vh] overflow-hidden flex flex-col">
             {/* Header */}
@@ -1793,8 +1806,9 @@ export function SimpleImageEditorModal({
               </div>
             </div>
           </div>
-        </div>
-      )}
+        </div>,
+          document.body,
+        )}
 
       {/* Discard changes confirmation */}
       <ConfirmDialog

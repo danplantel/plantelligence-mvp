@@ -32,10 +32,12 @@ export function ThumbnailSectionEditor({
   return (
     <div className="rounded-xl border border-[#efefef] dark:border-[#1c1c1c] bg-card dark:bg-gray-800 text-card-foreground p-6">
       <CardTitle className="flex items-center gap-2 text-base font-semibold dark:text-gray-100">
-        Square Thumbnail
+        Featured Image
       </CardTitle>
       <p className="text-sm text-muted-foreground mt-2 dark:text-gray-400">
-        This image is used in square thumbnail placements across your Employee Hub. Upload a centered image with space around the edges.
+        This image appears beside the company introduction on your Benefits Hub
+        homepage and in card and preview placements. Upload a centered image
+        with space around the edges.
       </p>
       <div
         className="transition-all duration-500"
@@ -46,12 +48,15 @@ export function ThumbnailSectionEditor({
           slot={{
             title: "",
             description: "",
-            recommendedSize: "900×900 px",
+            recommendedSize: "900×1000 px",
             defaultPhoteButton: true,
             required: true,
             accept: ".png,.jpg,.jpeg",
-            previewAspectRatio: 1,
-            previewLabel: "Thumbnail preview (1:1)",
+            // 9:10 — the same shape the shared cropper pair in
+            // `constants/brand-image-guides` writes to this slot, and the same
+            // frame the mission section uses in the portal.
+            previewAspectRatio: 9 / 10,
+            previewLabel: "Featured preview (9:10)",
           }}
           currentImage={currentImage}
           onImageChange={onImageChange}

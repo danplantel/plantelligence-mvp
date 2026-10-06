@@ -23,6 +23,12 @@ interface CompanyLogoCardProps {
   isHighlighted?: boolean;
   /** Called when any interactive element inside the upload area gains focus */
   onFieldFocus?: () => void;
+  /**
+   * Show the card's own "Company Logo" heading. Set false where the host already
+   * titles it — the Edit Plan Preview panel wraps this card in a Card whose header
+   * says "Company Logo", so leaving it on printed the heading twice.
+   */
+  showTitle?: boolean;
 }
 
 const convertLogoToBrandImage = (
@@ -60,6 +66,7 @@ export const CompanyLogoCard = forwardRef<HTMLDivElement, CompanyLogoCardProps>(
       onLogoModalStateChange,
       isHighlighted = false,
       onFieldFocus,
+      showTitle = true,
     },
     ref,
   ) {
@@ -106,12 +113,15 @@ export const CompanyLogoCard = forwardRef<HTMLDivElement, CompanyLogoCardProps>(
         <BrandImageUpload
           slotKey="companyLogo"
           slot={{
-            title: "Company Logo",
+            title: showTitle ? "Company Logo" : "",
             description: "",
             recommendedSize: "900×900 px",
             accept: ".svg,.png,.jpg,.jpeg",
             required: true,
-            previewAspectRatio: 1,
+            // Deliberately no `previewAspectRatio`: the logo keeps its landscape
+            // preview box (a mark sits whole inside it via `object-contain`). Giving
+            // it a square box made the preview read as "zoomed in", because the box
+            // then had to be filled by cropping the mark's sides.
             previewLabel: "Logo preview",
             defaultPhoteButton: false,
           }}

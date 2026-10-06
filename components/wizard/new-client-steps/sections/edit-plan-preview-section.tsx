@@ -9,6 +9,7 @@ import { ClientPortal } from "@/components/pages/client-portal/client-portal";
 import { MissionStatementFields } from "@/components/wizard/new-client-steps/sections/mission-statement-fields";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import { CompanyLogoCard } from "@/components/wizard/new-client-steps/sections/components/company-logo-card";
+import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { HeroBackgroundCard, type HeroSegmentMode } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
 import { WelcomeStatementCard } from "@/components/wizard/new-client-steps/sections/components/welcome-statement-card";
 import { BannerOverlaySettingsCard } from "@/components/wizard/new-client-steps/sections/components/banner-overlay-settings-card";
@@ -23,6 +24,7 @@ import type {
   CompanyBasicsData,
   CompanyLogoData,
   BrandImageData,
+  BrandImagesData,
   WelcomeStatementData,
   MobileHeroPosition,
 } from "@/types/new-client-wizard";
@@ -232,6 +234,12 @@ interface EditPlanPreviewSectionProps {
    * pass the app header height (64px) so no leftover gap remains.
    */
   topOffset?: number;
+  /**
+   * Persists brand-image changes — used by the Featured Image card the Mission
+   * Statement section hosts. Falls back to `onCompanyDataChange("brandImages", …)`
+   * when omitted so the panel still works without a dedicated handler.
+   */
+  onBrandImagesChange?: (brandImages: BrandImagesData) => void | Promise<void>;
 }
 
 export function EditPlanPreviewSection({
@@ -264,6 +272,7 @@ export function EditPlanPreviewSection({
   errorFields,
   scrollToField,
   onScrollToFieldHandled,
+  onBrandImagesChange,
   topOffset = 130,
 }: EditPlanPreviewSectionProps) {
   // ── Editor panel state ──
@@ -674,6 +683,18 @@ export function EditPlanPreviewSection({
     isAIGenerated: false,
   };
 
+  /**
+   * Persist a Featured Image change.
+   *
+   * The Edit Client page passes its R2-aware handler, so the crop the editor
+   * produces is uploaded to the same `brandImages.thumbnail` slot the Company
+   * tab's Brand Images area writes; without one, fall back to a plain field
+   * update so the preview panel still works standalone.
+   */
+  const handleBrandImagesChange =
+    onBrandImagesChange ??
+    ((next: BrandImagesData) => onCompanyDataChange("brandImages", next));
+
   // ── Editor panel sections ──
   const editorSections = [
     {
@@ -709,6 +730,9 @@ export function EditPlanPreviewSection({
                 onLogoImageRemove={handleLogoImageRemove}
                 isHighlighted={false}
                 onFieldFocus={() => focusPreviewField("banner")}
+                // The Card above already says "Company Logo *", so the card's own
+                // heading would be the second one on screen.
+                showTitle={false}
               />
             </CardContent>
           </Card>
@@ -784,33 +808,45 @@ export function EditPlanPreviewSection({
     {
       title: "Mission Statement",
       content: (
-        <Card className="dark:bg-gray-800">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm dark:text-gray-100">Mission Statement</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <MissionStatementFields
-              missionHeadline={missionHeadline}
-              missionBody={missionBody}
-              defaultBodyText={defaultBodyText}
-              useDefaultBody={useDefaultBody}
-              headlineCharCount={headlineCharCount}
-              bodyCharCount={bodyCharCount}
-              isHeadlineValid={isHeadlineValid}
-              isBodyValid={isBodyValid}
-              errorFields={errorFields}
-              headlineRef={headlineRef as any}
-              bodyTextRef={bodyTextRef as any}
-              onHeadlineChange={handleHeadlineChange}
-              onBodyChange={handleBodyChange}
-              onUseDefaultBodyChange={handleUseDefaultBody}
-              onGenerateMissionHeadline={handleGenerateMissionHeadline}
-              onGenerateMissionBody={handleGenerateMissionBody}
-              showUseDefault={false}
-              onFieldFocus={() => focusPreviewField("mission")}
-            />
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          {/* Featured Image — the section's first item, mirroring Create Plan's
+              Section 4. It is a brand image, so it reuses the very same uploader
+              and cropper the Company tab's Brand Images area uses: the slot's
+              9:10 guide lives in `constants/brand-image-guides`, so every
+              cropper of `brandImages.thumbnail` produces the same shape. */}
+          <BrandImagesSection
+            brandImages={companyData.brandImages}
+            visibleSlots={["thumbnail"]}
+            onBrandImagesChange={handleBrandImagesChange}
+          />
+          <Card className="dark:bg-gray-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm dark:text-gray-100">Mission Statement</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <MissionStatementFields
+                missionHeadline={missionHeadline}
+                missionBody={missionBody}
+                defaultBodyText={defaultBodyText}
+                useDefaultBody={useDefaultBody}
+                headlineCharCount={headlineCharCount}
+                bodyCharCount={bodyCharCount}
+                isHeadlineValid={isHeadlineValid}
+                isBodyValid={isBodyValid}
+                errorFields={errorFields}
+                headlineRef={headlineRef as any}
+                bodyTextRef={bodyTextRef as any}
+                onHeadlineChange={handleHeadlineChange}
+                onBodyChange={handleBodyChange}
+                onUseDefaultBodyChange={handleUseDefaultBody}
+                onGenerateMissionHeadline={handleGenerateMissionHeadline}
+                onGenerateMissionBody={handleGenerateMissionBody}
+                showUseDefault={false}
+                onFieldFocus={() => focusPreviewField("mission")}
+              />
+            </CardContent>
+          </Card>
+        </div>
       ),
     },
   ];

@@ -27,10 +27,11 @@ import { useModalStates } from "./sections/hooks/use-modal-states";
 import { useUserAvatar } from "./sections/hooks/use-user-avatar";
 import { useScrollSync } from "./sections/hooks/use-scroll-sync";
 import { useFieldFocus } from "./sections/hooks/use-field-focus";
-import { autoCropThumbnailImage } from "./sections/utils/thumbnail-utils";
+import { exportFullResolutionImage } from "./sections/utils/image-utils";
 import {
   THUMBNAIL_GUIDE_WIDTH,
   THUMBNAIL_GUIDE_HEIGHT,
+  THUMBNAIL_EXPORT_SCALE,
 } from "./constants/brand-image-guides";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { Smartphone, Monitor } from "lucide-react";
@@ -912,9 +913,10 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     const img = new Image();
     img.onload = () => {
       const warnings: string[] = [];
+      // 9:10 portrait — the Featured Image slot's recommended size.
       const recWidth = 900;
-      const recHeight = 900;
-      if (img.width < recWidth || img.height < recHeight) warnings.push("Below recommended size (900×900 px). May appear blurry.");
+      const recHeight = 1000;
+      if (img.width < recWidth || img.height < recHeight) warnings.push("Below recommended size (900×1000 px). May appear blurry.");
       const displayImage: BrandImageData = {
         ...pendingData,
         url: value,
@@ -1428,6 +1430,10 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
         open={thumbnailImage.galleryOpen}
         onOpenChange={thumbnailImage.setGalleryOpen}
         onSelect={async (url) => {
+          // A default photo hands off to the crop editor with the ORIGINAL image —
+          // the same hand-off the Featured Image card makes in Edit Plan. Nothing is
+          // applied on selection: the 9:10 crop is the advisor's decision, and an
+          // uncropped default image is not what the placement expects.
           let fileName = "default-image.png";
           let fileExtension = "png";
           if (url.startsWith("data:image/")) {
@@ -1437,32 +1443,41 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
             const urlMatch = url.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/i);
             if (urlMatch && urlMatch[1]) { fileExtension = urlMatch[1].toLowerCase(); fileName = `default-image.${fileExtension}`; }
           }
+
+          // Full resolution, never pre-cropped or pre-scaled, so the editor frames
+          // the actual photo. Falls back to the raw URL if it cannot be read.
+          let displayUrl = url;
+          let displayWidth = 0;
+          let displayHeight = 0;
           try {
-            const { croppedUrl, width, height } = await autoCropThumbnailImage(url);
-            const warnings: string[] = [];
-            const recWidth = 900; const recHeight = 900;
-            if (width < recWidth || height < recHeight) warnings.push("Below recommended size (900×900 px). May appear blurry.");
-            const brandImageData: BrandImageData = { url: croppedUrl, fileName, fileSize: 0, width, height, recommendedSize: "900×900 px", status: (warnings.length > 0 ? "warning" : "ok") as "ok" | "warning" | "error", warnings };
-            thumbnailImage.handleThumbnailImageChange(brandImageData);
-            thumbnailImage.setGalleryOpen(false);
+            const exported = await exportFullResolutionImage(url);
+            displayUrl = exported.dataUrl;
+            displayWidth = exported.width;
+            displayHeight = exported.height;
           } catch (error) {
-            console.error("Failed to auto-crop image:", error);
-            const img = new Image();
-            img.onload = () => {
-              const warnings: string[] = [];
-              const recWidth = 900; const recHeight = 900;
-              if (img.width < recWidth || img.height < recHeight) warnings.push("Below recommended size (900×900 px). May appear blurry.");
-              const brandImageData: BrandImageData = { url, fileName, fileSize: 0, width: img.width, height: img.height, recommendedSize: "900×900 px", status: (warnings.length > 0 ? "warning" : "ok") as "ok" | "warning" | "error", warnings };
-              thumbnailImage.handleThumbnailImageChange(brandImageData);
-              thumbnailImage.setGalleryOpen(false);
-            };
-            img.onerror = () => {
-              const brandImageData: BrandImageData = { url, fileName, fileSize: 0, width: 0, height: 0, recommendedSize: "900×900 px", status: "ok", warnings: [] };
-              thumbnailImage.handleThumbnailImageChange(brandImageData);
-              thumbnailImage.setGalleryOpen(false);
-            };
-            img.src = url;
+            console.error("Failed to load default photo for editing:", error);
           }
+
+          const warnings: string[] = [];
+          // 9:10 portrait — the shared recommended size for this slot.
+          const recWidth = 900; const recHeight = 1000;
+          if (displayWidth > 0 && (displayWidth < recWidth || displayHeight < recHeight)) {
+            warnings.push("Below recommended size (900×1000 px). May appear blurry.");
+          }
+          thumbnailImage.setPendingThumbnailData({
+            url: displayUrl,
+            originalUrl: displayUrl,
+            fileName,
+            fileSize: 0,
+            width: displayWidth,
+            height: displayHeight,
+            recommendedSize: "900×1000 px",
+            status: warnings.length > 0 ? "warning" : "ok",
+            warnings,
+          });
+          // Close the gallery and hand off to the crop editor.
+          thumbnailImage.setGalleryOpen(false);
+          thumbnailImage.setIsThumbnailModalOpen(true);
         }}
       />
 
@@ -1486,6 +1501,10 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           guidelineWidth={THUMBNAIL_GUIDE_WIDTH}
           guidelineHeight={THUMBNAIL_GUIDE_HEIGHT}
           guidelinePadding={20}
+          // Export the crop at the slot's recommended 900×1000 rather than at the
+          // 396×440 on-screen frame, so a cropped Featured Image is never smaller
+          // than the default image it replaced.
+          exportScale={THUMBNAIL_EXPORT_SCALE}
         />
       )}
 

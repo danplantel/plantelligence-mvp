@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import {
   THUMBNAIL_GUIDE_WIDTH,
   THUMBNAIL_GUIDE_HEIGHT,
+  THUMBNAIL_EXPORT_SCALE,
 } from "../constants/brand-image-guides";
 
 /**
@@ -39,7 +40,7 @@ function resolveBrandImageUrl(raw: string | null | undefined): string {
 
 interface BrandImagesSectionProps {
   brandImages: BrandImagesData;
-  onBrandImagesChange: (brandImages: BrandImagesData) => void;
+  onBrandImagesChange: (brandImages: BrandImagesData) => void | Promise<void>;
   errorFields?: string[];
   validationErrors?: Record<string, string[]>;
   visibleSlots?: (keyof BrandImagesData)[]; // Optional: filter which slots to show
@@ -115,6 +116,17 @@ export function BrandImagesSection({
     slotKey: keyof BrandImagesData;
     data: BrandImageData;
   } | null>(null);
+  /**
+   * Which slot's crop is still being saved.
+   *
+   * The editor modal closes as soon as the crop is exported, but the R2 upload and
+   * the proxy preload still have to finish, so the card needs its own spinner for
+   * that window — the same overlay Create Plan's Featured Image card shows from
+   * `isThumbnailUploading`.
+   */
+  const [uploadingSlotKey, setUploadingSlotKey] = useState<
+    keyof BrandImagesData | null
+  >(null);
   const [newsEventsPreviewOpen, setNewsEventsPreviewOpen] = useState(false);
 
   // Resolve the secondary banner image for the News & Events header preview
@@ -205,18 +217,36 @@ export function BrandImagesSection({
     setIsModalOpen(true);
   };
 
+  /**
+   * Save a finished crop.
+   *
+   * Deliberately fire-and-forget: `SimpleImageEditorModal` awaits this handler and then
+   * keeps its own Save-button spinner up for another 500ms before closing, so returning
+   * the upload promise left the modal open — and spinning — for the whole R2 round-trip,
+   * which meant the card's loading state was never visible. Create Plan's save handler is
+   * synchronous for the same reason: the editor closes as soon as the crop is exported,
+   * and the CARD carries the loading state while the upload finishes.
+   */
   const handleModalSave = (
     value: string,
     fileName: string,
     cropData?: import("@/components/ui/simple-image-editor-modal").CropMetadata,
-  ): Promise<void> => {
+  ): void => {
     if (!pendingImageData) {
       setIsModalOpen(false);
       setPendingImageData(null);
-      return Promise.resolve();
+      return;
     }
 
-    return new Promise<void>((resolve) => {
+    void new Promise<void>((resolve) => {
+      // Spinner on the card for the upload that follows the export, matching Create
+      // Plan's `isThumbnailUploading`.
+      setUploadingSlotKey(pendingImageData.slotKey);
+      const finish = () => {
+        setUploadingSlotKey(null);
+        resolve();
+      };
+
       // Load image to get updated dimensions after editing
       const img = new Image();
       img.onload = async () => {
@@ -224,7 +254,7 @@ export function BrandImagesSection({
           (s) => s.key === pendingImageData.slotKey,
         );
         if (!slot) {
-          resolve();
+          finish();
           return;
         }
 
@@ -257,9 +287,11 @@ export function BrandImagesSection({
           },
         };
 
-        // Await the parent's async chain (R2 upload + state update)
-        // before resolving — this keeps the modal spinner alive
+        // The card spinner stops the moment the upload lands — the same point Create
+        // Plan clears `isThumbnailUploading`. The proxy preload below is not part of the
+        // loading state; it keeps running unwatched.
         await onBrandImagesChange(updatedBrandImages);
+        setUploadingSlotKey(null);
 
         // Read final R2 URLs from the store (handleBrandImagesChange
         // replaced the data URLs with R2 keys internally) and preload
@@ -322,7 +354,7 @@ export function BrandImagesSection({
           },
         };
         await onBrandImagesChange(updatedBrandImages);
-        resolve();
+        finish();
       };
 
       img.src = value;
@@ -401,6 +433,8 @@ export function BrandImagesSection({
                   handleImageChange(slot.key, imageData)
                 }
                 onImageRemove={() => handleImageRemove(slot.key)}
+                // Card spinner while this slot's crop is uploaded and persisted.
+                isUploading={uploadingSlotKey === slot.key}
                 previewObjectFit={
                   slot.key === "header" ? "cover" : "contain"
                 }
@@ -600,10 +634,17 @@ export function BrandImagesSection({
           // export at high resolution. The editing canvas is small (~580px
           // guideline), so without exportScale the saved crop is ~580px and
           // looks grainy when stretched across a full-screen banner.
+          // The Featured Image (thumbnail) guide frame is 396×440 on screen, so the
+          // crop is scaled up to the 900×1000 the slot recommends — otherwise the
+          // saved crop is far smaller (and softer) than the default image it
+          // replaces. Full-bleed slots carry their own multiplier for the same
+          // reason.
           exportScale={
             pendingImageData.slotKey === "header" ||
             pendingImageData.slotKey === "secondaryBanner"
               ? 3.5
+              : pendingImageData.slotKey === "thumbnail"
+              ? THUMBNAIL_EXPORT_SCALE
               : 1
           }
           // The Featured Image (the "thumbnail" slot) is a 9:10 portrait, so its two

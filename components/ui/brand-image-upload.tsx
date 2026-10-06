@@ -464,9 +464,13 @@ export function BrandImageUpload({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex-1">
-          <h4 className="font-medium text-sm dark:text-gray-100">
-            {slot.title}
-          </h4>
+          {/* A slot with no title renders no heading at all: an empty <h4> still took
+              a line, leaving a stray gap above the upload area. */}
+          {slot.title ? (
+            <h4 className="font-medium text-sm dark:text-gray-100">
+              {slot.title}
+            </h4>
+          ) : null}
           {editableDescription ? (
             <div className="mt-1">
               {isEditingDescription ? (
@@ -564,6 +568,23 @@ export function BrandImageUpload({
                         // positioned loading spinner inside it.
                         "flex items-center justify-center w-[300px] max-w-full h-[150px] rounded-xl"
                   }`}
+                  // A slot that declares a preview ratio gets a box of that shape, so the
+                  // card previews the *crop* — a 9:10 box for the Featured Image, showing
+                  // the same framing the portal places — instead of a letterboxed whole
+                  // image. `previewAspectRatio` was declared on the slot and passed by
+                  // every caller, but never read, so every slot's preview stayed a fixed
+                  // landscape 300×150 and a cropped 9:10 image read as "not cropped".
+                  // `max-w-full` still caps the wide slots (hero, banner), where the ratio
+                  // then yields to the card width and the 150px height stands.
+                  style={
+                    universalModalType === "headshot" || !slot.previewAspectRatio
+                      ? undefined
+                      : {
+                          height: "150px",
+                          width: "auto",
+                          aspectRatio: String(slot.previewAspectRatio),
+                        }
+                  }
                 >
                   {previewSrc ? (
                     <>
@@ -585,7 +606,12 @@ export function BrandImageUpload({
                             ? "h-full w-full object-cover rounded-full"
                             : previewObjectFit === "cover"
                               ? "w-full h-full object-cover"
-                              : "object-contain"
+                              : // `contain` is deliberate for marks — the company logo
+                                // must sit whole inside its box, and covering a square
+                                // frame crops its sides, which reads as "zoomed in".
+                                // Photo slots ask for `cover` themselves; their shaped
+                                // box already matches the crop, so it fills either way.
+                                "object-contain"
                         } ${isPreviewLoading ? "opacity-0" : "opacity-100"}`}
                       />
                       {isPreviewLoading && (
