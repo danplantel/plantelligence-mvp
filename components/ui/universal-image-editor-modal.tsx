@@ -3270,15 +3270,20 @@ export function UniversalImageEditorModal({
           <div className="w-full">
             <div
               className={
-                // `md:!flex-row`, not `md:flex-row`: @uploadthing/react/dist/index.css is a
-                // prebuilt Tailwind sheet that ships UNPREFIXED utilities (`.flex-col`,
-                // `.items-center`, `.flex`, …) and no responsive variants of them. In the dev
-                // server it lands after Tailwind's output, so its plain `.flex-col` beat
-                // `.md:flex-row` — equal specificity, later in the file wins — and the preview
-                // stacked on top of the buttons at every width, while the deployed build
-                // (which orders CSS differently) showed the intended row. `!important` makes
-                // this layout win wherever that sheet sits in the cascade.
-                "relative flex flex-col md:!flex-row items-center gap-4 p-4 rounded-xl bg-muted/20 border border-gray-200 " +
+                // A column at EVERY width, deliberately: the preview takes its own row and
+                // the three actions (Edit · New Image · Delete) sit on the row beneath it.
+                // `items-center` keeps the preview, the file name and the buttons on one
+                // centre line.
+                //
+                // There is also no responsive `md:` switch here on purpose. To share a row on
+                // desktop the class would have to be `md:!flex-row`, because
+                // @uploadthing/react/dist/index.css is a prebuilt Tailwind sheet that ships an
+                // unprefixed `.flex-col` with no responsive variants — in the dev server it
+                // lands after Tailwind's output, so its `.flex-col` beat `.md:flex-row` and
+                // the two environments disagreed. A layout that only holds with `!important`
+                // is not worth the trap; the column needs no such defence, since that sheet's
+                // `.flex-col` declares exactly what we want here.
+                "relative flex flex-col items-center gap-4 p-4 rounded-xl bg-muted/20 border border-gray-200 " +
                 (type === "headshot" ? "" : "min-h-[180px]")
               }
             >
@@ -3324,23 +3329,10 @@ export function UniversalImageEditorModal({
                 </div>
               </div>
 
-              {/* Controls Column */}
-              {/* `md:!items-start` for the same reason as `md:!flex-row` above: the
-                  uploadthing sheet also redefines a plain `.items-center`. */}
-              <div className="flex flex-col items-center md:!items-start gap-3 flex-1 min-w-0">
-                <p className="text-xs font-bold text-foreground break-words truncate text-center md:text-left w-full">
-                  {type === "headshot"
-                    ? fileName
-                      ? fileName.replace(/-cropped\.\w+$/, (m) => m.replace("-cropped", ""))
-                      : "Headshot"
-                    : (fileName || `${placeholder} uploaded`).replace(
-                        /(\.\w+)$/,
-                        (match, ext) =>
-                          (fileName || "").endsWith(`_cropped${ext}`)
-                            ? match
-                            : `-cropped${ext}`,
-                      )}
-                </p>
+              {/* Controls Column — the three actions, beneath the preview and centred under
+                  it. The file name used to lead this column; it is deliberately not shown,
+                  since the preview already says which image this is. */}
+              <div className="flex flex-col items-center gap-3 flex-1 min-w-0">
 
                 {/* Edit · New Image · Delete, in one row for every logo /
                     headshot / background preview. Edit reopens the editor that
