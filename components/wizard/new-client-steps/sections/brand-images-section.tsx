@@ -16,6 +16,24 @@ import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { Button } from "@/components/ui/button";
 import { THUMBNAIL_GUIDE_SIZE } from "../constants/brand-image-guides";
 
+/**
+ * Turn a stored brand-image value into something the crop editor can actually load.
+ *
+ * A persisted brand image is an R2 KEY (`org/…/uploads/branding/…`). Neither `<img>`
+ * nor Fabric can load a bare key — the browser treats it as a relative path and 404s —
+ * so handing the stored value straight to `SimpleImageEditorModal` showed a broken
+ * preview and an empty canvas when an existing image was reopened for editing. Anything
+ * already loadable (`data:`, `blob:`, `http…`, the `/api/r2/object` proxy) passes
+ * through untouched.
+ */
+function resolveBrandImageUrl(raw: string | null | undefined): string {
+  const value = raw || "";
+  if (!value) return "";
+  const r2Key = toR2BrandingKey(value);
+  if (!r2Key) return value;
+  return getR2ObjectProxyUrl(r2Key) ?? value;
+}
+
 interface BrandImagesSectionProps {
   brandImages: BrandImagesData;
   onBrandImagesChange: (brandImages: BrandImagesData) => void;
@@ -150,15 +168,30 @@ export function BrandImagesSection({
     setNewsEventsPreviewOpen(true);
   };
 
+  /**
+   * Open the crop editor on an ALREADY-stored image.
+   *
+   * The stored value is an R2 KEY (`org/…/uploads/branding/…`), which neither `<img>`
+   * nor Fabric can load — the browser resolves it as a relative path and 404s. Handing
+   * it over unresolved is what produced a broken preview and an empty canvas when Hero
+   * Banner Image / Featured Image were reopened for editing; the secondary banner's own
+   * preview button had already worked around it locally, which is why only that slot
+   * behaved. Resolve the three URL fields the editor reads; anything already loadable
+   * (`data:`, `blob:`, `http…`) passes through untouched.
+   */
   const handleEditClick = (slotKey: keyof BrandImagesData) => {
     const currentImage = brandImages?.[slotKey];
-    if (currentImage) {
-      setPendingImageData({
-        slotKey,
-        data: currentImage,
-      });
-      setIsModalOpen(true);
-    }
+    if (!currentImage) return;
+    setPendingImageData({
+      slotKey,
+      data: {
+        ...currentImage,
+        url: resolveBrandImageUrl(currentImage.url),
+        originalUrl: resolveBrandImageUrl(currentImage.originalUrl) || undefined,
+        previewUrl: resolveBrandImageUrl(currentImage.previewUrl) || undefined,
+      },
+    });
+    setIsModalOpen(true);
   };
 
   const handleFileSelectForEdit = (
@@ -689,29 +722,20 @@ export function BrandImagesSection({
                 onClick={() => {
                   const currentImage = brandImages?.secondaryBanner;
                   if (currentImage) {
-                    // The image URL may be an R2 key (org/…/branding/…)
-                    // which <img> cannot load directly.  Resolve it
-                    // to a displayable proxy URL before handing it to
-                    // SimpleImageEditorModal.
-                    const resolveUrl = (raw: string | undefined): string => {
-                      if (!raw) return "";
-                      const r2Key = toR2BrandingKey(raw);
-                      if (r2Key) {
-                        const proxy = getR2ObjectProxyUrl(r2Key);
-                        if (proxy) return proxy;
-                      }
-                      return raw;
-                    };
-
+                    // Same R2-key resolution as `handleEditClick` — see
+                    // `resolveBrandImageUrl` for why the raw stored value cannot be
+                    // handed straight to SimpleImageEditorModal.
                     setPendingImageData({
                       slotKey: "secondaryBanner",
                       data: {
                         ...currentImage,
-                        url: resolveUrl(currentImage.url),
+                        url: resolveBrandImageUrl(currentImage.url),
                         originalUrl:
-                          resolveUrl(currentImage.originalUrl) || undefined,
+                          resolveBrandImageUrl(currentImage.originalUrl) ||
+                          undefined,
                         previewUrl:
-                          resolveUrl(currentImage.previewUrl) || undefined,
+                          resolveBrandImageUrl(currentImage.previewUrl) ||
+                          undefined,
                       },
                     });
                     setIsModalOpen(true);

@@ -420,12 +420,32 @@ export function BrandImageUpload({
     handleModalClose,
   ]);
 
+  /**
+   * The trigger's Edit action.
+   *
+   * The editor has two possible owners, and picking the wrong one fails SILENTLY —
+   * the button simply does nothing:
+   *
+   *  - `useUniversalModal`: this component renders the universal editor (or, with
+   *    `renderModalOutside`, notifies the parent that does), so opening it is a local
+   *    state flip — `isModalOpen` + `pendingImageData` drive that render.
+   *  - otherwise the caller owns the editor and exposes it through `onEditClick`;
+   *    nothing here reads the local state in that mode.
+   *
+   * The previous version always took the first path, so `onEditClick` was destructured
+   * and never called: Edit was dead on every slot whose caller passes only
+   * `onEditClick` — the Hero Banner Image and Featured Image rows in
+   * `BrandImagesSection`, plus the hero/thumbnail/banner cards in the wizard.
+   */
   const handleEditClickWithModal = () => {
-    if (currentImage) {
-      setPendingImageData(currentImage);
-      setIsEditMode(true);
-      setIsModalOpen(true);
+    if (!currentImage) return;
+    if (!useUniversalModal) {
+      onEditClick?.();
+      return;
     }
+    setPendingImageData(currentImage);
+    setIsEditMode(true);
+    setIsModalOpen(true);
   };
 
   const handleDescriptionSave = () => {
