@@ -42,6 +42,17 @@ const INVITE_CATEGORY_OPTIONS = BENEFIT_CONTACT_CATEGORIES.filter(
   (category) => !isCustomHubCategory(category),
 );
 
+/**
+ * Input limits for the invite.
+ *
+ * Email follows RFC 5321's 254-octet address ceiling, so a valid address is never
+ * truncated. Name and Note are the advisor's own words, sized to what the invite really
+ * needs: a display name and a short hand-off note, not an essay.
+ */
+const INVITE_EMAIL_MAX_LENGTH = 254;
+const INVITE_NAME_MAX_LENGTH = 100;
+const INVITE_NOTE_MAX_LENGTH = 500;
+
 /** A person returned by the "Add Existing Contact / Collaborator" search. */
 interface CollaboratorSearchRow {
   profileId: string;
@@ -418,6 +429,7 @@ export function InviteCollaboratorDialog({
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               placeholder="jane@abbenefits.com"
+              maxLength={INVITE_EMAIL_MAX_LENGTH}
             />
           </div>
 
@@ -431,6 +443,7 @@ export function InviteCollaboratorDialog({
               disabled={Boolean(picked)}
               onChange={(event) => setName(event.target.value)}
               placeholder="Jane Smith"
+              maxLength={INVITE_NAME_MAX_LENGTH}
             />
           </div>
 
@@ -499,7 +512,24 @@ export function InviteCollaboratorDialog({
               onChange={(event) => setNote(event.target.value)}
               placeholder="Please fill in the plan details and upload the SPD."
               rows={3}
+              maxLength={INVITE_NOTE_MAX_LENGTH}
             />
+            <div className="flex justify-end">
+              <span
+                className={`text-[10px] font-medium tabular-nums transition-colors duration-200 ${
+                  note.length >= INVITE_NOTE_MAX_LENGTH
+                    ? "text-red-500"
+                    : note.length >= INVITE_NOTE_MAX_LENGTH * 0.9
+                      ? "text-amber-500"
+                      : "text-muted-foreground"
+                }`}
+              >
+                {note.length}
+                <span className="text-muted-foreground/60">
+                  /{INVITE_NOTE_MAX_LENGTH}
+                </span>
+              </span>
+            </div>
           </div>
 
           {/* ── Add Existing Contact / Collaborator ──
