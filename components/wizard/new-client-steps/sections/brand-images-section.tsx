@@ -19,24 +19,9 @@ import {
   THUMBNAIL_GUIDE_HEIGHT,
   THUMBNAIL_EXPORT_SCALE,
 } from "../constants/brand-image-guides";
-
-/**
- * Turn a stored brand-image value into something the crop editor can actually load.
- *
- * A persisted brand image is an R2 KEY (`org/…/uploads/branding/…`). Neither `<img>`
- * nor Fabric can load a bare key — the browser treats it as a relative path and 404s —
- * so handing the stored value straight to `SimpleImageEditorModal` showed a broken
- * preview and an empty canvas when an existing image was reopened for editing. Anything
- * already loadable (`data:`, `blob:`, `http…`, the `/api/r2/object` proxy) passes
- * through untouched.
- */
-function resolveBrandImageUrl(raw: string | null | undefined): string {
-  const value = raw || "";
-  if (!value) return "";
-  const r2Key = toR2BrandingKey(value);
-  if (!r2Key) return value;
-  return getR2ObjectProxyUrl(r2Key) ?? value;
-}
+// Shared with the Edit Plan preview panel, which reopens a saved hero image the same
+// way — one resolver, so an R2 key is resolved identically wherever an editor opens.
+import { resolveBrandImageUrl } from "./utils/image-utils";
 
 interface BrandImagesSectionProps {
   brandImages: BrandImagesData;

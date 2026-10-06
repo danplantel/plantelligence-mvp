@@ -10,6 +10,13 @@ import { MissionStatementFields } from "@/components/wizard/new-client-steps/sec
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import { CompanyLogoCard } from "@/components/wizard/new-client-steps/sections/components/company-logo-card";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
+import { ModalGallery } from "@/components/ui/modalGallery";
+import { SimpleImageEditorModal } from "@/components/ui/simple-image-editor-modal";
+import { HERO_RECOMMENDED_SIZE_LABEL } from "@/components/wizard/new-client-steps/sections/utils/hero-utils";
+import {
+  exportFullResolutionImage,
+  resolveBrandImageUrl,
+} from "@/components/wizard/new-client-steps/sections/utils/image-utils";
 import { HeroBackgroundCard, type HeroSegmentMode } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
 import { WelcomeStatementCard } from "@/components/wizard/new-client-steps/sections/components/welcome-statement-card";
 import { BannerOverlaySettingsCard } from "@/components/wizard/new-client-steps/sections/components/banner-overlay-settings-card";
@@ -601,6 +608,15 @@ export function EditPlanPreviewSection({
   // ── Portal data for ClientPortal preview ──
   const portalData = useMemo(() => buildPortalData(companyData), [companyData]);
 
+  // ── Hero background: default-photo gallery + crop editor ──
+  // The wizard hosts this pair inside `BannerSectionEditor`; this panel has no such
+  // host, so it owns them here. Without them the hero card's "add default photo"
+  // button had nothing to open and did nothing.
+  const [heroGalleryOpen, setHeroGalleryOpen] = useState(false);
+  const [isHeroModalOpen, setIsHeroModalOpen] = useState(false);
+  const [pendingHeroImageData, setPendingHeroImageData] =
+    useState<BrandImageData | null>(null);
+
   // ── Image change handlers for editor cards ──
   const handleHeroImageChange = useCallback(
     (imageData: BrandImageData) => {
@@ -695,6 +711,67 @@ export function EditPlanPreviewSection({
     onBrandImagesChange ??
     ((next: BrandImagesData) => onCompanyDataChange("brandImages", next));
 
+  /**
+   * Open the crop editor on the ALREADY-saved hero image.
+   *
+   * The stored value is an R2 key (`org/…/uploads/branding/…`), which neither `<img>`
+   * nor Fabric can load — the browser resolves it as a relative path and 404s. Handing
+   * it over unresolved is why Edit did nothing here; resolve the three URL fields the
+   * editor reads, exactly as the Featured Image card does.
+   */
+  const handleHeroEditClick = useCallback(() => {
+    if (!heroImageData) return;
+    setPendingHeroImageData({
+      ...heroImageData,
+      url: resolveBrandImageUrl(heroImageData.url),
+      originalUrl: resolveBrandImageUrl(heroImageData.originalUrl) || undefined,
+      previewUrl: resolveBrandImageUrl(heroImageData.previewUrl) || undefined,
+    });
+    setIsHeroModalOpen(true);
+  }, [heroImageData]);
+
+  const handleHeroModalClose = useCallback(() => {
+    setIsHeroModalOpen(false);
+    setPendingHeroImageData(null);
+  }, []);
+
+  /**
+   * Persist a finished hero crop.
+   *
+   * Routed through `handleBrandImagesChange` rather than `handleHeroImageChange`, so a
+   * crop made here reaches R2 exactly like the Company tab's Hero Banner Image card:
+   * the data URL is applied first (the preview paints immediately, with no spinner
+   * over it) and the stored key is swapped in behind.
+   */
+  const handleHeroModalSave = useCallback(
+    (
+      value: string,
+      fileName: string,
+      cropData?: import("@/components/ui/simple-image-editor-modal").CropMetadata,
+    ) => {
+      const current = pendingHeroImageData;
+      const next: BrandImageData = {
+        url: value,
+        previewUrl: value,
+        originalUrl: cropData?.originalImage || current?.originalUrl || value,
+        fileName,
+        fileSize: current?.fileSize ?? 0,
+        width: current?.width ?? 0,
+        height: current?.height ?? 0,
+        recommendedSize: HERO_RECOMMENDED_SIZE_LABEL,
+        status: "ok",
+        warnings: [],
+        cropData,
+      };
+      const nextBrandImages = {
+        ...(companyData.brandImages || {}),
+        header: next,
+      } as BrandImagesData;
+      void handleBrandImagesChange(nextBrandImages);
+    },
+    [pendingHeroImageData, handleBrandImagesChange, companyData.brandImages],
+  );
+
   // ── Editor panel sections ──
   const editorSections = [
     {
@@ -739,16 +816,16 @@ export function EditPlanPreviewSection({
 
           <Card className="dark:bg-gray-800">
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm dark:text-gray-100">Hero Background <span className="text-red-500">*</span></CardTitle>
+              <CardTitle className="text-sm dark:text-gray-100">Hero Banner Image <span className="text-red-500">*</span></CardTitle>
             </CardHeader>
             <CardContent>
               <HeroBackgroundCard
                 heroImageData={heroImageData}
                 onImageChange={handleHeroImageChange}
                 onImageRemove={handleHeroImageRemove}
-                onEditClick={() => {}}
+                onEditClick={handleHeroEditClick}
                 onFileSelect={(data) => handleHeroImageChange(data)}
-                onDefaultPhotoClick={() => {}}
+                onDefaultPhotoClick={() => setHeroGalleryOpen(true)}
                 segmentMode={heroSegmentMode}
                 onSegmentModeChange={handleHeroSegmentModeChange}
                 desktopPosition={desktopHeroPosition}
@@ -1061,6 +1138,85 @@ export function EditPlanPreviewSection({
           ) : undefined
         }
       />
+
+      {/* ── Hero background: the default-photo picker and its crop editor ──
+          Create Plan raises both from `BannerSectionEditor`; this panel raises them
+          itself, so "add default photo" opens the same gallery and the same hero
+          guidelines it does there. */}
+      <ModalGallery
+        open={heroGalleryOpen}
+        onOpenChange={setHeroGalleryOpen}
+        onSelect={async (url) => {
+          let fileName = "default-image.png";
+          let fileExtension = "png";
+          if (url.startsWith("data:image/")) {
+            const match = url.match(/data:image\/(\w+);/);
+            if (match && match[1]) {
+              fileExtension = match[1];
+              fileName = `default-image.${fileExtension}`;
+            }
+          } else {
+            const urlMatch = url.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/i);
+            if (urlMatch && urlMatch[1]) {
+              fileExtension = urlMatch[1].toLowerCase();
+              fileName = `default-image.${fileExtension}`;
+            }
+          }
+
+          // Hand the ORIGINAL, full-resolution photo to the crop editor — the same
+          // hand-off Create Plan makes — so the hero is framed to its own guidelines
+          // and nothing is applied until the user saves.
+          let dataUrl = url;
+          let width = 0;
+          let height = 0;
+          try {
+            const exported = await exportFullResolutionImage(url);
+            dataUrl = exported.dataUrl;
+            width = exported.width;
+            height = exported.height;
+          } catch (error) {
+            console.error("Failed to load default photo for editing:", error);
+          }
+
+          setPendingHeroImageData({
+            url: dataUrl,
+            originalUrl: url,
+            fileName,
+            fileSize: 0,
+            width,
+            height,
+            recommendedSize: HERO_RECOMMENDED_SIZE_LABEL,
+            status: "ok",
+            warnings: [],
+          });
+          setHeroGalleryOpen(false);
+          setIsHeroModalOpen(true);
+        }}
+      />
+
+      {pendingHeroImageData && (
+        <SimpleImageEditorModal
+          modalTitle="Background image"
+          modalDescription="Upload and edit your image."
+          value={pendingHeroImageData.url || ""}
+          originalValue={pendingHeroImageData.originalUrl}
+          fileName={pendingHeroImageData.fileName || ""}
+          existingCropData={pendingHeroImageData.cropData}
+          onChange={handleHeroModalSave}
+          onRemove={handleHeroModalClose}
+          isOpen={isHeroModalOpen}
+          onClose={handleHeroModalClose}
+          saveButtonText="Save Background"
+          // The canvas, guide and export values the wizard's own hero editor uses, so
+          // a crop made here and one made in Create Plan are the same crop.
+          canvasWidth={640}
+          canvasHeight={600}
+          guidelineWidth={580}
+          guidelineHeight={240}
+          guidelinePadding={20}
+          exportScale={3}
+        />
+      )}
     </div>
   );
 }

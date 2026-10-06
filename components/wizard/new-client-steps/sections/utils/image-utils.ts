@@ -1,3 +1,23 @@
+import { getR2ObjectProxyUrl, toR2BrandingKey } from "@/lib/branding-image-url";
+
+/**
+ * Turn a stored brand-image value into something the crop editor can actually load.
+ *
+ * A persisted brand image is an R2 KEY (`org/…/uploads/branding/…`). Neither `<img>`
+ * nor Fabric can load a bare key — the browser treats it as a relative path and 404s —
+ * so handing the stored value straight to `SimpleImageEditorModal` shows a broken
+ * preview and an empty canvas when an existing image is reopened for editing. Anything
+ * already loadable (`data:`, `blob:`, `http…`, the `/api/r2/object` proxy) passes
+ * through untouched.
+ */
+export function resolveBrandImageUrl(raw: string | null | undefined): string {
+  const value = raw || "";
+  if (!value) return "";
+  const r2Key = toR2BrandingKey(value);
+  if (!r2Key) return value;
+  return getR2ObjectProxyUrl(r2Key) ?? value;
+}
+
 /**
  * Decode an image URL and re-encode it at its ORIGINAL resolution as a data URL.
  *
