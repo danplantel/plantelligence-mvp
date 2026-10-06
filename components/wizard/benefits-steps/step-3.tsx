@@ -1369,9 +1369,14 @@ export function BenefitsStep3({
                           </span>
                         </span>
                         <span className="flex shrink-0 flex-wrap items-center gap-1">
-                          <Badge variant="secondary">
-                            {PRESET_ROLE_LABELS[person.role]}
-                          </Badge>
+                          {/* "Contributor" is the role every invited collaborator gets by
+                              default, so its badge only restates what the section already is
+                              — shown only when the role says something else. */}
+                          {PRESET_ROLE_LABELS[person.role] !== "Contributor" ? (
+                            <Badge variant="secondary">
+                              {PRESET_ROLE_LABELS[person.role]}
+                            </Badge>
+                          ) : null}
                           {person.deactivatedAt ? (
                             <Badge variant="outline" className="text-muted-foreground">
                               Deactivated

@@ -22,6 +22,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { PRESET_ROLE_LABELS, type TeammateAssignmentRole } from "@/types/teammate";
 import {
   Plus,
   Users,
@@ -370,9 +371,25 @@ interface PlanCollaboratorRow {
   categoryScope: "all" | "selected";
   categories: string[];
   personType?: string;
+  companyName?: string | null;
   state?: string;
   deactivatedAt?: string | null;
   inviteDueDate?: string | null;
+}
+
+/**
+ * The status a Collaborators list item shows.
+ *
+ * A live invite reads "Invite Pending": the profile's own state is `invited` (a seat
+ * hold), but what the advisor is looking at is an unanswered invitation, so the row says
+ * that rather than the lifecycle word.
+ */
+function collaboratorStatusLabel(person: PlanCollaboratorRow): string {
+  if (person.deactivatedAt) return "Deactivated";
+  if (person.state === "invited") return "Invite Pending";
+  if (person.state === "active") return "Active";
+  if (person.state === "contact") return "Contact";
+  return "Collaborator";
 }
 
 // ── Edit Contact Dialog — mini contact form (mirrors the Create Key Contact
@@ -3043,6 +3060,99 @@ export default function EditClientPage() {
     ];
   }, [clientId, inviteCustomBenefitResponse, companyData.companyName]);
 
+  // Bumped after an invite so the Collaborators list re-reads without a page reload.
+  const [collaboratorsRefreshKey, setCollaboratorsRefreshKey] = useState(0);
+
+  /**
+   * The plan's Collaborators — the free external people assigned to it.
+   *
+   * Listed in the Collaborators section so an invite is visible after it is sent: until
+   * it is accepted the person reads "Invite Pending". Team Members are filtered out —
+   * their home is Settings → People & Access, and a seat holder is not what this section
+   * is about (the same rule Edit Benefit's Contacts step applies).
+   */
+  const collaboratorAssignmentsKey = clientId
+    ? `/api/teammates/plan-assignments?planId=${encodeURIComponent(clientId)}&r=${collaboratorsRefreshKey}`
+    : null;
+  const { data: collaboratorAssignmentsData } = useSWR(
+    collaboratorAssignmentsKey,
+    (url: string) =>
+      fetch(url, { cache: "no-store" }).then((response) =>
+        response.ok ? response.json() : { assignments: [] },
+      ),
+    { revalidateOnFocus: false },
+  );
+  const planCollaborators = useMemo<PlanCollaboratorRow[]>(
+    () =>
+      (
+        (collaboratorAssignmentsData?.assignments ?? []) as PlanCollaboratorRow[]
+      ).filter((person) => person.personType !== "team_member"),
+    [collaboratorAssignmentsData],
+  );
+
+  // The collaborator whose "Resend Request" is in flight, so only that row shows a wait.
+  const [resendingProfileId, setResendingProfileId] = useState<string | null>(
+    null,
+  );
+
+  /**
+   * Re-deliver a pending collaborator's invitation.
+   *
+   * The same `resend_invite` action Settings → People & Access uses: a delivery retry, not a
+   * new grant, so the link and the assignment are unchanged. A mail failure is reported
+   * rather than treated as a failed action (the invitation is still open), and the list is
+   * re-read on success so a refreshed window shows its new expiry date.
+   */
+  const resendCollaboratorInvite = useCallback(
+    async (person: PlanCollaboratorRow) => {
+      setResendingProfileId(person.profileId);
+      try {
+        const response = await fetch(
+          `/api/teammates/team/${encodeURIComponent(person.profileId)}`,
+          {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "resend_invite" }),
+          },
+        );
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: string;
+          emailSent?: boolean;
+          emailError?: string | null;
+          member?: { expiresInDays?: number; refreshedWindow?: boolean };
+        };
+        if (!response.ok) {
+          toast.error(body.error ?? "Could not resend the invitation");
+          return;
+        }
+        const days = body.member?.expiresInDays;
+        const windowNote =
+          typeof days === "number"
+            ? body.member?.refreshedWindow
+              ? ` A fresh invitation was issued and expires in ${days} day${
+                  days === 1 ? "" : "s"
+                }.`
+              : ` Their invitation has ${days} day${days === 1 ? "" : "s"} left.`
+            : "";
+        if (body.emailSent) {
+          toast.success(`Invitation re-sent to ${person.email}.${windowNote}`);
+          setCollaboratorsRefreshKey((key) => key + 1);
+        } else {
+          toast.warning(
+            body.emailError
+              ? `Could not send the invitation: ${body.emailError}`
+              : "The invitation was not sent.",
+          );
+        }
+      } catch {
+        toast.error("Could not resend the invitation");
+      } finally {
+        setResendingProfileId(null);
+      }
+    },
+    [],
+  );
+
   // Preset for the Add Contact dialog. Entry points just open the dialog with a
   // pre-seeded category/type — the contact is created only when the user saves.
   const [addContactPreset, setAddContactPreset] = useState<{
@@ -4734,16 +4844,129 @@ export default function EditClientPage() {
                       used. The tab header used to host this; it lives here so the section
                       reads the same on both surfaces. */}
                   <div className="mt-6 border-t border-gray-100 dark:border-gray-700 pt-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <UserRoundPlus className="w-5 h-5 text-accent-blue" />
-                      <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
-                        Collaborators
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="flex items-center gap-2">
+                        <UserRoundPlus className="w-5 h-5 text-accent-blue" />
+                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wide">
+                          Collaborators
+                        </span>
                       </span>
+                      {/* Once there is a list, the invite moves up beside the header — the
+                          full-width card below is retired for that case. */}
+                      {planCollaborators.length > 0 ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-8 shrink-0 gap-1.5 px-3 text-xs font-semibold"
+                          onClick={() => {
+                            setInvitePrefill(null);
+                            setIsInviteOpen(true);
+                          }}
+                          disabled={!clientId}
+                          title={
+                            clientId
+                              ? "Invite someone to complete this plan's benefit sections"
+                              : "Save this plan before inviting"
+                          }
+                        >
+                          <UserRoundPlus className="h-4 w-4" />
+                          Add Collaborator
+                        </Button>
+                      ) : null}
                     </div>
                     <p className="text-xs text-gray-400 dark:text-gray-500 mb-3">
                       Give someone access to this plan so they can fill in their own
                       details. No seat is used.
                     </p>
+                    {planCollaborators.length > 0 ? (
+                      <ul className="mb-3 space-y-2">
+                        {planCollaborators.map((person) => {
+                          const isPending =
+                            !person.deactivatedAt && person.state === "invited";
+                          const roleLabel =
+                            PRESET_ROLE_LABELS[
+                              person.role as TeammateAssignmentRole
+                            ] ?? person.role;
+                          return (
+                            <li
+                              key={person.assignmentId}
+                              className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800"
+                            >
+                              <span className="block h-10 w-10 shrink-0 overflow-hidden rounded-full bg-muted">
+                                <Headshot
+                                  src={person.headshot}
+                                  alt={person.name}
+                                  monogramName={person.name}
+                                  wrapperClassName="rounded-full"
+                                />
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-medium text-gray-900 dark:text-gray-100">
+                                  {person.name}
+                                </span>
+                                <span className="block truncate text-xs text-muted-foreground">
+                                  {person.email}
+                                  {person.companyName ? ` · ${person.companyName}` : ""}
+                                </span>
+                              </span>
+                              <span className="flex shrink-0 flex-wrap items-center gap-1">
+                                {/* "Contributor" is the role every invited collaborator gets by
+                                    default, so its badge only restates what the section already
+                                    is — shown only when the role says something else. */}
+                                {roleLabel !== "Contributor" ? (
+                                  <Badge variant="secondary">{roleLabel}</Badge>
+                                ) : null}
+                                <Badge
+                                  variant="outline"
+                                  className={
+                                    isPending
+                                      ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-400"
+                                      : person.deactivatedAt
+                                        ? "text-muted-foreground"
+                                        : undefined
+                                  }
+                                >
+                                  {collaboratorStatusLabel(person)}
+                                </Badge>
+                                {isPending ? (
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-7 shrink-0 gap-1.5 px-2.5 text-[11px] font-medium"
+                                    onClick={() =>
+                                      void resendCollaboratorInvite(person)
+                                    }
+                                    disabled={
+                                      resendingProfileId === person.profileId
+                                    }
+                                  >
+                                    {resendingProfileId === person.profileId ? (
+                                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <Mail className="h-3.5 w-3.5" />
+                                    )}
+                                    {resendingProfileId === person.profileId
+                                      ? "Sending…"
+                                      : "Resend Request"}
+                                  </Button>
+                                ) : null}
+                              </span>
+                              {person.inviteDueDate && isPending ? (
+                                <span className="w-full text-[11px] text-muted-foreground">
+                                  Invitation expires{" "}
+                                  {new Date(person.inviteDueDate).toLocaleDateString()}
+                                </span>
+                              ) : null}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    ) : null}
+                    {/* Below zero collaborators only — the invite lives in the header row
+                        once there is a list to sit beneath (see `planCollaborators.length === 0`). */}
+                    {planCollaborators.length === 0 ? (
                     <button
                       type="button"
                       onClick={() => {
@@ -4773,6 +4996,7 @@ export default function EditClientPage() {
                       </span>
                       <ArrowRight className="w-4 h-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
                     </button>
+                    ) : null}
                   </div>
                 </CardContent>
               </Card>
@@ -5066,6 +5290,8 @@ export default function EditClientPage() {
           showExistingContactSearch={false}
           prefill={invitePrefill}
           source="edit_client"
+          // Re-read the list so the person just invited appears as "Invite Pending".
+          onInvited={() => setCollaboratorsRefreshKey((key) => key + 1)}
         />
 
         {/* Add Contact Modal — same form as the Edit Contact dialog. The contact
