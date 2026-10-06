@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import useSWR from "swr";
 import { useForm } from "react-hook-form";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
+import { useViewerAccess } from "@/hooks/useViewerAccess";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { fetchProfileOnce, invalidateProfileCache } from "@/lib/fetch-profile";
 import { step2ServicesToCategories } from "@/lib/service-categories";
@@ -107,6 +108,15 @@ const DELETE_PROFILE_PHRASE = "delete profile";
 export default function SettingsPage() {
   const { setTitle, setSubtitle } = usePageTitleContext();
   const { stepData } = useOnboardingWizardStore();
+  /**
+   * A Collaborator gets the Profile tab ONLY — no tab bar, and no other tab reachable.
+   *
+   * They are a guest on someone else's plan: Branding, Organization, People & Access and
+   * Billing are all organization-level surfaces they hold no permission for (`org_settings`
+   * and `billing` are hard-blocked for a collaborator). Seeded by the dashboard layout
+   * through SWR, so this is known on the first paint rather than after a fetch.
+   */
+  const { isCollaborator } = useViewerAccess();
   const [isSaving, setIsSaving] = useState(false);
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(
@@ -131,11 +141,14 @@ export default function SettingsPage() {
   // effect rather than `useSearchParams` so this client page needs no Suspense boundary; an
   // unknown value is ignored rather than switching to a tab that does not exist.
   useEffect(() => {
+    // A Collaborator has a single tab, so a `?tab=` asking for another is ignored rather
+    // than opening a page they cannot have.
+    if (isCollaborator) return;
     const requested = new URLSearchParams(window.location.search).get("tab");
     if (!requested) return;
     const knownTabs = ["profile", "branding", "organization", "members", "billing"];
     if (knownTabs.includes(requested)) setActiveTab(requested);
-  }, []);
+  }, [isCollaborator]);
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] =
     useState(false);
   const [showDeleteConfirmDialog, setShowDeleteConfirmDialog] = useState(false);
@@ -364,6 +377,13 @@ export default function SettingsPage() {
       setActiveTab("profile");
     }
   }, [readOnlyViewer, activeTab]);
+
+  // Belt-and-braces for the one-tab Collaborator: whatever put `activeTab` elsewhere — a
+  // deep link read before the access summary resolved, or stale state — they are returned
+  // to Profile rather than left on a panel whose tab bar no longer exists.
+  useEffect(() => {
+    if (isCollaborator && activeTab !== "profile") setActiveTab("profile");
+  }, [isCollaborator, activeTab]);
 
   // Load data for specific tab
   const loadTabData = async (tab: string) => {
@@ -1380,9 +1400,12 @@ export default function SettingsPage() {
           {/* The tab bar renders inside the fixed header via portal; it falls back to
               an inline bar if the header's portal target is not mounted yet (e.g. the
               very first client render), so the tabs are never missing. */}
-          {headerPortalTarget
-            ? createPortal(settingsTabList, headerPortalTarget)
-            : settingsTabList}
+          {/* One tab means no bar. A Collaborator is on Profile and has nothing to switch
+              to, so the header renders no tab strip at all. */}
+          {!isCollaborator &&
+            (headerPortalTarget
+              ? createPortal(settingsTabList, headerPortalTarget)
+              : settingsTabList)}
 
           {/* Profile Tab */}
           <TabsContent value="profile" className="space-y-6">
@@ -1392,6 +1415,9 @@ export default function SettingsPage() {
               userSetupForm={userSetupForm}
               onSave={noopSave}
               authProvider={userProfile?.provider}
+              // A Collaborator does not describe their own practice on someone else's plan,
+              // so the Designations row is omitted from their Profile.
+              hideDesignations={isCollaborator}
             />
 
             {/* ── Delete Profile Section ── */}

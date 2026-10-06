@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, memo } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { DashboardNav } from "@/components/ui/dashboard-nav";
 import { navItems } from "@/constants/data";
 import { cn } from "@/lib/utils";
@@ -10,11 +10,20 @@ import { useTheme } from "next-themes";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { usePathname } from "next/navigation";
 import { PREVIEW_EDITOR_LAYOUT_EVENT } from "@/lib/preview-editor-layout";
+import { useViewerAccess } from "@/hooks/useViewerAccess";
+import { mayUsePath } from "@/lib/teammates/nav-access";
+import type { NavItem } from "@/types";
 
 const SIDEBAR_STATE_KEY = "sidebar-is-open";
 
+// The restricted destinations live in `lib/teammates/nav-access.ts`, shared with the
+// layout guard so a hidden link and a typed URL are decided by one rule.
+
 const Sidebar = memo(function Sidebar() {
   const pathname = usePathname();
+  // Chrome-level access: whether this viewer is a Collaborator, and the union of the
+  // grids they hold. Seeded from the server through SWR's cache, so the nav never flashes.
+  const { isCollaborator, can } = useViewerAccess();
   // Get currentStep from wizard store (only if on wizard page)
   const currentStep = useNewClientWizardStore((state) => {
     // Only get currentStep if we're on the new client wizard page
@@ -109,6 +118,33 @@ const Sidebar = memo(function Sidebar() {
     }
   }, [currentStep, effectiveOpen, pathname]);
 
+  /**
+   * The nav items this viewer may see.
+   *
+   * Only a Collaborator's list is narrowed, and only by `NAV_REQUIREMENTS` — everyone
+   * else sees the nav they see today, so an owner or a Team Member is never affected.
+   */
+  const visibleNavItems = useMemo(() => {
+    if (!isCollaborator) return navItems;
+
+    // One shared rule with the layout guard, so a link the nav hides and a URL typed
+    // directly are decided in exactly the same place (`lib/teammates/nav-access.ts`).
+    const mayReach = (href?: string) => mayUsePath(href, { isCollaborator, can });
+
+    return navItems
+      .map((item) => {
+        // An item's OWN destination can be off-limits too (Dashboard, for instance) —
+        // filtering only the children would leave those top-level links in place.
+        if (!mayReach(item.href)) return null;
+        return item.items
+          ? { ...item, items: item.items.filter((child) => mayReach(child.href)) }
+          : item;
+      })
+      .filter((item): item is NavItem => item !== null)
+      // A group whose every child was filtered out has nothing left to lead to.
+      .filter((item) => !item.items || item.items.length > 0);
+  }, [isCollaborator, can]);
+
   const srcImage =
     themeMode === "dark"
       ? "/plantelligence-logos/pt_web_dark.png"
@@ -175,7 +211,7 @@ const Sidebar = memo(function Sidebar() {
 
       {/* Navigation */}
       <div className="px-4 mt-6 flex-1 overflow-y-auto">
-        <DashboardNav items={navItems} isOpen={effectiveOpen} />
+        <DashboardNav items={visibleNavItems} isOpen={effectiveOpen} />
       </div>
     </nav>
   );

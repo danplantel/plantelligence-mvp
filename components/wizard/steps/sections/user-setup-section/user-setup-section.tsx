@@ -65,6 +65,14 @@ interface UserSetupSectionProps {
    * component.
    */
   headshotFirst?: boolean;
+  /**
+   * Never render the Designations field, whatever the title suggests.
+   *
+   * A Collaborator is a guest completing an assigned section of someone else's plan, so a
+   * professional-designation list is not theirs to fill in — Settings → Profile hides the
+   * row for them. Onboarding, and an owner's or a Team Member's Settings, keep it.
+   */
+  hideDesignations?: boolean;
 }
 
 export function UserSetupSection({
@@ -77,6 +85,7 @@ export function UserSetupSection({
   alwaysShowDesignations = false,
   authProvider,
   headshotFirst = false,
+  hideDesignations = false,
 }: UserSetupSectionProps) {
   const {
     name,
@@ -468,7 +477,8 @@ export function UserSetupSection({
 
        {/* Row 5: Designations */}
        <div>
-        {(alwaysShowDesignations || relevantDesignations.length > 0) && (
+        {!hideDesignations &&
+          (alwaysShowDesignations || relevantDesignations.length > 0) && (
           <div className="space-y-2">
             <label className="block font-medium text-sm dark:text-gray-200">
               Designations (Optional)

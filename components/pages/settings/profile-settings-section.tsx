@@ -13,6 +13,8 @@ interface ProfileSettingsSectionProps {
   onSave: () => Promise<void> | void;
   /** Auth provider (e.g. "google") — Google accounts have no password to change. */
   authProvider?: string;
+  /** Hide the Designations row entirely (a Collaborator's Profile has no use for it). */
+  hideDesignations?: boolean;
 }
 
 export function ProfileSettingsSection({
@@ -21,6 +23,7 @@ export function ProfileSettingsSection({
   userSetupForm,
   onSave,
   authProvider,
+  hideDesignations = false,
 }: ProfileSettingsSectionProps) {
   return (
     <Card>
@@ -68,6 +71,9 @@ export function ProfileSettingsSection({
               // Show Designations even when the reader's title suggests none: the field is optional
               // and free-form, so "no suggestion" must not mean "no field". See the prop's doc.
               alwaysShowDesignations={true}
+              // A Collaborator completes someone else's plan rather than describing their own
+              // practice, so the designations list is hidden for them (Settings → Profile).
+              hideDesignations={hideDesignations}
               authProvider={authProvider}
             />
           </FormProvider>
