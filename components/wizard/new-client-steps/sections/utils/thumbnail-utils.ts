@@ -1,11 +1,24 @@
+import {
+  THUMBNAIL_GUIDE_WIDTH,
+  THUMBNAIL_GUIDE_HEIGHT,
+} from "../../constants/brand-image-guides";
+
+/**
+ * Crop an uploaded thumbnail to the slot's guide, for the paths that bypass the
+ * cropper (gallery pick, plain upload).
+ *
+ * The guide comes from `constants/brand-image-guides` rather than being written out
+ * again here: this is one of three things that crop this slot, and a hard-coded pair
+ * meant the automatic crop could keep exporting the old shape after the ratio moved.
+ */
 export function autoCropThumbnailImage(
   imageUrl: string,
 ): Promise<{ croppedUrl: string; width: number; height: number }> {
   return new Promise((resolve, reject) => {
     const canvasWidth = 600;
     const canvasHeight = 600;
-    const guidelineWidth = 400;
-    const guidelineHeight = 400;
+    const guidelineWidth = THUMBNAIL_GUIDE_WIDTH;
+    const guidelineHeight = THUMBNAIL_GUIDE_HEIGHT;
     const guidelinePadding = 20;
 
     const pad =

@@ -73,15 +73,16 @@ export function PortalMission({
 
         {/* ── Left column: Image ── */}
         <div className="w-full">
-          {/* Square, and sized by the column rather than a fixed height.
+          {/* 9:10, and sized by the column rather than a fixed height.
            *
-           * The slot is a 1:1 crop, so a square frame shows exactly what the
-           * advisor framed — a fixed 460px height in a ~590px column was
-           * landscape, which left `object-cover` re-cropping the very crop they
-           * had just made. It also lets the image grow with the column, which is
-           * what keeps it in step with the mission paragraphs beside it now that
-           * the default text carries paragraph breaks. */}
-          <div className="w-full aspect-square overflow-hidden rounded-lg">
+           * The slot is a 9:10 crop, so the frame has to be 9:10 too: it shows
+           * exactly what the advisor framed, where a frame of any other shape
+           * leaves `object-cover` re-cropping the very crop they had just made.
+           * (A fixed 460px height in a ~590px column was landscape and did that;
+           * a square frame did the same once the slot's crop became 9:10.) It
+           * also lets the image grow with the column, which is what keeps it in
+           * step with the mission paragraphs beside it. */}
+          <div className="w-full aspect-[9/10] overflow-hidden rounded-lg">
             {company?.thumbnailImg ? (
               <BrandingImage
                 src={company.thumbnailImg}
@@ -91,7 +92,7 @@ export function PortalMission({
             ) : (
               <img
                 src={
-                  "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600&h=600&fit=crop&crop=center"
+                  "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600&h=666&fit=crop&crop=center"
                 }
                 alt="Team collaboration"
                 className="w-full h-full object-cover"

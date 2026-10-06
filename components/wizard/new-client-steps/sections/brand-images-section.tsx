@@ -14,7 +14,10 @@ import { toR2BrandingKey, getR2ObjectProxyUrl } from "@/lib/branding-image-url";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { Button } from "@/components/ui/button";
-import { THUMBNAIL_GUIDE_SIZE } from "../constants/brand-image-guides";
+import {
+  THUMBNAIL_GUIDE_WIDTH,
+  THUMBNAIL_GUIDE_HEIGHT,
+} from "../constants/brand-image-guides";
 
 /**
  * Turn a stored brand-image value into something the crop editor can actually load.
@@ -67,13 +70,13 @@ const BRAND_IMAGE_SLOTS = [
     title: "Featured Image",
     description:
       "Appears beside the company introduction on your Benefits Hub homepage and in card and preview placements",
-    recommendedSize: "900×900 px",
+    recommendedSize: "900×1000 px",
     previewText: "Preview thumb",
     defaultPhoteButton: true,
     required: true,
     accept: ".png,.jpg,.jpeg,.webp",
-    previewAspectRatio: 1,
-    previewLabel: "Thumbnail preview (1:1)",
+    previewAspectRatio: 9 / 10,
+    previewLabel: "Featured preview (9:10)",
   },
   {
     key: "secondaryBanner" as keyof BrandImagesData,
@@ -544,7 +547,7 @@ export function BrandImagesSection({
             pendingImageData.slotKey === "header"
               ? "Background image"
               : pendingImageData.slotKey === "thumbnail"
-              ? "Thumbnail image"
+              ? "Featured image"
               : pendingImageData.slotKey === "secondaryBanner"
               ? "Banner image"
               : pendingImageData.slotKey === "favicon"
@@ -553,9 +556,9 @@ export function BrandImagesSection({
           }
           modalDescription={
             pendingImageData.slotKey === "header"
-              ? "This image displays in the header background of your Employee Benefits Hub. Upload a wide hero image for best results. If not uploading, the Square Thumbnail will be used."
+              ? "This image displays in the header background of your Employee Benefits Hub. Upload a wide hero image for best results. If not uploading, the Featured Image will be used."
               : pendingImageData.slotKey === "thumbnail"
-              ? "This image is used in square thumbnail placements across your Employee Hub. Upload a centered image with space around the edges."
+              ? "This image appears beside the company introduction on your Benefits Hub homepage and in card and preview placements. Upload a centered image with space around the edges."
               : "Upload and edit your image."
           }
           value={pendingImageData.data.url || ""}
@@ -570,7 +573,7 @@ export function BrandImagesSection({
             pendingImageData.slotKey === "header"
               ? "Save Background"
               : pendingImageData.slotKey === "thumbnail"
-              ? "Save Thumbnail"
+              ? "Save Featured Image"
               : pendingImageData.slotKey === "secondaryBanner"
               ? "Save Banner"
               : pendingImageData.slotKey === "favicon"
@@ -603,11 +606,13 @@ export function BrandImagesSection({
               ? 3.5
               : 1
           }
-          // The thumbnail's two axes read the SAME constant — it is a 1:1 slot,
-          // and a guide that is not square exports a crop that is not square.
+          // The Featured Image (the "thumbnail" slot) is a 9:10 portrait, so its two
+          // axes take the pair from `constants/brand-image-guides` instead of one
+          // shared size — the saved crop IS the guide rectangle, so the ratio has to
+          // be expressed there, and all three croppers of this slot read it from there.
           guidelineWidth={
             pendingImageData.slotKey === "thumbnail"
-              ? THUMBNAIL_GUIDE_SIZE
+              ? THUMBNAIL_GUIDE_WIDTH
               : pendingImageData.slotKey === "header" ||
                 pendingImageData.slotKey === "secondaryBanner"
               ? 580
@@ -615,7 +620,7 @@ export function BrandImagesSection({
           }
           guidelineHeight={
             pendingImageData.slotKey === "thumbnail"
-              ? THUMBNAIL_GUIDE_SIZE
+              ? THUMBNAIL_GUIDE_HEIGHT
               : pendingImageData.slotKey === "header" ||
                 pendingImageData.slotKey === "secondaryBanner"
               ? 240

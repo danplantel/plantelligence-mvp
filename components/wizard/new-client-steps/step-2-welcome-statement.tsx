@@ -28,7 +28,10 @@ import { useUserAvatar } from "./sections/hooks/use-user-avatar";
 import { useScrollSync } from "./sections/hooks/use-scroll-sync";
 import { useFieldFocus } from "./sections/hooks/use-field-focus";
 import { autoCropThumbnailImage } from "./sections/utils/thumbnail-utils";
-import { THUMBNAIL_GUIDE_SIZE } from "./constants/brand-image-guides";
+import {
+  THUMBNAIL_GUIDE_WIDTH,
+  THUMBNAIL_GUIDE_HEIGHT,
+} from "./constants/brand-image-guides";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { Smartphone, Monitor } from "lucide-react";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
@@ -1465,8 +1468,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
 
       {thumbnailImage.pendingThumbnailData && (
         <SimpleImageEditorModal
-          modalTitle="Thumbnail image"
-          modalDescription="This image is used in square thumbnail placements across your Employee Hub. Upload a centered image with space around the edges."
+          modalTitle="Featured image"
+          modalDescription="This image appears beside the company introduction on your Benefits Hub homepage and in card and preview placements. Upload a centered image with space around the edges."
           value={thumbnailImage.pendingThumbnailData.url || ""}
           originalValue={thumbnailImage.pendingThumbnailData.originalUrl}
           fileName={thumbnailImage.pendingThumbnailData.fileName || ""}
@@ -1475,13 +1478,13 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           onRemove={() => { thumbnailImage.setIsThumbnailModalOpen(false); thumbnailImage.setPendingThumbnailData(null); }}
           isOpen={thumbnailImage.isThumbnailModalOpen}
           onClose={() => { thumbnailImage.setIsThumbnailModalOpen(false); thumbnailImage.setPendingThumbnailData(null); }}
-          saveButtonText="Save Thumbnail"
+          saveButtonText="Save Featured Image"
           canvasWidth={600} canvasHeight={600}
-          // Square, both axes from one constant: this writes the same
-          // brandImages.thumbnail slot the step-1 cropper does, so the two must
-          // agree on the crop's shape.
-          guidelineWidth={THUMBNAIL_GUIDE_SIZE}
-          guidelineHeight={THUMBNAIL_GUIDE_SIZE}
+          // 9:10, both axes from the shared pair in `constants/brand-image-guides`:
+          // this writes the same brandImages.thumbnail slot the step-1 cropper does,
+          // so the two must agree on the crop's shape.
+          guidelineWidth={THUMBNAIL_GUIDE_WIDTH}
+          guidelineHeight={THUMBNAIL_GUIDE_HEIGHT}
           guidelinePadding={20}
         />
       )}
