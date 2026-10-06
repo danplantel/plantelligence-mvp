@@ -1402,6 +1402,11 @@ export async function sendCollaboratorInviteEmail({
     subject,
     html,
     text: [
+      // The heading the HTML part leads with, so a plain-text-only client (or the
+      // preheader a mailbox shows beside the subject) reads the same invitation rather
+      // than opening straight into the greeting.
+      `You have been invited to collaborate`,
+      ``,
       `Hi ${firstName},`,
       ``,
       `${inviter} invited you as ${inviteContext} to help complete ${sectionPhraseText} of the ${planName} benefits hub.`,

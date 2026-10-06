@@ -3060,9 +3060,6 @@ export default function EditClientPage() {
     ];
   }, [clientId, inviteCustomBenefitResponse, companyData.companyName]);
 
-  // Bumped after an invite so the Collaborators list re-reads without a page reload.
-  const [collaboratorsRefreshKey, setCollaboratorsRefreshKey] = useState(0);
-
   /**
    * The plan's Collaborators — the free external people assigned to it.
    *
@@ -3070,11 +3067,19 @@ export default function EditClientPage() {
    * it is accepted the person reads "Invite Pending". Team Members are filtered out —
    * their home is Settings → People & Access, and a seat holder is not what this section
    * is about (the same rule Edit Benefit's Contacts step applies).
+   *
+   * The key is STABLE, and refreshes go through `mutate` rather than a cache-busting
+   * parameter. A changing key leaves `data` undefined for the duration of the fetch,
+   * which blanks the list — and, because the header action and the full-width card branch
+   * on the count, flashes the invite card back in for a few seconds mid-resend.
    */
   const collaboratorAssignmentsKey = clientId
-    ? `/api/teammates/plan-assignments?planId=${encodeURIComponent(clientId)}&r=${collaboratorsRefreshKey}`
+    ? `/api/teammates/plan-assignments?planId=${encodeURIComponent(clientId)}`
     : null;
-  const { data: collaboratorAssignmentsData } = useSWR(
+  const {
+    data: collaboratorAssignmentsData,
+    mutate: refreshCollaborators,
+  } = useSWR(
     collaboratorAssignmentsKey,
     (url: string) =>
       fetch(url, { cache: "no-store" }).then((response) =>
@@ -3136,7 +3141,8 @@ export default function EditClientPage() {
             : "";
         if (body.emailSent) {
           toast.success(`Invitation re-sent to ${person.email}.${windowNote}`);
-          setCollaboratorsRefreshKey((key) => key + 1);
+          // Re-read in place — not by changing the key — so the list never blanks.
+          void refreshCollaborators();
         } else {
           toast.warning(
             body.emailError
@@ -3150,7 +3156,7 @@ export default function EditClientPage() {
         setResendingProfileId(null);
       }
     },
-    [],
+    [refreshCollaborators],
   );
 
   // Preset for the Add Contact dialog. Entry points just open the dialog with a
@@ -5291,7 +5297,7 @@ export default function EditClientPage() {
           prefill={invitePrefill}
           source="edit_client"
           // Re-read the list so the person just invited appears as "Invite Pending".
-          onInvited={() => setCollaboratorsRefreshKey((key) => key + 1)}
+          onInvited={() => void refreshCollaborators()}
         />
 
         {/* Add Contact Modal — same form as the Edit Contact dialog. The contact

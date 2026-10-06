@@ -16,11 +16,14 @@
 
 import prisma from "@/lib/prisma";
 import { organizationDisplayName } from "@/lib/organization";
-import { sendTeamMemberInviteEmail } from "@/lib/email";
+import {
+  sendCollaboratorInviteEmail,
+  sendTeamMemberInviteEmail,
+} from "@/lib/email";
 import { assertOrganizationKeepsAnOwner } from "./access.server";
 import { recordTeammateAuditEvent } from "./audit.server";
 import { TeammateDataError } from "./errors";
-import { acceptanceUrlForProfile } from "./invite-link.server"
+import { acceptanceUrlForProfile, appBaseUrl } from "./invite-link.server";
 import { inviteTokenExpiry } from "./invite-token.server";
 import {
   createTeammateProfile,
@@ -40,6 +43,8 @@ import {
 import { removeAssignment, upsertAssignment } from "./assignments.server";
 import { listPlanCustomBenefits } from "./benefit-categories.server";
 import { findOrCreatePartnerCompany } from "./companies.server";
+import { categoryToSlug } from "@/lib/benefit-category-slug";
+import { BENEFIT_CONTACT_CATEGORIES } from "@/lib/benefit-contacts";
 import {
   assertSeatAvailable,
   getSeatUsage,
@@ -811,25 +816,80 @@ export async function resendTeamMemberInvite(input: {
   let emailSent = false;
   let emailError: string | null = null;
   try {
-    await sendTeamMemberInviteEmail({
-      to: email,
-      memberName:
-        [current.firstName, current.lastName].filter(Boolean).join(" ") || null,
-      inviterName: actor?.name ?? null,
-      organizationName,
-      // Named only when there is exactly ONE plan, for the same reason the add path names one:
-      // the subject reads "…added you to Acme Corp", and a list there is worse than the firm.
-      planName:
-        assignments.length === 1
-          ? companyNameById.get(assignments[0].clientId) ?? null
-          : null,
-      acceptUrl: link.url,
-      expiresInDays,
-      role: singleRole ? (assignments[0].role as TeammateAssignmentRole) : null,
-      permissions: singleGrid ? grids[0] : null,
-      planNames: current.allPlans ? null : planNames,
-      categories: allCategories ? null : categoryNames,
-    });
+    if (current.type === "collaborator") {
+      // A collaborator holds no seat and was invited to complete a benefit section, not to
+      // join a team. Resending must use the SAME template the first invitation used, or the
+      // recipient is told they were "added as a Team Member" — the very thing this section
+      // is not about.
+      const assignment = assignments[0] ?? null;
+      const assignedCategories =
+        assignment?.categoryScope === "all"
+          ? [...BENEFIT_CONTACT_CATEGORIES]
+          : Array.isArray(assignment?.categories)
+            ? (assignment.categories as string[])
+            : [];
+      const planName = assignment
+        ? companyNameById.get(assignment.clientId) ?? null
+        : null;
+      // The "Who is this?" label the first invite recorded — the audit row keeps it — so a
+      // resend reads exactly like the invitation it repeats.
+      const invited = await prisma.teammateAuditEvent.findFirst({
+        where: { profileId: current.id, action: "collaborator_invited" },
+        orderBy: { createdAt: "desc" },
+        select: { details: true },
+      });
+      const inviteContext =
+        (invited?.details as { whoIsThisLabel?: string } | null)?.whoIsThisLabel ||
+        "a collaborator";
+
+      await sendCollaboratorInviteEmail({
+        to: email,
+        collaboratorName:
+          [current.firstName, current.lastName].filter(Boolean).join(" ") || null,
+        inviterName: actor?.name ?? null,
+        organizationName,
+        planName: planName || organizationName || "your plan",
+        category: assignedCategories[0] ?? "Company / Plan Sponsor",
+        // Fewer than two reads as "the <category> section"; several are named.
+        categories:
+          assignedCategories.length > 1 ? assignedCategories : undefined,
+        inviteContext,
+        // One category deep-links at its section; several land on the benefit list — the
+        // same choice the first invitation made.
+        sectionUrl:
+          assignment && assignedCategories.length === 1
+            ? `${appBaseUrl()}/edit-benefit/${assignment.clientId}/${categoryToSlug(
+                assignedCategories[0],
+              )}`
+            : `${appBaseUrl()}/benefits`,
+        acceptUrl: link.url,
+        // The completeness list is rebuilt from live data on the first invite; a resend is a
+        // nudge, so it omits the list rather than risk showing a stale one.
+        missingFields: [],
+        note: assignment?.inviteNote ?? null,
+        dueDate: assignment?.inviteDueDate ?? null,
+      });
+    } else {
+      await sendTeamMemberInviteEmail({
+        to: email,
+        memberName:
+          [current.firstName, current.lastName].filter(Boolean).join(" ") || null,
+        inviterName: actor?.name ?? null,
+        organizationName,
+        // Named only when there is exactly ONE plan, for the same reason the add path names one:
+        // the subject reads "…added you to Acme Corp", and a list there is worse than the firm.
+        planName:
+          assignments.length === 1
+            ? companyNameById.get(assignments[0].clientId) ?? null
+            : null,
+        acceptUrl: link.url,
+        expiresInDays,
+        role: singleRole ? (assignments[0].role as TeammateAssignmentRole) : null,
+        permissions: singleGrid ? grids[0] : null,
+        planNames: current.allPlans ? null : planNames,
+        categories: allCategories ? null : categoryNames,
+      });
+    }
     emailSent = true;
   } catch (error) {
     emailError = error instanceof Error ? error.message : "Unknown email error";
