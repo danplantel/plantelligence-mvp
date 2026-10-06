@@ -526,7 +526,13 @@ export function BrandImageUpload({
         )}
         {currentImage ? (
           <div className="w-full">
-            <div className="relative flex flex-col md:flex-row items-center gap-4 p-4 rounded-xl bg-muted/20 border border-gray-200 dark:border-gray-700">
+            {/* `md:!flex-row` / `md:!items-start`: @uploadthing/react/dist/index.css (imported
+                by app/layout.tsx) ships unprefixed `.flex-col` and `.items-center` with no
+                responsive variants, and in the dev server it comes after Tailwind's output —
+                so the plain utilities beat the `md:` ones and this preview stacked instead of
+                sitting beside the buttons. The important flag makes the intended row win
+                regardless of that sheet's position in the cascade. */}
+            <div className="relative flex flex-col md:!flex-row items-center gap-4 p-4 rounded-xl bg-muted/20 border border-gray-200 dark:border-gray-700">
               {/* Preview Column */}
               <div className="flex items-center justify-center flex-shrink-0">
                 <div
@@ -578,7 +584,7 @@ export function BrandImageUpload({
               </div>
 
               {/* Controls Column */}
-              <div className="flex flex-col items-center md:items-start gap-3 flex-1 min-w-0">
+              <div className="flex flex-col items-center md:!items-start gap-3 flex-1 min-w-0">
                 <p className="text-xs font-bold text-foreground break-words truncate text-center md:text-left w-full">
                   {currentImage.fileName}
                 </p>

@@ -447,7 +447,7 @@ export function BannerSectionEditor({
         <CardHeader>
           <CardTitle className="flex items-center gap-2 dark:text-gray-100">
             <ImageIcon2 className="w-5 h-5 text-accent-blue" />
-            Background Header Image (Hero){" "}
+            Hero Banner Image{" "}
             <span className="text-red-500">*</span>
           </CardTitle>
         </CardHeader>

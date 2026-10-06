@@ -34,9 +34,9 @@ interface BrandImagesSectionProps {
 const BRAND_IMAGE_SLOTS = [
   {
     key: "header" as keyof BrandImagesData,
-    title: "Background Image",
+    title: "Hero Banner Image",
     description:
-      "This image displays in the header background of your Employee Benefits Hub. Upload a wide hero image for best results. If not uploading a picture, the Square Thumbnail will be used.",
+      "The large banner at the top of your Benefits Hub homepage, behind the welcome message. If none is uploaded, the Featured Image is used.",
     recommendedSize: "1920×1080 px",
     defaultPhoteButton: true,
     required: false,
@@ -46,9 +46,9 @@ const BRAND_IMAGE_SLOTS = [
   },
   {
     key: "thumbnail" as keyof BrandImagesData,
-    title: "Square Thumbnail",
+    title: "Featured Image",
     description:
-      "This image is used in square thumbnail placements across your Employee Hub. Upload a centered image with space around the edges.",
+      "Appears beside the company introduction on your Benefits Hub homepage and in card and preview placements",
     recommendedSize: "900×900 px",
     previewText: "Preview thumb",
     defaultPhoteButton: true,
@@ -59,8 +59,8 @@ const BRAND_IMAGE_SLOTS = [
   },
   {
     key: "secondaryBanner" as keyof BrandImagesData,
-    title: "Secondary Banner",
-    description: "Used for the Header background image for the News & Events page.",
+    title: "Page Header Image",
+    description: "Used as the header background on interior Benefits Hub pages, such as News & Events. If none is uploaded, the Hero Banner Image is used. ",
     recommendedSize: "1600×600 px",
     required: false,
     accept: ".png,.jpg,.jpeg,.webp",

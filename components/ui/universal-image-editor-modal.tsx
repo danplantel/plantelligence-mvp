@@ -3270,7 +3270,15 @@ export function UniversalImageEditorModal({
           <div className="w-full">
             <div
               className={
-                "relative flex flex-col md:flex-row items-center gap-4 p-4 rounded-xl bg-muted/20 border border-gray-200 " +
+                // `md:!flex-row`, not `md:flex-row`: @uploadthing/react/dist/index.css is a
+                // prebuilt Tailwind sheet that ships UNPREFIXED utilities (`.flex-col`,
+                // `.items-center`, `.flex`, …) and no responsive variants of them. In the dev
+                // server it lands after Tailwind's output, so its plain `.flex-col` beat
+                // `.md:flex-row` — equal specificity, later in the file wins — and the preview
+                // stacked on top of the buttons at every width, while the deployed build
+                // (which orders CSS differently) showed the intended row. `!important` makes
+                // this layout win wherever that sheet sits in the cascade.
+                "relative flex flex-col md:!flex-row items-center gap-4 p-4 rounded-xl bg-muted/20 border border-gray-200 " +
                 (type === "headshot" ? "" : "min-h-[180px]")
               }
             >
@@ -3317,7 +3325,9 @@ export function UniversalImageEditorModal({
               </div>
 
               {/* Controls Column */}
-              <div className="flex flex-col items-center md:items-start gap-3 flex-1 min-w-0">
+              {/* `md:!items-start` for the same reason as `md:!flex-row` above: the
+                  uploadthing sheet also redefines a plain `.items-center`. */}
+              <div className="flex flex-col items-center md:!items-start gap-3 flex-1 min-w-0">
                 <p className="text-xs font-bold text-foreground break-words truncate text-center md:text-left w-full">
                   {type === "headshot"
                     ? fileName
