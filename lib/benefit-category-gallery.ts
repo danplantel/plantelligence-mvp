@@ -1,11 +1,11 @@
 import benefitCategoryBackgrounds from "@/data/gallery-benefit-category-backgrounds.json";
 
 /**
- * Curated backgrounds for the "add default photo" gallery, keyed by benefit category.
+ * Curated backgrounds for the "Choose Default Image" gallery, keyed by benefit category.
  *
  * Extracted from Step 1 so Step 1's Branding accordion and Step 2's editor panel offer
  * the SAME imagery for the same `brandImages.header` slot — they are two views of one
- * field, and a field whose "default photo" differs by which screen you are on is a bug
+ * field, and a field whose "default image" differs by which screen you are on is a bug
  * waiting to be reported.
  *
  * The shape mirrors `GalleryBackground` in `components/ui/modalGallery.tsx`, which is

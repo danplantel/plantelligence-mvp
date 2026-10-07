@@ -610,7 +610,7 @@ export function EditPlanPreviewSection({
 
   // ── Hero background: default-photo gallery + crop editor ──
   // The wizard hosts this pair inside `BannerSectionEditor`; this panel has no such
-  // host, so it owns them here. Without them the hero card's "add default photo"
+  // host, so it owns them here. Without them the hero card's "Choose Default Image"
   // button had nothing to open and did nothing.
   const [heroGalleryOpen, setHeroGalleryOpen] = useState(false);
   const [isHeroModalOpen, setIsHeroModalOpen] = useState(false);
@@ -1141,7 +1141,7 @@ export function EditPlanPreviewSection({
 
       {/* ── Hero background: the default-photo picker and its crop editor ──
           Create Plan raises both from `BannerSectionEditor`; this panel raises them
-          itself, so "add default photo" opens the same gallery and the same hero
+          itself, so "Choose Default Image" opens the same gallery and the same hero
           guidelines it does there. */}
       <ModalGallery
         open={heroGalleryOpen}

@@ -731,7 +731,7 @@ export function BrandImageUpload({
                 className="mt-2"
               >
                 <Plus className="w-4 h-4 mr-1" />
-                add default photo
+                Choose Default Image
               </Button>
             )}
           </div>

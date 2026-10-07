@@ -131,7 +131,7 @@ export function BenefitsEditorPanel({
     );
 
     /**
-     * Default backgrounds for the Header Background's "add default photo" gallery,
+     * Default backgrounds for the Header Background's "Choose Default Image" gallery,
      * matched to the benefit category (Retirement / Group Health / Group Life /
      * Custom→Wellness).
      *
@@ -583,7 +583,7 @@ export function BenefitsEditorPanel({
                                 })}
                                 onEditClick={() => {}}
                                 onFileSelect={handleBackgroundImageChange}
-                                // Was a no-op, so the card's "add default photo" button did
+                                // Was a no-op, so the card's "Choose Default Image" button did
                                 // nothing at all. It now opens the per-category gallery.
                                 onDefaultPhotoClick={() => setHeroGalleryOpen(true)}
                                 segmentMode={heroSegmentMode}
