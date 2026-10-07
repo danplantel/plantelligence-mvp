@@ -227,6 +227,50 @@ export async function sendVideoCompletionEmail(userEmail: string, videoName: str
   return sendEmail({ to: userEmail, subject, html });
 }
 
+/**
+ * Onboarding "resume on a computer" email ([MEDIUM]).
+ *
+ * Sent when a signed-in user opens the setup wizard on a screen narrower than
+ * the desktop breakpoint, so they can pick up where they left off on a computer.
+ * `resumeUrl` points back at `/onboarding`; the wizard restores the exact step
+ * from the server session, so the link lands them mid-flow rather than at step 1.
+ */
+export async function sendOnboardingResumeEmail(
+  userEmail: string,
+  resumeUrl: string,
+) {
+  const subject = "Pick up your PlanTelligence setup where you left off";
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <body style="margin:0;padding:0;background:#f4f5f7;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
+        <div style="max-width:600px;margin:0 auto;padding:32px 24px;">
+          <div style="background:#ffffff;border-radius:12px;padding:32px;text-align:center;">
+            <img src="${logoUrl}" alt="PlanTelligence" style="width:200px;margin-bottom:24px;" />
+            <h1 style="font-size:20px;margin:0 0 12px;">Finish setting up on a computer</h1>
+            <p style="font-size:14px;line-height:1.6;margin:0 0 24px;color:#4b5563;">
+              PlanTelligence setup works best on a desktop or laptop. We saved your
+              progress so you can pick up exactly where you left off.
+            </p>
+            <a href="${resumeUrl}" style="display:inline-block;padding:12px 24px;background:#23919C;color:#ffffff;text-decoration:none;border-radius:8px;font-weight:600;">
+              Continue setup
+            </a>
+            <p style="font-size:12px;line-height:1.6;margin:24px 0 0;color:#9ca3af;">
+              If the button doesn't work, copy and paste this link into your browser:<br />
+              <a href="${resumeUrl}" style="color:#23919C;">${resumeUrl}</a>
+            </p>
+          </div>
+          <p style="font-size:11px;color:#9ca3af;text-align:center;margin-top:16px;">
+            PlanTelligence® — you're receiving this because setup was started on a mobile device.
+          </p>
+        </div>
+      </body>
+    </html>
+  `;
+
+  return sendEmail({ to: userEmail, subject, html });
+}
+
 export async function sendEmailVerificationCode(originalEmail: string, code: string) {
   const subject = 'Email Change Verification – PlanTelligence®';
   const html = `

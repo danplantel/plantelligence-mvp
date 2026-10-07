@@ -17,8 +17,28 @@ import { useRouter } from "next/navigation";
 import { hasUnsavedOnboardingWork } from "@/lib/onboarding-wizard-dirty";
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
+import { DesktopOnlyGate } from "@/components/desktop-only-gate";
+import { useOnboardingResumeEmail } from "@/hooks/useOnboardingResumeEmail";
 
+/**
+ * Desktop-only guard for the setup wizard.
+ *
+ * Onboarding targets desktop/laptop (min ~1024px). Below that width the wizard
+ * is replaced with a notice and the account holder is emailed a link to resume
+ * on a computer ([MEDIUM]). The wizard content is a SEPARATE component so that,
+ * on small screens, none of its data loads, autosaves, or validation effects run.
+ */
 export default function OnboardingPage() {
+  const sendResumeEmail = useOnboardingResumeEmail();
+
+  return (
+    <DesktopOnlyGate variant="onboarding" onBlocked={sendResumeEmail}>
+      <OnboardingWizardContent />
+    </DesktopOnlyGate>
+  );
+}
+
+function OnboardingWizardContent() {
   const { isInitialized } = useWizardInit();
   const { setTitle } = usePageTitleContext();
   const { data: session } = useSession();

@@ -14,6 +14,7 @@ import {
   type ViewerAccessData,
 } from "@/hooks/useViewerAccess";
 import { mayUsePath } from "@/lib/teammates/nav-access";
+import { DesktopOnlyGate } from "@/components/desktop-only-gate";
 
 interface NewLayoutClientProps {
   children: React.ReactNode;
@@ -92,45 +93,52 @@ export function NewLayoutClient({
   // so typing it directly lands on the restricted notice instead of the page.
   const canUseThisPage = mayUsePath(pathname, { isCollaborator, can });
 
+  // Seed the access summary into SWR's cache for the whole dashboard tree. Every
+  // `useViewerAccess()` below — the guard, the sidebar, the settings page — reads it
+  // synchronously, so none of them renders the wrong thing before the server's answer
+  // arrives. `fallback` (not a prop) is what lets a deep consumer like Settings use it.
+  //
+  // Desktop-only gate: the advisor app chrome is wrapped so the dashboard is not usable
+  // below the desktop breakpoint. Auth pages (signin / signup / …) and onboarding return
+  // earlier, so account creation stays mobile-friendly and onboarding shows its own
+  // setup-specific notice.
   return (
-    // Seed the access summary into SWR's cache for the whole dashboard tree. Every
-    // `useViewerAccess()` below — the guard, the sidebar, the settings page — reads it
-    // synchronously, so none of them renders the wrong thing before the server's answer
-    // arrives. `fallback` (not a prop) is what lets a deep consumer like Settings use it.
-    <SWRConfig value={{ fallback: { [VIEWER_ACCESS_KEY]: viewerAccess } }}>
-    <>
-      <Header
-        stepper={stepperElement}
-        stepTitle={stepTitle}
-      />
-      <div className="flex bg-background">
-        <Sidebar />
-        <main
-          className={`flex-1 ${isWizardPage ? "pt-[72px]" : "pt-16"} overflow-y-auto duration-200 ease-in-out bg-background`}
-          style={{
-            // Clears the sidebar *and* any Preview inline Editing Panel
-            // (`--editor-inset` is only set by the Preview pages).
-            marginLeft:
-              "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
-          }}
-        >
-          {canUseThisPage ? (
-            children
-          ) : (
-            // `NoAccessNotice` positions itself absolutely, so it needs a positioned box
-            // to centre inside rather than the raw <main>.
-            <div className="relative min-h-[60vh]">
-              <NoAccessNotice
-                message="You don't have access to this page"
-                reason="page_restricted_for_collaborator"
-                backHref="/benefits"
-                backLabel="Back to Benefits"
-              />
-            </div>
-          )}
-        </main>
-      </div>
-    </>
-    </SWRConfig>
+    <DesktopOnlyGate variant="dashboard">
+      <SWRConfig value={{ fallback: { [VIEWER_ACCESS_KEY]: viewerAccess } }}>
+      <>
+        <Header
+          stepper={stepperElement}
+          stepTitle={stepTitle}
+        />
+        <div className="flex bg-background">
+          <Sidebar />
+          <main
+            className={`flex-1 ${isWizardPage ? "pt-[72px]" : "pt-16"} overflow-y-auto duration-200 ease-in-out bg-background`}
+            style={{
+              // Clears the sidebar *and* any Preview inline Editing Panel
+              // (`--editor-inset` is only set by the Preview pages).
+              marginLeft:
+                "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
+            }}
+          >
+            {canUseThisPage ? (
+              children
+            ) : (
+              // `NoAccessNotice` positions itself absolutely, so it needs a positioned box
+              // to centre inside rather than the raw <main>.
+              <div className="relative min-h-[60vh]">
+                <NoAccessNotice
+                  message="You don't have access to this page"
+                  reason="page_restricted_for_collaborator"
+                  backHref="/benefits"
+                  backLabel="Back to Benefits"
+                />
+              </div>
+            )}
+          </main>
+        </div>
+      </>
+      </SWRConfig>
+    </DesktopOnlyGate>
   );
 }
