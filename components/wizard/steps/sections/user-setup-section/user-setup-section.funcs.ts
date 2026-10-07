@@ -22,7 +22,7 @@ export const getTitleOptionsByOrgType = (orgType: OrganizationType | null) => {
   if (!orgType) return [];
 
   const titleOptionsMap = {
-    [OrganizationType.INDEPENDENT]: [
+    [OrganizationType.FINANCIAL_ADVISOR_RIA]: [
       { value: "Financial Advisor", label: "Financial Advisor" },
       { value: "Retirement Plan Advisor", label: "Retirement Plan Advisor" },
       { value: "Wealth Manager", label: "Wealth Manager" },
@@ -31,15 +31,7 @@ export const getTitleOptionsByOrgType = (orgType: OrganizationType | null) => {
       { value: "Partner / Principal", label: "Partner / Principal" },
       { value: "Other", label: "Other (please specify)" },
     ],
-    [OrganizationType.RIA]: [
-      { value: "Financial Advisor", label: "Financial Advisor" },
-      { value: "Retirement Plan Advisor", label: "Retirement Plan Advisor" },
-      { value: "Wealth Manager", label: "Wealth Manager" },
-      { value: "Investment Consultant", label: "Investment Consultant" },
-      { value: "Partner / Principal", label: "Partner / Principal" },
-      { value: "Other", label: "Other (please specify)" },
-    ],
-    [OrganizationType.HYBRID]: [
+    [OrganizationType.HYBRID_WEALTH_INSURANCE]: [
       { value: "Financial Advisor", label: "Financial Advisor" },
       { value: "Retirement Plan Advisor", label: "Retirement Plan Advisor" },
       { value: "Insurance Advisor", label: "Insurance Advisor" },
@@ -47,7 +39,7 @@ export const getTitleOptionsByOrgType = (orgType: OrganizationType | null) => {
       { value: "Financial Planner", label: "Financial Planner" },
       { value: "Other", label: "Other (please specify)" },
     ],
-    [OrganizationType.BROKER]: [
+    [OrganizationType.BROKER_DEALER_NETWORK]: [
       { value: "Advisor / Manager", label: "Advisor / Manager" },
       { value: "Relationship Manager", label: "Relationship Manager" },
       { value: "Financial Advisor", label: "Financial Advisor" },
@@ -55,7 +47,7 @@ export const getTitleOptionsByOrgType = (orgType: OrganizationType | null) => {
       { value: "Compliance Manager", label: "Compliance Manager" },
       { value: "Other", label: "Other (please specify)" },
     ],
-    [OrganizationType.INSURANCE]: [
+    [OrganizationType.INSURANCE_BENEFITS]: [
       { value: "Insurance Agent", label: "Insurance Agent" },
       { value: "Insurance Advisor", label: "Insurance Advisor" },
       { value: "Annuity Specialist", label: "Annuity Specialist" },
@@ -63,7 +55,7 @@ export const getTitleOptionsByOrgType = (orgType: OrganizationType | null) => {
       { value: "Benefits Consultant", label: "Benefits Consultant" },
       { value: "Other", label: "Other (please specify)" },
     ],
-    [OrganizationType.RECORDKEEPER]: [
+    [OrganizationType.RECORDKEEPER_TPA]: [
       { value: "Plan Administrator", label: "Plan Administrator" },
       { value: "Compliance Manager", label: "Compliance Manager" },
       { value: "Operations Manager", label: "Operations Manager" },
@@ -71,7 +63,7 @@ export const getTitleOptionsByOrgType = (orgType: OrganizationType | null) => {
       { value: "Retirement Plan Consultant", label: "Retirement Plan Consultant" },
       { value: "Other", label: "Other (please specify)" },
     ],
-    [OrganizationType.PLAN_SPONSOR]: [
+    [OrganizationType.EMPLOYER_PLAN_SPONSOR]: [
       { value: "HR Manager", label: "HR Manager" },
       { value: "HR Director", label: "HR Director" },
       { value: "Benefits Manager", label: "Benefits Manager" },
@@ -81,7 +73,7 @@ export const getTitleOptionsByOrgType = (orgType: OrganizationType | null) => {
     ],
     // HR Outsourcing / PEO serves many employers but is HR-facing, so it shares
     // the employer/HR title list.
-    [OrganizationType.PEO]: [
+    [OrganizationType.HR_OUTSOURCING_PEO]: [
       { value: "HR Manager", label: "HR Manager" },
       { value: "HR Director", label: "HR Director" },
       { value: "Benefits Manager", label: "Benefits Manager" },

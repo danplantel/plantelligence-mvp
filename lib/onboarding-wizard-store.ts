@@ -13,6 +13,8 @@ import {
   DisclaimersFormData
 } from "@/types/wizard";
 import { normalizeCleanDomain } from "./url-utils";
+import { normalizeOrganizationType } from "@/config/onboarding/organization-types";
+import { normalizeTeamSize } from "@/config/onboarding/team-sizes";
 import { step2ServicesToCategories } from "./service-categories";
 import { getSession } from "next-auth/react";
 import { toast } from "sonner";
@@ -546,6 +548,24 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
             });
 
             await Promise.all(loadPromises);
+
+            // Fold retired ids from pre-migration rows into the current
+            // vocabulary, so the forms, summaries and nativeEnum validation all
+            // see a current id rather than a legacy one.
+            if (loadedData.clientProfile?.organizationType) {
+              loadedData.clientProfile = {
+                ...loadedData.clientProfile,
+                organizationType: normalizeOrganizationType(
+                  loadedData.clientProfile.organizationType,
+                ),
+              };
+            }
+            if (loadedData.teamSize?.teamSize) {
+              loadedData.teamSize = {
+                ...loadedData.teamSize,
+                teamSize: normalizeTeamSize(loadedData.teamSize.teamSize),
+              };
+            }
 
             // Always sync Step 2 services -> userSetup.primaryServiceCategories so Settings/autofill get categories
             const servicesArray = Array.isArray(loadedData.services?.services) ? loadedData.services.services : [];

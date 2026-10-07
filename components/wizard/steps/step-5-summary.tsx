@@ -18,6 +18,7 @@ import { SummaryEditModal } from "./sections/summary-edit-modals/summary-edit-mo
 import { Step5Disclaimers } from "./step-5-disclaimers";
 import { designationLabel } from "@/config/onboarding/designations";
 import { organizationLabel } from "@/config/onboarding/organization-types";
+import { teamSizeLabel } from "@/config/onboarding/team-sizes";
 
 // Format phone number for display (no country code)
 const formatPhoneNumber = (phone: string): string => {
@@ -221,12 +222,8 @@ export function Step5Summary({
   };
 
   const getTeamSizeDisplay = () => {
-    const teamSize = stepData.teamSize?.teamSize;
-    if (teamSize === "just_me") return "Just me";
-    if (teamSize === "2_5") return "2-5 people";
-    if (teamSize === "6_20") return "6-20 people";
-    if (teamSize === "enterprise") return "Enterprise";
-    return "Not specified";
+    // Labels live in config; legacy band ids resolve through normalizeTeamSize.
+    return teamSizeLabel(stepData.teamSize?.teamSize) || "Not specified";
   };
 
   const getServicesDisplay = () => {

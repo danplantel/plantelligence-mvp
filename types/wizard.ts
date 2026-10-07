@@ -1,21 +1,39 @@
+/**
+ * Organization type — the STORED, stable id vocabulary (never a label).
+ *
+ * `financial_advisor_ria` merges the former Independent Advisor + RIA choices.
+ * Legacy ids (`independent`, `ria`, `hybrid`, `broker`, `insurance`,
+ * `recordkeeper`, `plan_sponsor`, `peo`, `trust_services`) are accepted on read
+ * and folded to a current id by `normalizeOrganizationType()`
+ * (config/onboarding/organization-types.ts).
+ */
 export enum OrganizationType {
-  INDEPENDENT = 'independent',
-  RIA = 'ria',
-  HYBRID = 'hybrid',
-  BROKER = 'broker',
-  INSURANCE = 'insurance',
-  RECORDKEEPER = 'recordkeeper',
-  PLAN_SPONSOR = 'plan_sponsor',
-  PEO = 'peo',
-  TRUST_SERVICES = 'trust_services',
-  OTHER = 'other'
+  FINANCIAL_ADVISOR_RIA = 'financial_advisor_ria',
+  HYBRID_WEALTH_INSURANCE = 'hybrid_wealth_insurance',
+  INSURANCE_BENEFITS = 'insurance_benefits',
+  BROKER_DEALER_NETWORK = 'broker_dealer_network',
+  RECORDKEEPER_TPA = 'recordkeeper_tpa',
+  HR_OUTSOURCING_PEO = 'hr_outsourcing_peo',
+  EMPLOYER_PLAN_SPONSOR = 'employer_plan_sponsor',
+  OTHER = 'other',
 }
 
+/**
+ * Onboarding team-size band — the STORED id.
+ *
+ * This is the onboarding ESTIMATE only. It is a recommendation, never an
+ * entitlement or a limit: the organization's actual seat limit is
+ * `Organization.seatsIncluded` (null until a billing surface exists) and its live
+ * count is derived from accepted invites. This step writes the band only.
+ *
+ * Legacy ids (`just_me`, `enterprise`) are folded by `normalizeTeamSize()`
+ * (config/onboarding/team-sizes.ts).
+ */
 export enum TeamSize {
-  JUST_ME = 'just_me',
+  SOLO = 'solo',
   TWO_FIVE = '2_5',
   SIX_TWENTY = '6_20',
-  ENTERPRISE = 'enterprise'
+  TWENTY_ONE_PLUS = '21_plus',
 }
 
 export enum ServiceType {

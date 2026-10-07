@@ -9,6 +9,7 @@ import { clientProfileSchema, teamSizeSchema } from "@/lib/wizard-validation";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { useScrollToErrorField } from "@/hooks/use-scroll-to-error-field";
 import { normalizeOrganizationType } from "@/config/onboarding/organization-types";
+import { normalizeTeamSize } from "@/config/onboarding/team-sizes";
 import { useEffect, useState } from "react";
 
 interface Step1UserProfileProps {
@@ -37,7 +38,7 @@ export function Step1UserProfile({ errorFields = [] }: Step1UserProfileProps) {
         stepData.clientProfile?.organizationType,
       ),
       customOrganization: stepData.clientProfile?.customOrganization ?? "",
-      teamSize: stepData.teamSize?.teamSize || undefined,
+      teamSize: normalizeTeamSize(stepData.teamSize?.teamSize),
     },
     mode: "onSubmit",
   });
@@ -70,7 +71,7 @@ export function Step1UserProfile({ errorFields = [] }: Step1UserProfileProps) {
       );
     }
     if (stepData.teamSize) {
-      setValue("teamSize", stepData.teamSize.teamSize);
+      setValue("teamSize", normalizeTeamSize(stepData.teamSize.teamSize));
     }
   }, [stepData, setValue]);
 

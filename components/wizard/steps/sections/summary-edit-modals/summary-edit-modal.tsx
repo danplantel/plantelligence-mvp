@@ -38,6 +38,10 @@ import {
   normalizeOrganizationType,
   organizationOptions,
 } from "@/config/onboarding/organization-types";
+import {
+  allTeamSizeOptions,
+  normalizeTeamSize,
+} from "@/config/onboarding/team-sizes";
 import { InfoDialog } from "@/components/ui/info-dialog";
 import { Edit, User, Briefcase, Palette, Settings, Info } from "lucide-react";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
@@ -73,9 +77,9 @@ export function SummaryEditModal({
     // User Profile
     organizationType:
       normalizeOrganizationType(initialData.clientProfile?.organizationType) ||
-      OrganizationType.INDEPENDENT,
+      OrganizationType.FINANCIAL_ADVISOR_RIA,
     customOrganization: initialData.clientProfile?.customOrganization || "",
-    teamSize: initialData.teamSize?.teamSize || "",
+    teamSize: normalizeTeamSize(initialData.teamSize?.teamSize) || "",
 
     // Services
     services: initialData.services?.services || [],
@@ -130,9 +134,9 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
     setEditData({
       organizationType:
         normalizeOrganizationType(initialData.clientProfile?.organizationType) ||
-        OrganizationType.INDEPENDENT,
+        OrganizationType.FINANCIAL_ADVISOR_RIA,
       customOrganization: initialData.clientProfile?.customOrganization || "",
-      teamSize: initialData.teamSize?.teamSize || "",
+      teamSize: normalizeTeamSize(initialData.teamSize?.teamSize) || "",
       services: initialData.services?.services || [],
       customService: initialData.services?.customService || "",
       brandColor: initialData.branding?.brandColor || "#1F3A60",
@@ -170,9 +174,9 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
     setEditData({
       organizationType:
         normalizeOrganizationType(initialData.clientProfile?.organizationType) ||
-        OrganizationType.INDEPENDENT,
+        OrganizationType.FINANCIAL_ADVISOR_RIA,
       customOrganization: initialData.clientProfile?.customOrganization || "",
-      teamSize: initialData.teamSize?.teamSize || "",
+      teamSize: normalizeTeamSize(initialData.teamSize?.teamSize) || "",
       services: initialData.services?.services || [],
       customService: initialData.services?.customService || "",
       brandColor: initialData.branding?.brandColor || "#1F3A60",
@@ -329,12 +333,11 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
                   <SelectValue placeholder="Select team size" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="just_me">Just me</SelectItem>
-                  <SelectItem value="2_5">2-5 people</SelectItem>
-                  <SelectItem value="6_20">6-20 people</SelectItem>
-                  <SelectItem value="enterprise">
-                    Enterprise (20+ people)
-                  </SelectItem>
+                  {allTeamSizeOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

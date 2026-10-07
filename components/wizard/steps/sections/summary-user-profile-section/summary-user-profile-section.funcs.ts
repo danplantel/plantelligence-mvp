@@ -1,4 +1,5 @@
 import { organizationLabel } from "@/config/onboarding/organization-types";
+import { teamSizeLabel } from "@/config/onboarding/team-sizes";
 
 export interface SummaryUserProfileSectionProps {
   organizationType?: string;
@@ -8,19 +9,17 @@ export interface SummaryUserProfileSectionProps {
 
 /**
  * Display label for a stored organization-type value. Labels live in config and
- * legacy ids (e.g. "ria") resolve through the merge, so this never renders a raw
- * id.
+ * legacy ids resolve through `normalizeOrganizationType`, so this never renders a
+ * raw id.
  */
 export const getOrganizationTypeLabel = (type: string) => {
   return organizationLabel(type) || type;
 };
 
+/**
+ * Display label for a stored team-size band. Legacy band ids (`just_me`,
+ * `enterprise`) resolve through config so this never renders a raw id.
+ */
 export const getTeamSizeLabel = (size: string) => {
-  const sizes = {
-    just_me: "Just me",
-    "2_5": "2–5",
-    "6_20": "6–20",
-    enterprise: "21+",
-  };
-  return sizes[size as keyof typeof sizes] || size;
+  return teamSizeLabel(size) || size;
 };

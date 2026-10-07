@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { OrganizationType, TeamSize, ServiceType, LicenseType, BenefitType } from "@/types/wizard";
+import { normalizeOrganizationType } from "@/config/onboarding/organization-types";
+import { normalizeTeamSize } from "@/config/onboarding/team-sizes";
 
 /**
  * Extract field names from error message for destructive styling
@@ -315,9 +317,19 @@ export const validateCurrentStep = async (step: number, stepData: any) => {
     switch (step) {
       case 1:
         // Step 1: User Profile and Team Size are required
-        // Check if we have the required data in stepData
-        const clientProfile = stepData.clientProfile;
-        const teamSize = stepData.teamSize;
+        // Fold retired ids (pre-migration rows / stale cache) into the current
+        // vocabulary before validating, so nativeEnum never rejects a value the
+        // app would otherwise accept.
+        const clientProfile = {
+          ...stepData.clientProfile,
+          organizationType: normalizeOrganizationType(
+            stepData.clientProfile?.organizationType,
+          ),
+        };
+        const teamSize = {
+          ...stepData.teamSize,
+          teamSize: normalizeTeamSize(stepData.teamSize?.teamSize),
+        };
         
         
         const step1Errors: string[] = [];
