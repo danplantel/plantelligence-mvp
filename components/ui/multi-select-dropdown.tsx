@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useMemo, useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -13,10 +13,23 @@ import { CaretSortIcon } from "@radix-ui/react-icons";
 import { X, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+/**
+ * An option may be a bare string (value === label) or an explicit
+ * `{ value, label }` pair, so callers can STORE a stable id while rendering a
+ * friendlier label.
+ */
+export type MultiSelectOption = string | { value: string; label: string };
+
 interface MultiSelectDropdownProps {
-  options: string[];
+  options: MultiSelectOption[];
+  /** Selected VALUES (not labels). */
   selectedValues: string[];
   onSelectionChange: (values: string[]) => void;
+  /**
+   * Maps a stored value to its display label (for chips and the comma summary).
+   * Falls back to the option's own label, then to the raw value.
+   */
+  valueLabel?: (value: string) => string;
   placeholder?: string;
   allowCustomInput?: boolean;
   customInputPlaceholder?: string;
@@ -33,6 +46,7 @@ export function MultiSelectDropdown({
   options,
   selectedValues = [],
   onSelectionChange,
+  valueLabel,
   placeholder = "Select options...",
   allowCustomInput = true,
   customInputPlaceholder = "Add custom option",
@@ -46,6 +60,24 @@ export function MultiSelectDropdown({
   const [customInput, setCustomInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Normalize to { value, label } pairs so every branch below reads values while
+  // rendering labels. A bare string is its own value and label.
+  const normalizedOptions = useMemo(
+    () =>
+      options.map((option) =>
+        typeof option === "string"
+          ? { value: option, label: option }
+          : option,
+      ),
+    [options],
+  );
+
+  const labelFor = (value: string) => {
+    if (valueLabel) return valueLabel(value);
+    const match = normalizedOptions.find((option) => option.value === value);
+    return match?.label ?? value;
+  };
 
   // When showActionButtons is true, selections are staged locally until the
   // user clicks OK.  pendingSelections is initialised from selectedValues
@@ -67,13 +99,6 @@ export function MultiSelectDropdown({
   // Resolve the effective values: pending when popover is open with action buttons,
   // otherwise the official selectedValues.
   const effectiveValues = showActionButtons && isOpen ? pendingSelections : selectedValues;
-
-  // Filter options based on search term
-  const filteredOptions = options.filter(
-    (option) =>
-      option.toLowerCase().includes(searchTerm.toLowerCase()) &&
-      !effectiveValues.includes(option),
-  );
 
   const handleToggleOption = (option: string, checked: boolean) => {
     if (checked) {
@@ -159,9 +184,10 @@ export function MultiSelectDropdown({
     }
   };
 
-  // Show all options (including selected ones) for multi-select
-  const displayOptions = options.filter((option) =>
-    option.toLowerCase().includes(searchTerm.toLowerCase()),
+  // Show all options (including selected ones) for multi-select, matched on the
+  // displayed label.
+  const displayOptions = normalizedOptions.filter((option) =>
+    option.label.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
   return (
@@ -176,7 +202,7 @@ export function MultiSelectDropdown({
                 variant="secondary"
                 className="flex items-center gap-1 px-2 py-1 text-xs"
               >
-                {value}
+                {labelFor(value)}
                 {(!showActionButtons || !isOpen) && (
                   <button
                     type="button"
@@ -220,7 +246,7 @@ export function MultiSelectDropdown({
                 {effectiveValues.length === 0
                   ? placeholder
                   : displayMode === "comma"
-                  ? effectiveValues.join(", ")
+                  ? effectiveValues.map(labelFor).join(", ")
                   : `${effectiveValues.length} selected`}
               </span>
               <CaretSortIcon className="h-4 w-4 opacity-50" />
@@ -262,15 +288,15 @@ export function MultiSelectDropdown({
           <div className="max-h-48 overflow-y-auto p-1">
             {displayOptions.length > 0 ? (
               displayOptions.map((option) => {
-                const isSelected = effectiveValues.includes(option);
+                const isSelected = effectiveValues.includes(option.value);
                 return (
                   <div
-                    key={option}
+                    key={option.value}
                     className={cn(
                       "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-2 text-sm outline-none hover:bg-accent",
                       isSelected && "bg-accent"
                     )}
-                    onClick={() => handleToggleOption(option, !isSelected)}
+                    onClick={() => handleToggleOption(option.value, !isSelected)}
                   >
                     <div className="flex items-center space-x-2 flex-1">
                       <input
@@ -279,7 +305,7 @@ export function MultiSelectDropdown({
                         onChange={() => {}}
                         className="w-4 h-4 text-blue-600 rounded border-gray-300 dark:border-gray-600 dark:bg-gray-800"
                       />
-                      <span className="flex-1">{option}</span>
+                      <span className="flex-1">{option.label}</span>
                     </div>
                   </div>
                 );

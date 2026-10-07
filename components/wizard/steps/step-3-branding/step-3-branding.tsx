@@ -98,7 +98,6 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
      saveStepData,
      saveStepDataToServer,
      stepData,
-     validateCurrentStepFields,
      clearErrorFields,
    } = useOnboardingWizardStore();
 

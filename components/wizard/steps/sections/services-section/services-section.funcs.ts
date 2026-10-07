@@ -3,7 +3,7 @@ import {
   PRIMARY_SERVICE_CATEGORY_OPTIONS,
   categoriesToStep2Services,
   step2ServicesToCategories,
-} from "@/lib/service-categories";
+} from "@/config/onboarding/service-categories";
 
 export interface ServicesState {
   selectedServices: ServiceType[];

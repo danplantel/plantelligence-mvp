@@ -41,6 +41,13 @@ export interface OnboardingWizardState {
     employerScope?: EmployerScopeFormData;
   };
   errorFields: string[];
+  /**
+   * What produced the current `errorFields` — `"next"` (the wizard's Next
+   * validation) or `"blur"` (a single field validated as the user left it).
+   * Consumed by `useScrollToErrorField` so blur-triggered errors paint in place
+   * without scrolling/stealing focus back to the field the user just left.
+   */
+  errorFieldsSource: "next" | "blur" | null;
   isLoading: boolean;
   loadingPromise: Promise<any> | null;
   stepLoadingPromises: Record<string, Promise<any>>;
@@ -60,9 +67,15 @@ export interface OnboardingWizardState {
   loadAllWizardData: (force?: boolean) => Promise<any>;
   completeWizard: () => void;
   resetWizard: () => void;
-  setErrorFields: (fields: string[]) => void;
+  setErrorFields: (fields: string[], source?: "next" | "blur" | null) => void;
   clearErrorFields: () => void;
   validateCurrentStepFields: (step?: number) => Promise<void>;
+  /**
+   * Validate a SINGLE field after the user leaves it (blur) and surface only the
+   * errors belonging to that field. This is the "leaves a field" half of the
+   * validation-timing rule; the "clicks Next" half stays in the wizard.
+   */
+  validateFieldOnBlur: (step: number, field: string, data?: any) => Promise<void>;
   saveSummaryData: (summaryData: any) => Promise<any>;
 
   autosaveToServer?: boolean;
@@ -200,6 +213,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
       isCompleted: false,
       stepData: {},
       errorFields: [],
+      errorFieldsSource: null,
       isLoading: false,
       loadingPromise: null,
       stepLoadingPromises: {},
@@ -236,7 +250,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
 
         if (currentStep < totalSteps) {
           const next = currentStep + 1;
-          set({ currentStep: next, errorFields: [] });
+          set({ currentStep: next, errorFields: [], errorFieldsSource: null });
           persistCurrentStep(next);
           // Reset showNextSteps when moving away from step 5
           if (currentStep === 5) {
@@ -256,7 +270,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
 
         if (currentStep > 1) {
           const prev = currentStep - 1;
-          set({ currentStep: prev, errorFields: [] });
+          set({ currentStep: prev, errorFields: [], errorFieldsSource: null });
           persistCurrentStep(prev);
         }
       },
@@ -264,7 +278,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
       goToStep: (step: number) => {
         const { totalSteps, persistCurrentStep } = get();
         if (step >= 1 && step <= totalSteps) {
-          set({ currentStep: step, errorFields: [] });
+          set({ currentStep: step, errorFields: [], errorFieldsSource: null });
           persistCurrentStep(step);
         }
       },
@@ -648,17 +662,40 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
           isCompleted: false,
           stepData: {},
           errorFields: [],
+          errorFieldsSource: null,
           isLoading: false,
           loadingPromise: null,
         });
       },
 
-      setErrorFields: (fields: string[]) => {
-        set({ errorFields: fields });
+      setErrorFields: (
+        fields: string[],
+        source: "next" | "blur" | null = null,
+      ) => {
+        set({ errorFields: fields, errorFieldsSource: source });
       },
 
       clearErrorFields: () => {
-        set({ errorFields: [] });
+        set({ errorFields: [], errorFieldsSource: null });
+      },
+
+      // Per-field blur validation ("leaves a field"). Validates the step against
+      // the supplied snapshot (or the current store data) and surfaces ONLY the
+      // errors belonging to `field`, so blurring one field never paints another
+      // untouched field red. Source is "blur" so the scroll hook leaves focus
+      // where the user put it.
+      validateFieldOnBlur: async (step: number, field: string, data?: any) => {
+        const snapshot = data ?? get().stepData;
+        try {
+          const { validateCurrentStep } = await import("./wizard-validation");
+          const result = await validateCurrentStep(step, snapshot);
+          const scoped = result.isValid
+            ? []
+            : (result.errorFields || []).filter((f) => f === field);
+          set({ errorFields: scoped, errorFieldsSource: "blur" });
+        } catch {
+          // Silent — blur validation is best-effort.
+        }
       },
 
       validateCurrentStepFields: async (step?: number) => {
@@ -676,9 +713,12 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
           const validationResult = await validateCurrentStep(stepToValidate, stepData);
 
           if (!validationResult.isValid && validationResult.errorFields) {
-            set({ errorFields: validationResult.errorFields });
+            set({
+              errorFields: validationResult.errorFields,
+              errorFieldsSource: "next",
+            });
           } else {
-            set({ errorFields: [] });
+            set({ errorFields: [], errorFieldsSource: null });
           }
         } catch (error) {
           // Silent error

@@ -27,7 +27,7 @@ export function UserProfileSection({
     saveStepData,
     stepData,
     loadStepData,
-    validateCurrentStepFields,
+    validateFieldOnBlur,
   } = useOnboardingWizardStore();
   const { setValue, watch } = useFormContext();
 
@@ -59,8 +59,6 @@ export function UserProfileSection({
       } catch (error) {
         console.error("Failed to save client profile:", error);
       }
-      // Validate fields in real-time
-      setTimeout(() => validateCurrentStepFields(1), 100);
     }
   };
 
@@ -83,10 +81,21 @@ export function UserProfileSection({
         } catch (error) {
           console.error("Failed to save client profile:", error);
         }
-        // Validate fields in real-time
-        setTimeout(() => validateCurrentStepFields(1), 100);
       }
     }
+  };
+
+  // Per-field blur validation ("leaves a field"). Never fires on selection, so
+  // errors stay hidden until the user clicks Next or leaves the field.
+  const validateOnBlur = (field: "organizationType" | "customOrganization") => {
+    if (disableAutoSave) return;
+    void validateFieldOnBlur(1, field, {
+      ...stepData,
+      clientProfile: {
+        organizationType: watch("organizationType"),
+        customOrganization: watch("customOrganization"),
+      },
+    });
   };
 
   const content = (
@@ -95,6 +104,11 @@ export function UserProfileSection({
         value={selectedType || ""}
         className="grid gap-2"
         data-field="organizationType"
+        onBlur={(e) => {
+          // Ignore focus moving between the radios themselves.
+          if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+          validateOnBlur("organizationType");
+        }}
       >
         {organizationOptions.map((option) => (
           <div
@@ -143,6 +157,7 @@ export function UserProfileSection({
           <Textarea
             value={customOrganization}
             onChange={(e) => onCustomChange(e.target.value)}
+            onBlur={() => validateOnBlur("customOrganization")}
             placeholder="Benefits marketplace, PEO, association..."
             className="min-h-20 text-start resize-none focus:ring-none"
             destructive={errorFields.includes("customOrganization")}

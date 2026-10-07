@@ -2,6 +2,8 @@
 
 import { useEffect } from "react";
 
+import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
+
 /**
  * Scrolls to (and focuses) the top-most errored required field whenever
  * validation errors appear — mirroring the behavior of the new-client wizard's
@@ -10,10 +12,14 @@ import { useEffect } from "react";
  * Why a per-step hook: the onboarding wizard's own `focusFirstInvalidField`
  * only runs when the Next button is clicked and relies on validation order.
  * Running this effect inside each step means the page also scrolls to the
- * correct field when errors are produced by real-time validation
- * (`validateCurrentStepFields`), and it always lands on the FIRST field in
- * document order rather than whichever field the validator happened to flag
- * first.
+ * correct field when errors are produced by a step's own validation, and it
+ * always lands on the FIRST field in document order rather than whichever field
+ * the validator happened to flag first.
+ *
+ * Blur validation ("the user left a field") is deliberately excluded: its error
+ * is shown in place, and scrolling/stealing focus back to the field the user
+ * just left would fight them. Only the wizard's Next validation re-anchors the
+ * viewport — read from `errorFieldsSource` in the onboarding store.
  *
  * @param errorFields   Field names currently flagged as invalid (store state).
  * @param orderedFields Required field names for the step, in document order.
@@ -28,8 +34,13 @@ export function useScrollToErrorField(
   const errorFieldsKey = errorFields.join(",");
   const orderedFieldsKey = orderedFields.join(",");
 
+  // What produced the current errors — see `errorFieldsSource` in the store.
+  const errorFieldsSource = useOnboardingWizardStore((s) => s.errorFieldsSource);
+
   useEffect(() => {
     if (!errorFieldsKey) return;
+    // Blur errors paint in place; never scroll or steal focus for them.
+    if (errorFieldsSource === "blur") return;
 
     const erroredFields = errorFieldsKey.split(",");
     const order = orderedFieldsKey ? orderedFieldsKey.split(",") : erroredFields;
@@ -65,5 +76,5 @@ export function useScrollToErrorField(
 
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [errorFieldsKey]);
+  }, [errorFieldsKey, errorFieldsSource]);
 }

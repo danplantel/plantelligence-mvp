@@ -29,6 +29,7 @@
 import prisma from "@/lib/prisma";
 import { BENEFIT_CONTACT_CATEGORIES } from "@/lib/benefit-contacts";
 import { readPlanContacts } from "./contact-mirror.server";
+import { designationLabels } from "@/config/onboarding/designations";
 
 /**
  * A hub card. Deliberately shaped like the historical `KeyContact` row, because the
@@ -150,7 +151,7 @@ export async function buildHubContacts(
       title: profile.jobTitle ?? null,
       designation:
         Array.isArray(profile.designations) && profile.designations.length > 0
-          ? (profile.designations as string[]).join(", ")
+          ? designationLabels(profile.designations as string[]).join(", ")
           : null,
       email: profile.email,
       phone: profile.phone ?? null,

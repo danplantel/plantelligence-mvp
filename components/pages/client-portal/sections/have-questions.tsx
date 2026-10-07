@@ -3,6 +3,7 @@
 import { Phone, Mail } from "lucide-react";
 import { Headshot } from "@/components/ui/headshot";
 import type { FAQContact } from "@/components/faq-section";
+import { designationLabel } from "@/config/onboarding/designations";
 
 interface HaveQuestionsProps {
   brandColor?: string;
@@ -78,7 +79,7 @@ export function HaveQuestions({
                             key={index}
                             className="inline-block max-w-full break-words rounded-full bg-gray-100 px-2 py-0.5 text-center text-[12px] font-red-hat leading-tight text-gray-600"
                           >
-                            {value}
+                            {designationLabel(value)}
                           </span>
                         ))}
                     </div>

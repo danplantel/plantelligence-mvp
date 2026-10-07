@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { designationLabel } from "@/config/onboarding/designations";
 import useSWR from "swr";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
 import {
@@ -3389,7 +3390,7 @@ export function BenefitsStep1({
                             key={i}
                             className="inline-flex items-center gap-1 rounded-full bg-[#23919C]/10 px-2.5 py-1 text-xs font-medium text-[#23919C] dark:bg-[#23919C]/20 dark:text-[#23919C]"
                           >
-                            {d}
+                            {designationLabel(d)}
                           </span>
                         ))}
                       </div>

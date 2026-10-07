@@ -16,6 +16,7 @@ import { Headshot } from "@/components/ui/headshot";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { SummaryEditModal } from "./sections/summary-edit-modals/summary-edit-modal";
 import { Step5Disclaimers } from "./step-5-disclaimers";
+import { designationLabel } from "@/config/onboarding/designations";
 
 // Format phone number for display (no country code)
 const formatPhoneNumber = (phone: string): string => {
@@ -287,7 +288,7 @@ export function Step5Summary({
   const getDesignationsDisplay = () => {
     const designations = stepData.userSetup?.designations || [];
     if (designations.length === 0) return "None";
-    return designations.map((d) => `[${d}]`).join(" ");
+    return designations.map((d) => `[${designationLabel(d)}]`).join(" ");
   };
 
   // Handle disclaimers validation
@@ -645,7 +646,7 @@ export function Step5Summary({
                 <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Designations</p>
                 <p className="text-sm text-muted-foreground">
                   {stepData.userSetup?.designations && stepData.userSetup.designations.length > 0
-                    ? stepData.userSetup.designations.join(", ")
+                    ? stepData.userSetup.designations.map(designationLabel).join(", ")
                     : "None"}
                 </p>
               </div>

@@ -17,7 +17,6 @@ export function Step2Services({ errorFields = [] }: Step2ServicesProps) {
     saveStepData,
     stepData,
     loadStepData,
-    validateCurrentStepFields,
   } = useOnboardingWizardStore();
 
   // Scroll to the top-most errored required field (document order) whenever
@@ -77,7 +76,6 @@ export function Step2Services({ errorFields = [] }: Step2ServicesProps) {
       console.error("Failed to save services:", error);
     }
     updateInsuranceLicensing(newServices);
-    setTimeout(() => validateCurrentStepFields(2), 100);
   };
 
   const onServicesChange = async (newServices: ServiceType[]) => {
@@ -99,8 +97,6 @@ export function Step2Services({ errorFields = [] }: Step2ServicesProps) {
     } catch (error) {
       console.error("Failed to save services:", error);
     }
-    // Validate fields in real-time
-    setTimeout(() => validateCurrentStepFields(2), 100);
   };
 
   // Helper function to update insurance licensing

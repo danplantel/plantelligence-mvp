@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { Mail, Phone, Clock } from "lucide-react";
 import { getSupportIcon } from "@/lib/support-icons";
+import { designationLabel } from "@/config/onboarding/designations";
 import { motion } from "framer-motion";
 import { ContactAvatar } from "@/components/pages/my-benefits-team/contact-avatar";
 import { formatPhone } from "@/components/pages/my-benefits-team/utils";
@@ -419,7 +420,7 @@ export function SmallVerticalCard({
                           : "#F3F4F6",
                       }}
                     >
-                      {value}
+                      {designationLabel(value)}
                     </span>
                   ))}
               </div>

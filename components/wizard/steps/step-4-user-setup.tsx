@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { useForm, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -23,6 +23,7 @@ import { Headshot } from "@/components/ui/headshot";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { X, Save } from "lucide-react";
 import { useScrollToErrorField } from "@/hooks/use-scroll-to-error-field";
+import { resolveDesignationIds } from "@/config/onboarding/designations";
 
 interface Step4UserSetupProps {
   errorFields?: string[];
@@ -35,7 +36,7 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
     saveStepDataToServer,
     stepData,
     loadStepData,
-    setErrorFields,
+    validateFieldOnBlur,
     clearErrorFields,
   } = useOnboardingWizardStore();
 
@@ -71,11 +72,6 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
   // debounce (e.g. designations) when the user navigates away from Step 4.
   const hasEditsRef = useRef(false);
 
-  // Guard: block validation-driven errorFields while the step is mounting/loading,
-  // so fields like phone start in their normal (non-error) state until the user
-  // actually interacts with the form or validation is explicitly triggered.
-  const isReadyRef = useRef(false);
-
   // Modal states for editing
   const [showHeadshotModal, setShowHeadshotModal] = useState(false);
 
@@ -89,7 +85,7 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
       phone: "",
       phoneExtension: "",
       title: "",
-      designations: [],
+      designations: [] as string[],
       headshot: "",
       headshotFileName: "",
       headshotData: null as any,
@@ -113,15 +109,10 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
   // Debounce the form data for saving
   const debouncedFormData = useDebounce(watchedData, 2000);
 
-  // Clear any stale error fields on mount so fields start in normal state,
-  // and mark the component ready after the current tick so no validation runs
-  // during the initial data-loading phase.
+  // Clear any stale error fields on mount so fields start in their normal state.
+  // Errors now appear only when the user clicks Next or leaves a field (blur).
   useEffect(() => {
     clearErrorFields();
-    const t = setTimeout(() => {
-      isReadyRef.current = true;
-    }, 0);
-    return () => clearTimeout(t);
   }, [clearErrorFields]);
 
   // Flush any unsaved form changes to the store/server when the component unmounts
@@ -154,7 +145,7 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
           setValue("phone", serverData.phone || "");
           setValue("phoneExtension", serverData.phoneExtension || "");
           setValue("title", serverData.title || "");
-          setValue("designations", serverData.designations || []);
+          setValue("designations", resolveDesignationIds(serverData.designations));
           setValue("headshot", serverData.headshot || "");
           setValue("headshotData", serverData.headshotData ?? null);
           setValue(
@@ -176,7 +167,7 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
             phone: serverData.phone || "",
             phoneExtension: serverData.phoneExtension || "",
             title: serverData.title || "",
-            designations: serverData.designations || [],
+            designations: resolveDesignationIds(serverData.designations),
             headshot: serverData.headshot || "",
             headshotFileName,
             headshotData: serverData.headshotData ?? null,
@@ -353,10 +344,6 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
       setValue(field as any, value);
     }
 
-    // Skip validation-driven errorFields until the component has finished mounting.
-    // This prevents premature red borders (e.g. phone) before the user interacts.
-    const ready = isReadyRef.current;
-
     // Clear existing timeout
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
@@ -382,26 +369,6 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
           await flushHeadshotSave();
         } catch (error) {
           console.error("❌ Step4 - Headshot batch save failed:", error);
-        }
-        if (ready) {
-          try {
-            const { validateCurrentStep } = await import(
-              "@/lib/wizard-validation"
-            );
-            const currentFormData = methods.getValues();
-            const currentStepData = { ...stepData, userSetup: currentFormData };
-            const validationResult = await validateCurrentStep(
-              4,
-              currentStepData,
-            );
-            if (!validationResult.isValid && validationResult.errorFields) {
-              setErrorFields(validationResult.errorFields);
-            } else {
-              setErrorFields([]);
-            }
-          } catch (validationError) {
-            console.error("Error validating current step:", validationError);
-          }
         }
       }, 0);
       return;
@@ -436,57 +403,23 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
         saveOperationRef.current = null;
       }
 
-      // Validate after successful save using current form values (not stale store)
-      setTimeout(async () => {
-        if (ready) {
-          try {
-            const { validateCurrentStep } = await import(
-              "@/lib/wizard-validation"
-            );
-            const currentFormData = methods.getValues();
-            const currentStepData = { ...stepData, userSetup: currentFormData };
-
-            const validationResult = await validateCurrentStep(
-              4,
-              currentStepData,
-            );
-
-            if (!validationResult.isValid && validationResult.errorFields) {
-              setErrorFields(validationResult.errorFields);
-            } else {
-              setErrorFields([]);
-            }
-          } catch (validationError) {
-            console.error("Error validating current step:", validationError);
-          }
-        }
-      }, 200);
-    } else {
-      // For fields that don't require server save, validate immediately using current form values
-      setTimeout(async () => {
-        if (ready) {
-          try {
-            const { validateCurrentStep } = await import(
-              "@/lib/wizard-validation"
-            );
-            const currentFormData = methods.getValues();
-            const currentStepData = { ...stepData, userSetup: currentFormData };
-            const validationResult = await validateCurrentStep(
-              4,
-              currentStepData,
-            );
-            if (!validationResult.isValid && validationResult.errorFields) {
-              setErrorFields(validationResult.errorFields);
-            } else {
-              setErrorFields([]);
-            }
-          } catch (validationError) {
-            console.error("Error validating current step:", validationError);
-          }
-        }
-      }, 100);
     }
   };
+
+  /**
+   * Per-field blur validation ("leaves a field"). Uses the live form values so a
+   * field just typed is validated against what is on screen rather than a stale
+   * store, and surfaces only that field's error. Never runs on selection or load.
+   */
+  const handleFieldBlur = useCallback(
+    (field: string) => {
+      void validateFieldOnBlur(4, field, {
+        ...stepData,
+        userSetup: methods.getValues(),
+      });
+    },
+    [stepData, methods, validateFieldOnBlur],
+  );
 
   return (
     <FormProvider {...methods}>
@@ -496,6 +429,7 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
           data={watchedData}
           errorFields={errorFields}
           onDataChange={onDataChange}
+          onFieldBlur={handleFieldBlur}
         />
       </div>
 

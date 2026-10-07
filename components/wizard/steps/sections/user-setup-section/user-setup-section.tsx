@@ -13,13 +13,16 @@ import { FormError } from "@/components/ui/form-error";
 import { MultiSelectDropdown } from "@/components/ui/multi-select-dropdown";
 import {
   UserSetupData,
-  designationGroups,
   onTitleChange,
   onHeadshotChange,
   formatPhoneNumber,
   normalizePhoneNumber,
-  getRelevantDesignations,
 } from "@/components/wizard/steps/sections/user-setup-section/user-setup-section.funcs";
+import {
+  designationLabel,
+  getDesignationOptions,
+  getRelevantDesignations,
+} from "@/config/onboarding/designations";
 import { EmailChangeSection } from "@/components/pages/settings/email-change-section";
 import { PasswordChangeSection } from "@/components/pages/settings/password-change-section";
 import { GoogleAccountSection } from "@/components/pages/settings/google-account-section";
@@ -34,6 +37,12 @@ interface UserSetupSectionProps {
   data: UserSetupData;
   errorFields?: string[];
   onDataChange: (field: keyof UserSetupData, value: any) => void;
+  /**
+   * Called when the user leaves a required field, so the parent can validate just
+   * that field ("leaves a field" half of the validation-timing rule). Optional —
+   * Settings renders this section without it.
+   */
+  onFieldBlur?: (field: keyof UserSetupData) => void;
   hideCard?: boolean;
   /** Show Primary Service Categories (e.g. in Settings). Hidden in Step 4 onboarding. */
   showPrimaryServiceCategories?: boolean;
@@ -79,6 +88,7 @@ export function UserSetupSection({
   data,
   errorFields = [],
   onDataChange,
+  onFieldBlur,
   hideCard = false,
   showPrimaryServiceCategories = false,
   emailChangeMode = false,
@@ -99,8 +109,7 @@ export function UserSetupSection({
   } = data;
 
   // Get organization type from wizard store
-  const { stepData, validateCurrentStepFields, setErrorFields, loadAllWizardData } =
-    useOnboardingWizardStore();
+  const { stepData, loadAllWizardData } = useOnboardingWizardStore();
 
   // Use the parent form context instead of creating a new form
   const {
@@ -124,7 +133,7 @@ export function UserSetupSection({
   const designationOptions =
     relevantDesignations.length > 0
       ? relevantDesignations
-      : [...designationGroups.financial, ...designationGroups.hr];
+      : getDesignationOptions();
 
   // Defined once and positioned by `headshotFirst`: Settings renders it first (above "Your Name"),
   // onboarding keeps it after the email fields. One definition means the two placements cannot
@@ -197,6 +206,7 @@ export function UserSetupSection({
                 field.onBlur();
                 const value = e.target.value;
                 onDataChange("name", value);
+                onFieldBlur?.("name");
               }}
               placeholder="Enter your full name"
               required
@@ -229,7 +239,7 @@ export function UserSetupSection({
                 field.onBlur();
                 const value = e.target.value;
                 onTitleChange(value, onDataChange);
-                // Validation is handled inside onDataChange to ensure current form values are used
+                onFieldBlur?.("title");
               }}
               placeholder="Enter your professional title"
               required
@@ -301,6 +311,7 @@ export function UserSetupSection({
                 onBlur={(e) => {
                   field.onBlur();
                   onDataChange("organizationEmail", e.target.value);
+                  onFieldBlur?.("organizationEmail");
                 }}
                 placeholder="your.organization@example.com"
                 data-field="organizationEmail"
@@ -401,6 +412,7 @@ export function UserSetupSection({
                 field.onBlur();
                 const normalized = normalizePhoneNumber(e.target.value);
                 onDataChange("phone", normalized);
+                onFieldBlur?.("phone");
               }}
               placeholder="(555) 123-4567"
               required
@@ -486,6 +498,7 @@ export function UserSetupSection({
             <MultiSelectDropdown
               options={designationOptions}
               selectedValues={watchedDesignations || []}
+              valueLabel={designationLabel}
               onSelectionChange={(values) => {
                 setValue("designations", values);
                 onDataChange("designations", values);

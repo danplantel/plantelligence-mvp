@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { designationLabel } from "@/config/onboarding/designations";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { toNextImageSrc } from "@/lib/branding-image-url";
@@ -156,10 +157,13 @@ export function PortalWelcomeBanner({
     return () => { cancelled = true; };
   }, [profile]);
 
-  const effectiveDesignations =
+  // Stored designations are ids; render their labels. Legacy full labels and
+  // genuinely free-text values pass through `designationLabel` unchanged.
+  const effectiveDesignations = (
     customDesignations !== undefined
       ? customDesignations
-      : (profile?.designations ?? autoDesignations);
+      : (profile?.designations ?? autoDesignations)
+  ).map(designationLabel);
   const effectiveOrganizationName = profile?.organizationName ?? autoOrganizationName;
   const effectiveEmail = profile?.email ?? autoEmail;
 

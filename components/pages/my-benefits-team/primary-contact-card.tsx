@@ -5,6 +5,7 @@ import { BrandingImage } from "@/components/ui/branding-image";
 import { HEADER_LOGO_MAX_WIDTH_PX } from "@/lib/header-logo-band";
 import { Mail, Phone } from "lucide-react";
 import { getSupportIcon } from "@/lib/support-icons";
+import { designationLabel } from "@/config/onboarding/designations";
 import { motion } from "framer-motion";
 import { PrimaryVisual } from "@/components/pages/my-benefits-team/primary-visual";
 import { readableColor, mix } from "polished";
@@ -315,7 +316,7 @@ export function PrimaryContactCard({
                         backgroundColor: "rgba(255,255,255,0.16)",
                       }}
                     >
-                      {value}
+                      {designationLabel(value)}
                     </span>
                   ))}
               </div>

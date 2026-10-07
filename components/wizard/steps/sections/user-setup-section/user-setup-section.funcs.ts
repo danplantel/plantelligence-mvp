@@ -138,33 +138,8 @@ export const titleOptions = [
   }
 ];
 
-export const designationGroups = {
-  financial: [
-    "CFP® – Certified Financial Planner",
-    "AIF® – Accredited Investment Fiduciary",
-    "CPFA® – Certified Plan Fiduciary Advisor",
-    "CRPS® – Chartered Retirement Plans Specialist",
-    "CRPC® – Chartered Retirement Planning Counselor",
-    "CIMA® – Certified Investment Management Analyst",
-    "CFA® – Chartered Financial Analyst",
-    "CLU® – Chartered Life Underwriter",
-    "ChFC® – Chartered Financial Consultant",
-    "RICP® – Retirement Income Certified Professional",
-    "LUTCF® – Life Underwriter Training Council Fellow",
-    "CPA/PFS – Certified Public Accountant / Personal Financial Specialist",
-  ],
-  hr: [
-    "SHRM-CP – Society for Human Resource Management Certified Professional",
-    "SHRM-SCP – Senior Certified Professional",
-    "PHR – Professional in Human Resources",
-    "SPHR – Senior Professional in Human Resources",
-    "GPHR – Global Professional in Human Resources",
-    "CEBS – Certified Employee Benefit Specialist",
-    "CBP – Certified Benefits Professional",
-    "CCP – Certified Compensation Professional",
-    "CHRS – Certified Health & Retirement Specialist",
-  ]
-};
+// The designation dictionary (ids + labels) and the title→designation routing
+// live in config; import them from "@/config/onboarding/designations".
 
 // Event handlers
 export const onTitleChange = (
@@ -269,35 +244,4 @@ export const onPhoneChange = (
   onDataChange("phone", normalized);
 
   return formatted;
-};
-
-// Utility functions
-export const getRelevantDesignations = (title: string) => {
-  if (!title) return [];
-
-  const titleLower = title.toLowerCase();
-
-  if (
-    titleLower.includes("advisor") ||
-    titleLower.includes("planner") ||
-    titleLower.includes("manager") ||
-    titleLower.includes("consultant")
-  ) {
-    return designationGroups.financial;
-  } else if (
-    titleLower.includes("hr") ||
-    titleLower.includes("benefits") ||
-    titleLower.includes("chro")
-  ) {
-    return designationGroups.hr;
-  } else if (
-    titleLower.includes("relationship") ||
-    titleLower.includes("success") ||
-    titleLower.includes("plan") ||
-    titleLower.includes("compliance")
-  ) {
-    return []; // No designations required
-  } else {
-    return [...designationGroups.financial, ...designationGroups.hr]; // Show all
-  }
 };

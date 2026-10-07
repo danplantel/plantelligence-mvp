@@ -27,6 +27,11 @@ import { UploadInput } from "@/components/ui/upload-input";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { Headshot } from "@/components/ui/headshot";
 import { MultiSelectDropdown } from "@/components/ui/multi-select-dropdown";
+import {
+  designationLabel,
+  getDesignationOptions,
+  resolveDesignationIds,
+} from "@/config/onboarding/designations";
 import { OrganizationType, ServiceType } from "@/types/wizard";
 import { getTitleOptionsByOrgType } from "../user-setup-section/user-setup-section.funcs";
 import { InfoDialog } from "@/components/ui/info-dialog";
@@ -91,7 +96,7 @@ export function SummaryEditModal({
     phone: initialData.userSetup?.phone || "",
     phoneExtension: initialData.userSetup?.phoneExtension || "",
     title: initialData.userSetup?.title || "",
-    designations: initialData.userSetup?.designations || [],
+    designations: resolveDesignationIds(initialData.userSetup?.designations),
     saveAsContact: initialData.userSetup?.saveAsContact ?? true,
     headshot: initialData.userSetup?.headshot || "",
     headshotData: initialData.userSetup?.headshotData || null,
@@ -106,33 +111,9 @@ At <Organization_Name>, we understand that your benefits are more than just perk
 
 We hope to inspire confidence and peace of mind as you navigate your benefits journey with us.`;
 
-  const designationOptions = [
-    "CFP",
-    "CFA",
-    "CPA",
-    "ChFC",
-    "CLU",
-    "CIMA",
-    "CIMC",
-    "PFS",
-    "AIF",
-    "CPFA",
-    "CRPS",
-    "CRPC",
-    "CRC",
-    "CDFA",
-    "CFF",
-    "CKA",
-    "CTFA",
-    "CWS",
-    "PFS",
-    "QKA",
-    "QPA",
-    "QKA",
-    "QPA",
-    "QKA",
-    "QPA",
-  ];
+  // The designation dictionary (ids + labels) lives in config; values are stored
+  // as ids and rendered through `designationLabel`.
+  const designationOptions = getDesignationOptions();
 
   const serviceOptions = [
     { value: ServiceType.RETIREMENT, label: "Retirement", description: "" },
@@ -168,7 +149,7 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
       phone: initialData.userSetup?.phone || "",
       phoneExtension: initialData.userSetup?.phoneExtension || "",
       title: initialData.userSetup?.title || "",
-      designations: initialData.userSetup?.designations || [],
+      designations: resolveDesignationIds(initialData.userSetup?.designations),
       saveAsContact: initialData.userSetup?.saveAsContact ?? true,
       headshot: initialData.userSetup?.headshot || "",
       headshotData: initialData.userSetup?.headshotData || null,
@@ -208,7 +189,7 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
       phone: initialData.userSetup?.phone || "",
       phoneExtension: initialData.userSetup?.phoneExtension || "",
       title: initialData.userSetup?.title || "",
-      designations: initialData.userSetup?.designations || [],
+      designations: resolveDesignationIds(initialData.userSetup?.designations),
       saveAsContact: initialData.userSetup?.saveAsContact ?? true,
       headshot: initialData.userSetup?.headshot || "",
       headshotData: initialData.userSetup?.headshotData || null,
@@ -703,6 +684,7 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
               <MultiSelectDropdown
                 options={designationOptions}
                 selectedValues={editData.designations}
+                valueLabel={designationLabel}
                 onSelectionChange={(values) =>
                   updateField("designations", values)
                 }

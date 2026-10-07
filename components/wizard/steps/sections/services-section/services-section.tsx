@@ -33,7 +33,7 @@ export function ServicesSection({
   errorFields = [],
   hideCard = false,
 }: ServicesSectionProps) {
-  const { validateCurrentStepFields } = useOnboardingWizardStore();
+  const { validateFieldOnBlur } = useOnboardingWizardStore();
   const isOtherSelected = selectedServices.includes(ServiceType.OTHER);
   const selectedCategories = step2ServicesToCategories(selectedServices);
 
@@ -53,7 +53,14 @@ export function ServicesSection({
 
   const content = (
     <div className="space-y-4">
-      <div>
+      <div
+        // Per-field blur validation ("leaves a field"). Focus moving between the
+        // category checkboxes is ignored so selecting never triggers an error.
+        onBlur={(e) => {
+          if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+          void validateFieldOnBlur(2, "services");
+        }}
+      >
         <PrimaryServiceCategoriesSelect
           selectedValues={selectedCategories}
           onSelectionChange={handleCategoriesChange}
@@ -80,8 +87,8 @@ export function ServicesSection({
             value={customService}
             onChange={async (e) => {
               onCustomServiceChange(e.target.value);
-              setTimeout(() => validateCurrentStepFields(2), 100);
             }}
+            onBlur={() => void validateFieldOnBlur(2, "customService")}
             placeholder="Enter custom benefits..."
             maxLength={50}
             destructive={errorFields.includes("customService")}

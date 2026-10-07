@@ -217,7 +217,9 @@ export function OnboardingWizard({
         console.error("Validation failed:", validationResult.errors);
         // Set error fields for destructive styling
         if (validationResult.errorFields) {
-          setErrorFields(validationResult.errorFields);
+          // Tag as "next" so the step's scroll hook re-anchors the viewport
+          // (blur-sourced errors intentionally do not).
+          setErrorFields(validationResult.errorFields, "next");
 
           // Focus on first invalid field and scroll to it
           setTimeout(() => {

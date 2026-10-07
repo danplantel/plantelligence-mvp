@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
+import { designationLabel } from "@/config/onboarding/designations";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -305,7 +306,7 @@ function ContactCardPreview({
                 key={index}
                 className="inline-block max-w-full break-words rounded-full bg-gray-100 px-2 py-0.5 text-center text-[10px] leading-tight text-gray-600"
               >
-                {value}
+                {designationLabel(value)}
               </span>
             ))}
           </div>

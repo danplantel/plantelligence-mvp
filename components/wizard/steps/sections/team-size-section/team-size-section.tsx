@@ -26,7 +26,7 @@ export function TeamSizeSection({
     saveStepData,
     stepData,
     loadStepData,
-    validateCurrentStepFields,
+    validateFieldOnBlur,
   } = useOnboardingWizardStore();
   const { setValue, watch } = useFormContext();
 
@@ -74,9 +74,16 @@ export function TeamSizeSection({
       } catch (error) {
         console.error("Failed to save team size:", error);
       }
-      // Validate fields in real-time
-      setTimeout(() => validateCurrentStepFields(1), 100);
     }
+  };
+
+  // Per-field blur validation ("leaves a field"). Never fires on selection.
+  const validateSizeOnBlur = () => {
+    if (disableAutoSave) return;
+    void validateFieldOnBlur(1, "teamSize", {
+      ...stepData,
+      teamSize: { teamSize: watch("teamSize") },
+    });
   };
 
   if (!organizationType) {
@@ -109,6 +116,11 @@ export function TeamSizeSection({
         value={selectedSize || ""}
         className="grid gap-2"
         data-field="teamSize"
+        onBlur={(e) => {
+          // Ignore focus moving between the radios themselves.
+          if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+          validateSizeOnBlur();
+        }}
       >
         {teamSizeOptions.map((option) => (
           <div

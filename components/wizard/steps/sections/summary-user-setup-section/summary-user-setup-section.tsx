@@ -4,6 +4,7 @@ import { User, Mail, Phone, Briefcase, Award } from "lucide-react";
 import { Headshot } from "@/components/ui/headshot";
 import { SummaryUserSetupSectionProps } from "./summary-user-setup-section.funcs";
 import { formatPhoneNumber } from "../user-setup-section/user-setup-section.funcs";
+import { designationLabel } from "@/config/onboarding/designations";
 
 export function SummaryUserSetupSection({
   name,
@@ -73,7 +74,7 @@ export function SummaryUserSetupSection({
                   className="inline-flex items-center bg-blue-100 px-2 py-1 rounded-full text-blue-800 text-xs"
                 >
                   <Award className="mr-1 w-3 h-3" />
-                  {designation}
+                  {designationLabel(designation)}
                 </span>
               ))}
             </div>
