@@ -10,7 +10,7 @@ import { SimpleImageEditorModal } from "@/components/ui/simple-image-editor-moda
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { Headshot } from "@/components/ui/headshot";
 import { FormError } from "@/components/ui/form-error";
-import { MultiSelectDropdown } from "@/components/ui/multi-select-dropdown";
+import { ChipTypeahead } from "@/components/ui/chip-typeahead";
 import {
   UserSetupData,
   onTitleChange,
@@ -19,6 +19,7 @@ import {
   normalizePhoneNumber,
 } from "@/components/wizard/steps/sections/user-setup-section/user-setup-section.funcs";
 import {
+  designationAcronym,
   designationLabel,
   getDesignationOptions,
   getRelevantDesignations,
@@ -495,22 +496,34 @@ export function UserSetupSection({
             <label className="block font-medium text-sm dark:text-gray-200">
               Designations (Optional)
             </label>
-            <MultiSelectDropdown
-              options={designationOptions}
+            <ChipTypeahead
+              // `keywords` lets a typed query match the acronym too, so "shrm cp"
+              // resolves to SHRM-CP® (recognized entries normalize through config).
+              options={designationOptions.map((o) => ({
+                value: o.value,
+                // Match list shows acronym + full name; the selected pill shows
+                // the acronym only.
+                label: `${o.acronym} – ${o.label}`,
+                keywords: [o.acronym, o.value, o.label],
+              }))}
               selectedValues={watchedDesignations || []}
               valueLabel={designationLabel}
-              onSelectionChange={(values) => {
+              chipLabel={designationAcronym}
+              onChange={(values) => {
                 setValue("designations", values);
                 onDataChange("designations", values);
               }}
-              placeholder="Select designations..."
-              allowCustomInput
-              customInputPlaceholder="Add custom designation"
-              data-field="designations"
+              placeholder="Type a designation, e.g. CFP…"
+              allowCustom
+              customOptionLabel={(query) =>
+                `Add as custom designation: “${query}”`
+              }
               maxSelections={5}
-              displayMode="chips"
-              showActionButtons
+              dataField="designations"
             />
+            <p className="text-xs text-muted-foreground">
+              Add up to 5. They display in this order. Drag to reorder.
+            </p>
           </div>
         )}
       </div>

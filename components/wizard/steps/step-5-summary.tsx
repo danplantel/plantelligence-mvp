@@ -16,7 +16,10 @@ import { Headshot } from "@/components/ui/headshot";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { SummaryEditModal } from "./sections/summary-edit-modals/summary-edit-modal";
 import { Step5Disclaimers } from "./step-5-disclaimers";
-import { designationLabel } from "@/config/onboarding/designations";
+import {
+  designationAcronyms,
+  designationLabel,
+} from "@/config/onboarding/designations";
 import { organizationLabel } from "@/config/onboarding/organization-types";
 import { teamSizeLabel } from "@/config/onboarding/team-sizes";
 
@@ -268,6 +271,17 @@ export function Step5Summary({
     const designations = stepData.userSetup?.designations || [];
     if (designations.length === 0) return "None";
     return designations.map((d) => `[${designationLabel(d)}]`).join(" ");
+  };
+
+  /**
+   * Name with its designations inline, comma-separated (e.g. "Kevin Morales,
+   * CFP®, AIF®"). When there are none the name is returned alone — the
+   * designations are never shown as "None" (rule 7).
+   */
+  const getNameWithDesignations = () => {
+    const name = stepData.userSetup?.name || "Not specified";
+    const acronyms = designationAcronyms(stepData.userSetup?.designations);
+    return acronyms.length > 0 ? `${name}, ${acronyms.join(", ")}` : name;
   };
 
   // Handle disclaimers validation
@@ -589,7 +603,7 @@ export function Step5Summary({
               <div>
                 <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Name</p>
                 <p className="text-sm text-muted-foreground">
-                  {stepData.userSetup?.name || "Not specified"}
+                  {getNameWithDesignations()}
                 </p>
               </div>
               <div>
@@ -619,14 +633,6 @@ export function Step5Summary({
                 <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Title</p>
                 <p className="text-sm text-muted-foreground">
                   {stepData.userSetup?.title || "Not specified"}
-                </p>
-              </div>
-              <div>
-                <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Designations</p>
-                <p className="text-sm text-muted-foreground">
-                  {stepData.userSetup?.designations && stepData.userSetup.designations.length > 0
-                    ? stepData.userSetup.designations.map(designationLabel).join(", ")
-                    : "None"}
                 </p>
               </div>
               <div>
