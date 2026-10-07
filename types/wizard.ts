@@ -6,6 +6,7 @@ export enum OrganizationType {
   INSURANCE = 'insurance',
   RECORDKEEPER = 'recordkeeper',
   PLAN_SPONSOR = 'plan_sponsor',
+  PEO = 'peo',
   TRUST_SERVICES = 'trust_services',
   OTHER = 'other'
 }

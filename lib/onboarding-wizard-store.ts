@@ -69,6 +69,12 @@ export interface OnboardingWizardState {
   resetWizard: () => void;
   setErrorFields: (fields: string[], source?: "next" | "blur" | null) => void;
   clearErrorFields: () => void;
+  /**
+   * Remove ONE field from `errorFields` — used when the user satisfies that
+   * field (e.g. selecting an option) so a stale message cannot linger. Clear
+   * only: it never adds an error, so it cannot surface one on selection.
+   */
+  clearFieldError: (field: string) => void;
   validateCurrentStepFields: (step?: number) => Promise<void>;
   /**
    * Validate a SINGLE field after the user leaves it (blur) and surface only the
@@ -677,6 +683,12 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
 
       clearErrorFields: () => {
         set({ errorFields: [], errorFieldsSource: null });
+      },
+
+      clearFieldError: (field: string) => {
+        set((state) => ({
+          errorFields: state.errorFields.filter((f) => f !== field),
+        }));
       },
 
       // Per-field blur validation ("leaves a field"). Validates the step against

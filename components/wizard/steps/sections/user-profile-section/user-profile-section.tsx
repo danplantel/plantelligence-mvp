@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Building2 } from "lucide-react";
 import { organizationOptions } from "./user-profile-section.funcs";
+import { normalizeOrganizationType } from "@/config/onboarding/organization-types";
 
 export interface UserProfileSectionProps {
   errorFields?: string[];
@@ -28,23 +29,26 @@ export function UserProfileSection({
     stepData,
     loadStepData,
     validateFieldOnBlur,
+    clearFieldError,
   } = useOnboardingWizardStore();
   const { setValue, watch } = useFormContext();
 
-  const selectedType = watch("organizationType");
+  // Fold a legacy RIA answer into the merged "Financial Advisor / RIA" option so
+  // a previously-saved value still preselects.
+  const selectedType = normalizeOrganizationType(watch("organizationType"));
   const customOrganization = watch("customOrganization");
 
   const onTypeSelect = async (type: OrganizationType) => {
-    setValue("organizationType", type, {
-      shouldDirty: true,
-      shouldTouch: true,
-    });
+    // Plain set: no shouldTouch, so selecting an option can never surface a
+    // validation message. Errors come only from Next or a field blur.
+    setValue("organizationType", type);
     if (type !== OrganizationType.OTHER) {
-      setValue("customOrganization", "", {
-        shouldDirty: true,
-        shouldTouch: true,
-      });
+      setValue("customOrganization", "");
     }
+
+    // Choosing a type satisfies the requirement — drop any stale "select an
+    // organization type" error. Clear-only, so nothing appears on selection.
+    clearFieldError("organizationType");
 
     if (!disableAutoSave) {
       // Save data immediately when user interacts
@@ -63,10 +67,11 @@ export function UserProfileSection({
   };
 
   const onCustomChange = async (value: string) => {
-    setValue("customOrganization", value, {
-      shouldDirty: true,
-      shouldTouch: true,
-    });
+    setValue("customOrganization", value);
+
+    // As soon as the user types, drop the "describe your organization" error;
+    // it is re-evaluated on blur / Next.
+    clearFieldError("customOrganization");
 
     if (!disableAutoSave) {
       // Save data immediately when user interacts
@@ -100,9 +105,11 @@ export function UserProfileSection({
 
   const content = (
     <>
+      {/* Compact 2-column grid so all options are visible without an inner
+          scrollbar. */}
       <RadioGroup
         value={selectedType || ""}
-        className="grid gap-2"
+        className="grid grid-cols-2 gap-2"
         data-field="organizationType"
         onBlur={(e) => {
           // Ignore focus moving between the radios themselves.
@@ -113,7 +120,7 @@ export function UserProfileSection({
         {organizationOptions.map((option) => (
           <div
             key={option.value}
-            className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+            className={`min-w-0 p-2.5 border rounded-lg cursor-pointer transition-colors ${
               selectedType === option.value
                 ? `border-primary bg-[#23919C]/10 ${
                     errorFields.includes("organizationType")
@@ -126,16 +133,22 @@ export function UserProfileSection({
             }`}
             onClick={() => onTypeSelect(option.value)}
           >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value={option.value} id={`org-${option.value}`} />
-              <div>
+            <div className="flex items-start space-x-2">
+              <RadioGroupItem
+                value={option.value}
+                id={`org-${option.value}`}
+                className="mt-0.5 shrink-0"
+              />
+              <div className="min-w-0">
                 <Label
                   htmlFor={`org-${option.value}`}
                   className="cursor-pointer font-medium"
                 >
-                  <p className="text-sm font-medium">{option.label}</p>
+                  <p className="text-sm font-medium leading-snug">
+                    {option.label}
+                  </p>
                 </Label>
-                <div className="text-xs text-muted-foreground">
+                <div className="text-xs leading-snug text-muted-foreground">
                   {option.description}
                 </div>
               </div>
@@ -158,7 +171,7 @@ export function UserProfileSection({
             value={customOrganization}
             onChange={(e) => onCustomChange(e.target.value)}
             onBlur={() => validateOnBlur("customOrganization")}
-            placeholder="Benefits marketplace, PEO, association..."
+            placeholder="e.g., benefits marketplace, association, consultancy…"
             className="min-h-20 text-start resize-none focus:ring-none"
             destructive={errorFields.includes("customOrganization")}
             data-field="customOrganization"
@@ -183,11 +196,11 @@ export function UserProfileSection({
         <div className="flex justify-between items-center gap-2">
           <CardTitle className="text-lg flex items-center gap-2">
             <Building2 className="w-5 h-5 text-accent-blue" />
-            User Profile
+            Your Organizaation
           </CardTitle>
         </div>
         <p className="text-sm text-muted-foreground">
-          Select your organization type
+          What type of organization are you?
         </p>
       </CardHeader>
       <CardContent className="space-y-3 pt-0">{content}</CardContent>

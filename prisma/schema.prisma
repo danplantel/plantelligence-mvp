@@ -429,7 +429,7 @@ model WizardSession {
 model WizardClientProfile {
   id                 String   @id @default(cuid())
   sessionId          String   @unique
-  organizationType   String // independent, ria, hybrid, broker, insurance, recordkeeper, other
+  organizationType   String // independent, ria, hybrid, broker, insurance, recordkeeper, plan_sponsor, peo, other (legacy: trust_services)
   customOrganization String?
   organizationName   String? // Organization name from branding
   website            String? // Organization website from branding

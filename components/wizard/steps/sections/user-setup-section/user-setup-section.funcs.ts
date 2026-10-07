@@ -28,6 +28,7 @@ export const getTitleOptionsByOrgType = (orgType: OrganizationType | null) => {
       { value: "Wealth Manager", label: "Wealth Manager" },
       { value: "Financial Planner", label: "Financial Planner" },
       { value: "Investment Consultant", label: "Investment Consultant" },
+      { value: "Partner / Principal", label: "Partner / Principal" },
       { value: "Other", label: "Other (please specify)" },
     ],
     [OrganizationType.RIA]: [
@@ -78,13 +79,14 @@ export const getTitleOptionsByOrgType = (orgType: OrganizationType | null) => {
       { value: "CFO / Finance Manager", label: "CFO / Finance Manager" },
       { value: "Other", label: "Other (please specify)" },
     ],
-    [OrganizationType.TRUST_SERVICES]: [
-      { value: "Trust Officer", label: "Trust Officer" },
-      { value: "Trust Administrator", label: "Trust Administrator" },
-      { value: "Trust Manager", label: "Trust Manager" },
-      { value: "Wealth Manager", label: "Wealth Manager" },
-      { value: "Estate Planning Advisor", label: "Estate Planning Advisor" },
-      { value: "Fiduciary Specialist", label: "Fiduciary Specialist" },
+    // HR Outsourcing / PEO serves many employers but is HR-facing, so it shares
+    // the employer/HR title list.
+    [OrganizationType.PEO]: [
+      { value: "HR Manager", label: "HR Manager" },
+      { value: "HR Director", label: "HR Director" },
+      { value: "Benefits Manager", label: "Benefits Manager" },
+      { value: "Benefits Director", label: "Benefits Director" },
+      { value: "CFO / Finance Manager", label: "CFO / Finance Manager" },
       { value: "Other", label: "Other (please specify)" },
     ],
     [OrganizationType.OTHER]: [

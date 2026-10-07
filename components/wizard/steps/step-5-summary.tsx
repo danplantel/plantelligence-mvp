@@ -17,6 +17,7 @@ import { BrandingImage } from "@/components/ui/branding-image";
 import { SummaryEditModal } from "./sections/summary-edit-modals/summary-edit-modal";
 import { Step5Disclaimers } from "./step-5-disclaimers";
 import { designationLabel } from "@/config/onboarding/designations";
+import { organizationLabel } from "@/config/onboarding/organization-types";
 
 // Format phone number for display (no country code)
 const formatPhoneNumber = (phone: string): string => {
@@ -215,27 +216,8 @@ export function Step5Summary({
     if (customOrg) return customOrg;
     if (!orgType) return "Not specified";
 
-    // Map organization types to display names
-    const orgTypeMap: { [key: string]: string } = {
-      independent: "Independent Advisor",
-      ria: "RIA (Registered Investment Advisor)",
-      broker_dealer: "Broker-Dealer",
-      insurance_agency: "Insurance Agency",
-      bank: "Bank",
-      credit_union: "Credit Union",
-      accounting_firm: "Accounting Firm",
-      law_firm: "Law Firm",
-      family_office: "Family Office",
-      plan_sponsor: "Plan Sponsor",
-      tpa: "TPA (Third Party Administrator)",
-      recordkeeper: "Recordkeeper",
-      investment_advisor: "Investment Advisor",
-      financial_planner: "Financial Planner",
-      wealth_manager: "Wealth Manager",
-      other: "Other",
-    };
-
-    return orgTypeMap[orgType] || orgType;
+    // Labels live in config; legacy ids (e.g. "ria") resolve through the merge.
+    return organizationLabel(orgType) || "Not specified";
   };
 
   const getTeamSizeDisplay = () => {

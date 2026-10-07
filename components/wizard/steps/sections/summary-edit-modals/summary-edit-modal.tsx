@@ -34,6 +34,10 @@ import {
 } from "@/config/onboarding/designations";
 import { OrganizationType, ServiceType } from "@/types/wizard";
 import { getTitleOptionsByOrgType } from "../user-setup-section/user-setup-section.funcs";
+import {
+  normalizeOrganizationType,
+  organizationOptions,
+} from "@/config/onboarding/organization-types";
 import { InfoDialog } from "@/components/ui/info-dialog";
 import { Edit, User, Briefcase, Palette, Settings, Info } from "lucide-react";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
@@ -68,7 +72,7 @@ export function SummaryEditModal({
   const [editData, setEditData] = useState({
     // User Profile
     organizationType:
-      initialData.clientProfile?.organizationType ||
+      normalizeOrganizationType(initialData.clientProfile?.organizationType) ||
       OrganizationType.INDEPENDENT,
     customOrganization: initialData.clientProfile?.customOrganization || "",
     teamSize: initialData.teamSize?.teamSize || "",
@@ -125,7 +129,7 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
   useEffect(() => {
     setEditData({
       organizationType:
-        initialData.clientProfile?.organizationType ||
+        normalizeOrganizationType(initialData.clientProfile?.organizationType) ||
         OrganizationType.INDEPENDENT,
       customOrganization: initialData.clientProfile?.customOrganization || "",
       teamSize: initialData.teamSize?.teamSize || "",
@@ -165,7 +169,7 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
   const handleCancel = () => {
     setEditData({
       organizationType:
-        initialData.clientProfile?.organizationType ||
+        normalizeOrganizationType(initialData.clientProfile?.organizationType) ||
         OrganizationType.INDEPENDENT,
       customOrganization: initialData.clientProfile?.customOrganization || "",
       teamSize: initialData.teamSize?.teamSize || "",
@@ -288,28 +292,11 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
                   <SelectValue placeholder="Select organization type" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value={OrganizationType.INDEPENDENT}>
-                    Independent Advisor
-                  </SelectItem>
-                  <SelectItem value={OrganizationType.BROKER}>
-                    Broker
-                  </SelectItem>
-                  <SelectItem value={OrganizationType.RIA}>
-                    RIA (Registered Investment Advisor)
-                  </SelectItem>
-                  <SelectItem value={OrganizationType.HYBRID}>
-                    Hybrid
-                  </SelectItem>
-                  <SelectItem value={OrganizationType.INSURANCE}>
-                    Insurance
-                  </SelectItem>
-                  <SelectItem value={OrganizationType.RECORDKEEPER}>
-                    Recordkeeper
-                  </SelectItem>
-                  <SelectItem value={OrganizationType.PLAN_SPONSOR}>
-                    Plan Sponsor
-                  </SelectItem>
-                  <SelectItem value={OrganizationType.OTHER}>Other</SelectItem>
+                  {organizationOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

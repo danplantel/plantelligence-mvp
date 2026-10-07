@@ -1,20 +1,18 @@
+import { organizationLabel } from "@/config/onboarding/organization-types";
+
 export interface SummaryUserProfileSectionProps {
   organizationType?: string;
   customOrganization?: string;
   teamSize?: string;
 }
 
+/**
+ * Display label for a stored organization-type value. Labels live in config and
+ * legacy ids (e.g. "ria") resolve through the merge, so this never renders a raw
+ * id.
+ */
 export const getOrganizationTypeLabel = (type: string) => {
-  const types = {
-    INDEPENDENT: "Independent Advisor",
-    RIA: "RIA or Boutique Firm",
-    HYBRID: "Hybrid Wealth & Insurance Firm",
-    BROKER: "Broker-Dealer / Aggregator",
-    INSURANCE: "Insurance Agency / IMO",
-    RECORDKEEPER: "Recordkeeper / TPA / Partner",
-    OTHER: "Other",
-  };
-  return types[type as keyof typeof types] || type;
+  return organizationLabel(type) || type;
 };
 
 export const getTeamSizeLabel = (size: string) => {
