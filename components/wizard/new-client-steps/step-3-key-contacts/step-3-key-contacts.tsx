@@ -329,6 +329,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
         firstName: existing.firstName || "",
         lastName: existing.lastName || "",
         title: existing.title || "",
+        designations: Array.isArray(existing.designations)
+          ? existing.designations
+          : [],
         displayName: existing.displayName || "",
         email: existing.email || "",
         phone: existing.phone || "",
@@ -389,6 +392,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
           firstName: existing.firstName || "",
           lastName: existing.lastName || "",
           title: existing.title || "",
+          designations: Array.isArray(existing.designations)
+            ? existing.designations
+            : [],
           displayName: existing.displayName || "",
           email: existing.email || "",
           phone: existing.phone || "",
@@ -477,6 +483,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
         firstName: existingMainContact.firstName || "",
         lastName: existingMainContact.lastName || "",
         title: existingMainContact.title || "",
+        designations: Array.isArray(existingMainContact.designations)
+          ? existingMainContact.designations
+          : [],
         displayName: existingMainContact.displayName || "",
         email: existingMainContact.email || "",
         phone: existingMainContact.phone || "",
@@ -580,6 +589,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
                 firstName: contact?.firstName || "",
                 lastName: contact?.lastName || "",
                 title: contact?.title || "",
+                designations: Array.isArray(contact?.designations)
+                  ? contact?.designations
+                  : [],
                 displayName: contact?.displayName || "",
                 email: contact?.email || "",
                 phone: contact?.phone || "",
@@ -625,6 +637,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
                 firstName: existingMainContact?.firstName || "",
                 lastName: existingMainContact?.lastName || "",
                 title: existingMainContact?.title || "",
+                designations: Array.isArray(existingMainContact?.designations)
+                  ? existingMainContact?.designations
+                  : [],
                 displayName: existingMainContact?.displayName || "",
                 email: existingMainContact?.email || "",
                 phone: existingMainContact?.phone || "",

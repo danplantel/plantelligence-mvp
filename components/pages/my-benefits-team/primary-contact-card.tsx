@@ -21,6 +21,8 @@ interface Contact {
   firstName?: string;
   lastName?: string;
   title?: string;
+  /** Free-text designations, each rendered directly under the job title. */
+  designations?: string[];
   customRole?: string;
   email?: string;
   phone?: string;
@@ -287,12 +289,37 @@ export function PrimaryContactCard({
             </p>
           )}
 
-          {/* COMPANY NAME — brand (primary) color, same as the name above. */}
+          {/* COMPANY NAME — above the designations, so the card reads
+              name → title → company → designations. Brand (primary) color, same
+              as the name above. */}
           {(contact.companyName || companyName) && (
             <p className="text-sm sm:text-base font-bold" style={{ color: effectiveBrandColor }}>
               {contact.companyName || companyName}
             </p>
           )}
+
+          {/* DESIGNATIONS — a wrapping row of chips (they flow onto another line
+              only when they run out of room). Each chip wraps internally too, so a
+              long designation stays inside the card. */}
+          {!isTeamSupport &&
+            (contact.designations || []).some((value) => value && value.trim()) && (
+              <div className="flex w-full flex-wrap items-center gap-1">
+                {(contact.designations || [])
+                  .filter((value) => value && value.trim())
+                  .map((value, index) => (
+                    <span
+                      key={index}
+                      className="inline-block max-w-full break-words rounded-full px-2 py-0.5 text-center text-[12px] leading-tight"
+                      style={{
+                        color: textColor,
+                        backgroundColor: "rgba(255,255,255,0.16)",
+                      }}
+                    >
+                      {value}
+                    </span>
+                  ))}
+              </div>
+            )}
 
           {/* EMAIL (clickable) */}
           {contact.email && contact.displayEmail !== false && (

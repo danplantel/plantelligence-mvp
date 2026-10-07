@@ -14,7 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ArrowLeft, ArrowRight, Mail, Phone, BadgeCheck, Calendar, Globe, PiggyBank, Shield, Heart, Puzzle, Users, Briefcase, Info } from "lucide-react";
+import { ArrowLeft, ArrowRight, Mail, Phone, BadgeCheck, Calendar, Globe, PiggyBank, Shield, Heart, Puzzle, Users, Briefcase, Info, Plus, X } from "lucide-react";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { Headshot } from "@/components/ui/headshot";
@@ -88,6 +88,50 @@ const getInitials = (name?: string): string => {
   return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
 };
 
+/** The most designations a single contact may carry. */
+const MAX_DESIGNATIONS = 5;
+
+/**
+ * The most characters one designation may hold. The onboarding wizard's premade
+ * list is the yardstick — its longest entry is the 70-character
+ * "SHRM-CP – Society for Human Resource Management Certified Professional" — so
+ * 80 leaves room for a credential plus its spelled-out name.
+ */
+const MAX_DESIGNATION_LENGTH = 80;
+
+/**
+ * Normalize a stored designation value into the list of rows the form edits.
+ * Designations are a list (the card renders them as a wrapping row of chips);
+ * this also tolerates the earlier single-string shape, caps the list at the
+ * maximum, caps each entry at the character limit, and always yields at least
+ * one row so the field is never invisible.
+ */
+const toDesignationList = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    const list = value
+      .slice(0, MAX_DESIGNATIONS)
+      .map((v) =>
+        typeof v === "string" ? v.slice(0, MAX_DESIGNATION_LENGTH) : "",
+      );
+    return list.length > 0 ? list : [""];
+  }
+  if (typeof value === "string" && value.trim()) {
+    return [value.slice(0, MAX_DESIGNATION_LENGTH)];
+  }
+  return [""];
+};
+
+/**
+ * Trim, drop blanks and cap at the maxima — what actually gets stored on the
+ * contact, so no card can ever receive more than `MAX_DESIGNATIONS` entries of
+ * more than `MAX_DESIGNATION_LENGTH` characters.
+ */
+const cleanDesignationList = (list: string[]): string[] =>
+  list
+    .map((value) => value.trim().slice(0, MAX_DESIGNATION_LENGTH))
+    .filter(Boolean)
+    .slice(0, MAX_DESIGNATIONS);
+
 /** Derive a light card accent color from the category */
 const categoryAccent: Record<string, string> = {
   Retirement: "#1F3A60",
@@ -139,6 +183,8 @@ interface ContactCardPreviewProps {
   firstName: string;
   lastName: string;
   title: string;
+  /** Free-text designations, each rendered under the job title. */
+  designations?: string[];
   displayName: string;
   email: string;
   phone: string;
@@ -161,6 +207,7 @@ function ContactCardPreview({
   firstName,
   lastName,
   title,
+  designations = [],
   displayName,
   email,
   phone,
@@ -242,11 +289,26 @@ function ContactCardPreview({
           {resolvedTitle}
         </p>
 
-        {/* Company Name */}
+        {/* Company Name — above the designations, matching the portal cards. */}
         {companyName?.trim() && (
           <p className="text-[11px] font-semibold text-gray-700 text-center -mt-1">
             {companyName}
           </p>
+        )}
+
+        {/* Designations — a wrapping row of chips. The chips themselves wrap too,
+            so a long designation stays inside the card. */}
+        {designations.length > 0 && (
+          <div className="mt-[-2px] flex w-full flex-wrap items-center justify-center gap-1">
+            {designations.map((value, index) => (
+              <span
+                key={index}
+                className="inline-block max-w-full break-words rounded-full bg-gray-100 px-2 py-0.5 text-center text-[10px] leading-tight text-gray-600"
+              >
+                {value}
+              </span>
+            ))}
+          </div>
         )}
 
         {/* Divider */}
@@ -543,6 +605,11 @@ export function ContactFormSlide({
   const [firstName, setFirstName] = useState(step3bData.firstName || "");
   const [lastName, setLastName] = useState(step3bData.lastName || "");
   const [title, setTitle] = useState(step3bData.title || "");
+  const [designations, setDesignations] = useState<string[]>(() =>
+    toDesignationList(
+      (step3bData as any).designations ?? (step3bData as any).designation,
+    ),
+  );
   const [displayName, setDisplayName] = useState(step3bData.displayName || "");
   const [email, setEmail] = useState(step3bData.email || "");
   const [phone, setPhone] = useState(step3bData.phone || "");
@@ -706,12 +773,14 @@ export function ContactFormSlide({
   const firstNameValueRef = useRef(firstName);
   const lastNameValueRef = useRef(lastName);
   const titleValueRef = useRef(title);
+  const designationsValueRef = useRef(designations);
   const displayNameValueRef = useRef(displayName);
   phoneValueRef.current = phone;
   emailValueRef.current = email;
   firstNameValueRef.current = firstName;
   lastNameValueRef.current = lastName;
   titleValueRef.current = title;
+  designationsValueRef.current = designations;
   displayNameValueRef.current = displayName;
 
   // When the parent reuses this component instance (same category key) for a
@@ -733,6 +802,9 @@ export function ContactFormSlide({
       setFirstName(sb.firstName || "");
       setLastName(sb.lastName || "");
       setTitle(sb.title || "");
+      setDesignations(
+        toDesignationList(sb.designations ?? sb.designation),
+      );
       setDisplayName(sb.displayName || "");
       setEmail(sb.email || "");
       setPhone(sb.phone || "");
@@ -857,6 +929,7 @@ export function ContactFormSlide({
       firstName,
       lastName,
       title,
+      designations,
       displayName,
       email,
       phone,
@@ -890,6 +963,7 @@ export function ContactFormSlide({
     phoneExtension,
     headshot,
     headshotFileName,
+    designations,
     customBenefits,
     externalAdminLogo,
     externalAdminLogoFileName,
@@ -924,6 +998,7 @@ export function ContactFormSlide({
         firstName: firstNameValueRef.current,
         lastName: lastNameValueRef.current,
         title: titleValueRef.current,
+        designations: designationsValueRef.current,
         displayName: displayNameValueRef.current,
         email: emailValueRef.current,
         phone: phoneValueRef.current,
@@ -1051,6 +1126,14 @@ export function ContactFormSlide({
       const savedContacts = keyContactsData.contacts || [];
       const shouldBePrimary = isPrimary;
 
+      // Designations are stored as a list; blanks are dropped and Team/Support
+      // Line contacts never carry them.
+      const cleanedDesignations = cleanDesignationList(designations);
+      const designationsForContact =
+        contactType === "individual" && cleanedDesignations.length > 0
+          ? cleanedDesignations
+          : undefined;
+
       // Check if we're editing an existing contact (passed via step3b.editingContactId)
       const editingContactId = step3bData.editingContactId as string | undefined | null;
       const existingContact = editingContactId
@@ -1067,6 +1150,7 @@ export function ContactFormSlide({
           firstName: contactType === "individual" ? firstName : undefined,
           lastName: contactType === "individual" ? lastName : undefined,
           title: contactType === "individual" ? title : undefined,
+          designations: designationsForContact,
           displayName: contactType === "team_support" ? displayName : undefined,
           email,
           phone,
@@ -1186,6 +1270,7 @@ export function ContactFormSlide({
         firstName: contactType === "individual" ? firstName : undefined,
         lastName: contactType === "individual" ? lastName : undefined,
         title: contactType === "individual" ? title : undefined,
+        designations: designationsForContact,
         displayName: contactType === "team_support" ? displayName : undefined,
         email,
         phone,
@@ -1263,6 +1348,7 @@ export function ContactFormSlide({
       firstName,
       lastName,
       title,
+      designations,
       displayName,
       email,
       phone,
@@ -1550,6 +1636,10 @@ export function ContactFormSlide({
       </div>
     ) : null;
 
+  // Designations for the live card preview — blanks dropped, so the preview
+  // matches what the saved card will show.
+  const cardDesignations = cleanDesignationList(designations);
+
   return (
     <div className="flex flex-col items-center space-y-4 py-2">
       {/* Company Logo above header */}
@@ -1802,6 +1892,71 @@ export function ContactFormSlide({
                   />
                   {hasError("title") && (
                     <p className="text-[10px] text-red-500">Job title is required</p>
+                  )}
+                </div>
+                {/* Designations — free text, optional and repeatable. They are kept
+                    as separate entries (no commas to remember) and the card lays
+                    them out as a wrapping row of chips. Capped at
+                    MAX_DESIGNATIONS. */}
+                <div className="space-y-1" data-field="designations">
+                  <Label className="dark:text-gray-300 text-xs font-medium">
+                    Designations (optional)
+                  </Label>
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                    Up to {MAX_DESIGNATIONS}, {MAX_DESIGNATION_LENGTH} characters
+                    each.
+                  </p>
+                  {designations.map((value, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <Input
+                        value={value}
+                        onChange={(e) => {
+                          const next = [...designations];
+                          next[index] = e.target.value;
+                          setDesignations(next);
+                        }}
+                        placeholder={index === 0 ? "e.g. CFP®" : "e.g. CPA"}
+                        maxLength={MAX_DESIGNATION_LENGTH}
+                        className="h-8 text-sm"
+                      />
+                      {/* Surface the cap as it approaches, so the input blocking
+                          further typing does not read as broken. */}
+                      {value.length >= MAX_DESIGNATION_LENGTH - 15 && (
+                        <span className="shrink-0 text-[10px] tabular-nums text-gray-400 dark:text-gray-500">
+                          {value.length}/{MAX_DESIGNATION_LENGTH}
+                        </span>
+                      )}
+                      {designations.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setDesignations(
+                              designations.filter((_, i) => i !== index),
+                            )
+                          }
+                          aria-label="Remove designation"
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-gray-200 text-gray-400 transition-colors hover:border-red-300 hover:text-red-500 dark:border-gray-600"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                  {designations.length < MAX_DESIGNATIONS ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setDesignations([...designations, ""])}
+                      className="mt-1 inline-flex items-center gap-1.5 text-xs"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Add designation
+                    </Button>
+                  ) : (
+                    <p className="pt-1 text-[10px] text-gray-400 dark:text-gray-500">
+                      Maximum of {MAX_DESIGNATIONS} designations.
+                    </p>
                   )}
                 </div>
               </>
@@ -2206,6 +2361,10 @@ export function ContactFormSlide({
               firstName,
               lastName,
               title: contactType === "individual" ? title : undefined,
+              designations:
+                contactType === "individual" && cardDesignations.length > 0
+                  ? cardDesignations
+                  : undefined,
               displayName: contactType === "team_support" ? displayName : undefined,
               email,
               phone,

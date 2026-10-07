@@ -59,7 +59,31 @@ export function HaveQuestions({
                 >
                   {contact.title}
                 </h3>
-                <p className="text-[16px] font-red-hat text-gray-600 mb-4">{contact.description}</p>
+                <div className="mb-4">
+                  <p className="text-[16px] font-red-hat text-gray-600">
+                    {contact.description}
+                  </p>
+                  {/* Designations — a wrapping row of chips under the job title
+                      (they flow onto another line only when they run out of room).
+                      Each chip wraps internally too, so a long designation stays
+                      inside the card. */}
+                  {(contact.designations || []).some(
+                    (value) => value && value.trim(),
+                  ) && (
+                    <div className="mt-1 flex w-full flex-wrap items-center justify-center gap-1">
+                      {(contact.designations || [])
+                        .filter((value) => value && value.trim())
+                        .map((value, index) => (
+                          <span
+                            key={index}
+                            className="inline-block max-w-full break-words rounded-full bg-gray-100 px-2 py-0.5 text-center text-[12px] font-red-hat leading-tight text-gray-600"
+                          >
+                            {value}
+                          </span>
+                        ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div className="space-y-2">
                 {contact.email && (

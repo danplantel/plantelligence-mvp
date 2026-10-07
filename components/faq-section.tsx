@@ -16,6 +16,8 @@ export interface FAQContact {
   id: string;
   title: string;
   description: string;
+  /** Free-text designations, each rendered directly under the job title. */
+  designations?: string[];
   email: string;
   phone: string;
   phoneExtension?: string;

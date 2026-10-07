@@ -45,6 +45,15 @@ function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+/** Normalize a stored designation value into a cleaned list of strings. */
+function textArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value.map((entry) => text(entry)).filter(Boolean);
+  }
+  const single = text(value);
+  return single ? [single] : [];
+}
+
 export function buildFaqSupportContacts({
   keyContacts,
   supportContacts,
@@ -76,6 +85,12 @@ export function buildFaqSupportContacts({
       text(contact.name) ||
       `${text(contact.firstName)} ${text(contact.lastName)}`.trim();
 
+    // The person's own designations, each rendered on its own line under the job
+    // title. Tolerates the earlier single-value shape.
+    const designationList = textArray(contact.designations);
+    const designations =
+      designationList.length > 0 ? designationList : textArray(contact.designation);
+
     out.push({
       // The contact's own id, so the card key and the tel:/mailto: links agree with the
       // same person on My Benefits Team.
@@ -83,6 +98,8 @@ export function buildFaqSupportContacts({
       // The advisor's per-benefit copy wins; otherwise the person's own name/title.
       title: text(entry.title) || name || "Support Contact",
       description: text(entry.description) || text(contact.customRole) || text(contact.title),
+      // Each designation renders on its own line under the job title on the card.
+      ...(designations.length > 0 ? { designations } : {}),
       email: text(contact.email),
       phone: text(contact.phone),
       phoneExtension: text(contact.phoneExtension) || undefined,

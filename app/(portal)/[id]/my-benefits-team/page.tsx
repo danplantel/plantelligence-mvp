@@ -59,6 +59,8 @@ interface Contact {
   firstName?: string;
   lastName?: string;
   title?: string;
+  /** Free-text designations, each rendered directly under the job title. */
+  designations?: string[];
   customRole?: string;
   email?: string;
   phone?: string;

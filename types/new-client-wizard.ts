@@ -158,6 +158,11 @@ export interface KeyContact {
   firstName?: string;
   lastName?: string;
   title?: string;
+  /**
+   * Free-text designations (e.g. professional credentials or honorifics). Each
+   * renders on its own line under the job title on the contact card. Optional.
+   */
+  designations?: string[];
   headshotAssetId?: string;
 
   // Team/Support contact fields
