@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -117,6 +117,47 @@ export function BrandColorsSection({
       setIsExtracting(false);
     }
   }, [logoDataUrl, websiteUrl, organizationName, errorFields]);
+
+  /** The logo the last extraction was started for. */
+  const extractionLogoRef = useRef<string | null>(null);
+
+  // A logo already present on the first render came from a resumed draft (or an earlier
+  // visit), not from an upload in this visit — record it as done so mounting does not fire
+  // an AI run the user did not ask for. A logo that arrives later is an upload, and does
+  // run.
+  if (extractionLogoRef.current === null && logoDataUrl) {
+    extractionLogoRef.current = logoDataUrl;
+  }
+
+  /**
+   * Re-extract automatically when the logo is uploaded or replaced.
+   *
+   * The logo is the only trigger. The website is typed one character at a time, so
+   * reacting to it would fire an AI request per keystroke; it is still required, because a
+   * logo on its own has nothing to extract from — this is the "a logo *and* a website have
+   * been provided" condition.
+   *
+   * A run never touches the chosen colors, only the suggestions, so re-uploading a logo
+   * cannot overwrite what the user picked.
+   */
+  useEffect(() => {
+    if (!logoDataUrl) return;
+    if (extractionLogoRef.current === logoDataUrl) return;
+
+    if (!(websiteUrl || "").trim()) {
+      // Record it anyway: the run belongs to the logo, so a website typed afterwards must
+      // not be the thing that fires it.
+      extractionLogoRef.current = logoDataUrl;
+      return;
+    }
+
+    // A run is already in flight — leave the logo unrecorded so this retries once it
+    // settles rather than being dropped.
+    if (isExtracting) return;
+
+    extractionLogoRef.current = logoDataUrl;
+    void handleExtract();
+  }, [logoDataUrl, websiteUrl, isExtracting, handleExtract]);
 
   const selectSet = (set: ColorSetSuggestion) => {
     if (!set.available) return;
