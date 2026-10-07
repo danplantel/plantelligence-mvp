@@ -33,6 +33,12 @@ import {
   resolveContactFormTopics,
 } from "@/lib/contact-form-topics";
 import type { ContactFormTopic } from "@/lib/contact-form-topics";
+import {
+  CONTACT_METHOD_HELPER_TEXT,
+  CONTACT_VISIBILITY_FIELD,
+  CONTACT_VISIBILITY_HELPER_TEXT,
+  hasReachableMethod,
+} from "@/lib/contact-form-copy";
 import { SupportIconPicker } from "@/components/ui/support-icon-picker";
 import { normalizeSupportIconId } from "@/lib/support-icons";
 import type { SupportIconId } from "@/lib/support-icons";
@@ -1359,6 +1365,20 @@ export function ContactFormSlide({
       if (!errors.includes("email")) errors.push("email");
     }
 
+    // The card must surface at least one way to reach the contact — the email,
+    // the phone, or the CTA button. The bottom-bar Save button is disabled until
+    // then; this is the backstop for anything that bypasses it, and it labels the
+    // "Show on contact card" section.
+    if (
+      !hasReachableMethod({
+        displayEmail,
+        displayPhone,
+        enableContactButton: enableCtaButton,
+      })
+    ) {
+      errors.push(CONTACT_VISIBILITY_FIELD);
+    }
+
     // A reused address would make this contact read as the organization owner or as an
     // existing Team Member (the seat ladder matches by email), so it is a blocking
     // error at the field — the same rule the Client and Benefits editors enforce.
@@ -1394,9 +1414,11 @@ export function ContactFormSlide({
       toast.error(
         emailConflict
           ? emailConflict.message
-          : enableCtaButton && ctaType === "contact" && !emailValid
-            ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
-            : "Please fill out all required fields",
+          : errors.includes(CONTACT_VISIBILITY_FIELD)
+            ? CONTACT_VISIBILITY_HELPER_TEXT
+            : enableCtaButton && ctaType === "contact" && !emailValid
+              ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
+              : "Please fill out all required fields",
       );
     }
 
@@ -1411,6 +1433,8 @@ export function ContactFormSlide({
     phone,
     customBenefits,
     category,
+    displayEmail,
+    displayPhone,
     enableCtaButton,
     ctaType,
     schedulingUrl,
@@ -1808,10 +1832,10 @@ export function ContactFormSlide({
             )}
 
             <div className="space-y-1" data-field="phone">
-              {/* Note explaining the either/or contact-method requirement */}
+              {/* A phone or an email must exist on the contact itself — a CTA
+                  button alone is not a way to reach them. */}
               <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                Provide at least one of the following so employees can reach
-                this contact: <b>Phone or Email.</b>
+                {CONTACT_METHOD_HELPER_TEXT}
               </p>
               <Label className="dark:text-gray-300 text-xs font-medium">
                 Phone
@@ -1940,6 +1964,16 @@ export function ContactFormSlide({
               <Label className="dark:text-gray-300 text-xs font-medium">
                 Show on contact card
               </Label>
+              <p
+                className={cn(
+                  "text-[10px]",
+                  hasError(CONTACT_VISIBILITY_FIELD)
+                    ? "text-red-500"
+                    : "text-gray-400 dark:text-gray-500",
+                )}
+              >
+                {CONTACT_VISIBILITY_HELPER_TEXT}
+              </p>
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="display-email"

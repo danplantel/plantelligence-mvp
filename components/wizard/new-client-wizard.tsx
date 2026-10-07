@@ -17,6 +17,7 @@ import {
   setWizardTransitionActive,
 } from "@/lib/new-client-wizard-store";
 import { isDuplicatePlanNameError } from "@/lib/duplicate-plan-name-error";
+import { hasReachableMethod } from "@/lib/contact-form-copy";
 import { DuplicatePlanNameDialog } from "@/components/wizard/duplicate-plan-name-dialog";
 import { validateNewClientCurrentStepV2 } from "@/lib/new-client-wizard-validation-v2";
 import { toast } from "sonner";
@@ -75,14 +76,30 @@ export function NewClientWizard({
     (stepData as any)?.step3SubStep?.step3SubStep ||
     (stepData as any)?.step3SubStep;
 
-  // Next is enabled for all Step 3 slides — navigation is delegated to the
-  // bottom bar (Previous/Next). Each slide's own buttons have been removed.
-  const isNextEnabled = currentStep === 3 ? true : hasStep3Contact;
-
   // Step 3, slide 1 is the contact form. Its bottom-bar action saves the contact
   // (the slide listens for `step3SaveContactRequest`), so label the button
   // accordingly instead of the generic "Next".
   const isContactFormSlide = currentStep === 3 && step3SlideIndex === 1;
+
+  // Next is enabled for all Step 3 slides — navigation is delegated to the
+  // bottom bar (Previous/Next). Each slide's own buttons have been removed.
+  //
+  // The contact form is the exception: saving a contact is gated on the card
+  // actually showing a way to reach it — the email, the phone, or the CTA button
+  // (see lib/contact-form-copy). Disabling the button here, rather than only
+  // failing validation, matches the contact dialogs, whose Save button is gated
+  // the same way.
+  const step3bForGate = (stepData as any)?.step3b || {};
+  const isNextEnabled =
+    currentStep === 3
+      ? isContactFormSlide
+        ? hasReachableMethod({
+            displayEmail: step3bForGate.displayEmail,
+            displayPhone: step3bForGate.displayPhone,
+            enableContactButton: step3bForGate.enableContactButton,
+          })
+        : true
+      : hasStep3Contact;
   // "Save Contact" wins over the scroll hint so the label always describes what
   // the click does (the contact form is long, so the scroll gate would otherwise
   // replace the label).

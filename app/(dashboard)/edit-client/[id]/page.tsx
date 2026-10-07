@@ -91,6 +91,12 @@ import {
   resolveContactFormTopics,
 } from "@/lib/contact-form-topics";
 import type { ContactFormTopic } from "@/lib/contact-form-topics";
+import {
+  CONTACT_METHOD_HELPER_TEXT,
+  CONTACT_VISIBILITY_FIELD,
+  CONTACT_VISIBILITY_HELPER_TEXT,
+  hasReachableMethod,
+} from "@/lib/contact-form-copy";
 import { normalizeSupportIconId } from "@/lib/support-icons";
 import type { SupportIconId } from "@/lib/support-icons";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
@@ -718,6 +724,19 @@ function EditContactDialog({
       if (!errors.includes("email")) errors.push("email");
     }
 
+    // The card must surface at least one way to reach the contact — the email,
+    // the phone, or the CTA button. Save is disabled until then; this is the
+    // backstop for anything that bypasses it.
+    if (
+      !hasReachableMethod({
+        displayEmail: form.displayEmail,
+        displayPhone: form.displayPhone,
+        enableContactButton: form.enableContactButton,
+      })
+    ) {
+      errors.push(CONTACT_VISIBILITY_FIELD);
+    }
+
     if (errors.length > 0) {
       setErrors(errors);
       const refMap: Record<string, React.RefObject<HTMLInputElement | null>> = {
@@ -733,11 +752,13 @@ function EditContactDialog({
       toast.error(
         isAddMode && !addExternal && !form.benefitsCategory
           ? "Choose a benefits category for this contact."
-          : form.enableContactButton &&
-              form.ctaType === "contact" &&
-              !emailValid
-            ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
-            : "Please fill out all required fields",
+          : errors.includes(CONTACT_VISIBILITY_FIELD)
+            ? CONTACT_VISIBILITY_HELPER_TEXT
+            : form.enableContactButton &&
+                form.ctaType === "contact" &&
+                !emailValid
+              ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
+              : "Please fill out all required fields",
       );
       return;
     }
@@ -1191,11 +1212,10 @@ function EditContactDialog({
               </div>
             )}
 
-            {/* Phone / Email — at least one required */}
+            {/* Phone / Email — one of them must exist on the contact itself */}
             <div className="space-y-1.5">
               <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                Provide at least one of the following so employees can reach
-                this contact: <b>Phone or Email.</b>
+                {CONTACT_METHOD_HELPER_TEXT}
               </p>
               <div className="space-y-1">
                 <Label className="dark:text-gray-300 text-xs font-medium">
@@ -1416,6 +1436,16 @@ function EditContactDialog({
               <Label className="dark:text-gray-300 text-xs font-medium">
                 Show on contact card
               </Label>
+              <p
+                className={cn(
+                  "text-[10px]",
+                  errors.includes(CONTACT_VISIBILITY_FIELD)
+                    ? "text-red-500"
+                    : "text-gray-400 dark:text-gray-500",
+                )}
+              >
+                {CONTACT_VISIBILITY_HELPER_TEXT}
+              </p>
               <div className="flex items-center space-x-2">
                 <Checkbox
                   id="edit-contact-display-email"
@@ -1473,7 +1503,16 @@ function EditContactDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSave}>
+          <Button
+            onClick={handleSave}
+            disabled={
+              !hasReachableMethod({
+                displayEmail: form.displayEmail,
+                displayPhone: form.displayPhone,
+                enableContactButton: form.enableContactButton,
+              })
+            }
+          >
             {isAddMode ? "Add Contact" : "Save Changes"}
           </Button>
         </DialogFooter>
