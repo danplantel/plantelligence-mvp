@@ -300,6 +300,13 @@ export interface ImageEditorConfig {
   outlinePadding?: number; // Padding around the image in the crop output (default: 0.1 = 10%)
   // Separate recommended display size (e.g. for background images: 1920×1080)
   recommendedDisplaySize?: { width: number; height: number };
+  /**
+   * Overrides the "Recommended: …" segment of the editor's empty-state helper
+   * line. Use it when a pixel size alone is not the right guidance — e.g. a
+   * company logo wants "landscape orientation, transparent PNG, at least 600px
+   * wide" rather than a canvas dimension.
+   */
+  recommendedText?: string;
   // Background removal (logo and normalizer only). Shows the Background card
   // with the button-driven Remove Background action.
   allowBackgroundRemoval?: boolean;
@@ -352,6 +359,8 @@ export const IMAGE_EDITOR_CONFIGS: Record<ImageEditorType, ImageEditorConfig> =
     minResolution: 0,
     maxFileSize: 5 * 1024 * 1024,
     acceptedTypes: [".jpg", ".jpeg", ".png", ".webp", ".svg"],
+    recommendedText:
+      "landscape orientation, transparent PNG, at least 600px wide",
     modalTitle: "Company Logo",
     modalDescription:
       "Upload your company logo. Keep it centered and clear for best results.",
@@ -378,6 +387,8 @@ export const IMAGE_EDITOR_CONFIGS: Record<ImageEditorType, ImageEditorConfig> =
     minResolution: 200,
     maxFileSize: 5 * 1024 * 1024,
     acceptedTypes: [".jpg", ".jpeg", ".png", ".webp", ".svg"],
+    recommendedText:
+      "landscape orientation, transparent PNG, at least 600px wide",
     modalTitle: "Company Logo",
     modalDescription:
       "Fit your logo inside the safe zone so it works across headers, cards, and PDFs. You can fine-tune later.",
@@ -675,6 +686,17 @@ export function UniversalImageEditorModal({
   // True when the source file is an SVG. Vector logos already carry their own
   // transparency, so the control is replaced by an explanatory note.
   const [sourceIsSvg, setSourceIsSvg] = useState(false);
+
+  /**
+   * True when the currently loaded image already contains transparent pixels.
+   *
+   * Read from the source's alpha channel up front so the toolbar can hide Remove
+   * Background for a logo that is already transparent — there would be nothing to
+   * remove — rather than inviting a run that can only report a no-op. Ignored
+   * once a removal has been applied (`bgRemoval.isRemoved`), so the toolbar keeps
+   * offering Undo.
+   */
+  const [sourceIsTransparent, setSourceIsTransparent] = useState(false);
 
   /**
    * The name of the file the advisor picked in this session.
@@ -2904,6 +2926,57 @@ export function UniversalImageEditorModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [imageSrc, sourceIsSvg, config.allowBackgroundRemoval]);
 
+  /**
+   * Whether the loaded image is already transparent.
+   *
+   * Sampling the alpha channel on every source change (a fresh upload, a removal,
+   * or Undo) keeps the flag describing the pixels actually on screen. A tainted or
+   * undecodable source is treated as opaque, so the button stays available rather
+   * than the feature silently disappearing.
+   */
+  useEffect(() => {
+    if (!config.allowBackgroundRemoval || !imageSrc || sourceIsSvg) {
+      setSourceIsTransparent(false);
+      return;
+    }
+
+    let cancelled = false;
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      if (cancelled) return;
+      try {
+        // Sample a downscaled copy: reading every pixel of a full-size logo is
+        // unnecessary, and the alpha channel survives the scale.
+        const maxDimension = 512;
+        const ratio = Math.min(
+          1,
+          maxDimension / Math.max(img.width, img.height),
+        );
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, Math.round(img.width * ratio));
+        canvas.height = Math.max(1, Math.round(img.height * ratio));
+        const ctx = canvas.getContext("2d", { willReadFrequently: true });
+        if (!ctx) {
+          setSourceIsTransparent(false);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        setSourceIsTransparent(detectTransparency(canvas));
+      } catch {
+        setSourceIsTransparent(false);
+      }
+    };
+    img.onerror = () => {
+      if (!cancelled) setSourceIsTransparent(false);
+    };
+    img.src = imageSrc;
+
+    return () => {
+      cancelled = true;
+    };
+  }, [imageSrc, sourceIsSvg, config.allowBackgroundRemoval]);
+
 
   /**
    * Build the before/after pair while the offer is on screen: the untouched upload
@@ -3523,7 +3596,11 @@ export function UniversalImageEditorModal({
             <div>
               <p className="text-sm text-gray-600">No file selected</p>
               <p className="text-xs text-gray-500">
-                Recommended: {(config as any).recommendedDisplaySize?.width ?? config.previewSizes.rectangular?.width ?? 300}×{(config as any).recommendedDisplaySize?.height ?? config.previewSizes.rectangular?.height ?? 250} • Accepted: {config.acceptedTypes.join(", ").toUpperCase().replace("JPG", "JPG")} • Max 15 MB
+                Recommended:{" "}
+                {config.recommendedText ??
+                  `${(config as any).recommendedDisplaySize?.width ?? config.previewSizes.rectangular?.width ?? 300}×${(config as any).recommendedDisplaySize?.height ?? config.previewSizes.rectangular?.height ?? 250}`}{" "}
+                • Accepted: {config.acceptedTypes.join(", ").toUpperCase()} • Max
+                15 MB
               </p>
               <p className="text-xs text-accent-blue mt-1">
                 Drag & drop an image (or a .zip) here, or choose a file below
@@ -3612,6 +3689,12 @@ export function UniversalImageEditorModal({
                             transparency and scales cleanly. Background removal
                             does not apply.
                           </p>
+                        ) : sourceIsTransparent && !bgRemoval.isRemoved ? (
+                          <p className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 dark:text-gray-400">
+                            This logo already has a transparent background, so
+                            there is no background to remove. Use the toolbar to
+                            resize or reposition it.
+                          </p>
                         ) : (
                           <>
                             <p className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 dark:text-gray-400">
@@ -3660,6 +3743,21 @@ export function UniversalImageEditorModal({
                                 <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
                                 <p className="text-[9px] sm:text-[10px] md:text-xs text-blue-800 dark:text-blue-200">
                                   {bgRemoval.info}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* A removal rewrites fine pixels, so it is never
+                                silently correct. Undo stays in the toolbar
+                                alongside this note so checking and reverting are
+                                one press apart. */}
+                            {bgRemoval.isRemoved && !bgRemoval.error && (
+                              <div className="flex items-start space-x-1.5 sm:space-x-2 p-1.5 sm:p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md">
+                                <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
+                                <p className="text-[9px] sm:text-[10px] md:text-xs text-amber-700 dark:text-amber-300">
+                                  Background removal can alter fine details like
+                                  script lettering or thin lines. Check your logo
+                                  before saving.
                                 </p>
                               </div>
                             )}
@@ -3988,7 +4086,9 @@ export function UniversalImageEditorModal({
                     disabled={isLoading}
                     showScale={config.allowScaling}
                     actions={
-                      config.allowBackgroundRemoval && !sourceIsSvg ? (
+                      config.allowBackgroundRemoval &&
+                      !sourceIsSvg &&
+                      (!sourceIsTransparent || bgRemoval.isRemoved) ? (
                         // One button, two modes: remove, then undo. Undoing
                         // restores the original upload, so a second press with a
                         // different tolerance re-runs from a clean source.

@@ -662,6 +662,9 @@ export function BenefitsEditorPanel({
                                     modalTitle: "Inner Header Image",
                                     modalDescription:
                                         "Full-height image displayed in the right column of the hero section. Replaces the Benefits Logo when set.",
+                                    // Not a logo — keep the size-based hint instead of
+                                    // the logo guidance inherited from `normalizer`.
+                                    recommendedText: undefined,
                                 }}
                             />
                         </div>
@@ -1209,6 +1212,9 @@ export function BenefitsEditorPanel({
                                     modalTitle: "Background Image",
                                     modalDescription:
                                         "This image displays behind the Insurance Benefits Access & Materials section heading.",
+                                    // Not a logo — keep the size-based hint instead of
+                                    // the logo guidance inherited from `normalizer`.
+                                    recommendedText: undefined,
                                 }}
                             />
                         </div>

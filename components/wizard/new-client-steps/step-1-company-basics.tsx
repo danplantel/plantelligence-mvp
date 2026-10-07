@@ -1055,7 +1055,7 @@ export function NewClientStep1({
                 Company Logo <span className="text-red-500">*</span>
               </CardTitle>
               <p className="text-sm text-muted-foreground dark:text-gray-400">
-                Upload your company logo. Recommended size: 300×250px. Accepted formats: PNG, JPG, WebP, SVG. Max file size: 15 MB. You can also drop a .zip folder of images and pick the one you want.
+                Upload your company logo. 
               </p>
             </CardHeader>
             <CardContent>
