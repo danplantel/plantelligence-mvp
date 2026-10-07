@@ -78,8 +78,24 @@ export function BrandColorsSection({
   // description to the "here are your suggestions" copy once extraction starts.
   const [hasExtracted, setHasExtracted] = useState(false);
 
+  /**
+   * The `errorFields` snapshot an extraction reset, so the styling it cleared stays
+   * cleared until the wizard validates again.
+   *
+   * The wizard stores its error list and hands down the same array on every render, so a
+   * change of reference means a new validation run — which is where a reset has to end.
+   * That is what keeps a genuinely new error visible: pressing Next with the colours
+   * still empty reports them again. It also means an extraction does not hide the red
+   * borders the user arrived with, it only clears the state they chose to redo.
+   */
+  const [resetForSnapshot, setResetForSnapshot] = useState<string[] | null>(null);
+
   const handleExtract = useCallback(async () => {
     if (!logoDataUrl && !websiteUrl?.trim()) return;
+
+    // Reset the validation state this extraction supersedes — both when it first runs and
+    // on a re-extract, which is what "Re-extract Colors" means to the user.
+    setResetForSnapshot(errorFields);
 
     setIsExtracting(true);
     setHasExtracted(true);
@@ -100,7 +116,7 @@ export function BrandColorsSection({
     } finally {
       setIsExtracting(false);
     }
-  }, [logoDataUrl, websiteUrl, organizationName]);
+  }, [logoDataUrl, websiteUrl, organizationName, errorFields]);
 
   const selectSet = (set: ColorSetSuggestion) => {
     if (!set.available) return;
@@ -109,7 +125,24 @@ export function BrandColorsSection({
     onSecondaryChange(set.secondary);
   };
 
+  /**
+   * True while the current error snapshot is the one an extraction reset.
+   *
+   * Compared by reference on purpose: the list is replaced on every validation run, so
+   * this is true from the moment extraction starts until the wizard reports fresh errors
+   * — covering the extraction itself and the window where its suggestions are on offer.
+   * The locally-tracked half (`touchedFields`/`fieldErrors`) is deliberately left alone:
+   * it is recomputed from the live value on every change, so it is never stale.
+   */
+  const validationWasReset =
+    resetForSnapshot !== null && resetForSnapshot === errorFields;
+
+  /**
+   * Whether a field should show its error styling. Every red border, the swatch ring and
+   * both messages read from here, so they clear together.
+   */
   const isFieldInvalid = (field: string): boolean => {
+    if (validationWasReset) return false;
     return (
       errorFields.includes(field) ||
       (touchedFields[field] && !!fieldErrors[field])

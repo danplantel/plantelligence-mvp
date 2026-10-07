@@ -28,6 +28,7 @@ import { useUserAvatar } from "./sections/hooks/use-user-avatar";
 import { useScrollSync } from "./sections/hooks/use-scroll-sync";
 import { useFieldFocus } from "./sections/hooks/use-field-focus";
 import { exportFullResolutionImage } from "./sections/utils/image-utils";
+import { clearResolvedErrors } from "@/lib/live-validation";
 import {
   THUMBNAIL_GUIDE_WIDTH,
   THUMBNAIL_GUIDE_HEIGHT,
@@ -232,6 +233,38 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
   const modalStates = useModalStates();
   const thumbnailImage = useThumbnailImage();
 
+  /**
+   * The wizard's error snapshot, minus the fields the user has already made valid.
+   *
+   * `errorFields` is computed on the Next press, so a field the user has since corrected
+   * kept its red border and message until they pressed Next again. Each validator answers
+   * "is this field valid right now?" from the live state, so the styling clears as the
+   * value becomes good — see `lib/live-validation.ts`.
+   */
+  const liveErrorFields = clearResolvedErrors(errorFields, {
+    "brandImages.header": () =>
+      !!stepData.companyBasics?.brandImages?.header?.url,
+    // The welcome copy is whichever source the step shows: its own stored hero copy, or
+    // the welcome statement's headline (the banner title is derived when neither exists).
+    headline: () =>
+      !!(
+        stepData.companyBasics?.heroTitle?.trim() || welcomeData.headline?.trim()
+      ),
+    bodyText: () => {
+      // `??` (not `||`) so an explicitly-cleared body is judged empty rather than
+      // silently replaced by the stored one.
+      const body = (
+        stepData.companyBasics?.heroDescription ?? welcomeData.bodyText ?? ""
+      ).trim();
+      return body.length >= 250 && body.length <= 2000;
+    },
+    missionHeadline: () => (missionData.missionHeadline || "").trim().length > 0,
+    missionBody: () => {
+      const body = (missionData.missionBody || "").trim();
+      return body.length >= 250 && body.length <= 2000;
+    },
+  });
+
   // State for fixed bar
   const barRef = useRef<HTMLDivElement>(null);
   const [barHeight, setBarHeight] = useState(52);
@@ -373,7 +406,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
   //    attribute) so the user lands directly on the invalid control inside the
   //    editing panel, rather than just its surrounding section. ──
   useEffect(() => {
-    if (!errorFields || errorFields.length === 0) return;
+    if (!liveErrorFields || liveErrorFields.length === 0) return;
 
     // Only handle Step 2 relevant fields (in document order within the panel)
     const step2Fields = [
@@ -383,7 +416,9 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
       "missionHeadline",
       "missionBody",
     ];
-    const erroredField = step2Fields.find((f) => errorFields.includes(f));
+    // Read through `liveErrorFields` so a snapshot whose only remaining errors are
+    // fields the user has already fixed does not scroll them anywhere.
+    const erroredField = step2Fields.find((f) => liveErrorFields.includes(f));
     if (!erroredField) return;
 
     // Ensure the editor is open so the scroll is visible
@@ -1205,7 +1240,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                     if (checked) { handleCompanyDataChange("heroDescription", defaultWelcomeBodyText); updateField("bodyText", defaultWelcomeBodyText); }
                     else { handleCompanyDataChange("heroDescription", ""); updateField("bodyText", ""); }
                   }}
-                  defaultBodyText={defaultWelcomeBodyText} errorFields={errorFields}
+                  defaultBodyText={defaultWelcomeBodyText} errorFields={liveErrorFields}
                   onHeroSegmentModeChange={(mode) => {
                     if (mode === "desktop" && previewMode !== "desktop") {
                       setPreviewMode("desktop");
@@ -1228,7 +1263,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                           isAIGenerated: false,
                         }}
                         companyName={stepData.companyBasics?.companyName || "Company Name"}
-                        errorFields={errorFields}
+                        errorFields={liveErrorFields}
                         useDefaultBody={useDefaultWelcomeMessage}
                         onToggleDefaultBody={(checked) => {
                           setUseDefaultWelcomeMessage(checked);
@@ -1278,7 +1313,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                   useDefaultBody={missionData.useDefaultBody}
                   headlineCharCount={missionData.headlineCharCount} bodyCharCount={missionData.bodyCharCount}
                   isHeadlineValid={missionData.isHeadlineValid} isBodyValid={missionData.isBodyValid}
-                  errorFields={errorFields} headlineRef={headlineRef} bodyTextRef={bodyTextRef}
+                  errorFields={liveErrorFields} headlineRef={headlineRef} bodyTextRef={bodyTextRef}
                   onHeadlineChange={missionData.handleHeadlineChange} onBodyChange={missionData.handleBodyChange}
                   onUseDefaultBodyChange={missionData.handleUseDefaultBody}
                   onGenerateMissionHeadline={missionData.handleGenerateMissionHeadline} onGenerateMissionBody={missionData.handleGenerateMissionBody}

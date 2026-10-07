@@ -11,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { Building2, Globe, Image as ImageIcon, CheckCircle2, AlertCircle, Sparkles, Upload, Plus, X, AlertTriangle, Loader2, XCircle } from "lucide-react";
 import { isValidDomain, normalizeCleanDomain } from "@/lib/url-utils";
+import { clearResolvedErrors } from "@/lib/live-validation";
 import { deleteFromR2 } from "@/lib/upload-to-r2";
 import { BrandImagesSection } from "./sections/brand-images-section";
 import { BrandColorsSection } from "./sections/brand-colors-section";
@@ -279,10 +280,6 @@ export function NewClientStep1({
     setTouchedFields((prev) => ({ ...prev, [field]: true }));
   };
 
-  const isFieldInvalid = (field: string): boolean => {
-    return errorFields.includes(field) || (touchedFields[field] && !!fieldErrors[field]);
-  };
-
   // Validation helpers
   const validateCompanyName = (value: string): string | null => {
     const trimmed = value.trim();
@@ -310,12 +307,45 @@ export function NewClientStep1({
     return null;
   };
 
+  /**
+   * The wizard's error snapshot, minus the fields the user has already made valid.
+   *
+   * `errorFields` arrives from the last Next press, so it is a snapshot: a field the
+   * user has since corrected kept its red border (and its message, once touched) until
+   * they pressed Next again, which made a fixed form look broken. Each validator below
+   * answers "is this field valid right now?" from the live form state, so the styling
+   * clears as soon as the value is good — no blur or re-submit needed.
+   *
+   * The brand-image slots have no control on this step of their own; their rules live in
+   * `BrandImagesSection`, which receives this list.
+   */
+  const liveErrorFields = clearResolvedErrors(errorFields, {
+    planType: () => !!companyData.planType,
+    companyName: () => !validateCompanyName(companyData.companyName),
+    companyWebsite: () => !validateWebsite(companyData.companyWebsite || ""),
+    portalUrl: () => !validatePortalUrl(companyData.portalUrl || ""),
+    companyLogo: () => !!companyData.companyLogo?.url,
+    organizationType: () => !!companyData.organizationType?.trim(),
+    primaryColor: () =>
+      !validateColorRequired(companyData.primaryColor, "Primary color"),
+    secondaryColor: () =>
+      !validateColorRequired(companyData.secondaryColor, "Secondary color"),
+    "brandImages.header": () => !!companyData.brandImages?.header,
+  });
+
+  const isFieldInvalid = (field: string): boolean => {
+    return (
+      liveErrorFields.includes(field) ||
+      (touchedFields[field] && !!fieldErrors[field])
+    );
+  };
+
   // ── Scroll to the top-most errored required field when validation errors
   //    appear. Resolve the field's control via its `data-field` attribute so
   //    the user lands directly on the invalid input instead of an arbitrary
   //    spot on the page. Mirrors the Step 2 behavior. ──
   useEffect(() => {
-    if (!errorFields || errorFields.length === 0) return;
+    if (!liveErrorFields || liveErrorFields.length === 0) return;
 
     // Step 1 required fields, in document order within the page.
     const step1Fields = [
@@ -327,7 +357,9 @@ export function NewClientStep1({
       "primaryColor",
       "secondaryColor",
     ];
-    const erroredField = step1Fields.find((f) => errorFields.includes(f));
+    // Read through `liveErrorFields` so a snapshot whose only remaining errors are
+    // fields the user has already fixed does not scroll them anywhere.
+    const erroredField = step1Fields.find((f) => liveErrorFields.includes(f));
     if (!erroredField) return;
 
     const timer = setTimeout(() => {
@@ -1082,7 +1114,7 @@ export function NewClientStep1({
                   setIsLogoModalOpen(false);
                 }}
                 placeholder="Upload Logo"
-                destructive={errorFields.includes("companyLogo")}
+                destructive={liveErrorFields.includes("companyLogo")}
               />
             </CardContent>
           </Card>
@@ -1117,7 +1149,7 @@ export function NewClientStep1({
             }
             websiteUrl={companyData.companyWebsite}
             organizationName={companyData.companyName}
-            errorFields={errorFields}
+            errorFields={liveErrorFields}
             touchedFields={touchedFields}
             fieldErrors={fieldErrors}
           />
@@ -1126,7 +1158,7 @@ export function NewClientStep1({
           <BrandImagesSection
             brandImages={companyData.brandImages}
             onBrandImagesChange={handleBrandImagesChange}
-            errorFields={errorFields}
+            errorFields={liveErrorFields}
             logoUrl={companyData.companyLogo?.url}
             companyName={companyData.companyName}
             // These default images appear on the website home page (not the
