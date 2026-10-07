@@ -53,3 +53,20 @@ export const THUMBNAIL_RECOMMENDED_HEIGHT = Math.round(
  */
 export const THUMBNAIL_EXPORT_SCALE =
   THUMBNAIL_RECOMMENDED_WIDTH / THUMBNAIL_GUIDE_WIDTH;
+
+/**
+ * The Featured Image helper line, shown under its upload area.
+ *
+ * Written out in full rather than composed from `recommendedSize` / `accept` /
+ * `maxFileSize`, because those are also read for the "below recommended size" warning
+ * (`sections/brand-images-section.tsx`) and parsed for the crop dimensions — putting a
+ * sentence in `recommendedSize` would have produced "Below recommended size (portrait,
+ * 1200×1335px or larger (minimum 900×1000).). May appear blurry."
+ *
+ * It lives here, beside the slot's other facts, for the same reason the guide pair does:
+ * three surfaces show this card (the shared `BrandImagesSection`, Create Plan's
+ * `ThumbnailSectionEditor`, and the legacy `company-info-section`), and one string
+ * cannot disagree with itself.
+ */
+export const FEATURED_IMAGE_HELPER_TEXT =
+  "Recommended: portrait, 1200×1335px or larger (minimum 900×1000). • Accepted: .png,.jpg,.jpeg,.webp • Max15 MB";

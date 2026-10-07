@@ -30,6 +30,13 @@ interface BrandImageUploadProps {
     previewAspectRatio?: number;
     previewLabel?: string;
     defaultPhoteButton?: boolean;
+    /**
+     * Complete helper line, shown verbatim in place of the composed
+     * "Recommended: … • Accepted: … • Max…" sentence. For a slot whose
+     * recommendation needs more than a pixel size (the Featured Image asks for a
+     * portrait shape and a minimum as well as a target).
+     */
+    helperText?: string;
   };
   currentImage?: BrandImageData;
   onImageChange: (imageData: BrandImageData) => void;
@@ -692,9 +699,13 @@ export function BrandImageUpload({
             <div>
               <p className="text-sm text-gray-600 dark:text-gray-300">No file selected</p>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Recommended: {slot.recommendedSize} • Accepted: {slot.accept} •
-                Max
-                {maxFileSize} MB
+                {slot.helperText ?? (
+                  <>
+                    Recommended: {slot.recommendedSize} • Accepted: {slot.accept} •
+                    Max
+                    {maxFileSize} MB
+                  </>
+                )}
               </p>
               <p className="text-xs text-accent-blue mt-1">
                 Drag & drop an image (or a .zip) here, or choose a file below

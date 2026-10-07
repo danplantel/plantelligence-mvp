@@ -18,6 +18,7 @@ import {
   THUMBNAIL_GUIDE_WIDTH,
   THUMBNAIL_GUIDE_HEIGHT,
   THUMBNAIL_EXPORT_SCALE,
+  FEATURED_IMAGE_HELPER_TEXT,
 } from "../constants/brand-image-guides";
 // Shared with the Edit Plan preview panel, which reopens a saved hero image the same
 // way — one resolver, so an R2 key is resolved identically wherever an editor opens.
@@ -57,6 +58,9 @@ const BRAND_IMAGE_SLOTS = [
     description:
       "Appears beside the company introduction on your Benefits Hub homepage and in card and preview placements",
     recommendedSize: "900×1000 px",
+    // The one slot whose recommendation is more than a pixel size, so it states the
+    // shape and the minimum itself instead of the composed default line.
+    helperText: FEATURED_IMAGE_HELPER_TEXT,
     previewText: "Preview thumb",
     defaultPhoteButton: true,
     required: true,

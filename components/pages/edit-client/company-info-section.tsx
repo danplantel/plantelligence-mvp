@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UploadInput } from "@/components/ui/upload-input";
+import { FEATURED_IMAGE_HELPER_TEXT } from "@/components/wizard/new-client-steps/constants/brand-image-guides";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { CompanyBasicsData } from "@/types/new-client-wizard";
 
@@ -189,7 +190,7 @@ export function CompanyInfoSection({
                 accept="image/*"
               />
               <p className="mt-1 text-muted-foreground text-xs">
-                Recommended: 900×1000 px or higher
+                {FEATURED_IMAGE_HELPER_TEXT}
               </p>
             </div>
           </div>
