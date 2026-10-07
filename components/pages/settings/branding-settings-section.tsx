@@ -73,7 +73,7 @@ export function BrandingSettingsSection({
     watchedBranding?.backgroundFileName || "";
 
   // Full header image data driving the shared BrandImagesSection (matches the
-  // new-client wizard Step 1 "Background Image" slot: crop + set image).
+  // new-client wizard Step 1 "Hero Banner Image" slot: crop + set image).
   const [headerImage, setHeaderImage] = useState<BrandImageData | null>(null);
 
   // Rebuild headerImage from the form value whenever it changes externally

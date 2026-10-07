@@ -25,7 +25,7 @@ type ProfileLike = {
  * Fills empty plan-level fields from GET /api/profile for a new Create Plan session.
  * Does not copy advisor logo or advisor hero into Step 1 company branding — those assets
  * are used for **benefits-category** flows (e.g. seeded key contacts / category hub preview),
- * not the plan’s Company Logo or Background Header Image.
+ * not the plan’s Company Logo or Hero Banner Image.
  */
 export function mergeAdvisorProfileIntoWizardStepData(
   stepData: Record<string, unknown>,

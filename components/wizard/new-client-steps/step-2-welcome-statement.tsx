@@ -1510,7 +1510,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
 
       {modalStates.isHeroModalOpen && modalStates.pendingHeroImageData && modalStates.heroModalHandlers && (
         <SimpleImageEditorModal
-          modalTitle="Background image"
+          modalTitle="Hero Banner Image"
           modalDescription="Upload and edit your image."
           value={modalStates.pendingHeroImageData.url || ""}
           originalValue={modalStates.pendingHeroImageData.originalUrl}
@@ -1520,7 +1520,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           onRemove={modalStates.heroModalHandlers.onClose}
           isOpen={modalStates.isHeroModalOpen}
           onClose={modalStates.heroModalHandlers.onClose}
-          saveButtonText="Save Background"
+          saveButtonText="Save Hero Banner Image"
           canvasWidth={640} canvasHeight={600}
           guidelineWidth={580} guidelineHeight={240} guidelinePadding={20}
           // Export the crop at 3x resolution so the full-screen hero stays crisp,

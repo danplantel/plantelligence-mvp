@@ -66,7 +66,7 @@ const BRAND_IMAGE_SLOTS = [
   },
   {
     key: "secondaryBanner" as keyof BrandImagesData,
-    title: "Page Header Image",
+    title: "Page Image Header",
     description: "Used as the header background on interior Benefits Hub pages, such as News & Events. If none is uploaded, the Hero Banner Image is used. ",
     recommendedSize: "1600×600 px",
     required: false,
@@ -174,7 +174,7 @@ export function BrandImagesSection({
    * The stored value is an R2 KEY (`org/…/uploads/branding/…`), which neither `<img>`
    * nor Fabric can load — the browser resolves it as a relative path and 404s. Handing
    * it over unresolved is what produced a broken preview and an empty canvas when Hero
-   * Banner Image / Featured Image were reopened for editing; the secondary banner's own
+   * Banner Image / Featured Image were reopened for editing; the page header image's own
    * preview button had already worked around it locally, which is why only that slot
    * behaved. Resolve the three URL fields the editor reads; anything already loadable
    * (`data:`, `blob:`, `http…`) passes through untouched.
@@ -536,7 +536,7 @@ export function BrandImagesSection({
           // frame the default image to that slot's own guidelines before saving,
           // just like the "Crop / Adjust Image" flow. No image is applied on
           // selection; the editor's Save handler (handleModalSave) persists the
-          // final crop and, for the Secondary Banner, re-opens the News &
+          // final crop and, for the Page Image Header, re-opens the News &
           // Events preview afterwards.
           let displayUrl = url;
           let displayWidth = 0;
@@ -562,22 +562,26 @@ export function BrandImagesSection({
 
       {pendingImageData && (
         <SimpleImageEditorModal
+          // One modal, so its title and button have to carry the same names the
+          // cards above use — the slot titles in `BRAND_IMAGE_SLOTS`.
           modalTitle={
             pendingImageData.slotKey === "header"
-              ? "Background image"
+              ? "Hero Banner Image"
               : pendingImageData.slotKey === "thumbnail"
-              ? "Featured image"
+              ? "Featured Image"
               : pendingImageData.slotKey === "secondaryBanner"
-              ? "Banner image"
+              ? "Page Image Header"
               : pendingImageData.slotKey === "favicon"
               ? "Favicon"
-              : "Background image"
+              : "Edit Image"
           }
           modalDescription={
             pendingImageData.slotKey === "header"
               ? "This image displays in the header background of your Employee Benefits Hub. Upload a wide hero image for best results. If not uploading, the Featured Image will be used."
               : pendingImageData.slotKey === "thumbnail"
               ? "This image appears beside the company introduction on your Benefits Hub homepage and in card and preview placements. Upload a centered image with space around the edges."
+              : pendingImageData.slotKey === "secondaryBanner"
+              ? "Used as the header background on interior Benefits Hub pages, such as News & Events. If none is uploaded, the Hero Banner Image is used."
               : "Upload and edit your image."
           }
           value={pendingImageData.data.url || ""}
@@ -590,11 +594,11 @@ export function BrandImagesSection({
           onClose={handleModalClose}
           saveButtonText={
             pendingImageData.slotKey === "header"
-              ? "Save Background"
+              ? "Save Hero Banner Image"
               : pendingImageData.slotKey === "thumbnail"
               ? "Save Featured Image"
               : pendingImageData.slotKey === "secondaryBanner"
-              ? "Save Banner"
+              ? "Save Page Image Header"
               : pendingImageData.slotKey === "favicon"
               ? "Save Icon"
               : "Save Image"
@@ -782,7 +786,7 @@ export function BrandImagesSection({
                 onClick={() => setNewsEventsPreviewOpen(false)}
               >
                 <CheckCircle className="w-4 h-4 mr-2" />
-                Save Banner
+                Save Page Image Header
               </Button>
             </div>
           </div>

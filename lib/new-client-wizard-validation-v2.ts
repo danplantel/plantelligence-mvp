@@ -313,7 +313,7 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
           step2Errors.push("missionBody");
         }
 
-        // Validate Background Header Image (Hero) — required
+        // Validate Hero Banner Image — required
         const heroHeaderUrl =
           stepData.companyBasics?.brandImages?.header?.url?.trim() || "";
         if (!heroHeaderUrl) {
@@ -360,7 +360,7 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
           if (step2Errors.includes("brandImages.header")) {
             errorMessages.push({
               field: "brandImages.header",
-              message: "Background Header Image (Hero) is required",
+              message: "Hero Banner Image is required",
             });
           }
 

@@ -14,7 +14,7 @@ interface NewsEventsHeaderProps {
  * fetch that can fail in production, on top of the double compression the
  * optimizer applies to already-optimized R2 bytes.
  *
- * When the plan has no Secondary Banner selected (Create Plan wizard / Edit
+ * When the plan has no Page Image Header selected (Create Plan wizard / Edit
  * Client), the caller passes nothing and the bundled default below is used.
  */
 export function NewsEventsHeader({

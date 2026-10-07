@@ -748,7 +748,7 @@ export function useEditClient() {
     if (!companyData.portalUrl || !companyData.portalUrl.trim()) {
       fieldErrors.portalUrl = ["Portal URL is required"];
     }
-    // Background Header Image and Square Thumbnail validation removed - no longer required
+    // Hero Banner Image and Featured Image validation removed - no longer required
 
     // Hero/Banner section validation (heroTitle/heroDescription)
     if (!((companyData as any).heroTitle ?? "").toString().trim()) {

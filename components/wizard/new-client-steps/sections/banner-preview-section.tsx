@@ -268,7 +268,7 @@ export function BannerPreviewSection({
     setInlineValue("");
   };
 
-  // Background change handler (same logic as Secondary Banner in BrandImagesSection)
+  // Background change handler (same logic as Page Image Header in BrandImagesSection)
   const handleBackgroundChange = (
     newBackground: string | (Partial<BrandImageData> & { url: string }) | null,
   ) => {
@@ -1052,7 +1052,7 @@ export function BannerPreviewSection({
 
       {pendingHeroImageData && !renderModalOutside && (
         <SimpleImageEditorModal
-          modalTitle="Background image"
+          modalTitle="Hero Banner Image"
           modalDescription="Upload and edit your image."
           value={pendingHeroImageData.url || ""}
           fileName={pendingHeroImageData.fileName || ""}
@@ -1060,7 +1060,7 @@ export function BannerPreviewSection({
           onRemove={handleHeroModalClose}
           isOpen={isHeroModalOpen}
           onClose={handleHeroModalClose}
-          saveButtonText="Save Background"
+          saveButtonText="Save Hero Banner Image"
           canvasWidth={640}
           canvasHeight={600}
           guidelineWidth={580}

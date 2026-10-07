@@ -153,9 +153,7 @@ export function CompanyInfoSection({
           </div>
 
           <div>
-            <Label className="text-sm font-medium">
-              Background Header Image (Hero)
-            </Label>
+            <Label className="text-sm font-medium">Hero Banner Image</Label>
             <div className="mt-2">
               <UploadInput
                 id="header-upload"
@@ -176,7 +174,7 @@ export function CompanyInfoSection({
           </div>
 
           <div>
-            <Label className="text-sm font-medium">Square Thumbnail</Label>
+            <Label className="text-sm font-medium">Featured Image</Label>
             <div className="mt-2">
               <UploadInput
                 id="thumbnail-upload"
@@ -187,17 +185,17 @@ export function CompanyInfoSection({
                   if (file) onFileUpload(file, "thumbnail");
                 }}
                 onRemove={() => onFileRemove("thumbnail")}
-                placeholder="Upload Thumbnail (2MB limit)"
+                placeholder="Upload Featured Image (2MB limit)"
                 accept="image/*"
               />
               <p className="mt-1 text-muted-foreground text-xs">
-                Recommended: 400x400px or higher
+                Recommended: 900×1000 px or higher
               </p>
             </div>
           </div>
 
           <div>
-            <Label className="text-sm font-medium">Secondary Banner</Label>
+            <Label className="text-sm font-medium">Page Image Header</Label>
             <div className="mt-2">
               <UploadInput
                 id="secondary-banner-upload"
@@ -210,7 +208,7 @@ export function CompanyInfoSection({
                   if (file) onFileUpload(file, "secondaryBanner");
                 }}
                 onRemove={() => onFileRemove("secondaryBanner")}
-                placeholder="Upload Secondary Banner (5MB limit)"
+                placeholder="Upload Page Image Header (5MB limit)"
                 accept="image/*"
               />
               <p className="mt-1 text-muted-foreground text-xs">

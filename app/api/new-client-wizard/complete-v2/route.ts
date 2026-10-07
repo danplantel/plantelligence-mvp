@@ -530,7 +530,7 @@ export async function POST(request: NextRequest) {
           const headerData = brandImgs?.header;
           const thumbnailData = brandImgs?.thumbnail;
 
-          // Hero background: the header slot (Step 1 "Background Image"), falling
+          // Hero background: the header slot (Step 1 "Hero Banner Image"), falling
           // back to the thumbnail for parity with the create-time derivation.
           const heroSource = headerData?.url ?? thumbnailData?.url;
           const heroFileName =

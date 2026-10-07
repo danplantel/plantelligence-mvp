@@ -69,16 +69,17 @@ export const validateCompanyBasics = (data: CompanyBasicsData) => {
     const hasHeader = !!data.brandImages.header;
     const hasThumbnail = !!data.brandImages.thumbnail;
     if (!hasHeader && !hasThumbnail) {
-      errors.push({ field: "brandImages.header", message: "Background Header Image (Hero) or Square Thumbnail is required" });
+      errors.push({ field: "brandImages.header", message: "Hero Banner Image or Featured Image is required" });
     }
     if (hasHeader && data.brandImages.header?.fileSize && data.brandImages.header.fileSize > 15 * 1024 * 1024) {
-      errors.push({ field: "brandImages.header", message: "Header image is too large. Please upload a file under 15 MB." });
+      errors.push({ field: "brandImages.header", message: "Hero Banner Image is too large. Please upload a file under 15 MB." });
     }
     
-    // Validate other brand images if provided
+    // Validate other brand images if provided. The names here are what the user sees
+    // in the toast, so they have to match the cards in `BRAND_IMAGE_SLOTS`.
     const otherImages = [
-      { key: 'thumbnail', name: 'Square Thumbnail' },
-      { key: 'secondaryBanner', name: 'Secondary Banner Image' },
+      { key: 'thumbnail', name: 'Featured Image' },
+      { key: 'secondaryBanner', name: 'Page Image Header' },
       { key: 'favicon', name: 'Favicon/Icon' }
     ];
     

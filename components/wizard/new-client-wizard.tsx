@@ -342,7 +342,12 @@ export function NewClientWizard({
             organizationType: "Organization Type",
             missionHeadline: "Mission Headline",
             missionBody: "Mission Statement",
-            heroHeaderUrl: "Background Header Image",
+            heroHeaderUrl: "Hero Banner Image",
+            // Brand-image slots, named the way their cards are titled — otherwise a
+            // missing image reports as the raw `brandImages.header` field key.
+            "brandImages.header": "Hero Banner Image",
+            "brandImages.thumbnail": "Featured Image",
+            "brandImages.secondaryBanner": "Page Image Header",
             heroTitle: "Hero Title",
             heroDescription: "Hero Description",
             headline: "Headline",

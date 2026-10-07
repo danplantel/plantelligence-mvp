@@ -929,7 +929,7 @@ export default function SettingsPage() {
 
       // Persist branding fields (logo, colors, background) to the User record
       // FIRST — User.backgroundImage is what the benefits wizard step-1
-      // pre-populates the Background Header Image from. This must not be blocked
+      // pre-populates the Hero Banner Image from. This must not be blocked
       // by the wizard-session save below, which can reject and previously
       // aborted the whole save — leaving the background un-saved and
       // un-pre-populated.

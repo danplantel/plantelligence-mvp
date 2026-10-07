@@ -63,9 +63,9 @@ interface BannerSectionEditorProps {
   onToggleDefaultBody: (checked: boolean) => void;
   defaultBodyText: string;
   errorFields?: string[];
-  /** Ref to the Hero Background Header Image card (used to scroll it into view) */
+  /** Ref to the Hero Banner Image card (used to scroll it into view) */
   heroBackgroundCardRef?: React.RefObject<HTMLDivElement>;
-  /** Called when the user switches between Edit / Desktop / Mobile in Hero Background */
+  /** Called when the user switches between Edit / Desktop / Mobile in Hero Banner Image */
   onHeroSegmentModeChange?: (mode: HeroSegmentMode) => void;
   /** Called when any interactive element inside the editor gains focus */
   onFieldFocus?: () => void;

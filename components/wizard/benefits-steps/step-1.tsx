@@ -1328,7 +1328,7 @@ export function BenefitsStep1({
   //
   // Source of truth is the `Benefit` table (categoryBenefitByApi) — NOT the stale legacy
   // employeePortalPreview JSON. Additionally, when the category is one of the advisor's
-  // primaryServiceCategories, the Benefit Logo and Background Header Image default from the User
+  // primaryServiceCategories, the Benefit Logo and Hero Banner Image default from the User
   // profile (User.advisorLogoUrl → companyLogo, User.backgroundImage → brandImages.header)
   // whenever the benefit row doesn't already provide them. Runs once per category
   // (step1.benefitFieldsLoadedCategories) so in-session edits are never clobbered.
@@ -2538,7 +2538,7 @@ export function BenefitsStep1({
   };
 
   // Updates the plan's brandImages (header/hero) from the shared BrandImagesSection
-  // (matching the new-client wizard Step 1 "Background Image" slot: crop + set image).
+  // (matching the new-client wizard Step 1 "Hero Banner Image" slot: crop + set image).
   const handleBrandImagesChange = (brandImages: BrandImagesData) => {
     saveStepData(1, {
       ...currentStepData,
@@ -2927,7 +2927,7 @@ export function BenefitsStep1({
                   </Card>
                   <div className="space-y-4">
                     {/* Shared BrandImagesSection — the same component the
-                        new-client wizard Step 1 uses for its "Background Image"
+                        new-client wizard Step 1 uses for its "Hero Banner Image"
                         slot, so this hero field gets the identical crop + set
                         image behavior (SimpleImageEditorModal crop, default-photo
                         gallery, auto-crop on select). */}

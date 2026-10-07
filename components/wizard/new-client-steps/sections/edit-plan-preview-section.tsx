@@ -322,7 +322,7 @@ export function EditPlanPreviewSection({
   const togglePreviewMode = () =>
     setPreviewMode((prev) => (prev === "desktop" ? "mobile" : "desktop"));
 
-  // ── Hero segment mode (Desktop / Mobile tabs inside Hero Background card) ──
+  // ── Hero segment mode (Desktop / Mobile tabs inside the Hero Banner Image card) ──
   const [heroSegmentMode, setHeroSegmentMode] = useState<HeroSegmentMode>("desktop");
 
   // ── Desktop hero background position — derived directly from companyData ──
@@ -1196,7 +1196,7 @@ export function EditPlanPreviewSection({
 
       {pendingHeroImageData && (
         <SimpleImageEditorModal
-          modalTitle="Background image"
+          modalTitle="Hero Banner Image"
           modalDescription="Upload and edit your image."
           value={pendingHeroImageData.url || ""}
           originalValue={pendingHeroImageData.originalUrl}
@@ -1206,7 +1206,7 @@ export function EditPlanPreviewSection({
           onRemove={handleHeroModalClose}
           isOpen={isHeroModalOpen}
           onClose={handleHeroModalClose}
-          saveButtonText="Save Background"
+          saveButtonText="Save Hero Banner Image"
           // The canvas, guide and export values the wizard's own hero editor uses, so
           // a crop made here and one made in Create Plan are the same crop.
           canvasWidth={640}

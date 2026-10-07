@@ -15,7 +15,7 @@ export default function NewsEventsPage() {
 
   // Background for the News & Events header.
   //
-  // The "Secondary Banner" Brand Images slot — selected in the Create Plan wizard
+  // The "Page Image Header" Brand Images slot — selected in the Create Plan wizard
   // or in Edit Client — is this page's header background. When it was never
   // selected we pass nothing through, so NewsEventsHeader renders its bundled
   // default (`/news-events-default-bg.webp`).
