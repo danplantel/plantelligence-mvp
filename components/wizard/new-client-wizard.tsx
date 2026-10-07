@@ -589,7 +589,21 @@ export function NewClientWizard({
             transition: "left 200ms ease-in-out, width 200ms ease-in-out",
           }}
         >
-          <div className="mx-10">
+          <div
+            className="mx-10"
+            // Clear the Editing Panel's reserved column on the step that reserves
+            // one (Create Plan step 2 → `usePreviewEditorLayout` sets
+            // `--editor-inset`).
+            //
+            // The panel is fixed and painted above this bar, and on that step it is
+            // seated *beside* the sidebar rather than pushing everything aside, so
+            // without this the bar's left-hand control sat underneath it — Previous
+            // was the button the panel covered, leaving only Next visible. Same
+            // contract as the Benefits wizard (components/wizard/benefits-wizard.tsx).
+            // Steps that widen `--sidebar-width` instead never set `--editor-inset`,
+            // so this stays 0 for them.
+            style={{ paddingLeft: "var(--editor-inset, 0px)" }}
+          >
             <Card className="shadow-none border-0">
               <CardContent className="flex justify-between items-center p-4 relative">
                 <LoadingButton
