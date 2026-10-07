@@ -11,7 +11,6 @@ import {
   CheckCircle2,
   AlertCircle,
   ArrowLeftRight,
-  Loader2,
   Globe,
   Info,
   Search,
@@ -49,6 +48,21 @@ const setIcons: Record<ColorSetSuggestion["id"], typeof Sparkles> = {
   "ai-2": Sparkles,
   "ai-3": Sparkles,
 };
+
+/** One line of the extraction sequence: the logo, the website, then the palette. */
+type ExtractionStage = "logo" | "website" | "palette";
+
+/** How long each step of the sequence is on screen while the request is in flight. */
+const EXTRACTION_STAGE_MS = 1100;
+/** Client-facing floor for the whole sequence, so a fast response does not flicker. */
+const EXTRACTION_MIN_MS = 2500;
+/** How long the palette circles sit empty before the suggested colours fill them. */
+const EXTRACTION_FILL_MS = 450;
+
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
 
 // ── Component ────────────────────────────────────────────────────────────────
 
@@ -90,18 +104,50 @@ export function BrandColorsSection({
    */
   const [resetForSnapshot, setResetForSnapshot] = useState<string[] | null>(null);
 
+  /** Whether a company website has been entered — step 2 of the sequence. */
+  const hasWebsite = !!(websiteUrl || "").trim();
+
+  /** The step of the extraction sequence currently on screen, or `null` when idle. */
+  const [stage, setStage] = useState<ExtractionStage | null>(null);
+  /** Suggested colours, shown filling the palette circles before the cards land. */
+  const [palettePreview, setPalettePreview] = useState<ColorSetSuggestion[]>([]);
+  /** Identifies the current run so a superseded or finished run stops touching state. */
+  const runIdRef = useRef(0);
+
   const handleExtract = useCallback(async () => {
-    if (!logoDataUrl && !websiteUrl?.trim()) return;
+    if (!logoDataUrl && !hasWebsite) return;
 
     // Reset the validation state this extraction supersedes — both when it first runs and
     // on a re-extract, which is what "Re-extract Colors" means to the user.
     setResetForSnapshot(errorFields);
+
+    const runId = runIdRef.current + 1;
+    runIdRef.current = runId;
+    const startedAt = Date.now();
+    // The sequence has to at least reach its last step before the results land, so record
+    // how long that is; the whole run is also floored at EXTRACTION_MIN_MS below.
+    let stageBudget = EXTRACTION_STAGE_MS;
+    const isStale = () => runIdRef.current !== runId;
 
     setIsExtracting(true);
     setHasExtracted(true);
     setExtractionError(null);
     setSelectedSetId(null);
     setSiteType(null);
+    setPalettePreview([]);
+    setStage("logo");
+
+    // Advance the copy (and the website outline) while the request is in flight. The scan
+    // line over the logo loops on its own via CSS, so only the steps move here.
+    const runStages = async () => {
+      await wait(EXTRACTION_STAGE_MS);
+      if (isStale() || !hasWebsite) return;
+      setStage("website");
+      stageBudget += EXTRACTION_STAGE_MS;
+      await wait(EXTRACTION_STAGE_MS);
+    };
+
+    const stages = runStages();
 
     try {
       const sets = await extractColorSets(
@@ -110,13 +156,39 @@ export function BrandColorsSection({
         organizationName,
         setSiteType,
       );
-      setColorSets(sets);
+
+      await stages;
+      if (isStale()) return;
+
+      // Hold the animation for the client's minimum so a fast response does not flash.
+      const holdFor =
+        Math.max(EXTRACTION_MIN_MS, stageBudget) - (Date.now() - startedAt);
+      if (holdFor > 0) await wait(holdFor);
+      if (isStale()) return;
+
+      setColorSets(sets || []);
+
+      const usable = (sets || []).filter((set) => set.available);
+      if (usable.length === 0) return;
+
+      // "Picking your palette…": the circles pop in empty, then fill a beat later.
+      setStage("palette");
+      await wait(EXTRACTION_FILL_MS);
+      if (isStale()) return;
+
+      setPalettePreview(usable);
     } catch (err: any) {
+      if (isStale()) return;
       setExtractionError(err?.message || "Failed to extract colors");
     } finally {
-      setIsExtracting(false);
+      if (runIdRef.current === runId) {
+        // Bump the id so a pending stage timer cannot revive this finished run.
+        runIdRef.current += 1;
+        setIsExtracting(false);
+        setStage(null);
+      }
     }
-  }, [logoDataUrl, websiteUrl, organizationName, errorFields]);
+  }, [logoDataUrl, websiteUrl, organizationName, errorFields, hasWebsite]);
 
   /** The logo the last extraction was started for. */
   const extractionLogoRef = useRef<string | null>(null);
@@ -205,19 +277,29 @@ export function BrandColorsSection({
     </div>
   );
 
+  const stageLabel =
+    stage === "logo"
+      ? "Reading your logo…"
+      : stage === "website"
+        ? "Checking your website…"
+        : stage === "palette"
+          ? "Picking your palette…"
+          : "Generating color suggestions…";
+
   return (
     <Card className="dark:bg-gray-800">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 dark:text-gray-100">
           <Palette className="w-5 h-5 text-accent-blue" />
           Brand Colors
-          {isExtracting && (
-            <Loader2 className="w-4 h-4 animate-spin text-muted-foreground ml-1" />
-          )}
         </CardTitle>
         <p className="text-sm text-muted-foreground dark:text-gray-400">
-          {hasExtracted ? (
-            "Here are three color suggestions based on your logo and website. Select one, or fine-tune manually below."
+          {isExtracting ? (
+            stageLabel
+          ) : hasExtracted && colorSets.length > 0 ? (
+            "3 colors suggested. Select one, or fine-tune the colors manually below."
+          ) : hasExtracted ? (
+            "No color suggestions were found. Fine-tune the colors manually below."
           ) : (
             <>
               Click <strong>Extract Colors</strong> to generate three AI brand
@@ -253,11 +335,175 @@ export function BrandColorsSection({
 
         {/* ── Loading state ─────────────────────────────────────────────── */}
         {isExtracting && (
-          <div className="mb-4 p-3 rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20">
-            <div className="flex items-center gap-2 text-sm text-blue-700 dark:text-blue-400">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Generating three AI color suggestions from your logo & website…</span>
+          <div className="mx-auto mb-4 w-fit rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-4">
+            <div className="flex items-center justify-center gap-4 min-h-[72px]">
+              {/* 1 — Reading your logo: a thin scan line sweeps the uploaded logo. */}
+              <div
+                className={`relative w-16 h-16 shrink-0 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-900 overflow-hidden flex items-center justify-center transition-opacity ${
+                  stage === "logo" ? "opacity-100" : "opacity-60"
+                }`}
+              >
+                {logoDataUrl ? (
+                  <img
+                    src={logoDataUrl}
+                    alt="Your logo"
+                    className="max-h-[80%] max-w-[80%] object-contain"
+                  />
+                ) : (
+                  <Globe className="w-7 h-7 text-blue-400" />
+                )}
+                <span className="pointer-events-none absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-accent-blue to-transparent animate-logo-scan motion-reduce:animate-none" />
+              </div>
+
+              {/* 2 — Checking your website: the browser outline draws itself on. */}
+              {hasWebsite && stage !== "logo" && (
+                <div className="shrink-0 animate-fade-in-soft motion-reduce:animate-none">
+                  <svg
+                    width="56"
+                    height="44"
+                    viewBox="0 0 56 44"
+                    fill="none"
+                    className="text-blue-400"
+                    aria-hidden="true"
+                  >
+                    {/* The frame draws itself on… */}
+                    <rect
+                      x="1"
+                      y="1"
+                      width="54"
+                      height="42"
+                      rx="4"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      pathLength={1}
+                      strokeDasharray="1"
+                      className="animate-browser-draw motion-reduce:animate-none"
+                    />
+                    {/* …then the toolbar divider. */}
+                    <path
+                      d="M1 13h54"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      pathLength={1}
+                      strokeDasharray="1"
+                      className="animate-browser-draw motion-reduce:animate-none"
+                      style={{ animationDelay: "250ms" }}
+                    />
+                    {/* Traffic-light dots pop in one at a time. */}
+                    <circle
+                      cx="8"
+                      cy="7"
+                      r="1.5"
+                      fill="currentColor"
+                      className="animate-pop-in motion-reduce:animate-none"
+                      style={{
+                        animationDelay: "420ms",
+                        transformBox: "fill-box",
+                        transformOrigin: "center",
+                      }}
+                    />
+                    <circle
+                      cx="14"
+                      cy="7"
+                      r="1.5"
+                      fill="currentColor"
+                      className="animate-pop-in motion-reduce:animate-none"
+                      style={{
+                        animationDelay: "520ms",
+                        transformBox: "fill-box",
+                        transformOrigin: "center",
+                      }}
+                    />
+                    <circle
+                      cx="20"
+                      cy="7"
+                      r="1.5"
+                      fill="currentColor"
+                      className="animate-pop-in motion-reduce:animate-none"
+                      style={{
+                        animationDelay: "620ms",
+                        transformBox: "fill-box",
+                        transformOrigin: "center",
+                      }}
+                    />
+                    {/* The URL bar keeps loading for as long as the request is in flight. */}
+                    <line
+                      x1="26"
+                      y1="7"
+                      x2="49"
+                      y2="7"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      strokeLinecap="round"
+                      opacity="0.55"
+                      pathLength={1}
+                      strokeDasharray="1"
+                      className="animate-browser-url motion-reduce:animate-none"
+                    />
+                    {/* Page content fills in behind it. */}
+                    <rect
+                      x="7"
+                      y="20"
+                      width="24"
+                      height="3"
+                      rx="1.5"
+                      fill="currentColor"
+                      opacity="0.35"
+                      className="animate-fade-in-soft motion-reduce:animate-none"
+                      style={{ animationDelay: "620ms" }}
+                    />
+                    <rect
+                      x="7"
+                      y="27"
+                      width="42"
+                      height="3"
+                      rx="1.5"
+                      fill="currentColor"
+                      opacity="0.25"
+                      className="animate-fade-in-soft motion-reduce:animate-none"
+                      style={{ animationDelay: "760ms" }}
+                    />
+                    <rect
+                      x="7"
+                      y="34"
+                      width="30"
+                      height="3"
+                      rx="1.5"
+                      fill="currentColor"
+                      opacity="0.2"
+                      className="animate-fade-in-soft motion-reduce:animate-none"
+                      style={{ animationDelay: "900ms" }}
+                    />
+                  </svg>
+                </div>
+              )}
+
+              {/* 3 — Picking your palette: three dashed circles pop in, then fill. */}
+              {stage === "palette" && (
+                <div className="flex items-center gap-2 shrink-0">
+                  {[0, 1, 2].map((index) => {
+                    const set = palettePreview[index];
+                    return (
+                      <span
+                        key={index}
+                        className={`w-7 h-7 rounded-full border-2 animate-pop-in motion-reduce:animate-none ${
+                          set
+                            ? "border-transparent"
+                            : "border-dashed border-blue-400/70"
+                        }`}
+                        style={{
+                          animationDelay: `${index * 180}ms`,
+                          background: set?.primary ?? "transparent",
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
             </div>
+            <p className="mt-3 text-sm font-medium text-blue-700 dark:text-blue-400">
+              {stageLabel}
+            </p>
           </div>
         )}
 
@@ -274,6 +520,39 @@ export function BrandColorsSection({
         {/* ── Color Set Selection ───────────────────────────────────────── */}
         {colorSets.length > 0 && !isExtracting && (
           <div className="mb-4">
+            {/* End state of the sequence: the circles stay and act as the picker. */}
+            <div className="mb-3 flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                {colorSets.map((set) => {
+                  const isSelected = selectedSetId === set.id;
+                  return (
+                    <button
+                      key={set.id}
+                      type="button"
+                      onClick={() => selectSet(set)}
+                      disabled={!set.available}
+                      title={set.label}
+                      aria-label={`Select ${set.label}`}
+                      className={`w-7 h-7 rounded-full border-2 transition-transform ${
+                        isSelected
+                          ? "border-accent-blue ring-2 ring-accent-blue/40 scale-110"
+                          : "border-gray-300 dark:border-gray-600"
+                      } ${
+                        set.available
+                          ? "cursor-pointer hover:scale-110"
+                          : "opacity-40 cursor-not-allowed"
+                      }`}
+                      style={{
+                        background: set.available ? set.primary : "transparent",
+                      }}
+                    />
+                  );
+                })}
+              </div>
+              <span className="text-sm font-medium dark:text-gray-100">
+                3 colors suggested
+              </span>
+            </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {colorSets.map((set) => {
                 const Icon = setIcons[set.id];
