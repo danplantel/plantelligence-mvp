@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   AlertCircle,
   ArrowLeftRight,
+  Building2,
   Globe,
   Info,
   Search,
@@ -21,6 +22,7 @@ import {
   type ColorSetSuggestion,
   type SiteTechInfo,
 } from "@/lib/brand-color-extraction";
+import { resolveBrandImageUrl } from "./utils/image-utils";
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -107,6 +109,42 @@ export function BrandColorsSection({
   /** Whether a company website has been entered — step 2 of the sequence. */
   const hasWebsite = !!(websiteUrl || "").trim();
 
+  /**
+   * The company logo in a form the animation can actually render.
+   *
+   * A persisted logo is an R2 KEY (`org/…`), which `<img>` treats as a relative
+   * path and 404s — so the "Reading your logo…" step silently fell back to its
+   * placeholder glyph despite a logo being set. Resolving the key to the
+   * same-origin proxy is what puts the real logo back in the scan. Inline
+   * `data:` URLs and absolute URLs pass through untouched.
+   */
+  const logoForDisplay = resolveBrandImageUrl(logoDataUrl);
+
+  /**
+   * The URL the box has actually painted.
+   *
+   * Held as state rather than a plain `onLoad` boolean so that a *changed* logo
+   * re-shows the placeholder until its own image arrives, instead of briefly
+   * flashing the previous logo.
+   */
+  const [loadedLogoUrl, setLoadedLogoUrl] = useState<string | null>(null);
+  const isLogoReady = Boolean(logoForDisplay) && loadedLogoUrl === logoForDisplay;
+
+  /**
+   * Warm the logo as soon as it is known.
+   *
+   * The box only mounts while extraction is running, which is also when the
+   * request starts — so on a slow connection the fetch and the animation race,
+   * and the logo could land seconds in. Fetching it ahead of time means it is
+   * already in the HTTP cache (and the browser reuses an in-flight request) by
+   * the time the `<img>` mounts, so the box has it from the first frame.
+   */
+  useEffect(() => {
+    if (!logoForDisplay) return;
+    const preload = new Image();
+    preload.src = logoForDisplay;
+  }, [logoForDisplay]);
+
   /** The step of the extraction sequence currently on screen, or `null` when idle. */
   const [stage, setStage] = useState<ExtractionStage | null>(null);
   /** Suggested colours, shown filling the palette circles before the cards land. */
@@ -151,7 +189,9 @@ export function BrandColorsSection({
 
     try {
       const sets = await extractColorSets(
-        logoDataUrl,
+        // Hand the extraction the same loadable URL the animation uses — a stored
+        // R2 key has to be resolved first, or the canvas analysis reads nothing.
+        logoForDisplay,
         websiteUrl,
         organizationName,
         setSiteType,
@@ -188,7 +228,14 @@ export function BrandColorsSection({
         setStage(null);
       }
     }
-  }, [logoDataUrl, websiteUrl, organizationName, errorFields, hasWebsite]);
+  }, [
+    logoDataUrl,
+    logoForDisplay,
+    websiteUrl,
+    organizationName,
+    errorFields,
+    hasWebsite,
+  ]);
 
   /** The logo the last extraction was started for. */
   const extractionLogoRef = useRef<string | null>(null);
@@ -337,20 +384,35 @@ export function BrandColorsSection({
         {isExtracting && (
           <div className="mx-auto mb-4 w-fit rounded-lg border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-4">
             <div className="flex items-center justify-center gap-4 min-h-[72px]">
-              {/* 1 — Reading your logo: a thin scan line sweeps the uploaded logo. */}
+              {/* 1 — Reading your logo: a thin scan line sweeps the company logo.
+                  Always runs first, ahead of the website outline, so the sequence
+                  reads logo → website → palette. It stays on screen (dimmed) for
+                  the later steps, so the logo is never lost mid-sequence.
+                  The box is never empty: a placeholder holds the space until the
+                  logo has actually painted, then fades out from under it. */}
               <div
                 className={`relative w-16 h-16 shrink-0 rounded-md border border-blue-200 dark:border-blue-800 bg-white dark:bg-gray-900 overflow-hidden flex items-center justify-center transition-opacity ${
                   stage === "logo" ? "opacity-100" : "opacity-60"
                 }`}
               >
-                {logoDataUrl ? (
-                  <img
-                    src={logoDataUrl}
-                    alt="Your logo"
-                    className="max-h-[80%] max-w-[80%] object-contain"
-                  />
-                ) : (
-                  <Globe className="w-7 h-7 text-blue-400" />
+                {!isLogoReady && (
+                  // Shows when there is no logo at all, and while a logo is still
+                  // loading. A company glyph rather than a globe, so this step is
+                  // never mistaken for the website one that follows.
+                  <Building2 className="w-7 h-7 text-blue-400" aria-hidden="true" />
+                )}
+                {logoForDisplay && (
+                  <span className="absolute inset-0 flex items-center justify-center">
+                    <img
+                      src={logoForDisplay}
+                      alt="Your logo"
+                      onLoad={() => setLoadedLogoUrl(logoForDisplay)}
+                      onError={() => setLoadedLogoUrl(null)}
+                      className={`max-h-[80%] max-w-[80%] object-contain transition-opacity duration-300 ${
+                        isLogoReady ? "opacity-100" : "opacity-0"
+                      }`}
+                    />
+                  </span>
                 )}
                 <span className="pointer-events-none absolute inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-accent-blue to-transparent animate-logo-scan motion-reduce:animate-none" />
               </div>

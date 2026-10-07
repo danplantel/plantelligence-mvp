@@ -452,6 +452,8 @@ export function BenefitsSectionEditor({
             {editingLogoContactId && (
                 <UniversalImageEditorModal
                     type="normalizer"
+                    modalTitle="Partner Logo"
+                    modalDescription="Upload a logo for this benefit's partner contact."
                     // Partner logo — header logo, so export the tight crop.
                     normalizeLogoForHeader
                     value={

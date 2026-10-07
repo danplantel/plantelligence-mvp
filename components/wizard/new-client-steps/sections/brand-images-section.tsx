@@ -577,7 +577,7 @@ export function BrandImagesSection({
               ? "Page Image Header"
               : pendingImageData.slotKey === "favicon"
               ? "Favicon"
-              : "Edit Image"
+              : "Image"
           }
           modalDescription={
             pendingImageData.slotKey === "header"

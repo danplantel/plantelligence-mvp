@@ -98,7 +98,7 @@ export function ContactFormFields({
                   }}
                   onRemove={disabled ? () => { } : onHeadshotRemove}
                   placeholder="Upload Headshot"
-                  modalTitle="Edit Headshot"
+                  modalTitle="Headshot"
                   modalDescription="Upload a clear, front-facing photo. Keep the face inside the circle guide for best results."
                   saveButtonText="Save Headshot"
                   type="headshot"
@@ -239,7 +239,7 @@ export function ContactFormFields({
                       }}
                       onRemove={disabled || !onTeamImageRemove ? () => { } : onTeamImageRemove}
                       placeholder="Upload Team Image"
-                      modalTitle="Edit Team Image"
+                      modalTitle="Team Image"
                       modalDescription="Upload a clear image for your team or support line. Keep the image inside the circle guide for best results."
                       saveButtonText="Save Image"
                       type="headshot"

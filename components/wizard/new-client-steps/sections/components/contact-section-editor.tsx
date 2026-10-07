@@ -332,7 +332,7 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                                             handleUpdateContactFields(contact.id, { companyLogo: "", companyLogoFileName: "" });
                                                         }}
                                                         placeholder="Upload Contact Company Logo"
-                                                        modalTitle="Edit Contact Company Logo"
+                                                        modalTitle="Contact Company Logo"
                                                         modalDescription="Upload a logo for this contact's portal card."
                                                         saveButtonText="Save Logo"
                                                         type="logo"

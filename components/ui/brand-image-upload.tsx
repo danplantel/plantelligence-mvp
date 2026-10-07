@@ -647,10 +647,20 @@ export function BrandImageUpload({
                 </div>
               </div>
 
-              {/* Controls Column — the three actions, beneath the preview and centred under
-                  it. The file name used to lead this column; it is deliberately not shown,
-                  since the preview already says which image this is. */}
+              {/* Controls Column — the file's own name, then the three actions, beneath
+                  the preview and centred under it. The name leads the column again: a
+                  preview shows *an* image but not which file it came from, and the name
+                  carried here is the advisor's own upload (or "Default image" for a
+                  gallery pick) — see lib/image-editor-file-name.ts. */}
               <div className="flex flex-col items-center gap-3 flex-1 min-w-0">
+                {currentImage.fileName && (
+                  <p
+                    className="max-w-full truncate text-xs text-gray-500 dark:text-gray-400"
+                    title={currentImage.fileName}
+                  >
+                    {currentImage.fileName}
+                  </p>
+                )}
 
                 {/* Edit · New Image · Delete, in one row for every logo /
                     headshot / background preview. Edit works in both modes:

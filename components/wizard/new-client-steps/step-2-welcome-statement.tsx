@@ -1518,7 +1518,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
 
       {thumbnailImage.pendingThumbnailData && (
         <SimpleImageEditorModal
-          modalTitle="Featured image"
+          modalTitle="Featured Image"
           modalDescription="This image appears beside the company introduction on your Benefits Hub homepage and in card and preview placements. Upload a centered image with space around the edges."
           value={thumbnailImage.pendingThumbnailData.url || ""}
           originalValue={thumbnailImage.pendingThumbnailData.originalUrl}

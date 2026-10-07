@@ -2921,6 +2921,11 @@ export function BenefitsStep1({
                         // Benefit / provider logo — opt in explicitly.
                         universalModalAllowBackgroundRemoval={true}
                         universalModalNormalizeLogoForHeader={true}
+                        universalModalCustomConfig={{
+                          modalTitle: "Benefit Logo",
+                          modalDescription:
+                            "Upload a logo for this specific benefit provider.",
+                        }}
                         maxFileSize={10}
                       />
                     </CardContent>
@@ -3361,6 +3366,10 @@ export function BenefitsStep1({
                         // `headshot` type already excludes it; this makes the
                         // guarantee explicit at the call site.
                         universalModalAllowBackgroundRemoval={false}
+                        universalModalCustomConfig={{
+                          modalTitle: "Contact Photo",
+                          modalDescription: "Photo for portal display.",
+                        }}
                         maxFileSize={5}
                       />
                     </div>

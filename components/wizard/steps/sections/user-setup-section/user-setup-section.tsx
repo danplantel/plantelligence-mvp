@@ -160,7 +160,7 @@ export function UserSetupSection({
                   onDataChange("headshotData", null);
                 }}
                 placeholder="Upload Headshot"
-                modalTitle="Edit Headshot"
+                modalTitle="Headshot"
                 modalDescription="Upload a clear, front-facing photo. Keep your face inside the circle guide for best results."
                 saveButtonText="Save Headshot"
                 type="headshot"

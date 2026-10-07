@@ -1618,7 +1618,7 @@ export function ContactFormSlide({
               setExternalAdminLogoFileName("");
             }}
             placeholder="Upload Contact Company Logo"
-            modalTitle="Edit Contact Company Logo"
+            modalTitle="Contact Company Logo"
             modalDescription="Upload a logo for this contact's portal card."
             saveButtonText="Save Logo"
             type="logo"
@@ -1839,7 +1839,7 @@ export function ContactFormSlide({
                           setHeadshotFileName("");
                         }}
                         placeholder="Upload Headshot"
-                        modalTitle="Edit Headshot"
+                        modalTitle="Headshot"
                         modalDescription="Upload a clear, front-facing photo. Keep the face inside the circle guide for best results."
                         saveButtonText="Save Headshot"
                         type="headshot"

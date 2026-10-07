@@ -1274,6 +1274,7 @@ export function VideoStep1({ errorFields = [] }: VideoStep1Props) {
                 universalModalType="normalizer"
                 // Logo slot: export a tight crop so the mark fills the header band.
                 universalModalNormalizeLogoForHeader={true}
+                universalModalCustomConfig={{ modalTitle: "Company Logo" }}
                 maxFileSize={10}
               />
             </div>

@@ -30,6 +30,7 @@ import {
   drawCroppedImage,
   getBackingScale,
 } from "@/lib/image-editor-crop";
+import { editorOutputFileName } from "@/lib/image-editor-file-name";
 import {
   handleUniformScale,
   installShiftCenteredScaling,
@@ -328,7 +329,7 @@ export const IMAGE_EDITOR_CONFIGS: Record<ImageEditorType, ImageEditorConfig> =
     minResolution: 400,
     maxFileSize: 5 * 1024 * 1024,
     acceptedTypes: [".jpg", ".jpeg", ".png", ".webp"],
-    modalTitle: "Edit Headshot",
+    modalTitle: "Headshot",
     modalDescription:
       "Upload a clear, front-facing photo. Keep your face inside the circle guide for best results.",
     buttonText: "Upload Headshot",
@@ -351,7 +352,7 @@ export const IMAGE_EDITOR_CONFIGS: Record<ImageEditorType, ImageEditorConfig> =
     minResolution: 0,
     maxFileSize: 5 * 1024 * 1024,
     acceptedTypes: [".jpg", ".jpeg", ".png", ".webp", ".svg"],
-    modalTitle: "Edit Logo",
+    modalTitle: "Company Logo",
     modalDescription:
       "Upload your company logo. Keep it centered and clear for best results.",
     buttonText: "Upload Logo",
@@ -377,7 +378,7 @@ export const IMAGE_EDITOR_CONFIGS: Record<ImageEditorType, ImageEditorConfig> =
     minResolution: 200,
     maxFileSize: 5 * 1024 * 1024,
     acceptedTypes: [".jpg", ".jpeg", ".png", ".webp", ".svg"],
-    modalTitle: "Logo Normalizer",
+    modalTitle: "Company Logo",
     modalDescription:
       "Fit your logo inside the safe zone so it works across headers, cards, and PDFs. You can fine-tune later.",
     buttonText: "Upload Logo",
@@ -402,7 +403,7 @@ export const IMAGE_EDITOR_CONFIGS: Record<ImageEditorType, ImageEditorConfig> =
     minResolution: 200,
     maxFileSize: 5 * 1024 * 1024,
     acceptedTypes: [".jpg", ".jpeg", ".png", ".webp"],
-    modalTitle: "Edit Image",
+    modalTitle: "Image",
     modalDescription: "Upload and edit your image.",
     buttonText: "Upload Image",
     saveButtonText: "Save Image",
@@ -676,6 +677,16 @@ export function UniversalImageEditorModal({
   const [sourceIsSvg, setSourceIsSvg] = useState(false);
 
   /**
+   * The name of the file the advisor picked in this session.
+   *
+   * Held in state rather than read back off the input element: `handleFileChange`
+   * clears the input (so the same file can be re-picked), which would have taken
+   * the name with it — the display name and the saved name both read from here
+   * now. Set in `processImageFile`, so the drag-and-drop path is covered too.
+   */
+  const [pickedFileName, setPickedFileName] = useState<string | null>(null);
+
+  /**
    * Set when an uploaded logo arrives with a detectable backdrop, so the offer
    * dialog can name the colour it found. Null means nothing to ask about — it is
    * never populated for an image that was not just picked.
@@ -844,6 +855,75 @@ export function UniversalImageEditorModal({
     if (externalOnClose) externalOnClose();
   };
 
+  /**
+   * The geometry the editor opened with — the baseline for the "did the advisor
+   * actually change anything?" check.
+   *
+   * Captured once the canvas is framed (after an auto-size-on-open, when there
+   * is one) rather than on every edit, so an untouched editor cancels silently
+   * while a real drag or resize asks first.
+   */
+  const pristineGeometryRef = useRef<{
+    scale: number;
+    left: number;
+    top: number;
+  } | null>(null);
+
+  const capturePristineGeometry = useCallback(() => {
+    const object = fabricCanvasRef.current?.getActiveObject();
+    if (!object) return;
+    pristineGeometryRef.current = {
+      scale: object.scaleX || 1,
+      left: object.left || 0,
+      top: object.top || 0,
+    };
+  }, []);
+
+  /**
+   * Whether the crop or the scale has changed since the editor opened.
+   *
+   * Position counts as much as scale: the crop is where the guide meets the
+   * artwork, so dragging the image changes the saved result exactly as resizing
+   * does. Comparing against the opening geometry — rather than latching a
+   * "dirty" flag — also means a Reset back to that framing is correctly not a
+   * change.
+   */
+  const hasUnsavedEdits = useCallback(() => {
+    const pristine = pristineGeometryRef.current;
+    const object = fabricCanvasRef.current?.getActiveObject();
+    if (!pristine || !object) return false;
+    const MOVE_TOLERANCE_PX = 1;
+    return (
+      Math.abs((object.scaleX || 1) - pristine.scale) > 0.0001 ||
+      Math.abs((object.left || 0) - pristine.left) > MOVE_TOLERANCE_PX ||
+      Math.abs((object.top || 0) - pristine.top) > MOVE_TOLERANCE_PX
+    );
+  }, []);
+
+  /**
+   * The name the preview shows — the same name the save will use, so the advisor
+   * can see which file they are looking at, and recognise it in the card
+   * afterwards. See `editorOutputFileName`.
+   */
+  const previewFileName = editorOutputFileName(
+    pickedFileName || fileName || "",
+    type === "headshot"
+      ? "headshot.png"
+      : type === "logo"
+        ? "logo.png"
+        : "image.png",
+  );
+
+  /**
+   * The name shown on the trigger's preview — the stored name for this slot,
+   * which is already the advisor's own file (or "Default image" for a gallery
+   * pick) because the save path writes it through `editorOutputFileName`. The
+   * helper still runs over it so a legacy `default-image.<ext>` stored before
+   * that rule existed reads properly too. Empty when nothing is stored, so the
+   * line simply doesn't render.
+   */
+  const triggerFileName = editorOutputFileName(fileName || "", "");
+
   // Canvas dimensions are fixed to the type's configured size (set by the
   // canvas-mode detection effect below). We intentionally do NOT size the canvas
   // from the viewport / window.resize — browser zoom changes innerWidth/innerHeight,
@@ -936,6 +1016,7 @@ export function UniversalImageEditorModal({
 
   const processImageFile = async (file: File) => {
     setError(null);
+    setPickedFileName(file.name);
 
     // Read the file to a data URL FIRST and open the editor with it. The read is
     // local, so the preview is on screen in the same tick and no busy state is
@@ -1740,6 +1821,9 @@ export function UniversalImageEditorModal({
 
           canvas.add(img);
           canvas.setActiveObject(img);
+          // The framing the editor opens with is the baseline the cancel check
+          // compares against — see `pristineGeometryRef`.
+          capturePristineGeometry();
 
           setBaseScale(finalBaseScale);
 
@@ -1782,12 +1866,15 @@ export function UniversalImageEditorModal({
     responsiveCanvasWidth,
     responsiveCanvasHeight,
     isDetectingMode,
+    capturePristineGeometry,
   ]);
 
   // Cleanup canvas when modal closes
   useEffect(() => {
     if (!modalOpen) {
       autoSizeInitializedRef.current = false;
+      pristineGeometryRef.current = null;
+      setPickedFileName(null);
       if (fabricCanvasRef.current) {
         fabricCanvasRef.current.dispose();
         fabricCanvasRef.current = null;
@@ -2141,15 +2228,8 @@ export function UniversalImageEditorModal({
     activeObject.hasBorders = true;
     canvas.renderAll();
 
-    const originalFileName =
-      inputRef.current?.files?.[0]?.name || fileName || "image.png";
-    const extension = exportFormat === "image/png" ? ".png" : ".jpg";
-    const newFileName =
-      (type === "headshot"
-        ? "headshot"
-        : type === "logo"
-          ? "company_logo"
-          : originalFileName.replace(/\.[^/.]+$/, "")) + "_cropped" + extension;
+    // The same name the preview showed — see `previewFileName`.
+    const newFileName = previewFileName;
 
     const originalImageWidth = activeObject.width || 1;
     const originalImageHeight = activeObject.height || 1;
@@ -2271,8 +2351,16 @@ export function UniversalImageEditorModal({
     finalize();
   };
 
+  /**
+   * Cancel asks before discarding only when there is something to discard.
+   *
+   * The prompt used to appear whenever an image was loaded, so it fired even
+   * when the advisor opened the editor and changed nothing. It is now tied to
+   * the crop or scale actually differing from the framing the editor opened
+   * with.
+   */
   const handleCancel = () => {
-    if (imageSrc && fabricCanvasRef.current) {
+    if (hasUnsavedEdits()) {
       setShowCancelConfirm(true);
     } else {
       handleClose();
@@ -3049,6 +3137,9 @@ export function UniversalImageEditorModal({
       if (!fabricCanvasRef.current) return;
       autoSizeImage();
       autoSizeInitializedRef.current = true;
+      // Auto-size-on-open is the editor's own framing, not an edit: re-baseline
+      // so cancelling straight after opening does not ask to discard it.
+      capturePristineGeometry();
     }, 100);
 
     return () => window.clearTimeout(timeoutId);
@@ -3151,6 +3242,14 @@ export function UniversalImageEditorModal({
    */
   const previewsPanel = (
     <>
+      {/* The file being previewed, by the name it will be saved under, so the
+          advisor can tell which upload they are checking. */}
+      <p
+        className="mb-2 truncate text-[11px] text-muted-foreground"
+        title={previewFileName}
+      >
+        {previewFileName}
+      </p>
       {config.previewFormats.map((format) => {
         const size = config.previewSizes[format];
         if (!size) return null;
@@ -3343,10 +3442,20 @@ export function UniversalImageEditorModal({
                 </div>
               </div>
 
-              {/* Controls Column — the three actions, beneath the preview and centred under
-                  it. The file name used to lead this column; it is deliberately not shown,
-                  since the preview already says which image this is. */}
+              {/* Controls Column — the file's own name, then the three actions, beneath
+                  the preview and centred under it. The name leads the column again: a
+                  preview shows *an* image but not which file it came from, and the name
+                  stored against this slot is the advisor's own upload (or "Default
+                  image" for a gallery pick) — see lib/image-editor-file-name.ts. */}
               <div className="flex flex-col items-center gap-3 flex-1 min-w-0">
+                {triggerFileName && (
+                  <p
+                    className="max-w-full truncate text-xs text-gray-500 dark:text-gray-400"
+                    title={triggerFileName}
+                  >
+                    {triggerFileName}
+                  </p>
+                )}
 
                 {/* Edit · New Image · Delete, in one row for every logo /
                     headshot / background preview. Edit reopens the editor that

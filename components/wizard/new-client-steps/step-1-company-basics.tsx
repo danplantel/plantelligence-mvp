@@ -1141,12 +1141,10 @@ export function NewClientStep1({
             onSecondaryPickerOpenChange={(open) =>
               updateField("isSecondaryColorPickerOpen", open || false)
             }
-            logoDataUrl={
-              logoPreviewDataUrl ||
-              (companyData.companyLogo?.url?.startsWith("data:")
-                ? companyData.companyLogo.url
-                : undefined)
-            }
+            // Hand over the stored logo too, R2 key included — `BrandColorsSection`
+            // resolves it for both the scanning animation and the extraction, so a
+            // resumed draft shows the real logo instead of the placeholder glyph.
+            logoDataUrl={logoPreviewDataUrl || companyData.companyLogo?.url}
             websiteUrl={companyData.companyWebsite}
             organizationName={companyData.companyName}
             errorFields={liveErrorFields}

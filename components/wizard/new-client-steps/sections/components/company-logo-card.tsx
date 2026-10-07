@@ -135,6 +135,7 @@ export const CompanyLogoCard = forwardRef<HTMLDivElement, CompanyLogoCardProps>(
           universalModalAllowBackgroundRemoval={true}
           // Header logo: export a tight crop so the mark fills the header band.
           universalModalNormalizeLogoForHeader={true}
+          universalModalCustomConfig={{ modalTitle: "Company Logo" }}
           maxFileSize={100}
           renderModalOutside={!!onLogoModalStateChange}
           onModalStateChange={handleLogoModalStateChangeFromUpload}

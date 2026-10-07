@@ -218,6 +218,8 @@ export function BrandingSetupCard({
         </label>
         <UniversalImageEditorModal
           type="logo"
+          modalTitle="Organization Logo"
+          modalDescription="Upload your organization's logo for branding purposes."
           icon={<ImageIcon className="w-4 h-4" />}
           value={logo}
           fileName={logoFileName}

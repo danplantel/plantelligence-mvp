@@ -8,6 +8,7 @@ import { Label } from "./label";
 import { ImageEditorControls } from "./image-editor-controls";
 import { ConfirmDialog } from "./confirm-dialog";
 import { buildCropMetadata, cropImageToDataUrl } from "@/lib/image-editor-crop";
+import { editorOutputFileName } from "@/lib/image-editor-file-name";
 import {
   handleUniformScale,
   installShiftCenteredScaling,
@@ -111,7 +112,7 @@ export function SimpleImageEditorModal({
   existingCropData,
   onChange,
   onRemove,
-  modalTitle = "Edit Image",
+  modalTitle = "Image",
   modalDescription = "Upload and edit your image.",
   placeholder = "Upload Image",
   saveButtonText = "Save Image",
@@ -167,6 +168,13 @@ export function SimpleImageEditorModal({
   const [showCropWarning, setShowCropWarning] = useState(false);
   const [hasTooMuchBlankSpace, setHasTooMuchBlankSpace] = useState(false);
   const [hasLargeScaleDifference, setHasLargeScaleDifference] = useState(false);
+  /**
+   * The name of the file the advisor picked in this session.
+   *
+   * Held in state rather than read back off the input element, so the name the
+   * preview displays is the same one the save uses — see `previewFileName`.
+   */
+  const [pickedFileName, setPickedFileName] = useState<string | null>(null);
 
   // The editor overlay is portalled to <body> (below). Rendered inline it would be a
   // `fixed` child of whatever renders it — inside the Editing Panel that means a
@@ -178,9 +186,61 @@ export function SimpleImageEditorModal({
     setIsMounted(true);
   }, []);
 
+  /**
+   * The geometry the editor opened with — the baseline for the "did the advisor
+   * actually change anything?" check.
+   *
+   * Captured once the canvas is framed (after an auto-size-on-open, when there
+   * is one) rather than on every edit, so an untouched editor cancels silently
+   * while a real drag or resize asks first.
+   */
+  const pristineGeometryRef = useRef<{
+    scale: number;
+    left: number;
+    top: number;
+  } | null>(null);
+
+  const capturePristineGeometry = useCallback(() => {
+    const object = fabricCanvasRef.current?.getActiveObject();
+    if (!object) return;
+    pristineGeometryRef.current = {
+      scale: object.scaleX || 1,
+      left: object.left || 0,
+      top: object.top || 0,
+    };
+  }, []);
+
+  /**
+   * Whether the crop or the scale has changed since the editor opened.
+   *
+   * Position counts as much as scale: the crop is where the guide meets the
+   * artwork, so dragging the photo changes the saved result exactly as resizing
+   * does. Comparing against the opening geometry — rather than latching a
+   * "dirty" flag — also means a Reset back to that framing is correctly not a
+   * change.
+   */
+  const hasUnsavedEdits = useCallback(() => {
+    const pristine = pristineGeometryRef.current;
+    const object = fabricCanvasRef.current?.getActiveObject();
+    if (!pristine || !object) return false;
+    const MOVE_TOLERANCE_PX = 1;
+    return (
+      Math.abs((object.scaleX || 1) - pristine.scale) > 0.0001 ||
+      Math.abs((object.left || 0) - pristine.left) > MOVE_TOLERANCE_PX ||
+      Math.abs((object.top || 0) - pristine.top) > MOVE_TOLERANCE_PX
+    );
+  }, []);
+
   const modalOpen =
     externalIsOpen !== undefined ? externalIsOpen : internalModalOpen;
   const handleClose = externalOnClose || (() => setInternalModalOpen(false));
+
+  /**
+   * The name the preview shows — the same name the save will use, so the advisor
+   * can see which file they are looking at, and recognise it in the card
+   * afterwards. See `editorOutputFileName`.
+   */
+  const previewFileName = editorOutputFileName(pickedFileName || fileName || "");
 
   // Set imageSrc from value prop when modal opens
   useEffect(() => {
@@ -220,6 +280,7 @@ export function SimpleImageEditorModal({
     if (!file) return;
 
     setError(null);
+    setPickedFileName(file.name);
 
     // Basic validation. Size is knowable without touching the file, it is instant,
     // and it is what keeps an oversized file from replacing the preview — so it
@@ -260,6 +321,7 @@ export function SimpleImageEditorModal({
   useEffect(() => {
     if (!modalOpen) {
       autoSizeInitializedRef.current = false;
+      pristineGeometryRef.current = null;
       if (fabricCanvasRef.current) {
         fabricCanvasRef.current.dispose();
         fabricCanvasRef.current = null;
@@ -267,6 +329,7 @@ export function SimpleImageEditorModal({
       setImageSrc(null);
       setOriginalImageSrc(null);
       setPreviewSrc(null);
+      setPickedFileName(null);
       setScale(1);
       setError(null);
       setGuidelineError(null);
@@ -657,6 +720,9 @@ export function SimpleImageEditorModal({
 
             fabricCanvasRef.current.renderAll();
             isInitializedRef.current = true;
+            // The framing the editor opens with is the baseline the cancel check
+            // compares against — see `pristineGeometryRef`.
+            capturePristineGeometry();
             evaluateGuidelineBounds();
 
             // Generate initial preview
@@ -755,6 +821,7 @@ export function SimpleImageEditorModal({
     editorCanvasHeight,
     evaluateGuidelineBounds,
     getGuidelineMetrics,
+    capturePristineGeometry,
   ]);
 
   /**
@@ -1143,10 +1210,8 @@ export function SimpleImageEditorModal({
           format: "image/png",
         });
 
-        const originalFileName =
-          inputRef.current?.files?.[0]?.name || fileName || "image.png";
-        const newFileName =
-          originalFileName.replace(/\.[^/.]+$/, "") + "_edited.png";
+        // The same name the preview showed — see `previewFileName`.
+        const newFileName = previewFileName;
 
         if (croppedPreview) {
           // Restore controls and guidelines
@@ -1197,8 +1262,16 @@ export function SimpleImageEditorModal({
     img.src = fullCanvasData;
   };
 
+  /**
+   * Cancel asks before discarding only when there is something to discard.
+   *
+   * The prompt used to appear whenever an image was loaded, so it fired even
+   * when the advisor opened the editor and changed nothing. It is now tied to
+   * the crop or scale actually differing from the framing the editor opened
+   * with.
+   */
   const handleCancel = () => {
-    if (imageSrc && fabricCanvasRef.current) {
+    if (hasUnsavedEdits()) {
       setShowCancelConfirm(true);
     } else {
       handleClose();
@@ -1473,10 +1546,13 @@ export function SimpleImageEditorModal({
       if (!fabricCanvasRef.current) return;
       autoSizeImage();
       autoSizeInitializedRef.current = true;
+      // Auto-size-on-open is the editor's own framing, not an edit: re-baseline
+      // so cancelling straight after opening does not ask to discard it.
+      capturePristineGeometry();
     }, 200);
 
     return () => window.clearTimeout(timeoutId);
-  }, [autoSizeOnOpen, modalOpen, imageSrc, autoSizeImage]);
+  }, [autoSizeOnOpen, modalOpen, imageSrc, autoSizeImage, capturePristineGeometry]);
 
   const handleScaleChange = (newScale: number) => {
     isEditingRef.current = true;
@@ -1657,9 +1733,20 @@ export function SimpleImageEditorModal({
                 {/* Preview leads the panel — it is what the user came to check,
                     and the guidance below explains it. */}
                 <div>
-                  <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                    Preview
-                  </Label>
+                  <div className="flex items-center justify-between gap-2">
+                    <Label className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                      Preview
+                    </Label>
+                    {/* Which file this is, by the name it will be saved under. */}
+                    {previewFileName && (
+                      <span
+                        className="min-w-0 truncate text-[11px] text-muted-foreground"
+                        title={previewFileName}
+                      >
+                        {previewFileName}
+                      </span>
+                    )}
+                  </div>
                   {/* Full panel width, shaped like the guide, so the preview is
                       as large as the column allows and the image fills the frame
                       rather than floating in the middle of it. */}

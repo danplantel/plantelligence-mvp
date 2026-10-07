@@ -548,6 +548,11 @@ export function BenefitsEditorPanel({
                                 // Provider logo — a real logo, so opt in explicitly.
                                 universalModalAllowBackgroundRemoval={true}
                                 universalModalNormalizeLogoForHeader={true}
+                                universalModalCustomConfig={{
+                                    modalTitle: "Benefit Logo",
+                                    modalDescription:
+                                        "This logo identifies the benefit provider (e.g. Waypoint, Integrity).",
+                                }}
                             />
                         </div>
                         <div
@@ -654,6 +659,9 @@ export function BenefitsEditorPanel({
                                 universalModalAllowBackgroundRemoval={false}
                                 universalModalCustomConfig={{
                                     outlinePadding: 0,
+                                    modalTitle: "Inner Header Image",
+                                    modalDescription:
+                                        "Full-height image displayed in the right column of the hero section. Replaces the Benefits Logo when set.",
                                 }}
                             />
                         </div>
@@ -1197,6 +1205,11 @@ export function BenefitsEditorPanel({
                                 universalModalType="normalizer"
                                 // 1920×1080 section background, not a logo.
                                 universalModalAllowBackgroundRemoval={false}
+                                universalModalCustomConfig={{
+                                    modalTitle: "Background Image",
+                                    modalDescription:
+                                        "This image displays behind the Insurance Benefits Access & Materials section heading.",
+                                }}
                             />
                         </div>
 

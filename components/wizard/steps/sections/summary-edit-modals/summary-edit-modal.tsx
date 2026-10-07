@@ -760,6 +760,8 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
               </Label>
               <UniversalImageEditorModal
                 type="logo"
+                modalTitle="Background Image"
+                modalDescription="Upload a background image that will appear behind your content."
                 value={editData.userBackgroundImage || ""}
                 fileName=""
                 onChange={(value, fileName) => {
