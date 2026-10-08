@@ -12,11 +12,13 @@ import {
   splitDisclosureText,
 } from "@/lib/disclaimer-constants";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Lock } from "lucide-react";
+import { Lock, Plus } from "lucide-react";
 import { Disclaimer } from "@/types/wizard";
+import { SkipAttestationModal } from "./sections/attestation-modals/skip-attestation-modal";
 
 interface Step5bDisclosuresProps {
   onValidationChange?: (isValid: boolean) => void;
@@ -107,6 +109,10 @@ export function Step5bDisclosures({
   const [sections, setSections] = useState<Record<string, SectionState>>(() =>
     buildSections(initialDisclaimers),
   );
+  // Intro (two buttons) is shown first; "Add Now" opens the editor.
+  const [showEditor, setShowEditor] = useState(false);
+  // Skip attestation — opened by the intro's "Confirm Disclosures / Skip for Now".
+  const [showSkipAttestation, setShowSkipAttestation] = useState(false);
 
   // Once the user touches a section we stop re-syncing from the store, so a
   // late server refresh can never clobber an in-flight edit.
@@ -186,6 +192,30 @@ export function Step5bDisclosures({
     void persist(updated);
   };
 
+  /**
+   * Accept the recommended "Your Disclosure" for both surfaces — used by the
+   * "Confirm Disclosures / Skip for Now" intro action.
+   */
+  const acceptRecommendedDefaults = () => {
+    const updated = [...disclaimers];
+    for (const cfg of DISCLOSURE_SECTIONS) {
+      const text = combineDisclosureText(cfg.recommendedText, cfg.platformText);
+      const idx = updated.findIndex((d) => (d.locations || []).includes(cfg.location));
+      if (idx >= 0) {
+        updated[idx] = { ...updated[idx], text };
+      } else {
+        updated.push({
+          id: `${cfg.key}-${Date.now()}`,
+          text,
+          locations: [cfg.location],
+          customLocation: "",
+        } as Disclaimer);
+      }
+    }
+    setSections(buildSections(updated));
+    void persist(updated);
+  };
+
   // Initial load + seed: pull any saved disclaimers, then make sure BOTH
   // sections exist (defaulting to "Use Recommended") so completing onboarding
   // always carries the platform + recommended language for each surface.
@@ -237,11 +267,12 @@ export function Step5bDisclosures({
     };
   }, []);
 
-  // Both sections always have content (Recommended default), so Step 5b is
-  // always valid — the footer's Confirm/Skip simply advances.
+  // On the two-button intro the footer's "Confirm Disclosures" stays disabled
+  // until the advisor goes through the attestation (which opens the editor);
+  // once they're editing, the step is valid.
   useEffect(() => {
-    onValidationChange?.(true);
-  }, [onValidationChange]);
+    onValidationChange?.(showEditor);
+  }, [onValidationChange, showEditor]);
 
   const handleModeChange = (key: string, mode: SectionMode) => {
     dirtyRef.current = true;
@@ -266,17 +297,73 @@ export function Step5bDisclosures({
     }, 500);
   };
 
+  const header = (
+    <div className="text-left space-y-1">
+      <h2 className="text-lg font-semibold text-foreground">
+        Compliance Disclosures
+      </h2>
+      <p className="text-sm text-muted-foreground">
+        Provide compliance language for participant and client-facing materials
+      </p>
+    </div>
+  );
+
+  const attestationNotice = (
+    <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+      Confirming opens a short attestation. Skipping is allowed, but Benefits
+      Hubs can’t be published until your disclosures are reviewed and confirmed.
+    </div>
+  );
+
+  // Intro — start with the two actions before revealing the editor.
+  if (!showEditor) {
+    return (
+      <>
+        <div className="max-w-2xl mx-auto space-y-4">
+        {header}
+
+        <Card className="shadow-none dark:bg-gray-800 dark:border-gray-700">
+          <CardContent className="pt-3 pb-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                type="button"
+                onClick={() => setShowEditor(true)}
+                className="w-full flex items-center justify-center gap-2 bg-accent-blue text-white hover:bg-[#3f797f] dark:bg-accent-blue-dark dark:hover:bg-accent-blue"
+              >
+                <Plus className="h-4 w-4" />
+                Add Now
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowSkipAttestation(true)}
+                className="w-full flex items-center justify-center gap-2 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+              >
+                Confirm Disclosures / Skip for Now
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {attestationNotice}
+        </div>
+
+        <SkipAttestationModal
+          isOpen={showSkipAttestation}
+          onClose={() => setShowSkipAttestation(false)}
+          onConfirm={() => {
+            setShowSkipAttestation(false);
+            acceptRecommendedDefaults();
+            setShowEditor(true);
+          }}
+        />
+      </>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      {/* Header */}
-      <div className="text-left space-y-1">
-        <h2 className="text-lg font-semibold text-foreground">
-          Compliance Disclosures
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Provide compliance language for participant and client-facing materials
-        </p>
-      </div>
+      {header}
 
       {DISCLOSURE_SECTIONS.map((cfg) => {
         const state = sections[cfg.key];
@@ -380,12 +467,7 @@ export function Step5bDisclosures({
         );
       })}
 
-      {/* Attestation notice */}
-      <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
-        Confirming opens a short attestation. Skipping is allowed, but Benefits
-        Hubs can’t be published until your disclosures are reviewed and
-        confirmed.
-      </div>
+      {attestationNotice}
     </div>
   );
 }

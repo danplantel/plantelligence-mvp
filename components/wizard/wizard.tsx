@@ -14,6 +14,8 @@ import { Card, CardContent } from "../ui/card";
 import { validateCurrentStep } from "@/lib/wizard-validation";
 import { toast } from "sonner";
 import { TeamSize } from "@/types/wizard";
+import { AddNowAttestationModal } from "./steps/sections/attestation-modals/add-now-attestation-modal";
+import { SkipAttestationModal } from "./steps/sections/attestation-modals/skip-attestation-modal";
 
 // Function to focus on the top-most invalid field and scroll to it.
 // Chooses the FIRST errored field in DOCUMENT ORDER (not validation order) so
@@ -149,6 +151,10 @@ export function OnboardingWizard({
   const [needsScroll, setNeedsScroll] = useState(false);
   const [isPulsating, setIsPulsating] = useState(false);
   const [showSuccessOverlay, setShowSuccessOverlay] = useState(false);
+  // Skip attestation — opened by the footer's "Skip for Now" on Step 5b.
+  const [showSkipAttestation, setShowSkipAttestation] = useState(false);
+  // "Confirm Your Disclosures" attestation — opened by the footer Confirm on 5b.
+  const [showConfirmAttestation, setShowConfirmAttestation] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Use external props if provided, otherwise fall back to store
@@ -659,12 +665,9 @@ export function OnboardingWizard({
           return;
         }
         clearErrorFields();
-        // -> 5c when the team step applies, otherwise finish.
-        if (teamStepApplies) {
-          setStep5SubStep("team");
-          return;
-        }
-        await handleCompleteClick();
+        // Confirming opens the "Confirm Your Disclosures" attestation; its
+        // Continue advances (5c when the team step applies, otherwise finish).
+        setShowConfirmAttestation(true);
         return;
       }
 
@@ -681,18 +684,35 @@ export function OnboardingWizard({
   const handleStep5SecondaryClick = async () => {
     if (!isLastStep) return;
 
-    // 5b Disclosures -> "Skip for Now"
+    // 5b Disclosures -> "Skip for Now" opens the skip attestation first.
     if (step5SubStep === "disclosures") {
-      if (teamStepApplies) {
-        setStep5SubStep("team");
-      } else {
-        await handleCompleteClick();
-      }
+      setShowSkipAttestation(true);
       return;
     }
 
     // 5c Team -> "Invite Later"
     if (step5SubStep === "team") {
+      await handleCompleteClick();
+    }
+  };
+
+  // Confirming the skip attestation performs the skip (5c when the team step
+  // applies, otherwise finish).
+  const confirmStep5Skip = async () => {
+    setShowSkipAttestation(false);
+    if (step5SubStep === "disclosures" && teamStepApplies) {
+      setStep5SubStep("team");
+    } else {
+      await handleCompleteClick();
+    }
+  };
+
+  // Continuing the "Confirm Your Disclosures" attestation advances the step.
+  const confirmStep5Attestation = async () => {
+    setShowConfirmAttestation(false);
+    if (teamStepApplies) {
+      setStep5SubStep("team");
+    } else {
       await handleCompleteClick();
     }
   };
@@ -821,6 +841,11 @@ export function OnboardingWizard({
                         size="lg"
                         onClick={handlePrimaryClick}
                         isLoading={isLoading}
+                        disabled={
+                          isLastStep &&
+                          step5SubStep === "disclosures" &&
+                          !isStep5Valid
+                        }
                         loadingText={
                           willCompleteOnPrimary
                             ? "Completing setup..."
@@ -841,6 +866,17 @@ export function OnboardingWizard({
               </div>
             </div>
           </div>
+
+          <AddNowAttestationModal
+            isOpen={showConfirmAttestation}
+            onClose={() => setShowConfirmAttestation(false)}
+            onConfirm={confirmStep5Attestation}
+          />
+          <SkipAttestationModal
+            isOpen={showSkipAttestation}
+            onClose={() => setShowSkipAttestation(false)}
+            onConfirm={confirmStep5Skip}
+          />
         </>
       )}
     </>
