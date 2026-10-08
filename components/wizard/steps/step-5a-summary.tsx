@@ -45,11 +45,13 @@ const formatPhoneNumber = (phone: string): string => {
 };
 
 /**
- * Step 5a — Summary.
+ * Step 5a — Review Your Information.
  *
- * The review screen for the onboarding wizard. Disclosures live in the sibling
- * sub-step (5b) so that Step 5 on Onboarding presents its own two-node
- * sub-stepper (see `step-5-onboarding.tsx`).
+ * The review screen for Onboarding Step 5. Each card's "Edit" opens its step in
+ * edit-from-review mode (`startEditingFromReview`), where the step's primary
+ * action is "Save & Return to Review" and Previous returns here without saving —
+ * the user never walks through the in-between steps. Disclosures live in the
+ * sibling sub-step 5b (see `step-5-onboarding.tsx`).
  */
 export function Step5aSummary() {
   const {
@@ -58,7 +60,7 @@ export function Step5aSummary() {
     loadStepData,
     saveStepData,
     saveSummaryData,
-    goToStep,
+    startEditingFromReview,
   } = useOnboardingWizardStore();
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -268,23 +270,34 @@ export function Step5aSummary() {
 
   return (
     <div className="space-y-6">
+      {/* Helper text */}
+      <div className="space-y-1 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
+        <p className="text-base font-semibold text-foreground">
+          Please verify your details.
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Your organization name, logo, and colors will appear on your Benefits
+          Hubs and marketing materials.
+        </p>
+      </div>
+
       {/* Summary Cards Grid */}
       <div className="grid grid-cols-1 gap-6">
 
-        {/* Card 1: User Profile */}
+        {/* Card 1: Organization */}
         <Card className="dark:bg-gray-800">
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 {/* <User className="w-5 h-5 text-blue-600" /> */}
                 <CardTitle className="text-lg font-semibold">
-                  User Profile
+                  Organization
                 </CardTitle>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => goToStep(1)}
+                onClick={() => startEditingFromReview(1)}
                 className="flex items-center gap-2"
               >
                 <Edit className="w-4 h-4" />
@@ -321,7 +334,7 @@ export function Step5aSummary() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => goToStep(2)}
+                onClick={() => startEditingFromReview(2)}
                 className="flex items-center gap-2"
               >
                 <Edit className="w-4 h-4" />
@@ -348,7 +361,7 @@ export function Step5aSummary() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => goToStep(3)}
+                onClick={() => startEditingFromReview(3)}
                 className="flex items-center gap-2"
               >
                 <Edit className="w-4 h-4" />
@@ -441,20 +454,20 @@ export function Step5aSummary() {
           </div>
         </Card>
 
-        {/* Card 4: User Setup */}
+        {/* Card 4: Your Profile */}
         <Card className="dark:bg-gray-800">
           <CardHeader>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 {/* <Contact className="w-5 h-5 text-orange-600" /> */}
                 <CardTitle className="text-lg font-semibold">
-                  User Setup
+                  Your Profile
                 </CardTitle>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => goToStep(4)}
+                onClick={() => startEditingFromReview(4)}
                 className="flex items-center gap-2"
               >
                 <Edit className="w-4 h-4" />

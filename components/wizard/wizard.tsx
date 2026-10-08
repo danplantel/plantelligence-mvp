@@ -1,7 +1,10 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
+import {
+  useOnboardingWizardStore,
+  type Step5SubStep,
+} from "@/lib/onboarding-wizard-store";
 import { getSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { OnboardingWizardStepper } from "./onboarding-wizard-stepper";
@@ -101,6 +104,13 @@ const FIELD_LABELS: Record<string, string> = {
   title: "Title",
 };
 
+/** Step 5 shows its active sub-screen in the header instead of the generic "Summary". */
+const STEP5_SUB_TITLES: Record<Step5SubStep, string> = {
+  review: "Review Your Information",
+  disclosures: "Compliance Disclosures",
+  team: "Invite Your Team",
+};
+
 interface WizardStep {
   id: number;
   title: string;
@@ -147,6 +157,8 @@ export function OnboardingWizard({
   const totalSteps = externalTotalSteps || store.totalSteps;
   const step5SubStep = store.step5SubStep;
   const setStep5SubStep = store.setStep5SubStep;
+  const editFromReview = store.editFromReview;
+  const returnToReview = store.returnToReview;
 
   const {
     nextStep,
@@ -409,7 +421,14 @@ export function OnboardingWizard({
       }
 
       completeStep(currentStep);
-      nextStep();
+
+      // Editing a step from Review (5a): save, then return straight to Review
+      // instead of advancing through the in-between steps.
+      if (editFromReview) {
+        returnToReview();
+      } else {
+        nextStep();
+      }
     } finally {
       // Disable autosave after moving to next step
       useOnboardingWizardStore.getState().setAutosaveToServer?.(false);
@@ -418,6 +437,12 @@ export function OnboardingWizard({
   };
 
   const handlePrevious = () => {
+    // In edit-from-review mode, Previous abandons the edit and returns to
+    // Review without saving (it never walks back through the in-between steps).
+    if (editFromReview) {
+      returnToReview();
+      return;
+    }
     previousStep();
   };
 
@@ -569,7 +594,11 @@ export function OnboardingWizard({
       : currentStep === totalSteps;
 
   const currentStepData = steps.find((step) => step.id === currentStep);
-  const currentStepTitle = currentStepData?.title;
+  // Step 5 is a sub-stepper — its header title reflects the active sub-screen
+  // (5a Review Your Information / 5b Compliance Disclosures / 5c Invite Your
+  // Team) rather than the generic "Summary" step name.
+  const currentStepTitle =
+    currentStep === 5 ? STEP5_SUB_TITLES[step5SubStep] : currentStepData?.title;
 
   // Check if user needs to scroll to see all content
   const checkIfScrollNeeded = () => {
@@ -688,19 +717,22 @@ export function OnboardingWizard({
   // Step 5 sub-screen labels. Each sub-screen owns its primary action; 5b and 5c
   // also expose a skip/later secondary action.
   const willCompleteOnPrimary =
+    !editFromReview &&
     isLastStep &&
     (step5SubStep === "team" ||
       (step5SubStep === "disclosures" && !teamStepApplies));
 
-  const primaryLabel = isLastStep
-    ? step5SubStep === "review"
-      ? "Looks Good, Continue"
-      : step5SubStep === "disclosures"
-        ? "Confirm Disclosures"
-        : "Send Invites & Finish"
-    : needsScroll
-      ? "Scroll to Continue"
-      : "Next";
+  const primaryLabel = editFromReview
+    ? "Save & Return to Review"
+    : isLastStep
+      ? step5SubStep === "review"
+        ? "Looks Good, Continue"
+        : step5SubStep === "disclosures"
+          ? "Confirm Disclosures"
+          : "Send Invites & Finish"
+      : needsScroll
+        ? "Scroll to Continue"
+        : "Next";
 
   const step5SecondaryLabel = isLastStep
     ? step5SubStep === "disclosures"
@@ -761,7 +793,7 @@ export function OnboardingWizard({
                       variant="outline"
                       size="lg"
                       onClick={handlePreviousClick}
-                      disabled={isFirstStep}
+                      disabled={isFirstStep && !editFromReview}
                       className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
                     >
                       <ChevronLeft className="size-5" />

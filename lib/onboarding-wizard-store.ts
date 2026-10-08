@@ -68,6 +68,17 @@ export interface OnboardingWizardState {
    */
   step5SubStep: Step5SubStep;
   setStep5SubStep: (sub: Step5SubStep) => void;
+  /**
+   * True while a Review (5a) "Edit" link has opened one of Steps 1-4. In this
+   * mode the step's primary action ("Save & Return to Review") saves and then
+   * returns straight to Review, and Previous returns to Review WITHOUT saving —
+   * the user never walks through the in-between steps.
+   */
+  editFromReview: boolean;
+  /** Open one of Steps 1-4 from Review (5a) in edit-from-review mode. */
+  startEditingFromReview: (step: number) => void;
+  /** Leave edit-from-review mode, returning to 5a Review (no save). */
+  returnToReview: () => void;
   showStep5ConfirmModal: boolean;
   setShowStep5ConfirmModal: (show: boolean) => void;
   nextStep: () => void;
@@ -242,6 +253,26 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
       setAutosaveToServer: (enabled: boolean) => set({ autosaveToServer: enabled }),
       step5SubStep: "review",
       setStep5SubStep: (sub: Step5SubStep) => set({ step5SubStep: sub }),
+      editFromReview: false,
+      startEditingFromReview: (step: number) => {
+        // Only Steps 1-4 have a Review "Edit" affordance.
+        if (step < 1 || step > 4) return;
+        set({
+          currentStep: step,
+          editFromReview: true,
+          errorFields: [],
+          errorFieldsSource: null,
+        });
+      },
+      returnToReview: () => {
+        set({
+          currentStep: 5,
+          step5SubStep: "review",
+          editFromReview: false,
+          errorFields: [],
+          errorFieldsSource: null,
+        });
+      },
       showStep5ConfirmModal: false,
       setShowStep5ConfirmModal: (show: boolean) => set({ showStep5ConfirmModal: show }),
 
@@ -268,6 +299,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
             currentStep: next,
             errorFields: [],
             errorFieldsSource: null,
+            editFromReview: false,
             // Entering Step 5 always starts at 5a.
             ...(next === 5 ? { step5SubStep: "review" as Step5SubStep } : {}),
           });
@@ -293,7 +325,12 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
 
         if (currentStep > 1) {
           const prev = currentStep - 1;
-          set({ currentStep: prev, errorFields: [], errorFieldsSource: null });
+          set({
+            currentStep: prev,
+            errorFields: [],
+            errorFieldsSource: null,
+            editFromReview: false,
+          });
           persistCurrentStep(prev);
         }
       },
@@ -305,6 +342,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
             currentStep: step,
             errorFields: [],
             errorFieldsSource: null,
+            editFromReview: false,
             // Jumping to Step 5 always starts at 5a.
             ...(step === 5 ? { step5SubStep: "review" as Step5SubStep } : {}),
           });
@@ -647,6 +685,9 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
                 },
                 steps: updatedSteps,
                 currentStep: serverStep,
+                // A fresh load always lands on Review, never mid-edit.
+                step5SubStep: "review" as Step5SubStep,
+                editFromReview: false,
               }));
             }
 
@@ -711,6 +752,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
           errorFields: [],
           errorFieldsSource: null,
           step5SubStep: "review",
+          editFromReview: false,
           isLoading: false,
           loadingPromise: null,
         });
