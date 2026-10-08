@@ -10,6 +10,7 @@ import { LoadingButton } from "@/components/ui/loading-button";
 import { Card, CardContent } from "../ui/card";
 import { validateCurrentStep } from "@/lib/wizard-validation";
 import { toast } from "sonner";
+import { TeamSize } from "@/types/wizard";
 
 // Function to focus on the top-most invalid field and scroll to it.
 // Chooses the FIRST errored field in DOCUMENT ORDER (not validation order) so
@@ -144,7 +145,8 @@ export function OnboardingWizard({
   const steps = externalSteps || store.steps;
   const currentStep = externalCurrentStep || store.currentStep;
   const totalSteps = externalTotalSteps || store.totalSteps;
-  const showNextSteps = store.showNextSteps;
+  const step5SubStep = store.step5SubStep;
+  const setStep5SubStep = store.setStep5SubStep;
 
   const {
     nextStep,
@@ -158,6 +160,11 @@ export function OnboardingWizard({
     setErrorFields,
     clearErrorFields,
   } = store;
+
+  // Step 5c ("Invite Your Team") only applies when the org is bigger than one
+  // person — i.e. team size is anything other than "Just me" (solo).
+  const teamSizeBand = stepData.teamSize?.teamSize;
+  const teamStepApplies = !!teamSizeBand && teamSizeBand !== TeamSize.SOLO;
 
   const handleNext = async () => {
     setIsLoading(true);
@@ -415,15 +422,9 @@ export function OnboardingWizard({
   };
 
   const handleComplete = async () => {
-    // Check validation for step 5 (disclaimers)
-    if (currentStep === 5 && !isStep5Valid) {
-      toast.error(
-        "Please complete the required fields before proceeding to the dashboard.",
-      );
-      setIsLoading(false);
-      return;
-    }
-
+    // Step 5 validation is enforced on its own sub-screens (e.g. "Confirm
+    // Disclosures" on 5b) or bypassed by an explicit skip, so completion itself
+    // is not gated here.
     setIsLoading(true);
 
     try {
@@ -607,22 +608,60 @@ export function OnboardingWizard({
     await handleNextClick();
   };
 
-  // Primary button click routing for Step 5 behavior
+  // Primary button click routing for Step 5's sub-screens.
   const handlePrimaryClick = async () => {
-    // On the last step (5), if we haven't shown Next Steps yet, toggle to it instead of advancing
-    if (isLastStep && !showNextSteps) {
-      store.setShowNextSteps(true);
-      return;
-    }
+    if (isLastStep) {
+      // 5a Review -> 5b Disclosures
+      if (step5SubStep === "review") {
+        setStep5SubStep("disclosures");
+        return;
+      }
 
-    // If last step and already in Next Steps, complete
-    if (isLastStep && showNextSteps) {
+      // 5b Disclosures -> "Confirm Disclosures"
+      if (step5SubStep === "disclosures") {
+        // Requires a disclosure or an explicit "Add Later".
+        if (!isStep5Valid) {
+          toast.error(
+            "Please confirm your compliance disclosures, or choose Skip for Now.",
+          );
+          return;
+        }
+        // -> 5c when the team step applies, otherwise finish.
+        if (teamStepApplies) {
+          setStep5SubStep("team");
+          return;
+        }
+        await handleCompleteClick();
+        return;
+      }
+
+      // 5c Team -> "Send Invites & Finish"
       await handleCompleteClick();
       return;
     }
 
-    // Otherwise, regular next with scroll behavior
+    // Steps 1-4: regular next with scroll behavior.
     await handleNextWithScroll();
+  };
+
+  // Secondary (skip/later) action for Step 5's sub-screens.
+  const handleStep5SecondaryClick = async () => {
+    if (!isLastStep) return;
+
+    // 5b Disclosures -> "Skip for Now"
+    if (step5SubStep === "disclosures") {
+      if (teamStepApplies) {
+        setStep5SubStep("team");
+      } else {
+        await handleCompleteClick();
+      }
+      return;
+    }
+
+    // 5c Team -> "Invite Later"
+    if (step5SubStep === "team") {
+      await handleCompleteClick();
+    }
   };
 
   // Check scroll status when content changes
@@ -645,6 +684,31 @@ export function OnboardingWizard({
       return () => contentElement.removeEventListener("scroll", checkScroll);
     }
   }, [children, currentStep]);
+
+  // Step 5 sub-screen labels. Each sub-screen owns its primary action; 5b and 5c
+  // also expose a skip/later secondary action.
+  const willCompleteOnPrimary =
+    isLastStep &&
+    (step5SubStep === "team" ||
+      (step5SubStep === "disclosures" && !teamStepApplies));
+
+  const primaryLabel = isLastStep
+    ? step5SubStep === "review"
+      ? "Looks Good, Continue"
+      : step5SubStep === "disclosures"
+        ? "Confirm Disclosures"
+        : "Send Invites & Finish"
+    : needsScroll
+      ? "Scroll to Continue"
+      : "Next";
+
+  const step5SecondaryLabel = isLastStep
+    ? step5SubStep === "disclosures"
+      ? "Skip for Now"
+      : step5SubStep === "team"
+        ? "Invite Later"
+        : null
+    : null;
 
   return (
     <>
@@ -704,32 +768,38 @@ export function OnboardingWizard({
                       <span>Previous</span>
                     </Button>
 
-                    <LoadingButton
-                      size="lg"
-                      onClick={handlePrimaryClick}
-                      isLoading={isLoading}
-                      loadingText={
-                        isLastStep && showNextSteps
-                          ? "Completing setup..."
-                          : "Saving data..."
-                      }
-                      className={`flex items-center space-x-2 text-white bg-accent-blue dark:bg-accent-blue-dark transition-all duration-300 ${
-                        isPulsating
-                          ? "animate-pulse ring-2 ring-accent-blue ring-opacity-50"
-                          : ""
-                      }`}
-                    >
-                      <span>
-                        {isLastStep && showNextSteps
-                          ? "Go to Dashboard"
-                          : currentStep === 5
-                          ? "Continue"
-                          : needsScroll
-                          ? "Scroll to Continue"
-                          : "Next"}
-                      </span>
-                      <ChevronRight className="size-5" />
-                    </LoadingButton>
+                    <div className="flex items-center gap-2">
+                      {step5SecondaryLabel && (
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          onClick={handleStep5SecondaryClick}
+                          disabled={isLoading}
+                          className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                        >
+                          {step5SecondaryLabel}
+                        </Button>
+                      )}
+
+                      <LoadingButton
+                        size="lg"
+                        onClick={handlePrimaryClick}
+                        isLoading={isLoading}
+                        loadingText={
+                          willCompleteOnPrimary
+                            ? "Completing setup..."
+                            : "Saving data..."
+                        }
+                        className={`flex items-center space-x-2 text-white bg-accent-blue dark:bg-accent-blue-dark transition-all duration-300 ${
+                          isPulsating
+                            ? "animate-pulse ring-2 ring-accent-blue ring-opacity-50"
+                            : ""
+                        }`}
+                      >
+                        <span>{primaryLabel}</span>
+                        <ChevronRight className="size-5" />
+                      </LoadingButton>
+                    </div>
                   </CardContent>
                 </Card>
               </div>

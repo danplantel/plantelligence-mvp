@@ -26,6 +26,15 @@ export interface WizardStep {
   completed: boolean;
 }
 
+/**
+ * The three sub-screens of Onboarding Step 5 (see `step-5-onboarding.tsx`).
+ *
+ *   "review"      -> 5a Review Your Information
+ *   "disclosures" -> 5b Compliance Disclosures
+ *   "team"        -> 5c Invite Your Team (only above a "Just me" team size)
+ */
+export type Step5SubStep = "review" | "disclosures" | "team";
+
 export interface OnboardingWizardState {
   currentStep: number;
   totalSteps: number;
@@ -53,8 +62,12 @@ export interface OnboardingWizardState {
   isLoading: boolean;
   loadingPromise: Promise<any> | null;
   stepLoadingPromises: Record<string, Promise<any>>;
-  showNextSteps: boolean;
-  setShowNextSteps: (show: boolean) => void;
+  /**
+   * The active sub-screen of Onboarding Step 5. Step 5 is a self-contained
+   * sub-stepper: 5a Review -> 5b Disclosures -> [5c Team] -> finish.
+   */
+  step5SubStep: Step5SubStep;
+  setStep5SubStep: (sub: Step5SubStep) => void;
   showStep5ConfirmModal: boolean;
   setShowStep5ConfirmModal: (show: boolean) => void;
   nextStep: () => void;
@@ -227,8 +240,8 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
       stepLoadingPromises: {},
       autosaveToServer: false,
       setAutosaveToServer: (enabled: boolean) => set({ autosaveToServer: enabled }),
-      showNextSteps: false,
-      setShowNextSteps: (show: boolean) => set({ showNextSteps: show }),
+      step5SubStep: "review",
+      setStep5SubStep: (sub: Step5SubStep) => set({ step5SubStep: sub }),
       showStep5ConfirmModal: false,
       setShowStep5ConfirmModal: (show: boolean) => set({ showStep5ConfirmModal: show }),
 
@@ -247,33 +260,35 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
       },
 
       nextStep: async () => {
-        const { currentStep, totalSteps, showNextSteps, setShowNextSteps, setShowStep5ConfirmModal, persistCurrentStep } = get();
-
-        // Special handling for step 5 - first show confirmation modal, then Next Steps
-        if (currentStep === 5 && !showNextSteps) {
-          // Show confirmation modal instead of going to next steps directly
-          setShowStep5ConfirmModal(true);
-          return;
-        }
+        const { currentStep, totalSteps, persistCurrentStep } = get();
 
         if (currentStep < totalSteps) {
           const next = currentStep + 1;
-          set({ currentStep: next, errorFields: [], errorFieldsSource: null });
+          set({
+            currentStep: next,
+            errorFields: [],
+            errorFieldsSource: null,
+            // Entering Step 5 always starts at 5a.
+            ...(next === 5 ? { step5SubStep: "review" as Step5SubStep } : {}),
+          });
           persistCurrentStep(next);
-          // Reset showNextSteps when moving away from step 5
-          if (currentStep === 5) {
-            setShowNextSteps(false);
-          }
         }
       },
 
       previousStep: () => {
-        const { currentStep, stepData, showNextSteps, setShowNextSteps, persistCurrentStep } = get();
+        const { currentStep, step5SubStep, setStep5SubStep, persistCurrentStep } = get();
 
-        // Special handling for step 5 - if showing Next Steps, go back to Setup Complete
-        if (currentStep === 5 && showNextSteps) {
-          setShowNextSteps(false);
-          return;
+        // Step 5 walks its sub-screens backwards (5c -> 5b -> 5a) before
+        // leaving the step for Step 4.
+        if (currentStep === 5) {
+          if (step5SubStep === "team") {
+            setStep5SubStep("disclosures");
+            return;
+          }
+          if (step5SubStep === "disclosures") {
+            setStep5SubStep("review");
+            return;
+          }
         }
 
         if (currentStep > 1) {
@@ -286,7 +301,13 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
       goToStep: (step: number) => {
         const { totalSteps, persistCurrentStep } = get();
         if (step >= 1 && step <= totalSteps) {
-          set({ currentStep: step, errorFields: [], errorFieldsSource: null });
+          set({
+            currentStep: step,
+            errorFields: [],
+            errorFieldsSource: null,
+            // Jumping to Step 5 always starts at 5a.
+            ...(step === 5 ? { step5SubStep: "review" as Step5SubStep } : {}),
+          });
           persistCurrentStep(step);
         }
       },
@@ -689,6 +710,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
           stepData: {},
           errorFields: [],
           errorFieldsSource: null,
+          step5SubStep: "review",
           isLoading: false,
           loadingPromise: null,
         });

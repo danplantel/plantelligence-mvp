@@ -2,9 +2,14 @@
 
 import { useCallback } from "react";
 import { Check } from "lucide-react";
-import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
+import {
+  useOnboardingWizardStore,
+  type Step5SubStep,
+} from "@/lib/onboarding-wizard-store";
+import { TeamSize } from "@/types/wizard";
 import { Step5aSummary } from "./step-5a-summary";
 import { Step5bDisclosures } from "./step-5b-disclosures";
+import { Step5cTeam } from "./step-5c-team";
 
 interface Step5OnboardingProps {
   errorFields?: string[];
@@ -12,32 +17,47 @@ interface Step5OnboardingProps {
 }
 
 /**
- * Step 5 on Onboarding — a self-contained two-node sub-stepper:
+ * Step 5 on Onboarding — a self-contained sub-stepper:
  *
- *   5a Summary  ->  Review all captured setup details.
- *   5b Disclosures -> Add compliance language (optional / "Add Later").
+ *   5a Review Your Information   (always)               -> 5b
+ *   5b Compliance Disclosures    (always)               -> 5c, or finish if "Just me"
+ *   5c Invite Your Team          (team size > Just me)  -> finish
  *
- * The active sub-step reuses the wizard store's `showNextSteps` flag, which the
- * global footer already drives: on Step 5 the primary button flips to 5b
- * ("Continue") and then completes ("Go to Dashboard"). `previousStep` flips
- * back to 5a, so no extra navigation state is introduced.
+ * The active sub-screen lives in the store (`step5SubStep`). The global footer
+ * drives each sub-screen's primary/secondary action and the "Previous" button
+ * walks back through the sub-screens. See `wizard.tsx`.
  */
-const SUB_STEPS: { key: "summary" | "disclosures"; label: string }[] = [
-  { key: "summary", label: "Summary" },
-  { key: "disclosures", label: "Disclosures" },
-];
+const SUB_STEP_LABELS: Record<Step5SubStep, string> = {
+  review: "Review Your Information",
+  disclosures: "Compliance Disclosures",
+  team: "Invite Your Team",
+};
 
 export function Step5Onboarding({
   errorFields = [],
   onValidationChange,
 }: Step5OnboardingProps) {
-  const showNextSteps = useOnboardingWizardStore((s) => s.showNextSteps);
-  const setShowNextSteps = useOnboardingWizardStore((s) => s.setShowNextSteps);
+  const step5SubStep = useOnboardingWizardStore((s) => s.step5SubStep);
+  const setStep5SubStep = useOnboardingWizardStore((s) => s.setStep5SubStep);
   const organizationName = useOnboardingWizardStore(
     (s) => s.stepData.branding?.organizationName || "",
   );
+  const teamSizeBand = useOnboardingWizardStore(
+    (s) => s.stepData.teamSize?.teamSize,
+  );
 
-  const activeIndex = showNextSteps ? 1 : 0;
+  // 5c ("Invite Your Team") only applies above the "Just me" (solo) band.
+  const teamStepApplies = !!teamSizeBand && teamSizeBand !== TeamSize.SOLO;
+
+  // Visible nodes depend on whether the org is larger than a single person.
+  const order: Step5SubStep[] = teamStepApplies
+    ? ["review", "disclosures", "team"]
+    : ["review", "disclosures"];
+
+  // Defensive: never render the team screen when it does not apply.
+  const active: Step5SubStep =
+    step5SubStep === "team" && !teamStepApplies ? "disclosures" : step5SubStep;
+  const activeIndex = Math.max(0, order.indexOf(active));
 
   const handleDisclosuresValidation = useCallback(
     (isValid: boolean) => {
@@ -49,19 +69,19 @@ export function Step5Onboarding({
   return (
     <div className="space-y-6">
       {/* Step 5 sub-stepper */}
-      <div className="flex items-center justify-center">
-        {SUB_STEPS.map((sub, index) => {
-          const isActive = index === activeIndex;
+      <div className="flex flex-wrap items-center justify-center gap-y-2">
+        {order.map((sub, index) => {
+          const isActive = sub === active;
           const isComplete = index < activeIndex;
           const isClickable = index <= activeIndex;
 
           return (
-            <div key={sub.key} className="flex items-center">
+            <div key={sub} className="flex items-center">
               <button
                 type="button"
-                onClick={() => isClickable && setShowNextSteps(index === 1)}
+                onClick={() => isClickable && setStep5SubStep(sub)}
                 disabled={!isClickable}
-                title={sub.label}
+                title={SUB_STEP_LABELS[sub]}
                 className="flex items-center gap-2 disabled:cursor-not-allowed"
               >
                 <span
@@ -86,13 +106,13 @@ export function Step5Onboarding({
                       : "text-muted-foreground"
                   }`}
                 >
-                  {sub.label}
+                  {SUB_STEP_LABELS[sub]}
                 </span>
               </button>
 
-              {index < SUB_STEPS.length - 1 && (
+              {index < order.length - 1 && (
                 <div
-                  className={`h-0.5 w-10 mx-3 ${
+                  className={`h-0.5 w-8 mx-2 md:w-10 md:mx-3 ${
                     index < activeIndex ? "bg-accent-blue" : "bg-[#23919C]/10"
                   }`}
                 />
@@ -102,8 +122,10 @@ export function Step5Onboarding({
         })}
       </div>
 
-      {/* Active sub-step */}
-      {showNextSteps ? (
+      {/* Active sub-screen */}
+      {active === "team" ? (
+        <Step5cTeam />
+      ) : active === "disclosures" ? (
         <Step5bDisclosures
           errorFields={errorFields}
           onValidationChange={handleDisclosuresValidation}
