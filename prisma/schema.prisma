@@ -1192,10 +1192,71 @@ model Organization {
   // owner's User today. Kept true so a consumer can rely on it, and droppable if none
   // ever arrives — a frozen copy is only a stale copy.
   branding          Json?
+
+  // Disclosures review status — powers the dashboard's "Disclosures not
+  // reviewed" alert (shown to Owner/Admin/Editor while unreviewed). Set true
+  // when the advisor completes the "Confirm Your Disclosures" attestation during
+  // onboarding, or confirms from Settings > Disclosures.
+  disclosuresReviewed   Boolean   @default(false)
+  disclosuresReviewedAt DateTime?
+  // The current disclosure revision number for this organization (see
+  // `DisclosureVersion`). 0 means no revision has been recorded yet.
+  disclosuresCurrentVersion Int  @default(0)
+
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
   @@index([ownerUserId])
+}
+
+// A recorded confirmation that an organization's disclosures were reviewed.
+//
+// One row per confirmation, so the audit trail is preserved: who confirmed,
+// for which organization, when, against which disclosure-template version and
+// which attestation-copy version, and from where (onboarding / settings /
+// plan). `Organization.disclosuresReviewed` is the fast-read mirror that drives
+// the dashboard alert; this table is the history behind it.
+model DisclosureAttestation {
+  id                 String   @id @default(cuid())
+  organizationId     String
+  userId             String
+  // Where the confirmation happened: "onboarding" | "settings" | "plan".
+  context            String
+  // Plan the confirmation relates to, for the "plan" context.
+  planId             String?
+  // Version of the default disclosure templates in effect (config).
+  disclosureVersion  Int
+  // Version of the attestation copy in effect (config).
+  attestationVersion Int
+  createdAt          DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([userId])
+}
+
+// An immutable snapshot of an organization's disclosures at one revision.
+//
+// Every committed disclosure save writes a NEW row — versions are never
+// overwritten, so the revision tied to previously published content is always
+// preserved. A save also clears `Organization.disclosuresReviewed` until the
+// new revision is attested (Rule: an edit requires re-attestation).
+model DisclosureVersion {
+  id              String   @id @default(cuid())
+  organizationId  String
+  // Monotonic per organization, starting at 1.
+  version         Int
+  // Snapshot of the disclosures (array of Disclaimer objects).
+  disclosures     Json
+  // Version of the default disclosure templates in effect (config).
+  templateVersion Int
+  createdByUserId String
+  // Where the change came from: "onboarding" | "settings" | "plan".
+  context         String
+  planId          String?
+  createdAt       DateTime @default(now())
+
+  @@unique([organizationId, version])
+  @@index([organizationId])
 }
 
 // Partner Company (spec T1 Part B item 2): name, logo, branding.

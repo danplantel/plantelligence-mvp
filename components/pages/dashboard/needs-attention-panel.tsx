@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import useSWR from "swr";
 import { Button } from "@/components/ui/button";
@@ -53,6 +54,12 @@ interface IssueChip {
   tone: "alert" | "detail";
 }
 
+/** The org-level disclosures review status (`GET /api/organization/disclosures-reviewed`). */
+interface OrganizationDisclosuresStatus {
+  reviewed: boolean;
+  canReview: boolean;
+}
+
 /**
  * Flattens issues into chips: the headline for each issue followed by the fields that
  * still need completing.
@@ -97,6 +104,9 @@ interface NeedsAttentionPanelProps {
  * content, uncategorized documents or no disclaimer content. Each plan shows why it was
  * flagged — including the specific fields still to complete — and the action that fixes
  * it. Fetches lazily — it only mounts once the tile is selected.
+ *
+ * Also surfaces the organization-level "Disclosures not reviewed" alert for
+ * Owner/Admin/Editor while the org's disclosures have not been confirmed.
  */
 export function NeedsAttentionPanel({
   viewerReadOnly = false,
@@ -107,8 +117,30 @@ export function NeedsAttentionPanel({
     SWR_OPTS,
   );
 
+  const { data: disclosures } = useSWR<OrganizationDisclosuresStatus>(
+    "/api/organization/disclosures-reviewed",
+    jsonFetcher,
+    SWR_OPTS,
+  );
+
+  const disclosuresAlert =
+    disclosures?.canReview && disclosures?.reviewed === false ? (
+      <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+        <span className="font-medium">Disclosures not reviewed.</span>{" "}
+        <Link
+          href="/settings?tab=organization"
+          className="font-medium underline underline-offset-2"
+        >
+          Review them in Settings › Disclosures
+        </Link>
+        . Benefits Hubs can’t be published until they’re confirmed.
+      </div>
+    ) : null;
+
+  let content: ReactNode;
+
   if (isLoading) {
-    return (
+    content = (
       <ul className="space-y-2.5">
         {Array.from({ length: 3 }, (_, index) => (
           <li key={index} className="flex items-center gap-3">
@@ -121,92 +153,97 @@ export function NeedsAttentionPanel({
         ))}
       </ul>
     );
-  }
-
-  if (error) {
-    return (
+  } else if (error) {
+    content = (
       <p className="text-sm text-muted-foreground">
         Couldn’t load the plans needing attention. Try again in a moment.
       </p>
     );
-  }
+  } else {
+    const plans = data?.data?.plans ?? [];
 
-  const plans = data?.data?.plans ?? [];
+    if (plans.length === 0) {
+      content = (
+        <p className="text-sm text-muted-foreground">
+          Nothing needs your attention — every active plan looks complete.
+        </p>
+      );
+    } else {
+      content = (
+        <ul>
+          {plans.map((plan) => {
+            const actions = issueDestinations(plan.id, plan.issues, {
+              readOnly: viewerReadOnly,
+            });
+            return (
+              <li
+                key={plan.id}
+                className="border-b border-[#efefef] py-3 transition-colors hover:bg-muted/50 dark:border-gray-700"
+              >
+                {/* One row: logo, plan name + issue chips, and the actions on the right. The
+                    row is allowed to wrap, so on narrow widths the actions drop below rather
+                    than squeezing the plan name down to nothing. */}
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                  <div className="size-9 shrink-0 overflow-hidden rounded-full border border-[#efefef] bg-muted dark:border-gray-600">
+                    <Headshot
+                      src={plan.companyLogo || undefined}
+                      alt={plan.companyName}
+                      objectFit="contain"
+                      monogramName={plan.companyName}
+                    />
+                  </div>
 
-  if (plans.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">
-        Nothing needs your attention — every active plan looks complete.
-      </p>
-    );
+                  <div className="min-w-[14rem] flex-1">
+                    <p className="truncate text-sm font-medium dark:text-gray-100">
+                      {plan.companyName}
+                    </p>
+                    {plan.issues.length > 0 && (
+                      <ul className="mt-1 flex flex-wrap gap-1">
+                        {chipsForIssues(plan.issues).map((chip) => (
+                          <li
+                            key={chip.key}
+                            className={chip.tone === "alert" ? ALERT_CHIP : DETAIL_CHIP}
+                          >
+                            {chip.text}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  {actions.length > 0 ? (
+                    <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                      {actions.map((action: IssueDestination) => (
+                        <Button
+                          key={action.href}
+                          asChild
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                        >
+                          <Link
+                            href={action.href}
+                            aria-label={`${action.label} for ${plan.companyName}`}
+                          >
+                            {action.label}
+                          </Link>
+                        </Button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      );
+    }
   }
 
   return (
-    <ul>
-      {plans.map((plan) => {
-        const actions = issueDestinations(plan.id, plan.issues, {
-          readOnly: viewerReadOnly,
-        });
-        return (
-        <li
-          key={plan.id}
-          className="border-b border-[#efefef] py-3 transition-colors hover:bg-muted/50 dark:border-gray-700"
-        >
-          {/* One row: logo, plan name + issue chips, and the actions on the right. The
-              row is allowed to wrap, so on narrow widths the actions drop below rather
-              than squeezing the plan name down to nothing. */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <div className="size-9 shrink-0 overflow-hidden rounded-full border border-[#efefef] bg-muted dark:border-gray-600">
-              <Headshot
-                src={plan.companyLogo || undefined}
-                alt={plan.companyName}
-                objectFit="contain"
-                monogramName={plan.companyName}
-              />
-            </div>
-
-            <div className="min-w-[14rem] flex-1">
-              <p className="truncate text-sm font-medium dark:text-gray-100">
-                {plan.companyName}
-              </p>
-              {plan.issues.length > 0 && (
-                <ul className="mt-1 flex flex-wrap gap-1">
-                  {chipsForIssues(plan.issues).map((chip) => (
-                    <li
-                      key={chip.key}
-                      className={chip.tone === "alert" ? ALERT_CHIP : DETAIL_CHIP}
-                    >
-                      {chip.text}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {actions.length > 0 ? (
-              <div className="ml-auto flex shrink-0 items-center gap-1.5">
-                {actions.map((action: IssueDestination) => (
-                  <Button
-                    key={action.href}
-                    asChild
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0"
-                  >
-                    <Link
-                      href={action.href}
-                      aria-label={`${action.label} for ${plan.companyName}`}
-                    >
-                      {action.label}
-                    </Link>
-                  </Button>
-                ))}
-              </div>
-            ) : null}
-          </div>
-        </li>
-        );
-      })}
-    </ul>
+    <div className="space-y-3">
+      {disclosuresAlert}
+      {content}
+    </div>
   );
 }

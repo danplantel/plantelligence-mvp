@@ -700,6 +700,13 @@ export function OnboardingWizard({
   // applies, otherwise finish).
   const confirmStep5Skip = async () => {
     setShowSkipAttestation(false);
+    // Skipping leaves the disclosures UNREVIEWED — the dashboard alert stays,
+    // and Benefits Hub publishing is blocked until they're confirmed. Best-effort.
+    fetch("/api/organization/disclosures-reviewed", { method: "DELETE" }).catch(
+      () => {
+        // Ignore — status is re-derivable from the stored disclosures.
+      },
+    );
     if (step5SubStep === "disclosures" && teamStepApplies) {
       setStep5SubStep("team");
     } else {
@@ -710,6 +717,19 @@ export function OnboardingWizard({
   // Continuing the "Confirm Your Disclosures" attestation advances the step.
   const confirmStep5Attestation = async () => {
     setShowConfirmAttestation(false);
+    // Record the confirmation (org "reviewed" flag + audit row). Best-effort —
+    // it must never block completing onboarding.
+    fetch("/api/organization/disclosures-reviewed", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        context: "onboarding",
+        // Snapshots a new immutable disclosure version + records the attestation.
+        disclosures: stepData.disclaimers?.disclaimers ?? [],
+      }),
+    }).catch(() => {
+      // Ignore — status is re-derivable from the stored disclosures.
+    });
     if (teamStepApplies) {
       setStep5SubStep("team");
     } else {

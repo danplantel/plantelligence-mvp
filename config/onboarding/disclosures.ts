@@ -54,6 +54,14 @@ export const FLYER_MARKETING_YOUR_DISCLOSURE_TEXT = `For educational and informa
 export const DISCLOSURE_TEMPLATE_VERSION = 1;
 
 /**
+ * Version of the ATTESTATION copy (the "Confirm Your Disclosures" wording).
+ * Bump whenever the attestation text changes, so a recorded confirmation can be
+ * tied to the exact wording the advisor agreed to. Stored on
+ * `DisclosureAttestation.attestationVersion`.
+ */
+export const ATTESTATION_VERSION = 1;
+
+/**
  * Merge fields supported in "Your Disclosure" text. The tokens are stored
  * verbatim in the disclaimer and resolved when it is rendered.
  */

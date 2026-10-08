@@ -357,6 +357,20 @@ export const DisclaimersSettingsSection = forwardRef<
       // Drop the cached profile so a later remount of this section re-fetches
       // the updated disclaimers instead of serving stale data.
       invalidateProfileCache();
+
+      // Record that the organization's disclosures were reviewed from Settings
+      // (org "reviewed" flag + audit row). Best-effort.
+      fetch("/api/organization/disclosures-reviewed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          context: "settings",
+          // Records a new immutable disclosure version + the attestation.
+          disclosures: disclaimersArr,
+        }),
+      }).catch(() => {
+        // Ignore — the disclaimers themselves are already saved.
+      });
     } catch {
       // Non-critical — the wizard completion also persists these.
     }

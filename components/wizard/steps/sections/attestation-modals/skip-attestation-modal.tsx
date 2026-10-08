@@ -44,11 +44,6 @@ export function SkipAttestationModal({
           <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
             {"Benefits Hubs can’t be published until your disclosures are reviewed and confirmed. You can do this anytime in Settings > Disclosures."}
           </div>
-
-          {/* Status note */}
-          <p className="text-sm text-muted-foreground dark:text-gray-300">
-            {"Your status will show as “Disclosures not reviewed” on the Dashboard."}
-          </p>
         </div>
 
         <DialogFooter className="gap-2">
