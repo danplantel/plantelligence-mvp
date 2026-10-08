@@ -13,10 +13,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Badge } from "@/components/ui/badge";
+import { Lock } from "lucide-react";
 import { Disclaimer } from "@/types/wizard";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import {
-  resolveDefaultDisclosuresText,
+  PLATFORM_DISCLOSURE_TEXT,
+  DEFAULT_YOUR_DISCLOSURE_TEXT,
+  combineDisclosureText,
+  splitDisclosureText,
   ensurePlanTelligenceTrademark,
   stripDisclaimerCopyright,
 } from "@/lib/disclaimer-constants";
@@ -50,7 +55,6 @@ export function AddDisclaimerModal({
   onSave,
   initialData,
   isBlocking = false,
-  organizationName = "[Organization Name]",
   disclaimerScopeFlag = false,
   forceUniversalScope = false,
 }: AddDisclaimerModalProps) {
@@ -102,8 +106,11 @@ export function AddDisclaimerModal({
         });
 
         setSelectedLocations(locations);
-        // Never surface the copyright footer in the editable text.
-        setDisclaimerText(stripDisclaimerCopyright(initialData.text));
+        // Never surface the copyright footer, and split the locked platform
+        // block out — only "Your Disclosure" is editable.
+        setDisclaimerText(
+          splitDisclosureText(stripDisclaimerCopyright(initialData.text)).your,
+        );
         setDisclaimerScope(initialData.scope || "plan");
         setApplyAllBenefitsCategories(initialData.apply_all_benefits_categories || false);
       } else {
@@ -173,8 +180,8 @@ export function AddDisclaimerModal({
   const handleUseDefaultChange = (checked: boolean) => {
     setUseDefault(checked);
     if (checked) {
-      // Settings default — organization name only (no [Company Name]).
-      setDisclaimerText(resolveDefaultDisclosuresText(organizationName));
+      // The default "Your Disclosure" — the locked Platform block is separate.
+      setDisclaimerText(DEFAULT_YOUR_DISCLOSURE_TEXT);
       setErrors((prev) => ({ ...prev, text: "" }));
     }
   };
@@ -187,12 +194,8 @@ export function AddDisclaimerModal({
       newErrors.locations = "Please select at least one location";
     }
 
-    // Validate disclaimer text
-    if (!disclaimerText.trim()) {
-      newErrors.text = "Please enter disclaimer text";
-    } else if (disclaimerText.trim().length < 10) {
-      newErrors.text = "Disclaimer text must be at least 10 characters";
-    }
+    // "Your Disclosure" is optional — the locked Platform Disclosure always
+    // supplies the required content.
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -210,7 +213,8 @@ export function AddDisclaimerModal({
 
     onSave({
       locations,
-      text: disclaimerText.trim(),
+      // Store the locked Platform block + the editable "Your Disclosure".
+      text: combineDisclosureText(disclaimerText),
       scope: disclaimerScope,
       apply_all_benefits_categories: applyAllBenefitsCategories,
     });
@@ -242,9 +246,7 @@ export function AddDisclaimerModal({
     }
   };
 
-  const isSaveDisabled =
-    selectedLocations.length === 0 ||
-    disclaimerText.trim().length < 10;
+  const isSaveDisabled = selectedLocations.length === 0;
 
   const getCharacterCountColor = () => {
     const count = disclaimerText.length;
@@ -364,49 +366,68 @@ export function AddDisclaimerModal({
             </RadioGroup>
           </div>
 
-          {/* Disclaimer Text */}
-          <div className="space-y-2 pt-4 border-t">
-            <div className="flex justify-between items-center">
-              <div>
+          {/* Platform Disclosure (locked) + Your Disclosure (editable) */}
+          <div className="space-y-4 pt-4 border-t">
+            {/* Platform Disclosure — locked / read-only */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
                 <Label className="text-base font-medium dark:text-gray-300">
-                  Disclaimer Text <span className="text-red-500">*</span>
+                  Platform Disclosure
                 </Label>
-                <p className="text-sm text-muted-foreground dark:text-gray-400">
-                  Minimum 10 characters required
-                </p>
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] uppercase tracking-wide flex items-center gap-1"
+                >
+                  <Lock className="h-3 w-3" />
+                  Locked
+                </Badge>
               </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="use-default"
-                  checked={useDefault}
-                  onCheckedChange={handleUseDefaultChange}
+              <div
+                aria-readonly="true"
+                className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-400"
+              >
+                {PLATFORM_DISCLOSURE_TEXT}
+              </div>
+            </div>
+
+            {/* Your Disclosure — editable */}
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <div>
+                  <Label className="text-base font-medium dark:text-gray-300">
+                    Your Disclosure
+                  </Label>
+                  <p className="text-sm text-muted-foreground dark:text-gray-400">
+                    Add your firm’s own language here.
+                  </p>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="use-default"
+                    checked={useDefault}
+                    onCheckedChange={handleUseDefaultChange}
+                  />
+                  <Label htmlFor="use-default" className="text-sm font-medium cursor-pointer dark:text-gray-300">
+                    Use Default
+                  </Label>
+                </div>
+              </div>
+              <div className="relative">
+                <Textarea
+                  ref={textareaRef}
+                  value={disclaimerText}
+                  onChange={(e) => handleDisclaimerTextChange(e.target.value)}
+                  placeholder="Enter or paste your disclosure text here..."
+                  className="resize-none min-h-[160px] pr-20 overflow-hidden dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
+                  maxLength={2500}
                 />
-                <Label htmlFor="use-default" className="text-sm font-medium cursor-pointer dark:text-gray-300">
-                  Use Default
-                </Label>
+                <div className="absolute bottom-2 right-2">
+                  <span className={`text-xs ${getCharacterCountColor()}`}>
+                    {disclaimerText.length} / 2500 characters
+                  </span>
+                </div>
               </div>
             </div>
-            <div className="relative">
-              <Textarea
-                ref={textareaRef}
-                value={disclaimerText}
-                onChange={(e) => handleDisclaimerTextChange(e.target.value)}
-                placeholder="Enter or paste your disclaimer text here..."
-                className="resize-none min-h-[200px] pr-20 overflow-hidden dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
-                maxLength={2500}
-              />
-              <div className="absolute bottom-2 right-2">
-                <span className={`text-xs ${getCharacterCountColor()}`}>
-                  {disclaimerText.length} / 2500 characters
-                  {disclaimerText.length < 10 && disclaimerText.length > 0 && (
-                    <span className="text-red-500 ml-1">(min 10)</span>
-                  )}
-                </span>
-              </div>
-            </div>
-            {errors.text && (
-              <p className="text-sm text-red-500">{errors.text}</p>
-            )}
           </div>
         </div>
 

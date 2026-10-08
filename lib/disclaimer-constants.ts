@@ -1,9 +1,25 @@
-import { DEFAULT_DISCLOSURES_TEXT } from "@/config/onboarding/disclosures";
+import {
+  DEFAULT_DISCLOSURES_TEXT,
+  PLATFORM_DISCLOSURE_TEXT,
+  DEFAULT_YOUR_DISCLOSURE_TEXT,
+  BENEFITS_HUB_YOUR_DISCLOSURE_TEXT,
+  FLYER_MARKETING_YOUR_DISCLOSURE_TEXT,
+  DISCLOSURE_TEMPLATE_VERSION,
+  DISCLOSURE_MERGE_FIELDS,
+} from "@/config/onboarding/disclosures";
 
 // The default disclosure copy lives in config so the wording can change without
 // touching this module or migrating stored data. Re-exported for existing
 // importers (Settings, onboarding wizard).
-export { DEFAULT_DISCLOSURES_TEXT };
+export {
+  DEFAULT_DISCLOSURES_TEXT,
+  PLATFORM_DISCLOSURE_TEXT,
+  DEFAULT_YOUR_DISCLOSURE_TEXT,
+  BENEFITS_HUB_YOUR_DISCLOSURE_TEXT,
+  FLYER_MARKETING_YOUR_DISCLOSURE_TEXT,
+  DISCLOSURE_TEMPLATE_VERSION,
+  DISCLOSURE_MERGE_FIELDS,
+};
 
 /**
  * Flyer footer disclaimer text per benefit category, used by the Marketing
@@ -136,4 +152,70 @@ export function stripDisclaimerCopyright(
       "",
     )
     .trimEnd();
+}
+
+/**
+ * Combine the LOCKED platform disclosure with the editable "Your Disclosure"
+ * into the single string stored on `Disclaimer.text` — so every existing
+ * renderer/output is unchanged. The platform block always comes first.
+ */
+export function combineDisclosureText(
+  yourDisclosure: string,
+  platformText: string = PLATFORM_DISCLOSURE_TEXT,
+): string {
+  const your = (yourDisclosure || "").trim();
+  return your ? `${platformText}\n\n${your}` : platformText;
+}
+
+/**
+ * Split a stored disclosure into the locked platform block and the editable
+ * "Your Disclosure". Handles the canonical order (platform first) and the
+ * legacy order (the editable paragraph first); any other custom text is shown
+ * in full as "Your Disclosure".
+ */
+export function splitDisclosureText(
+  text: string,
+  platformText: string = PLATFORM_DISCLOSURE_TEXT,
+): {
+  platform: string;
+  your: string;
+} {
+  const platform = platformText.trim();
+  const body = (text || "").trim();
+  if (!body) return { platform, your: "" };
+  if (body.startsWith(platform)) {
+    return { platform, your: body.slice(platform.length).trim() };
+  }
+  if (body.endsWith(platform)) {
+    return { platform, your: body.slice(0, body.length - platform.length).trim() };
+  }
+  return { platform, your: body };
+}
+
+/**
+ * Resolve the organization-name merge field. Accepts both the legacy bracket
+ * form `[Organization Name]` and the brace form `{Organization Name}`.
+ */
+export function resolveOrganizationNameToken(
+  text: string,
+  orgName: string,
+): string {
+  const org = (orgName || "").trim() || "[Organization Name]";
+  return (text || "")
+    .replace(/\[Organization Name\]/g, org)
+    .replace(/\{Organization Name\}/g, org);
+}
+
+/**
+ * Resolve the flyer's `{Benefits Hub QR / link}` token: "the Benefits Hub" when
+ * the flyer carries a Benefits Hub QR code, otherwise the Benefits Hub URL.
+ */
+export function resolveFlyerBenefitsHubToken(
+  text: string,
+  opts: { hasQrCode: boolean; benefitsHubUrl: string },
+): string {
+  const replacement = opts.hasQrCode
+    ? "the Benefits Hub"
+    : opts.benefitsHubUrl;
+  return (text || "").replace(/\{Benefits Hub QR \/ link\}/g, replacement);
 }

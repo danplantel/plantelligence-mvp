@@ -107,7 +107,7 @@ const FIELD_LABELS: Record<string, string> = {
 /** Step 5 shows its active sub-screen in the header instead of the generic "Summary". */
 const STEP5_SUB_TITLES: Record<Step5SubStep, string> = {
   review: "Review Your Information",
-  disclosures: "Compliance Disclosures",
+  disclosures: "Review & Finish",
   team: "Invite Your Team",
 };
 
@@ -650,11 +650,15 @@ export function OnboardingWizard({
       if (step5SubStep === "disclosures") {
         // Requires a disclosure or an explicit "Add Later".
         if (!isStep5Valid) {
+          // Surface the choice's validation UI on the radio group (the same
+          // errorFields mechanism the other steps use) and explain via toast.
+          setErrorFields(["disclosures"], "next");
           toast.error(
             "Please confirm your compliance disclosures, or choose Skip for Now.",
           );
           return;
         }
+        clearErrorFields();
         // -> 5c when the team step applies, otherwise finish.
         if (teamStepApplies) {
           setStep5SubStep("team");

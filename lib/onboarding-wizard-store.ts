@@ -252,7 +252,8 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
       autosaveToServer: false,
       setAutosaveToServer: (enabled: boolean) => set({ autosaveToServer: enabled }),
       step5SubStep: "review",
-      setStep5SubStep: (sub: Step5SubStep) => set({ step5SubStep: sub }),
+      setStep5SubStep: (sub: Step5SubStep) =>
+        set({ step5SubStep: sub, errorFields: [], errorFieldsSource: null }),
       editFromReview: false,
       startEditingFromReview: (step: number) => {
         // Only Steps 1-4 have a Review "Edit" affordance.

@@ -1,81 +1,24 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import {
-  useOnboardingWizardStore,
-} from "@/lib/onboarding-wizard-store";
+import { useEffect, useRef, useState } from "react";
+import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
-import { DEFAULT_DISCLOSURES_TEXT } from "@/lib/disclaimer-constants";
+import {
+  PLATFORM_DISCLOSURE_TEXT,
+  DEFAULT_YOUR_DISCLOSURE_TEXT,
+  BENEFITS_HUB_YOUR_DISCLOSURE_TEXT,
+  FLYER_MARKETING_YOUR_DISCLOSURE_TEXT,
+  combineDisclosureText,
+  splitDisclosureText,
+} from "@/lib/disclaimer-constants";
 import { Card, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { AddDisclaimerModal } from "./sections/add-disclaimer-modal/add-disclaimer-modal";
-import { toast } from "sonner";
+import { Lock } from "lucide-react";
 import { Disclaimer } from "@/types/wizard";
-import { Plus, Edit2, Trash2 } from "lucide-react";
-import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 
-interface DisclaimerCardProps {
-  disclaimer: Disclaimer;
-  onEdit: () => void;
-  onDelete: () => void;
-  onRender?: (text: string) => string;
-}
-
-function DisclaimerCard({ disclaimer, onEdit, onDelete, onRender }: DisclaimerCardProps) {
-  return (
-    <div className="border border-gray-200 rounded p-3 bg-card relative dark:bg-gray-800 dark:border-gray-700">
-      <div className="flex justify-between items-start mb-2">
-        <div className="flex-1 pr-2">
-          <h5 className="text-[13px] font-semibold text-gray-500 dark:text-gray-400">Disclaimer Types:</h5>
-          <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400">
-            {[
-              ...disclaimer.locations,
-              ...(disclaimer.customLocation ? [disclaimer.customLocation] : []),
-            ].map((location) => `[${location}]`).join(" ")}
-          </span>
-        </div>
-
-        <div className="flex gap-1 items-center">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onEdit}
-            className="h-7 px-1.5 text-green-600 hover:text-accent-blue text-[11px] font-medium dark:text-green-700 dark:hover:text-green-500"
-          >
-            <Edit2 className="h-3 w-3 mr-0.5" />
-            Edit
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onDelete}
-            className="h-7 px-1.5 text-red-600 hover:text-accent-blue text-[11px] font-medium dark:text-red-700 dark:hover:text-red-500"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
-
-      <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">
-        {onRender
-          ? onRender(disclaimer.text)
-          : disclaimer.text}
-      </div>
-    </div>
-  );
-}
-
-export function Step5bDisclosures({
-  onValidationChange,
-  errorFields,
-  companyName,
-  organizationName,
-  useNewClientStore = false,
-  disclaimerScopeFlag = false,
-  forceUniversalScope = false,
-}: {
+interface Step5bDisclosuresProps {
   onValidationChange?: (isValid: boolean) => void;
   errorFields: string[];
   companyName?: string;
@@ -83,36 +26,93 @@ export function Step5bDisclosures({
   useNewClientStore?: boolean;
   disclaimerScopeFlag?: boolean;
   forceUniversalScope?: boolean;
-}) {
-  const [isValidState, setIsValid] = useState(false);
+}
 
+/**
+ * Flyer & Marketing uses a short platform attribution instead of the full
+ * PlanTelligence boilerplate that the Benefits Hub footer carries.
+ */
+const POWERED_BY_PLATFORM_TEXT = "Powered by PlanTelligence®";
+
+/**
+ * The two disclosure surfaces an advisor maintains, each saved as its own
+ * `Disclaimer` (keyed by the location below) and paired with its own locked
+ * platform text.
+ */
+const DISCLOSURE_SECTIONS = [
+  {
+    key: "benefits_hub",
+    title: "1. Benefits Hub Footer",
+    location: "Benefits Hub / Client Website",
+    platformText: PLATFORM_DISCLOSURE_TEXT,
+    recommendedText: BENEFITS_HUB_YOUR_DISCLOSURE_TEXT,
+    maxLength: 2000,
+  },
+  {
+    key: "flyer_marketing",
+    title: "2. Flyer & Marketing",
+    location: "Marketing Materials",
+    platformText: POWERED_BY_PLATFORM_TEXT,
+    recommendedText: FLYER_MARKETING_YOUR_DISCLOSURE_TEXT,
+    maxLength: 250,
+  },
+] as const;
+
+type SectionMode = "recommended" | "custom";
+
+interface SectionState {
+  mode: SectionMode;
+  text: string;
+}
+
+/** Build the per-section editor state from the stored disclaimers. */
+function buildSections(stored: Disclaimer[] | undefined): Record<string, SectionState> {
+  const list = Array.isArray(stored) ? stored : [];
+  const result: Record<string, SectionState> = {};
+  for (const cfg of DISCLOSURE_SECTIONS) {
+    const existing = list.find((d) => (d.locations || []).includes(cfg.location));
+    if (existing) {
+      // Split the stored text; if "your" equals the recommended copy, treat it
+      // as "Use Recommended" so the radios reflect how it was saved.
+      const { your } = splitDisclosureText(existing.text, cfg.platformText);
+      const isRecommended = your.trim() === cfg.recommendedText.trim();
+      result[cfg.key] = {
+        mode: isRecommended ? "recommended" : "custom",
+        text: isRecommended ? cfg.recommendedText : your,
+      };
+    } else {
+      result[cfg.key] = { mode: "recommended", text: cfg.recommendedText };
+    }
+  }
+  return result;
+}
+
+export function Step5bDisclosures({
+  onValidationChange,
+  organizationName,
+  useNewClientStore = false,
+  forceUniversalScope = false,
+}: Step5bDisclosuresProps) {
   // Use appropriate store based on prop
   const onboardingStore = useOnboardingWizardStore();
   const newClientStore = useNewClientWizardStore();
 
   const store = useNewClientStore ? newClientStore : onboardingStore;
-  const { stepData, saveStepDataLocally, saveStepData, saveStepDataToServer } =
-    store;
+  const { stepData, saveStepDataLocally, saveStepDataToServer } = store;
   const saveAsDraft = (store as any).saveAsDraft;
-
   const loadStepData = (store as any).loadStepData;
 
-  const [disclaimers, setDisclaimers] = useState<Disclaimer[]>(
-    stepData.disclaimers?.disclaimers || [],
+  const initialDisclaimers: Disclaimer[] = stepData.disclaimers?.disclaimers || [];
+  const [disclaimers, setDisclaimers] = useState<Disclaimer[]>(initialDisclaimers);
+  const [sections, setSections] = useState<Record<string, SectionState>>(() =>
+    buildSections(initialDisclaimers),
   );
-  const [addTiming, setAddTiming] = useState<"now" | "later" | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingDisclaimer, setEditingDisclaimer] = useState<Disclaimer | null>(
-    null,
-  );
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [disclaimerToDelete, setDisclaimerToDelete] =
-    useState<Disclaimer | null>(null);
-  const [validationError, setValidationError] = useState<string>("");
 
-  // Best-effort organization name for normalizing stored disclaimer text
-  // at render time (resolves any leftover [Organization Name] / [Company Name]
-  // from older disclaimers that were saved before the org-only template).
+  // Once the user touches a section we stop re-syncing from the store, so a
+  // late server refresh can never clobber an in-flight edit.
+  const dirtyRef = useRef(false);
+  const textTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+
   const resolvedOrgName =
     organizationName ||
     (useNewClientStore
@@ -120,449 +120,272 @@ export function Step5bDisclosures({
       : (stepData as any).branding?.organizationName) ||
     "";
 
-  // Helper function to save disclaimer to universal template (onboarding-wizard)
-  const saveToUniversalDisclaimer = async (disclaimers: Disclaimer[]) => {
+  const renderOrg = (text: string) =>
+    text
+      .replace(/\[Organization Name\]/g, resolvedOrgName || "[Organization Name]")
+      .replace(/\{Organization Name\}/g, resolvedOrgName || "{Organization Name}");
+
+  // Persist a full disclaimers array (local + server + User.disclaimer mirror).
+  const persist = async (updated: Disclaimer[]) => {
+    setDisclaimers(updated);
+    saveStepDataLocally("disclaimers", { disclaimers: updated });
+    const serverSaved = await saveStepDataToServer("disclaimers", { disclaimers: updated });
+    if (!serverSaved) return;
     try {
-      // Filter out plan-specific disclaimers
-      // We keep 'universal' scope AND undefined scope (legacy disclaimers are treated as universal)
-      const universalDisclaimers = disclaimers.filter(
-        (d) => d.scope !== "plan",
-      );
-
-      const response = await fetch("/api/onboarding-wizard/disclaimers", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ disclaimers: universalDisclaimers }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to save universal disclaimer");
-      }
-
-      return true;
-    } catch (error) {
-      console.error("Error saving universal disclaimer:", error);
-      toast.error("Failed to save universal disclaimer");
-      return false;
-    }
-  };
-
-  // Persist disclaimers directly to User.disclaimer so Settings can load them
-  // even if the wizard completion flow hasn't run yet or fails to transfer them.
-  const persistDisclaimersToUserProfile = async (disclaimersArr: Disclaimer[]) => {
-    try {
-      const json = JSON.stringify(disclaimersArr);
       await fetch("/api/profile/update-disclaimer", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ disclaimer: json }),
+        body: JSON.stringify({ disclaimer: JSON.stringify(updated) }),
       });
     } catch {
-      // Non-critical — the wizard completion will also persist them
+      // Non-critical — wizard completion also persists them.
+    }
+    if (forceUniversalScope) {
+      try {
+        const universal = updated.filter((d) => d.scope !== "plan");
+        await fetch("/api/onboarding-wizard/disclaimers", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ disclaimers: universal }),
+        });
+      } catch {
+        // Best-effort.
+      }
+    }
+    if (saveAsDraft) {
+      try {
+        await saveAsDraft();
+      } catch {
+        // Best-effort.
+      }
     }
   };
 
-  // Load saved disclaimers WITHOUT blocking the UI:
-  //  - Anything already in the store is rendered immediately (it is seeded into
-  //    local state above), so previously-saved disclaimer text shows right away.
-  //  - The server refresh runs in the background. If the store already has
-  //    disclaimers, loadStepData returns the cached value instantly (no network
-  //    request); otherwise it fetches and the result is applied DIRECTLY to
-  //    local state as soon as it resolves — it is never allowed to clobber
-  //    disclaimers the user added while the request was in flight.
+  // Upsert one section's disclaimer (matched by its location).
+  const upsertSection = (key: string, next: SectionState) => {
+    const cfg = DISCLOSURE_SECTIONS.find((s) => s.key === key);
+    if (!cfg) return;
+    const yourText =
+      next.mode === "recommended" ? cfg.recommendedText : next.text;
+    const text = combineDisclosureText(yourText, cfg.platformText);
+
+    const base = disclaimers;
+    const idx = base.findIndex((d) => (d.locations || []).includes(cfg.location));
+    const updated =
+      idx >= 0
+        ? base.map((d, i) => (i === idx ? { ...d, text } : d))
+        : [
+            ...base,
+            {
+              id: `${cfg.key}-${Date.now()}`,
+              text,
+              locations: [cfg.location],
+              customLocation: "",
+            } as Disclaimer,
+          ];
+    void persist(updated);
+  };
+
+  // Initial load + seed: pull any saved disclaimers, then make sure BOTH
+  // sections exist (defaulting to "Use Recommended") so completing onboarding
+  // always carries the platform + recommended language for each surface.
   useEffect(() => {
     if (typeof loadStepData !== "function") return;
     let cancelled = false;
-    const refresh = async () => {
+    const run = async () => {
+      let stored: Disclaimer[] = stepData.disclaimers?.disclaimers || [];
       try {
         const data: any = await loadStepData("disclaimers");
-        if (cancelled) return;
-        const loaded: Disclaimer[] = Array.isArray(data?.disclaimers)
-          ? data.disclaimers
-          : [];
-        if (loaded.length === 0) return;
-        setDisclaimers((prev) => (prev.length > 0 ? prev : loaded));
-        setAddTiming((prev) => prev ?? "now");
+        if (Array.isArray(data?.disclaimers) && data.disclaimers.length > 0) {
+          stored = data.disclaimers;
+        }
       } catch {
-        // Ignore — anything already in the store is still shown.
+        // Fall back to whatever the store already had.
+      }
+      if (cancelled) return;
+
+      setDisclaimers(stored);
+      setSections(buildSections(stored));
+
+      const missing = DISCLOSURE_SECTIONS.filter(
+        (cfg) => !stored.some((d) => (d.locations || []).includes(cfg.location)),
+      );
+      if (missing.length > 0) {
+        const seeded: Disclaimer[] = [
+          ...stored,
+          ...missing.map((cfg) => ({
+            id: `${cfg.key}-${Date.now()}`,
+            text: combineDisclosureText(cfg.recommendedText, cfg.platformText),
+            locations: [cfg.location],
+            customLocation: "",
+          })),
+        ];
+        await persist(seeded);
       }
     };
-    void refresh();
+    void run();
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadStepData]);
 
-  // Update state when stepData changes
+  // Clean up any pending text debounce timers on unmount.
   useEffect(() => {
-    if (stepData.disclaimers?.disclaimers) {
-      const loadedDisclaimers = stepData.disclaimers.disclaimers;
-      setDisclaimers(loadedDisclaimers);
-      // If disclaimers are loaded and addTiming is not set, set it to "now"
-      if (loadedDisclaimers.length > 0 && !addTiming) {
-        setAddTiming("now");
-      }
-    }
-  }, [stepData.disclaimers, addTiming]);
-
-  // Notify parent component about validation status with stricter rules
-  useEffect(() => {
-    if (onValidationChange) {
-      // Valid if any disclaimer exists OR user chose add later
-      // Also valid if disclaimers exist but addTiming is not set (will be set to "now" by another effect)
-      const isValid = disclaimers.length > 0 || addTiming === "later";
-      setIsValid(isValid);
-      onValidationChange(isValid);
-    }
-  }, [addTiming, disclaimers.length, onValidationChange]);
-
-  useEffect(() => { }, [errorFields]);
-  // If disclaimers already exist but timing not chosen, default to "now" for clarity
-  useEffect(() => {
-    if (disclaimers.length > 0 && !addTiming) {
-      setAddTiming("now");
-    }
-    // If all disclaimers are deleted, reset addTiming only if it was "now"
-    if (disclaimers.length === 0 && addTiming === "now") {
-      setAddTiming(null);
-    }
-  }, [disclaimers.length, addTiming]);
-
-  const handleAddTimingChange = async (value: string) => {
-    const timing = value as "now" | "later";
-    setAddTiming(timing);
-    setValidationError(""); // Clear validation error when user makes a selection
-
-    // Open modal immediately when "Add Now" is selected
-    if (timing === "now") {
-      setIsModalOpen(true);
-    }
-
-    // If user selects Add Later and no disclaimers exist, create a default disclaimer
-    if (timing === "later" && disclaimers.length === 0) {
-      const year = new Date().getFullYear();
-      const defaultDisclaimer: Disclaimer = {
-        id: Date.now().toString(),
-        // Default disclaimer keeps BOTH the [Organization Name] and [Company Name]
-        // placeholders. [Organization Name] is resolved from the advisor's
-        // organization during onboarding, while [Company Name] is only populated
-        // once a plan is created (Create Plan / Create Benefit flows).
-        text: DEFAULT_DISCLOSURES_TEXT,
-        locations: ["Global"],
-        customLocation: "",
-      };
-      const updated = [...disclaimers, defaultDisclaimer];
-      setDisclaimers(updated);
-      saveStepDataLocally("disclaimers", { disclaimers: updated });
-      await saveStepDataToServer("disclaimers", { disclaimers: updated });
-      // Persist directly to User.disclaimer for Settings > Team & Disclaimers
-      await persistDisclaimersToUserProfile(updated);
-      // Save to draft
-      if (saveAsDraft) {
-        try {
-          await saveAsDraft();
-        } catch (error) {
-          console.error(
-            "Failed to save draft when adding default disclaimer:",
-            error,
-          );
-        }
-      }
-    }
-  };
-
-  const handleAddDisclaimer = async (disclaimer: Omit<Disclaimer, "id">) => {
-    const newDisclaimer: Disclaimer = {
-      ...disclaimer,
-      id: Date.now().toString(),
+    return () => {
+      Object.values(textTimersRef.current).forEach((t) => clearTimeout(t));
     };
+  }, []);
 
-    const updatedDisclaimers = [...disclaimers, newDisclaimer];
-    setDisclaimers(updatedDisclaimers);
+  // Both sections always have content (Recommended default), so Step 5b is
+  // always valid — the footer's Confirm/Skip simply advances.
+  useEffect(() => {
+    onValidationChange?.(true);
+  }, [onValidationChange]);
 
-    // Ensure addTiming is set when disclaimers are added
-    if (!addTiming) {
-      setAddTiming("now");
-    }
-
-    // Always save locally and to server
-    saveStepDataLocally("disclaimers", { disclaimers: updatedDisclaimers });
-    const serverSaved = await saveStepDataToServer("disclaimers", { disclaimers: updatedDisclaimers });
-    if (!serverSaved) {
-      toast.error("Failed to save disclaimer to server. Please try again.");
-      return;
-    }
-    // Save to draft
-    if (saveAsDraft) {
-      try {
-        await saveAsDraft();
-      } catch (error) {
-        console.error("Failed to save draft when adding disclaimer:", error);
-      }
-    }
-
-    // If scope is "universal" OR forced universal, also save to onboarding-wizard
-    if (disclaimer.scope === "universal" || forceUniversalScope) {
-      await saveToUniversalDisclaimer(updatedDisclaimers);
-    }
-
-    // Persist directly to User.disclaimer for Settings > Team & Disclaimers
-    await persistDisclaimersToUserProfile(updatedDisclaimers);
-
-    toast.success("Disclaimer added successfully");
+  const handleModeChange = (key: string, mode: SectionMode) => {
+    dirtyRef.current = true;
+    const cfg = DISCLOSURE_SECTIONS.find((s) => s.key === key);
+    const next: SectionState =
+      mode === "recommended"
+        ? { mode, text: cfg?.recommendedText || DEFAULT_YOUR_DISCLOSURE_TEXT }
+        : { mode, text: "" };
+    setSections((prev) => ({ ...prev, [key]: next }));
+    upsertSection(key, next);
   };
 
-  const handleUpdateDisclaimer = async (
-    id: string,
-    updatedDisclaimer: Omit<Disclaimer, "id">,
-  ) => {
-    const updatedDisclaimers = disclaimers.map((d) =>
-      d.id === id ? { ...updatedDisclaimer, id } : d,
-    );
-    setDisclaimers(updatedDisclaimers);
-
-    // Always save locally and to server
-    saveStepDataLocally("disclaimers", { disclaimers: updatedDisclaimers });
-    const serverSaved = await saveStepDataToServer("disclaimers", { disclaimers: updatedDisclaimers });
-    if (!serverSaved) {
-      toast.error("Failed to save disclaimer to server. Please try again.");
-      return;
-    }
-    // Save to draft
-    if (saveAsDraft) {
-      try {
-        await saveAsDraft();
-      } catch (error) {
-        console.error("Failed to save draft when adding disclaimer:", error);
-      }
-    }
-
-    // If scope is "universal" OR forced universal, also save to onboarding-wizard
-    if (updatedDisclaimer.scope === "universal" || forceUniversalScope) {
-      await saveToUniversalDisclaimer(updatedDisclaimers);
-    }
-
-    // Persist directly to User.disclaimer for Settings > Team & Disclaimers
-    await persistDisclaimersToUserProfile(updatedDisclaimers);
-
-    toast.success("Disclaimer updated successfully");
+  const handleTextChange = (key: string, value: string) => {
+    const cfg = DISCLOSURE_SECTIONS.find((s) => s.key === key);
+    // Hard-cap at the section's limit (guards programmatic/pasted values too).
+    const capped = cfg ? value.slice(0, cfg.maxLength) : value;
+    dirtyRef.current = true;
+    setSections((prev) => ({ ...prev, [key]: { mode: "custom", text: capped } }));
+    if (textTimersRef.current[key]) clearTimeout(textTimersRef.current[key]);
+    textTimersRef.current[key] = setTimeout(() => {
+      upsertSection(key, { mode: "custom", text: capped });
+    }, 500);
   };
-
-  const handleDeleteDisclaimer = (disclaimer: Disclaimer) => {
-    setDisclaimerToDelete(disclaimer);
-    setDeleteConfirmOpen(true);
-  };
-
-  const confirmDelete = async () => {
-    if (disclaimerToDelete) {
-      const updatedDisclaimers = disclaimers.filter(
-        (d) => d.id !== disclaimerToDelete.id,
-      );
-      setDisclaimers(updatedDisclaimers);
-
-      // Always save locally and to server
-      saveStepDataLocally("disclaimers", { disclaimers: updatedDisclaimers });
-      await saveStepDataToServer("disclaimers", { disclaimers: updatedDisclaimers });
-      // Save to draft
-      if (saveAsDraft) {
-        try {
-          await saveAsDraft();
-        } catch (error) {
-          console.error(
-            "Failed to save draft when deleting disclaimer:",
-            error,
-          );
-        }
-      }
-
-      // If the deleted disclaimer was universal OR forced universal, also update onboarding-wizard
-      if (disclaimerToDelete.scope === "universal" || forceUniversalScope) {
-        await saveToUniversalDisclaimer(updatedDisclaimers);
-      }
-
-      // Persist directly to User.disclaimer for Settings > Team & Disclaimers
-      await persistDisclaimersToUserProfile(updatedDisclaimers);
-
-      // If last disclaimer deleted, reset to initial view
-      if (updatedDisclaimers.length === 0) {
-        setAddTiming(null);
-      }
-
-      toast.success("Disclaimer deleted successfully");
-    }
-    setDeleteConfirmOpen(false);
-    setDisclaimerToDelete(null);
-  };
-
-  // Show summary view if disclaimers exist, otherwise show initial view
-  const showSummaryView = disclaimers.length > 0;
 
   return (
     <div className="max-w-2xl mx-auto space-y-4">
-      {!showSummaryView ? (
-        // Initial Landing State
-        <>
-          {/* Header */}
-          <div className="text-left space-y-1">
-            <h2 className="text-lg font-semibold text-foreground">
-              Add Disclaimers <span className="text-red-500">*</span>
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              Provide compliance language for participant and client-facing
-              materials
-            </p>
-            <p className="text-xs font-medium dark:text-gray-400">
-              add: (can be added later / modified in client builds)
-            </p>
-          </div>
+      {/* Header */}
+      <div className="text-left space-y-1">
+        <h2 className="text-lg font-semibold text-foreground">
+          Compliance Disclosures
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          Provide compliance language for participant and client-facing materials
+        </p>
+      </div>
 
-          {/* Radio Group */}
-          <Card className="shadow-none dark:bg-gray-800 dark:border-gray-700">
-            <CardContent className="pt-3 pb-3">
-              <RadioGroup
-                value={addTiming || ""}
-                onValueChange={handleAddTimingChange}
-                className="grid grid-cols-2 gap-3"
-              >
-                <div className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer dark:border-gray-600">
-                  <RadioGroupItem value="now" id="now" />
-                  <Label
-                    htmlFor="now"
-                    className="text-sm font-medium cursor-pointer flex-1 dark:text-gray-300"
-                  >
-                    Add Now
-                  </Label>
+      {DISCLOSURE_SECTIONS.map((cfg) => {
+        const state = sections[cfg.key];
+
+        return (
+          <Card
+            key={cfg.key}
+            className="shadow-none dark:bg-gray-800 dark:border-gray-700"
+          >
+            <CardContent className="space-y-4 pt-4 pb-4">
+              <h3 className="text-base font-semibold text-foreground">
+                {cfg.title}
+              </h3>
+
+              {/* Locked platform language */}
+              <div className="space-y-1.5">
+                <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  <Lock className="h-3 w-3" />
+                  Platform Disclosure
+                </p>
+                <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-400">
+                  {renderOrg(cfg.platformText)}
                 </div>
-                <div
-                  className={`flex items-center space-x-2 p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer dark:border-gray-600 ${!isValidState ? "border-red-500" : ""
-                    }`}
+              </div>
+
+              {/* Editable "Your Disclosure" */}
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                  Your Disclosure
+                </p>
+
+                <p className="text-xs text-muted-foreground dark:text-gray-400">
+                  Merge fields:{" "}
+                  <span className="font-medium text-foreground">{"{Organization Name}"}</span>{" "}
+                  fills from your organization name (Step 3);{" "}
+                  <span className="font-medium text-foreground">{"{Plan Sponsor Name}"}</span>{" "}
+                  is filled in automatically for each plan.
+                  {cfg.key === "flyer_marketing" && (
+                    <>
+                      {" "}
+                      <span className="font-medium text-foreground">{"{Benefits Hub QR / link}"}</span>{" "}
+                      shows the Benefits Hub link — or “the Benefits Hub” when a QR code is present.
+                    </>
+                  )}
+                </p>
+
+                <RadioGroup
+                  value={state?.mode || "recommended"}
+                  onValueChange={(value) =>
+                    handleModeChange(cfg.key, value as SectionMode)
+                  }
+                  className="flex items-center gap-6"
                 >
-                  <RadioGroupItem value="later" id="later" />
-                  <Label
-                    htmlFor="later"
-                    className="text-sm font-medium cursor-pointer flex-1 dark:text-gray-300"
-                  >
-                    Add Later
-                  </Label>
-                </div>
-              </RadioGroup>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem
+                      value="recommended"
+                      id={`${cfg.key}-recommended`}
+                    />
+                    <Label
+                      htmlFor={`${cfg.key}-recommended`}
+                      className="text-sm font-normal cursor-pointer dark:text-gray-300"
+                    >
+                      Use Recommended
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="custom" id={`${cfg.key}-custom`} />
+                    <Label
+                      htmlFor={`${cfg.key}-custom`}
+                      className="text-sm font-normal cursor-pointer dark:text-gray-300"
+                    >
+                      Add my own
+                    </Label>
+                  </div>
+                </RadioGroup>
 
-              {/* Validation Error */}
-              {validationError && (
-                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-800">
-                  <p className="text-xs text-red-600 font-medium dark:text-red-400">
-                    {validationError}
-                  </p>
+                <Textarea
+                  value={state?.text || ""}
+                  rows={10}
+                  onChange={(e) => handleTextChange(cfg.key, e.target.value)}
+                  placeholder="Enter or paste your disclosure text here..."
+                  maxLength={cfg.maxLength}
+                  className="min-h-[140px] resize-none dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
+                />
+
+                <div className="flex justify-end">
+                  <span
+                    className={`text-xs ${
+                      (state?.text?.length || 0) >= cfg.maxLength
+                        ? "text-amber-600 dark:text-amber-500"
+                        : "text-muted-foreground"
+                    }`}
+                  >
+                    {(state?.text?.length || 0).toLocaleString()} /{" "}
+                    {cfg.maxLength.toLocaleString()} characters
+                  </span>
                 </div>
-              )}
+              </div>
             </CardContent>
           </Card>
-        </>
-      ) : (
-        // Summary View
-        <>
-          {/* Header */}
-          <div className="text-left space-y-1">
-            <h2 className="text-lg font-semibold text-foreground">
-              Added Disclaimers ({disclaimers.length})
-            </h2>
-          </div>
+        );
+      })}
 
-          {/* Disclaimer Cards */}
-          <div className="space-y-2">
-            {disclaimers.map((disclaimer) => (
-              <DisclaimerCard
-                key={disclaimer.id}
-                disclaimer={disclaimer}
-                onEdit={() => {
-                  setEditingDisclaimer(disclaimer);
-                  setIsModalOpen(true);
-                }}
-                onDelete={() => handleDeleteDisclaimer(disclaimer)}
-                onRender={(text) =>
-                  text.replace(
-                    /\[Organization Name\]/g,
-                    resolvedOrgName || "[Organization Name]",
-                  )
-                }
-              />
-            ))}
-          </div>
-
-          {/* Add Another Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setEditingDisclaimer(null);
-              setIsModalOpen(true);
-            }}
-            className="w-full flex items-center gap-2 dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-          >
-            <Plus className="h-4 w-4" />
-            Add Another Disclaimer
-          </Button>
-        </>
-      )}
-
-      {/* Add/Edit Disclaimer Modal */}
-      <AddDisclaimerModal
-        isOpen={isModalOpen}
-        onClose={() => {
-          setIsModalOpen(false);
-          setEditingDisclaimer(null);
-          // If user chose "Add Now" but closed without adding anything, clear the selection
-          if (addTiming === "now" && disclaimers.length === 0) {
-            setAddTiming(null);
-          }
-        }}
-        onSave={
-          editingDisclaimer
-            ? (updatedDisclaimer) =>
-              handleUpdateDisclaimer(editingDisclaimer.id, updatedDisclaimer)
-            : handleAddDisclaimer
-        }
-        initialData={editingDisclaimer}
-        companyName={
-          companyName ||
-          (useNewClientStore
-            ? (stepData as any).companyBasics?.companyName
-            : (stepData as any).branding?.organizationName) ||
-          ""
-        }
-        organizationName={
-          organizationName ||
-          (useNewClientStore
-            ? (stepData as any).companyBasics?.companyName
-            : (stepData as any).branding?.organizationName) ||
-          ""
-        }
-        disclaimerScopeFlag={disclaimerScopeFlag ? disclaimerScopeFlag : false}
-        forceUniversalScope={forceUniversalScope}
-      />
-
-      {/* Delete Confirmation Dialog */}
-      <ConfirmationDialog
-        isOpen={deleteConfirmOpen}
-        onClose={() => {
-          setDeleteConfirmOpen(false);
-          setDisclaimerToDelete(null);
-        }}
-        onConfirm={confirmDelete}
-        title="Delete Disclaimer?"
-        description={
-          disclaimerToDelete
-            ? `This will remove the disclaimer for ${disclaimerToDelete.locations.join(
-              ", ",
-            )}. This action cannot be undone.`
-            : ""
-        }
-        confirmText="Delete"
-        cancelText="Cancel"
-        variant="destructive"
-      />
+      {/* Attestation notice */}
+      <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
+        Confirming opens a short attestation. Skipping is allowed, but Benefits
+        Hubs can’t be published until your disclosures are reviewed and
+        confirmed.
+      </div>
     </div>
   );
 }
