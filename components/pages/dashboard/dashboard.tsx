@@ -3,7 +3,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { QuickInsights } from "@/components/ui/quick-insights";
 import { QuickActions } from "@/components/ui/quick-actions";
-import { ResetOnboardingButton } from "@/components/ui/reset-onboarding-button";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { useEffect, useMemo, useState } from "react";
 import { Headshot } from "@/components/ui/headshot";
@@ -36,22 +35,6 @@ const SWR_OPTS = {
 
 export function Dashboard() {
   const { setTitle } = usePageTitleContext();
-
-  // The seat meter is deliberately NOT on the dashboard any more.
-  //
-  // Recorded because it contradicts a written rule rather than merely omitting one: spec T3
-  // Part A item 3 asks for "X of Y seats used … visible in Settings → Team and on the
-  // dashboard", and `components/pages/seat-meter.tsx` quotes that line in its own header.
-  // This is a product decision overriding that half of the sentence, so the next person to
-  // read the spec finds the reason here instead of assuming an oversight.
-  //
-  // Nothing was thrown away to achieve it: `SeatMeter` and `useSeatUsage` are untouched in
-  // `components/pages/seat-meter.tsx`, so restoring the dashboard zone is a re-wire rather than
-  // a rebuild. (They are now referenced by nothing else — the meter was the only consumer of
-  // this hook, which is why the dashboard no longer fires `GET /api/teammates/seats` on load.)
-  // The shared "How seats work" dialog lives in
-  // `components/teammates/seats/seat-usage-info-dialog.tsx`, and the seats UI itself lives only
-  // in Settings → People & Access.
 
   useEffect(() => {
     setTitle("Dashboard");
@@ -221,13 +204,22 @@ export function Dashboard() {
                 <>
                   {/* Organization logo — moved to the LEFT, with the identity, so the
                       right zone can hold the team panel. Sized down from the old
-                      156×104 pin so it reads as a brand mark beside the greeting. */}
+                      156×104 pin so it reads as a brand mark beside the greeting.
+
+                      Rendered with `fillContainer` + `objectFit: "contain"` inside a FIXED
+                      120×56 slot. The previous `h-full w-auto object-contain` let the image
+                      lay out at up to its own width — the inner <img> is only capped by
+                      `max-h-full`/`max-w-full`, and `max-width: 100%` against an auto-width
+                      wrapper imposes nothing — so a wide wordmark overflowed the slot and was
+                      CLIPPED by `overflow-hidden`, which read as the logo being zoomed in.
+                      Containing it scales the whole mark to fit, never crops it. */}
                   {userInfo.logo ? (
-                    <div className="flex h-14 max-w-[120px] shrink-0 items-center justify-start overflow-hidden">
+                    <div className="h-14 w-[120px] shrink-0 overflow-hidden">
                       <BrandingImage
                         src={userInfo.logo}
                         alt="Organization logo"
-                        className="h-full w-auto object-contain"
+                        fillContainer
+                        objectFit="contain"
                       />
                     </div>
                   ) : null}
