@@ -70,10 +70,18 @@ export async function GET() {
 
     const setup = latestSession?.userSetup ?? null;
 
-    // Same precedence the header previously applied to the full profile payload,
-    // so what it displays is unchanged.
-    const name = setup?.name || user?.name || session.user.name || "";
-    const email = setup?.email || user?.email || session.user.email || "";
+    /**
+     * The ACCOUNT row (`User`) is the identity, so it is read first.
+     *
+     * It used to lose to `latestSession.userSetup` — the newest wizard session's copy — which
+     * meant a stale or foreign session could rename the header: the account row still said
+     * "Eddie Taliaferro" while the header showed somebody else's name. Every other surface
+     * (auth, the invitation sender, the sign-up email) reads the `User` row, so the header is
+     * the one place that disagreed. The session stays as the fallback for an account whose row
+     * has no name yet (a freshly created signup).
+     */
+    const name = user?.name?.trim() || setup?.name || session.user.name || "";
+    const email = user?.email || setup?.email || session.user.email || "";
     // `jobTitle` is the seat record's name for the same field the User row calls `title`.
     const title = setup?.title || user?.title || teammateProfile?.jobTitle || "";
 

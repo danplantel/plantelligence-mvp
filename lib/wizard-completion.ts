@@ -150,7 +150,49 @@ export async function completeWizardOnboarding({ userId, wizardSessionId }: Wiza
     // User Setup data (Step 4) - name, phone, title, etc.
     if (wizardSession.userSetup) {
       if (wizardSession.userSetup.name) {
-        updateData.name = wizardSession.userSetup.name;
+        /**
+         * Guard against renaming the ACCOUNT after somebody else.
+         *
+         * Step 4's name is the advisor's OWN name, so writing it to `User.name` is the
+         * intended behavior. But a name that instead belongs to a person the organization
+         * INVITED (a `TeammateProfile`) is a leak, and `User.name` is the identity every
+         * other surface reads: the header, the sign-up confirmation email, and — through
+         * the Organization's identity mirror — the sender line of every invitation email.
+         * Writing a teammate's name here renamed the account after them ("Hi Johnny", to the
+         * organization's owner), which is exactly the reported bug.
+         *
+         * So the write is skipped when the incoming name matches a teammate in this
+         * organization; the account keeps the name it already has.
+         */
+        const incomingName = wizardSession.userSetup.name.trim();
+        const owner = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { organizationId: true },
+        });
+        let belongsToTeammate = false;
+        if (owner?.organizationId) {
+          const teammates = await prisma.teammateProfile.findMany({
+            where: { organizationId: owner.organizationId },
+            select: { firstName: true, lastName: true },
+          });
+          const teammateNames = new Set(
+            teammates.map((teammate) =>
+              `${teammate.firstName ?? ""} ${teammate.lastName ?? ""}`
+                .trim()
+                .toLowerCase(),
+            ),
+          );
+          belongsToTeammate = teammateNames.has(incomingName.toLowerCase());
+        }
+
+        if (belongsToTeammate) {
+          console.warn(
+            "[wizard-completion] Refusing to set User.name from the wizard session: " +
+              `"${incomingName}" belongs to an invited teammate, not the account owner.`,
+          );
+        } else {
+          updateData.name = incomingName;
+        }
       }
       if (wizardSession.userSetup.phone) {
         updateData.phone = wizardSession.userSetup.phone;
