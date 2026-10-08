@@ -137,8 +137,13 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
         if (serverData && (serverData.name || serverData.email)) {
           // Use server data if available and has meaningful data
           setValue("name", serverData.name || "");
-          // email stays the login/account email (not shown/edited on this step)
-          setValue("email", serverData.email || "");
+          // email is the login/account email. This step renders NO email input
+          // (the account email is immutable here), so it must ALWAYS resolve to a
+          // real value. A resumed draft can have a server row whose `email`
+          // column is blank (non-nullable String defaulting to "") while `name`
+          // is filled — previously that blank was taken verbatim, so Next failed
+          // validation on an unfillable field. Fall back to the session email.
+          setValue("email", serverData.email || session?.user?.email || "");
           // Organization Email loads from the wizard session only — it is NEVER
           // pre-populated with the user's login email (User.email).
           setValue("organizationEmail", serverData.organizationEmail || "");
@@ -162,7 +167,8 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
           // Also save to store immediately (so Settings sees same data)
           const userSetupData = {
             name: serverData.name || "",
-            email: serverData.email || "",
+            // Never leave the store's email blank — see the setValue note above.
+            email: serverData.email || session?.user?.email || "",
             organizationEmail: serverData.organizationEmail || "",
             phone: serverData.phone || "",
             phoneExtension: serverData.phoneExtension || "",

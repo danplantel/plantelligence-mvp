@@ -81,6 +81,25 @@ const focusFirstInvalidField = (errorFields: string[]) => {
   }, 300);
 };
 
+/** Human labels for validation error fields, so the toast can name them. */
+const FIELD_LABELS: Record<string, string> = {
+  organizationType: "Organization type",
+  teamSize: "Team size",
+  customOrganization: "Organization description",
+  services: "Services",
+  customService: "Custom benefits",
+  logo: "Logo",
+  organizationName: "Organization name",
+  website: "Website",
+  primaryColor: "Primary color",
+  secondaryColor: "Secondary color",
+  name: "Name",
+  email: "Email",
+  organizationEmail: "Organization Email",
+  phone: "Phone",
+  title: "Title",
+};
+
 interface WizardStep {
   id: number;
   title: string;
@@ -169,6 +188,12 @@ export function OnboardingWizard({
           const titleInput = document.querySelector(
             'input[name="title"]',
           ) as HTMLInputElement;
+          const nameInput = document.querySelector(
+            'input[name="name"]',
+          ) as HTMLInputElement;
+          const orgEmailInput = document.querySelector(
+            'input[name="organizationEmail"]',
+          ) as HTMLInputElement;
           const headshotField = document.querySelector(
             '[data-field="headshot"]',
           ) as HTMLElement;
@@ -191,13 +216,30 @@ export function OnboardingWizard({
             }
           }
 
-          // Update freshStepData with form values - always update to ensure we have latest
+          // Validate what is ON SCREEN, not just the store. A resumed draft can
+          // leave the store lagging (or missing the never-rendered login email),
+          // which previously blocked Next with "complete all required fields"
+          // even though the form was filled.
+          let emailValue = freshStepData.userSetup?.email || "";
+          if (!emailValue) {
+            try {
+              const currentSession = await getSession();
+              emailValue = currentSession?.user?.email || "";
+            } catch {
+              // Best-effort; validation will still report Email if it stays blank.
+            }
+          }
+
           freshStepData.userSetup = {
             ...freshStepData.userSetup,
+            name: nameInput?.value || freshStepData.userSetup?.name || "",
+            email: emailValue,
+            organizationEmail:
+              orgEmailInput?.value ||
+              freshStepData.userSetup?.organizationEmail ||
+              "",
             phone: phoneInput?.value || freshStepData.userSetup?.phone || "",
             title: titleInput?.value || freshStepData.userSetup?.title || "",
-            name: freshStepData.userSetup?.name || "",
-            email: freshStepData.userSetup?.email || "",
             designations: freshStepData.userSetup?.designations || [],
             headshot: headshotValue || freshStepData.userSetup?.headshot || "",
             headshotFileName: freshStepData.userSetup?.headshotFileName || "",
@@ -226,7 +268,15 @@ export function OnboardingWizard({
             focusFirstInvalidField(validationResult.errorFields);
           }, 100);
         }
-        toast.error("Please complete all required fields before proceeding");
+        // Name the missing field(s) rather than a bare generic message.
+        const missing = (validationResult.errorFields || []).map(
+          (field) => FIELD_LABELS[field] ?? field,
+        );
+        toast.error(
+          missing.length > 0
+            ? `Please complete: ${missing.join(", ")}`
+            : "Please complete all required fields before proceeding",
+        );
         return;
       }
 

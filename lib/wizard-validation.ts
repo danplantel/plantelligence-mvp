@@ -511,12 +511,12 @@ export const validateCurrentStep = async (step: number, stepData: any) => {
             validateUserSetup(cleanUserSetup);
           }
         
-          if (stepData.employerScope) {
-            validateEmployerScope(stepData.employerScope);
-          }
-          if (stepData.teamMembers) {
-            validateTeamMembers(stepData.teamMembers);
-          }
+          // Step 4 owns the user-setup fields ONLY. `employerScope` and
+          // `teamMembers` are validated by their own surfaces. Running them here
+          // made a RESUMED draft fail with the generic "complete all required
+          // fields" toast for data that is loaded from the server but never
+          // rendered (or fixable) on this step — while a fresh pass, where those
+          // records do not exist yet, validated fine.
         
           if (step4Errors.length > 0) {
             throw new Error(`Please complete the following fields: ${step4Errors.join(", ")}`);
