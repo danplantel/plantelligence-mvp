@@ -162,6 +162,32 @@ export function OnboardingWizard({
   const [showInviteLaterModal, setShowInviteLaterModal] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
+  /**
+   * Swallow the footer click that a dialog dismissal can leak.
+   *
+   * The attestation dialogs sit over the bottom of the viewport, where the footer's action
+   * buttons are. Clicking "Continue" closes the dialog and, in the same gesture, the click can
+   * be delivered a second time to the footer button underneath it. That leaked click then ran
+   * the primary action for the sub-step we had JUST entered: skipping on 5b advanced to 5c and
+   * the same click immediately ran 5c's "Finish", completing onboarding before the advisor
+   * could add any teammates.
+   *
+   * Setting this for the next two frames — the rest of this task plus the paint — means only
+   * that leaked click is ignored. A deliberate click after that is unaffected, and the
+   * dialogs' own confirm handlers call `handleCompleteClick` directly, so the skip still
+   * finishes correctly for a "Just me" organization.
+   */
+  const suppressFooterActionRef = useRef(false);
+  const suppressNextFooterAction = () => {
+    suppressFooterActionRef.current = true;
+    if (typeof window === "undefined") return;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        suppressFooterActionRef.current = false;
+      });
+    });
+  };
+
   // Use external props if provided, otherwise fall back to store
   const steps = externalSteps || store.steps;
   const currentStep = externalCurrentStep || store.currentStep;
@@ -678,6 +704,9 @@ export function OnboardingWizard({
 
   // Primary button click routing for Step 5's sub-screens.
   const handlePrimaryClick = async () => {
+    // Ignore a click leaked by a dialog dismissal — see `suppressFooterActionRef`.
+    if (suppressFooterActionRef.current) return;
+
     if (isLastStep) {
       // 5a Review -> 5b Disclosures
       if (step5SubStep === "review") {
@@ -715,6 +744,8 @@ export function OnboardingWizard({
 
   // Secondary (skip/later) action for Step 5's sub-screens.
   const handleStep5SecondaryClick = async () => {
+    // Ignore a click leaked by a dialog dismissal — see `suppressFooterActionRef`.
+    if (suppressFooterActionRef.current) return;
     if (!isLastStep) return;
 
     // 5b Disclosures -> "Skip for Now" opens the skip attestation first.
@@ -732,6 +763,7 @@ export function OnboardingWizard({
   // Continuing the "Invite Later" confirmation completes onboarding without
   // sending anything — no invite, no error, no incomplete flag.
   const confirmInviteLater = async () => {
+    suppressNextFooterAction();
     setShowInviteLaterModal(false);
     await handleCompleteClick();
   };
@@ -739,6 +771,7 @@ export function OnboardingWizard({
   // Confirming the skip attestation performs the skip (5c when the team step
   // applies, otherwise finish).
   const confirmStep5Skip = async () => {
+    suppressNextFooterAction();
     setShowSkipAttestation(false);
     // Skipping leaves the disclosures UNREVIEWED — the dashboard alert stays,
     // and Benefits Hub publishing is blocked until they're confirmed. Best-effort.
@@ -756,6 +789,7 @@ export function OnboardingWizard({
 
   // Continuing the "Confirm Your Disclosures" attestation advances the step.
   const confirmStep5Attestation = async () => {
+    suppressNextFooterAction();
     setShowConfirmAttestation(false);
     // Record the confirmation (org "reviewed" flag + audit row). Best-effort —
     // it must never block completing onboarding.
@@ -920,6 +954,11 @@ export function OnboardingWizard({
             <div ref={contentRef} className="mb-20 w-full max-w-4xl px-10">
               {React.cloneElement(children as React.ReactElement, {
                 errorFields: errorFields,
+                // 5b's "Confirm Disclosures / Skip for Now" button runs the SAME skip flow as
+                // the footer: the "Skip Disclosures for now?" attestation, then on to 5c — or
+                // the Dashboard when the team step does not apply. Handing it the footer's
+                // handler keeps that advance in one place instead of a second copy in the step.
+                onStep5Skip: handleStep5SecondaryClick,
               })}
             </div>
 

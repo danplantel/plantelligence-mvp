@@ -28,6 +28,15 @@ interface Step5bDisclosuresProps {
   useNewClientStore?: boolean;
   disclaimerScopeFlag?: boolean;
   forceUniversalScope?: boolean;
+  /**
+   * Skip straight past this step — supplied by the ONBOARDING wizard, whose footer
+   * skip action owns the "Skip Disclosures for now?" attestation and the advance
+   * (to Step 5c, or to the Dashboard when the team step does not apply).
+   *
+   * Absent in the plan-level editor (Create Plan / Edit Client), which has no next
+   * step — there the button keeps its local meaning and reveals the editor.
+   */
+  onSkipForNow?: () => void;
 }
 
 /**
@@ -91,6 +100,7 @@ function buildSections(stored: Disclaimer[] | undefined): Record<string, Section
 
 export function Step5bDisclosures({
   onValidationChange,
+  onSkipForNow,
   organizationName,
   useNewClientStore = false,
   forceUniversalScope = false,
@@ -336,7 +346,12 @@ export function Step5bDisclosures({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setShowSkipAttestation(true)}
+                // Onboarding: hand off to the wizard's skip flow, which shows the
+                // attestation and then advances to 5c (or finishes).
+                // Plan-level editor (no next step): reveal the editor, as before.
+                onClick={() =>
+                  onSkipForNow ? onSkipForNow() : setShowSkipAttestation(true)
+                }
                 className="w-full flex items-center justify-center gap-2 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
               >
                 Confirm Disclosures / Skip for Now

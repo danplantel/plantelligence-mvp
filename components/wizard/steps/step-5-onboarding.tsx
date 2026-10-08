@@ -14,6 +14,11 @@ import { Step5cTeam } from "./step-5c-team";
 interface Step5OnboardingProps {
   errorFields?: string[];
   onValidationChange?: (isValid: boolean) => void;
+  /**
+   * The wizard's skip action for 5b's "Confirm Disclosures / Skip for Now" button —
+   * it owns the attestation and the advance to 5c / the Dashboard.
+   */
+  onStep5Skip?: () => void;
 }
 
 /**
@@ -36,6 +41,7 @@ const SUB_STEP_LABELS: Record<Step5SubStep, string> = {
 export function Step5Onboarding({
   errorFields = [],
   onValidationChange,
+  onStep5Skip,
 }: Step5OnboardingProps) {
   const step5SubStep = useOnboardingWizardStore((s) => s.step5SubStep);
   const setStep5SubStep = useOnboardingWizardStore((s) => s.setStep5SubStep);
@@ -136,6 +142,7 @@ export function Step5Onboarding({
           onValidationChange={handleSubStepValidation}
           organizationName={organizationName}
           forceUniversalScope={true}
+          onSkipForNow={onStep5Skip}
         />
       ) : (
         <Step5aSummary />

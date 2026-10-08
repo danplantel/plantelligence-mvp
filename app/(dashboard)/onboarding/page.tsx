@@ -126,8 +126,11 @@ function OnboardingWizardContent() {
 
 function WizardContent({
   onValidationChange,
+  onStep5Skip,
 }: {
   onValidationChange: (isValid: boolean) => void;
+  /** Passed down from the wizard: 5b's skip attestation + advance to 5c/finish. */
+  onStep5Skip?: () => void;
 }) {
   const { currentStep, errorFields } = useOnboardingWizardStore();
 
@@ -145,6 +148,7 @@ function WizardContent({
         <Step5Onboarding
           errorFields={errorFields}
           onValidationChange={onValidationChange}
+          onStep5Skip={onStep5Skip}
         />
       );
     default:
