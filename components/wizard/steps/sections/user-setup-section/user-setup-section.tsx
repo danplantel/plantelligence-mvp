@@ -20,6 +20,7 @@ import {
 } from "@/components/wizard/steps/sections/user-setup-section/user-setup-section.funcs";
 import {
   designationAcronym,
+  designationAcronyms,
   designationLabel,
   getDesignationOptions,
   getRelevantDesignations,
@@ -124,6 +125,21 @@ export function UserSetupSection({
   const watchedName = watch("name");
   const watchedDesignations = watch("designations") || [];
   const watchedHeadshotData = watch("headshotData");
+
+  // Live preview of how the name line renders in the portal: name, then the
+  // designation acronyms, then title, then organization.
+  const previewAcronyms = designationAcronyms(watchedDesignations);
+  const previewNameLine = (() => {
+    const name = (watchedName || "").trim();
+    const acronyms = previewAcronyms.join(", ");
+    if (name && acronyms) return `${name}, ${acronyms}`;
+    return name || acronyms || "Your Name";
+  })();
+  const previewOrganizationName =
+    stepData.branding?.organizationName ||
+    (stepData.clientProfile as { organizationName?: string } | undefined)
+      ?.organizationName ||
+    "";
 
   // Get relevant designations based on title
   const relevantDesignations = getRelevantDesignations(watchedTitle);
@@ -492,38 +508,59 @@ export function UserSetupSection({
        <div>
         {!hideDesignations &&
           (alwaysShowDesignations || relevantDesignations.length > 0) && (
-          <div className="space-y-2">
-            <label className="block font-medium text-sm dark:text-gray-200">
-              Designations (Optional)
-            </label>
-            <ChipTypeahead
-              // `keywords` lets a typed query match the acronym too, so "shrm cp"
-              // resolves to SHRM-CP® (recognized entries normalize through config).
-              options={designationOptions.map((o) => ({
-                value: o.value,
-                // Match list shows acronym + full name; the selected pill shows
-                // the acronym only.
-                label: `${o.acronym} – ${o.label}`,
-                keywords: [o.acronym, o.value, o.label],
-              }))}
-              selectedValues={watchedDesignations || []}
-              valueLabel={designationLabel}
-              chipLabel={designationAcronym}
-              onChange={(values) => {
-                setValue("designations", values);
-                onDataChange("designations", values);
-              }}
-              placeholder="Type a designation, e.g. CFP…"
-              allowCustom
-              customOptionLabel={(query) =>
-                `Add as custom designation: “${query}”`
-              }
-              maxSelections={5}
-              dataField="designations"
-            />
-            <p className="text-xs text-muted-foreground">
-              Add up to 5. They display in this order. Drag to reorder.
-            </p>
+          <div className="grid gap-4 md:grid-cols-2 md:items-start">
+            {/* Left column: the designations picker */}
+            <div className="space-y-2">
+              <label className="block font-medium text-sm dark:text-gray-200">
+                Designations (Optional)
+              </label>
+              <ChipTypeahead
+                // `keywords` lets a typed query match the acronym too, so "shrm cp"
+                // resolves to SHRM-CP® (recognized entries normalize through config).
+                options={designationOptions.map((o) => ({
+                  value: o.value,
+                  // Match list shows acronym + full name; the selected pill shows
+                  // the acronym only.
+                  label: `${o.acronym} – ${o.label}`,
+                  keywords: [o.acronym, o.value, o.label],
+                }))}
+                selectedValues={watchedDesignations || []}
+                valueLabel={designationLabel}
+                chipLabel={designationAcronym}
+                onChange={(values) => {
+                  setValue("designations", values);
+                  onDataChange("designations", values);
+                }}
+                placeholder="Type a designation, e.g. CFP…"
+                allowCustom
+                customOptionLabel={(query) =>
+                  `Add as custom designation: “${query}”`
+                }
+                maxSelections={5}
+                dataField="designations"
+              />
+              <p className="text-xs text-muted-foreground">
+                Add up to 5. They display in this order. Drag to reorder.
+              </p>
+            </div>
+
+            {/* Right column: live preview of the rendered name line */}
+            <div className="space-y-2">
+              <label className="block font-medium text-sm dark:text-gray-200">
+                Live Preview
+              </label>
+              <div className="space-y-0.5 rounded-lg border border-border bg-muted/50 p-3">
+                <p className="text-sm font-bold text-foreground">
+                  {previewNameLine}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {watchedTitle?.trim() || "Your Title"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {previewOrganizationName || "Organization Name"}
+                </p>
+              </div>
+            </div>
           </div>
         )}
       </div>
