@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { Step5Disclaimers } from "@/components/wizard/steps/step-5-disclaimers";
+import { Step5bDisclosures } from "@/components/wizard/steps/step-5b-disclosures";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 
@@ -78,7 +78,7 @@ export function DisclosuresEditor({
                 : ""
                 }`}
         >
-            <Step5Disclaimers
+            <Step5bDisclosures
                 onValidationChange={() => { }}
                 errorFields={[]}
                 companyName={companyName}

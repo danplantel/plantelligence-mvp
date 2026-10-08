@@ -67,7 +67,7 @@ function DisclaimerCard({ disclaimer, onEdit, onDelete, onRender }: DisclaimerCa
   );
 }
 
-export function Step5Disclaimers({
+export function Step5bDisclosures({
   onValidationChange,
   errorFields,
   companyName,

@@ -15,7 +15,6 @@ import {
 import { Headshot } from "@/components/ui/headshot";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { SummaryEditModal } from "./sections/summary-edit-modals/summary-edit-modal";
-import { Step5Disclaimers } from "./step-5-disclaimers";
 import {
   designationAcronyms,
   designationLabel,
@@ -45,42 +44,32 @@ const formatPhoneNumber = (phone: string): string => {
   return phone;
 };
 
-interface Step5SummaryProps {
-  errorFields?: string[];
-  onValidationChange?: (isValid: boolean) => void;
-}
+/**
+ * Step 5a — Summary.
+ *
+ * The review screen for the onboarding wizard. Disclosures live in the sibling
+ * sub-step (5b) so that Step 5 on Onboarding presents its own two-node
+ * sub-stepper (see `step-5-onboarding.tsx`).
+ */
+export function Step5aSummary() {
+  const {
+    stepData,
+    saveStepDataLocally,
+    loadStepData,
+    saveStepData,
+    saveSummaryData,
+    goToStep,
+  } = useOnboardingWizardStore();
 
-export function Step5Summary({
-   errorFields = [],
-   onValidationChange,
- }: Step5SummaryProps) {
-   const {
-     stepData,
-     saveStepDataLocally,
-     loadStepData,
-     saveStepData,
-     saveSummaryData,
-     showNextSteps,
-     setShowNextSteps,
-     showStep5ConfirmModal,
-     setShowStep5ConfirmModal,
-     goToStep,
-   } = useOnboardingWizardStore();
-
- // Organization name for the disclaimer default — Onboarding is org-only (no [Company Name]).
- const organizationName = stepData.branding?.organizationName || "";
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<string | null>(null);
-  // Initialize as true since disclaimers are optional
-  const [isDisclaimersValid, setIsDisclaimersValid] = useState(true);
-  const [showValidationError, setShowValidationError] = useState(false);
   // Local state for branding colors to ensure they display correctly
   // even if the reactive stepData from the zustand hook is stale.
   const [brandingPrimaryColor, setBrandingPrimaryColor] = useState<string>(
-    stepData.branding?.primaryColor || ""
+    stepData.branding?.primaryColor || "",
   );
   const [brandingSecondaryColor, setBrandingSecondaryColor] = useState<string>(
-    stepData.branding?.secondaryColor || ""
+    stepData.branding?.secondaryColor || "",
   );
 
   // Load data when component mounts
@@ -90,7 +79,7 @@ export function Step5Summary({
       await loadStepData("teamSize");
       await loadStepData("services");
       await loadStepData("branding");
-      const userSetupData = await loadStepData("userSetup");
+      await loadStepData("userSetup");
 
       // Read the latest branding data directly from the store (bypasses any
       // caching/reactivity issues with loadStepData) and store in local state.
@@ -104,13 +93,6 @@ export function Step5Summary({
           setBrandingSecondaryColor(branding.secondaryColor);
         }
       }
-
-      // Debug: log what Step 5 sees for branding colors
-      console.log("[Step5] branding data from store:", {
-        primaryColor: branding?.primaryColor,
-        secondaryColor: branding?.secondaryColor,
-        fullBranding: branding,
-      });
     };
 
     loadData();
@@ -209,7 +191,7 @@ export function Step5Summary({
       // Save all data at once
       await saveSummaryData(summaryData);
     } catch (error) {
-      console.error("❌ Step5 - Failed to save summary data:", error);
+      console.error("❌ Step5a - Failed to save summary data:", error);
     }
   };
 
@@ -284,112 +266,6 @@ export function Step5Summary({
     return acronyms.length > 0 ? `${name}, ${acronyms.join(", ")}` : name;
   };
 
-  // Handle disclaimers validation
-  const handleDisclaimersValidation = (isValid: boolean) => {
-    setIsDisclaimersValid(isValid);
-    if (isValid) {
-      setShowValidationError(false);
-    }
-    // Notify parent component about validation status
-    if (onValidationChange) {
-      onValidationChange(isValid);
-    }
-  };
-
-  // Update validation when showing next steps (step 5 is always valid until next steps)
-  // But respect disclaimers validation if it exists
-  useEffect(() => {
-    if (onValidationChange && !showNextSteps) {
-      // Setup Complete screen is always valid (no required fields)
-      // But only if disclaimers are valid (handled by handleDisclaimersValidation)
-      if (isDisclaimersValid !== false) {
-        onValidationChange(true);
-      }
-    }
-  }, [showNextSteps, onValidationChange, isDisclaimersValid]);
-
-  const handleConfirmNext = () => {
-    setShowStep5ConfirmModal(false);
-    setShowNextSteps(true);
-  };
-
-  const handleCancelNext = () => {
-    setShowStep5ConfirmModal(false);
-  };
-
-  // If showing next steps, render that view
-  if (showNextSteps) {
-    return (
-      <div className="space-y-6">
-        {/* Page Header */}
-        <div className="mt-6">
-          <p className="text-gray-600 dark:text-gray-400">
-            Add a disclaimer to your profile that populates in the footer of each Portal Hub
-          </p>
-        </div>
-
-        {/* Next Steps Section - Vertical Layout */}
-        <div className="space-y-4">
-          {/* Add Disclaimers */}
-          <div>
-            <Card className="p-4 dark:bg-gray-800 shadow-none">
-              <CardContent className="pt-3 pb-3">
-                <Step5Disclaimers
-                  onValidationChange={handleDisclaimersValidation}
-                  errorFields={errorFields}
-                  organizationName={organizationName}
-                  forceUniversalScope={true}
-                />
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Validation Error - shown when trying to proceed without selecting disclaimer option */}
-        {showValidationError && (
-          <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-700 rounded-lg p-4">
-            <div className="flex items-center space-x-3">
-              <div className="flex-shrink-0">
-                <svg
-                  className="w-5 h-5 text-red-400"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
-                  Please complete required fields
-                </h3>
-                <p className="text-sm text-red-700 dark:text-red-300 mt-1">
-                  You must select when to add disclaimers (Add Now or Add Later)
-                  before proceeding to the dashboard.
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Edit Modal - for Next Steps screen */}
-        <SummaryEditModal
-          isOpen={isEditModalOpen}
-          onClose={() => {
-            setIsEditModalOpen(false);
-            setEditingSection(null);
-          }}
-          onSave={handleSaveEdit}
-          initialData={stepData}
-        />
-      </div>
-    );
-  }
-
-  // Otherwise, show the Setup Complete screen
   return (
     <div className="space-y-6">
       {/* Summary Cards Grid */}

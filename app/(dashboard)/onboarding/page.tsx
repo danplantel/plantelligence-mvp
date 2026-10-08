@@ -9,7 +9,7 @@ import {
   Step2Services,
   Step3Branding,
   Step4UserSetup,
-  Step5Summary,
+  Step5Onboarding,
 } from "@/components/wizard/steps";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { useSession } from "next-auth/react";
@@ -142,7 +142,7 @@ function WizardContent({
       return <Step4UserSetup errorFields={errorFields} />;
     case 5:
       return (
-        <Step5Summary
+        <Step5Onboarding
           errorFields={errorFields}
           onValidationChange={onValidationChange}
         />
