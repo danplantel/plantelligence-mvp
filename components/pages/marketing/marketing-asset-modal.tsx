@@ -737,7 +737,7 @@ export default function MarketingAssetModal({
         return;
       }
       if (!disclaimerText.trim()) {
-        toast({ title: "Validation error", description: "Disclaimer text is required.", variant: "destructive", className: "z-[9999]" });
+        toast({ title: "Validation error", description: "Disclosure text is required.", variant: "destructive", className: "z-[9999]" });
         setIsSaving(false);
         return;
       }
@@ -1589,7 +1589,7 @@ export default function MarketingAssetModal({
         <div className="space-y-1.5">
           <div className="flex items-center justify-between">
             <Label htmlFor="disclaimer">
-              Disclaimer text
+              Disclosure text
               <span className="text-red-500 ml-0.5">*</span>
             </Label>
             <span className="text-[11px] text-muted-foreground tabular-nums">{disclaimerText.length}/250</span>
@@ -1602,7 +1602,7 @@ export default function MarketingAssetModal({
             maxLength={250}
             className="dark:bg-gray-800"
           />
-          <p className="text-[11px] text-muted-foreground">Leave empty for default disclaimer</p>
+          <p className="text-[11px] text-muted-foreground">Leave empty for the default disclosure</p>
         </div>
       )}
 

@@ -194,10 +194,10 @@ function DisclaimerModal({
           </div>
           <div>
             <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-              {disclaimer ? "Edit Disclaimer" : "Create Disclaimer"}
+              {disclaimer ? "Edit Disclosure" : "Create Disclosure"}
             </h3>
             <p className="text-sm text-muted-foreground mt-1">
-              This disclaimer will appear in the{" "}
+              This disclosure will appear in the{" "}
               <strong className="text-gray-700 dark:text-gray-200">
                 Footer
               </strong>{" "}
@@ -215,10 +215,10 @@ function DisclaimerModal({
 
         {/* ── Scrollable content area ── */}
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4 min-h-0">
-          {/* Disclaimer Text */}
+          {/* Disclosure Text */}
           <div className="space-y-2">
             <Label className="text-sm font-semibold">
-              Disclaimer Text <span className="text-red-500">*</span>
+              Disclosure Text <span className="text-red-500">*</span>
             </Label>
             <Textarea
               value={text}
@@ -227,7 +227,7 @@ function DisclaimerModal({
               }
               rows={6}
               className="min-h-[120px] resize-y text-sm"
-              placeholder="Enter disclaimer text..."
+              placeholder="Enter disclosure text..."
             />
           </div>
 
@@ -268,7 +268,7 @@ function DisclaimerModal({
                 Apply to all benefit categories
               </Label>
               <p className="text-xs text-muted-foreground">
-                Show this disclaimer on every benefit category page
+                Show this disclosure on every benefit category page
               </p>
             </div>
             <Switch checked={applyAll} onCheckedChange={setApplyAll} />
@@ -289,7 +289,7 @@ function DisclaimerModal({
               ? "Saving..."
               : disclaimer
                 ? "Save Changes"
-                : "Create Disclaimer"}
+                : "Create Disclosure"}
           </Button>
         </div>
       </div>
@@ -774,7 +774,7 @@ export function BenefitsStep5() {
           <div className="space-y-2 flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">
-                Footer Disclaimers
+                Footer Disclosures
               </h2>
               <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-[#23919C]/10 text-[#23919C] text-xs font-medium">
                 <FileText className="w-3 h-3" />
@@ -782,7 +782,7 @@ export function BenefitsStep5() {
               </span>
             </div>
             <p className="text-sm text-muted-foreground">
-              Create a disclaimer for the benefit category you selected in
+              Create a disclosure for the benefit category you selected in
               Step 1. It will appear in the{" "}
               <strong className="text-gray-700 dark:text-gray-200">Footer</strong>{" "}
               of that category employee portal page — visible to all employees

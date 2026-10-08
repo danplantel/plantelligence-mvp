@@ -59,7 +59,7 @@ const EDIT_TABS = [
   { id: "contacts", label: "Contacts" },
   { id: "faqs", label: "FAQs" },
   { id: "documents", label: "Documents" },
-  { id: "disclaimers", label: "Disclaimers" },
+  { id: "disclaimers", label: "Disclosures" },
 ] as const;
 
 type EditTabId = (typeof EDIT_TABS)[number]["id"];

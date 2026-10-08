@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { History, CheckCircle2, CircleDashed } from "lucide-react";
 
 /**
- * Settings → Organization › Disclaimers — the Disclaimer Ledger.
+ * Settings → Organization › Disclosures — the Disclosure Ledger.
  *
  * Shows every immutable disclosure revision and the confirmation that covers it,
  * newest first: which revision, when it was written, by whom, where it came from
@@ -199,7 +199,7 @@ export function DisclaimerLedger() {
           <div>
             <CardTitle className="flex items-center gap-2">
               <History className="h-5 w-5 text-accent-blue" />
-              Disclaimer Ledger
+              Disclosure Ledger
             </CardTitle>
             <p className="text-sm text-muted-foreground mt-1">
               Every disclosure revision and its confirmation.

@@ -29,7 +29,7 @@ import {
 import { AddNowAttestationModal } from "@/components/wizard/steps/sections/attestation-modals/add-now-attestation-modal";
 
 /**
- * Settings → Organization › Disclaimers.
+ * Settings → Organization › Disclosures.
  *
  * Mirrors the Onboarding Step 5b (Compliance Disclosures) editor so the two
  * surfaces cannot drift: the two disclosure surfaces an advisor maintains —

@@ -32,10 +32,10 @@ export function TeamAndDisclaimersSection({
             <div>
               <CardTitle className="flex items-center gap-2">
                 <FileText className="h-5 w-5 text-accent-blue" />
-                Disclaimers
+                Disclosures
               </CardTitle>
               <p className="text-sm text-gray-600 mt-1 text-muted-foreground">
-                Manage compliance disclaimers
+                Manage compliance disclosures
               </p>
             </div>
           </div>

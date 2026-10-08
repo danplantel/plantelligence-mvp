@@ -63,18 +63,18 @@ export function DisclaimerUpdateConfirmDialog({
               <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             </div>
             <DialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              Update Disclaimer?
+              Update Disclosure?
             </DialogTitle>
           </div>
           <DialogDescription className="text-left text-sm text-gray-600 dark:text-gray-300 space-y-3">
             <p>
-              You are about to change this disclaimer. Your updated disclaimer
+              You are about to change this disclosure. Your updated disclosure
               will replace the existing one in the selected locations, and any
               portals or materials using it will reflect the updated text.
             </p>
             <p className="flex items-start gap-2 text-muted-foreground">
               <FileText className="h-4 w-4 mt-0.5 shrink-0" />
-              Please confirm that you intend to change/update this disclaimer
+              Please confirm that you intend to change/update this disclosure
               before continuing.
             </p>
           </DialogDescription>
@@ -92,7 +92,7 @@ export function DisclaimerUpdateConfirmDialog({
               htmlFor="disclaimer-update-confirm"
               className="text-sm leading-relaxed font-normal cursor-pointer text-gray-700 dark:text-gray-200"
             >
-              I confirm that I want to update this disclaimer with the changes I
+              I confirm that I want to update this disclosure with the changes I
               have made.
             </Label>
           </div>

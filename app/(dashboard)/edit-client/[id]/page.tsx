@@ -2988,7 +2988,7 @@ const EDIT_TABS = [
   { id: "preview", label: "Preview" },
   { id: "contacts", label: "Key Contacts" },
   { id: "documents", label: "Documents" },
-  { id: "disclaimers", label: "Disclaimers" },
+  { id: "disclaimers", label: "Disclosures" },
 ] as const;
 
 type EditTabId = (typeof EDIT_TABS)[number]["id"];
@@ -5144,17 +5144,17 @@ export default function EditClientPage() {
               />
             </TabsContent>
 
-            {/* ── Tab 5: Disclaimers ── */}
+            {/* ── Tab 5: Disclosures ── */}
             <TabsContent value="disclaimers" className="mt-0">
               <Card className="dark:bg-gray-800">
                 <CardHeader>
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <CardTitle className="text-xl dark:text-gray-100">
-                        Disclaimers
+                        Disclosures
                       </CardTitle>
                       <p className="text-sm text-muted-foreground dark:text-gray-400 font-normal mt-1">
-                        Manage disclaimer text displayed in the employee portal
+                        Manage disclosure text displayed in the employee portal
                         footer.
                       </p>
                     </div>
@@ -5240,13 +5240,13 @@ export default function EditClientPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Disclaimer Text */}
+                  {/* Disclosure Text */}
                   <div className="space-y-2">
                     <Label
                       htmlFor="disclaimers-text"
                       className="dark:text-gray-300"
                     >
-                      Disclaimer Text
+                      Disclosure Text
                     </Label>
                     <Textarea
                       id="disclaimers-text"
@@ -5257,7 +5257,7 @@ export default function EditClientPage() {
                           ensurePlanTelligenceTrademark(e.target.value),
                         );
                       }}
-                      placeholder="Enter legal disclaimers to display in the portal footer..."
+                      placeholder="Enter legal disclosures to display in the portal footer..."
                       rows={25}
                       className="min-h-[200px] dark:bg-gray-900 dark:text-gray-200"
                     />
@@ -5277,7 +5277,7 @@ export default function EditClientPage() {
                             Footer Preview
                           </h3>
                           <p className="text-sm text-muted-foreground dark:text-gray-400">
-                            How the disclaimer will appear on the{" "}
+                            How the disclosure will appear on the{" "}
                             <strong className="text-gray-600 dark:text-gray-300">
                               Home Page
                             </strong>
@@ -5374,7 +5374,7 @@ export default function EditClientPage() {
                           </h2>
                           <p className="text-gray-400 text-sm max-w-xl mx-auto">
                             This is where the home page content would appear.
-                            Scroll down to see the Footer with your disclaimer.
+                            Scroll down to see the Footer with your disclosure.
                           </p>
                         </div>
 

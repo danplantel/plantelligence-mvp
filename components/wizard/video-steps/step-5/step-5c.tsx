@@ -126,7 +126,7 @@ export function VideoStep5c() {
   return (
     <Card className="flex flex-col items-center text-center gap-8 p-8">
       <CardTitle className="text-3xl font-semibold text-gray-900 dark:text-white">
-        Disclaimer
+        Disclosure
       </CardTitle>
 
       {mode === "preview" ? (
@@ -140,7 +140,7 @@ export function VideoStep5c() {
               ))
             ) : (
               <p className="text-center text-gray-400">
-                No disclaimer text available for this plan.
+                No disclosure text available for this plan.
               </p>
             )}
           </CardContent>
@@ -149,7 +149,7 @@ export function VideoStep5c() {
             type="button"
             onClick={() => setMode("edit")}
           >
-            Edit Disclaimer
+            Edit Disclosure
           </Button>
         </>
       ) : (
@@ -160,7 +160,7 @@ export function VideoStep5c() {
             onChange={(event) =>
               setDraftText(ensurePlanTelligenceTrademark(event.target.value))
             }
-            placeholder="Enter disclaimer text..."
+            placeholder="Enter disclosure text..."
           />
           <div className="flex items-center justify-end gap-3">
             <Button variant="outline" type="button" onClick={handleCancel}>
