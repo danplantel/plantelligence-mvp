@@ -1,7 +1,9 @@
 "use client";
 
 import UserAuthForm from "@/components/forms/user-auth-form";
+import { ResumeOnboardingLink } from "@/components/forms/resume-onboarding-link";
 import { useTheme } from "next-themes";
+import { useSession } from "next-auth/react";
 import React, { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
 
@@ -12,6 +14,18 @@ const SignIn = () => {
   useEffect(() => {
     setThemeMode(theme);
   }, [theme]);
+
+  const { status } = useSession();
+
+  // A user who is ALREADY signed in but lands on /signin with a callbackUrl
+  // (e.g. from the onboarding resume email) should go straight through instead
+  // of staring at the sign-in form.
+  useEffect(() => {
+    if (status !== "authenticated") return;
+    const cb = new URLSearchParams(window.location.search).get("callbackUrl");
+    if (!cb) return;
+    window.location.href = cb.includes("/onboarding") ? "/onboarding" : cb;
+  }, [status]);
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
@@ -43,6 +57,7 @@ const SignIn = () => {
               alt="PlanTelligence"
             />
             <UserAuthForm />
+            <ResumeOnboardingLink className="text-center" />
           </div>
         </div>
       </div>

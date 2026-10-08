@@ -71,8 +71,13 @@ export default function UserAuthForm() {
         };
         setError(errorMessages[result.error] || errorMessages.default);
       } else {
-        window.location.href =
-          callbackUrl && callbackUrl !== null ? callbackUrl : "/dashboard";
+        // Prefer NextAuth's resolved URL, then the callback from the query.
+        // Never navigate back to /signin — for a user resuming onboarding that
+        // reads as a broken loop.
+        const target = result?.url || callbackUrl || "/dashboard";
+        window.location.href = target.startsWith("/signin")
+          ? "/onboarding"
+          : target;
       }
     }, "Signing in...");
   };

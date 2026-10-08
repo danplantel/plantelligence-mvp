@@ -18,6 +18,7 @@ import { useForm } from "react-hook-form";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import GoogleSignInButton from "./google-auth-button";
+import { ResumeOnboardingLink } from "./resume-onboarding-link";
 import { signIn } from "next-auth/react";
 import { CheckCircle2, Eye, EyeOff, Loader2 } from "lucide-react";
 import { signupSchema, type SignupFormValues } from "@/lib/form-schema";
@@ -318,6 +319,9 @@ export default function UserAuthForm() {
             </div>
           </div>
           <GoogleSignInButton />
+          <div className="flex justify-center pt-1">
+            <ResumeOnboardingLink />
+          </div>
         </form>
       </Form>
     </>

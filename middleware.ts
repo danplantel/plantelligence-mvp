@@ -70,7 +70,14 @@ export default async function middleware(req: NextRequest) {
 
     if (!token) {
       const signInUrl = new URL("/signin", req.url);
-      signInUrl.searchParams.set("callbackUrl", req.url);
+      // Relative callbackUrl (path + query). This is the same-origin target
+      // NextAuth accepts natively, and it means the post-sign-in redirect lands
+      // back on the originally requested page (e.g. /onboarding from a resume
+      // email) without an absolute-URL round trip.
+      signInUrl.searchParams.set(
+        "callbackUrl",
+        `${pathname}${req.nextUrl.search ?? ""}`,
+      );
       return NextResponse.redirect(signInUrl);
     }
 

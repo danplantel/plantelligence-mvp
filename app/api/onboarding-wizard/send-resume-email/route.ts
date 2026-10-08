@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/lib/auth-options";
 import { sendOnboardingResumeEmail } from "@/lib/email";
+import { createOnboardingResumeToken } from "@/lib/onboarding-resume-token.server";
 
 /**
  * Send the [MEDIUM] onboarding "resume on a computer" email.
@@ -18,14 +19,19 @@ export async function POST(request: Request) {
   try {
     const session = await getServerSession(authOptions);
     const email = session?.user?.email;
+    const userId = session?.user?.id;
 
-    if (!email) {
+    if (!email || !userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Build the resume link from the request origin so it works across
-    // environments (localhost, preview deploys, production).
-    const resumeUrl = new URL("/onboarding", request.url).toString();
+    // A signed, expiring token makes the emailed link open the wizard directly
+    // (it establishes the session), instead of bouncing through sign-in.
+    const token = await createOnboardingResumeToken(userId);
+    const resumeUrl = new URL(
+      `/api/onboarding-wizard/resume?token=${encodeURIComponent(token)}`,
+      request.url,
+    ).toString();
 
     await sendOnboardingResumeEmail(email, resumeUrl);
 
