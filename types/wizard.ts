@@ -121,6 +121,22 @@ export interface TeamMember {
   isOwner?: boolean;
 }
 
+/**
+ * One invite row on Onboarding Step 5c ("Invite Your Team").
+ *
+ * Each invite requires a Name and an Email; the footer's "Send Invites & Finish"
+ * turns the filled rows into pending Team Members (Editor by default) and emails
+ * them an invite link. There is deliberately NO "complete-it-yourself" path on
+ * this step — invites only. Kept in the wizard store (not component-local) so the
+ * wizard footer can read the rows when it sends them.
+ */
+export interface TeamInvite {
+  id: string;
+  fullName: string;
+  email: string;
+  status: "pending" | "accepted";
+}
+
 export interface WizardTeamMembers {
   id?: string;
   sessionId: string;

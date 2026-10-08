@@ -43,6 +43,12 @@ export const OWNER_CONSUMES_SEAT = true;
 
 export interface SeatUsage {
   seatsIncluded: number;
+  /**
+   * True when the Organization has an explicit seat limit (`seatsIncluded` is
+   * non-null). Until a billing surface exists this is false, and the UI shows
+   * "X team members" rather than "X of Y seats in use" (Onboarding Step 5c).
+   */
+  hasSeatLimit: boolean;
   /** Consumed seats: owner + active Team Members + unexpired pending invites. */
   seatsUsed: number;
   /** Subset of `seatsUsed`: invites still inside the 14-day hold. */
@@ -112,6 +118,7 @@ export async function getSeatUsage(
 
   return {
     seatsIncluded,
+    hasSeatLimit: organization?.seatsIncluded != null,
     seatsUsed,
     seatsPending,
     seatsActive,

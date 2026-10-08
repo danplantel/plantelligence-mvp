@@ -930,15 +930,37 @@ export async function sendTeamMemberInviteEmail({
   planNames,
   categories,
 }: TeamMemberInviteEmailInput) {
-  const firstName = (memberName || "").trim().split(" ")[0] || "there";
+  const trimmedMember = (memberName || "").trim();
+  const firstName = trimmedMember.split(" ")[0] || "there";
+  const firmName = (organizationName || "").trim();
+  /**
+   * The sender is never the recipient.
+   *
+   * The inviter is the acting user (the organization owner) with the firm as the fallback — but
+   * if either resolves to the person being invited, the subject would read "Johnny Appleseed
+   * added you to their team …" and be addressed TO Johnny. That is what an invitation raised
+   * while the organization's name still mirrors the person being added looks like, so a
+   * candidate that collides with the member's name is dropped here rather than printed, and the
+   * firm (or a generic) keeps the sentence true.
+   */
+  const collidesWithMember = (value: string) =>
+    Boolean(trimmedMember) && value.toLowerCase() === trimmedMember.toLowerCase();
+  const inviterPerson = (inviterName || "").trim();
+  const inviterIsPerson =
+    Boolean(inviterPerson) && !collidesWithMember(inviterPerson);
   const inviter =
-    (inviterName || "").trim() || organizationName?.trim() || "Your benefits advisor";
+    (inviterIsPerson ? inviterPerson : "") ||
+    (firmName && !collidesWithMember(firmName) ? firmName : "") ||
+    "Your benefits advisor";
   /**
    * The firm is only worth naming when it says something the inviter's name does not — see
    * `inviterFirmLabel`. The accept page asks the same question for its "on behalf of …"
    * clause, so the rule lives there and both surfaces word one invitation the same way.
    */
-  const namedFirm = inviterFirmLabel(inviterName, organizationName);
+  const namedFirm = inviterFirmLabel(
+    inviterIsPerson ? inviterPerson : null,
+    organizationName,
+  );
 
   /**
    * What the recipient is being brought into: the plan they are being given access to when
@@ -1138,7 +1160,7 @@ export async function sendTeamMemberInviteEmail({
                                     <tr>
                                         <td align="center" style="padding-bottom: 20px;">
                                             <p class="email-text-secondary" style="margin: 0; font-size: 15px; color: #666680; line-height: 1.6;">
-                                                ${safeInviter}${safeFirm && inviterName?.trim() ? ` (${safeFirm})` : ""} added you as a <strong style="color: #1a1a2e;">Team Member</strong> on PlanTelligence.
+                                                ${safeInviter}${safeFirm && inviterIsPerson ? ` (${safeFirm})` : ""} added you as a <strong style="color: #1a1a2e;">Team Member</strong> on PlanTelligence.
                                             </p>
                                         </td>
                                     </tr>${detailsBlock}

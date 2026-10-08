@@ -10,7 +10,8 @@ import {
   BrandingFormData,
   EmployerScopeFormData,
   UserSetupFormData,
-  DisclaimersFormData
+  DisclaimersFormData,
+  TeamInvite
 } from "@/types/wizard";
 import { normalizeCleanDomain } from "./url-utils";
 import { normalizeOrganizationType } from "@/config/onboarding/organization-types";
@@ -79,6 +80,14 @@ export interface OnboardingWizardState {
   startEditingFromReview: (step: number) => void;
   /** Leave edit-from-review mode, returning to 5a Review (no save). */
   returnToReview: () => void;
+  /**
+   * Onboarding Step 5c invite rows. Held in the store (not component-local) so
+   * the wizard footer's "Send Invites & Finish" can read them when it turns the
+   * filled rows into pending Team Members and sends their invite emails. Rows
+   * that are entirely blank are ignored on send.
+   */
+  teamInvites: TeamInvite[];
+  setTeamInvites: (invites: TeamInvite[]) => void;
   showStep5ConfirmModal: boolean;
   setShowStep5ConfirmModal: (show: boolean) => void;
   nextStep: () => void;
@@ -276,6 +285,8 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
       },
       showStep5ConfirmModal: false,
       setShowStep5ConfirmModal: (show: boolean) => set({ showStep5ConfirmModal: show }),
+      teamInvites: [],
+      setTeamInvites: (invites: TeamInvite[]) => set({ teamInvites: invites }),
 
       // Helper to persist currentStep to the server so returning users
       // resume at the exact step they were last on.
@@ -754,6 +765,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
           errorFieldsSource: null,
           step5SubStep: "review",
           editFromReview: false,
+          teamInvites: [],
           isLoading: false,
           loadingPromise: null,
         });

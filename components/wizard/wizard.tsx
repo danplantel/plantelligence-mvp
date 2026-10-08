@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { TeamSize } from "@/types/wizard";
 import { AddNowAttestationModal } from "./steps/sections/attestation-modals/add-now-attestation-modal";
 import { SkipAttestationModal } from "./steps/sections/attestation-modals/skip-attestation-modal";
+import { InviteLaterModal } from "./steps/sections/attestation-modals/invite-later-modal";
 
 // Function to focus on the top-most invalid field and scroll to it.
 // Chooses the FIRST errored field in DOCUMENT ORDER (not validation order) so
@@ -155,6 +156,10 @@ export function OnboardingWizard({
   const [showSkipAttestation, setShowSkipAttestation] = useState(false);
   // "Confirm Your Disclosures" attestation — opened by the footer Confirm on 5b.
   const [showConfirmAttestation, setShowConfirmAttestation] = useState(false);
+  // Step 5c "Send Invites & Finish" — true while the invitation POSTs are in flight.
+  const [isSendingInvites, setIsSendingInvites] = useState(false);
+  // Step 5c "Invite Later" confirmation.
+  const [showInviteLaterModal, setShowInviteLaterModal] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
   // Use external props if provided, otherwise fall back to store
@@ -183,6 +188,12 @@ export function OnboardingWizard({
   // person — i.e. team size is anything other than "Just me" (solo).
   const teamSizeBand = stepData.teamSize?.teamSize;
   const teamStepApplies = !!teamSizeBand && teamSizeBand !== TeamSize.SOLO;
+
+  // How many invite rows the advisor has actually filled in on 5c — drives the
+  // footer's "Send N Invites & Finish" label. Blank rows are ignored.
+  const stagedInviteCount = (store.teamInvites ?? []).filter(
+    (invite) => invite.fullName.trim() !== "" || invite.email.trim() !== "",
+  ).length;
 
   const handleNext = async () => {
     setIsLoading(true);
@@ -672,7 +683,7 @@ export function OnboardingWizard({
       }
 
       // 5c Team -> "Send Invites & Finish"
-      await handleCompleteClick();
+      await sendTeamInvitesAndFinish();
       return;
     }
 
@@ -690,10 +701,17 @@ export function OnboardingWizard({
       return;
     }
 
-    // 5c Team -> "Invite Later"
+    // 5c Team -> "Invite Later" confirms first, then finishes.
     if (step5SubStep === "team") {
-      await handleCompleteClick();
+      setShowInviteLaterModal(true);
     }
+  };
+
+  // Continuing the "Invite Later" confirmation completes onboarding without
+  // sending anything — no invite, no error, no incomplete flag.
+  const confirmInviteLater = async () => {
+    setShowInviteLaterModal(false);
+    await handleCompleteClick();
   };
 
   // Confirming the skip attestation performs the skip (5c when the team step
@@ -737,6 +755,57 @@ export function OnboardingWizard({
     }
   };
 
+  // 5c "Send Invites & Finish": turn each filled invite row into a pending Team
+  // Member and email its invite link, then complete onboarding. Rows are sent
+  // one at a time so a partial failure is reported against the address that
+  // failed; on failure the completion is aborted so the user can retry or pick
+  // "Invite Later". A step holding only blank rows sends nothing and simply
+  // finishes — the same outcome as "Invite Later", with no incomplete flag.
+  const sendTeamInvitesAndFinish = async () => {
+    const invites = (
+      useOnboardingWizardStore.getState().teamInvites ?? []
+    ).filter(
+      (invite) => invite.fullName.trim() !== "" || invite.email.trim() !== "",
+    );
+
+    if (invites.length === 0) {
+      await handleCompleteClick();
+      return;
+    }
+
+    setIsSendingInvites(true);
+    try {
+      for (const invite of invites) {
+        const response = await fetch("/api/teammates/team", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            // A Team Member seat, said explicitly. `role: "editor"` is the spec's
+            // default for invited members (the owner can change it later in
+            // Settings › Team); plan/category scope use the server defaults
+            // (All Plans + All Categories).
+            type: "team_member",
+            role: "editor",
+            name: invite.fullName.trim(),
+            email: invite.email.trim(),
+          }),
+        });
+
+        if (!response.ok) {
+          const body = (await response.json().catch(() => ({}))) as {
+            error?: string;
+          };
+          toast.error(body.error ?? `Could not invite ${invite.email.trim()}.`);
+          return;
+        }
+      }
+
+      await handleCompleteClick();
+    } finally {
+      setIsSendingInvites(false);
+    }
+  };
+
   // Check scroll status when content changes
   useEffect(() => {
     const checkScroll = () => {
@@ -773,7 +842,11 @@ export function OnboardingWizard({
         ? "Looks Good, Continue"
         : step5SubStep === "disclosures"
           ? "Confirm Disclosures"
-          : "Send Invites & Finish"
+          : stagedInviteCount > 0
+            ? `Send ${stagedInviteCount} ${
+                stagedInviteCount === 1 ? "Invite" : "Invites"
+              } & Finish`
+            : "Finish"
       : needsScroll
         ? "Scroll to Continue"
         : "Next";
@@ -860,10 +933,11 @@ export function OnboardingWizard({
                       <LoadingButton
                         size="lg"
                         onClick={handlePrimaryClick}
-                        isLoading={isLoading}
+                        isLoading={isLoading || isSendingInvites}
                         disabled={
                           isLastStep &&
-                          step5SubStep === "disclosures" &&
+                          (step5SubStep === "disclosures" ||
+                            step5SubStep === "team") &&
                           !isStep5Valid
                         }
                         loadingText={
@@ -896,6 +970,11 @@ export function OnboardingWizard({
             isOpen={showSkipAttestation}
             onClose={() => setShowSkipAttestation(false)}
             onConfirm={confirmStep5Skip}
+          />
+          <InviteLaterModal
+            isOpen={showInviteLaterModal}
+            onClose={() => setShowInviteLaterModal(false)}
+            onConfirm={confirmInviteLater}
           />
         </>
       )}

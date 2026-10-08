@@ -59,7 +59,9 @@ export function Step5Onboarding({
     step5SubStep === "team" && !teamStepApplies ? "disclosures" : step5SubStep;
   const activeIndex = Math.max(0, order.indexOf(active));
 
-  const handleDisclosuresValidation = useCallback(
+  // 5b (disclosures) and 5c (team) each report their own validity. Only the
+  // active sub-screen is mounted, so this reflects the active sub-step's state.
+  const handleSubStepValidation = useCallback(
     (isValid: boolean) => {
       onValidationChange?.(isValid);
     },
@@ -124,11 +126,14 @@ export function Step5Onboarding({
 
       {/* Active sub-screen */}
       {active === "team" ? (
-        <Step5cTeam />
+        <Step5cTeam
+          errorFields={errorFields}
+          onValidationChange={handleSubStepValidation}
+        />
       ) : active === "disclosures" ? (
         <Step5bDisclosures
           errorFields={errorFields}
-          onValidationChange={handleDisclosuresValidation}
+          onValidationChange={handleSubStepValidation}
           organizationName={organizationName}
           forceUniversalScope={true}
         />
