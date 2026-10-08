@@ -56,8 +56,8 @@ export function OrganizationSettingsSection({
                 </div>
               </div>
 
-              <div className="grid gap-6 w-full grid-cols-1 lg:grid-cols-2">
-                <div className="space-y-2">
+              <div className="grid gap-6 w-full grid-cols-1 lg:grid-cols-5">
+                <div className="space-y-2 lg:col-span-3">
                   <div className="h-6 bg-gray-300 rounded w-48 mb-2" />
                   <div className="h-4 bg-gray-200 rounded w-56 mb-4" />
                   {[1, 2, 3, 4].map((i) => (
@@ -66,7 +66,7 @@ export function OrganizationSettingsSection({
                     </div>
                   ))}
                 </div>
-                <div className="space-y-6">
+                <div className="space-y-6 lg:col-span-2">
                   <div className="space-y-2">
                     <div className="h-6 bg-gray-300 rounded w-52 mb-2" />
                     <div className="h-4 bg-gray-200 rounded w-48 mb-4" />
@@ -115,9 +115,10 @@ export function OrganizationSettingsSection({
               </div>
 
               {/* The two remaining fields stay side by side: each is a single input, so they pair
-                  naturally and the row does not grow tall. */}
-              <div className="grid gap-6 w-full grid-cols-1 lg:grid-cols-2">
-                <div>
+                  naturally and the row does not grow tall. The 3:2 split mirrors Onboarding →
+                  Step 1, where the Organization Type list is the wider of the two columns. */}
+              <div className="grid gap-6 w-full grid-cols-1 lg:grid-cols-5">
+                <div className="lg:col-span-3">
                   <div className="space-y-2">
                     <h3 className="text-lg font-semibold flex items-center gap-2">
                       <Building2 className="w-5 h-5 text-accent-blue" />
@@ -131,7 +132,7 @@ export function OrganizationSettingsSection({
                     </FormProvider>
                   </div>
                 </div>
-                <div className="space-y-6">
+                <div className="space-y-6 lg:col-span-2">
                   <div>
                     <div className="space-y-2">
                       <h3 className="text-lg font-semibold flex items-center gap-2">
