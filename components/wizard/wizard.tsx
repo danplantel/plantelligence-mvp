@@ -195,6 +195,28 @@ export function OnboardingWizard({
     (invite) => invite.fullName.trim() !== "" || invite.email.trim() !== "",
   ).length;
 
+  /**
+   * Every step change starts at the TOP of the new step.
+   *
+   * Without this the browser keeps the previous step's scroll offset, so moving from a tall
+   * step (Branding) to a shorter one (User Setup) landed the user at the BOTTOM of the new
+   * page — the content was there, just scrolled past. Keyed on the step NUMBER and, inside
+   * Step 5, on the sub-step, so 5a → 5b → 5c and the edit-from-review round trip reset too.
+   *
+   * Both scrollers are reset: the window (the usual case) and the content region itself,
+   * which is the scroller in layouts that give it its own overflow. Instant, not smooth —
+   * a cross-step animation would read as the page moving on its own.
+   */
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    }
+    const container = contentRef.current;
+    if (container) {
+      container.scrollTop = 0;
+    }
+  }, [currentStep, step5SubStep]);
+
   const handleNext = async () => {
     setIsLoading(true);
 
