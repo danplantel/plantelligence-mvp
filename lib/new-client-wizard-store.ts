@@ -182,6 +182,13 @@ export interface NewClientWizardState {
   };
   sessionId?: string;
   draftClientId?: string; // ID of the draft client being edited (if loaded from draft)
+  /**
+   * Incremented after every successful draft save (the store's `saveAsDraft`, which covers
+   * Next/Complete and the Save Draft button, and the Create Plan page's autosave). The page
+   * watches it to re-baseline its "unsaved changes" check, so a state identical to what was
+   * last saved never raises the leave prompt.
+   */
+  draftSaveCount: number;
   /** Set by completeWizard on success — the URL to open in a new tab. */
   completedPortalUrl?: string;
   errorFields: string[];
@@ -683,6 +690,7 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
       steps: newClientWizardSteps,
       isCompleted: false,
       stepData: {},
+      draftSaveCount: 0,
       errorFields: [],
       advisorProfile: null,
       setAdvisorProfile: (profile: any) => set({ advisorProfile: profile }),
@@ -1693,7 +1701,11 @@ export const useNewClientWizardStore = create<NewClientWizardState>()(
           }
 
           const result = errorData;
-          set({ duplicatePlanNameConflict: null });
+          set({
+            duplicatePlanNameConflict: null,
+            // A completed save re-baselines the leave guard — see `draftSaveCount`.
+            draftSaveCount: (get().draftSaveCount ?? 0) + 1,
+          });
           if (result.clientId && !(get() as any).draftClientId) {
             set({ draftClientId: result.clientId });
           }

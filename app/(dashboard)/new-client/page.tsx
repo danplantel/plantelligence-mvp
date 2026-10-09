@@ -8,7 +8,7 @@ import {
   isWizardTransitionActive,
   enqueueDraftSave,
 } from "@/lib/new-client-wizard-store";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { toast } from "sonner";
 import {
@@ -55,6 +55,11 @@ export default function NewClientPage() {
   const [successPlanId, setSuccessPlanId] = useState("");
   // "Save Draft" in the wizard footer (does not advance a step).
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  // Signature (JSON) of `stepData` as of the last load/save. The leave guard compares
+  // against it so a state identical to what was last saved never prompts.
+  const [savedSignature, setSavedSignature] = useState<string | null>(null);
+  // Bumped by the store on every successful save; watched to re-baseline.
+  const draftSaveCount = useNewClientWizardStore((s) => s.draftSaveCount);
   const {
     currentStep,
     totalSteps,
@@ -462,6 +467,18 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
     }
   }, [isInitialLoading]);
 
+  // Re-baseline the leave guard once initialization finishes (so a resumed/rehydrated
+  // draft counts as "saved"), and again after every successful save — the store bumps
+  // `draftSaveCount` for Next/Complete and the Save Draft button, and the autosave below
+  // bumps it too. Without this, a saved draft is treated as dirty forever because
+  // `hasUnsavedWizardWork` returns true whenever a `draftClientId` exists.
+  useEffect(() => {
+    if (isInitialLoading) return;
+    setSavedSignature(
+      JSON.stringify(useNewClientWizardStore.getState().stepData),
+    );
+  }, [isInitialLoading, draftSaveCount]);
+
   useEffect(() => {
     // Do not autosave while the wizard is still initialising — the store may
     // be in a transient state (resetWizard / createNewSession / seedDefaults) —
@@ -540,6 +557,11 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
             if (!currentDraftId || currentDraftId !== result.clientId) {
               useNewClientWizardStore.setState({ draftClientId: result.clientId });
             }
+            // The state just persisted is the new "saved" baseline — leaving without
+            // further edits must not raise the "Leave this setup?" prompt.
+            useNewClientWizardStore.setState((s) => ({
+              draftSaveCount: (s.draftSaveCount ?? 0) + 1,
+            }));
           } else if (result.code === "DUPLICATE_PLAN_NAME") {
             // Duplicate name is expected when autosaving — the user will resolve
             // via the explicit "Save as Draft" button dialog. Silently ignore.
@@ -610,7 +632,7 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
   const companyBasicsSubStep = getCompanyBasicsSubStep(stepData);
   const isFirstStep = currentStep === 1 && companyBasicsSubStep === "branding";
 
-  const hasUnsavedChanges = useNewClientWizardStore((s) =>
+  const hasUnsavedStoreWork = useNewClientWizardStore((s) =>
     hasUnsavedWizardWork({
       isCompleted: s.isCompleted,
       stepData: s.stepData,
@@ -618,6 +640,16 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
       draftClientId: s.draftClientId,
     }),
   );
+  // `hasUnsavedWizardWork` reports ANY saved draft as unsaved work, which is right for
+  // "is there a plan in progress?" but wrong for the leave prompt: resuming or saving a
+  // draft and then walking away WITHOUT edits must not ask "Leave this setup?". A state
+  // byte-identical to the last loaded/saved snapshot has nothing to lose, so it is
+  // subtracted here.
+  const hasUnsavedChanges = useMemo(() => {
+    if (!hasUnsavedStoreWork) return false;
+    if (savedSignature === null) return true;
+    return JSON.stringify(stepData) !== savedSignature;
+  }, [hasUnsavedStoreWork, savedSignature, stepData]);
   const leaveGuard = useNavigateAwayGuard({
     enabled: !isInitialLoading && !isLoading,
     hasUnsavedChanges,
