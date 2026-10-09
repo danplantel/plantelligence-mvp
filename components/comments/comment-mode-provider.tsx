@@ -16,11 +16,12 @@ import {
   type CommentTarget,
 } from "@/hooks/useCommentThreads";
 import { useCommentsLayout } from "@/lib/comments/comments-layout";
-import type {
-  CommentAnchorInput,
-  CommentTargetType,
-  CommentThreadView,
-  MentionableUser,
+import {
+  GENERAL_SECTION_KEY,
+  type CommentAnchorInput,
+  type CommentTargetType,
+  type CommentThreadView,
+  type MentionableUser,
 } from "@/lib/comments/types";
 
 /** localStorage key holding the reader's Comments on/off preference. */
@@ -63,9 +64,13 @@ interface CommentModeValue {
 
   activeThreadId: string | null;
   setActiveThreadId: (id: string | null) => void;
-  draftAnchor: CommentAnchorInput | null;
-  startDraft: (anchor: CommentAnchorInput) => void;
-  cancelDraft: () => void;
+  /**
+   * Where the rail's persistent composer will post. Defaults to the whole-surface
+   * "General" target; selecting text or clicking a section re-aims it.
+   */
+  composerAnchor: CommentAnchorInput;
+  setComposerTarget: (anchor: CommentAnchorInput) => void;
+  resetComposerTarget: () => void;
 
   createThread: (anchor: CommentAnchorInput, body: string) => Promise<void>;
   reply: (threadId: string, body: string) => Promise<void>;
@@ -88,6 +93,12 @@ interface CommentModeValue {
 
 const CommentModeContext = createContext<CommentModeValue | null>(null);
 
+/** The whole-surface target a fresh composer starts on. */
+const GENERAL_ANCHOR: CommentAnchorInput = {
+  anchorKind: "section",
+  sectionKey: GENERAL_SECTION_KEY,
+};
+
 export function CommentModeProvider({
   children,
 }: {
@@ -96,7 +107,8 @@ export function CommentModeProvider({
   const [surface, setSurface] = useState<CommentSurfaceInput | null>(null);
   const [mode, setModeState] = useState<CommentMode>("off");
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-  const [draftAnchor, setDraftAnchor] = useState<CommentAnchorInput | null>(null);
+  const [composerAnchor, setComposerAnchor] =
+    useState<CommentAnchorInput>(GENERAL_ANCHOR);
   const [sectionKeys, setSectionKeys] = useState<string[]>([]);
 
   const { data: session } = useSession();
@@ -183,7 +195,7 @@ export function CommentModeProvider({
   // A different plan/benefit resets any selection or in-progress anchor.
   useEffect(() => {
     setActiveThreadId(null);
-    setDraftAnchor(null);
+    setComposerAnchor(GENERAL_ANCHOR);
     setSectionKeys([]);
   }, [target?.clientId, target?.targetType, target?.category]);
 
@@ -224,13 +236,17 @@ export function CommentModeProvider({
     setMode(mode === "on" ? "off" : "on");
   }, [canComment, mode, setMode]);
 
-  const startDraft = useCallback((anchor: CommentAnchorInput) => {
-    setDraftAnchor(anchor);
-    // A new draft owns the rail's attention, so any selected thread steps aside.
+  // Aim the rail's composer at a section or a text range. Any selected thread steps aside
+  // so the composer — not a thread card — owns the reader's attention.
+  const setComposerTarget = useCallback((anchor: CommentAnchorInput) => {
+    setComposerAnchor(anchor);
     setActiveThreadId(null);
   }, []);
 
-  const cancelDraft = useCallback(() => setDraftAnchor(null), []);
+  const resetComposerTarget = useCallback(
+    () => setComposerAnchor(GENERAL_ANCHOR),
+    [],
+  );
 
   const value = useMemo<CommentModeValue>(
     () => ({
@@ -248,9 +264,9 @@ export function CommentModeProvider({
       refresh: commentThreads.refresh,
       activeThreadId,
       setActiveThreadId,
-      draftAnchor,
-      startDraft,
-      cancelDraft,
+      composerAnchor,
+      setComposerTarget,
+      resetComposerTarget,
       createThread: commentThreads.createThread,
       reply: commentThreads.reply,
       setResolved: commentThreads.setResolved,
@@ -282,9 +298,9 @@ export function CommentModeProvider({
       commentThreads.deleteThread,
       commentThreads.deleteMessage,
       activeThreadId,
-      draftAnchor,
-      startDraft,
-      cancelDraft,
+      composerAnchor,
+      setComposerTarget,
+      resetComposerTarget,
       mentionableData,
       currentUserId,
       sectionKeys,

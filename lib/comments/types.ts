@@ -18,6 +18,14 @@ export type CommentAnchorKind = "section" | "text";
 /** Longest accepted comment body, in characters. */
 export const MAX_COMMENT_LENGTH = 5000;
 
+/**
+ * The implicit whole-surface target. When the rail's persistent composer posts with no
+ * section or text range chosen, the thread is stored as a section anchor under this key —
+ * a "General" comment on the whole plan/benefit. It is an ordinary `sectionKey`, so it
+ * needs no schema or API change.
+ */
+export const GENERAL_SECTION_KEY = "general";
+
 /** Notification `type` values this feature emits (consumed by the header bell). */
 export const COMMENT_NOTIFICATION_TYPES = {
   threadCreated: "comment_thread_created",

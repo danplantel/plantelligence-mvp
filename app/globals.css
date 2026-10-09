@@ -200,6 +200,41 @@
     display: none;
   }
 
+  /*
+   * The Comments rail's OWN scrollbar — deliberately distinct from the page's.
+   *
+   * A native overflow container rather than the Radix ScrollArea: Radix renders its bar
+   * only while the viewport is hovered (and not at all when the flex child can grow past
+   * its parent), so it could not be relied on to be visible here. A native scrollbar is
+   * always drawn, and this styles it in the accent colour with a tinted gutter so it
+   * reads as part of the panel.
+   */
+  .comment-scroll {
+    scrollbar-width: thin; /* Firefox */
+    scrollbar-color: var(--accent-blue) rgb(120 120 120 / 0.12);
+  }
+
+  .comment-scroll::-webkit-scrollbar {
+    width: 12px;
+  }
+
+  .comment-scroll::-webkit-scrollbar-track {
+    background: rgb(120 120 120 / 0.12);
+    border-radius: 9999px;
+  }
+
+  .comment-scroll::-webkit-scrollbar-thumb {
+    background-color: var(--accent-blue);
+    border-radius: 9999px;
+    /* Inset the pill inside the 12px gutter so the track stays visible around it. */
+    border: 3px solid transparent;
+    background-clip: padding-box;
+  }
+
+  .comment-scroll::-webkit-scrollbar-thumb:hover {
+    filter: brightness(0.9);
+  }
+
   /* Highlight placeholder on focus */
   input:focus::placeholder,
   textarea:focus::placeholder {

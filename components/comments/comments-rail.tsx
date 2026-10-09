@@ -14,10 +14,11 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Headshot } from "@/components/ui/headshot";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import {
+  GENERAL_SECTION_KEY,
   MAX_COMMENT_LENGTH,
+  type CommentAnchorInput,
   type CommentMessageView,
   type CommentThreadView,
 } from "@/lib/comments/types";
@@ -281,23 +282,46 @@ function ThreadCard({
   );
 }
 
-/** Composer for a section/text anchor that has been started but not yet posted. */
-function DraftComposer() {
-  const { draftAnchor, cancelDraft, createThread, mentionable } =
-    useCommentMode();
+/** Readable label for a composer target. */
+function targetLabel(anchor: CommentAnchorInput): string {
+  if (
+    anchor.anchorKind === "section" &&
+    anchor.sectionKey === GENERAL_SECTION_KEY
+  ) {
+    return "General";
+  }
+  return humanizeSectionKey(anchor.sectionKey);
+}
+
+/**
+ * The rail's PERSISTENT composer: always visible while the panel is open, so adding a
+ * comment starts here rather than from a floating button on the page. The target defaults
+ * to the whole surface ("General"); selecting text or clicking a section re-aims it, and
+ * the chip's ✕ returns it to General.
+ */
+function RailComposer() {
+  const {
+    composerAnchor,
+    resetComposerTarget,
+    createThread,
+    mentionable,
+    isMutating,
+  } = useCommentMode();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
 
-  if (!draftAnchor) return null;
+  const isGeneral =
+    composerAnchor.anchorKind === "section" &&
+    composerAnchor.sectionKey === GENERAL_SECTION_KEY;
 
   const submit = async () => {
     const body = text.trim();
     if (!body) return;
     setBusy(true);
     try {
-      await createThread(draftAnchor, body);
+      await createThread(composerAnchor, body);
       setText("");
-      cancelDraft();
+      resetComposerTarget();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not add comment.");
     } finally {
@@ -306,41 +330,49 @@ function DraftComposer() {
   };
 
   return (
-    <div className="rounded-lg border border-accent-blue/40 bg-accent-blue/5 p-3">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-accent-blue">
-        New comment · {humanizeSectionKey(draftAnchor.sectionKey)}
-      </p>
-      {draftAnchor.quote ? (
+    <div className="rounded-lg border border-border bg-muted/30 p-3">
+      <div className="flex items-center gap-2">
+        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          New comment
+        </span>
+        <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-accent-blue/10 px-2 py-0.5 text-[10px] font-medium text-accent-blue">
+          <span className="truncate">{targetLabel(composerAnchor)}</span>
+          {isGeneral ? null : (
+            <button
+              type="button"
+              onClick={resetComposerTarget}
+              className="shrink-0 rounded-full hover:bg-accent-blue/20"
+              aria-label="Clear the target and comment on the whole plan instead"
+              title="Clear the target"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
+        </span>
+      </div>
+      {composerAnchor.anchorKind === "text" && composerAnchor.quote ? (
         <p className="mt-1 line-clamp-2 border-l-2 border-amber-300 pl-2 text-[11px] italic text-muted-foreground">
-          {draftAnchor.quote}
+          {composerAnchor.quote}
         </p>
       ) : null}
       <MentionTextarea
         value={text}
         onValueChange={setText}
         mentionable={mentionable}
-        autoFocus
-        placeholder="Write a comment…"
+        placeholder={
+          isGeneral
+            ? "Write a comment…"
+            : `Comment on ${targetLabel(composerAnchor)}…`
+        }
         className="mt-2 min-h-[64px] text-xs"
         maxLength={MAX_COMMENT_LENGTH}
         onSubmit={submit}
       />
-      <div className="mt-2 flex justify-end gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-7 text-[11px]"
-          onClick={() => {
-            setText("");
-            cancelDraft();
-          }}
-        >
-          Cancel
-        </Button>
+      <div className="mt-2 flex justify-end">
         <Button
           size="sm"
           className="h-7 bg-accent-blue px-3 text-[11px] hover:bg-accent-blue/90"
-          disabled={busy || !text.trim()}
+          disabled={busy || isMutating || !text.trim()}
           onClick={submit}
         >
           {busy ? (
@@ -356,10 +388,11 @@ function DraftComposer() {
 }
 
 /**
- * The right-hand Comments rail: open/resolved filter, a composer for the active draft
- * anchor, and a thread card per thread (messages, reply, resolve/reopen, delete). Threads
- * whose section is not currently rendered are grouped as "Unanchored" rather than
- * disappearing.
+ * The right-hand Comments rail: a PERSISTENT composer, an open/resolved filter, and a
+ * thread card per thread (messages, reply, resolve/reopen, delete). The composer is the
+ * single entry point for new comments — its target defaults to the whole surface
+ * ("General") and is re-aimed by selecting text or clicking a section. Threads whose
+ * section is not currently rendered are grouped as "Unanchored" rather than disappearing.
  */
 export function CommentsRail() {
   const {
@@ -372,18 +405,18 @@ export function CommentsRail() {
     activeThreadId,
     refresh,
     sectionKeys,
-    target,
   } = useCommentMode();
 
   const [filter, setFilter] = useState<ThreadFilter>("open");
 
   const anchored = useMemo(() => {
-    const keys = new Set(sectionKeys);
+    // "General" is the whole-surface target and is always considered rendered.
+    const keys = new Set([...sectionKeys, GENERAL_SECTION_KEY]);
     return threads.filter((thread) => keys.has(thread.sectionKey));
   }, [threads, sectionKeys]);
 
   const unanchored = useMemo(() => {
-    const keys = new Set(sectionKeys);
+    const keys = new Set([...sectionKeys, GENERAL_SECTION_KEY]);
     return threads.filter((thread) => !keys.has(thread.sectionKey));
   }, [threads, sectionKeys]);
 
@@ -415,7 +448,7 @@ export function CommentsRail() {
 
   return (
     <aside
-      className="fixed bottom-0 right-0 top-16 z-40 flex w-[22rem] flex-col border-l border-border bg-background"
+      className="fixed bottom-0 right-0 top-16 z-40 flex w-[22rem] flex-col overflow-hidden border-l border-border bg-background"
       aria-label="Comments"
     >
       <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
@@ -459,6 +492,11 @@ export function CommentsRail() {
         ))}
       </div>
 
+      {/* Persistent composer — pinned above the scrolling thread list. */}
+      <div className="shrink-0 border-b border-border p-3">
+        <RailComposer />
+      </div>
+
       {isLoading ? (
         <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -474,10 +512,8 @@ export function CommentsRail() {
           </Button>
         </div>
       ) : (
-        <ScrollArea className="flex-1">
+        <div className="comment-scroll min-h-0 flex-1 overflow-y-auto">
           <div className="space-y-2 p-3">
-            <DraftComposer />
-
             {visible.length === 0 ? (
               <div className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center">
                 <MessageSquare className="h-8 w-8 text-muted-foreground/40" />
@@ -486,9 +522,7 @@ export function CommentsRail() {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {threads.length === 0
-                    ? target?.targetType === "benefit"
-                      ? "Hover a benefit section and click the comment pin to start a thread."
-                      : "Hover a plan section and click the comment pin to start a thread."
+                    ? "Write the first comment above — or click a section to aim it there."
                     : "No threads match this filter."}
                 </p>
               </div>
@@ -498,12 +532,15 @@ export function CommentsRail() {
                   key={thread.id}
                   thread={thread}
                   active={thread.id === activeThreadId}
-                  unanchored={!sectionKeys.includes(thread.sectionKey)}
+                  unanchored={
+                    thread.sectionKey !== GENERAL_SECTION_KEY &&
+                    !sectionKeys.includes(thread.sectionKey)
+                  }
                 />
               ))
             )}
           </div>
-        </ScrollArea>
+        </div>
       )}
     </aside>
   );
