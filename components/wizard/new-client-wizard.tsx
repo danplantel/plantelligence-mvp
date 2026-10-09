@@ -2,7 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card, CardContent } from "../ui/card";
 import type { WizardStep } from "./wizard-stepper";
@@ -35,6 +35,12 @@ interface NewClientWizardProps {
   isLastStep: boolean;
   children: React.ReactNode;
   isLoading?: boolean;
+  /** Persist the current wizard state as a Draft without advancing a step. */
+  onSaveDraft?: () => void;
+  /** True while that save is in flight — drives the button's spinner. */
+  isSavingDraft?: boolean;
+  /** False when there is nothing meaningful to save yet (no company name / plan type). */
+  canSaveDraft?: boolean;
 }
 
 export function NewClientWizard({
@@ -48,6 +54,9 @@ export function NewClientWizard({
   isLastStep,
   children,
   isLoading = false,
+  onSaveDraft,
+  isSavingDraft = false,
+  canSaveDraft = true,
 }: NewClientWizardProps) {
   const [needsScroll, setNeedsScroll] = useState(false);
   const [isPulsating, setIsPulsating] = useState(false);
@@ -638,6 +647,32 @@ export function NewClientWizard({
                 </LoadingButton>
 
                 <div className="flex gap-3">
+                  {/* Save Draft — persists the wizard as a Draft without advancing.
+                      Sits immediately left of Next / Complete Setup. */}
+                  {onSaveDraft ? (
+                    <LoadingButton
+                      variant="outline"
+                      size="lg"
+                      onClick={onSaveDraft}
+                      isLoading={isSavingDraft}
+                      loadingText="Saving draft..."
+                      disabled={
+                        isLoading ||
+                        isProcessing ||
+                        (!canSaveDraft && !isSavingDraft)
+                      }
+                      title={
+                        canSaveDraft
+                          ? "Save your progress and finish later"
+                          : "Add a company name to save a draft"
+                      }
+                      className="dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+                    >
+                      <Save className="size-5 mr-1" />
+                      Save Draft
+                    </LoadingButton>
+                  ) : null}
+
                   {/* Next/Complete button */}
                   {isLastStep ? (
                     <LoadingButton

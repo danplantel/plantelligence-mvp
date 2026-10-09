@@ -26,6 +26,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
 import { consumePendingDraftSelection } from "@/lib/draft-utils";
+import { isDuplicatePlanNameError } from "@/lib/duplicate-plan-name-error";
 import {
   clearWizardBrowserState,
   formatSavedAt,
@@ -52,6 +53,8 @@ export default function NewClientPage() {
   // success actions (e.g. "Create Benefit") can deep-link even if the store is
   // reset/cleared after completion.
   const [successPlanId, setSuccessPlanId] = useState("");
+  // "Save Draft" in the wizard footer (does not advance a step).
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
   const {
     currentStep,
     totalSteps,
@@ -72,6 +75,48 @@ export default function NewClientPage() {
     updateCurrentStep,
     errorFields,
   } = useNewClientWizardStore();
+
+  // ── "Save Draft" (wizard footer) ────────────────────────────────────────
+  // Persists the current state as a Draft Client row without advancing a step. The
+  // page owns the toast and the button's busy state; the store owns the write, the
+  // serializer, and the duplicate-name conflict dialog.
+  const canSaveDraft = Boolean(
+    stepData.companyBasics?.companyName?.trim() ||
+      stepData.companyBasics?.planType?.trim(),
+  );
+
+  const handleSaveDraft = useCallback(async () => {
+    const state = useNewClientWizardStore.getState();
+    const companyName = state.stepData.companyBasics?.companyName?.trim();
+    const planType = state.stepData.companyBasics?.planType?.trim();
+    if (!companyName && !planType) {
+      toast.error("Add a company name to save a draft");
+      return;
+    }
+
+    setIsSavingDraft(true);
+    try {
+      await saveAsDraft({ showDuplicatePlanDialog: true });
+      toast.success("Draft saved", {
+        description: "Your draft is listed under All Plans.",
+      });
+      // Save-and-return: the draft now exists as a Client row, so take the advisor back to
+      // the All Plans list (View Plans), where they can resume it or start another plan.
+      // The toast is fired first and survives the client-side navigation — sonner's Toaster
+      // lives in the root layout, so it is still on screen once /clients renders.
+      router.push("/clients");
+    } catch (error) {
+      // A duplicate name opens the wizard's own DuplicatePlanNameDialog (driven by the
+      // store's `duplicatePlanNameConflict`), so it needs no toast of its own.
+      if (!isDuplicatePlanNameError(error)) {
+        toast.error("Could not save draft", {
+          description: error instanceof Error ? error.message : undefined,
+        });
+      }
+    } finally {
+      setIsSavingDraft(false);
+    }
+  }, [saveAsDraft]);
 // ── Resume-or-new-plan dialog state ───────────────────────────────────
 const [showResumeDialog, setShowResumeDialog] = useState(false);
 const [resumePlanName, setResumePlanName] = useState("");
@@ -642,6 +687,9 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
             isFirstStep={isFirstStep}
             isLastStep={isLastStep}
             isLoading={isLoading}
+            onSaveDraft={() => void handleSaveDraft()}
+            isSavingDraft={isSavingDraft}
+            canSaveDraft={canSaveDraft}
           >
             {renderStep()}
           </NewClientWizard>
