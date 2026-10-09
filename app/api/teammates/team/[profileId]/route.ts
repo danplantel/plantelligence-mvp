@@ -91,13 +91,11 @@ export async function GET(
  *    person and their assignments and releases the seat. `confirmSelfDeletedProfile`
  *    refuses a profile that was not self-deleted, so this is not a second route to
  *    `remove_from_organization`.
- *  - **`action: "remove_from_seat"`** — give the seat up. This is one intent but not one
- *    write: the state machine forbids `active → contact`, so a PENDING invite is reverted to
- *    a Contact when the profile already existed as one on a plan, and DELETED when the invite
- *    created it, while an accepted member is deactivated and kept. All three release the
- *    seat, and the response reports which happened (`member.outcome`) alongside
- *    `releasedSeats`; `removeTeamMemberFromSeat` owns the reasoning and the
- *    reserved-Owner-seat guard.
+ *  - **`action: "remove_from_seat"`** — remove the person and give their seat up. The
+ *    profile is deleted (its assignments first), because no state keeps an accepted
+ *    member's profile yet stops counting their seat; the seat is released by the row
+ *    disappearing. The response reports `releasedSeats`; `removeTeamMemberFromSeat` owns
+ *    the reasoning and the reserved-Owner-seat guard.
  *  - **`action: "remove_from_organization"`** — remove the person entirely, which is the
  *    only way to act on T6 item 3's "no remaining assignments" rule from the UI: their
  *    assignments are removed first (spec T6 Part B item 1, audited per assignment) and the

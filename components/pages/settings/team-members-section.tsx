@@ -1184,14 +1184,12 @@ export function TeamMembersSection() {
   };
 
   /**
-   * Free the seat this person occupies.
+   * Remove this person from the organization and free the seat they occupy.
    *
-   * The server decides what that means, and the UI must not imply one answer. A pending
-   * invite is DELETED only when the invite created the profile; if the person was already a
-   * Contact on a plan (`fromContact`), the invite is reverted and the profile kept. An
-   * accepted member can only be deactivated and kept. The confirm dialog names whichever
-   * applies, and the response's `outcome` decides the toast here, so the reader is told what
-   * actually happened rather than what they assumed.
+   * Removing a seat is always a deletion: the server deletes their assignments and their
+   * profile (there is no state that keeps an accepted member's profile yet stops counting
+   * their seat). `releasedSeats` is read back from the response rather than assumed, so the
+   * toast reflects what the server actually did.
    */
   const submitRemoveFromSeat = async (row: TeamMemberRow) => {
     setIsSubmitting(true);
@@ -1226,13 +1224,7 @@ export function TeamMembersSection() {
         freed > 0 && body.seats
           ? ` Seat released — ${body.seats.seatsUsed} of ${body.seats.seatsIncluded} now in use.`
           : "";
-      toast.success(
-        body.member?.outcome === "deactivated"
-          ? `${row.name} deactivated.${suffix}`
-          : body.member?.outcome === "profile_deleted"
-            ? `${row.name} removed and their profile deleted.${suffix}`
-            : `${row.name} is a Contact again.${suffix}`,
-      );
+      toast.success(`${row.name} removed and their profile deleted.${suffix}`);
       await load();
     } catch {
       toast.error("Could not remove the seat");
@@ -1934,10 +1926,9 @@ export function TeamMembersSection() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Removing a seat means one of two different things depending on whether the
-          invite was ever accepted, so the copy names the one that applies instead of
-          leaving the reader to guess — and unlike the Collaborator dialog above, this
-          one changes the seat count. */}
+      {/* Removing a seat always removes the person: their assignments and profile are
+          deleted and the seat is released. Unlike the Collaborator dialog above, this one
+          changes the seat count. */}
       <AlertDialog
         open={removing !== null}
         onOpenChange={(open) => !open && setRemoving(null)}
@@ -1945,18 +1936,12 @@ export function TeamMembersSection() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {removing?.status !== "invited"
-                ? `Remove ${removing?.name} from this seat?`
-                : removing?.fromContact
-                  ? `Remove ${removing?.name} and return them to a Contact?`
-                  : `Remove ${removing?.name} and delete their profile?`}
+              Remove {removing?.name} from this seat?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {removing?.status !== "invited"
-                ? "They have already accepted, so an active account cannot go back to being a Contact. They will be deactivated instead: access to every plan they were assigned to ends immediately and their seat is released. Their profile and history are kept, and reactivating them takes the seat back."
-                : removing?.fromContact
-                  ? "They have not accepted their invite yet, so this is fully reversible: they go back to being a Contact — no seat and no access — and the seat is released. Their profile is kept because it is already linked to a contact on your plans, so you can Promote them again at any time."
-                  : "They have not accepted their invite yet, and they were not already a contact on your plans, so removing them deletes their invite and their profile outright — the seat is released and they are removed from your organization. This cannot be undone; invite them again if you need to."}
+              They will be removed from your organization: their plan access and profile
+              are deleted and their seat is released. This cannot be undone — invite them
+              again if you need to.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1968,13 +1953,7 @@ export function TeamMembersSection() {
                 if (removing) void submitRemoveFromSeat(removing);
               }}
             >
-              {isSubmitting
-                ? "Removing…"
-                : removing?.status !== "invited"
-                  ? "Remove from seat"
-                  : removing?.fromContact
-                    ? "Remove & return to Contact"
-                    : "Remove & delete"}
+              {isSubmitting ? "Removing…" : "Remove from seat"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

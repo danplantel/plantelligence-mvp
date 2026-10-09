@@ -1458,17 +1458,14 @@ export async function setTeamMemberActive({
 }
 
 /** Which write a "remove from seat" actually performed. */
-export type RemoveFromSeatOutcome =
-  | "returned_to_contact"
-  | "deactivated"
-  | "profile_deleted";
+export type RemoveFromSeatOutcome = "profile_deleted";
 
 export interface RemoveFromSeatResult {
   profileId: string;
   outcome: RemoveFromSeatOutcome;
   /**
-   * The state the profile ended in, so the caller need not re-read it. NULL when the
-   * profile was deleted — the outcome for a pending invite.
+   * Always NULL: the profile is deleted, so there is no state left to report. Kept on
+   * the result so the route's response shape stays stable for its callers.
    */
   state: TeammateProfileState | null;
   /** How many seats the meter gave back — 0 when this person held none. */
@@ -1478,43 +1475,25 @@ export interface RemoveFromSeatResult {
 }
 
 /**
- * Take someone out of the seat they occupy.
+ * Take someone out of the seat they occupy — by REMOVING them from the organization.
  *
- * One *user* action but not one write, because the state machine only allows one of them
- * per person: `setProfileState` refuses `active → contact` ("An Active profile cannot be
- * reverted to Contact. Deactivate it instead."), so "put them back as a Contact" is
- * genuinely unavailable to anyone who has accepted.
+ * This is a deletion, not a state change. Assignments go first (each one audited, with
+ * the never-remove-the-last-Owner guard), then the profile itself, through
+ * `removePersonFromOrganization`; the seat is released by the row that held it
+ * disappearing.
  *
- *  - **`invited`** — no acceptance yet, so what happens depends on where the profile came
- *    from. If it already existed as a Contact (an assignment linked to a plan's Key
- *    Contacts by `contactId`), the promotion is fully reversible: the state returns to
- *    `contact`, exactly as `expireStaleInvites` does when a hold lapses — the person was
- *    known to your plans before the invite, and deleting the profile would delete that link
- *    too. If the invite CREATED the profile, there is nothing to keep: nobody has signed in,
- *    so it holds no authored content, and it is DELETED (its assignments first).
- *  - **`active`** — accepted, and therefore un-revertable. Deactivation is the spec's own
- *    answer (T6: "all access to the organization ends; the profile is kept"), and
- *    `getSeatUsage` skips any profile carrying a `deactivatedAt`, so the seat is released
- *    exactly as it is on the invite path.
- *
- * **`type` is never touched.** It is the org-boundary axis, and moving a profile to
- * `collaborator` is precisely what makes it appear in the Collaborators list — a list the
- * settings accordion describes as "external people — free, no seat" who need "access to a
- * plan". Someone who has just given up their seat is neither: they are a **Contact**, on
- * the roster with no seat and no access, and they belong in neither list. Leaving the type
- * alone also matches what `expireStaleInvites` already does, so the two ways a seat can
- * lapse produce the same shape — and it keeps Reactivate able to hand an accepted member
- * their seat back.
- *
- * All Plans is cleared when it was set. That flag is what makes `listAllPlansTeamMembers`
- * hand out an assignment for every NEW plan, so without clearing it a person who just gave
- * up their seat would keep silently accruing access to plans created next week. Re-Promoting
- * re-applies it from the Plan scope the access step asks for.
+ * Why deletion rather than "just release the seat": the seat is a property of the
+ * PROFILE — `getSeatUsage` counts `type: "team_member"` profiles that are `active` or an
+ * unexpired `invited` — so there is no state that keeps an accepted person's profile yet
+ * stops counting their seat. The state machine also refuses `active → contact`
+ * (`setProfileState`), which leaves deactivation as the only non-deleting option — and
+ * deactivation is deliberately NOT a feature here. "Remove seat" means the person is no
+ * longer on the team; adding them again is a fresh invite.
  *
  * The Owner is refused, through the shared guard below: their seat is reserved and they
  * are synthesized from the Organization + User rather than stored as a profile
  * (`listOrgPeople` gives them `id: "owner:<userId>"` and `profileId: null`), so there is
- * nothing to release.
+ * nothing to remove.
  */
 export async function removeTeamMemberFromSeat({
   organizationId,
@@ -1532,112 +1511,39 @@ export async function removeTeamMemberFromSeat({
 
   await assertProfileIsNotOrganizationOwner({ profile, organizationId });
 
-  // Measured, not re-derived: `getSeatUsage` owns the metering rules (the 14-day hold,
-  // deactivated profiles, Team Members only), so diffing its own number stays correct
-  // even if those rules change.
+  // Measured, not re-derived: `getSeatUsage` owns the metering rules, so diffing its own
+  // number stays correct even if those rules change.
   const before = await getSeatUsage(organizationId);
 
-  let outcome: RemoveFromSeatOutcome;
+  // Assignments first (audited per assignment, last-Owner guard), then the profile.
+  const removed = await removePersonFromOrganization({
+    organizationId,
+    actorUserId,
+    profileId,
+  });
+  const releasedSeats = Math.max(before.seatsUsed - removed.seats.seatsUsed, 0);
 
-  if (profile.deactivatedAt) {
-    // Already deactivated: no access, no seat, nothing to free. Deliberately a no-op.
-    outcome = "deactivated";
-  } else if (profile.state === "active") {
-    await deactivateTeammateProfile({
-      id: profileId,
-      organizationId,
-      actorUserId,
-    });
-    outcome = "deactivated";
-  } else if (profile.state === "invited") {
-    // Only a profile the invite CREATED is deleted. If it was already a Contact — an
-    // assignment linked to a plan's Key Contacts by `contactId` — the invite is reverted
-    // instead, because that link is the record of a person your plans already know.
-    const cameFromContact =
-      (await prisma.planAssignment.count({
-        where: { profileId, organizationId, contactId: { not: null } },
-      })) > 0;
-
-    if (cameFromContact) {
-      await setProfileState({
-        id: profileId,
-        organizationId,
-        actorUserId,
-        state: "contact",
-      });
-      outcome = "returned_to_contact";
-    } else {
-      // Delete the invite-created profile. Assignments go first
-      // (`removePersonFromOrganization` audits each one and keeps the
-      // never-remove-the-last-Owner guard), then the profile, so the seat is released by
-      // the row that held it disappearing.
-      const removed = await removePersonFromOrganization({
-        organizationId,
-        actorUserId,
-        profileId,
-      });
-      const releasedSeats = Math.max(before.seatsUsed - removed.seats.seatsUsed, 0);
-
-      await recordTeammateAuditEvent({
-        organizationId,
-        actorUserId,
-        action: "profile_removed_from_seat",
-        profileId,
-        details: {
-          outcome: "profile_deleted",
-          from: "invited",
-          releasedSeats,
-          removedAssignments: removed.removedAssignments,
-        },
-      });
-
-      return {
-        profileId,
-        outcome: "profile_deleted",
-        state: null,
-        releasedSeats,
-        seats: removed.seats,
-      };
-    }
-  } else {
-    // Already a Contact: no seat to give back, and no state to change.
-    outcome = "returned_to_contact";
-  }
-
-  // A seat and All Plans go together — see the note on the function.
-  if (profile.allPlans) {
-    await setProfileAllPlans({
-      id: profileId,
-      organizationId,
-      actorUserId,
-      allPlans: false,
-    });
-  }
-
-  const seats = await getSeatUsage(organizationId);
-  const releasedSeats = Math.max(before.seatsUsed - seats.seatsUsed, 0);
-
-  // The state/type writers above audit their own step; this records the intent, so the
-  // log reads as "someone gave this seat up" rather than two unrelated transitions.
+  // The writers above audit each step; this records the intent, so the trail reads as
+  // "someone removed this person from their seat" rather than as a bare delete.
   await recordTeammateAuditEvent({
     organizationId,
     actorUserId,
     action: "profile_removed_from_seat",
     profileId,
     details: {
-      outcome,
+      outcome: "profile_deleted",
       from: profile.state,
       releasedSeats,
-      clearedAllPlans: profile.allPlans,
+      removedAssignments: removed.removedAssignments,
     },
   });
 
   return {
     profileId,
-    outcome,
-    state: outcome === "deactivated" ? "active" : "contact",
+    outcome: "profile_deleted",
+    state: null,
     releasedSeats,
-    seats,
+    seats: removed.seats,
   };
 }
 
