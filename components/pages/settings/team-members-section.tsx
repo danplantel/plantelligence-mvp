@@ -1289,21 +1289,16 @@ export function TeamMembersSection() {
   };
 
   /**
-   * The rows that actually occupy a seat — which is what this grid is a picture of.
+   * The seat-holding roster — which is what this grid is a picture of.
    *
-   * `listOrgPeople` filters on `type` alone, so a `contact`-state profile still comes back
-   * in the team list and would render as a FILLED card claiming a seat nobody holds (the
-   * meter reading "1 of 5 used" beside a full grid). That is exactly what "remove from
-   * seat" produces, and what `expireStaleInvites` produces when a 14-day hold lapses: a
-   * person on the roster with no seat and no access. They belong in neither list, so they
-   * are dropped here rather than shown as a card the reader cannot account for.
-   *
-   * Deactivated members are kept: this grid is the only place their Reactivate path lives.
+   * `GET /api/teammates/team` already narrows `team` with `profileHoldsSeat`, the same
+   * predicate the seat meter counts with, so this is exactly the owner plus the profiles that
+   * occupy a seat: Active members and unexpired Invites. Contacts, deactivated members and
+   * lapsed invites are excluded at the source, which is what keeps this grid and the
+   * dashboard's team panel showing ONE set. The local filter this replaced dropped only
+   * `contact` rows and therefore disagreed with the API about every other state.
    */
-  const seatHolders = useMemo(
-    () => team.filter((row) => row.status !== "contact"),
-    [team],
-  );
+  const seatHolders = team;
 
   /**
    * One card per seat. Occupied cards are the people already on the team; the

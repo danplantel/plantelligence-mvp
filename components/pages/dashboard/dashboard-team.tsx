@@ -13,9 +13,18 @@ import {
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
 
+/**
+ * The roster is written by Settings → People & Access with a plain
+ * `fetch(..., { cache: "no-store" })`, which cannot invalidate this SWR cache. A long
+ * dedupe therefore left the dashboard showing a member Settings had already removed (or
+ * missing one just added) until a hard reload. A short window plus focus revalidation is
+ * what holds the two surfaces in step; `keepPreviousData` avoids a skeleton flash while
+ * that refresh is in flight.
+ */
 const SWR_OPTS = {
-  revalidateOnFocus: false,
-  dedupingInterval: 60_000,
+  keepPreviousData: true,
+  revalidateOnFocus: true,
+  dedupingInterval: 5_000,
 } as const;
 
 interface DashboardTeamRow {
@@ -41,8 +50,9 @@ const MAX_AVATARS = 5;
  * to someone who may not manage the team.
  *
  * It reads the same `/api/teammates/team` payload Settings → People & Access renders — reduced
- * here to an avatar stack, the seat count and a link — so the dashboard and the full list cannot
- * disagree about who is on the team.
+ * here to an avatar stack, the seat count and a link. The endpoint narrows that payload to seat
+ * holders (`profileHoldsSeat`), so both surfaces render exactly the owner plus the Active and
+ * unexpired-Invited profiles: a `contact` Key Contact must never inflate this count.
  */
 export function DashboardTeam() {
   const { data, isLoading } = useSWR<DashboardTeamResponse>(

@@ -27,7 +27,10 @@ import prisma from "@/lib/prisma";
 import { TeammateDataError } from "./errors";
 import { recordTeammateAuditEvent } from "./audit.server";
 import { isOwnerOrAdminOfOrganization } from "./access.server";
-import type { TeammatePersonType } from "@/types/teammate";
+import type {
+  TeammatePersonType,
+  TeammateProfileState,
+} from "@/types/teammate";
 
 /** How long a pending invite holds a seat before it is released (spec T3). */
 export const INVITE_SEAT_HOLD_DAYS = 14;
@@ -71,6 +74,35 @@ export function isInviteExpired(
 }
 
 /**
+ * The one definition of "this profile occupies a seat".
+ *
+ * It exists as one function because the meter and the two rosters that claim to list seat
+ * holders each had their own filter, and they disagreed: a `contact`-state Key Contact
+ * appeared on the dashboard's team panel while Settings → People & Access omitted it, and a
+ * deactivated member was counted by neither yet shown by one.
+ *
+ * A profile holds a seat when it is NOT deactivated and is either Active, or Invited inside
+ * the 14-day hold. Contacts, deactivated members and lapsed invites hold none. The owner is
+ * not covered here: they are synthesized from `Organization.ownerUserId` rather than stored,
+ * and their reserved seat is `OWNER_CONSUMES_SEAT`.
+ */
+export function profileHoldsSeat(
+  profile: {
+    state: TeammateProfileState;
+    invitedAt?: Date | null;
+    deactivatedAt?: Date | null;
+  },
+  now: Date = new Date(),
+): boolean {
+  if (profile.deactivatedAt) return false;
+  if (profile.state === "active") return true;
+  if (profile.state === "invited") {
+    return !isInviteExpired(profile.invitedAt, now);
+  }
+  return false;
+}
+
+/**
  * Current seat usage for an organization.
  *
  * Stale invites are excluded from `seatsUsed` whether or not the sweep in
@@ -102,14 +134,12 @@ export async function getSeatUsage(
   let seatsActive = 0;
   let seatsPending = 0;
   for (const profile of profiles) {
-    if (profile.deactivatedAt) continue;
-    if (profile.state === "active") {
-      seatsActive += 1;
-      continue;
-    }
-    if (profile.state === "invited" && !isInviteExpired(profile.invitedAt, now)) {
-      seatsPending += 1;
-    }
+    // One predicate, shared with every roster that claims to list seat holders — see
+    // `profileHoldsSeat`. Active is the only state that reports as Active; an unexpired
+    // invite is the only other state the predicate admits.
+    if (!profileHoldsSeat(profile, now)) continue;
+    if (profile.state === "active") seatsActive += 1;
+    else seatsPending += 1;
   }
 
   const ownerSeat =
@@ -243,10 +273,60 @@ export function emailDomain(email: string | null | undefined): string | null {
 }
 
 /**
+ * Mailbox providers that identify a PERSON, not an organization.
+ *
+ * The T3 rule is "a domain matching the organization defaults the invitee to Team Member",
+ * and that is sound only when the domain is a firm's own. When an owner signs up with a
+ * personal address, the guess read their personal domain as the organization's — so on a
+ * gmail-based account every OTHER gmail contact (a spouse, a friend, an unrelated third
+ * party) was guessed `team_member`, mirrored as a `contact`-state Team Member and then
+ * surfaced in the team roster where it never belonged.
+ *
+ * These domains are therefore ignored when the organization's domains are derived. A firm
+ * on a real domain is unaffected; a firm whose only addresses are public gets no internal
+ * domain, so its contacts default to Collaborator and the advisor overrides per invite.
+ */
+const PUBLIC_EMAIL_DOMAINS = new Set([
+  "gmail.com",
+  "googlemail.com",
+  "yahoo.com",
+  "yahoo.co.uk",
+  "ymail.com",
+  "rocketmail.com",
+  "outlook.com",
+  "hotmail.com",
+  "hotmail.co.uk",
+  "live.com",
+  "msn.com",
+  "aol.com",
+  "icloud.com",
+  "me.com",
+  "mac.com",
+  "protonmail.com",
+  "proton.me",
+  "pm.me",
+  "gmx.com",
+  "gmx.net",
+  "mail.com",
+  "zoho.com",
+  "yandex.com",
+  "yandex.ru",
+]);
+
+/** Does this domain belong to a public mailbox provider rather than a firm? */
+function isPublicEmailDomain(domain: string): boolean {
+  return PUBLIC_EMAIL_DOMAINS.has(domain.toLowerCase());
+}
+
+/**
  * Domains that identify this organization: its own organization email domain,
  * then the owner's organization/user email domains. The first entry that yields
  * a domain wins, but all are returned so `guessPersonTypeForEmail` can accept any
  * of them.
+ *
+ * Public mailbox providers are dropped — see `PUBLIC_EMAIL_DOMAINS`. A gmail address is
+ * one person's mailbox, not a firm's identity, so it must never make every other gmail
+ * contact an internal Team Member.
  */
 export async function getOrganizationDomains(
   organizationId: string,
@@ -267,7 +347,10 @@ export async function getOrganizationDomains(
     emailDomain(organization?.organizationEmail),
     emailDomain(owner?.organizationEmail),
     emailDomain(owner?.email),
-  ].filter((domain): domain is string => Boolean(domain));
+  ].filter((domain): domain is string => {
+    if (!domain) return false;
+    return !isPublicEmailDomain(domain);
+  });
 
   return [...new Set(domains)];
 }

@@ -7,7 +7,11 @@ import {
   resolveOrganizationPermission,
 } from "@/lib/teammates/access.server";
 import { TeammateDataError } from "@/lib/teammates/errors";
-import { expireStaleInvites, getSeatUsage } from "@/lib/teammates/seats.server";
+import {
+  expireStaleInvites,
+  getSeatUsage,
+  profileHoldsSeat,
+} from "@/lib/teammates/seats.server";
 import {
   addTeamMember,
   listCollaborators,
@@ -49,6 +53,13 @@ function errorResponse(error: unknown): NextResponse {
  * Members) and `collaborators` is the free side. They are separate readers in
  * team.server.ts because only one of them synthesizes the owner row, and the
  * client renders them in different places (seat cards vs an accordion).
+ *
+ * `listTeamMembers` returns every `team_member` profile in every state — a `contact`
+ * Key Contact and a deactivated member included — so the roster is narrowed here to
+ * the profiles that actually hold a seat, using the same `profileHoldsSeat` predicate
+ * `getSeatUsage` counts with. That is what makes this endpoint's `team` array the ONE
+ * list both Settings → People & Access and the dashboard's team panel render, so the
+ * two can no longer disagree about who is on the team.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -106,6 +117,23 @@ export async function GET(request: NextRequest) {
         listPlanCustomBenefits(session.organizationId),
       ]);
 
+    // The seat-holding roster — see the note on GET. The owner is always kept: their seat is
+    // reserved (`OWNER_CONSUMES_SEAT`) and their row is synthesized, so `profileHoldsSeat`
+    // (which describes a stored profile) does not apply to them.
+    const now = new Date();
+    const seatHolders = team.filter(
+      (row) =>
+        row.isOwner ||
+        profileHoldsSeat(
+          {
+            state: row.status,
+            invitedAt: row.invitedAt,
+            deactivatedAt: row.deactivatedAt,
+          },
+          now,
+        ),
+    );
+
     // `?profileId=` narrows BOTH lists to one person, so the Manage Access screen can refresh
     // just that row after a save instead of pulling (and re-rendering) the whole roster. The seat
     // meter and the custom-category list stay whole — they are org-wide, and the meter can change
@@ -113,8 +141,8 @@ export async function GET(request: NextRequest) {
     const singleProfileId = request.nextUrl.searchParams.get("profileId");
     return NextResponse.json({
       team: singleProfileId
-        ? team.filter((row) => row.profileId === singleProfileId)
-        : team,
+        ? seatHolders.filter((row) => row.profileId === singleProfileId)
+        : seatHolders,
       collaborators: singleProfileId
         ? collaborators.filter((row) => row.profileId === singleProfileId)
         : collaborators,
