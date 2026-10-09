@@ -85,7 +85,15 @@ export function OnboardingWizardStepper({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to delete account");
+        // Surface the server's own message. The route returns the failing Prisma
+        // error, which is the only way to tell WHICH row blocked the delete —
+        // "Failed to delete account" alone hid every cause behind one toast.
+        const body = (await response
+          .json()
+          .catch(() => ({}))) as { error?: string };
+        throw new Error(
+          body?.error || `Failed to delete account (${response.status})`,
+        );
       }
 
       const result = await response.json();
@@ -105,7 +113,11 @@ export function OnboardingWizardStepper({
       }
     } catch (err) {
       console.error("Error canceling signup:", err);
-      toast.error("Failed to cancel signup. Please try again.");
+      toast.error(
+        err instanceof Error
+          ? `Failed to cancel signup. ${err.message}`
+          : "Failed to cancel signup. Please try again.",
+      );
       setCancelDialogOpen(false);
     } finally {
       setIsCancelling(false);

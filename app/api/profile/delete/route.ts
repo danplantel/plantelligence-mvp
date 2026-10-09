@@ -51,8 +51,11 @@ export async function DELETE() {
       await prisma.wizardSession.deleteMany({ where: { userId } });
     }
 
-    // 3. Delete remaining user-scoped data (MarketingAsset already handled above)
+    // 3. Delete remaining user-scoped data (MarketingAsset already handled above).
+    //    `task` belongs here: its `User` FK is Restrict like the rest, so an account
+    //    that ever saved a dashboard task failed on the final User delete.
     await Promise.allSettled([
+      prisma.task.deleteMany({ where: { userId } }),
       prisma.meetingCustomType.deleteMany({ where: { userId } }),
       prisma.futureContact.deleteMany({ where: { userId } }),
       prisma.headshot.deleteMany({ where: { userId } }),
