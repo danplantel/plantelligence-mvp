@@ -10,7 +10,8 @@
  */
 
 import prisma from "@/lib/prisma";
-import type { Prisma } from "@prisma/client";
+// A VALUE import: `Prisma.JsonNull` below is a runtime sentinel, not a type.
+import { Prisma } from "@prisma/client";
 import { TeammateDataError } from "./errors";
 import { recordTeammateAuditEvent } from "./audit.server";
 import { getPartnerCompany } from "./companies.server";
@@ -19,6 +20,7 @@ import type {
   TeammatePersonType,
   TeammateProfileState,
 } from "@/types/teammate";
+import type { ContactFormTopic } from "@/lib/contact-form-topics";
 
 /** Emails are stored lowercased so "Jane@ABC.com" and "jane@abc.com" match. */
 export function normalizeTeammateEmail(email: string): string {
@@ -46,6 +48,19 @@ export interface CreateTeammateProfileInput {
   headshot?: string | null;
   benefitsSpecialty?: string[];
   companyId?: string | null;
+  /**
+   * Card-only fields — see the note in `prisma/schema.prisma`. Optional so every
+   * existing caller is unchanged; the invite-acceptance flow is the one that sets
+   * them for the invited person themself.
+   */
+  cardContactType?: string | null;
+  displayEmail?: boolean;
+  displayPhone?: boolean;
+  enableContactButton?: boolean;
+  ctaType?: string | null;
+  schedulingUrl?: string | null;
+  websiteUrl?: string | null;
+  contactFormTopics?: ContactFormTopic[] | null;
   allPlans?: boolean;
   loginUserId?: string | null;
   invitedAt?: Date | null;
@@ -184,6 +199,18 @@ export async function createTeammateProfile(
       headshot: input.headshot ?? null,
       benefitsSpecialty: input.benefitsSpecialty ?? [],
       companyId: input.companyId ?? null,
+      cardContactType: input.cardContactType ?? null,
+      // NULL, not FALSE: an unconfigured seat must not hide the card's email/phone.
+      displayEmail: input.displayEmail ?? null,
+      displayPhone: input.displayPhone ?? null,
+      enableContactButton: input.enableContactButton ?? null,
+      ctaType: input.ctaType ?? null,
+      schedulingUrl: input.schedulingUrl ?? null,
+      websiteUrl: input.websiteUrl ?? null,
+      contactFormTopics:
+        input.contactFormTopics == null
+          ? undefined
+          : (input.contactFormTopics as unknown as Prisma.InputJsonValue),
       allPlans: input.type === "team_member" ? (input.allPlans ?? false) : false,
       loginUserId: input.loginUserId ?? null,
       invitedByUserId: input.actorUserId,
@@ -230,6 +257,15 @@ export interface UpdateTeammateProfileInput {
   headshot?: string | null;
   benefitsSpecialty?: string[];
   companyId?: string | null;
+  /** Card-only fields — see the note in `prisma/schema.prisma`. */
+  cardContactType?: string | null;
+  displayEmail?: boolean;
+  displayPhone?: boolean;
+  enableContactButton?: boolean;
+  ctaType?: string | null;
+  schedulingUrl?: string | null;
+  websiteUrl?: string | null;
+  contactFormTopics?: ContactFormTopic[] | null;
 }
 
 /** Identity fields only — plan-scoped data is never stored on the profile. */
@@ -272,6 +308,31 @@ export async function updateTeammateProfile({
         ? { benefitsSpecialty: data.benefitsSpecialty }
         : {}),
       ...(data.companyId !== undefined ? { companyId: data.companyId } : {}),
+      ...(data.cardContactType !== undefined
+        ? { cardContactType: data.cardContactType }
+        : {}),
+      ...(data.displayEmail !== undefined
+        ? { displayEmail: data.displayEmail }
+        : {}),
+      ...(data.displayPhone !== undefined
+        ? { displayPhone: data.displayPhone }
+        : {}),
+      ...(data.enableContactButton !== undefined
+        ? { enableContactButton: data.enableContactButton }
+        : {}),
+      ...(data.ctaType !== undefined ? { ctaType: data.ctaType } : {}),
+      ...(data.schedulingUrl !== undefined
+        ? { schedulingUrl: data.schedulingUrl }
+        : {}),
+      ...(data.websiteUrl !== undefined ? { websiteUrl: data.websiteUrl } : {}),
+      ...(data.contactFormTopics !== undefined
+        ? {
+            contactFormTopics:
+              data.contactFormTopics === null
+                ? Prisma.JsonNull
+                : (data.contactFormTopics as unknown as Prisma.InputJsonValue),
+          }
+        : {}),
     },
   });
 

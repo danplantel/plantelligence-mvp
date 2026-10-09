@@ -18,7 +18,7 @@ export default function AcceptInvitePage({
   params: { token: string };
 }) {
   return (
-    <main className="flex min-h-screen items-center justify-center bg-muted/30 px-4 py-10">
+    <main className="flex min-h-screen justify-center bg-muted/30 px-4 py-6">
       <InviteAcceptForm token={params.token} />
     </main>
   );

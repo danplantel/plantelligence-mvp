@@ -62,6 +62,36 @@ export interface HubContactCard {
   personType: "team_member" | "collaborator";
   /** False for a Contact (no login), true once invited or active. */
   hasAccess: boolean;
+  /**
+   * Card presentation carried on the SEAT — see `prisma/schema.prisma`. These are
+   * the "Show on contact card" toggles and the call-to-action group, copied from
+   * the seat so an invited teammate can configure their own card. The portal cards
+   * read them under the same names the historical `KeyContact` used.
+   */
+  displayEmail?: boolean;
+  displayPhone?: boolean;
+  enableContactButton?: boolean;
+  /** Legacy card field: "calendar" | "phone" | "email" | "url" | null. */
+  contactButtonType?: string | null;
+  schedulingUrl?: string | null;
+  websiteUrl?: string | null;
+  contactFormTopics?: unknown;
+}
+
+/** Map the seat's `ctaType` onto the card's legacy `contactButtonType`. */
+function cardButtonType(ctaType: string | null): string | null {
+  switch (ctaType) {
+    case "schedule":
+      return "calendar";
+    case "call":
+      return "phone";
+    case "email":
+      return "email";
+    case "contact":
+      return "url";
+    default:
+      return null;
+  }
 }
 
 export interface BuildHubContactsInput {
@@ -163,11 +193,38 @@ export async function buildHubContacts(
       benefitsCategories: categories,
       benefitsCategory: categories[0] ?? null,
       // Team Members render through the support-team card, external people through the
-      // individual one — the same split the wizard's cards use.
-      contactType: profile.type === "team_member" ? "team_support" : "individual",
+      // individual one — the same split the wizard's cards use. A teammate who chose
+      // their own card type at acceptance overrides that default.
+      contactType:
+        profile.cardContactType === "individual" ||
+        profile.cardContactType === "team_support"
+          ? (profile.cardContactType as "individual" | "team_support")
+          : profile.type === "team_member"
+            ? "team_support"
+            : "individual",
       role: assignment.role,
       personType: profile.type as "team_member" | "collaborator",
       hasAccess: profile.state !== "contact" && Boolean(profile.loginUserId),
+      // Card presentation is passed through ONLY when the seat has configured it. A
+      // NULL flag means "never set", and the cards must keep showing the email/phone
+      // as they always have — so the keys are omitted rather than sent as false.
+      ...(profile.displayEmail !== null
+        ? { displayEmail: profile.displayEmail }
+        : {}),
+      ...(profile.displayPhone !== null
+        ? { displayPhone: profile.displayPhone }
+        : {}),
+      ...(profile.enableContactButton !== null
+        ? {
+            enableContactButton: profile.enableContactButton,
+            contactButtonType: cardButtonType(profile.ctaType),
+            schedulingUrl: profile.schedulingUrl,
+            websiteUrl: profile.websiteUrl,
+          }
+        : {}),
+      ...(profile.contactFormTopics !== null
+        ? { contactFormTopics: profile.contactFormTopics }
+        : {}),
     });
   }
 

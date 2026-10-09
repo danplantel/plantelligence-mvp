@@ -4,24 +4,49 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
+  Calendar,
   Check,
   CheckCircle2,
   Eye,
   EyeOff,
+  Globe,
   Info,
   Loader2,
   Lock,
   Mail,
+  Phone,
   UserPlus,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
+import { ContactFormTopicBuilder } from "@/components/ui/contact-form-topic-builder";
+import { StickyPreviewContainer } from "@/components/ui/sticky-preview-container";
+import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
+import {
+  CONTACT_VISIBILITY_HELPER_TEXT,
+  hasReachableMethod,
+} from "@/lib/contact-form-copy";
+import { buildContactFormHref } from "@/lib/contact-form-link";
+import {
+  getActiveContactFormTopicLabels,
+  type ContactFormTopic,
+} from "@/lib/contact-form-topics";
 import { inviterFirmLabel } from "@/lib/teammates/invite-copy";
 import { cn } from "@/lib/utils";
+
+/**
+ * The live preview uses the same card the portal renders. The public invite page
+ * has no organization palette loaded (no wizard store, no session), so it previews
+ * on the product's own accent rather than the firm's colours — the structure is
+ * what the invitee is choosing, not the firm's theme.
+ */
+const PREVIEW_BRAND_COLOR = "#23919C";
+const PREVIEW_SECONDARY_COLOR = "#1B7A83";
 
 interface InvitationView {
   status:
@@ -41,6 +66,18 @@ interface InvitationView {
   headshot?: string | null;
   inviterName?: string | null;
   organizationName?: string | null;
+  /**
+   * Card presentation the seat already holds — mirrors the server's
+   * `InvitationView`. Prefilled into the form below.
+   */
+  displayEmail?: boolean;
+  displayPhone?: boolean;
+  cardContactType?: "individual" | "team_support" | null;
+  enableContactButton?: boolean;
+  ctaType?: "schedule" | "call" | "email" | "contact" | null;
+  schedulingUrl?: string | null;
+  websiteUrl?: string | null;
+  contactFormTopics?: ContactFormTopic[] | null;
   /** Set only when the invitation covers exactly ONE plan — see the server's `InvitationView`. */
   planName?: string | null;
   sectionName?: string | null;
@@ -104,6 +141,23 @@ export function InviteAcceptForm({ token }: { token: string }) {
   const [headshot, setHeadshot] = useState("");
   const [headshotFileName, setHeadshotFileName] = useState("");
 
+  // Card presentation — the "Show on contact card" toggles, the card's own type, and
+  // the call-to-action group, mirrored from the Key Contact form so an invited
+  // teammate finishes their own card instead of waiting for an admin to fill it in.
+  const [cardContactType, setCardContactType] = useState<
+    "individual" | "team_support"
+  >("individual");
+  const [displayEmail, setDisplayEmail] = useState(false);
+  const [displayPhone, setDisplayPhone] = useState(false);
+  const [enableCtaButton, setEnableCtaButton] = useState(false);
+  const [ctaType, setCtaType] = useState<
+    "schedule" | "call" | "email" | "contact"
+  >("schedule");
+  const [schedulingUrl, setSchedulingUrl] = useState("");
+  const [contactFormTopics, setContactFormTopics] = useState<ContactFormTopic[]>(
+    [],
+  );
+
   // Credentials. Two fields with the same eye toggle the signup form pairs them with, so the
   // value is never typed blind and a typo is caught before the account exists.
   const [password, setPassword] = useState("");
@@ -149,6 +203,14 @@ export function InviteAcceptForm({ token }: { token: string }) {
         setPhone(invitation.phone ?? "");
         setPhoneExtension(invitation.phoneExtension ?? "");
         setHeadshot(invitation.headshot ?? "");
+        // Card presentation, restored from the seat exactly like the identity fields.
+        setCardContactType(invitation.cardContactType ?? "individual");
+        setDisplayEmail(invitation.displayEmail ?? false);
+        setDisplayPhone(invitation.displayPhone ?? false);
+        setEnableCtaButton(invitation.enableContactButton ?? false);
+        setCtaType(invitation.ctaType ?? "schedule");
+        setSchedulingUrl(invitation.schedulingUrl ?? "");
+        setContactFormTopics(invitation.contactFormTopics ?? []);
       }
     } catch {
       setView({ status: "invalid" });
@@ -217,6 +279,13 @@ export function InviteAcceptForm({ token }: { token: string }) {
       setError("Please enter a complete phone number.");
       return;
     }
+    // The one card rule that is a real inconsistency: a "Schedule Appt." button with
+    // no link to schedule on. Visibility is guided but NOT gated — acceptance must
+    // stay possible in one step, and the invitee's email is always reachable.
+    if (enableCtaButton && ctaType === "schedule" && !schedulingUrl.trim()) {
+      setError("Add a scheduling URL for the Schedule Appt. button.");
+      return;
+    }
     if (creatingAccount) {
       if (password.trim().length < 8) {
         setError("Choose a password of at least 8 characters.");
@@ -244,6 +313,29 @@ export function InviteAcceptForm({ token }: { token: string }) {
           // which stores it under the organization's prefix so the seat holds a real R2 key.
           headshot: headshot.trim() || null,
           password,
+          cardContactType,
+          displayEmail,
+          displayPhone,
+          enableContactButton: enableCtaButton,
+          ctaType: enableCtaButton ? ctaType : null,
+          schedulingUrl:
+            enableCtaButton && ctaType === "schedule"
+              ? schedulingUrl.trim()
+              : "",
+          websiteUrl:
+            enableCtaButton && ctaType === "contact"
+              ? buildContactFormHref(
+                  view.email ?? "",
+                  view.organizationName ?? "",
+                  `${firstName} ${lastName}`.trim() || view.email || "",
+                  headshot,
+                  "",
+                  jobTitle,
+                  getActiveContactFormTopicLabels(contactFormTopics),
+                  view.sectionName ?? null,
+                )
+              : "",
+          contactFormTopics,
         }),
       });
       const body = (await response.json().catch(() => ({}))) as {
@@ -386,6 +478,33 @@ export function InviteAcceptForm({ token }: { token: string }) {
         ? ` to help with ${view.planName}`
         : "";
 
+  // Live-preview values. `previewWebsiteUrl` mirrors what submit sends for a Contact
+  // Form CTA; `previewButtonType` maps the four CTA choices onto the card's legacy
+  // button names, exactly as the wizard's slide does.
+  const previewName =
+    `${firstName} ${lastName}`.trim() || view.email || "Your name";
+  const previewButtonType =
+    ctaType === "schedule"
+      ? "calendar"
+      : ctaType === "call"
+        ? "phone"
+        : ctaType === "email"
+          ? "email"
+          : "url";
+  const previewWebsiteUrl =
+    enableCtaButton && ctaType === "contact"
+      ? buildContactFormHref(
+          view.email ?? "",
+          view.organizationName ?? "",
+          previewName,
+          headshot,
+          "",
+          jobTitle,
+          getActiveContactFormTopicLabels(contactFormTopics),
+          view.sectionName ?? null,
+        )
+      : undefined;
+
   return (
     <div className="flex flex-col items-center space-y-4 py-2 w-full">
       {/* Header — the same shape the wizard's contact form opens with: an icon and the title on
@@ -408,7 +527,8 @@ export function InviteAcceptForm({ token }: { token: string }) {
         </p>
       </div>
 
-      <Card className="w-full max-w-lg dark:bg-gray-800 dark:border-gray-700 shadow-sm">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 w-full max-w-3xl items-start">
+      <Card className="w-full dark:bg-gray-800 dark:border-gray-700 shadow-sm">
         <CardContent className="pt-3 space-y-2.5">
           {/* Some of these fields came from the organization's own entry, not from the invitee's
               typing. Said once, at the top, before the fields — so it frames everything below as
@@ -555,6 +675,216 @@ export function InviteAcceptForm({ token }: { token: string }) {
             </p>
           </div>
 
+          {/* ── Card type ──
+              Individual vs Team / Support Line — the same choice the Key Contact form
+              offers. It decides which card layout the person appears on. */}
+          <div className="space-y-1.5" data-field="contactType">
+            <Label className="dark:text-gray-300 text-xs font-medium">
+              Card Type
+            </Label>
+            <div className="grid grid-cols-2 gap-1.5">
+              {(
+                [
+                  { value: "individual", label: "Individual", hint: "A person" },
+                  {
+                    value: "team_support",
+                    label: "Team / Support Line",
+                    hint: "A department or group",
+                  },
+                ] as const
+              ).map((opt) => {
+                const isActive = cardContactType === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setCardContactType(opt.value)}
+                    disabled={isSubmitting}
+                    className={cn(
+                      "flex flex-col rounded-md border px-2.5 py-1.5 text-left transition-all",
+                      isActive
+                        ? "border-accent-blue bg-accent-blue/5 shadow-sm"
+                        : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
+                    )}
+                  >
+                    <span className="text-[11px] font-medium text-gray-900 dark:text-gray-100">
+                      {opt.label}
+                    </span>
+                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                      {opt.hint}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ── Show on contact card ──
+              The email / phone visibility toggles, directly below the Email field as
+              the wizard has them, with the same reachability rule: at least one way
+              to reach the person is visible, or a call-to-action button is provided. */}
+          <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2 space-y-2">
+            <Label className="dark:text-gray-300 text-xs font-medium">
+              Show on contact card
+            </Label>
+            <p
+              className={cn(
+                "text-[10px]",
+                validationAttempted &&
+                  !hasReachableMethod({
+                    displayEmail,
+                    displayPhone,
+                    enableContactButton: enableCtaButton,
+                  })
+                  ? "text-red-500"
+                  : "text-gray-400 dark:text-gray-500",
+              )}
+            >
+              {CONTACT_VISIBILITY_HELPER_TEXT}
+            </p>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="display-email"
+                checked={displayEmail}
+                onCheckedChange={(checked) => setDisplayEmail(checked === true)}
+                disabled={isSubmitting}
+              />
+              <Label
+                htmlFor="display-email"
+                className="text-xs font-medium cursor-pointer dark:text-gray-300"
+              >
+                Email
+              </Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="display-phone"
+                checked={displayPhone}
+                onCheckedChange={(checked) => setDisplayPhone(checked === true)}
+                disabled={isSubmitting}
+              />
+              <Label
+                htmlFor="display-phone"
+                className="text-xs font-medium cursor-pointer dark:text-gray-300"
+              >
+                Phone
+              </Label>
+            </div>
+          </div>
+
+          {/* ── Call to action button ──
+              The same four choices the Key Contact form offers. "Contact Form" is the
+              Plantelligence-branded /contact page, whose submissions are delivered to
+              this person's invited email. */}
+          <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2 space-y-2.5">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="enable-cta-button"
+                checked={enableCtaButton}
+                onCheckedChange={(checked) => setEnableCtaButton(checked === true)}
+                disabled={isSubmitting}
+              />
+              <Label
+                htmlFor="enable-cta-button"
+                className="text-xs font-medium cursor-pointer dark:text-gray-300"
+              >
+                Add a call to action button
+              </Label>
+            </div>
+
+            {enableCtaButton && (
+              <>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {(
+                    [
+                      { value: "schedule", label: "Schedule Appt.", icon: Calendar },
+                      { value: "call", label: "Call", icon: Phone },
+                      { value: "email", label: "Email", icon: Mail },
+                      { value: "contact", label: "Contact Form", icon: Globe },
+                    ] as const
+                  ).map((opt) => {
+                    const isActive = ctaType === opt.value;
+                    const Icon = opt.icon;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => setCtaType(opt.value)}
+                        disabled={isSubmitting}
+                        className={cn(
+                          "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-left transition-all",
+                          isActive
+                            ? "border-accent-blue bg-accent-blue/5 shadow-sm"
+                            : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
+                        )}
+                      >
+                        <Icon
+                          className={cn(
+                            "h-3.5 w-3.5 flex-shrink-0",
+                            isActive
+                              ? "text-accent-blue"
+                              : "text-gray-400 dark:text-gray-500",
+                          )}
+                        />
+                        <span className="text-[11px] font-medium">
+                          {opt.label}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {ctaType === "schedule" && (
+                  <div className="space-y-1" data-field="schedulingUrl">
+                    <Label className="dark:text-gray-300 text-xs font-medium">
+                      Scheduling URL <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      value={schedulingUrl}
+                      onChange={(e) => setSchedulingUrl(e.target.value)}
+                      placeholder="https://calendly.com/..."
+                      disabled={isSubmitting}
+                      className="h-8 text-sm"
+                    />
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                      e.g. Calendly, Microsoft Bookings.
+                    </p>
+                  </div>
+                )}
+
+                {ctaType === "contact" && (
+                  <div className="space-y-2">
+                    <p className="rounded bg-gray-50 px-2.5 py-1.5 text-[11px] leading-relaxed text-gray-500 dark:bg-gray-700/50 dark:text-gray-400">
+                      This opens a Plantelligence-branded contact form. Submissions are
+                      delivered to {view.email ? view.email : "this person's email"}.
+                    </p>
+                    <div className="border-t border-gray-100 pt-3 dark:border-gray-700">
+                      <ContactFormTopicBuilder
+                        category={view.sectionName ?? null}
+                        topics={contactFormTopics}
+                        onChange={setContactFormTopics}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {ctaType === "call" && (
+                  <p className="rounded bg-gray-50 px-2.5 py-1.5 text-[11px] text-gray-500 dark:bg-gray-700/50 dark:text-gray-400">
+                    {phone
+                      ? `Calls ${formatPhoneNumber(phone)}${phoneExtension ? ` ext. ${phoneExtension}` : ""}.`
+                      : "Complete the Phone field above to enable this button."}
+                  </p>
+                )}
+
+                {ctaType === "email" && (
+                  <p className="rounded bg-gray-50 px-2.5 py-1.5 text-[11px] text-gray-500 dark:bg-gray-700/50 dark:text-gray-400">
+                    Opens an email to {view.email ?? "this address"}.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+
           {/* ── Credentials ──
               Only when this acceptance creates the account. An existing account keeps its own
               password — an invitation must never become a way to overwrite someone's
@@ -678,6 +1008,46 @@ export function InviteAcceptForm({ token }: { token: string }) {
           ) : null}
         </CardContent>
       </Card>
+
+      {/* Right column: the SAME card the portal renders, driven live by the fields
+          on the left — headshot, name, title, and the Show on card / CTA choices.
+          Wrapped in the wizard's StickyPreviewContainer so it pins on scroll exactly
+          as the Key Contact slide does. */}
+      <StickyPreviewContainer>
+        <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-blue mb-1 text-center">
+          Portal Preview
+        </span>
+        <SmallVerticalCard
+          contact={{
+            id: "invite-preview",
+            name: previewName,
+            firstName,
+            lastName,
+            title: jobTitle,
+            email: view.email ?? "",
+            phone,
+            phoneExtension,
+            headshot: headshot || undefined,
+            companyName: view.organizationName ?? "",
+            contactType: cardContactType,
+            displayEmail,
+            displayPhone,
+            enableContactButton: enableCtaButton,
+            contactButtonType: enableCtaButton ? previewButtonType : undefined,
+            schedulingUrl:
+              enableCtaButton && ctaType === "schedule" ? schedulingUrl : undefined,
+            websiteUrl: previewWebsiteUrl,
+          }}
+          brandColor={PREVIEW_BRAND_COLOR}
+          secondaryColor={PREVIEW_SECONDARY_COLOR}
+          appointmentLink=""
+          index={0}
+          disableAnimation
+          baselineBackgroundColor="#ffffff"
+          compact
+        />
+      </StickyPreviewContainer>
+      </div>
     </div>
   );
 }

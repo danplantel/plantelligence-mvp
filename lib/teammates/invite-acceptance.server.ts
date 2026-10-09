@@ -34,9 +34,11 @@ import {
   organizationDisplayName,
 } from "@/lib/organization";
 import { activateProfile, updateTeammateProfile } from "./profiles.server";
+import type { UpdateTeammateProfileInput } from "./profiles.server";
 import { isInviteExpired } from "./seats.server";
 import { verifyInviteToken } from "./invite-token.server";
 import type { TeammatePersonType } from "@/types/teammate";
+import type { ContactFormTopic } from "@/lib/contact-form-topics";
 
 export type InvitationStatus =
   /** Redeemable. */
@@ -103,6 +105,20 @@ export interface InvitationView {
   phoneExtension?: string | null;
   /** An R2 key — the form's editor resolves it for display. */
   headshot?: string | null;
+  /**
+   * Card presentation the seat already holds: the "Show on contact card" toggles,
+   * the card's own contact type, and the call-to-action group. Prefilled into the
+   * acceptance form exactly like the identity fields — the invitee edits their own
+   * card instead of waiting for an admin.
+   */
+  displayEmail?: boolean;
+  displayPhone?: boolean;
+  cardContactType?: "individual" | "team_support" | null;
+  enableContactButton?: boolean;
+  ctaType?: "schedule" | "call" | "email" | "contact" | null;
+  schedulingUrl?: string | null;
+  websiteUrl?: string | null;
+  contactFormTopics?: ContactFormTopic[] | null;
 }
 
 /** Where a person goes once they are active: the section they were invited to, or the hub. */
@@ -166,6 +182,15 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
       phone: true,
       phoneExtension: true,
       headshot: true,
+      // Card-only fields — see `InvitationView`.
+      displayEmail: true,
+      displayPhone: true,
+      cardContactType: true,
+      enableContactButton: true,
+      ctaType: true,
+      schedulingUrl: true,
+      websiteUrl: true,
+      contactFormTopics: true,
     },
   });
   if (!profile) return { status: "revoked" };
@@ -238,6 +263,19 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
     phone: profile.phone,
     phoneExtension: profile.phoneExtension,
     headshot: profile.headshot,
+    displayEmail: profile.displayEmail ?? undefined,
+    displayPhone: profile.displayPhone ?? undefined,
+    cardContactType:
+      (profile.cardContactType as "individual" | "team_support" | null) ?? null,
+    enableContactButton: profile.enableContactButton ?? undefined,
+    ctaType:
+      (profile.ctaType as "schedule" | "call" | "email" | "contact" | null) ??
+      null,
+    schedulingUrl: profile.schedulingUrl,
+    websiteUrl: profile.websiteUrl,
+    contactFormTopics: Array.isArray(profile.contactFormTopics)
+      ? (profile.contactFormTopics as unknown as ContactFormTopic[])
+      : null,
     inviterName: inviter?.name ?? inviter?.email ?? null,
     organizationName,
     planName: plan?.companyName ?? null,
@@ -278,6 +316,19 @@ export interface AcceptInvitationInput {
   phoneExtension?: string | null;
   /** An R2 key, an absolute URL, or a `data:` URL from a visitor who could not upload. */
   headshot?: string | null;
+  /**
+   * Card presentation the invitee configured while accepting — see
+   * `InvitationView`. Written whenever supplied; a boolean is meaningful even when
+   * false ("do not show my email").
+   */
+  displayEmail?: boolean;
+  displayPhone?: boolean;
+  cardContactType?: "individual" | "team_support" | null;
+  enableContactButton?: boolean;
+  ctaType?: "schedule" | "call" | "email" | "contact" | null;
+  schedulingUrl?: string | null;
+  websiteUrl?: string | null;
+  contactFormTopics?: ContactFormTopic[] | null;
 }
 
 /**
@@ -447,7 +498,44 @@ export async function acceptInvitation(
   const phone = (input.phone ?? "").trim();
   const phoneExtension = (input.phoneExtension ?? "").trim();
 
-  if (firstName || lastName || jobTitle || phone || phoneExtension || headshot) {
+  // Card presentation is written whenever it was SUPPLIED, not only when set: a
+  // boolean is meaningful even when false ("do not show my email"), and clearing a
+  // scheduling URL must actually clear it. The text companions are trimmed to null
+  // when blank so the column reads as "not configured" rather than "".
+  const cardData: UpdateTeammateProfileInput = {
+    ...(input.displayEmail !== undefined
+      ? { displayEmail: input.displayEmail }
+      : {}),
+    ...(input.displayPhone !== undefined
+      ? { displayPhone: input.displayPhone }
+      : {}),
+    ...(input.cardContactType !== undefined
+      ? { cardContactType: input.cardContactType }
+      : {}),
+    ...(input.enableContactButton !== undefined
+      ? { enableContactButton: input.enableContactButton }
+      : {}),
+    ...(input.ctaType !== undefined ? { ctaType: input.ctaType } : {}),
+    ...(input.schedulingUrl !== undefined
+      ? { schedulingUrl: (input.schedulingUrl ?? "").trim() || null }
+      : {}),
+    ...(input.websiteUrl !== undefined
+      ? { websiteUrl: (input.websiteUrl ?? "").trim() || null }
+      : {}),
+    ...(input.contactFormTopics !== undefined
+      ? { contactFormTopics: input.contactFormTopics }
+      : {}),
+  };
+
+  if (
+    firstName ||
+    lastName ||
+    jobTitle ||
+    phone ||
+    phoneExtension ||
+    headshot ||
+    Object.keys(cardData).length > 0
+  ) {
     await updateTeammateProfile({
       id: profileId,
       organizationId,
@@ -459,6 +547,7 @@ export async function acceptInvitation(
         ...(phone ? { phone } : {}),
         ...(phoneExtension ? { phoneExtension } : {}),
         ...(headshot ? { headshot } : {}),
+        ...cardData,
       },
     });
   }

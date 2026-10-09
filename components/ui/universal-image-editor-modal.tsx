@@ -7,17 +7,16 @@ import { Button } from "./button";
 import { Label } from "./label";
 import { ImageEditorControls } from "./image-editor-controls";
 import { ConfirmDialog } from "./confirm-dialog";
+import { ImageActionsRow } from "./image-actions-row";
 import {
   FlipHorizontal,
   FlipVertical,
   Upload,
-  X,
   AlertTriangle,
   Eraser,
   Info,
   Maximize2,
   Loader2,
-  Pencil,
   Plus,
   RotateCcw,
   Wand2,
@@ -3520,7 +3519,7 @@ export function UniversalImageEditorModal({
                   preview shows *an* image but not which file it came from, and the name
                   stored against this slot is the advisor's own upload (or "Default
                   image" for a gallery pick) — see lib/image-editor-file-name.ts. */}
-              <div className="flex flex-col items-center gap-3 flex-1 min-w-0">
+              <div className="flex w-full flex-col items-center gap-3 flex-1 min-w-0">
                 {triggerFileName && (
                   <p
                     className="max-w-full truncate text-xs text-gray-500 dark:text-gray-400"
@@ -3530,63 +3529,29 @@ export function UniversalImageEditorModal({
                   </p>
                 )}
 
-                {/* Edit · New Image · Delete, in one row for every logo /
-                    headshot / background preview. Edit reopens the editor that
+                {/* Edit · New Image · Delete — one row that shrinks rather than
+                    wraps; see `ImageActionsRow`. Edit reopens the editor that
                     already owns the crop, scale and background-removal controls;
                     New Image picks a replacement file; Delete clears it. */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      // The surrounding trigger opens the file picker on click.
-                      e.stopPropagation();
-                      setInternalModalOpen(true);
-                    }}
-                    disabled={isLoading || isSaving}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                    Edit
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      inputRef.current?.click();
-                    }}
-                    disabled={isLoading || isSaving || isDeleting}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent-blue dark:text-accent-blue bg-accent-blue-light dark:bg-accent-blue/15 border border-accent-blue/30 dark:border-accent-blue/50 rounded-full hover:bg-accent-blue/10 dark:hover:bg-accent-blue/25 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    New Image
-                  </button>
-
-                  <button
-                    type="button"
-                    disabled={isDeleting}
-                    onClick={async (e) => {
-                      e.stopPropagation();
-                      setIsDeleting(true);
-                      try {
-                        await onRemove();
-                      } finally {
-                        setIsDeleting(false);
-                      }
-                      if (inputRef.current) {
-                        inputRef.current.value = "";
-                      }
-                    }}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isDeleting ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <X className="w-3.5 h-3.5" />
-                    )}
-                    {isDeleting ? "Deleting..." : "Delete"}
-                  </button>
-                </div>
+                <ImageActionsRow
+                  onEdit={() => setInternalModalOpen(true)}
+                  onNewImage={() => inputRef.current?.click()}
+                  onDelete={async () => {
+                    setIsDeleting(true);
+                    try {
+                      await onRemove();
+                    } finally {
+                      setIsDeleting(false);
+                    }
+                    if (inputRef.current) {
+                      inputRef.current.value = "";
+                    }
+                  }}
+                  editDisabled={isLoading || isSaving}
+                  newImageDisabled={isLoading || isSaving || isDeleting}
+                  deleteDisabled={isDeleting}
+                  isDeleting={isDeleting}
+                />
               </div>
             </div>
           </div>

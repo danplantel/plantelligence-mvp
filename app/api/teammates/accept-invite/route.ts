@@ -6,6 +6,7 @@ import {
   loadInvitation,
   type InvitationStatus,
 } from "@/lib/teammates/invite-acceptance.server";
+import { normalizeContactFormTopics } from "@/lib/contact-form-topics";
 
 /**
  * T9 — the invitee's side of an invitation.
@@ -136,6 +137,40 @@ export async function POST(request: NextRequest) {
       // Usually a `data:` URL: the invitee has no session, so the editor cannot upload and hands
       // the cropped image back inline. The service stores it under the organization's prefix.
       headshot: typeof body.headshot === "string" ? body.headshot : undefined,
+      // Card presentation ("Show on contact card" + the CTA group). Each is passed
+      // through only when it is the right shape, so a malformed value is ignored
+      // rather than persisted — the absent key still means "leave what the invite
+      // seeded alone". Booleans are forwarded even when false: "do not show my
+      // email" is a real choice.
+      displayEmail:
+        typeof body.displayEmail === "boolean" ? body.displayEmail : undefined,
+      displayPhone:
+        typeof body.displayPhone === "boolean" ? body.displayPhone : undefined,
+      cardContactType:
+        body.cardContactType === "individual" ||
+        body.cardContactType === "team_support"
+          ? body.cardContactType
+          : undefined,
+      enableContactButton:
+        typeof body.enableContactButton === "boolean"
+          ? body.enableContactButton
+          : undefined,
+      ctaType:
+        body.ctaType === "schedule" ||
+        body.ctaType === "call" ||
+        body.ctaType === "email" ||
+        body.ctaType === "contact"
+          ? body.ctaType
+          : undefined,
+      schedulingUrl:
+        typeof body.schedulingUrl === "string" ? body.schedulingUrl : undefined,
+      websiteUrl:
+        typeof body.websiteUrl === "string" ? body.websiteUrl : undefined,
+      // Normalized here so only well-formed `{ id, label, enabled }` entries reach
+      // the database, whatever a crafted request sends.
+      contactFormTopics: Array.isArray(body.contactFormTopics)
+        ? normalizeContactFormTopics(body.contactFormTopics)
+        : undefined,
     });
 
     if (!result.ok) {

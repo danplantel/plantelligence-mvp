@@ -1306,6 +1306,33 @@ model TeammateProfile {
   headshot          String?
   benefitsSpecialty String[]          @default([])
 
+  // Card-only fields — the "Show on contact card" toggles and the call-to-action
+  // group.
+  //
+  // These have no historical home on the teammate layer: they live on
+  // `Client.keyContacts` (the authoring surface) and on `Benefit.supportContacts[]`
+  // (the per-benefit override), and the portal contact cards read them from the
+  // rebuilt `keyContacts` (see `hub-contacts.server.ts`). Copying them onto the seat
+  // is what lets an invited teammate configure their OWN card at acceptance instead
+  // of waiting for an admin, and `buildHubContacts` reads them back onto the card.
+  //
+  // `cardContactType` is deliberately not `type`: `type` is the ACCESS concept
+  // (team_member | collaborator), while this pair is the CARD presentation choice
+  // (individual | team_support).
+  cardContactType     String?
+  // Tri-state: NULL means "never configured" and the portal keeps showing the
+  // email/phone as it always has; TRUE/FALSE are the person's explicit choices.
+  // A plain `false` default would hide every existing card's contact details.
+  displayEmail        Boolean?
+  displayPhone        Boolean?
+  enableContactButton Boolean?
+  // "schedule" | "call" | "email" | "contact", mirrored onto the card as the
+  // legacy `contactButtonType` ("calendar" | "phone" | "email" | "url").
+  ctaType             String?
+  schedulingUrl       String?
+  websiteUrl          String?
+  contactFormTopics   Json?
+
   companyId String?
 
   // Team Members only: when set, an assignment is generated automatically for

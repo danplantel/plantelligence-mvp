@@ -4,9 +4,10 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { X, Upload, AlertTriangle, Plus, Edit2, Loader2, Pencil } from "lucide-react";
+import { Upload, AlertTriangle, Plus, Edit2, Loader2 } from "lucide-react";
 import { BrandImageData } from "@/types/new-client-wizard";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
+import { ImageActionsRow } from "@/components/ui/image-actions-row";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { toR2BrandingKey } from "@/lib/branding-image-url";
 import {
@@ -652,7 +653,7 @@ export function BrandImageUpload({
                   preview shows *an* image but not which file it came from, and the name
                   carried here is the advisor's own upload (or "Default image" for a
                   gallery pick) — see lib/image-editor-file-name.ts. */}
-              <div className="flex flex-col items-center gap-3 flex-1 min-w-0">
+              <div className="flex w-full flex-col items-center gap-3 flex-1 min-w-0">
                 {currentImage.fileName && (
                   <p
                     className="max-w-full truncate text-xs text-gray-500 dark:text-gray-400"
@@ -662,44 +663,20 @@ export function BrandImageUpload({
                   </p>
                 )}
 
-                {/* Edit · New Image · Delete, in one row for every logo /
-                    headshot / background preview. Edit works in both modes:
+                {/* Edit · New Image · Delete — one row that shrinks rather than
+                    wraps; see `ImageActionsRow`. Edit works in both modes:
                     internally it opens this component's modal, and with
                     `renderModalOutside` the existing state-sync effect hands the
                     open request to the parent that owns the modal. */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={handleEditClickWithModal}
-                    disabled={isRemoving}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 dark:text-gray-200 bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Pencil className="w-3.5 h-3.5" />
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleUploadClick}
-                    disabled={isRemoving}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-accent-blue dark:text-accent-blue bg-accent-blue-light dark:bg-accent-blue/15 border border-accent-blue/30 dark:border-accent-blue/50 rounded-full hover:bg-accent-blue/10 dark:hover:bg-accent-blue/25 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                  >
-                    <Plus className="w-3.5 h-3.5" />
-                    New Image
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleRemove}
-                    disabled={isRemoving}
-                    className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-full hover:bg-red-100 dark:hover:bg-red-900/50 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {isRemoving ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <X className="w-3.5 h-3.5" />
-                    )}
-                    {isRemoving ? "Deleting..." : "Delete"}
-                  </button>
-                </div>
+                <ImageActionsRow
+                  onEdit={handleEditClickWithModal}
+                  onNewImage={handleUploadClick}
+                  onDelete={handleRemove}
+                  editDisabled={isRemoving}
+                  newImageDisabled={isRemoving}
+                  deleteDisabled={isRemoving}
+                  isDeleting={isRemoving}
+                />
               </div>
             </div>
           </div>
