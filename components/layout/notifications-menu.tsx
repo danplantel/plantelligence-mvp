@@ -9,6 +9,7 @@ import {
   CalendarClock,
   Clock,
   FileText,
+  UserPlus,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,10 @@ import {
   useHeaderNotifications,
   type MeetingReminder,
 } from "@/hooks/useHeaderNotifications";
+import {
+  useNotifications,
+  type AppNotification,
+} from "@/hooks/useNotifications";
 import {
   documentNotificationKey,
   meetingNotificationKey,
@@ -93,6 +98,20 @@ const SECTION_LABEL_CLASS =
 const TIER_PILL_CLASS =
   "mt-1 text-xs px-2 py-0.5 rounded border inline-block";
 
+/** Short "when" for a persisted notification. Rendered client-side only. */
+function formatNotificationWhen(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (!Number.isFinite(then)) return "";
+  const minutes = Math.round((Date.now() - then) / 60000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
 /**
  * Header notifications bell. Renders upcoming meeting reminders and expiring
  * documents in one dropdown, newest urgency first, with a combined count badge.
@@ -101,6 +120,13 @@ export function NotificationsMenu() {
   const router = useRouter();
   const { meetings, documents, isLoading } = useHeaderNotifications();
   const { isDismissed, dismiss } = useDismissedNotifications();
+  const {
+    items: appNotifications,
+    unreadCount,
+    isLoading: appNotificationsLoading,
+    markRead,
+    markAllRead,
+  } = useNotifications();
   const [open, setOpen] = useState(false);
 
   // Rows the user has closed are filtered out before anything is counted, so the
@@ -120,7 +146,11 @@ export function NotificationsMenu() {
     [documents, isDismissed],
   );
 
-  const totalCount = visibleMeetings.length + visibleDocuments.length;
+  const totalCount =
+    visibleMeetings.length + visibleDocuments.length + unreadCount;
+  // Show the loading state until BOTH sources have answered once, so the menu never
+  // flashes "nothing needs your attention" before the persisted feed arrives.
+  const loading = isLoading || appNotificationsLoading;
 
   const handleMeetingClick = (reminder: MeetingReminder) => {
     // Plan id FIRST, and deliberately on its own. The meetings page resolves a
@@ -171,6 +201,12 @@ export function NotificationsMenu() {
     handleDocumentClick(document);
   };
 
+  const handleNotificationSelect = (notification: AppNotification) => {
+    setOpen(false);
+    if (!notification.readAt) markRead(notification.id);
+    if (notification.href) router.push(notification.href);
+  };
+
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
@@ -215,7 +251,7 @@ export function NotificationsMenu() {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
 
-        {isLoading ? (
+        {loading ? (
           <div className="px-2 py-4 text-center text-sm text-muted-foreground">
             Loading notifications...
           </div>
@@ -224,11 +260,77 @@ export function NotificationsMenu() {
             <Bell className="h-8 w-8 mx-auto mb-2 text-gray-300" />
             <p>Nothing needs your attention right now</p>
             <p className="text-xs mt-1">
-              Meeting reminders and document expiration alerts will appear here
+              Team updates, meeting reminders and document expiration alerts will
+              appear here
             </p>
           </div>
         ) : (
           <div className="max-h-[420px] w-full min-w-0 overflow-y-auto overflow-x-hidden py-1">
+            {/* Team — persisted, per-user notifications (read state on the server). */}
+            <div className="w-full min-w-0 px-2">
+              <div className="flex w-full min-w-0 items-center justify-between gap-2 px-2 py-1.5">
+                <div className="flex min-w-0 items-center gap-1.5">
+                  <UserPlus className="h-3 w-3 shrink-0 text-muted-foreground" />
+                  <span className={SECTION_LABEL_CLASS}>Team</span>
+                </div>
+                {unreadCount > 0 ? (
+                  <button
+                    type="button"
+                    onClick={markAllRead}
+                    className="shrink-0 text-[10px] font-medium text-accent-blue hover:underline"
+                  >
+                    Mark all read
+                  </button>
+                ) : appNotifications.length > 0 ? (
+                  <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
+                    {appNotifications.length}
+                  </span>
+                ) : null}
+              </div>
+              {appNotifications.length === 0 ? (
+                <p className="px-2 pb-2 text-xs text-muted-foreground">
+                  No new team activity.
+                </p>
+              ) : (
+                appNotifications.map((notification) => (
+                  <DropdownMenuItem
+                    key={notification.id}
+                    className="flex w-full min-w-0 items-start gap-2 p-3 cursor-pointer"
+                    onSelect={() => handleNotificationSelect(notification)}
+                  >
+                    <span
+                      className={cn(
+                        "mt-1.5 h-2 w-2 shrink-0 rounded-full",
+                        notification.readAt ? "bg-transparent" : "bg-accent-blue",
+                      )}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p
+                        className={cn(
+                          "truncate text-sm",
+                          notification.readAt
+                            ? "text-muted-foreground"
+                            : "font-medium",
+                        )}
+                      >
+                        {notification.title}
+                      </p>
+                      {notification.body ? (
+                        <p className="truncate text-xs text-muted-foreground">
+                          {notification.body}
+                        </p>
+                      ) : null}
+                      <p className="mt-0.5 text-[10px] text-muted-foreground">
+                        {formatNotificationWhen(notification.createdAt)}
+                      </p>
+                    </div>
+                  </DropdownMenuItem>
+                ))
+              )}
+            </div>
+
+            <DropdownMenuSeparator />
+
             {/* Meetings */}
             <div className="w-full min-w-0 px-2">
               <div className="flex w-full min-w-0 items-center justify-between gap-2 px-2 py-1.5">

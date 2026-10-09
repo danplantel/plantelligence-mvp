@@ -147,6 +147,8 @@ import { PRIMARY_SERVICE_CATEGORY_OPTIONS } from "@/lib/service-categories";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { MISSION_STATEMENT_PRESETS } from "@/components/wizard/new-client-steps/constants/welcome-statements";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { CommentAnchor } from "@/components/comments/comment-anchor";
+import { useCommentSurface } from "@/components/comments/comment-mode-provider";
 import type {
   CompanyBasicsData,
   CompanyLogoData,
@@ -3036,6 +3038,14 @@ export default function EditClientPage() {
   // The API refuses anyone else regardless of what is rendered.
   const { canManageTeam } = useViewerAccess();
 
+  // Comments: the whole plan is a comment surface, anchored per tab (see the
+  // CommentAnchor around <Tabs> below). A saved plan — including a Draft — always exists.
+  useCommentSurface({
+    clientId: clientId || "",
+    targetType: "plan",
+    persisted: true,
+  });
+
   const [activeTab, setActiveTab] = useState<EditTabId>("company");
   // Deep links may target a tab, e.g. "/edit-client/<id>?tab=disclaimers" from the
   // dashboard's Needs Attention panel, or "?tab=contacts" from the client list. Read via
@@ -4225,6 +4235,11 @@ export default function EditClientPage() {
 
         {/* Tab Content */}
         <div className="mx-auto max-w-5xl px-4">
+          {/* One anchor keyed to the active tab: section-level comments are per tab. */}
+          <CommentAnchor
+            sectionKey={activeTab}
+            label={EDIT_TABS.find((tab) => tab.id === activeTab)?.label}
+          >
           <Tabs
             value={activeTab}
             onValueChange={(val) => setActiveTab(val as EditTabId)}
@@ -5404,6 +5419,7 @@ export default function EditClientPage() {
               )}
             </TabsContent>
           </Tabs>
+          </CommentAnchor>
         </div>
 
         {/* Invite Collaborator — the same dialog the Create Plan wizard, Add/Edit
@@ -5521,8 +5537,11 @@ export default function EditClientPage() {
         />
       </div>
 
-      {/* Fixed Save Button Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-lg">
+      {/* Fixed Save Button Bar — `right` clears the Comments rail while it is open. */}
+      <div
+        className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-lg"
+        style={{ right: "var(--comments-inset, 0px)" }}
+      >
         <div
           className={cn(
             "px-4 py-4 flex justify-end gap-3 transition-all duration-200",

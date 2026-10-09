@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { NotificationsMenu } from "./notifications-menu";
+import { CommentsToggle } from "@/components/comments/comments-toggle";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { useEffect, useState, type ReactNode } from "react";
 import { useTheme } from "next-themes";
@@ -259,6 +260,7 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
               : "flex-none ml-auto shrink-0",
           )}
         >
+          <CommentsToggle />
           <NotificationsMenu />
           {/* Light/Dark toggle sits immediately beside the notifications bell — both
               are compact icon buttons, so they read as a single control cluster. */}

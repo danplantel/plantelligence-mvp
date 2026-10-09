@@ -35,6 +35,7 @@ import {
 } from "@/lib/organization";
 import { activateProfile, updateTeammateProfile } from "./profiles.server";
 import type { UpdateTeammateProfileInput } from "./profiles.server";
+import { notifyTeamMemberAccepted } from "@/lib/notifications/notifications.server";
 import { isInviteExpired } from "./seats.server";
 import { verifyInviteToken } from "./invite-token.server";
 import type { TeammatePersonType } from "@/types/teammate";
@@ -568,6 +569,21 @@ export async function acceptInvitation(
   const anchored = await anchorTeammateUserToInvitingOrganization(loginUserId);
   if (!anchored) {
     await getOrCreateOrganizationForUser(loginUserId);
+  }
+
+  // Tell the organization's internal members (Owner/Admins/Editors/Viewers) that a
+  // Team Member arrived. Best-effort: a notification failure must never undo an
+  // accepted invitation, so it is caught and logged rather than thrown.
+  if (view.personType === "team_member") {
+    try {
+      await notifyTeamMemberAccepted({
+        organizationId,
+        profileId,
+        actorUserId: loginUserId,
+      });
+    } catch (error) {
+      console.error("[teammates/accept-invite] notification failed", error);
+    }
   }
 
   return {

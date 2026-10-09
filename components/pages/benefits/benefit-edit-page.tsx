@@ -39,6 +39,9 @@ import {
   BenefitsStep5,
 } from "@/components/wizard/benefits-steps";
 import { EditBenefitPreviewSection } from "@/components/pages/benefits/edit-benefit-preview-section";
+import { CommentAnchor } from "@/components/comments/comment-anchor";
+import { CommentableField } from "@/components/comments/commentable-field";
+import { useCommentSurface } from "@/components/comments/comment-mode-provider";
 
 /**
  * Edit Benefit tabs — mirrors the Edit Plan page (`/edit-client/[id]`): the tab
@@ -125,6 +128,15 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
     customNameEditedRef.current = false;
     setStep1Ready(false);
   }, [planId, category]);
+
+  // Comments: this page is the comment surface for this benefit category. A Benefit row
+  // may not exist yet, but threads key off (plan, category), so commenting is available.
+  useCommentSurface({
+    clientId: planId,
+    targetType: "benefit",
+    category,
+    persisted: true,
+  });
 
   /**
    * Load the Custom benefit's SAVED name straight from its Benefit row.
@@ -523,6 +535,7 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
                 edit mode, so a Custom benefit could not be renamed from this page at all. Only the
                 Custom hub gets it: every canonical category names itself. */}
             <TabsContent value="branding" className="mt-0">
+              <CommentAnchor sectionKey="branding" label="Branding" className="space-y-6">
               {isCustomHubCategory(category) && step1Ready && (
                 <Card className="mb-4 border-gray-200 shadow-sm dark:border-gray-700 dark:bg-gray-800">
                   <CardContent className="pt-5">
@@ -533,17 +546,22 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
                       >
                         Custom Benefit Name <span className="text-red-500">*</span>
                       </Label>
-                      <Input
-                        id="custom-benefit-name"
-                        value={customBenefitName}
-                        onChange={(e) => handleCustomNameChange(e.target.value)}
-                        placeholder="e.g. Disability Insurance, Wellness Program, HSA..."
-                        data-field="benefitTitle"
-                        // Same cap as the wizard's Custom Category Name and the Messaging Intro
-                        // Headline — all three write `Benefit.title`.
-                        maxLength={BENEFIT_TITLE_MAX_LENGTH}
-                        className="h-10"
-                      />
+                      <CommentableField
+                        sectionKey="branding"
+                        fieldKey="benefitTitle"
+                      >
+                        <Input
+                          id="custom-benefit-name"
+                          value={customBenefitName}
+                          onChange={(e) => handleCustomNameChange(e.target.value)}
+                          placeholder="e.g. Disability Insurance, Wellness Program, HSA..."
+                          data-field="benefitTitle"
+                          // Same cap as the wizard's Custom Category Name and the Messaging Intro
+                          // Headline — all three write `Benefit.title`.
+                          maxLength={BENEFIT_TITLE_MAX_LENGTH}
+                          className="h-10"
+                        />
+                      </CommentableField>
                       <div className="flex items-center justify-between gap-2">
                         <p className="text-xs text-muted-foreground">
                           The name shown for this benefit in the Benefits list and on the
@@ -567,13 +585,16 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
                 </Card>
               )}
               <BenefitsStep1 mode="edit" onReady={() => setStep1Ready(true)} />
+              </CommentAnchor>
             </TabsContent>
 
             {/* Preview — live portal preview + inline Editing Panel, scaled down
                 while the panel is open (mirrors Edit Plan's Preview tab). */}
             <TabsContent value="preview" className="mt-0">
-              {/* Save lives in the fixed bottom action bar, not the toolbar. */}
-              <EditBenefitPreviewSection />
+              <CommentAnchor sectionKey="preview" label="Preview">
+                {/* Save lives in the fixed bottom action bar, not the toolbar. */}
+                <EditBenefitPreviewSection />
+              </CommentAnchor>
             </TabsContent>
 
             {/* Contacts shows ONLY the support team (Step 3). Step 1's "Key Contact"
@@ -587,19 +608,27 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
                 prefill, debounced auto-save) keep running and Step 3 sees the same
                 state it did when both were rendered. */}
             <TabsContent value="contacts" className="mt-0 space-y-6">
-              <BenefitsStep3 section="contacts" />
+              <CommentAnchor sectionKey="contacts" label="Contacts">
+                <BenefitsStep3 section="contacts" />
+              </CommentAnchor>
             </TabsContent>
 
             <TabsContent value="faqs" className="mt-0">
-              <BenefitsStep3 section="faqs" />
+              <CommentAnchor sectionKey="faqs" label="FAQs">
+                <BenefitsStep3 section="faqs" />
+              </CommentAnchor>
             </TabsContent>
 
             <TabsContent value="documents" className="mt-0">
-              <BenefitsStep4 />
+              <CommentAnchor sectionKey="documents" label="Documents">
+                <BenefitsStep4 />
+              </CommentAnchor>
             </TabsContent>
 
             <TabsContent value="disclaimers" className="mt-0">
-              <BenefitsStep5 />
+              <CommentAnchor sectionKey="disclaimers" label="Disclaimers">
+                <BenefitsStep5 />
+              </CommentAnchor>
             </TabsContent>
           </Tabs>
         )}
@@ -612,9 +641,11 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
       {/* `data-bottom-action-bar` lets the Preview tab measure this bar and end its
           fixed preview area above it, instead of the bar painting over the last
           section of the portal preview (see EditBenefitPreviewSection). */}
+      {/* `right` clears the Comments rail while it is open. */}
       <div
         data-bottom-action-bar
         className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-lg"
+        style={{ right: "var(--comments-inset, 0px)" }}
       >
         <div
           className={cn(

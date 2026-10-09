@@ -19,6 +19,8 @@ import {
 import { isDuplicatePlanNameError } from "@/lib/duplicate-plan-name-error";
 import { hasReachableMethod } from "@/lib/contact-form-copy";
 import { DuplicatePlanNameDialog } from "@/components/wizard/duplicate-plan-name-dialog";
+import { CommentAnchor } from "@/components/comments/comment-anchor";
+import { useCommentSurface } from "@/components/comments/comment-mode-provider";
 import { validateNewClientCurrentStepV2 } from "@/lib/new-client-wizard-validation-v2";
 import { toast } from "sonner";
 
@@ -66,6 +68,15 @@ export function NewClientWizard({
     resolveDuplicatePlanOverwrite,
     resolveDuplicatePlanSaveAsNew,
   } = useNewClientWizardStore();
+
+  // Comments: available once the wizard has persisted a Draft client row — there is no
+  // id to anchor a thread to before that, so the toggle appears when the draft exists.
+  const draftClientId = useNewClientWizardStore((s) => s.draftClientId);
+  useCommentSurface(
+    draftClientId
+      ? { clientId: draftClientId, targetType: "plan", persisted: true }
+      : null,
+  );
 
   // Contacts for Step 3 — gate the Next button until at least one contact exists
   const contactsOnStep3 = stepData.keyContacts?.contacts || [];
@@ -578,14 +589,21 @@ export function NewClientWizard({
       />
       <div className="mx-10 py-4">
         <div ref={contentRef} className="mb-12">
-          {children}
+          <CommentAnchor
+            sectionKey={`step-${currentStep}`}
+            label={`Step ${currentStep}`}
+          >
+            {children}
+          </CommentAnchor>
         </div>
 
         <div
           className="fixed bottom-0 bg-background border-t z-50 dark:border-gray-700"
           style={{
             left: "var(--sidebar-width, 0)",
-            width: "calc(100% - var(--sidebar-width, 0))",
+            // `--comments-inset` clears the right-hand Comments rail while it is open.
+            width:
+              "calc(100% - var(--sidebar-width, 0) - var(--comments-inset, 0px))",
             transition: "left 200ms ease-in-out, width 200ms ease-in-out",
           }}
         >

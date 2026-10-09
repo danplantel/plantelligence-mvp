@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { LoadingButton } from "@/components/ui/loading-button";
+import { CommentAnchor } from "@/components/comments/comment-anchor";
 
 export interface WizardStep {
     id: number;
@@ -147,14 +148,21 @@ export function BenefitsWizard({
     return (
         <div className="mx-10 py-4 min-h-screen duration-300 ease-in-out">
             <div ref={contentRef} className="max-w-4xl mx-auto mb-12">
-                {children}
+                <CommentAnchor
+                    sectionKey={`step-${currentStep}`}
+                    label={`Step ${currentStep}`}
+                >
+                    {children}
+                </CommentAnchor>
             </div>
 
             <div
                 className="fixed bottom-0 bg-background border-t z-50 transition-all duration-300 ease-in-out"
                 style={{
                     left: "var(--sidebar-width, 0)",
-                    width: "calc(100% - var(--sidebar-width, 0))",
+                    // `--comments-inset` clears the right-hand Comments rail while it is open.
+                    width:
+                        "calc(100% - var(--sidebar-width, 0) - var(--comments-inset, 0px))",
                 }}
             >
                 <div

@@ -33,6 +33,7 @@ import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { PublishingAttestationDialog } from "@/components/wizard/benefits-steps/publishing-attestation-dialog";
+import { useCommentSurface } from "@/components/comments/comment-mode-provider";
 
 /**
  * Drop the persisted Create Benefits draft from localStorage without touching the
@@ -103,6 +104,19 @@ function NewBenefitsPageInner() {
   const categoryParam = categoryRaw
     ? decodeURIComponent(categoryRaw.replace(/\+/g, " "))
     : null;
+
+  // Comments: Create Benefit is a comment surface for (plan, category). Once a planId is
+  // in the URL the plan exists; a Benefit row is not required to attach a thread.
+  useCommentSurface(
+    planIdParam
+      ? {
+          clientId: planIdParam,
+          targetType: "benefit",
+          category: categoryParam,
+          persisted: true,
+        }
+      : null,
+  );
 
   const {
     currentStep,

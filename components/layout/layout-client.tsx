@@ -15,6 +15,8 @@ import {
 } from "@/hooks/useViewerAccess";
 import { mayUsePath } from "@/lib/teammates/nav-access";
 import { DesktopOnlyGate } from "@/components/desktop-only-gate";
+import { CommentModeProvider } from "@/components/comments/comment-mode-provider";
+import { CommentsRail } from "@/components/comments/comments-rail";
 
 interface NewLayoutClientProps {
   children: React.ReactNode;
@@ -105,7 +107,7 @@ export function NewLayoutClient({
   return (
     <DesktopOnlyGate variant="dashboard">
       <SWRConfig value={{ fallback: { [VIEWER_ACCESS_KEY]: viewerAccess } }}>
-      <>
+      <CommentModeProvider>
         <Header
           stepper={stepperElement}
           stepTitle={stepTitle}
@@ -119,6 +121,10 @@ export function NewLayoutClient({
               // (`--editor-inset` is only set by the Preview pages).
               marginLeft:
                 "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
+              // Reserves the right-hand Comments rail's column while it is open.
+              // Pages with their own fixed bars still subtract `--comments-inset`
+              // themselves (see plans/plan-benefit-comments.md).
+              paddingRight: "var(--comments-inset, 0px)",
             }}
           >
             {canUseThisPage ? (
@@ -137,7 +143,8 @@ export function NewLayoutClient({
             )}
           </main>
         </div>
-      </>
+        <CommentsRail />
+      </CommentModeProvider>
       </SWRConfig>
     </DesktopOnlyGate>
   );

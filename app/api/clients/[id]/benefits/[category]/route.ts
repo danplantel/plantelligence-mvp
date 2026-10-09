@@ -497,6 +497,20 @@ export async function DELETE(
         },
       });
 
+      // Benefit-scoped comment threads are keyed by (clientId, category) rather than a
+      // Benefit FK, so the delete above does NOT take them with it. Drop the purged
+      // category's threads explicitly, matching the normalized key the comments module
+      // stores. Deleting the thread cascades its messages.
+      await prisma.commentThread.deleteMany({
+        where: {
+          clientId: client!.id,
+          benefitCategory: String(category ?? "")
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, " "),
+        },
+      });
+
       try {
         const existingEp: any = (client as any).employeePortalPreview;
         if (existingEp && Array.isArray(existingEp.benefits)) {

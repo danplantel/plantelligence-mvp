@@ -138,6 +138,7 @@ model User {
   futureContacts    FutureContact[]   @relation("UserFutureContacts")
   meetingCustomTypes MeetingCustomType[]
   tasks             Task[]
+  notifications     Notification[]
 }
 
 // Advisor-authored dashboard tasks. System-generated tasks are derived from plan state at
@@ -159,6 +160,43 @@ model Task {
 
   @@index([userId])
   @@index([userId, done])
+}
+
+// In-app notifications (persisted, per-user read/unread).
+//
+// The header bell's other two sources (meeting reminders, expiring documents) are
+// DERIVED from plan state on each fetch and dismissed client-side. These are the
+// opposite: written once, addressed to a specific User, and carrying their own read
+// state, so a notification survives a reload and is per-person rather than
+// per-device. `userId` is a real relation with `onDelete: Cascade` so deleting the
+// account takes its notifications with it — the teammate models keep plain scalars
+// only because they predate real relations.
+model Notification {
+  id             String @id @default(cuid())
+  organizationId String
+  userId         String
+  user           User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Machine-readable kind (e.g. "team_member_accepted") so the UI can pick an icon
+  // and a section without parsing prose.
+  type  String
+  title String
+  body  String?
+  // Where clicking the row goes; null when the notification is informational only.
+  href  String?
+
+  // The person the notification is ABOUT (a TeammateProfile id), when there is one.
+  profileId   String?
+  // The User who caused it, when there is a human actor.
+  actorUserId String?
+
+  // NULL means unread. A timestamp rather than a boolean, so WHEN it was read survives.
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@index([userId, createdAt])
+  @@index([organizationId, createdAt])
 }
 
 // Plan model
@@ -834,6 +872,7 @@ model Client {
   @@index([organizationId])
   @@index([status])
   benefits Benefit[]
+  commentThreads CommentThread[]
 }
 
 // Benefit model — one row per (clientId, category)
@@ -909,6 +948,70 @@ model Benefit {
   @@unique([clientId, category])
   @@index([clientId])
   @@index([category])
+}
+
+// A comment thread anchored to a section, or a selected text range, of a Plan
+// (Client) or a Benefit (Client + category).
+//
+// Deliberately NOT keyed to a `Benefit.id`: a Benefit row is replaced/re-saved by
+// category over the app's life, so `clientId + benefitCategory` is the stable
+// identity a thread can survive. `targetType` tells the two surfaces apart.
+//
+// The anchor is SEMANTIC, never a DOM coordinate: `sectionKey` is a stable key the
+// region renders (e.g. "company", "disclaimers", "benefit:faqs"), and a text anchor
+// adds the field plus the selection offsets and the selected `quote`. See
+// plans/plan-benefit-comments.md.
+model CommentThread {
+  id             String @id @default(cuid())
+  organizationId String
+  clientId       String
+  // "plan" | "benefit".
+  targetType String
+  // Normalized category key when `targetType` is "benefit"; null for a plan thread.
+  benefitCategory String?
+
+  // "section" | "text".
+  anchorKind String
+  sectionKey String
+  // Text anchors only: the field the range lives in, its offsets, and the selected text.
+  fieldKey   String?
+  rangeStart Int?
+  rangeEnd   Int?
+  quote      String?
+
+  resolvedAt       DateTime?
+  resolvedByUserId String?
+  createdByUserId  String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  // Real relation with cascade: deleting a plan takes its threads with it. The
+  // author ids stay plain scalars so a deleted login does not erase the history —
+  // the UI renders a "Removed user" fallback instead.
+  client   Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  messages CommentMessage[]
+
+  @@index([organizationId, clientId])
+  @@index([clientId, benefitCategory])
+  @@index([clientId, resolvedAt])
+}
+
+// One message in a `CommentThread`. The opening post is the thread's first message.
+model CommentMessage {
+  id           String    @id @default(cuid())
+  threadId     String
+  authorUserId String
+  body         String
+  // Mentioned User ids, parsed at write time so the notification pass does not re-parse.
+  mentions  String[]  @default([])
+  // Soft delete keeps a thread readable after a message is withdrawn.
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  thread CommentThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
 }
 
 // Meeting model
