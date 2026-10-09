@@ -18,7 +18,6 @@ import { cn } from "@/lib/utils";
 import {
   GENERAL_SECTION_KEY,
   MAX_COMMENT_LENGTH,
-  type CommentAnchorInput,
   type CommentMessageView,
   type CommentThreadView,
 } from "@/lib/comments/types";
@@ -26,15 +25,6 @@ import { useCommentMode } from "./comment-mode-provider";
 import { MentionTextarea } from "./mention-textarea";
 
 type ThreadFilter = "open" | "resolved" | "all";
-
-/** "benefit:faqs" / "key-contacts" → a readable label. */
-function humanizeSectionKey(key: string): string {
-  return key
-    .replace(/[:]/g, " \u203a ")
-    .replace(/[-_]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
 
 function relativeTime(iso: string): string {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
@@ -61,14 +51,11 @@ function messageAuthorName(
 function MessageRow({
   message,
   currentUserId,
-  onDelete,
 }: {
   message: CommentMessageView;
   currentUserId: string | null;
-  onDelete: () => void;
 }) {
   const name = messageAuthorName(message, currentUserId);
-  const isOwn = Boolean(currentUserId) && message.authorUserId === currentUserId;
 
   return (
     <li className="flex gap-2">
@@ -86,17 +73,6 @@ function MessageRow({
           <span className="shrink-0 text-[10px] text-muted-foreground">
             {relativeTime(message.createdAt)}
           </span>
-          {isOwn && !message.deletedAt ? (
-            <button
-              type="button"
-              onClick={onDelete}
-              className="ml-auto shrink-0 text-muted-foreground transition-colors hover:text-red-600"
-              aria-label="Delete this comment"
-              title="Delete this comment"
-            >
-              <Trash2 className="h-3 w-3" />
-            </button>
-          ) : null}
         </div>
         <p
           className={cn(
@@ -114,18 +90,15 @@ function MessageRow({
 function ThreadCard({
   thread,
   active,
-  unanchored,
 }: {
   thread: CommentThreadView;
   active: boolean;
-  unanchored: boolean;
 }) {
   const {
     currentUserId,
     reply,
     setResolved,
     deleteThread,
-    deleteMessage,
     mentionable,
     setActiveThreadId,
   } = useCommentMode();
@@ -166,54 +139,17 @@ function ThreadCard({
           : "border-border bg-background",
       )}
     >
-      <button
-        type="button"
-        onClick={() => setActiveThreadId(active ? null : thread.id)}
-        className="w-full text-left"
-      >
-        <div className="flex items-center justify-between gap-2">
-          <span className="truncate text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            {humanizeSectionKey(thread.sectionKey)}
-          </span>
-          {thread.resolvedAt ? (
-            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-              Resolved
-            </span>
-          ) : null}
-        </div>
-        {unanchored ? (
-          <span className="mt-1 inline-block rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
-            Unanchored
+      {/* Card toolbar — Resolve/Reopen + Delete, top-right. */}
+      <div className="flex items-center justify-end gap-0.5">
+        {thread.resolvedAt ? (
+          <span className="mr-auto rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+            Resolved
           </span>
         ) : null}
-        {thread.quote ? (
-          <p className="mt-1 line-clamp-2 border-l-2 border-amber-300 pl-2 text-[11px] italic text-muted-foreground">
-            {thread.quote}
-          </p>
-        ) : null}
-      </button>
-
-      <ul className="mt-2 space-y-2">
-        {thread.messages.map((message) => (
-          <MessageRow
-            key={message.id}
-            message={message}
-            currentUserId={currentUserId}
-            onDelete={() =>
-              void run(
-                () => deleteMessage(message.id, thread.id),
-                "Could not delete the comment.",
-              )
-            }
-          />
-        ))}
-      </ul>
-
-      <div className="mt-2 flex items-center gap-1">
         <Button
           variant="ghost"
-          size="sm"
-          className="h-7 px-2 text-[11px]"
+          size="icon"
+          className="h-6 w-6 rounded-full text-muted-foreground hover:text-accent-blue"
           disabled={busy}
           onClick={() =>
             void run(
@@ -221,33 +157,52 @@ function ThreadCard({
               "Could not update the thread.",
             )
           }
+          aria-label={thread.resolvedAt ? "Reopen this thread" : "Resolve this thread"}
+          title={thread.resolvedAt ? "Reopen" : "Resolve"}
         >
           {thread.resolvedAt ? (
-            <>
-              <RotateCcw className="mr-1.5 h-3.5 w-3.5" />
-              Reopen
-            </>
+            <RotateCcw className="h-3.5 w-3.5" />
           ) : (
-            <>
-              <Check className="mr-1.5 h-3.5 w-3.5" />
-              Resolve
-            </>
+            <Check className="h-3.5 w-3.5" />
           )}
         </Button>
         {canDeleteThread ? (
           <Button
             variant="ghost"
-            size="sm"
-            className="h-7 px-2 text-[11px] text-muted-foreground hover:text-red-600"
+            size="icon"
+            className="h-6 w-6 rounded-full text-muted-foreground hover:text-red-600"
             disabled={busy}
             onClick={() =>
               void run(() => deleteThread(thread.id), "Could not delete the thread.")
             }
+            aria-label="Delete this thread"
+            title="Delete"
           >
-            <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-            Delete
+            <Trash2 className="h-3.5 w-3.5" />
           </Button>
         ) : null}
+      </div>
+
+      <ul className="mt-2 space-y-2">
+        {thread.messages.map((message) => (
+          <MessageRow
+            key={message.id}
+            message={message}
+            currentUserId={currentUserId}
+          />
+        ))}
+      </ul>
+
+      <div className="mt-2 flex items-center">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7 px-2 text-[11px]"
+          disabled={busy}
+          onClick={() => setActiveThreadId(active ? null : thread.id)}
+        >
+          {active ? "Hide reply" : "Reply"}
+        </Button>
       </div>
 
       {active ? (
@@ -282,46 +237,26 @@ function ThreadCard({
   );
 }
 
-/** Readable label for a composer target. */
-function targetLabel(anchor: CommentAnchorInput): string {
-  if (
-    anchor.anchorKind === "section" &&
-    anchor.sectionKey === GENERAL_SECTION_KEY
-  ) {
-    return "General";
-  }
-  return humanizeSectionKey(anchor.sectionKey);
-}
-
 /**
  * The rail's PERSISTENT composer: always visible while the panel is open, so adding a
- * comment starts here rather than from a floating button on the page. The target defaults
- * to the whole surface ("General"); selecting text or clicking a section re-aims it, and
- * the chip's ✕ returns it to General.
+ * comment starts here rather than from a floating button on the page. Comments are not
+ * anchored to a page section, so every post is a plain comment on the whole plan/benefit.
  */
 function RailComposer() {
-  const {
-    composerAnchor,
-    resetComposerTarget,
-    createThread,
-    mentionable,
-    isMutating,
-  } = useCommentMode();
+  const { createThread, mentionable, isMutating } = useCommentMode();
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-
-  const isGeneral =
-    composerAnchor.anchorKind === "section" &&
-    composerAnchor.sectionKey === GENERAL_SECTION_KEY;
 
   const submit = async () => {
     const body = text.trim();
     if (!body) return;
     setBusy(true);
     try {
-      await createThread(composerAnchor, body);
+      await createThread(
+        { anchorKind: "section", sectionKey: GENERAL_SECTION_KEY },
+        body,
+      );
       setText("");
-      resetComposerTarget();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Could not add comment.");
     } finally {
@@ -331,40 +266,12 @@ function RailComposer() {
 
   return (
     <div className="rounded-lg border border-border bg-muted/30 p-3">
-      <div className="flex items-center gap-2">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          New comment
-        </span>
-        <span className="inline-flex min-w-0 items-center gap-1 rounded-full bg-accent-blue/10 px-2 py-0.5 text-[10px] font-medium text-accent-blue">
-          <span className="truncate">{targetLabel(composerAnchor)}</span>
-          {isGeneral ? null : (
-            <button
-              type="button"
-              onClick={resetComposerTarget}
-              className="shrink-0 rounded-full hover:bg-accent-blue/20"
-              aria-label="Clear the target and comment on the whole plan instead"
-              title="Clear the target"
-            >
-              <X className="h-3 w-3" />
-            </button>
-          )}
-        </span>
-      </div>
-      {composerAnchor.anchorKind === "text" && composerAnchor.quote ? (
-        <p className="mt-1 line-clamp-2 border-l-2 border-amber-300 pl-2 text-[11px] italic text-muted-foreground">
-          {composerAnchor.quote}
-        </p>
-      ) : null}
       <MentionTextarea
         value={text}
         onValueChange={setText}
         mentionable={mentionable}
-        placeholder={
-          isGeneral
-            ? "Write a comment…"
-            : `Comment on ${targetLabel(composerAnchor)}…`
-        }
-        className="mt-2 min-h-[64px] text-xs"
+        placeholder="Write a comment…"
+        className="min-h-[64px] text-xs"
         maxLength={MAX_COMMENT_LENGTH}
         onSubmit={submit}
       />
@@ -390,9 +297,7 @@ function RailComposer() {
 /**
  * The right-hand Comments rail: a PERSISTENT composer, an open/resolved filter, and a
  * thread card per thread (messages, reply, resolve/reopen, delete). The composer is the
- * single entry point for new comments — its target defaults to the whole surface
- * ("General") and is re-aimed by selecting text or clicking a section. Threads whose
- * section is not currently rendered are grouped as "Unanchored" rather than disappearing.
+ * single entry point for new comments; comments are not anchored to a page section.
  */
 export function CommentsRail() {
   const {
@@ -404,28 +309,21 @@ export function CommentsRail() {
     error,
     activeThreadId,
     refresh,
-    sectionKeys,
   } = useCommentMode();
 
   const [filter, setFilter] = useState<ThreadFilter>("open");
 
-  const anchored = useMemo(() => {
-    // "General" is the whole-surface target and is always considered rendered.
-    const keys = new Set([...sectionKeys, GENERAL_SECTION_KEY]);
-    return threads.filter((thread) => keys.has(thread.sectionKey));
-  }, [threads, sectionKeys]);
-
-  const unanchored = useMemo(() => {
-    const keys = new Set([...sectionKeys, GENERAL_SECTION_KEY]);
-    return threads.filter((thread) => !keys.has(thread.sectionKey));
-  }, [threads, sectionKeys]);
-
-  const visible = useMemo(() => {
-    const matches = (thread: CommentThreadView) =>
-      filter === "all" ||
-      (filter === "open" ? !thread.resolvedAt : Boolean(thread.resolvedAt));
-    return [...anchored.filter(matches), ...unanchored.filter(matches)];
-  }, [anchored, unanchored, filter]);
+  const visible = useMemo(
+    () =>
+      threads.filter(
+        (thread) =>
+          filter === "all" ||
+          (filter === "open"
+            ? !thread.resolvedAt
+            : Boolean(thread.resolvedAt)),
+      ),
+    [threads, filter],
+  );
 
   // Keep relative timestamps honest ("just now" must not freeze), and reveal a selected
   // thread even when the current filter would hide it — e.g. a resolved thread opened
@@ -492,11 +390,6 @@ export function CommentsRail() {
         ))}
       </div>
 
-      {/* Persistent composer — pinned above the scrolling thread list. */}
-      <div className="shrink-0 border-b border-border p-3">
-        <RailComposer />
-      </div>
-
       {isLoading ? (
         <div className="flex flex-1 items-center justify-center gap-2 text-sm text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -522,7 +415,7 @@ export function CommentsRail() {
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {threads.length === 0
-                    ? "Write the first comment above — or click a section to aim it there."
+                    ? "Write the first comment below."
                     : "No threads match this filter."}
                 </p>
               </div>
@@ -532,16 +425,18 @@ export function CommentsRail() {
                   key={thread.id}
                   thread={thread}
                   active={thread.id === activeThreadId}
-                  unanchored={
-                    thread.sectionKey !== GENERAL_SECTION_KEY &&
-                    !sectionKeys.includes(thread.sectionKey)
-                  }
                 />
               ))
             )}
           </div>
         </div>
       )}
+
+      {/* Persistent composer — pinned to the BOTTOM of the panel, chat-style, so the
+          thread list scrolls above it. */}
+      <div className="shrink-0 border-t border-border p-3">
+        <RailComposer />
+      </div>
     </aside>
   );
 }

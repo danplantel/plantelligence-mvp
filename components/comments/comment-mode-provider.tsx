@@ -16,12 +16,11 @@ import {
   type CommentTarget,
 } from "@/hooks/useCommentThreads";
 import { useCommentsLayout } from "@/lib/comments/comments-layout";
-import {
-  GENERAL_SECTION_KEY,
-  type CommentAnchorInput,
-  type CommentTargetType,
-  type CommentThreadView,
-  type MentionableUser,
+import type {
+  CommentAnchorInput,
+  CommentTargetType,
+  CommentThreadView,
+  MentionableUser,
 } from "@/lib/comments/types";
 
 /** localStorage key holding the reader's Comments on/off preference. */
@@ -64,13 +63,6 @@ interface CommentModeValue {
 
   activeThreadId: string | null;
   setActiveThreadId: (id: string | null) => void;
-  /**
-   * Where the rail's persistent composer will post. Defaults to the whole-surface
-   * "General" target; selecting text or clicking a section re-aims it.
-   */
-  composerAnchor: CommentAnchorInput;
-  setComposerTarget: (anchor: CommentAnchorInput) => void;
-  resetComposerTarget: () => void;
 
   createThread: (anchor: CommentAnchorInput, body: string) => Promise<void>;
   reply: (threadId: string, body: string) => Promise<void>;
@@ -82,22 +74,11 @@ interface CommentModeValue {
 
   /** The signed-in user's id, so the rail can label its own messages "You". */
   currentUserId: string | null;
-  /** Section keys currently rendered on the page, for the rail's "Unanchored" group. */
-  sectionKeys: string[];
-  registerSection: (key: string) => void;
-  unregisterSection: (key: string) => void;
 
-  /** Internal: used by `useCommentSurface` to declare the active page's surface. */
   registerSurface: (next: CommentSurfaceInput | null) => void;
 }
 
 const CommentModeContext = createContext<CommentModeValue | null>(null);
-
-/** The whole-surface target a fresh composer starts on. */
-const GENERAL_ANCHOR: CommentAnchorInput = {
-  anchorKind: "section",
-  sectionKey: GENERAL_SECTION_KEY,
-};
 
 export function CommentModeProvider({
   children,
@@ -107,19 +88,8 @@ export function CommentModeProvider({
   const [surface, setSurface] = useState<CommentSurfaceInput | null>(null);
   const [mode, setModeState] = useState<CommentMode>("off");
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
-  const [composerAnchor, setComposerAnchor] =
-    useState<CommentAnchorInput>(GENERAL_ANCHOR);
-  const [sectionKeys, setSectionKeys] = useState<string[]>([]);
-
   const { data: session } = useSession();
   const currentUserId = session?.user?.id ?? null;
-
-  const registerSection = useCallback((key: string) => {
-    setSectionKeys((prev) => (prev.includes(key) ? prev : [...prev, key]));
-  }, []);
-  const unregisterSection = useCallback((key: string) => {
-    setSectionKeys((prev) => prev.filter((entry) => entry !== key));
-  }, []);
 
   // Restore the reader's preference once on the client. Absent/blocked storage just
   // leaves comments off.
@@ -192,11 +162,9 @@ export function CommentModeProvider({
     }
   }, [commentThreads.threads]);
 
-  // A different plan/benefit resets any selection or in-progress anchor.
+  // A different plan/benefit clears the selected thread.
   useEffect(() => {
     setActiveThreadId(null);
-    setComposerAnchor(GENERAL_ANCHOR);
-    setSectionKeys([]);
   }, [target?.clientId, target?.targetType, target?.category]);
 
   // Keyboard shortcut: Shift+C toggles comments, unless the reader is typing.
@@ -236,18 +204,6 @@ export function CommentModeProvider({
     setMode(mode === "on" ? "off" : "on");
   }, [canComment, mode, setMode]);
 
-  // Aim the rail's composer at a section or a text range. Any selected thread steps aside
-  // so the composer — not a thread card — owns the reader's attention.
-  const setComposerTarget = useCallback((anchor: CommentAnchorInput) => {
-    setComposerAnchor(anchor);
-    setActiveThreadId(null);
-  }, []);
-
-  const resetComposerTarget = useCallback(
-    () => setComposerAnchor(GENERAL_ANCHOR),
-    [],
-  );
-
   const value = useMemo<CommentModeValue>(
     () => ({
       hasSurface,
@@ -264,9 +220,6 @@ export function CommentModeProvider({
       refresh: commentThreads.refresh,
       activeThreadId,
       setActiveThreadId,
-      composerAnchor,
-      setComposerTarget,
-      resetComposerTarget,
       createThread: commentThreads.createThread,
       reply: commentThreads.reply,
       setResolved: commentThreads.setResolved,
@@ -274,9 +227,6 @@ export function CommentModeProvider({
       deleteMessage: commentThreads.deleteMessage,
       mentionable: mentionableData ?? [],
       currentUserId,
-      sectionKeys,
-      registerSection,
-      unregisterSection,
       registerSurface,
     }),
     [
@@ -298,14 +248,8 @@ export function CommentModeProvider({
       commentThreads.deleteThread,
       commentThreads.deleteMessage,
       activeThreadId,
-      composerAnchor,
-      setComposerTarget,
-      resetComposerTarget,
       mentionableData,
       currentUserId,
-      sectionKeys,
-      registerSection,
-      unregisterSection,
       registerSurface,
     ],
   );
