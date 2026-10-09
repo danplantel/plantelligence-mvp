@@ -222,6 +222,11 @@ export async function addTeamMember(
   const personType: TeammatePersonType =
     input.type ?? (await guessPersonTypeForEmail({ organizationId: input.organizationId, email }));
 
+  // Resolved ONCE, before the profile is written: the same role goes onto the profile (so a
+  // seat with no plan yet still knows its role) and onto every assignment below.
+  const role: TeammateAssignmentRole =
+    input.role ?? (personType === "team_member" ? "editor" : "contributor");
+
   if (personType === "team_member") {
     // Throws 409 `seat_limit` (or 403 `seat_limit_owner_only`) rather than hard
     // blocking, so the UI can render the upgrade confirm.
@@ -301,6 +306,8 @@ export async function addTeamMember(
       headshot: input.headshot ?? null,
       benefitsSpecialty: categories,
       companyId,
+      // The seat's role, so a membership with no plan yet still reports what it is.
+      role,
       allPlans: wantsAllPlans,
     }));
 
@@ -357,6 +364,7 @@ export async function addTeamMember(
       : {}),
     ...(input.headshot !== undefined ? { headshot: input.headshot || null } : {}),
     ...(input.companyName !== undefined ? { companyId } : {}),
+    ...(input.role !== undefined ? { role: input.role } : {}),
     ...(categoryScope === "selected" ? { benefitsSpecialty: categories } : {}),
   };
 
@@ -402,9 +410,6 @@ export async function addTeamMember(
     planIds: input.planIds,
     planId: input.planId,
   });
-
-  const role: TeammateAssignmentRole =
-    input.role ?? (personType === "team_member" ? "editor" : "contributor");
 
   const assignmentIds: string[] = [];
   /**
@@ -984,6 +989,17 @@ export async function updateTeamMember(
     });
   }
 
+  // Record the role on the profile as well, so a membership that has no assignments yet
+  // still reports the role it was set to.
+  if (input.role !== undefined) {
+    await updateTeammateProfile({
+      id: profile.id,
+      organizationId: input.organizationId,
+      actorUserId: input.actorUserId,
+      data: { role: input.role },
+    });
+  }
+
   const existingAssignments = await prisma.planAssignment.findMany({
     where: { profileId: profile.id, organizationId: input.organizationId },
     select: { id: true, clientId: true, role: true },
@@ -1367,7 +1383,14 @@ async function listOrgPeople(
         profile.email,
       email: profile.email,
       headshot: profile.headshot ?? null,
-      role: mostPrivilegedRole(memberAssignments.map((a) => a.role)),
+      // Assignment roles win. A membership with no assignment yet — an invite raised before
+      // any plan exists — falls back to the role stored on the profile, then to the default
+      // for its type, so a Team Member is never summarised as the collaborator default.
+      role:
+        memberAssignments.length > 0
+          ? mostPrivilegedRole(memberAssignments.map((a) => a.role))
+          : (profile.role ??
+            (profile.type === "team_member" ? "editor" : "contributor")),
       status: profile.state,
       personType: profile.type,
       fromContact,

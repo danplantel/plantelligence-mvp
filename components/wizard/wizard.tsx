@@ -322,7 +322,12 @@ export function OnboardingWizard({
               orgEmailInput?.value ||
               freshStepData.userSetup?.organizationEmail ||
               "",
-            phone: phoneInput?.value || freshStepData.userSetup?.phone || "",
+            // The phone input renders a FORMATTED number ("(657) 556-5121"); validation
+            // and the store both want digits, so normalise here instead of validating the
+            // display string.
+            phone: phoneInput?.value
+              ? phoneInput.value.replace(/\D/g, "").slice(0, 10)
+              : freshStepData.userSetup?.phone || "",
             title: titleInput?.value || freshStepData.userSetup?.title || "",
             designations: freshStepData.userSetup?.designations || [],
             headshot: headshotValue || freshStepData.userSetup?.headshot || "",

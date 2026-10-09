@@ -421,9 +421,12 @@ export function UserSetupSection({
               icon={<Phone className="h-4 w-4" />}
               value={field.value ? formatPhoneNumber(field.value) : ""}
               onChange={(e) => {
-                const normalized = normalizePhoneNumber(e.target.value);
-                if (normalized.length > 10) return;
-                field.onChange(normalized);
+                // Clamp, never reject. Returning without a state update left the extra
+                // keystroke in the DOM — a controlled input does not re-render when its
+                // value is unchanged — so the field showed a number the form never
+                // stored, and the wizard (which validates the DOM value) then failed its
+                // 7–10 digit check on a number the advisor could see and believed correct.
+                field.onChange(normalizePhoneNumber(e.target.value).slice(0, 10));
               }}
               onBlur={async (e) => {
                 field.onBlur();

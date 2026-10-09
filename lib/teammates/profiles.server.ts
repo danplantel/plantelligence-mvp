@@ -15,6 +15,7 @@ import { TeammateDataError } from "./errors";
 import { recordTeammateAuditEvent } from "./audit.server";
 import { getPartnerCompany } from "./companies.server";
 import type {
+  TeammateAssignmentRole,
   TeammatePersonType,
   TeammateProfileState,
 } from "@/types/teammate";
@@ -30,6 +31,11 @@ export interface CreateTeammateProfileInput {
   actorUserId: string;
   type: TeammatePersonType;
   state?: TeammateProfileState;
+  /**
+   * The seat's role, kept on the profile so it survives having no assignment yet — an
+   * invite raised before any plan exists has nothing to attach a role to otherwise.
+   */
+  role?: TeammateAssignmentRole | null;
   email: string;
   firstName?: string | null;
   lastName?: string | null;
@@ -167,6 +173,7 @@ export async function createTeammateProfile(
       organizationId: input.organizationId,
       type: input.type,
       state: input.state ?? "contact",
+      role: input.role ?? null,
       email,
       firstName: input.firstName ?? null,
       lastName: input.lastName ?? null,
@@ -212,6 +219,8 @@ export async function findOrCreateProfile(
 }
 
 export interface UpdateTeammateProfileInput {
+  /** The seat's role — see `CreateTeammateProfileInput.role`. */
+  role?: TeammateAssignmentRole | null;
   firstName?: string | null;
   lastName?: string | null;
   jobTitle?: string | null;
@@ -247,6 +256,7 @@ export async function updateTeammateProfile({
   const updated = await prisma.teammateProfile.update({
     where: { id },
     data: {
+      ...(data.role !== undefined ? { role: data.role } : {}),
       ...(data.firstName !== undefined ? { firstName: data.firstName } : {}),
       ...(data.lastName !== undefined ? { lastName: data.lastName } : {}),
       ...(data.jobTitle !== undefined ? { jobTitle: data.jobTitle } : {}),

@@ -39,10 +39,13 @@ export interface OrganizationTeammatePurgeResult {
 export async function deleteOrganizationTeammateData(
   organizationId: string,
 ): Promise<OrganizationTeammatePurgeResult> {
-  // Nothing here references anything else, so the four deletes are independent and can run
-  // together. Audit rows are removed with the data they describe: they are scoped by the
-  // organization, and an event whose subject no longer exists is not a useful record.
-  const [assignments, auditEvents, profiles, companies] = await Promise.all([
+  // Nothing here references anything else, so the four deletes are independent. They run as
+  // ONE batch transaction rather than `Promise.all`: four concurrent deletes checked out four
+  // pooled connections, and this runs inside account deletion — the request that was observed
+  // tripping the pooled endpoint's limit. Audit rows are removed with the data they describe:
+  // they are scoped by the organization, and an event whose subject no longer exists is not a
+  // useful record.
+  const [assignments, auditEvents, profiles, companies] = await prisma.$transaction([
     prisma.planAssignment.deleteMany({ where: { organizationId } }),
     prisma.teammateAuditEvent.deleteMany({ where: { organizationId } }),
     prisma.teammateProfile.deleteMany({ where: { organizationId } }),

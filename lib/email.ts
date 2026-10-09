@@ -11,11 +11,34 @@ import {
   type TeammatePermissionSet,
 } from "@/types/teammate";
 
+/**
+ * The SMTP port and its TLS mode must agree, and both are env-driven.
+ *
+ *   465 → implicit TLS  (`secure: true`)
+ *   587 / 25 → plain connection upgraded with STARTTLS (`secure: false`)
+ *
+ * This previously forced `secure: true` regardless of the port, so a 587 configuration failed
+ * with a "wrong version number" TLS error. `SMTP_SECURE` overrides the derived value for a
+ * provider that needs something unusual.
+ *
+ * The timeouts are deliberate. With none set, a dropped handshake — observed locally as
+ * `ESOCKET: Client network socket disconnected before secure TLS connection was established`
+ * to `smtp.gmail.com:465` — held the request open until the OS gave up: an onboarding
+ * completion took 211 seconds while the invite emails sat "pending". A short connection
+ * timeout turns that into a fast, reportable failure, which is how the invite flow already
+ * treats a mail error (reported on the row, never fatal to the invite).
+ */
+const SMTP_PORT = Number(process.env.SMTP_PORT) || 465;
+const SMTP_SECURE =
+  process.env.SMTP_SECURE !== undefined
+    ? process.env.SMTP_SECURE === "true"
+    : SMTP_PORT === 465;
+
 // Create a transporter using environment variables
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || process.env.MAIL_HOST || "smtp.mailgun.org",
-  port: Number(process.env.SMTP_PORT) || 465,
-  secure: true,
+  port: SMTP_PORT,
+  secure: SMTP_SECURE,
   auth: {
     user: process.env.SMTP_USER || process.env.MAIL_USER || "",
     pass:
@@ -24,6 +47,9 @@ const transporter = nodemailer.createTransport({
       process.env.MAILGUN_PASSWORD ||
       "",
   },
+  connectionTimeout: Number(process.env.SMTP_CONNECTION_TIMEOUT) || 10_000,
+  greetingTimeout: Number(process.env.SMTP_GREETING_TIMEOUT) || 10_000,
+  socketTimeout: Number(process.env.SMTP_SOCKET_TIMEOUT) || 20_000,
 });
 
 const R2_EMAIL_PUBLIC_URL = "https://pub-bfeeb6eae7f9462db1cb563baeabc8bc.r2.dev";

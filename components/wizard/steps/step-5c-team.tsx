@@ -42,9 +42,9 @@ import type { TeamInvite } from "@/types/wizard";
  * upgrade path to a bigger allowance stays in Settings › People & Access, where
  * T3's over-limit upgrade confirm lives.
  *
- * The list grows by typing into a trailing blank row (no "Add" button); a row is
- * only an invite once it carries input, and must have both a Name and a valid,
- * unique Email that is not the advisor's own address.
+ * Rows are added deliberately with the "+ Add Member" button rather than appearing on
+ * their own; a row is only an invite once it carries input, and must have both a Name
+ * and a valid, unique Email that is not the advisor's own address.
  */
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -195,32 +195,13 @@ export function Step5cTeam({
     [rows],
   );
 
-  // Keep exactly one trailing blank row, but only while there is a seat left to
-  // fill. At the cap the blank row is dropped, so the list simply cannot grow
-  // past the allowance. Duplicate trailing blanks (from a cleared row) collapse.
-  useEffect(() => {
-    let next = rows;
-    let end = next.length;
-    while (
-      end > 1 &&
-      isBlankInvite(next[end - 1]) &&
-      isBlankInvite(next[end - 2])
-    ) {
-      end -= 1;
-    }
-    if (end !== next.length) next = next.slice(0, end);
-
-    const filled = next.filter((row) => !isBlankInvite(row)).length;
-    const hasTrailingBlank =
-      next.length > 0 && isBlankInvite(next[next.length - 1]);
-    if (filled < openSeats && !hasTrailingBlank) {
-      next = [...next, blankInvite()];
-    } else if (filled >= openSeats && hasTrailingBlank) {
-      next = next.slice(0, -1);
-    }
-
-    if (next !== rows) setTeamInvites(next);
-  }, [rows, setTeamInvites, openSeats]);
+  // Rows are added on demand — the list no longer grows itself. The "+ Add Member"
+  // button appends a blank row, and only one blank is ever present so repeated clicks
+  // cannot stack empty rows.
+  const addRow = () => {
+    if (rows.some(isBlankInvite)) return;
+    setTeamInvites([...rows, blankInvite()]);
+  };
 
   const updateRow = (id: string, field: "fullName" | "email", value: string) =>
     setTeamInvites(
@@ -354,7 +335,6 @@ export function Step5cTeam({
           const emailErr = showEmailError(row)
             ? emailError(row, rows, selfEmail)
             : null;
-          const canRemove = !isBlankInvite(row);
           return (
             <div key={row.id} className="flex items-start gap-2">
               <div className="min-w-0 flex-1 space-y-1">
@@ -425,20 +405,36 @@ export function Step5cTeam({
                 </Select>
               </div>
 
-              {canRemove && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeRow(row.id)}
-                  className="mt-1 shrink-0 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
-                >
-                  Remove
-                </Button>
-              )}
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => removeRow(row.id)}
+                className="mt-1 shrink-0 text-muted-foreground hover:text-red-600 dark:hover:text-red-400"
+              >
+                Remove
+              </Button>
             </div>
           );
         })}
+
+        {/* Rows are added deliberately — no blank row appears on its own. Disabled at the
+            seat cap, with no open seats at all, or while a blank row is still unfilled, so
+            the list can never grow past the allowance or stack empty rows. */}
+        <Button
+          type="button"
+          variant="outline"
+          onClick={addRow}
+          disabled={
+            openSeats === 0 ||
+            filledCount >= openSeats ||
+            rows.some(isBlankInvite)
+          }
+          className="w-full"
+        >
+          <Plus className="mr-2 h-4 w-4" />
+          Add Member
+        </Button>
 
         {openSeats === 0 ? (
           <p className="text-xs text-muted-foreground">

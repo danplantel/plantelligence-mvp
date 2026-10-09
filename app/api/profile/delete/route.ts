@@ -36,7 +36,11 @@ export async function DELETE() {
     ).map((s) => s.id);
 
     if (wizardSessionIds.length > 0) {
-      await Promise.all([
+      // ONE batch transaction, not Promise.all: ten concurrent deletes checked out ten pooled
+      // connections at once, which is what made account deletion the request most likely to
+      // trip the pooled endpoint's limit (observed as P1001 part-way through the cascade).
+      // A batch uses a single connection and is atomic.
+      await prisma.$transaction([
         prisma.wizardUserSetup.deleteMany({ where: { sessionId: { in: wizardSessionIds } } }),
         prisma.wizardBranding.deleteMany({ where: { sessionId: { in: wizardSessionIds } } }),
         prisma.wizardClientProfile.deleteMany({ where: { sessionId: { in: wizardSessionIds } } }),
@@ -53,8 +57,9 @@ export async function DELETE() {
 
     // 3. Delete remaining user-scoped data (MarketingAsset already handled above).
     //    `task` belongs here: its `User` FK is Restrict like the rest, so an account
-    //    that ever saved a dashboard task failed on the final User delete.
-    await Promise.allSettled([
+    //    that ever saved a dashboard task failed on the final User delete. Batched into one
+    //    transaction for the same reason as the wizard deletes above.
+    await prisma.$transaction([
       prisma.task.deleteMany({ where: { userId } }),
       prisma.meetingCustomType.deleteMany({ where: { userId } }),
       prisma.futureContact.deleteMany({ where: { userId } }),

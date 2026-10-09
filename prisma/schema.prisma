@@ -1289,6 +1289,12 @@ model TeammateProfile {
   loginUserId    String?
   type           TeammatePersonType
   state          TeammateProfileState @default(contact)
+  // The role the seat joins with, stored on the PROFILE so it survives having no assignment
+  // yet — an invite raised before any plan exists. Assignment roles still win when they exist
+  // (`mostPrivilegedRole` summarises those); this is the fallback the roster reads when there
+  // is nothing to summarise, so an invited Viewer is never mislabelled by the `contributor`
+  // assignment default.
+  role           TeammateAssignmentRole?
 
   firstName         String?
   lastName          String?

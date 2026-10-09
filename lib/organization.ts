@@ -342,6 +342,8 @@ export async function findTeammateProfileForUser(
       phone: true,
       phoneExtension: true,
       designations: true,
+      // The seat's stored role, used when there is no assignment to summarise.
+      role: true,
     },
   });
   if (!profile) return null;
@@ -363,11 +365,11 @@ export async function findTeammateProfileForUser(
     phoneExtension: profile.phoneExtension ?? null,
     designations: profile.designations ?? [],
     role:
-      assignments.length === 0
-        ? null
-        : mostPrivilegedRole(
+      assignments.length > 0
+        ? mostPrivilegedRole(
             assignments.map((assignment) => assignment.role as TeammateAssignmentRole),
-          ),
+          )
+        : (profile.role ?? null),
   };
 }
 
