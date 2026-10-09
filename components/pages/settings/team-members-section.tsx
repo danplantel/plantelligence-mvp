@@ -45,14 +45,21 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Headshot } from "@/components/ui/headshot";
-import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import type { SeatUsageSummary } from "@/components/pages/seat-meter";
 // The access picker (Role / Plan access / Benefits access) is shared with the benefits
 // wizard's "Give Team Seat" dialog, so both surfaces offer exactly the same controls.
 import {
   AccessFields,
   EMPTY_ACCESS,
+  INVITABLE_TEAM_ROLES,
   RoleCapabilityBody,
   TEAM_MEMBER_ROLES,
   categoriesForAccess,
@@ -87,6 +94,11 @@ interface TeamMemberRow {
   role: TeammateAssignmentRole;
   status: keyof typeof PROFILE_STATE_LABELS;
   personType: "team_member" | "collaborator";
+  /**
+   * True when the profile is linked to a plan's Key Contacts — it existed as a Contact
+   * before the invite, so "remove from seat" reverts it to a Contact instead of deleting it.
+   */
+  fromContact?: boolean;
   /** Partner/Provider company (T1); null for the owner and people without one. */
   companyName?: string | null;
   planAccess: {
@@ -552,20 +564,6 @@ function EmptySeatCard({ onAdd }: { onAdd: () => void }) {
 }
 
 /**
- * `(555) 123-4567` from whatever the advisor types.
- *
- * The digits are what get stored; the punctuation is presentation. Mirrors how Create Plan →
- * Key Contacts handles the same field, so a phone number looks the same wherever it is
- * entered.
- */
-function formatPhoneInput(value: string): string {
-  const digits = (value || "").replace(/\D/g, "").slice(0, 10);
-  if (digits.length <= 3) return digits;
-  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
-}
-
-/**
  * A person returned by the "add an existing contact" search.
  *
  * Declared here rather than imported from `lib/teammates/contacts.server`, which is
@@ -606,19 +604,22 @@ export function TeamMembersSection() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [email, setEmail] = useState("");
   /**
-   * The New Contact slide's fields. These are exactly the Key Contact fields the profile
-   * can store — nothing here is collected only to be dropped on the way in. The card-only
-   * fields (contact type, CTA button, topic list, email/phone visibility) are deliberately
-   * absent until the profile has somewhere to put them.
+   * The New Contact slide's fields. Invite only: a name and an email.
+   *
+   * The profile's other Key Contact fields (job title, phone, extension, company, headshot)
+   * and the access scope are no longer collected here — the person is invited as an Editor
+   * with All Plans + All Categories and finishes their own profile from the invite email,
+   * exactly the shape the onboarding wizard's "Invite Your Team" step uses. `addAccess` is
+   * therefore still the draft the EXISTING Contact path edits; on the New path it stays at
+   * `EMPTY_ACCESS`.
    */
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [jobTitle, setJobTitle] = useState("");
-  const [phone, setPhone] = useState("");
-  const [phoneExtension, setPhoneExtension] = useState("");
-  const [headshot, setHeadshot] = useState("");
-  const [headshotFileName, setHeadshotFileName] = useState("");
-  const [companyName, setCompanyName] = useState("");
+  /**
+   * The role a New Contact joins with. Editor by default. The New Contact slide is
+   * otherwise invite-only, so this is the one access decision it still asks for.
+   */
+  const [newRole, setNewRole] = useState<TeammateAssignmentRole>("editor");
   const [addAccess, setAddAccess] = useState<AccessDraft>(EMPTY_ACCESS);
   const [confirmUpgrade, setConfirmUpgrade] = useState(false);
 
@@ -884,12 +885,7 @@ export function TeamMembersSection() {
     setEmail("");
     setFirstName("");
     setLastName("");
-    setJobTitle("");
-    setPhone("");
-    setPhoneExtension("");
-    setHeadshot("");
-    setHeadshotFileName("");
-    setCompanyName("");
+    setNewRole("editor");
     setContactQuery("");
     setContactResults([]);
     setPickedContact(null);
@@ -980,15 +976,14 @@ export function TeamMembersSection() {
                 name: pickedContact.name,
               }
             : {
+                // Invite only: a name and an email. The other Key Contact fields are no
+                // longer collected on this slide, and the role/scope below are the untouched
+                // `EMPTY_ACCESS` defaults (Editor + All Plans + All Categories).
                 firstName,
                 lastName,
-                jobTitle,
-                phone,
-                phoneExtension,
-                headshot,
-                companyName,
               }),
-          role: addAccess.role,
+          // The New path's own role selector; the Existing path keeps the access picker's.
+          role: pickedContact ? addAccess.role : newRole,
           planScope: addAccess.planScope,
           planIds: addAccess.planIds,
           categoryScope: addAccess.categoryScope,
@@ -1189,14 +1184,14 @@ export function TeamMembersSection() {
   };
 
   /**
-   * Free the seat this person occupies, without deleting them.
+   * Free the seat this person occupies.
    *
-   * There is no single server-side meaning for this, and the UI must not imply one:
-   * the state machine forbids `active → contact`, so an un-accepted invite returns to
-   * being a Contact while an accepted member can only be deactivated. The confirm
-   * dialog below names whichever one applies, and the response's `outcome` decides the
-   * wording here, so the reader is told what actually happened rather than what they
-   * might have assumed.
+   * The server decides what that means, and the UI must not imply one answer. A pending
+   * invite is DELETED only when the invite created the profile; if the person was already a
+   * Contact on a plan (`fromContact`), the invite is reverted and the profile kept. An
+   * accepted member can only be deactivated and kept. The confirm dialog names whichever
+   * applies, and the response's `outcome` decides the toast here, so the reader is told what
+   * actually happened rather than what they assumed.
    */
   const submitRemoveFromSeat = async (row: TeamMemberRow) => {
     setIsSubmitting(true);
@@ -1214,7 +1209,9 @@ export function TeamMembersSection() {
         error?: string;
         seats?: SeatUsageSummary;
         releasedSeats?: number;
-        member?: { outcome?: "returned_to_contact" | "deactivated" };
+        member?: {
+          outcome?: "returned_to_contact" | "deactivated" | "profile_deleted";
+        };
       };
       if (!response.ok) {
         toast.error(body.error ?? "Could not remove the seat");
@@ -1232,7 +1229,9 @@ export function TeamMembersSection() {
       toast.success(
         body.member?.outcome === "deactivated"
           ? `${row.name} deactivated.${suffix}`
-          : `${row.name} is a Contact again.${suffix}`,
+          : body.member?.outcome === "profile_deleted"
+            ? `${row.name} removed and their profile deleted.${suffix}`
+            : `${row.name} is a Contact again.${suffix}`,
       );
       await load();
     } catch {
@@ -1518,7 +1517,7 @@ export function TeamMembersSection() {
               {addStep === "choose"
                 ? "One of your organization's own people. They hold a seat — scope them to the plans and benefit categories they should reach."
                 : addStep === "new"
-                  ? "Enter their details, then scope them to the plans and benefit categories they should reach. They are added as a Team Member and hold a seat."
+                  ? "Invite them by name and email, and pick the role they join with. They'll get an email to set up their own profile, and you can change their role and access anytime in People & Access."
                   : "Pick somebody already on one of your plans. Their name and email come from the contact, so there is nothing to retype."}
             </DialogDescription>
           </DialogHeader>
@@ -1549,7 +1548,7 @@ export function TeamMembersSection() {
                 <span className="space-y-1">
                   <span className="block text-sm font-medium">New Contact</span>
                   <span className="block text-xs text-muted-foreground">
-                    Type their details by hand
+                    Invite by name and email
                   </span>
                 </span>
               </button>
@@ -1573,18 +1572,22 @@ export function TeamMembersSection() {
             </div>
           ) : (
           <div className="space-y-4">
-            {/* Access comes FIRST on both slides — above the New Contact fields and above
-                the Existing Contact search. Role and scope are the decision the advisor has
-                already made by the time they open this modal; working out *who* the person
-                is, is the lookup that serves that decision, not the other way round. */}
-            <AccessFields
-              value={addAccess}
-              onChange={setAddAccess}
-              plans={plans}
-              roles={TEAM_MEMBER_ROLES}
-              allowAllPlans
-              customCategories={customCategories}
-            />
+            {/* Access comes FIRST, but only on the Existing Contact slide. The New Contact
+                slide is an invite only — name and email — so its draft stays at
+                `EMPTY_ACCESS` (Editor + All Plans + All Categories, the same default the
+                onboarding wizard sends) and the role and scope are set afterwards in
+                People & Access. Showing the picker there would contradict the invite-only
+                copy. */}
+            {addStep === "existing" ? (
+              <AccessFields
+                value={addAccess}
+                onChange={setAddAccess}
+                plans={plans}
+                roles={TEAM_MEMBER_ROLES}
+                allowAllPlans
+                customCategories={customCategories}
+              />
+            ) : null}
 
             {/* ── Add an existing contact (slide 2, "Existing Contact") ─────
                 Only rendered on its own slide. It previously sat above the manual
@@ -1718,32 +1721,6 @@ export function TeamMembersSection() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="team-member-company">
-                    Company / Organization
-                  </Label>
-                  <Input
-                    id="team-member-company"
-                    value={companyName}
-                    onChange={(event) => setCompanyName(event.target.value)}
-                    placeholder="e.g. Benefits Provider Inc."
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    A company you have not used before is added to your Partner /
-                    Provider list.
-                  </p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="team-member-title">Job Title</Label>
-                  <Input
-                    id="team-member-title"
-                    value={jobTitle}
-                    onChange={(event) => setJobTitle(event.target.value)}
-                    placeholder="e.g. HR Director"
-                  />
-                </div>
-
-                <div className="space-y-2">
                   <Label htmlFor="team-member-email">Email</Label>
                   <Input
                     id="team-member-email"
@@ -1754,61 +1731,39 @@ export function TeamMembersSection() {
                   />
                 </div>
 
-                {/* Phone and extension share a row: the extension is meaningless without the
-                    number, and giving it its own row would overstate its importance. */}
-                <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_6rem]">
-                  <div className="space-y-2">
-                    <Label htmlFor="team-member-phone">Phone</Label>
-                    <Input
-                      id="team-member-phone"
-                      type="tel"
-                      value={phone ? formatPhoneInput(phone) : ""}
-                      onChange={(event) =>
-                        setPhone(
-                          event.target.value.replace(/\D/g, "").slice(0, 10),
-                        )
-                      }
-                      placeholder="(555) 123-4567"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="team-member-ext">Ext.</Label>
-                    <Input
-                      id="team-member-ext"
-                      value={phoneExtension}
-                      onChange={(event) =>
-                        setPhoneExtension(
-                          event.target.value.replace(/\D/g, "").slice(0, 8),
-                        )
-                      }
-                      placeholder="123"
-                    />
-                  </div>
+                {/* The one access decision this invite still asks for. The rest of the
+                    access picker stays off this slide: the person finishes their own
+                    profile from the invite email, and their plan/category scope is set in
+                    People & Access. Owner is not offered — see INVITABLE_TEAM_ROLES. */}
+                <div className="space-y-2">
+                  <Label htmlFor="team-member-role">Role</Label>
+                  <Select
+                    value={newRole}
+                    onValueChange={(value) =>
+                      setNewRole(value as TeammateAssignmentRole)
+                    }
+                  >
+                    <SelectTrigger id="team-member-role">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {INVITABLE_TEAM_ROLES.map((role) => (
+                        <SelectItem key={role} value={role}>
+                          {PRESET_ROLE_LABELS[role]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
-                <div className="space-y-2 mb-8">
-                  <Label>Headshot (optional)</Label>
-                  <UniversalImageEditorModal
-                    value={headshot || ""}
-                    fileName={headshotFileName || ""}
-                    onChange={(value, fileName) => {
-                      setHeadshot(value);
-                      setHeadshotFileName(fileName || "");
-                    }}
-                    onRemove={() => {
-                      setHeadshot("");
-                      setHeadshotFileName("");
-                    }}
-                    placeholder="Upload Headshot"
-                    modalTitle="Headshot"
-                    modalDescription="Upload a clear, front-facing photo. Keep the face inside the circle guide for best results."
-                    saveButtonText="Save Headshot"
-                    type="headshot"
-                    autoSizeOnOpen={true}
-                    forceCircularGuidelines={true}
-                  />
-                </div>
-
+                {/* Invite only — the same shape the onboarding wizard's "Invite Your Team"
+                    step uses, plus the role. */}
+                <p className="rounded-lg border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+                  We&rsquo;ll email them an invite link. They join with the role above and
+                  access to all plans — you can change their role and access anytime in
+                  People
+                  & Access.
+                </p>
               </div>
             ) : null}
           </div>
@@ -1845,7 +1800,7 @@ export function TeamMembersSection() {
                 {isSubmitting ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : null}
-                Add Team Member
+                {addStep === "new" ? "Send Invite" : "Add Team Member"}
               </Button>
             )}
           </DialogFooter>
@@ -1990,12 +1945,18 @@ export function TeamMembersSection() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Remove {removing?.name} from this seat?
+              {removing?.status !== "invited"
+                ? `Remove ${removing?.name} from this seat?`
+                : removing?.fromContact
+                  ? `Remove ${removing?.name} and return them to a Contact?`
+                  : `Remove ${removing?.name} and delete their profile?`}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {removing?.status === "invited"
-                ? "They have not accepted their invite yet, so this is fully reversible: they go back to being a Contact — no seat, no access, and not a Collaborator — and the seat is released. Their profile and every note on it are kept, so you can Promote them again at any time."
-                : "They have already accepted, so an active account cannot go back to being a Contact. They will be deactivated instead: access to every plan they were assigned to ends immediately and their seat is released. Their profile and history are kept, and reactivating them takes the seat back."}
+              {removing?.status !== "invited"
+                ? "They have already accepted, so an active account cannot go back to being a Contact. They will be deactivated instead: access to every plan they were assigned to ends immediately and their seat is released. Their profile and history are kept, and reactivating them takes the seat back."
+                : removing?.fromContact
+                  ? "They have not accepted their invite yet, so this is fully reversible: they go back to being a Contact — no seat and no access — and the seat is released. Their profile is kept because it is already linked to a contact on your plans, so you can Promote them again at any time."
+                  : "They have not accepted their invite yet, and they were not already a contact on your plans, so removing them deletes their invite and their profile outright — the seat is released and they are removed from your organization. This cannot be undone; invite them again if you need to."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -2007,7 +1968,13 @@ export function TeamMembersSection() {
                 if (removing) void submitRemoveFromSeat(removing);
               }}
             >
-              {isSubmitting ? "Removing…" : "Remove from seat"}
+              {isSubmitting
+                ? "Removing…"
+                : removing?.status !== "invited"
+                  ? "Remove from seat"
+                  : removing?.fromContact
+                    ? "Remove & return to Contact"
+                    : "Remove & delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1143,6 +1143,13 @@ export interface TeamMemberRow {
   role: TeammateAssignmentRole;
   status: TeammateProfileState;
   personType: TeammatePersonType;
+  /**
+   * True when this profile is linked to a plan's Key Contacts — i.e. it existed as a
+   * Contact before any invite, because the row is derived from an assignment carrying a
+   * `contactId`. It is what makes "remove from seat" revert a pending invite to a Contact
+   * instead of deleting a person your plans already know.
+   */
+  fromContact: boolean;
   /** Partner/Provider company (T1) the person belongs to; null for the owner. */
   companyName: string | null;
   planAccess: TeamMemberPlanSummary;
@@ -1263,6 +1270,7 @@ async function listOrgPeople(
             role: true,
             categoryScope: true,
             categories: true,
+            contactId: true,
           },
         })
       : [];
@@ -1297,6 +1305,8 @@ async function listOrgPeople(
       role: "owner",
       status: "active",
       personType: "team_member",
+      // The owner is synthesized from their User row, never mirrored from a contact.
+      fromContact: false,
       // The owner is a User, not a partner company.
       companyName: null,
       // The owner implicitly reaches every plan in their organization.
@@ -1317,6 +1327,12 @@ async function listOrgPeople(
 
   for (const profile of profiles) {
     const memberAssignments = byProfile.get(profile.id) ?? [];
+    // "Was already a Contact": the mirror links a profile to the Key Contact it came from
+    // through the assignment's `contactId`, so an assignment carrying one is the record that
+    // this person was known to the organization before the invite.
+    const fromContact = memberAssignments.some(
+      (assignment) => assignment.contactId,
+    );
 
     const planIds = [
       ...new Set(memberAssignments.map((assignment) => assignment.clientId)),
@@ -1354,6 +1370,7 @@ async function listOrgPeople(
       role: mostPrivilegedRole(memberAssignments.map((a) => a.role)),
       status: profile.state,
       personType: profile.type,
+      fromContact,
       companyName: profile.companyId
         ? (companyNameById.get(profile.companyId) ?? null)
         : null,
@@ -1418,13 +1435,19 @@ export async function setTeamMemberActive({
 }
 
 /** Which write a "remove from seat" actually performed. */
-export type RemoveFromSeatOutcome = "returned_to_contact" | "deactivated";
+export type RemoveFromSeatOutcome =
+  | "returned_to_contact"
+  | "deactivated"
+  | "profile_deleted";
 
 export interface RemoveFromSeatResult {
   profileId: string;
   outcome: RemoveFromSeatOutcome;
-  /** The state the profile ended in, so the caller need not re-read it. */
-  state: TeammateProfileState;
+  /**
+   * The state the profile ended in, so the caller need not re-read it. NULL when the
+   * profile was deleted — the outcome for a pending invite.
+   */
+  state: TeammateProfileState | null;
   /** How many seats the meter gave back — 0 when this person held none. */
   releasedSeats: number;
   /** The fresh meter, so the header can show the freed seat without a second read. */
@@ -1432,18 +1455,20 @@ export interface RemoveFromSeatResult {
 }
 
 /**
- * Take someone out of the seat they occupy without deleting them.
+ * Take someone out of the seat they occupy.
  *
- * This is one *user* action but not one write, because the state machine only allows
- * one of them per person: `setProfileState` refuses `active → contact` ("An Active
- * profile cannot be reverted to Contact. Deactivate it instead."), so "put them back
- * as a Contact" is genuinely unavailable to anyone who has accepted.
+ * One *user* action but not one write, because the state machine only allows one of them
+ * per person: `setProfileState` refuses `active → contact` ("An Active profile cannot be
+ * reverted to Contact. Deactivate it instead."), so "put them back as a Contact" is
+ * genuinely unavailable to anyone who has accepted.
  *
- *  - **`invited`** — no acceptance yet, so the promotion is fully reversible: the state
- *    returns to `contact`, exactly as `expireStaleInvites` does when a 14-day hold
- *    lapses. `getSeatUsage` counts only `active` and unexpired `invited` profiles, so the
- *    seat is released; the profile and everything on it survive, and they can be Promoted
- *    again unchanged.
+ *  - **`invited`** — no acceptance yet, so what happens depends on where the profile came
+ *    from. If it already existed as a Contact (an assignment linked to a plan's Key
+ *    Contacts by `contactId`), the promotion is fully reversible: the state returns to
+ *    `contact`, exactly as `expireStaleInvites` does when a hold lapses — the person was
+ *    known to your plans before the invite, and deleting the profile would delete that link
+ *    too. If the invite CREATED the profile, there is nothing to keep: nobody has signed in,
+ *    so it holds no authored content, and it is DELETED (its assignments first).
  *  - **`active`** — accepted, and therefore un-revertable. Deactivation is the spec's own
  *    answer (T6: "all access to the organization ends; the profile is kept"), and
  *    `getSeatUsage` skips any profile carrying a `deactivatedAt`, so the seat is released
@@ -1502,13 +1527,55 @@ export async function removeTeamMemberFromSeat({
     });
     outcome = "deactivated";
   } else if (profile.state === "invited") {
-    await setProfileState({
-      id: profileId,
-      organizationId,
-      actorUserId,
-      state: "contact",
-    });
-    outcome = "returned_to_contact";
+    // Only a profile the invite CREATED is deleted. If it was already a Contact — an
+    // assignment linked to a plan's Key Contacts by `contactId` — the invite is reverted
+    // instead, because that link is the record of a person your plans already know.
+    const cameFromContact =
+      (await prisma.planAssignment.count({
+        where: { profileId, organizationId, contactId: { not: null } },
+      })) > 0;
+
+    if (cameFromContact) {
+      await setProfileState({
+        id: profileId,
+        organizationId,
+        actorUserId,
+        state: "contact",
+      });
+      outcome = "returned_to_contact";
+    } else {
+      // Delete the invite-created profile. Assignments go first
+      // (`removePersonFromOrganization` audits each one and keeps the
+      // never-remove-the-last-Owner guard), then the profile, so the seat is released by
+      // the row that held it disappearing.
+      const removed = await removePersonFromOrganization({
+        organizationId,
+        actorUserId,
+        profileId,
+      });
+      const releasedSeats = Math.max(before.seatsUsed - removed.seats.seatsUsed, 0);
+
+      await recordTeammateAuditEvent({
+        organizationId,
+        actorUserId,
+        action: "profile_removed_from_seat",
+        profileId,
+        details: {
+          outcome: "profile_deleted",
+          from: "invited",
+          releasedSeats,
+          removedAssignments: removed.removedAssignments,
+        },
+      });
+
+      return {
+        profileId,
+        outcome: "profile_deleted",
+        state: null,
+        releasedSeats,
+        seats: removed.seats,
+      };
+    }
   } else {
     // Already a Contact: no seat to give back, and no state to change.
     outcome = "returned_to_contact";

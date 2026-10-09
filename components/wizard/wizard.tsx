@@ -836,12 +836,12 @@ export function OnboardingWizard({
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            // A Team Member seat, said explicitly. `role: "editor"` is the spec's
-            // default for invited members (the owner can change it later in
-            // Settings › Team); plan/category scope use the server defaults
-            // (All Plans + All Categories).
+            // A Team Member seat, said explicitly. The role is the one staged on the
+            // row (Editor unless the advisor changed it; `?? "editor"` covers rows
+            // persisted before the role existed); plan/category scope use the server
+            // defaults (All Plans + All Categories).
             type: "team_member",
-            role: "editor",
+            role: invite.role ?? "editor",
             name: invite.fullName.trim(),
             email: invite.email.trim(),
           }),

@@ -6,7 +6,19 @@ import { Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Headshot } from "@/components/ui/headshot";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { INVITABLE_TEAM_ROLES } from "@/components/teammates/access-fields";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
+import {
+  PRESET_ROLE_LABELS,
+  type TeammateAssignmentRole,
+} from "@/types/teammate";
 import type { TeamInvite } from "@/types/wizard";
 
 /**
@@ -45,6 +57,8 @@ function blankInvite(): TeamInvite {
     id: `invite-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     fullName: "",
     email: "",
+    // Everyone joins as an Editor unless the advisor picks another role.
+    role: "editor",
     status: "pending",
   };
 }
@@ -213,6 +227,9 @@ export function Step5cTeam({
       rows.map((row) => (row.id === id ? { ...row, [field]: value } : row)),
     );
 
+  const updateRole = (id: string, role: TeammateAssignmentRole) =>
+    setTeamInvites(rows.map((row) => (row.id === id ? { ...row, role } : row)));
+
   const removeRow = (id: string) =>
     setTeamInvites(rows.filter((row) => row.id !== id));
 
@@ -252,8 +269,9 @@ export function Step5cTeam({
         </h2>
         <p className="text-sm text-muted-foreground">
           Invite teammates from your organization. They’ll get an email to set
-          up their own profile. Your organization’s branding and settings are
-          shared automatically.
+          up their own profile, and they share your organization’s branding and
+          settings. Pick each person’s role now — you can change it anytime in
+          Settings › People & Access.
         </p>
       </div>
 
@@ -382,6 +400,31 @@ export function Step5cTeam({
                 )}
               </div>
 
+              {/* The role this person joins with. Owner is not offered — an invite can
+                  grant Admin, Editor or Viewer (see INVITABLE_TEAM_ROLES). */}
+              <div className="w-32 shrink-0 space-y-1">
+                <Select
+                  value={row.role ?? "editor"}
+                  onValueChange={(value) =>
+                    updateRole(row.id, value as TeammateAssignmentRole)
+                  }
+                >
+                  <SelectTrigger
+                    aria-label="Role"
+                    className="dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {INVITABLE_TEAM_ROLES.map((role) => (
+                      <SelectItem key={role} value={role}>
+                        {PRESET_ROLE_LABELS[role]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
               {canRemove && (
                 <Button
                   type="button"
@@ -399,17 +442,17 @@ export function Step5cTeam({
 
         {openSeats === 0 ? (
           <p className="text-xs text-muted-foreground">
-            {"No seats are open right now. You can add Team Members in Settings > People & Access — everyone joins as an Editor, and you can assign their roles there."}
+            {"No seats are open right now. You can add Team Members in Settings > People & Access and assign their roles there."}
           </p>
         ) : atCap ? (
           <p className="text-xs text-muted-foreground">
-            {`All ${openSeats} of your open seats are filled. You can add or change Team Members in Settings > People & Access — everyone joins as an Editor, and you can assign their roles there.`}
+            {`All ${openSeats} of your open seats are filled. You can add or change Team Members in Settings > People & Access and assign their roles there.`}
           </p>
         ) : (
           <p className="text-xs text-muted-foreground">
             {`You can invite up to ${openSeats} ${
               openSeats === 1 ? "teammate" : "teammates"
-            } now. We’ll email each of them an invite link when you finish. Everyone joins as an Editor, and you can assign their roles anytime in Settings > People & Access.`}
+            } now. We’ll email each of them an invite link when you finish. Pick a role for each person — you can change it anytime in Settings > People & Access.`}
           </p>
         )}
       </div>

@@ -68,6 +68,15 @@ export const TEAM_MEMBER_ROLES: TeammateAssignmentRole[] = [
 ];
 
 /**
+ * The roles a new INVITE may grant.
+ *
+ * Owner is excluded: an organization has exactly one owner, whose row is synthesized from
+ * the Organization rather than invited, so an invite chooses Admin, Editor or Viewer.
+ */
+export const INVITABLE_TEAM_ROLES: TeammateAssignmentRole[] =
+  TEAM_MEMBER_ROLES.filter((role) => role !== "owner");
+
+/**
  * A new Team Member's draft. Editor + All Plans + All Categories is the spec's own default
  * ("Default: All Plans + All Categories"), so a caller that wants those can hand this
  * straight to the server rather than restating them.
