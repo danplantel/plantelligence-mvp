@@ -24,13 +24,14 @@ export async function POST(
     }
 
     const body = (await request.json().catch(() => null)) as
-      | { body?: string }
+      | { body?: string; attachments?: unknown }
       | null;
     const thread = await addCommentMessage({
       organizationId: session.organizationId,
       userId: session.userId,
       threadId: params.threadId,
       body: String(body?.body ?? ""),
+      attachments: body?.attachments,
     });
 
     return NextResponse.json({ success: true, thread }, { status: 201 });

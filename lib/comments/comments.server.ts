@@ -21,9 +21,12 @@ import { createNotification } from "@/lib/notifications/notifications.server";
 import { categoryToSlug } from "@/lib/benefit-category-slug";
 import {
   COMMENT_NOTIFICATION_TYPES,
+  MAX_ATTACHMENTS_PER_MESSAGE,
+  MAX_ATTACHMENT_BYTES,
   MAX_COMMENT_LENGTH,
   normalizeBenefitCategoryKey,
   type CommentAnchorInput,
+  type CommentAttachment,
   type CommentAuthorView,
   type CommentMessageView,
   type CommentTargetType,
@@ -40,6 +43,8 @@ interface MessageRow {
   authorUserId: string;
   body: string;
   mentions: string[];
+  /** Prisma `Json` — parsed by `parseAttachments`. */
+  attachments: unknown;
   deletedAt: Date | null;
   createdAt: Date;
 }
@@ -77,6 +82,7 @@ function toMessageView(
     // A withdrawn message keeps its place in the thread but gives up its text.
     body: deleted ? "" : row.body,
     mentions: row.mentions ?? [],
+    attachments: deleted ? [] : parseAttachments(row.attachments),
     createdAt: row.createdAt.toISOString(),
     deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
   };
@@ -166,9 +172,13 @@ export async function resolveCommentAccess(input: {
 
 /* ─────────────────────────────── Validation ─────────────────────────────── */
 
-function assertBody(body: unknown): string {
+/**
+ * A comment needs a body OR at least one attachment — "look at this" is a complete
+ * comment when it carries a file — so the caller says whether attachments exist.
+ */
+function assertBody(body: unknown, hasAttachments: boolean): string {
   const text = typeof body === "string" ? body.trim() : "";
-  if (!text) {
+  if (!text && !hasAttachments) {
     throw new TeammateDataError("Comment cannot be empty.", 400, "comment_empty");
   }
   if (text.length > MAX_COMMENT_LENGTH) {
@@ -179,6 +189,93 @@ function assertBody(body: unknown): string {
     );
   }
   return text;
+}
+
+/**
+ * Validate the attachment descriptors a client sends with a new message.
+ *
+ * Each `key` must live under THIS plan's comment prefix
+ * (`org/{ownerUserId}/plans/{clientId}/comments/…`) or it is refused — that stops a key
+ * being attached to the wrong plan, and keeps every key inside the prefix the R2 read
+ * proxy already authorizes. The upload itself is presigned separately (see the
+ * `/api/clients/[id]/comments/attachments` route).
+ */
+function sanitizeAttachments(input: unknown, clientId: string): CommentAttachment[] {
+  if (input == null) return [];
+  if (!Array.isArray(input)) {
+    throw new TeammateDataError(
+      "Attachments must be a list.",
+      400,
+      "comment_bad_attachment",
+    );
+  }
+  if (input.length > MAX_ATTACHMENTS_PER_MESSAGE) {
+    throw new TeammateDataError(
+      `Too many attachments (max ${MAX_ATTACHMENTS_PER_MESSAGE}).`,
+      400,
+      "comment_too_many_attachments",
+    );
+  }
+
+  const escaped = clientId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const expected = new RegExp(`^org/[^/]+/plans/${escaped}/comments/`);
+
+  return input.map((raw) => {
+    const item = (raw ?? {}) as Partial<CommentAttachment>;
+    const key = typeof item.key === "string" ? item.key.trim() : "";
+    const name = typeof item.name === "string" ? item.name.trim() : "";
+    const size = typeof item.size === "number" ? item.size : 0;
+    if (!key || !name) {
+      throw new TeammateDataError(
+        "An attachment is missing its key or name.",
+        400,
+        "comment_bad_attachment",
+      );
+    }
+    if (!expected.test(key)) {
+      throw new TeammateDataError(
+        "An attachment does not belong to this plan.",
+        400,
+        "comment_bad_attachment",
+      );
+    }
+    if (!(size > 0) || size > MAX_ATTACHMENT_BYTES) {
+      throw new TeammateDataError(
+        "An attachment is larger than the limit.",
+        400,
+        "comment_attachment_too_large",
+      );
+    }
+    return {
+      key,
+      name: name.slice(0, 200),
+      type:
+        typeof item.type === "string" && item.type.trim()
+          ? item.type.trim().slice(0, 120)
+          : "application/octet-stream",
+      size,
+    };
+  });
+}
+
+/** Read the stored attachment array back out of the Prisma `Json` column. */
+function parseAttachments(value: unknown): CommentAttachment[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((raw) => {
+    const item = (raw ?? {}) as Partial<CommentAttachment>;
+    if (typeof item.key !== "string" || typeof item.name !== "string") return [];
+    return [
+      {
+        key: item.key,
+        name: item.name,
+        type:
+          typeof item.type === "string" && item.type
+            ? item.type
+            : "application/octet-stream",
+        size: typeof item.size === "number" ? item.size : 0,
+      },
+    ];
+  });
 }
 
 function assertAnchor(anchor: CommentAnchorInput | undefined): CommentAnchorInput {
@@ -383,13 +480,15 @@ export async function createCommentThread(input: {
   category?: string | null;
   anchor: CommentAnchorInput;
   body: string;
+  attachments?: unknown;
 }): Promise<CommentThreadView> {
   const access = await resolveCommentAccess({
     userId: input.userId,
     clientIdOrSlug: input.clientIdOrSlug,
     category: input.category,
   });
-  const body = assertBody(input.body);
+  const attachments = sanitizeAttachments(input.attachments, access.clientId);
+  const body = assertBody(input.body, attachments.length > 0);
   const anchor = assertAnchor(input.anchor);
 
   const candidates = await listMentionableUsers({
@@ -414,7 +513,12 @@ export async function createCommentThread(input: {
       quote: anchor.quote ?? null,
       createdByUserId: input.userId,
       messages: {
-        create: { authorUserId: input.userId, body, mentions },
+        create: {
+          authorUserId: input.userId,
+          body,
+          mentions,
+          attachments: attachments.length > 0 ? (attachments as any) : undefined,
+        },
       },
     },
     include: { messages: { orderBy: { createdAt: "asc" } } },
@@ -461,6 +565,7 @@ export async function addCommentMessage(input: {
   userId: string;
   threadId: string;
   body: string;
+  attachments?: unknown;
 }): Promise<CommentThreadView> {
   const thread = await prisma.commentThread.findFirst({
     where: { id: input.threadId, organizationId: input.organizationId },
@@ -474,7 +579,8 @@ export async function addCommentMessage(input: {
     clientIdOrSlug: thread.clientId,
     category: thread.benefitCategory,
   });
-  const body = assertBody(input.body);
+  const attachments = sanitizeAttachments(input.attachments, thread.clientId);
+  const body = assertBody(input.body, attachments.length > 0);
 
   const candidates = await listMentionableUsers({
     organizationId: input.organizationId,
@@ -482,7 +588,13 @@ export async function addCommentMessage(input: {
   const mentions = parseMentions(body, candidates);
 
   const created = await prisma.commentMessage.create({
-    data: { threadId: thread.id, authorUserId: input.userId, body, mentions },
+    data: {
+      threadId: thread.id,
+      authorUserId: input.userId,
+      body,
+      mentions,
+      attachments: attachments.length > 0 ? (attachments as any) : undefined,
+    },
   });
 
   const authorById = await loadAuthors([
@@ -608,10 +720,10 @@ export async function deleteCommentMessage(input: {
     isPlanOwner: access.kind === "owner",
   });
 
-  // Soft delete: the thread keeps its shape, the message gives up its text.
+  // Soft delete: the thread keeps its shape; the message gives up its text AND its files.
   await prisma.commentMessage.update({
     where: { id: message.id },
-    data: { deletedAt: new Date(), body: "" },
+    data: { deletedAt: new Date(), body: "", attachments: [] },
   });
   return { threadId: message.threadId };
 }

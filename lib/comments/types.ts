@@ -26,6 +26,60 @@ export const MAX_COMMENT_LENGTH = 5000;
  */
 export const GENERAL_SECTION_KEY = "general";
 
+/** Largest number of files a single comment may carry. */
+export const MAX_ATTACHMENTS_PER_MESSAGE = 5;
+
+/** Largest single attachment, in bytes (15 MB). */
+export const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024;
+
+/** One file attached to a comment message. */
+export interface CommentAttachment {
+  /**
+   * R2 object key, under `org/{ownerUserId}/plans/{clientId}/comments/…`, so
+   * `/api/r2/object` authorizes reads against the caller's plan assignment.
+   */
+  key: string;
+  name: string;
+  /** MIME type, e.g. "image/png". */
+  type: string;
+  /** Size in bytes. */
+  size: number;
+}
+
+export function isImageAttachment(type: string): boolean {
+  return type.startsWith("image/");
+}
+
+export function isPdfAttachment(type: string): boolean {
+  return type === "application/pdf";
+}
+
+/** Same-origin URL that streams the attachment inline (auth checked by the route). */
+export function commentAttachmentInlineUrl(key: string): string {
+  return `/api/r2/object?key=${encodeURIComponent(key)}`;
+}
+
+/** Same-origin URL that downloads the attachment as a file. */
+export function commentAttachmentDownloadUrl(key: string): string {
+  return `/api/r2/signed-url?key=${encodeURIComponent(
+    key,
+  )}&disposition=attachment&redirect=1`;
+}
+
+/** "1.2 MB" — for attachment chips and the viewer. */
+export function formatAttachmentSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
+  const units = ["B", "KB", "MB", "GB"];
+  const index = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1,
+  );
+  const value = bytes / 1024 ** index;
+  return `${index === 0 || value >= 10 ? Math.round(value) : value.toFixed(1)} ${
+    units[index]
+  }`;
+}
+
 /** Notification `type` values this feature emits (consumed by the header bell). */
 export const COMMENT_NOTIFICATION_TYPES = {
   threadCreated: "comment_thread_created",
@@ -77,6 +131,8 @@ export interface CommentMessageView {
   author: CommentAuthorView | null;
   body: string;
   mentions: string[];
+  /** Files attached to this message, oldest first. Empty when there are none. */
+  attachments: CommentAttachment[];
   createdAt: string;
   /** Non-null when the message was withdrawn; `body` is empty then. */
   deletedAt: string | null;

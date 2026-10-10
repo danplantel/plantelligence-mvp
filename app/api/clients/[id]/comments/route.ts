@@ -78,6 +78,7 @@ export async function POST(
           category?: string | null;
           anchor?: CommentAnchorInput;
           body?: string;
+          attachments?: unknown;
         }
       | null;
     if (!body) {
@@ -92,6 +93,7 @@ export async function POST(
       category: body.category ?? null,
       anchor: body.anchor as CommentAnchorInput,
       body: String(body.body ?? ""),
+      attachments: body.attachments,
     });
 
     return NextResponse.json({ success: true, thread }, { status: 201 });

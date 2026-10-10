@@ -5,6 +5,7 @@ import useSWR from "swr";
 import {
   normalizeBenefitCategoryKey,
   type CommentAnchorInput,
+  type CommentAttachment,
   type CommentMessageView,
   type CommentTargetType,
   type CommentThreadView,
@@ -56,13 +57,17 @@ async function fetchThreads(url: string): Promise<CommentListPayload> {
 }
 
 /** A placeholder message shown between posting and the server's authoritative reply. */
-function tempMessage(body: string): CommentMessageView {
+function tempMessage(
+  body: string,
+  attachments: CommentAttachment[] = [],
+): CommentMessageView {
   return {
     id: `temp-msg-${Date.now()}`,
     authorUserId: "pending",
     author: null,
     body,
     mentions: [],
+    attachments,
     createdAt: new Date().toISOString(),
     deletedAt: null,
   };
@@ -76,8 +81,16 @@ export interface UseCommentThreadsResult {
   error: string | null;
   isMutating: boolean;
   refresh: () => void;
-  createThread: (anchor: CommentAnchorInput, body: string) => Promise<void>;
-  reply: (threadId: string, body: string) => Promise<void>;
+  createThread: (
+    anchor: CommentAnchorInput,
+    body: string,
+    attachments?: CommentAttachment[],
+  ) => Promise<void>;
+  reply: (
+    threadId: string,
+    body: string,
+    attachments?: CommentAttachment[],
+  ) => Promise<void>;
   setResolved: (threadId: string, resolved: boolean) => Promise<void>;
   deleteThread: (threadId: string) => Promise<void>;
   deleteMessage: (messageId: string, threadId: string) => Promise<void>;
@@ -120,7 +133,11 @@ export function useCommentThreads(
   }, []);
 
   const createThread = useCallback(
-    async (anchor: CommentAnchorInput, body: string) => {
+    async (
+      anchor: CommentAnchorInput,
+      body: string,
+      attachments: CommentAttachment[] = [],
+    ) => {
       if (!target || !key) return;
       await run(async () => {
         const optimistic: CommentThreadView = {
@@ -142,7 +159,7 @@ export function useCommentThreads(
           createdByUserId: "pending",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          messages: [tempMessage(body)],
+          messages: [tempMessage(body, attachments)],
         };
 
         await mutate(
@@ -155,6 +172,7 @@ export function useCommentThreads(
                 category: target.category ?? null,
                 anchor,
                 body,
+                attachments,
               }),
             });
             const payload = (await response.json().catch(() => ({}))) as {
@@ -186,9 +204,13 @@ export function useCommentThreads(
   );
 
   const reply = useCallback(
-    async (threadId: string, body: string) => {
+    async (
+      threadId: string,
+      body: string,
+      attachments: CommentAttachment[] = [],
+    ) => {
       await run(async () => {
-        const optimistic = tempMessage(body);
+        const optimistic = tempMessage(body, attachments);
         await mutate(
           async (current) => {
             const response = await fetch(
@@ -196,7 +218,7 @@ export function useCommentThreads(
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ body }),
+                body: JSON.stringify({ body, attachments }),
               },
             );
             const payload = (await response.json().catch(() => ({}))) as {

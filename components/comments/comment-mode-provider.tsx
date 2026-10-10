@@ -18,6 +18,7 @@ import {
 import { useCommentsLayout } from "@/lib/comments/comments-layout";
 import type {
   CommentAnchorInput,
+  CommentAttachment,
   CommentTargetType,
   CommentThreadView,
   MentionableUser,
@@ -64,8 +65,16 @@ interface CommentModeValue {
   activeThreadId: string | null;
   setActiveThreadId: (id: string | null) => void;
 
-  createThread: (anchor: CommentAnchorInput, body: string) => Promise<void>;
-  reply: (threadId: string, body: string) => Promise<void>;
+  createThread: (
+    anchor: CommentAnchorInput,
+    body: string,
+    attachments?: CommentAttachment[],
+  ) => Promise<void>;
+  reply: (
+    threadId: string,
+    body: string,
+    attachments?: CommentAttachment[],
+  ) => Promise<void>;
   setResolved: (threadId: string, resolved: boolean) => Promise<void>;
   deleteThread: (threadId: string) => Promise<void>;
   deleteMessage: (messageId: string, threadId: string) => Promise<void>;

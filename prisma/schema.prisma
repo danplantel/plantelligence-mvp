@@ -1004,6 +1004,10 @@ model CommentMessage {
   body         String
   // Mentioned User ids, parsed at write time so the notification pass does not re-parse.
   mentions  String[]  @default([])
+  // Files attached to this message: [{ key, name, type, size }]. Each `key` lives under
+  // `org/{ownerUserId}/plans/{clientId}/comments/…`, so the existing /api/r2/object proxy
+  // authorizes reads against the caller's plan assignment with no extra plumbing.
+  attachments Json?
   // Soft delete keeps a thread readable after a message is withdrawn.
   deletedAt DateTime?
   createdAt DateTime  @default(now())
