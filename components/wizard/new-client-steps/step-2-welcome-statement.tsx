@@ -40,7 +40,6 @@ import { PortalHeader } from "@/components/pages/client-portal/sections/portal-h
 import { ClientPortal } from "@/components/pages/client-portal/client-portal";
 import { TypographySection } from "./sections/typography-section";
 import { usePreviewEditorLayout } from "@/lib/preview-editor-layout";
-import { useCommentMode } from "@/components/comments/comment-mode-provider";
 import {
   applyTypographyToElement,
   type TypographyThemeId,
@@ -228,12 +227,6 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
 
   // Hooks
   const editorState = useEditorState({ autoOpen: true });
-  /**
-   * Comments mode, because on this step the Editing Panel and the Comments rail are
-   * mutually exclusive — see `editorIsOpen` below for why.
-   */
-  const { mode: commentMode, setMode: setCommentMode } = useCommentMode();
-  const commentsAreOn = commentMode === "on";
   const { welcomeData, updateField } = useWelcomeData();
   const missionData = useMissionData();
   const { userAvatar } = useUserAvatar();
@@ -319,23 +312,22 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
   }, []);
 
   /**
-   * The Editing Panel's effective open state, and the single gate for everything that
-   * follows from it (`--editor-inset`, the header/stepper layout, the toolbar's label).
+   * The Editing Panel's effective open state — the single source for everything that follows
+   * from it (`--editor-inset`, the header/stepper layout, the toolbar's label).
    *
-   * On Step 2 the Editing Panel and the Comments rail are MUTUALLY EXCLUSIVE. They are the
-   * two tool columns either side of the preview, and opening both starves it: at 1440px the
-   * preview lands at a 0.32 scale — a thumbnail, not a preview. So each opening action swaps
-   * to the other in a single click, and the preview always keeps a legible width
-   * (0.57 editing, 0.73 reviewing). See docs/teammates-module.md §9i.
+   * The Editing Panel and the Comments rail MAY BOTH be open on this step. They are the two
+   * tool columns either side of the preview, and the preview absorbs both: its container
+   * subtracts `--editor-inset` *and* `--comments-inset`, and because it is a scaled render
+   * rather than reflowing content, paying that cost means getting smaller instead of being
+   * covered or hidden. Nothing overlaps and nothing is suppressed.
    *
-   * Gating this DERIVED value, rather than only reacting to `commentsAreOn`, is deliberate:
-   * `useEditorState` auto-opens by scheduling `setIsEditorAnimating(true)` 10ms after mount,
-   * and `isAnimating` *is* the on-screen position. A state-only reconciliation can therefore
-   * leave the panel painted for a frame, or leave `isAnimating` true while `isOpen` is false
-   * — which renders the panel visible. A derived value cannot be raced by a timer.
+   * The price is worth stating plainly: with both columns open the preview is a working
+   * overview, not a legible one — ≈0.66 at 1920px and ≈0.32 at 1440px. Close whichever column
+   * you are not using when you want to actually read the copy. See
+   * docs/teammates-module.md §9i.
    */
   const editorIsOpen =
-    (editorState.isEditorOpen || editorState.isEditorAnimating) && !commentsAreOn;
+    editorState.isEditorOpen || editorState.isEditorAnimating;
 
   /**
    * Reserve a column for the Editing Panel *beside* the sidebar, and ask the
@@ -353,47 +345,17 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
    */
   usePreviewEditorLayout(editorIsOpen);
 
-  // Close the panel's own state whenever the rail takes the column — not just its rendering.
-  // `useEditorState` broadcasts `step2EditorStateChange` straight from `isEditorOpen` and the
-  // header lays itself out from that, so a lingering `true` would lie to the header. There is
-  // no 200ms slide-out here: the rail is already taking the space, so there is nothing to
-  // animate, and the gate above means the panel was never painted.
-  useEffect(() => {
-    if (!commentsAreOn) return;
-    if (!editorState.isEditorOpen && !editorState.isEditorAnimating) return;
-    if (headlineRef.current) headlineRef.current.blur();
-    if (bodyTextRef.current) bodyTextRef.current.blur();
-    editorState.setIsEditorAnimating(false);
-    editorState.setFocusedTextField(null);
-    editorState.setHeroTextField(null);
-    editorState.setIsEditorOpen(false);
-  }, [
-    commentsAreOn,
-    editorState,
-    editorState.isEditorOpen,
-    editorState.isEditorAnimating,
-  ]);
-
-  // The stepper's own "open the editor" affordance has to swap columns too, or the effect
-  // above would immediately close the panel it just opened.
-  useEffect(() => {
-    if (!commentsAreOn) return;
-    const onOpenEditor = () => setCommentMode("off");
-    window.addEventListener("openStep2Editor", onOpenEditor);
-    return () => window.removeEventListener("openStep2Editor", onOpenEditor);
-  }, [commentsAreOn, setCommentMode]);
-
   /**
    * Open the Editing Panel. Every opener routes through here — the toolbar, the
    * scroll-and-highlight entry points, the preview's click targets, the validation scroll and
-   * the stepper — because turning comments off is part of what "open the editor" means on
-   * this step. An opener that set `isEditorOpen` directly would reintroduce the squeezed state.
+   * the stepper — because opening is a *pair*: `isEditorOpen` plus the 10ms
+   * `isEditorAnimating` that actually slides it in. Pairing those by hand at eight call sites
+   * is how one of them ends up flagging a panel open that never slides into view.
    */
   const openEditor = useCallback(() => {
-    setCommentMode("off");
     editorState.setIsEditorOpen(true);
     setTimeout(() => editorState.setIsEditorAnimating(true), 10);
-  }, [editorState, setCommentMode]);
+  }, [editorState]);
 
   // ── Preview mode ──
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
@@ -486,8 +448,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     const erroredField = step2Fields.find((f) => liveErrorFields.includes(f));
     if (!erroredField) return;
 
-    // Ensure the editor is open so the scroll is visible. `openEditor()` is what turns
-    // comments off, so pressing Next with an error swaps columns instead of fighting for them.
+    // Ensure the editor is open so the scroll is visible.
     if (!editorIsOpen) {
       openEditor();
     }
@@ -1204,8 +1165,6 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
               if (editorIsOpen) {
                 editorState.handleCloseEditor();
               } else {
-                // One click swaps columns: `openEditor()` turns comments off as part of
-                // opening the panel, so the two are never on screen at once.
                 openEditor();
               }
             }}
@@ -1247,11 +1206,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
 
       {/* ── Fixed-overlay editor panel (slides in from the left) ── */}
       <EditorPanelWrapper
-        // Gated, not merely reacted to — see `editorIsOpen`. The panel must never paint while
-        // the rail owns the right column, not even for the single frame a stray auto-open
-        // timer could cause.
-        isOpen={editorIsOpen}
-        isAnimating={editorState.isEditorAnimating && editorIsOpen}
+        isOpen={editorState.isEditorOpen}
+        isAnimating={editorState.isEditorAnimating}
         editorScrollContainerRef={editorScrollContainerRef}
         onClose={editorState.handleCloseEditor}
         // Sit beside the (rail-collapsed) sidebar rather than over it. The
@@ -1402,11 +1358,12 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
         className="fixed z-40 flex flex-col"
         style={{
           // Clears the sidebar, the Editing Panel's column *and* the Comments rail's, so the
-          // preview is pushed beside whichever tool column is open instead of being covered by
-          // it. The preview is a scaled render, not reflowing content, so being pushed degrades
-          // it gracefully (it gets smaller) — which is exactly why it can be pushed here and
-          // must not be overlaid. Same right edge as the wizard footer, which already reserves
-          // the rail and would otherwise disagree with this element.
+          // preview sits beside BOTH tool columns rather than being covered by either. It is a
+          // scaled render rather than reflowing content, so absorbing them degrades it
+          // gracefully — it gets smaller — which is what makes that the right trade on this
+          // step: both panels stay usable, and nothing is hidden or suppressed. Same right edge
+          // as the wizard footer, which already reserves the rail and would otherwise disagree
+          // with this element.
           top: `${HEADER_HEIGHT + barHeight}px`,
           left: "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
           width:

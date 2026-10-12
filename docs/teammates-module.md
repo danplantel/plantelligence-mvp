@@ -1673,24 +1673,27 @@ decision:
   `z-40` they would paint over its composer. At `z-50` the panel wins by DOM order (it is
   mounted after the page content), while dialogs and popovers, which portal into
   `document.body` after it, still paint above it.
-- **On the Create Plan Step 2 the Editing Panel and the rail are mutually exclusive, and the
-  preview reserves the column.** Step 2 already had two columns competing for the middle — the
-  Editing Panel (36rem) beside the preview — so a third on the right cannot fit: with all three
-  open the preview lands at a 0.32 scale at 1440px and 0.66 at 1920px, whereas reserving one
-  tool column at a time keeps it legible (0.57 editing, 0.73 reviewing). So every "open the
-  editor" path routes through a single `openEditor()` helper that turns comments off first, an
-  effect closes the panel whenever comments take the column, and the step's fixed toolbar and
-  preview subtract `--comments-inset`. That last part is what the wizard footer already did, and
-  it also removes a live collision: the toolbar is `z-[45]` to the rail's `z-40`, so its
-  right-hand Mobile/Desktop toggle was painting over the rail's own header and close button.
-  Two details worth keeping. The panel's effective open state is a **derived** value,
-  `(isEditorOpen || isEditorAnimating) && !commentsAreOn`, passed to `EditorPanelWrapper`'s
-  `isOpen`/`isAnimating` — rather than a state-only reaction — because the editor auto-opens by
-  scheduling `setIsEditorAnimating(true)` 10ms after mount and `isAnimating` *is* the on-screen
-  position: reacting alone can leave the panel painted for a frame, or leave `isAnimating` true
-  with `isOpen` false, which renders it visible. And the panel's own state is closed too, not
-  merely hidden, because `useEditorState` broadcasts `step2EditorStateChange` straight from
-  `isEditorOpen` and the header lays itself out from that.
+- **On the Create Plan Step 2 both tool columns may be open, and the preview absorbs them.**
+  Step 2 is the one surface with three fixed columns: the Editing Panel (36rem) to the left of
+  the preview and the Comments rail (22rem) to its right. The preview pays for both — its
+  container subtracts `--editor-inset` *and* `--comments-inset`, the same terms the wizard footer
+  already used — and because it is a scaled render rather than reflowing content, absorbing them
+  means getting smaller rather than being covered. Nothing is hidden and nothing is suppressed;
+  an earlier pass made the two panels mutually exclusive, and that was dropped for exactly this
+  reason, since the panels are what the advisor is working with.
+  The cost is worth stating plainly: with both columns open the preview is a working overview,
+  not a legible one — ≈0.66 at 1920px and ≈0.32 at 1440px, and ≈96px if the rail is *also*
+  widened to 44rem on a 1440px screen. So close a column when you want to read the copy. The
+  trade is deliberate and reversible, not accidental.
+  Two details outlived the reversal. All the editor openers (the toolbar, the
+  scroll-and-highlight entry points, the preview's click targets, the validation scroll and the
+  stepper) still route through one `openEditor()` helper, because opening is a **pair** —
+  `isEditorOpen` plus the 10ms `setIsEditorAnimating(true)` that actually slides it in — and
+  pairing those by hand at eight call sites is how one of them ends up flagging a panel open
+  that never slides into view. And subtracting the inset from the step's toolbar and preview
+  fixed a live collision: the toolbar is `z-[45]` to the rail's `z-40`, so its right-hand
+  Mobile/Desktop toggle was painting over the rail's own header and close button, and the
+  toolbar disagreed with its own footer by exactly the rail's width.
   **Applied to this step only**: [`benefits-steps/step-2.tsx`](components/wizard/benefits-steps/step-2.tsx)
   has the same three-column shape and the same toolbar-over-rail collision, and is deliberately
   left as-is for now.
