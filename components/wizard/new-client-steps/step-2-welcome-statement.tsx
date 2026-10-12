@@ -40,6 +40,7 @@ import { PortalHeader } from "@/components/pages/client-portal/sections/portal-h
 import { ClientPortal } from "@/components/pages/client-portal/client-portal";
 import { TypographySection } from "./sections/typography-section";
 import { usePreviewEditorLayout } from "@/lib/preview-editor-layout";
+import { useCommentMode } from "@/components/comments/comment-mode-provider";
 import {
   applyTypographyToElement,
   type TypographyThemeId,
@@ -227,6 +228,12 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
 
   // Hooks
   const editorState = useEditorState({ autoOpen: true });
+  /**
+   * Comments mode, because on this step the Editing Panel and the Comments rail are
+   * mutually exclusive — see `editorIsOpen` below for why.
+   */
+  const { mode: commentMode, setMode: setCommentMode } = useCommentMode();
+  const commentsAreOn = commentMode === "on";
   const { welcomeData, updateField } = useWelcomeData();
   const missionData = useMissionData();
   const { userAvatar } = useUserAvatar();
@@ -311,8 +318,24 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     };
   }, []);
 
+  /**
+   * The Editing Panel's effective open state, and the single gate for everything that
+   * follows from it (`--editor-inset`, the header/stepper layout, the toolbar's label).
+   *
+   * On Step 2 the Editing Panel and the Comments rail are MUTUALLY EXCLUSIVE. They are the
+   * two tool columns either side of the preview, and opening both starves it: at 1440px the
+   * preview lands at a 0.32 scale — a thumbnail, not a preview. So each opening action swaps
+   * to the other in a single click, and the preview always keeps a legible width
+   * (0.57 editing, 0.73 reviewing). See docs/teammates-module.md §9i.
+   *
+   * Gating this DERIVED value, rather than only reacting to `commentsAreOn`, is deliberate:
+   * `useEditorState` auto-opens by scheduling `setIsEditorAnimating(true)` 10ms after mount,
+   * and `isAnimating` *is* the on-screen position. A state-only reconciliation can therefore
+   * leave the panel painted for a frame, or leave `isAnimating` true while `isOpen` is false
+   * — which renders the panel visible. A derived value cannot be raced by a timer.
+   */
   const editorIsOpen =
-    editorState.isEditorOpen || editorState.isEditorAnimating;
+    (editorState.isEditorOpen || editorState.isEditorAnimating) && !commentsAreOn;
 
   /**
    * Reserve a column for the Editing Panel *beside* the sidebar, and ask the
@@ -330,6 +353,48 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
    */
   usePreviewEditorLayout(editorIsOpen);
 
+  // Close the panel's own state whenever the rail takes the column — not just its rendering.
+  // `useEditorState` broadcasts `step2EditorStateChange` straight from `isEditorOpen` and the
+  // header lays itself out from that, so a lingering `true` would lie to the header. There is
+  // no 200ms slide-out here: the rail is already taking the space, so there is nothing to
+  // animate, and the gate above means the panel was never painted.
+  useEffect(() => {
+    if (!commentsAreOn) return;
+    if (!editorState.isEditorOpen && !editorState.isEditorAnimating) return;
+    if (headlineRef.current) headlineRef.current.blur();
+    if (bodyTextRef.current) bodyTextRef.current.blur();
+    editorState.setIsEditorAnimating(false);
+    editorState.setFocusedTextField(null);
+    editorState.setHeroTextField(null);
+    editorState.setIsEditorOpen(false);
+  }, [
+    commentsAreOn,
+    editorState,
+    editorState.isEditorOpen,
+    editorState.isEditorAnimating,
+  ]);
+
+  // The stepper's own "open the editor" affordance has to swap columns too, or the effect
+  // above would immediately close the panel it just opened.
+  useEffect(() => {
+    if (!commentsAreOn) return;
+    const onOpenEditor = () => setCommentMode("off");
+    window.addEventListener("openStep2Editor", onOpenEditor);
+    return () => window.removeEventListener("openStep2Editor", onOpenEditor);
+  }, [commentsAreOn, setCommentMode]);
+
+  /**
+   * Open the Editing Panel. Every opener routes through here — the toolbar, the
+   * scroll-and-highlight entry points, the preview's click targets, the validation scroll and
+   * the stepper — because turning comments off is part of what "open the editor" means on
+   * this step. An opener that set `isEditorOpen` directly would reintroduce the squeezed state.
+   */
+  const openEditor = useCallback(() => {
+    setCommentMode("off");
+    editorState.setIsEditorOpen(true);
+    setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+  }, [editorState, setCommentMode]);
+
   // ── Preview mode ──
   const [previewMode, setPreviewMode] = useState<PreviewMode>("desktop");
   const previewContentRef = useRef<HTMLDivElement>(null);
@@ -339,7 +404,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
 
   // Lenis scroll setup — disable main Lenis so wheel events reach the preview
   const { editorScrollContainerRef, scrollSyncSourceRef } = useLenisScroll(
-    editorState.isEditorOpen, true,
+    editorIsOpen, true,
   );
 
   // Field focus
@@ -421,10 +486,10 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
     const erroredField = step2Fields.find((f) => liveErrorFields.includes(f));
     if (!erroredField) return;
 
-    // Ensure the editor is open so the scroll is visible
-    if (!editorState.isEditorOpen) {
-      editorState.setIsEditorOpen(true);
-      setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+    // Ensure the editor is open so the scroll is visible. `openEditor()` is what turns
+    // comments off, so pressing Next with an error swaps columns instead of fighting for them.
+    if (!editorIsOpen) {
+      openEditor();
     }
 
     // Wait for the editor to render/animate before scrolling
@@ -768,9 +833,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
 
   const handleOpenHeroTextEditor = (field: "title" | "description") => {
     editorState.setHeroTextField(field);
-    editorState.setIsEditorOpen(true);
+    openEditor();
     setTimeout(() => {
-      editorState.setIsEditorAnimating(true);
       if (field === "title") {
         setTimeout(() => {
           if (bannerTitleCardRef.current && editorScrollContainerRef.current) {
@@ -797,9 +861,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
   };
 
   const handleOpenHeroSettingsEditor = () => {
-    editorState.setIsEditorOpen(true);
+    openEditor();
     setTimeout(() => {
-      editorState.setIsEditorAnimating(true);
       setTimeout(() => {
         if (overlaySettingsCardRef.current && editorScrollContainerRef.current) {
           const element = overlaySettingsCardRef.current;
@@ -823,9 +886,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
   };
 
   const handleOpenLogoEditor = () => {
-    editorState.setIsEditorOpen(true);
+    openEditor();
     setTimeout(() => {
-      editorState.setIsEditorAnimating(true);
       setTimeout(() => {
         if (logoCardRef.current && editorScrollContainerRef.current) {
           const element = logoCardRef.current;
@@ -849,9 +911,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
   };
 
   const handleBackgroundClick = () => {
-    editorState.setIsEditorOpen(true);
+    openEditor();
     setTimeout(() => {
-      editorState.setIsEditorAnimating(true);
       setTimeout(() => {
         if (editorScrollContainerRef.current) {
           editorScrollContainerRef.current.scrollTo({ top: 0, behavior: "smooth" });
@@ -861,9 +922,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
   };
 
   const openEditorAndScrollToThumbnail = useCallback(() => {
-    editorState.setIsEditorOpen(true);
+    openEditor();
     setTimeout(() => {
-      editorState.setIsEditorAnimating(true);
       setTimeout(() => {
         if (thumbnailCardRef.current && editorScrollContainerRef.current) {
           const element = thumbnailCardRef.current;
@@ -885,7 +945,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
         }
       }, 150);
     }, 10);
-  }, [editorState, thumbnailImage]);
+  }, [openEditor, thumbnailImage]);
 
   const handleLogoImageChange = (logoData: CompanyLogoData | null) => {
     const store = useNewClientWizardStore.getState();
@@ -1104,8 +1164,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
             onEditBackground={() => goToStep(1)}
             onOpenTextEditor={(field: "headline" | "body") => {
               editorState.setFocusedTextField(field);
-              editorState.setIsEditorOpen(true);
-              setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+              openEditor();
             }}
           />
         </div>
@@ -1122,10 +1181,15 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
       <div
         className="fixed top-0 z-[45]"
         style={{
-          // Same offsets as the preview below: sidebar + the panel's column.
+          // Same offsets as the preview below — sidebar + the panel's column — LESS the
+          // Comments rail's reserved column. Without that last term this bar runs on under the
+          // rail, and its right-hand Mobile/Desktop toggle lands on top of the rail's own
+          // header (it is z-[45] to the rail's z-40, so it wins the paint and hides the close
+          // button). Subtracting it also aligns this bar with the wizard footer, which already
+          // reserves the rail.
           left: "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
           width:
-            "calc(100% - var(--sidebar-width, 16rem) - var(--editor-inset, 0px))",
+            "calc(100% - var(--sidebar-width, 16rem) - var(--editor-inset, 0px) - var(--comments-inset, 0px))",
         }}
       >
         <div style={{ height: `${HEADER_HEIGHT}px` }} />
@@ -1140,8 +1204,9 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
               if (editorIsOpen) {
                 editorState.handleCloseEditor();
               } else {
-                editorState.setIsEditorOpen(true);
-                setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+                // One click swaps columns: `openEditor()` turns comments off as part of
+                // opening the panel, so the two are never on screen at once.
+                openEditor();
               }
             }}
             className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
@@ -1182,8 +1247,11 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
 
       {/* ── Fixed-overlay editor panel (slides in from the left) ── */}
       <EditorPanelWrapper
-        isOpen={editorState.isEditorOpen}
-        isAnimating={editorState.isEditorAnimating}
+        // Gated, not merely reacted to — see `editorIsOpen`. The panel must never paint while
+        // the rail owns the right column, not even for the single frame a stray auto-open
+        // timer could cause.
+        isOpen={editorIsOpen}
+        isAnimating={editorState.isEditorAnimating && editorIsOpen}
         editorScrollContainerRef={editorScrollContainerRef}
         onClose={editorState.handleCloseEditor}
         // Sit beside the (rail-collapsed) sidebar rather than over it. The
@@ -1333,12 +1401,16 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
       <div
         className="fixed z-40 flex flex-col"
         style={{
-          // Clears the sidebar *and* the Editing Panel's reserved column, so the
-          // preview sits beside both instead of under the panel.
+          // Clears the sidebar, the Editing Panel's column *and* the Comments rail's, so the
+          // preview is pushed beside whichever tool column is open instead of being covered by
+          // it. The preview is a scaled render, not reflowing content, so being pushed degrades
+          // it gracefully (it gets smaller) — which is exactly why it can be pushed here and
+          // must not be overlaid. Same right edge as the wizard footer, which already reserves
+          // the rail and would otherwise disagree with this element.
           top: `${HEADER_HEIGHT + barHeight}px`,
           left: "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
           width:
-            "calc(100% - var(--sidebar-width, 16rem) - var(--editor-inset, 0px))",
+            "calc(100% - var(--sidebar-width, 16rem) - var(--editor-inset, 0px) - var(--comments-inset, 0px))",
           height: `calc(100vh - ${totalFixedHeight}px)`,
         }}
       >
@@ -1408,13 +1480,11 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                         onHeroDescriptionClick={() => handleOpenHeroTextEditor("description")}
                         onMissionHeadlineClick={() => {
                           editorState.setFocusedTextField("headline");
-                          editorState.setIsEditorOpen(true);
-                          setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+                          openEditor();
                         }}
                         onMissionBodyClick={() => {
                           editorState.setFocusedTextField("body");
-                          editorState.setIsEditorOpen(true);
-                          setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+                          openEditor();
                         }}
                       />
                     </div>
@@ -1445,13 +1515,11 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                   onHeroDescriptionClick={() => handleOpenHeroTextEditor("description")}
                   onMissionHeadlineClick={() => {
                     editorState.setFocusedTextField("headline");
-                    editorState.setIsEditorOpen(true);
-                    setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+                    openEditor();
                   }}
                   onMissionBodyClick={() => {
                     editorState.setFocusedTextField("body");
-                    editorState.setIsEditorOpen(true);
-                    setTimeout(() => editorState.setIsEditorAnimating(true), 10);
+                    openEditor();
                   }}
                 />
               </div>

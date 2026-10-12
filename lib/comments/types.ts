@@ -15,8 +15,18 @@ export type CommentTargetType = "plan" | "benefit";
  */
 export type CommentAnchorKind = "section" | "text";
 
-/** Longest accepted comment body, in characters. */
-export const MAX_COMMENT_LENGTH = 5000;
+/**
+ * Longest accepted comment body, in characters.
+ *
+ * 10,000 — deliberately below Slack's ~12,000, and roughly 1,500 words: long enough for a
+ * genuinely detailed comment (a walkthrough of what is wrong, a pasted block of copy, a
+ * summary of a call) without inviting essay-length back-and-forth inside a side panel.
+ *
+ * Enforced in two places on purpose: `maxLength` on the textarea stops the keystroke, and
+ * `assertBody` refuses the request. The limit is a server rule; the textarea is only being
+ * helpful, and a client that ignores it still gets a 400.
+ */
+export const MAX_COMMENT_LENGTH = 10000;
 
 /**
  * The implicit whole-surface target. When the rail's persistent composer posts with no

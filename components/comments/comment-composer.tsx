@@ -11,6 +11,7 @@ import {
   formatAttachmentSize,
   type CommentAttachment,
 } from "@/lib/comments/types";
+import { cn } from "@/lib/utils";
 import { useCommentMode } from "./comment-mode-provider";
 import { EmojiPicker } from "./emoji-picker";
 import {
@@ -55,6 +56,11 @@ export function CommentComposer({
   const textareaRef = useRef<MentionTextareaHandle>(null);
 
   const canSubmit = text.trim().length > 0 || pending.length > 0;
+  // The counter appears only in the last stretch. A permanent "0 / 10,000" is noise on a
+  // limit nobody reaches, but an invisible wall — `maxLength` silently swallowing keystrokes
+  // — is worse, so it shows up while there is still room to react.
+  const showCount = text.length >= MAX_COMMENT_LENGTH * 0.8;
+  const atLimit = text.length >= MAX_COMMENT_LENGTH;
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0 || !target) return;
@@ -221,19 +227,35 @@ export function CommentComposer({
           />
         </div>
 
-        <Button
-          size="sm"
-          className="h-7 bg-accent-blue px-3 text-[11px] hover:bg-accent-blue/90"
-          disabled={busy || isMutating || uploading || !canSubmit}
-          onClick={submit}
-        >
-          {busy ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Send className="h-3.5 w-3.5" />
-          )}
-          <span className="ml-1.5">{submitLabel}</span>
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* No `aria-live` on purpose: the value changes on every keystroke, and announcing
+              the count each time would bury the text being typed. The cap itself is announced
+              by the textarea refusing the input. */}
+          {showCount ? (
+            <span
+              className={cn(
+                "tabular-nums text-[10px]",
+                atLimit ? "font-medium text-red-600" : "text-muted-foreground",
+              )}
+              title={`${text.length.toLocaleString()} of ${MAX_COMMENT_LENGTH.toLocaleString()} characters`}
+            >
+              {text.length.toLocaleString()} / {MAX_COMMENT_LENGTH.toLocaleString()}
+            </span>
+          ) : null}
+          <Button
+            size="sm"
+            className="h-7 bg-accent-blue px-3 text-[11px] hover:bg-accent-blue/90"
+            disabled={busy || isMutating || uploading || !canSubmit}
+            onClick={submit}
+          >
+            {busy ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Send className="h-3.5 w-3.5" />
+            )}
+            <span className="ml-1.5">{submitLabel}</span>
+          </Button>
+        </div>
       </div>
 
       <input

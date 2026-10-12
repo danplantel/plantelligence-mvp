@@ -164,7 +164,7 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:verify-t2a` | Runs the 25-assertion T2a suite (per-function Custom enforcement, same-vs-per-plan grids, the locked-row refusal, All Plans, the missing-grid refusal, soft warnings and their audit trail, and the summary line). |
 | `npm run teammates:verify-t7` | Runs the 26-assertion T7 suite (the three acceptance criteria, display-vs-access, the mirror's idempotency and removals, hidden categories, and the unmirrorable-contact residue). |
 | `npm run teammates:verify-t9` | Runs the 41-assertion T9 suite (the signed token and its refusals, the mailbox guard, the profile guards, acceptance creating vs reusing a login, the seat conversion, replay, both audit rows, and the tenancy invariant). |
-| `npm run comments:verify` | Runs the 36-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, attachments, and the plan-delete cascade). See §9i. |
+| `npm run comments:verify` | Runs the 38-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, attachments, and the plan-delete cascade). See §9i. |
 | `npm run teammates:backfill-contacts` | Projects every plan's `keyContacts` onto profiles + assignments (T7). Idempotent; `--dry-run` to count without writing. Run it before the hub reader switch and after adding a new contacts writer. |
 | `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
 
@@ -1490,7 +1490,7 @@ rules are access rules**, and they must not drift from the permission grid.
 | Routes | `app/api/clients/[id]/comments`, `.../comments/attachments`, `app/api/comments/threads/[threadId]`, `.../threads/[threadId]/messages`, `.../messages/[messageId]` | HTTP only — they translate, they never decide |
 | Client data | [`hooks/useCommentThreads.ts`](../hooks/useCommentThreads.ts) | The SWR poll and the optimistic writes with rollback |
 | Surface + state | [`comment-mode-provider.tsx`](../components/comments/comment-mode-provider.tsx), [`comments-toggle.tsx`](../components/comments/comments-toggle.tsx) | Registers the page as a surface, owns on/off, exposes `canModerate` |
-| The rail | [`comments-rail.tsx`](../components/comments/comments-rail.tsx) | Thread cards, the persistent composer, the attachment viewer |
+| The rail | [`comments-rail.tsx`](../components/comments/comments-rail.tsx) | The thread list, each thread's own view, both composers, the attachment viewer |
 | Composer, emoji + viewer | [`comment-composer.tsx`](../components/comments/comment-composer.tsx), [`emoji-picker.tsx`](../components/comments/emoji-picker.tsx), [`comment-attachment-modal.tsx`](../components/comments/comment-attachment-modal.tsx) | The shared composer (rail + every reply box), the curated emoji popover, and the file modal |
 
 ### The four decisions the spec left open
@@ -1541,6 +1541,28 @@ point.
 An unassigned user is refused by the **access layer** (`not_assigned`) before the
 moderation rule is consulted at all; asserting that ordering is part of the point.
 
+### What a comment may contain
+
+A body of up to **10,000 characters** (`MAX_COMMENT_LENGTH` in `lib/comments/types.ts`) — or no
+body at all, if it carries a file. 10,000 is deliberately below Slack's ~12,000 and is roughly
+1,500 words: long enough for a walkthrough of what is wrong, a pasted block of copy, or a
+summary of a call, without inviting essay-length back-and-forth inside a side panel.
+
+Two things worth keeping straight:
+
+- **The limit is a server rule; the textarea is only being helpful.** `assertBody` refuses an
+  oversized body (`comment_too_long`, 400) and `maxLength` stops the keystroke. A client that
+  ignores the attribute still gets refused.
+- **The composer shows a counter only in the last stretch** — from 80% of the limit, turning
+  red at the cap. A permanent "0 / 10,000" is noise on a limit nobody reaches, but an
+  invisible wall that silently swallows keystrokes is worse. It carries no `aria-live`: the
+  value changes on every keystroke, and announcing it each time would bury the text being
+  typed.
+
+`verify-comments` pins both ends of the boundary — exactly the limit is accepted (on `planB`,
+so the thread counts the other sections assert for `planA` stay put) and one character over is
+refused — so the number cannot drift unnoticed.
+
 ### Attachments
 
 A comment may carry images and arbitrary files: up to **5 per message**, **15 MB** each,
@@ -1582,10 +1604,37 @@ decision:
   scrolls above it — and the same [`CommentComposer`](../components/comments/comment-composer.tsx)
   serves both that composer and every thread's reply box, so attachments behave identically
   in both.
-- **One toolbar per card**, top-right: `[Resolve/Reopen] [Delete thread]`. The per-message
-  trash and the bottom delete button were removed; the bottom row keeps only Reply. A
-  non-moderator gets no toolbar at all rather than an empty row, but everyone still sees the
-  Resolved badge — the thread's state is information, moderating it is not.
+- **One toolbar per thread**, top-right: `[Resolve/Reopen] [Delete thread]`. It is a single
+  `ThreadModerationControls`, rendered in **both** the list card and the thread header, so a
+  moderator has the same two controls wherever they happen to be looking. The per-message
+  trash and the old bottom delete button are gone. A non-moderator gets no toolbar at all
+  rather than an empty row, but everyone still sees the Resolved badge — the thread's state is
+  information, moderating it is not.
+- **Replies live in their own view, Slack-style.** A list card is one thread: the parent
+  comment, then a "N replies" line carrying the last-reply time and a face pile of up to three
+  distinct reply authors — or "Reply in thread" when there are none. Opening it swaps the
+  panel's body for that thread's own surface: the parent set apart with a left accent, a count
+  divider, the replies, and a composer pinned to the bottom. Replies are therefore never in
+  the list, which is what keeps it scannable — a thread with twenty replies is one card, not
+  twenty rows, so the next thread is still findable.
+  Three details worth keeping: the split needed **no server change**, because
+  `CommentThreadView.messages` already carries the parent plus its replies, so the parent is
+  `messages[0]` and the count is `length - 1`; the entry point is its **own control** rather
+  than a click on the card, so the moderation buttons can never end up nested inside a click
+  target; and the open thread is the provider's existing **`activeThreadId`**, so a
+  notification's `?comment=` deep link opens the thread view directly instead of merely
+  highlighting a card, and Back is just clearing it. The filter chips and the empty state
+  describe the list, so they do not appear while inside a thread.
+- **The swap is animated, in the direction of travel.** Forward slides the thread in from the
+  panel's own edge (`slide-in-from-right-4`); Back brings the list in from the left
+  (`slide-in-from-left-4`) — both `animate-in fade-in-0 duration-200 ease-out` via
+  `tailwindcss-animate`, which is already this project's plugin, so no new dependency and no
+  new CSS. Each view is wrapped in one element so the panel's own header ("Comments", Widen,
+  Close) stays put and the motion reads as the *body* changing rather than the panel moving.
+  The animation is deliberately **not state-driven**: it lives on the element React creates
+  when the branch swaps (a real unmount and remount), so it plays on the navigation and cannot
+  replay when a polled reply lands three seconds later. There is no animation state to keep in
+  sync and nothing to clean up.
 - **The panel scrolls on its own**, with a native `.comment-scroll` container instead of a
   Radix `ScrollArea`. Two causes, both worth remembering: Radix defaults to `type="hover"`
   (the bar appears only while hovering), and the list was a `flex-1` child without
@@ -1624,11 +1673,32 @@ decision:
   `z-40` they would paint over its composer. At `z-50` the panel wins by DOM order (it is
   mounted after the page content), while dialogs and popovers, which portal into
   `document.body` after it, still paint above it.
+- **On the Create Plan Step 2 the Editing Panel and the rail are mutually exclusive, and the
+  preview reserves the column.** Step 2 already had two columns competing for the middle — the
+  Editing Panel (36rem) beside the preview — so a third on the right cannot fit: with all three
+  open the preview lands at a 0.32 scale at 1440px and 0.66 at 1920px, whereas reserving one
+  tool column at a time keeps it legible (0.57 editing, 0.73 reviewing). So every "open the
+  editor" path routes through a single `openEditor()` helper that turns comments off first, an
+  effect closes the panel whenever comments take the column, and the step's fixed toolbar and
+  preview subtract `--comments-inset`. That last part is what the wizard footer already did, and
+  it also removes a live collision: the toolbar is `z-[45]` to the rail's `z-40`, so its
+  right-hand Mobile/Desktop toggle was painting over the rail's own header and close button.
+  Two details worth keeping. The panel's effective open state is a **derived** value,
+  `(isEditorOpen || isEditorAnimating) && !commentsAreOn`, passed to `EditorPanelWrapper`'s
+  `isOpen`/`isAnimating` — rather than a state-only reaction — because the editor auto-opens by
+  scheduling `setIsEditorAnimating(true)` 10ms after mount and `isAnimating` *is* the on-screen
+  position: reacting alone can leave the panel painted for a frame, or leave `isAnimating` true
+  with `isOpen` false, which renders it visible. And the panel's own state is closed too, not
+  merely hidden, because `useEditorState` broadcasts `step2EditorStateChange` straight from
+  `isEditorOpen` and the header lays itself out from that.
+  **Applied to this step only**: [`benefits-steps/step-2.tsx`](components/wizard/benefits-steps/step-2.tsx)
+  has the same three-column shape and the same toolbar-over-rail collision, and is deliberately
+  left as-is for now.
 
 ### Verification
 
 ```
-npm run comments:verify   ->  36/36 assertions passed
+npm run comments:verify   ->  38/38 assertions passed
 ```
 
 Runs against the real data layer with self-cleaning `tcm-verify-*` fixtures. It covers the
@@ -1637,8 +1707,9 @@ an **Admin resolves someone else's thread**, an author who is neither **cannot r
 own thread**, an author cannot delete their own message or their own thread, a Viewer is
 told `canModerate: false` while the owner is told `true`, and an unassigned user is stopped
 by the access layer first. Plus the notification fan-out (reply, new thread, mention, and
-the mention's deep link), the category scoping, and the plan-delete cascade. `npx tsc
---noEmit` and `eslint` are clean.
+the mention's deep link), the category scoping, and the plan-delete cascade. And it pins the
+body limit at both ends — exactly the 10,000 limit accepted, one character over refused — so
+the number cannot drift silently. `npx tsc --noEmit` and `eslint` are clean.
 
 **Known residue.** A file uploaded but never submitted leaves an unreferenced object under
 `plans/{id}/comments/`; nothing reads it, so it is harmless, but sweeping that prefix is the

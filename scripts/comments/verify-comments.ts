@@ -33,7 +33,10 @@ import {
   listMentionableUsers,
   setCommentThreadResolved,
 } from "../../lib/comments/comments.server";
-import { normalizeBenefitCategoryKey } from "../../lib/comments/types";
+import {
+  MAX_COMMENT_LENGTH,
+  normalizeBenefitCategoryKey,
+} from "../../lib/comments/types";
 
 const KEEP_FIXTURES = process.argv.includes("--keep");
 const STAMP = Date.now();
@@ -293,6 +296,38 @@ async function main(): Promise<void> {
           body: "hi",
         }),
       )) === "comment_bad_anchor",
+    );
+
+    // The body limit is a shared constant enforced server-side, and the boundary is EXACT:
+    // at the limit is fine, one character over is not. Pinning both ends is what stops the
+    // number drifting silently — the composer's `maxLength` is only a courtesy, and this is
+    // the rule an API caller actually hits. Thrown on `planB` so the thread counts the other
+    // sections assert for `planA` stay exactly as they are.
+    const atLimitThread = await createCommentThread({
+      organizationId,
+      userId: owner.id,
+      clientIdOrSlug: planB.id,
+      targetType: "plan",
+      anchor: { anchorKind: "section", sectionKey: "company" },
+      body: "x".repeat(MAX_COMMENT_LENGTH),
+    });
+    check(
+      `a body of exactly the limit is accepted (${MAX_COMMENT_LENGTH.toLocaleString()} chars)`,
+      atLimitThread.messages[0]?.body.length === MAX_COMMENT_LENGTH,
+      `${atLimitThread.messages[0]?.body.length ?? 0}`,
+    );
+    check(
+      "one character over the limit is refused",
+      (await refusalCode(() =>
+        createCommentThread({
+          organizationId,
+          userId: owner.id,
+          clientIdOrSlug: planB.id,
+          targetType: "plan",
+          anchor: { anchorKind: "section", sectionKey: "company" },
+          body: "x".repeat(MAX_COMMENT_LENGTH + 1),
+        }),
+      )) === "comment_too_long",
     );
 
     /* ── 4. Implicit by View (Collaborator) ───────────────────────── */
