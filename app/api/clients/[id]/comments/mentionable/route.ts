@@ -1,6 +1,6 @@
 export const dynamic = "force-dynamic";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getOrgSession } from "@/lib/organization-session";
 import {
   listMentionableUsers,
@@ -8,21 +8,36 @@ import {
 } from "@/lib/comments/comments.server";
 
 /**
- * GET /api/clients/[id]/comments/mentionable
+ * GET /api/clients/[id]/comments/mentionable?targetType=&category=
  *
- * The people a commenter can @mention: the organization's owner plus its active
- * teammates. The plan id is deliberately unused beyond the session check — the list
- * is organization-wide, so it cannot disagree with the task it feeds.
+ * The people who can be @mentioned here: the organization's owner plus its active teammates,
+ * RESTRICTED to those who can open this plan — and this category, when the surface is a benefit.
+ *
+ * The list is organization-wide in *source* but not in *result*, deliberately: a mention notifies,
+ * and the notification carries the comment's own text, so offering a colleague who cannot open the
+ * plan would put its content in their inbox behind a link that refuses them. The plan and category
+ * come from the URL for exactly that reason — the list must not disagree with the thread it feeds.
  */
-export async function GET() {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } },
+) {
   try {
     const session = await getOrgSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Only a benefit surface carries a category; a plan-level thread is scoped by the plan alone.
+    const category =
+      request.nextUrl.searchParams.get("targetType") === "benefit"
+        ? request.nextUrl.searchParams.get("category")
+        : null;
+
     const users = await listMentionableUsers({
       organizationId: session.organizationId,
+      clientIdOrSlug: params.id,
+      category,
     });
     return NextResponse.json({ success: true, users });
   } catch (error) {

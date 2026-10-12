@@ -1,6 +1,7 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
+import { resolveCommentAttachmentAccess } from "@/lib/comments/comments.server";
 import { resolveObjectAccess } from "@/lib/teammates/access.server";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -46,6 +47,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: "Missing query parameter: key" },
         { status: 400 }
+      );
+    }
+
+    // A comment attachment answers to its THREAD's scope, which can be narrower than the plan's —
+    // a signed URL must not outrun the category rule the thread list enforces.
+    // `null` means no message claims the key, so the generic plan-level check below applies.
+    const commentAccess = await resolveCommentAttachmentAccess({
+      userId: session.user.id,
+      key,
+    });
+    if (commentAccess && !commentAccess.allowed) {
+      return NextResponse.json(
+        { error: "Access denied to this object" },
+        { status: 403 },
       );
     }
 

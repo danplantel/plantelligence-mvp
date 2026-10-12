@@ -14,6 +14,7 @@
 import prisma from "@/lib/prisma";
 import {
   isOwnerOrAdminOfOrganization,
+  parseR2Key,
   resolvePlanAccess,
 } from "@/lib/teammates/access.server";
 import { TeammateDataError } from "@/lib/teammates/errors";
@@ -168,6 +169,50 @@ export async function resolveCommentAccess(input: {
   }
   const ok = access as { clientId?: string; kind?: string };
   return { clientId: ok.clientId ?? input.clientIdOrSlug, kind: ok.kind };
+}
+
+/**
+ * May this user read this comment attachment?
+ *
+ * Comment keys go through the generic R2 proxy, which authorizes a plan-shaped key at PLAN level.
+ * That is coarser than the comments API: a Collaborator scoped to one benefit category passes it
+ * for any object under the plan — including an attachment on a thread in a category they do not
+ * hold. The thread list is category-scoped, so they would have to already hold the key; this
+ * closes that residue by resolving the message that owns the key and re-checking with the
+ * thread's own scope, so the bytes follow the same rule as the thread they belong to.
+ *
+ * Returns `null` when no message claims the key, which is the caller's cue to fall back to the
+ * generic plan-level check. That fallback is required, not a hole: a file is uploaded before the
+ * comment is posted, and the composer renders its thumbnail from the optimistic message during
+ * exactly that window, when no row references the key yet. Residue — an upload never attached, or
+ * an attachment cleared by a soft delete — falls back to today's plan-level rule too, so this
+ * narrows access for every attachment actually visible on a thread and changes nothing for bytes
+ * that no row points at.
+ */
+export async function resolveCommentAttachmentAccess(input: {
+  userId: string;
+  key: string;
+}): Promise<{ allowed: boolean; reason?: string } | null> {
+  // Only comment keys have a message to resolve; anything else keeps the generic plan check.
+  if (parseR2Key(input.key).folder !== "comments") return null;
+
+  const message = await prisma.commentMessage.findFirst({
+    where: { attachments: { array_contains: [{ key: input.key }] } },
+    select: { thread: { select: { clientId: true, benefitCategory: true } } },
+  });
+  if (!message) return null;
+
+  try {
+    await resolveCommentAccess({
+      userId: input.userId,
+      clientIdOrSlug: message.thread.clientId,
+      category: message.thread.benefitCategory,
+    });
+    return { allowed: true };
+  } catch (error) {
+    const mapped = mapCommentError(error);
+    return { allowed: false, reason: mapped.code ?? "comment_forbidden" };
+  }
 }
 
 /* ─────────────────────────────── Validation ─────────────────────────────── */
@@ -329,9 +374,31 @@ export function parseMentions(
   return [...matched];
 }
 
-/** Everyone in the organization a commenter could @mention. */
+/**
+ * Everyone who can be @mentioned on this surface.
+ *
+ * The roster is organization-wide — an advisor's own team is a small set, so it is loaded and
+ * filtered rather than joined — but the RESULT is restricted to the people who can actually open
+ * the thread. A mention notifies, and the notification carries the comment's own text plus a deep
+ * link; sending that to someone who cannot open the plan would leak the content and hand them a
+ * link that refuses them.
+ *
+ * Filtering HERE, rather than at notification time, is the point: this one list feeds both the
+ * @mention picker and `parseMentions`, so a person outside the surface cannot be offered in the
+ * autocomplete, cannot be recognised in typed text, and therefore cannot be notified. There is no
+ * second place to keep in step.
+ *
+ * The per-candidate check reuses `resolvePlanAccess` — the same decision function the rest of the
+ * feature authorizes with — instead of re-deriving the category rule, which is exactly the second
+ * implementation that would drift from it. It costs a parallel check per candidate, paid once per
+ * rail open (the caller caches this list).
+ */
 export async function listMentionableUsers(input: {
   organizationId: string;
+  /** The plan (id or slug) the comment is attached to. */
+  clientIdOrSlug: string;
+  /** Real category (not a slug), when the surface is a benefit. */
+  category?: string | null;
 }): Promise<MentionableUser[]> {
   const [organization, profiles] = await Promise.all([
     prisma.organization.findUnique({
@@ -360,7 +427,7 @@ export async function listMentionableUsers(input: {
     where: { id: { in: [...ids] } },
     select: { id: true, name: true, email: true, headshot: true },
   });
-  return users
+  const candidates = users
     .map((user) => ({
       userId: user.id,
       name: user.name || user.email,
@@ -368,6 +435,25 @@ export async function listMentionableUsers(input: {
       headshot: user.headshot ?? null,
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Parallel, because each check is independent and the org is small. A refusal reason is not
+  // needed here — "can they open it" is the whole question.
+  const decisions = await Promise.all(
+    candidates.map(async (candidate) => ({
+      candidate,
+      allowed: (
+        await resolvePlanAccess({
+          userId: candidate.userId,
+          clientIdOrSlug: input.clientIdOrSlug,
+          category: input.category ?? null,
+          level: "view",
+        })
+      ).allowed,
+    })),
+  );
+  return decisions
+    .filter((decision) => decision.allowed)
+    .map((decision) => decision.candidate);
 }
 
 /* ─────────────────────────────── Notifications ─────────────────────────────── */
@@ -510,7 +596,11 @@ export async function createCommentThread(input: {
   const mentions = body.includes("@")
     ? parseMentions(
         body,
-        await listMentionableUsers({ organizationId: input.organizationId }),
+        await listMentionableUsers({
+          organizationId: input.organizationId,
+          clientIdOrSlug: access.clientId,
+          category: input.category,
+        }),
       )
     : [];
 
@@ -608,7 +698,11 @@ export async function addCommentMessage(input: {
   const mentions = body.includes("@")
     ? parseMentions(
         body,
-        await listMentionableUsers({ organizationId: input.organizationId }),
+        await listMentionableUsers({
+          organizationId: input.organizationId,
+          clientIdOrSlug: thread.clientId,
+          category: thread.benefitCategory,
+        }),
       )
     : [];
 

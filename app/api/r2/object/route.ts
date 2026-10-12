@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { getObjectFromR2, isR2Configured } from "@/lib/r2";
 import { resolvePortalAdvisorId } from "@/lib/portal-access";
+import { resolveCommentAttachmentAccess } from "@/lib/comments/comments.server";
 import { resolveObjectAccess } from "@/lib/teammates/access.server";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -62,6 +63,22 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         { error: "Missing query parameter: key" },
         { status: 400 },
+      );
+    }
+
+    // Comment attachments answer to their THREAD's scope, which can be narrower than the plan's:
+    // a Collaborator assigned to one benefit category must not read an attachment on a thread in
+    // a category they do not hold. `null` means no message claims the key — an upload still in
+    // flight, or residue — and the generic plan-level check below stays in charge, which is what
+    // the composer's optimistic thumbnail needs while the comment is being posted.
+    const commentAccess = await resolveCommentAttachmentAccess({
+      userId: ownerId,
+      key,
+    });
+    if (commentAccess && !commentAccess.allowed) {
+      return NextResponse.json(
+        { error: "Access denied to this object" },
+        { status: 403 },
       );
     }
 

@@ -164,7 +164,7 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:verify-t2a` | Runs the 25-assertion T2a suite (per-function Custom enforcement, same-vs-per-plan grids, the locked-row refusal, All Plans, the missing-grid refusal, soft warnings and their audit trail, and the summary line). |
 | `npm run teammates:verify-t7` | Runs the 26-assertion T7 suite (the three acceptance criteria, display-vs-access, the mirror's idempotency and removals, hidden categories, and the unmirrorable-contact residue). |
 | `npm run teammates:verify-t9` | Runs the 41-assertion T9 suite (the signed token and its refusals, the mailbox guard, the profile guards, acceptance creating vs reusing a login, the seat conversion, replay, both audit rows, and the tenancy invariant). |
-| `npm run comments:verify` | Runs the 38-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, attachments, and the plan-delete cascade). See §9i. |
+| `npm run comments:verify` | Runs the 47-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, and the plan-delete cascade). See §9i. |
 | `npm run teammates:backfill-contacts` | Projects every plan's `keyContacts` onto profiles + assignments (T7). Idempotent; `--dry-run` to count without writing. Run it before the hub reader switch and after adding a new contacts writer. |
 | `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
 
@@ -1518,6 +1518,8 @@ feature useless.
 | **Resolve / reopen** | **Owner or Admin only** | `assertCanModerate` |
 | **Delete a thread or a message** | **Owner or Admin only** | `assertCanModerate` |
 | See the Resolve/Delete controls at all | Owner or Admin only | `canModerate` on the list payload |
+| Be offered in @mention suggestions | only people who can open that surface | `listMentionableUsers` → `resolvePlanAccess` |
+| Read an attachment | only people who can open the thread's scope | `resolveCommentAttachmentAccess` |
 
 **Authorship is deliberately NOT part of the allow-list.** The first version let a thread's
 author moderate their own thread and let a message's author withdraw their own message.
@@ -1607,6 +1609,48 @@ Two things worth keeping straight:
 `verify-comments` pins both ends of the boundary — exactly the limit is accepted (on `planB`,
 so the thread counts the other sections assert for `planA` stay put) and one character over is
 refused — so the number cannot drift unnoticed.
+
+### The Collaborator, seen through the comments lens
+
+The two features meet at one question. A Collaborator is deliberately the **narrowest** role —
+read-only on the plans they are assigned, and on the categories they were given — while commenting
+is deliberately **not** a grid function. The intersection is narrow, and it is enforced in three
+places rather than one.
+
+**Reading and writing is the grid, not a comment-specific rule.** `resolveCommentAccess` is
+`resolvePlanAccess({ level: "view" })`, so a Collaborator who holds a category can read the threads
+on it, start one and reply — and is refused, by that same call, on a category or a plan they do not
+hold. Comments are not checked a second time against a permission grid because no part of commenting
+*is* a grid function.
+
+**Moderation is closed to them entirely.** `assertCanModerate` is Owner/Admin only and a Collaborator
+holds neither, so `canModerate` is `false` on their payload and the rail never renders Resolve or
+Delete. They contribute; they do not curate.
+
+Three consequences leaked past the role's scope and are now closed:
+
+- **A mention could notify someone who cannot open the plan.** A mention notification carries the
+  comment's text, so the candidate list is filtered through `resolvePlanAccess` — the same call the
+  thread list uses, not a second copy of the category rule that could drift from it. Mentioning a
+  Collaborator who does not hold the surface notifies nobody, because the mention is not recognised
+  at all; the leak closes at the source rather than at the notification.
+- **An attachment could be read past the category scope.** Comment keys go through the generic R2
+  proxy, which authorizes a plan-shaped key at *plan* level — coarser than the comments API, so a
+  Collaborator scoped to one category could fetch an attachment on a thread in a category they do not
+  hold, given the key. `resolveCommentAttachmentAccess` looks up the message that owns the key and
+  re-checks with the thread's own scope, on both read paths (`/api/r2/object` and
+  `/api/r2/signed-url`). A key no message claims — an upload still in flight, which is exactly what
+  the composer's optimistic thumbnail needs — returns `null` and keeps the plan-level check, so
+  nothing visible breaks and the bytes follow the thread they belong to.
+- **Losing access mid-session read as a network failure.** A Collaborator whose assignment is removed
+  while the panel is open used to be offered "Try again" on a 403 — a retry that cannot possibly
+  succeed. The status now rides out of `fetchThreads` (`errorStatus`), and the rail shows a locked
+  no-access notice whose only action is turning comments off, which also stops the ten-second poll.
+
+One product question is left open on purpose: a **Reviewer** (the read-only preset) cannot resolve or
+delete either, because moderation is Owner/Admin only. Whether a Reviewer should be able to close a
+thread is a product call, not an oversight — the rule lives in one function (`assertCanModerate`), so
+changing it is a one-line decision.
 
 ### Attachments
 
@@ -1773,6 +1817,12 @@ Two remedies, for two different situations:
   the round-trip from Dar es Salaam — worth measuring before paying for it, since the win is a
   factor of two rather than an order of magnitude.
 
+**Decision: neither remedy was taken.** The client-side changes mean the wait no longer *blocks* —
+the comment appears and the composer empties immediately — so the remaining server time is accepted
+as the cost of this development setup, having cut the round-trips that were free to cut. This is a
+deliberate acceptance, not an open item. Revisit when the app has non-US users, because at that
+point which region to serve stops being a developer-convenience question and becomes a product one.
+
 Round-trips removed from the write path, in [`comments.server.ts`](lib/comments/comments.server.ts):
 
 - **Mention candidates are only loaded when the body actually contains `@`.** That lookup is three
@@ -1803,7 +1853,7 @@ round-trips is still seconds of server time. It just no longer holds the UI host
 ### Verification
 
 ```
-npm run comments:verify   ->  38/38 assertions passed
+npm run comments:verify   ->  47/47 assertions passed
 ```
 
 Runs against the real data layer with self-cleaning `tcm-verify-*` fixtures. It covers the
@@ -1814,7 +1864,15 @@ told `canModerate: false` while the owner is told `true`, and an unassigned user
 by the access layer first. Plus the notification fan-out (reply, new thread, mention, and
 the mention's deep link), the category scoping, and the plan-delete cascade. And it pins the
 body limit at both ends — exactly the 10,000 limit accepted, one character over refused — so
-the number cannot drift silently. `npx tsc --noEmit` and `eslint` are clean.
+the number cannot drift silently.
+
+The Collaborator's scope is asserted the same way the API enforces it: the collaborator is
+mentionable on the category they hold and **not** on one they do not, nor on a plan they are not
+assigned to, and mentioning them where they cannot open the plan notifies nobody. On the read side,
+`resolveCommentAttachmentAccess` allows an attachment on their category, refuses the same key on
+another category, allows the owner either, and returns `null` for both an unclaimed `comments/` key
+and a non-comments key — the two cases the generic proxy must still handle. `npx tsc --noEmit` and
+`eslint` are clean.
 
 **Known residue.** A file uploaded but never submitted leaves an unreferenced object under
 `plans/{id}/comments/`; nothing reads it, so it is harmless, but sweeping that prefix is the

@@ -6,6 +6,7 @@ import {
   Check,
   ChevronLeft,
   Loader2,
+  Lock,
   Maximize2,
   MessageSquare,
   Minimize2,
@@ -452,6 +453,7 @@ export function CommentsRail() {
     threads,
     isLoading,
     error,
+    errorStatus,
     activeThreadId,
     refresh,
     setActiveThreadId,
@@ -610,12 +612,31 @@ export function CommentsRail() {
             </div>
           ) : error ? (
             <div className="flex flex-1 flex-col items-center justify-center gap-3 px-6 text-center">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
-              <p className="text-sm text-muted-foreground">{error}</p>
-              <Button variant="outline" size="sm" onClick={refresh}>
-                <RotateCcw className="mr-2 h-3.5 w-3.5" />
-                Try again
-              </Button>
+              {/* A refusal is not a failure. Offering "Try again" on a 403 promises something that
+                  cannot happen — the assignment that granted access is gone — so the panel says so
+                  and offers the only useful action: closing it, which also stops the poll from
+                  asking again every ten seconds. */}
+              {errorStatus === 403 ? (
+                <>
+                  <Lock className="h-5 w-5 text-muted-foreground" />
+                  <p className="text-sm font-medium">
+                    You no longer have access to this plan
+                  </p>
+                  <p className="text-xs text-muted-foreground">{error}</p>
+                  <Button variant="outline" size="sm" onClick={() => setMode("off")}>
+                    Turn comments off
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="h-5 w-5 text-amber-500" />
+                  <p className="text-sm text-muted-foreground">{error}</p>
+                  <Button variant="outline" size="sm" onClick={refresh}>
+                    <RotateCcw className="mr-2 h-3.5 w-3.5" />
+                    Try again
+                  </Button>
+                </>
+              )}
             </div>
           ) : (
             <div className="comment-scroll min-h-0 flex-1 overflow-y-auto">

@@ -31,6 +31,7 @@ import {
   deleteCommentThread,
   listCommentThreads,
   listMentionableUsers,
+  resolveCommentAttachmentAccess,
   setCommentThreadResolved,
 } from "../../lib/comments/comments.server";
 import {
@@ -453,11 +454,66 @@ async function main(): Promise<void> {
 
     console.log("");
     console.log("8. @mentions notify the mentioned teammate");
-    const mentionable = await listMentionableUsers({ organizationId });
+    const mentionable = await listMentionableUsers({
+      organizationId,
+      clientIdOrSlug: planA.id,
+    });
     check(
       "the mentionable list includes the active teammate",
       mentionable.some((user) => user.userId === mentioneeLogin.id),
       `${mentionable.length} candidate(s)`,
+    );
+
+    // A mention notifies, and the notification carries the comment's text, so the candidate list
+    // is limited to people who can open the surface. The Collaborator holds Group Health only.
+    const ghMentionable = await listMentionableUsers({
+      organizationId,
+      clientIdOrSlug: planA.id,
+      category: "Group Health",
+    });
+    check(
+      "the Collaborator is mentionable on the category they hold",
+      ghMentionable.some((user) => user.userId === collabLogin.id),
+    );
+    const retirementMentionable = await listMentionableUsers({
+      organizationId,
+      clientIdOrSlug: planA.id,
+      category: "Retirement",
+    });
+    check(
+      "...but not on a category they do not hold",
+      !retirementMentionable.some((user) => user.userId === collabLogin.id),
+    );
+    const planBMentionable = await listMentionableUsers({
+      organizationId,
+      clientIdOrSlug: planB.id,
+    });
+    check(
+      "...nor on a plan they are not assigned to",
+      !planBMentionable.some((user) => user.userId === collabLogin.id),
+    );
+
+    // End to end: the owner mentions them on planB, where they hold no assignment. The mention is
+    // not even recognised, so nothing reaches their inbox — the leak closed at the source rather
+    // than at the notification.
+    const mentionsBefore = await prisma.notification.count({
+      where: { userId: collabLogin.id, type: "comment_mention" },
+    });
+    await createCommentThread({
+      organizationId,
+      userId: owner.id,
+      clientIdOrSlug: planB.id,
+      targetType: "plan",
+      anchor: { anchorKind: "section", sectionKey: "company" },
+      body: `@TCM Collaborator ${STAMP} can you look at this?`,
+    });
+    const mentionsAfter = await prisma.notification.count({
+      where: { userId: collabLogin.id, type: "comment_mention" },
+    });
+    check(
+      "mentioning someone who cannot open the plan notifies nobody",
+      mentionsAfter === mentionsBefore,
+      `before=${mentionsBefore} after=${mentionsAfter}`,
     );
     await createCommentThread({
       organizationId,
@@ -684,6 +740,74 @@ async function main(): Promise<void> {
       "plan threads never include benefit threads",
       planList.threads.every((thread) => thread.benefitCategory === null),
       planList.threads.map((thread) => thread.benefitCategory).join(","),
+    );
+
+    /* ── 11b. Attachment reads follow the thread's scope ──────────── */
+
+    // Comment attachments flow through the generic R2 proxy, which authorizes a plan-shaped key at
+    // PLAN level. That is coarser than the comments API: a Collaborator scoped to Group Health
+    // passes it for any object under the plan, so the read path re-checks a comment key against the
+    // scope of the thread that owns it.
+    const ghKey = `org/${owner.id}/plans/${planA.id}/comments/${STAMP}/gh-summary.png`;
+    const retKey = `org/${owner.id}/plans/${planA.id}/comments/${STAMP}/ret-summary.png`;
+    await addCommentMessage({
+      organizationId,
+      userId: owner.id,
+      threadId: ghThread.id,
+      body: "Attaching the summary.",
+      attachments: [{ key: ghKey, name: "gh-summary.png", type: "image/png", size: 1024 }],
+    });
+    await createCommentThread({
+      organizationId,
+      userId: owner.id,
+      clientIdOrSlug: planA.id,
+      targetType: "benefit",
+      category: "Retirement",
+      anchor: { anchorKind: "section", sectionKey: "faqs" },
+      body: "Retirement notes.",
+      attachments: [{ key: retKey, name: "ret-summary.png", type: "image/png", size: 1024 }],
+    });
+
+    const ghAttachment = await resolveCommentAttachmentAccess({
+      userId: collabLogin.id,
+      key: ghKey,
+    });
+    check(
+      "a Collaborator reads an attachment on a category they hold",
+      ghAttachment?.allowed === true,
+      JSON.stringify(ghAttachment),
+    );
+    const retAttachment = await resolveCommentAttachmentAccess({
+      userId: collabLogin.id,
+      key: retKey,
+    });
+    check(
+      "...but not one on a category they do not hold",
+      retAttachment?.allowed === false,
+      JSON.stringify(retAttachment),
+    );
+    const ownerAttachment = await resolveCommentAttachmentAccess({
+      userId: owner.id,
+      key: retKey,
+    });
+    check("the plan owner reads either", ownerAttachment?.allowed === true, JSON.stringify(ownerAttachment));
+    const unclaimedAttachment = await resolveCommentAttachmentAccess({
+      userId: collabLogin.id,
+      key: `org/${owner.id}/plans/${planA.id}/comments/${STAMP}/never-attached.png`,
+    });
+    check(
+      "an unclaimed comments/ key falls back to the plan-level check",
+      unclaimedAttachment === null,
+      JSON.stringify(unclaimedAttachment),
+    );
+    const documentAttachment = await resolveCommentAttachmentAccess({
+      userId: collabLogin.id,
+      key: `org/${owner.id}/plans/${planA.id}/documents/${STAMP}/sbc.pdf`,
+    });
+    check(
+      "a non-comments key is left to the generic proxy",
+      documentAttachment === null,
+      JSON.stringify(documentAttachment),
     );
 
     /* ── 12. Plan deletion cascades ───────────────────────────────── */

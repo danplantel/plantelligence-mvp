@@ -61,6 +61,8 @@ interface CommentModeValue {
   canModerate: boolean;
   isLoading: boolean;
   error: string | null;
+  /** The HTTP status behind `error`, so the rail can tell a refusal (403) from a failure. */
+  errorStatus: number | null;
   isMutating: boolean;
   refresh: () => void;
 
@@ -153,9 +155,18 @@ export function CommentModeProvider({
   // just-posted comment shows the right avatar instead of a nameless monogram while the write
   // is still in flight. It costs no extra request — this list is what the @mention
   // autocomplete already needs.
+  // The plan and category are part of the key, not just the path: the endpoint resolves them
+  // against the caller's assignment and returns only the people who can open this surface, so a
+  // different plan/benefit must refetch rather than reuse another surface's list.
   const mentionableKey =
     open && target
-      ? `/api/clients/${encodeURIComponent(target.clientId)}/comments/mentionable`
+      ? `/api/clients/${encodeURIComponent(
+          target.clientId,
+        )}/comments/mentionable?targetType=${target.targetType}${
+          target.targetType === "benefit" && target.category
+            ? `&category=${encodeURIComponent(target.category)}`
+            : ""
+        }`
       : null;
   const { data: mentionableData } = useSWR(
     mentionableKey,
@@ -239,6 +250,7 @@ export function CommentModeProvider({
       canModerate: commentThreads.canModerate,
       isLoading: commentThreads.isLoading,
       error: commentThreads.error,
+      errorStatus: commentThreads.errorStatus,
       isMutating: commentThreads.isMutating,
       refresh: commentThreads.refresh,
       activeThreadId,
@@ -264,6 +276,7 @@ export function CommentModeProvider({
       commentThreads.canModerate,
       commentThreads.isLoading,
       commentThreads.error,
+      commentThreads.errorStatus,
       commentThreads.isMutating,
       commentThreads.refresh,
       commentThreads.createThread,

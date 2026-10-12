@@ -48,6 +48,17 @@ function listKey(target: CommentTarget): string {
   return `/api/clients/${encodeURIComponent(target.clientId)}/comments?${params.toString()}`;
 }
 
+/**
+ * A failed list fetch, carrying the HTTP status.
+ *
+ * The rail has to tell "you no longer have access" — a 403, where retrying can never succeed —
+ * from "that did not work", which is worth a retry. An `Error` with no status cannot make that
+ * distinction, so the status rides along on it.
+ */
+interface CommentFetchError extends Error {
+  status?: number;
+}
+
 async function fetchThreads(url: string): Promise<CommentListPayload> {
   const response = await fetch(url, { cache: "no-store" });
   const body = (await response.json().catch(() => ({}))) as {
@@ -57,7 +68,11 @@ async function fetchThreads(url: string): Promise<CommentListPayload> {
     error?: string;
   };
   if (!response.ok) {
-    throw new Error(body?.error ?? "Could not load comments.");
+    const failure: CommentFetchError = new Error(
+      body?.error ?? "Could not load comments.",
+    );
+    failure.status = response.status;
+    throw failure;
   }
   return {
     clientId: body.clientId ?? "",
@@ -98,6 +113,8 @@ export interface UseCommentThreadsResult {
   canModerate: boolean;
   isLoading: boolean;
   error: string | null;
+  /** The HTTP status behind `error`, when the failure was a response at all. */
+  errorStatus: number | null;
   isMutating: boolean;
   refresh: () => void;
   createThread: (
@@ -451,6 +468,10 @@ export function useCommentThreads(
     canModerate: data?.canModerate ?? false,
     isLoading: enabled ? isLoading : false,
     error: error instanceof Error ? error.message : error ? String(error) : null,
+    errorStatus:
+      error && typeof (error as CommentFetchError).status === "number"
+        ? Number((error as CommentFetchError).status)
+        : null,
     isMutating,
     refresh: useCallback(() => {
       void mutate();
