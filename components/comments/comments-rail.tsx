@@ -6,8 +6,8 @@ import {
   Check,
   Loader2,
   MessageSquare,
+  Paperclip,
   RotateCcw,
-  Send,
   Trash2,
   X,
 } from "lucide-react";
@@ -17,12 +17,16 @@ import { Headshot } from "@/components/ui/headshot";
 import { cn } from "@/lib/utils";
 import {
   GENERAL_SECTION_KEY,
-  MAX_COMMENT_LENGTH,
+  commentAttachmentInlineUrl,
+  formatAttachmentSize,
+  isImageAttachment,
+  type CommentAttachment,
   type CommentMessageView,
   type CommentThreadView,
 } from "@/lib/comments/types";
 import { useCommentMode } from "./comment-mode-provider";
-import { MentionTextarea } from "./mention-textarea";
+import { CommentAttachmentModal } from "./comment-attachment-modal";
+import { CommentComposer } from "./comment-composer";
 
 type ThreadFilter = "open" | "resolved" | "all";
 
@@ -51,11 +55,15 @@ function messageAuthorName(
 function MessageRow({
   message,
   currentUserId,
+  onOpenAttachment,
 }: {
   message: CommentMessageView;
   currentUserId: string | null;
+  onOpenAttachment: (attachment: CommentAttachment) => void;
 }) {
   const name = messageAuthorName(message, currentUserId);
+  // Defensive against a stale SWR cache written before attachments existed.
+  const attachments = message.attachments ?? [];
 
   return (
     <li className="flex gap-2">
@@ -74,14 +82,51 @@ function MessageRow({
             {relativeTime(message.createdAt)}
           </span>
         </div>
-        <p
-          className={cn(
-            "mt-0.5 whitespace-pre-wrap break-words text-xs",
-            message.deletedAt && "italic text-muted-foreground",
-          )}
-        >
-          {message.deletedAt ? "This message was deleted." : message.body}
-        </p>
+
+        {message.deletedAt ? (
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-xs italic text-muted-foreground">
+            This message was deleted.
+          </p>
+        ) : message.body ? (
+          <p className="mt-0.5 whitespace-pre-wrap break-words text-xs">
+            {message.body}
+          </p>
+        ) : null}
+
+        {/* Attachments: images render as thumbnails, other files as a labelled chip. Either
+            one opens the viewer modal. */}
+        {!message.deletedAt && attachments.length > 0 ? (
+          <ul className="mt-1.5 flex flex-wrap gap-1.5">
+            {attachments.map((attachment) => (
+              <li key={attachment.key}>
+                <button
+                  type="button"
+                  onClick={() => onOpenAttachment(attachment)}
+                  className="block max-w-[12rem] text-left"
+                  title={attachment.name}
+                >
+                  {isImageAttachment(attachment.type) ? (
+                    // Sized by its own aspect ratio, capped inside a 12rem x 6rem box, so
+                    // the WHOLE image shows — no object-cover crop.
+                    <img
+                      src={commentAttachmentInlineUrl(attachment.key)}
+                      alt={attachment.name}
+                      className="block max-h-24 w-auto max-w-full rounded-md border border-border transition-opacity hover:opacity-90"
+                    />
+                  ) : (
+                    <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] transition-colors hover:bg-muted">
+                      <Paperclip className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{attachment.name}</span>
+                      <span className="shrink-0 text-muted-foreground">
+                        {formatAttachmentSize(attachment.size)}
+                      </span>
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
     </li>
   );
@@ -90,20 +135,20 @@ function MessageRow({
 function ThreadCard({
   thread,
   active,
+  onOpenAttachment,
 }: {
   thread: CommentThreadView;
   active: boolean;
+  onOpenAttachment: (attachment: CommentAttachment) => void;
 }) {
   const {
     currentUserId,
     reply,
     setResolved,
     deleteThread,
-    mentionable,
     setActiveThreadId,
   } = useCommentMode();
 
-  const [replyText, setReplyText] = useState("");
   const [busy, setBusy] = useState(false);
 
   const canDeleteThread =
@@ -118,15 +163,6 @@ function ThreadCard({
     } finally {
       setBusy(false);
     }
-  };
-
-  const submitReply = () => {
-    const text = replyText.trim();
-    if (!text) return;
-    return run(async () => {
-      await reply(thread.id, text);
-      setReplyText("");
-    }, "Could not reply.");
   };
 
   return (
@@ -189,6 +225,7 @@ function ThreadCard({
             key={message.id}
             message={message}
             currentUserId={currentUserId}
+            onOpenAttachment={onOpenAttachment}
           />
         ))}
       </ul>
@@ -207,30 +244,13 @@ function ThreadCard({
 
       {active ? (
         <div className="mt-2 border-t border-border pt-2">
-          <MentionTextarea
-            value={replyText}
-            onValueChange={setReplyText}
-            mentionable={mentionable}
+          <CommentComposer
             placeholder="Reply…"
-            className="min-h-[56px] text-xs"
-            maxLength={MAX_COMMENT_LENGTH}
-            onSubmit={submitReply}
+            submitLabel="Reply"
+            onSubmit={async (body, attachments) => {
+              await reply(thread.id, body, attachments);
+            }}
           />
-          <div className="mt-1.5 flex justify-end">
-            <Button
-              size="sm"
-              className="h-7 bg-accent-blue px-3 text-[11px] hover:bg-accent-blue/90"
-              disabled={busy || !replyText.trim()}
-              onClick={submitReply}
-            >
-              {busy ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Send className="h-3.5 w-3.5" />
-              )}
-              <span className="ml-1.5">Reply</span>
-            </Button>
-          </div>
         </div>
       ) : null}
     </div>
@@ -243,54 +263,20 @@ function ThreadCard({
  * anchored to a page section, so every post is a plain comment on the whole plan/benefit.
  */
 function RailComposer() {
-  const { createThread, mentionable, isMutating } = useCommentMode();
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  const submit = async () => {
-    const body = text.trim();
-    if (!body) return;
-    setBusy(true);
-    try {
-      await createThread(
-        { anchorKind: "section", sectionKey: GENERAL_SECTION_KEY },
-        body,
-      );
-      setText("");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Could not add comment.");
-    } finally {
-      setBusy(false);
-    }
-  };
+  const { createThread } = useCommentMode();
 
   return (
-    <div className="rounded-lg border border-border bg-muted/30 p-3">
-      <MentionTextarea
-        value={text}
-        onValueChange={setText}
-        mentionable={mentionable}
-        placeholder="Write a comment…"
-        className="min-h-[64px] text-xs"
-        maxLength={MAX_COMMENT_LENGTH}
-        onSubmit={submit}
-      />
-      <div className="mt-2 flex justify-end">
-        <Button
-          size="sm"
-          className="h-7 bg-accent-blue px-3 text-[11px] hover:bg-accent-blue/90"
-          disabled={busy || isMutating || !text.trim()}
-          onClick={submit}
-        >
-          {busy ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Send className="h-3.5 w-3.5" />
-          )}
-          <span className="ml-1.5">Comment</span>
-        </Button>
-      </div>
-    </div>
+    <CommentComposer
+      placeholder="Write a comment…"
+      submitLabel="Comment"
+      onSubmit={async (body, attachments) => {
+        await createThread(
+          { anchorKind: "section", sectionKey: GENERAL_SECTION_KEY },
+          body,
+          attachments,
+        );
+      }}
+    />
   );
 }
 
@@ -312,6 +298,8 @@ export function CommentsRail() {
   } = useCommentMode();
 
   const [filter, setFilter] = useState<ThreadFilter>("open");
+  // The attachment currently open in the viewer modal; null keeps it closed.
+  const [viewing, setViewing] = useState<CommentAttachment | null>(null);
 
   const visible = useMemo(
     () =>
@@ -425,6 +413,7 @@ export function CommentsRail() {
                   key={thread.id}
                   thread={thread}
                   active={thread.id === activeThreadId}
+                  onOpenAttachment={setViewing}
                 />
               ))
             )}
@@ -437,6 +426,15 @@ export function CommentsRail() {
       <div className="shrink-0 border-t border-border p-3">
         <RailComposer />
       </div>
+
+      {/* Radix renders this through a portal, so nesting it in the locked-down <aside>
+          is harmless — it still paints over the whole viewport. */}
+      <CommentAttachmentModal
+        attachment={viewing}
+        onOpenChange={(open) => {
+          if (!open) setViewing(null);
+        }}
+      />
     </aside>
   );
 }

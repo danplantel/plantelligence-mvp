@@ -35,6 +35,12 @@ export async function GET(request: NextRequest) {
     const disposition = searchParams.get("disposition"); // inline | attachment
     const contentType = searchParams.get("contentType");
     const redirect = searchParams.get("redirect") === "1" || searchParams.get("redirect") === "true";
+    // Optional saved-file name. Only meaningful with disposition=attachment; sanitized so a
+    // caller can't smuggle anything into the response header.
+    const filename = searchParams
+      .get("filename")
+      ?.replace(/[^\w.\- ]+/g, "_")
+      .slice(0, 120);
 
     if (!key || key.trim() === "") {
       return NextResponse.json(
@@ -62,7 +68,11 @@ export async function GET(request: NextRequest) {
     const url = await getPresignedReadUrl({
       key,
       responseContentDisposition:
-        disposition === "attachment" ? "attachment" : undefined,
+        disposition === "attachment"
+          ? filename
+            ? `attachment; filename="${filename}"`
+            : "attachment"
+          : undefined,
       responseContentType: contentType ?? undefined,
     });
 

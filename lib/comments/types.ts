@@ -59,11 +59,17 @@ export function commentAttachmentInlineUrl(key: string): string {
   return `/api/r2/object?key=${encodeURIComponent(key)}`;
 }
 
-/** Same-origin URL that downloads the attachment as a file. */
-export function commentAttachmentDownloadUrl(key: string): string {
-  return `/api/r2/signed-url?key=${encodeURIComponent(
+/**
+ * Same-origin URL that downloads the attachment as a file.
+ *
+ * `name` (optional) is sent as the disposition filename — otherwise the browser names the
+ * saved file after the timestamped storage key, e.g. "1760000000000-report.pdf".
+ */
+export function commentAttachmentDownloadUrl(key: string, name?: string): string {
+  const base = `/api/r2/signed-url?key=${encodeURIComponent(
     key,
   )}&disposition=attachment&redirect=1`;
+  return name ? `${base}&filename=${encodeURIComponent(name)}` : base;
 }
 
 /** "1.2 MB" — for attachment chips and the viewer. */

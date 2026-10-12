@@ -4,7 +4,6 @@ import { useRef, useState } from "react";
 import { Loader2, Paperclip, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_ATTACHMENT_BYTES,
@@ -230,6 +229,3 @@ export function CommentComposer({
     </div>
   );
 }
-
-// `cn` is deliberately unused today; kept out of the imports to avoid a lint warning.
-void 0;
