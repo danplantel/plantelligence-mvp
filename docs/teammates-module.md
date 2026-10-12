@@ -1576,6 +1576,16 @@ preview, and the Edit Benefit preview's toolbar and preview area, all reserve `-
 instead of letting the rail cover them. The step-2 bar matters most — it is `z-[45]` to the rail's
 `z-40`, so at `right: 0` it painted its Mobile/Desktop toggle over the rail's own header.
 
+One thing had to be fixed for the pushed preview to look right at all. The Create Benefits step-2
+preview rendered its content at the **container's** width and then scaled it by
+`availableWidth / 1400`, so the rendered box came out `availableWidth² / 1400` wide — narrower
+than its container, leaving background down both sides, whenever the container was under the
+1400px reference. That is precisely the case with the Editing Panel *closed*, since that is when
+the container is widest. It now renders at a reference width and scales by
+`availableWidth / referenceWidth`, which spans the container in every case, with the reference as
+`max(availableWidth, 1400)` so a wider window renders 1:1 rather than being magnified. The portal
+header above it takes that same reference, so the two are never at different scales.
+
 ### What a comment may contain
 
 A body of up to **10,000 characters** (`MAX_COMMENT_LENGTH` in `lib/comments/types.ts`) — or no

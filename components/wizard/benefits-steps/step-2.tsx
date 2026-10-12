@@ -163,6 +163,10 @@ export function BenefitsStep2() {
 
     const previewContentRef = useRef<HTMLDivElement>(null);
     const [scale, setScale] = useState(1);
+    // The layout width the portal is rendered at before `scale` is applied — see `updateScale`.
+    // It is the 1400px desktop reference, or the container's own width when there is more room
+    // than that.
+    const [referenceWidth, setReferenceWidth] = useState(DESKTOP_WIDTH);
     const [scaledHeight, setScaledHeight] = useState<number | undefined>(undefined);
 
     // Refs for the scrollable preview area and its container
@@ -244,7 +248,27 @@ export function BenefitsStep2() {
         if (!content || !scrollable) return;
 
         const availableWidth = scrollable.clientWidth;
-        const newScale = Math.min(availableWidth / DESKTOP_WIDTH, 1);
+
+        /**
+         * The layout width the portal is rendered at, and the scale that makes that layout
+         * span the container exactly.
+         *
+         * The two have to agree, and that agreement is what removes the gutters. Rendering the
+         * content at the container's own width and *then* scaling it by
+         * `availableWidth / DESKTOP_WIDTH` left the box `availableWidth² / 1400` wide, so every
+         * container narrower than the 1400px reference showed background down both sides —
+         * which is what happened whenever the Editing Panel was closed, since that is when the
+         * container is widest.
+         *
+         * Rendering at the reference width and scaling by `availableWidth / referenceWidth`
+         * fills the container in every case. Taking `max` for the reference also means a window
+         * with more room than the reference renders 1:1 rather than being scaled *up*, so the
+         * portal is never magnified past its true size.
+         */
+        const referenceWidth = Math.max(availableWidth, DESKTOP_WIDTH);
+        setReferenceWidth(referenceWidth);
+
+        const newScale = availableWidth / referenceWidth;
         setScale(newScale);
 
         const contentHeight = content.scrollHeight;
@@ -649,7 +673,9 @@ export function BenefitsStep2() {
                             benefits={(step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? null}
                             enableNavigation={false}
                             scale={scale}
-                            referenceWidth={DESKTOP_WIDTH}
+                            // Same reference the body below is laid out at, so the header and the
+                            // page under it are always at one scale.
+                            referenceWidth={referenceWidth}
                         />
                     </div>
                 )}
@@ -710,7 +736,10 @@ export function BenefitsStep2() {
                                 style={{
                                     transform: `scale(${scale})`,
                                     transformOrigin: "center top",
-                                    width: editorIsOpen ? `${DESKTOP_WIDTH}px` : "100%",
+                                    // Always the reference width `scale` was computed from, so the
+                                    // scaled result spans the container instead of leaving
+                                    // background down the sides.
+                                    width: `${referenceWidth}px`,
                                     overflowX: "hidden",
                                 }}
                             >
