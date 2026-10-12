@@ -1491,7 +1491,7 @@ rules are access rules**, and they must not drift from the permission grid.
 | Client data | [`hooks/useCommentThreads.ts`](../hooks/useCommentThreads.ts) | The SWR poll and the optimistic writes with rollback |
 | Surface + state | [`comment-mode-provider.tsx`](../components/comments/comment-mode-provider.tsx), [`comments-toggle.tsx`](../components/comments/comments-toggle.tsx) | Registers the page as a surface, owns on/off, exposes `canModerate` |
 | The rail | [`comments-rail.tsx`](../components/comments/comments-rail.tsx) | Thread cards, the persistent composer, the attachment viewer |
-| Composer + viewer | [`comment-composer.tsx`](../components/comments/comment-composer.tsx), [`comment-attachment-modal.tsx`](../components/comments/comment-attachment-modal.tsx) | The shared composer (rail + every reply box) and the file modal |
+| Composer, emoji + viewer | [`comment-composer.tsx`](../components/comments/comment-composer.tsx), [`emoji-picker.tsx`](../components/comments/emoji-picker.tsx), [`comment-attachment-modal.tsx`](../components/comments/comment-attachment-modal.tsx) | The shared composer (rail + every reply box), the curated emoji popover, and the file modal |
 
 ### The four decisions the spec left open
 
@@ -1592,6 +1592,38 @@ decision:
   `min-h-0`, so it grew past the rail instead of scrolling inside it.
 - **Thumbnails are never cropped.** An image attachment is sized by its own aspect ratio
   (`max-h-24 w-auto max-w-full`), not forced into a square with `object-cover`.
+- **The emoji button sits beside the paperclip, and inserts at the caret.** No emoji
+  dependency: [`emoji-picker.tsx`](../components/comments/emoji-picker.tsx) is a Radix
+  popover over ~60 curated glyphs in three groups (People / Work / Reactions), which is
+  what a work surface actually reaches for and keeps the picker instant. The glyph is
+  spliced in through `MentionTextarea`'s new `insert()` handle
+  (`forwardRef` + `useImperativeHandle`), so it lands where the writer is typing rather
+  than at the end of the message — and the mention autocomplete and the picker share one
+  `insertAtCaret` rule rather than each implementing splicing. The insert reads the DOM
+  value, not the `value` prop, so two inserts in one tick cannot overwrite each other, and
+  the caret is restored in a `requestAnimationFrame` after the controlled re-render. An
+  emoji alone is a valid comment, so the button stays enabled on an empty box and only
+  stops while the comment is being submitted.
+- **Enter submits; Shift+Enter is a newline.** The composer is a one-comment-at-a-time
+  surface with the button right beside it, so requiring Cmd/Ctrl+Enter just sent people to
+  the mouse. Three details make plain-Enter safe, and each is a bug it would otherwise
+  cause: an open **mention list still owns Enter first**, so picking a teammate can never
+  submit the half-typed comment; **Shift+Enter is exempt**, so a comment can still be
+  multi-line; and **`nativeEvent.isComposing` is checked**, so confirming an IME
+  composition (Japanese, Korean, Chinese…) cannot post a half-converted comment. The
+  composer's Enter path shares the button's exact guard (`canSubmit`, `busy`, and
+  `uploading`), so Enter cannot post something the button would have refused.
+- **Widening overlays the page; it never reflows it.** The header's ⤢ button swaps the rail
+  between 22rem and 44rem. What makes that an overlay rather than a push is what it does
+  *not* do: `--comments-inset` — set by `useCommentsLayout` and subtracted by the wizard
+  footer, the dashboard's `padding-right` and the edit pages' Save bars — is left untouched.
+  The panel is `position: fixed`, so the extra 22rem simply paints over the page and the plan
+  being commented on does not move, which is what makes the two readable side by side. The
+  one z-index consequence is deliberate: while wide the panel is `z-50` rather than `z-40`,
+  because those page action bars are themselves `z-50` and sit exactly where it grows — at
+  `z-40` they would paint over its composer. At `z-50` the panel wins by DOM order (it is
+  mounted after the page content), while dialogs and popovers, which portal into
+  `document.body` after it, still paint above it.
 
 ### Verification
 

@@ -1,6 +1,12 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import {
+  forwardRef,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { MentionableUser } from "@/lib/comments/types";
@@ -17,8 +23,21 @@ export interface MentionTextareaProps {
   autoFocus?: boolean;
   rows?: number;
   maxLength?: number;
-  /** Cmd/Ctrl+Enter. */
+  /** Called on Enter (and Cmd/Ctrl+Enter). Shift+Enter is a newline, never a submit. */
   onSubmit?: () => void;
+}
+
+/**
+ * Imperative surface for callers that insert on the writer's behalf — the emoji picker is
+ * the one that needs it.
+ *
+ * A caret-aware insert has to live where the textarea's selection does, and it must not
+ * become a second implementation of "splice text into the value": the mention autocomplete
+ * below is the first one, and both now share `insertAtCaret`.
+ */
+export interface MentionTextareaHandle {
+  /** Insert at the caret, replacing the selection; the caret ends up after the text. */
+  insert: (text: string) => void;
 }
 
 /**
@@ -26,18 +45,29 @@ export interface MentionTextareaProps {
  * list; Arrow keys move, Enter/Tab inserts, Escape dismisses. Inserting writes the
  * plain `@Name` token — the server re-parses mentions on save, so the client never
  * has to send ids.
+ *
+ * Enter submits and Shift+Enter adds a newline — see the `onKeyDown` comments for why the
+ * mention list takes precedence over that, and why IME composition is exempt.
+ *
+ * `ref` exposes `insert(text)` for insertion at the caret — see `MentionTextareaHandle`.
  */
-export function MentionTextarea({
-  value,
-  onValueChange,
-  mentionable,
-  placeholder,
-  className,
-  autoFocus,
-  rows,
-  maxLength,
-  onSubmit,
-}: MentionTextareaProps) {
+export const MentionTextarea = forwardRef<
+  MentionTextareaHandle,
+  MentionTextareaProps
+>(function MentionTextarea(
+  {
+    value,
+    onValueChange,
+    mentionable,
+    placeholder,
+    className,
+    autoFocus,
+    rows,
+    maxLength,
+    onSubmit,
+  },
+  handleRef,
+) {
   const ref = useRef<HTMLTextAreaElement>(null);
   const [query, setQuery] = useState<string | null>(null);
   const [highlight, setHighlight] = useState(0);
@@ -79,6 +109,31 @@ export function MentionTextarea({
     });
   };
 
+  /**
+   * The generic splice: replace the selection (or insert at the caret) and leave the caret
+   * after what was inserted. Reads the DOM value rather than the `value` prop so back-to-back
+   * inserts in one tick cannot overwrite each other.
+   */
+  const insertAtCaret = (text: string) => {
+    const el = ref.current;
+    if (!el) {
+      onValueChange(`${value}${text}`);
+      return;
+    }
+    const start = el.selectionStart ?? el.value.length;
+    const end = el.selectionEnd ?? start;
+    onValueChange(`${el.value.slice(0, start)}${text}${el.value.slice(end)}`);
+    requestAnimationFrame(() => {
+      const position = start + text.length;
+      el.focus();
+      el.setSelectionRange(position, position);
+    });
+  };
+
+  // No dependency array: the handle is rebuilt each render, so it always closes over the
+  // current `insertAtCaret` and can never go stale mid-composition.
+  useImperativeHandle(handleRef, () => ({ insert: insertAtCaret }));
+
   return (
     <div className="relative">
       <Textarea
@@ -94,6 +149,9 @@ export function MentionTextarea({
           detectQuery(event.target);
         }}
         onKeyDown={(event) => {
+          // The open mention list owns Enter/Tab FIRST: picking a teammate out of the popup
+          // must never submit the half-typed comment. Shift+Enter is exempt from the Enter
+          // arm so it stays a newline even while the popup is showing.
           if (open) {
             if (event.key === "ArrowDown") {
               event.preventDefault();
@@ -105,7 +163,7 @@ export function MentionTextarea({
               setHighlight((h) => (h - 1 + matches.length) % matches.length);
               return;
             }
-            if (event.key === "Enter" || event.key === "Tab") {
+            if ((event.key === "Enter" && !event.shiftKey) || event.key === "Tab") {
               event.preventDefault();
               insert(matches[highlight]);
               return;
@@ -115,7 +173,13 @@ export function MentionTextarea({
               return;
             }
           }
-          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+
+          // Enter submits, Cmd/Ctrl+Enter included. Shift+Enter deliberately falls through
+          // to the browser so a comment can still be multi-line.
+          if (event.key === "Enter" && !event.shiftKey) {
+            // An IME uses Enter to confirm a composition (Japanese, Korean, Chinese…).
+            // Submitting there would post a half-converted comment, so let it through.
+            if (event.nativeEvent.isComposing) return;
             event.preventDefault();
             onSubmit?.();
           }
@@ -150,4 +214,6 @@ export function MentionTextarea({
       ) : null}
     </div>
   );
-}
+});
+
+MentionTextarea.displayName = "MentionTextarea";

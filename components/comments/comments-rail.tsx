@@ -5,7 +5,9 @@ import {
   AlertTriangle,
   Check,
   Loader2,
+  Maximize2,
   MessageSquare,
+  Minimize2,
   Paperclip,
   RotateCcw,
   Trash2,
@@ -310,6 +312,8 @@ export function CommentsRail() {
   const [filter, setFilter] = useState<ThreadFilter>("open");
   // The attachment currently open in the viewer modal; null keeps it closed.
   const [viewing, setViewing] = useState<CommentAttachment | null>(null);
+  // Wide reading mode. Local on purpose: it is a per-visit preference, not a stored one.
+  const [expanded, setExpanded] = useState(false);
 
   const visible = useMemo(
     () =>
@@ -344,7 +348,22 @@ export function CommentsRail() {
 
   return (
     <aside
-      className="fixed bottom-0 right-0 top-16 z-40 flex w-[22rem] flex-col overflow-hidden border-l border-border bg-background"
+      className={cn(
+        // WIDTH ONLY — nothing here changes the page's layout. The reservation of a column
+        // is `--comments-inset` (`lib/comments/comments-layout.ts`), and expanding does not
+        // touch it: the panel is `position: fixed`, so growing it to the left paints OVER
+        // the page while everything behind stays exactly where it was. That is the point of
+        // the wide mode — the plan you are commenting on does not move, which is what makes
+        // the two readable side by side. `transition-[width]` interpolates because both ends
+        // are plain rem lengths, and max-w keeps the wide state sane on a narrow window.
+        "fixed bottom-0 right-0 top-16 flex max-w-[92vw] flex-col overflow-hidden border-l border-border bg-background transition-[width,box-shadow] duration-200 ease-out",
+        // z-50 only while wide, and only because the page's own fixed action bars (the
+        // wizard footer, the edit pages' Save bar) are z-50 and sit exactly where the panel
+        // grows — at z-40 they would paint over our composer. At z-50 the panel wins by DOM
+        // order (it is mounted after the page content), while dialogs and popovers, which
+        // portal into `document.body` after it, still paint above it.
+        expanded ? "z-50 w-[44rem] shadow-2xl" : "z-40 w-[22rem]",
+      )}
       aria-label="Comments"
     >
       <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
@@ -355,16 +374,37 @@ export function CommentsRail() {
             <span className="text-xs text-muted-foreground">{openCount} open</span>
           ) : null}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 rounded-full"
-          onClick={() => setMode("off")}
-          aria-label="Turn comments off"
-          title="Turn comments off"
-        >
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-0.5">
+          {/* Widens the panel over the page. Its shadow is what signals "overlay" rather
+              than "the layout moved", since nothing behind it actually moves. */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 rounded-full text-muted-foreground"
+            onClick={() => setExpanded((value) => !value)}
+            aria-expanded={expanded}
+            aria-label={
+              expanded ? "Narrow the comments panel" : "Widen the comments panel"
+            }
+            title={expanded ? "Narrow" : "Widen"}
+          >
+            {expanded ? (
+              <Minimize2 className="h-4 w-4" />
+            ) : (
+              <Maximize2 className="h-4 w-4" />
+            )}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 rounded-full"
+            onClick={() => setMode("off")}
+            aria-label="Turn comments off"
+            title="Turn comments off"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Filter row */}

@@ -12,7 +12,11 @@ import {
   type CommentAttachment,
 } from "@/lib/comments/types";
 import { useCommentMode } from "./comment-mode-provider";
-import { MentionTextarea } from "./mention-textarea";
+import { EmojiPicker } from "./emoji-picker";
+import {
+  MentionTextarea,
+  type MentionTextareaHandle,
+} from "./mention-textarea";
 
 export interface CommentComposerProps {
   /**
@@ -47,6 +51,8 @@ export function CommentComposer({
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Lets the emoji picker splice a glyph in at the caret rather than appending it.
+  const textareaRef = useRef<MentionTextareaHandle>(null);
 
   const canSubmit = text.trim().length > 0 || pending.length > 0;
 
@@ -120,7 +126,9 @@ export function CommentComposer({
   };
 
   const submit = async () => {
-    if (!canSubmit || busy) return;
+    // Same guard as the button's `disabled`, so pressing Enter during an upload cannot
+    // post a comment that the button would have refused.
+    if (!canSubmit || busy || uploading) return;
     setBusy(true);
     try {
       await onSubmit(
@@ -141,6 +149,7 @@ export function CommentComposer({
   return (
     <div className="rounded-lg border border-border bg-muted/30 p-3">
       <MentionTextarea
+        ref={textareaRef}
         value={text}
         onValueChange={setText}
         mentionable={mentionable}
@@ -181,28 +190,36 @@ export function CommentComposer({
       ) : null}
 
       <div className="mt-2 flex items-center justify-between gap-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={
-            uploading || busy || pending.length >= MAX_ATTACHMENTS_PER_MESSAGE
-          }
-          title={
-            pending.length >= MAX_ATTACHMENTS_PER_MESSAGE
-              ? `Up to ${MAX_ATTACHMENTS_PER_MESSAGE} files`
-              : "Attach a file"
-          }
-        >
-          {uploading ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : (
-            <Paperclip className="h-3.5 w-3.5" />
-          )}
-          Attach
-        </Button>
+        <div className="flex items-center gap-0.5">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={
+              uploading || busy || pending.length >= MAX_ATTACHMENTS_PER_MESSAGE
+            }
+            title={
+              pending.length >= MAX_ATTACHMENTS_PER_MESSAGE
+                ? `Up to ${MAX_ATTACHMENTS_PER_MESSAGE} files`
+                : "Attach a file"
+            }
+          >
+            {uploading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Paperclip className="h-3.5 w-3.5" />
+            )}
+            Attach
+          </Button>
+          {/* Beside the paperclip. An emoji alone is a valid comment, so this stays enabled
+              on an empty box — it only stops while the comment is being submitted. */}
+          <EmojiPicker
+            disabled={busy}
+            onPick={(emoji) => textareaRef.current?.insert(emoji)}
+          />
+        </div>
 
         <Button
           size="sm"
