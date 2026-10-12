@@ -135,15 +135,39 @@ export function CommentComposer({
     // Same guard as the button's `disabled`, so pressing Enter during an upload cannot
     // post a comment that the button would have refused.
     if (!canSubmit || busy || uploading) return;
+
+    /**
+     * Clear BEFORE awaiting the write.
+     *
+     * The comment is already on screen optimistically (`useCommentThreads` mutates through
+     * SWR's optimistic path), so holding the text in the box until the response arrived made a
+     * slow round-trip read as a broken one: the advisor watches their comment appear in the
+     * list while still staring at the text they just sent, for as long as the write takes.
+     *
+     * The write still has to succeed. On failure the optimistic message rolls back, and the
+     * text and the staged attachments come back with it, so nothing is silently lost.
+     */
+    const submittedText = text.trim();
+    const submittedAttachments = pending.map(({ key, name, type, size }) => ({
+      key,
+      name,
+      type,
+      size,
+    }));
+
+    setText("");
+    setPending([]);
     setBusy(true);
     try {
-      await onSubmit(
-        text.trim(),
-        pending.map(({ key, name, type, size }) => ({ key, name, type, size })),
-      );
-      setText("");
-      setPending([]);
+      await onSubmit(submittedText, submittedAttachments);
     } catch (error) {
+      setText(submittedText);
+      setPending(
+        submittedAttachments.map((attachment) => ({
+          ...attachment,
+          id: attachment.key,
+        })),
+      );
       toast.error(
         error instanceof Error ? error.message : "Could not add comment.",
       );

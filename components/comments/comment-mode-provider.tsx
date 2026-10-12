@@ -146,7 +146,34 @@ export function CommentModeProvider({
   const open = canComment && mode === "on";
   useCommentsLayout(open);
 
-  const commentThreads = useCommentThreads(target, open);
+  // Mention candidates, fetched only while the rail is open.
+  //
+  // Declared BEFORE the thread list on purpose: the optimistic message needs the current
+  // user's identity out of this list (see `optimisticAuthor` in `useCommentThreads`), so a
+  // just-posted comment shows the right avatar instead of a nameless monogram while the write
+  // is still in flight. It costs no extra request — this list is what the @mention
+  // autocomplete already needs.
+  const mentionableKey =
+    open && target
+      ? `/api/clients/${encodeURIComponent(target.clientId)}/comments/mentionable`
+      : null;
+  const { data: mentionableData } = useSWR(
+    mentionableKey,
+    async (url: string): Promise<MentionableUser[]> => {
+      const response = await fetch(url, { cache: "no-store" });
+      const body = (await response.json().catch(() => ({}))) as {
+        users?: MentionableUser[];
+      };
+      return response.ok && Array.isArray(body.users) ? body.users : [];
+    },
+  );
+
+  const commentThreads = useCommentThreads(
+    target,
+    open,
+    mentionableData ?? [],
+    currentUserId,
+  );
 
   const pendingThreadIdRef = useRef<string | null>(null);
 
@@ -193,22 +220,6 @@ export function CommentModeProvider({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [hasSurface, canComment, mode, setMode]);
-
-  // Mention candidates, fetched only while the rail is open.
-  const mentionableKey =
-    open && target
-      ? `/api/clients/${encodeURIComponent(target.clientId)}/comments/mentionable`
-      : null;
-  const { data: mentionableData } = useSWR(
-    mentionableKey,
-    async (url: string): Promise<MentionableUser[]> => {
-      const response = await fetch(url, { cache: "no-store" });
-      const body = (await response.json().catch(() => ({}))) as {
-        users?: MentionableUser[];
-      };
-      return response.ok && Array.isArray(body.users) ? body.users : [];
-    },
-  );
 
   const toggleMode = useCallback(() => {
     if (!canComment) return;

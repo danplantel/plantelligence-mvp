@@ -1743,6 +1743,63 @@ decision:
   has the same three-column shape and the same toolbar-over-rail collision, and is deliberately
   left as-is for now.
 
+### Posting latency: round-trips, not route logic
+
+A comment POST measured at ~9.7s and looked like a bug in the write path. It is not. Measured
+directly, with raw un-retried clients: a bare `SELECT 1` against this database costs **~320ms**,
+a bare TCP connect to the Neon host **~840ms**, and the **pooled and direct endpoints are equally
+slow** — so that is the environment's cost per round-trip, and the route multiplies it. The three
+comment endpoints fit the same model exactly: ≈3 round-trips → 2s, ≈6 → 3s, ≈18 → 9.7s. The
+levers are therefore (a) how many round-trips a route makes, and (b) whether the advisor is made
+to wait on them.
+
+**The root cause is distance, not misconfiguration.** Development happens from Tanzania and the
+database is Neon in `us-east-2` (Ohio). An intercontinental round-trip on that path is ~300ms,
+which is precisely what a single `SELECT 1` costs; a fresh connection then pays the DNS lookup and
+the handshake on top of it, which is the ~840ms. Nothing is broken, and there is nothing to go
+hunting for on the local network — eighteen round-trips to Ohio is ~6s of physics before any of
+the fixed costs are even counted.
+
+Two remedies, for two different situations:
+
+- **Local development** — point `DATABASE_URL` at a Postgres running on the same machine (Docker)
+  and keep Neon for the deployed environments. Sub-millisecond queries turn the same
+  eighteen-round-trip write into ~20ms, and that fixes *every* screen, not just comments.
+  `lib/prisma.ts` already rebuilds the client when the connection URL changes, so it is a `.env`
+  edit plus a container.
+- **Production** — match the region to the *users*, not to the developer. If the advisors are
+  US-based then `us-east-2` is already the right choice and this is purely a development-experience
+  cost. If East Africa is a real user base, a nearer region (Neon's `eu-central-1`) roughly halves
+  the round-trip from Dar es Salaam — worth measuring before paying for it, since the win is a
+  factor of two rather than an order of magnitude.
+
+Round-trips removed from the write path, in [`comments.server.ts`](lib/comments/comments.server.ts):
+
+- **Mention candidates are only loaded when the body actually contains `@`.** That lookup is three
+  round-trips (organization → active profiles → users) and the great majority of comments mention
+  nobody, so it was the most wasteful thing the write did.
+- **`actorName()` is gone.** The author's own row is already loaded for the message's byline, so
+  the notification titles read the name out of that map instead of spending a second query.
+- **The plan read and the author load now go out together** (`Promise.all`) instead of one after
+  the other.
+
+Plus two client-side changes so the wait is not *felt*, whatever the connection is doing:
+
+- **The composer clears before the write resolves**
+  ([`comment-composer.tsx`](components/comments/comment-composer.tsx)). The comment is already on
+  screen optimistically, so holding the text in the box until the response arrived made a slow
+  round-trip read as a broken one — the advisor watched their comment appear while still staring
+  at the text they had just sent. On failure the optimistic message rolls back and the text and
+  the staged attachments come back with it, so nothing is silently lost.
+- **The optimistic message carries the author's identity** (`optimisticAuthor` in
+  [`useCommentThreads`](hooks/useCommentThreads.ts)), instead of rendering as a nameless monogram
+  until the server answered — on a slow connection that is the part that looks broken. The
+  identity comes from the mentionable list the rail already fetches, so it costs no request, and
+  the placeholder falls back to "You" until that list arrives.
+
+Neither is a substitute for fixing the connection: at ~500ms per round-trip, a write of ~10
+round-trips is still seconds of server time. It just no longer holds the UI hostage.
+
 ### Verification
 
 ```

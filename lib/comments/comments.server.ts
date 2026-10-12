@@ -423,14 +423,6 @@ async function notifyEvent(input: {
   );
 }
 
-async function actorName(userId: string): Promise<string> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: { name: true },
-  });
-  return user?.name || "Someone";
-}
-
 /* ─────────────────────────────── Reads ─────────────────────────────── */
 
 export async function listCommentThreads(input: {
@@ -507,10 +499,20 @@ export async function createCommentThread(input: {
   const body = assertBody(input.body, attachments.length > 0);
   const anchor = assertAnchor(input.anchor);
 
-  const candidates = await listMentionableUsers({
-    organizationId: input.organizationId,
-  });
-  const mentions = parseMentions(body, candidates);
+  /**
+   * Mention candidates are only needed when the body mentions someone.
+   *
+   * That lookup is three round-trips (the organization, its active profiles, then those users)
+   * and the great majority of comments contain no `@` at all, so it is skipped unless there is
+   * something to resolve. Against a remote database this is the single most wasteful thing the
+   * write did: ~1.5s of a ~10s POST, spent on comments with nobody to notify.
+   */
+  const mentions = body.includes("@")
+    ? parseMentions(
+        body,
+        await listMentionableUsers({ organizationId: input.organizationId }),
+      )
+    : [];
 
   const row = await prisma.commentThread.create({
     data: {
@@ -540,14 +542,17 @@ export async function createCommentThread(input: {
     include: { messages: { orderBy: { createdAt: "asc" } } },
   });
 
-  const authorById = await loadAuthors([input.userId]);
-
-  // Plan owner + anyone mentioned learn about a brand-new thread.
-  const plan = await prisma.client.findUnique({
-    where: { id: access.clientId },
-    select: { userId: true, companyName: true },
-  });
-  const name = await actorName(input.userId);
+  // The author's own row and the plan's name are both needed only for the notification titles,
+  // and the author's row doubles as the message's byline, so the two reads go out together
+  // instead of one after the other.
+  const [authorById, plan] = await Promise.all([
+    loadAuthors([input.userId]),
+    prisma.client.findUnique({
+      where: { id: access.clientId },
+      select: { userId: true, companyName: true },
+    }),
+  ]);
+  const name = authorById.get(input.userId)?.name || "Someone";
   const planName = plan?.companyName || "a plan";
   const href = commentHref(row);
   if (mentions.length > 0) {
@@ -598,10 +603,14 @@ export async function addCommentMessage(input: {
   const attachments = sanitizeAttachments(input.attachments, thread.clientId);
   const body = assertBody(input.body, attachments.length > 0);
 
-  const candidates = await listMentionableUsers({
-    organizationId: input.organizationId,
-  });
-  const mentions = parseMentions(body, candidates);
+  // Only pay for the mention candidates when there is a mention to resolve — see the note in
+  // `createCommentThread`. A reply that mentions nobody costs no extra round-trips.
+  const mentions = body.includes("@")
+    ? parseMentions(
+        body,
+        await listMentionableUsers({ organizationId: input.organizationId }),
+      )
+    : [];
 
   const created = await prisma.commentMessage.create({
     data: {
@@ -626,7 +635,9 @@ export async function addCommentMessage(input: {
   // mention wording instead, so a single event never fires twice for one person.
   const participants = thread.messages.map((message) => message.authorUserId);
   const mentionedSet = new Set(mentions);
-  const name = await actorName(input.userId);
+  // The author's row is already in hand from the map loaded above — no second read just to get
+  // a name for the notification title.
+  const name = authorById.get(input.userId)?.name || "Someone";
   const href = commentHref(thread);
   if (mentions.length > 0) {
     await notifyEvent({

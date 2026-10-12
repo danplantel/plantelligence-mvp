@@ -1,14 +1,16 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import useSWR from "swr";
 import {
   normalizeBenefitCategoryKey,
   type CommentAnchorInput,
   type CommentAttachment,
+  type CommentAuthorView,
   type CommentMessageView,
   type CommentTargetType,
   type CommentThreadView,
+  type MentionableUser,
 } from "@/lib/comments/types";
 
 /**
@@ -64,15 +66,22 @@ async function fetchThreads(url: string): Promise<CommentListPayload> {
   };
 }
 
-/** A placeholder message shown between posting and the server's authoritative reply. */
+/**
+ * A placeholder message shown between posting and the server's authoritative reply.
+ *
+ * `author` is the current user when we know it (see `optimisticAuthor` below), which is what
+ * keeps the avatar right from the first frame. Falling back to `null` renders a nameless
+ * monogram until the write lands — the message is there, the face is not.
+ */
 function tempMessage(
   body: string,
   attachments: CommentAttachment[] = [],
+  author: CommentAuthorView | null = null,
 ): CommentMessageView {
   return {
     id: `temp-msg-${Date.now()}`,
-    authorUserId: "pending",
-    author: null,
+    authorUserId: author?.userId ?? "pending",
+    author,
     body,
     mentions: [],
     attachments,
@@ -116,8 +125,32 @@ export interface UseCommentThreadsResult {
 export function useCommentThreads(
   target: CommentTarget | null,
   enabled: boolean,
+  /**
+   * The organization's people, already fetched by the rail for @mentions, and the signed-in
+   * user's id. Used only to give the optimistic message its author — no extra request.
+   */
+  mentionable: MentionableUser[] = [],
+  currentUserId: string | null = null,
 ): UseCommentThreadsResult {
   const key = target ? listKey(target) : null;
+
+  /**
+   * The optimistic message's author.
+   *
+   * Without it a just-posted comment renders as a nameless monogram for however long the write
+   * takes — and on a slow connection that is the part that looks broken, because the comment
+   * itself is already on screen. The mentionable list already carries every member of the
+   * organization (the current user included) with their name and headshot, and the rail fetches
+   * it regardless of this, so the identity costs no request. It is simply null until that list
+   * arrives, and the placeholder falls back to "You".
+   */
+  const optimisticAuthor = useMemo<CommentAuthorView | null>(() => {
+    if (!currentUserId) return null;
+    const me = mentionable.find((user) => user.userId === currentUserId);
+    return me
+      ? { userId: me.userId, name: me.name, headshot: me.headshot }
+      : null;
+  }, [mentionable, currentUserId]);
   const { data, error, isLoading, mutate } = useSWR(
     enabled && key ? key : null,
     fetchThreads,
@@ -169,7 +202,7 @@ export function useCommentThreads(
           createdByUserId: "pending",
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          messages: [tempMessage(body, attachments)],
+          messages: [tempMessage(body, attachments, optimisticAuthor)],
         };
 
         await mutate(
@@ -212,7 +245,7 @@ export function useCommentThreads(
         );
       });
     },
-    [key, mutate, resolvedClientId, run, target],
+    [key, mutate, optimisticAuthor, resolvedClientId, run, target],
   );
 
   const reply = useCallback(
@@ -222,7 +255,7 @@ export function useCommentThreads(
       attachments: CommentAttachment[] = [],
     ) => {
       await run(async () => {
-        const optimistic = tempMessage(body, attachments);
+        const optimistic = tempMessage(body, attachments, optimisticAuthor);
         await mutate(
           async (current) => {
             const response = await fetch(
@@ -266,7 +299,7 @@ export function useCommentThreads(
         );
       });
     },
-    [mutate, resolvedClientId, run],
+    [mutate, optimisticAuthor, resolvedClientId, run],
   );
 
   const setResolved = useCallback(
