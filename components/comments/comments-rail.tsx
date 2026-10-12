@@ -147,12 +147,10 @@ function ThreadCard({
     setResolved,
     deleteThread,
     setActiveThreadId,
+    canModerate,
   } = useCommentMode();
 
   const [busy, setBusy] = useState(false);
-
-  const canDeleteThread =
-    Boolean(currentUserId) && thread.createdByUserId === currentUserId;
 
   const run = async (action: () => Promise<void>, fallback: string) => {
     setBusy(true);
@@ -175,49 +173,61 @@ function ThreadCard({
           : "border-border bg-background",
       )}
     >
-      {/* Card toolbar — Resolve/Reopen + Delete, top-right. */}
-      <div className="flex items-center justify-end gap-0.5">
-        {thread.resolvedAt ? (
-          <span className="mr-auto rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-            Resolved
-          </span>
-        ) : null}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-6 w-6 rounded-full text-muted-foreground hover:text-accent-blue"
-          disabled={busy}
-          onClick={() =>
-            void run(
-              () => setResolved(thread.id, !thread.resolvedAt),
-              "Could not update the thread.",
-            )
-          }
-          aria-label={thread.resolvedAt ? "Reopen this thread" : "Resolve this thread"}
-          title={thread.resolvedAt ? "Reopen" : "Resolve"}
-        >
+      {/* Card toolbar — Resolve/Reopen + Delete, top-right. Owners/Admins ONLY (the API
+          refuses anyone else), so a non-moderator gets no toolbar at all rather than an
+          empty row where a control used to be. Everyone still sees the Resolved badge:
+          the thread's state is information, moderating it is not. */}
+      {canModerate || thread.resolvedAt ? (
+        <div className="flex items-center justify-end gap-0.5">
           {thread.resolvedAt ? (
-            <RotateCcw className="h-3.5 w-3.5" />
-          ) : (
-            <Check className="h-3.5 w-3.5" />
-          )}
-        </Button>
-        {canDeleteThread ? (
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6 rounded-full text-muted-foreground hover:text-red-600"
-            disabled={busy}
-            onClick={() =>
-              void run(() => deleteThread(thread.id), "Could not delete the thread.")
-            }
-            aria-label="Delete this thread"
-            title="Delete"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        ) : null}
-      </div>
+            <span className="mr-auto rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+              Resolved
+            </span>
+          ) : null}
+          {canModerate ? (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded-full text-muted-foreground hover:text-accent-blue"
+                disabled={busy}
+                onClick={() =>
+                  void run(
+                    () => setResolved(thread.id, !thread.resolvedAt),
+                    "Could not update the thread.",
+                  )
+                }
+                aria-label={
+                  thread.resolvedAt ? "Reopen this thread" : "Resolve this thread"
+                }
+                title={thread.resolvedAt ? "Reopen" : "Resolve"}
+              >
+                {thread.resolvedAt ? (
+                  <RotateCcw className="h-3.5 w-3.5" />
+                ) : (
+                  <Check className="h-3.5 w-3.5" />
+                )}
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 rounded-full text-muted-foreground hover:text-red-600"
+                disabled={busy}
+                onClick={() =>
+                  void run(
+                    () => deleteThread(thread.id),
+                    "Could not delete the thread.",
+                  )
+                }
+                aria-label="Delete this thread"
+                title="Delete"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </Button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       <ul className="mt-2 space-y-2">
         {thread.messages.map((message) => (

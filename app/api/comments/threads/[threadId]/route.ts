@@ -12,8 +12,9 @@ import {
  * PATCH/DELETE /api/comments/threads/[threadId]
  *
  * PATCH toggles the thread's resolved state; DELETE removes it and its messages.
- * Both are moderated in `comments.server` (thread author, plan owner, or
- * organization Owner/Admin).
+ * Both are moderated in `comments.server`: **Owner/Admin only**. An author who is
+ * neither can still write and reply — resolving and deleting are moderation, not
+ * authorship, so authorship is deliberately not part of the allow-list.
  */
 
 function errorResponse(error: unknown) {

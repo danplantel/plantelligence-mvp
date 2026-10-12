@@ -12,8 +12,8 @@
  *   5. an unassigned plan / unrelated user refused;
  *   6. replies and the notification fan-out (reply + new thread + mention);
  *   7. @mentions with a deep link;
- *   8. resolve/reopen and moderation;
- *   9. soft-deleting a message and deleting a thread;
+ *   8. moderation — resolve/reopen is Owner/Admin only, NEVER the author;
+ *   9. deleting a message and a thread (Owner/Admin only, with the author refused);
  *  10. benefit threads scoped and normalized by category;
  *  11. plan deletion cascading its threads and messages.
  *
@@ -165,6 +165,39 @@ async function main(): Promise<void> {
       clientId: planA.id,
       actorUserId: owner.id,
       role: "viewer",
+      categoryScope: "all",
+    });
+
+    // A teammate holding the Admin preset — the "Admin" half of "Owner/Admin only",
+    // which is why the rule cannot be satisfied by `Client.userId` alone.
+    const adminLogin = await prisma.user.create({
+      data: {
+        name: `TCM Admin ${STAMP}`,
+        email: `tcm-verify-admin-${STAMP}@example.test`,
+      },
+      select: { id: true },
+    });
+    created.userIds.push(adminLogin.id);
+    const admin = await createTeammateProfile({
+      organizationId,
+      actorUserId: owner.id,
+      type: "team_member",
+      email: `tcm-verify-admin-${STAMP}@abbenefits.test`,
+      firstName: "Ada",
+      lastName: "Admin",
+      loginUserId: adminLogin.id,
+    });
+    created.profileIds.push(admin.id);
+    await prisma.teammateProfile.update({
+      where: { id: admin.id },
+      data: { state: "active" },
+    });
+    await upsertAssignment({
+      organizationId,
+      profileId: admin.id,
+      clientId: planA.id,
+      actorUserId: owner.id,
+      role: "admin",
       categoryScope: "all",
     });
 
@@ -367,7 +400,8 @@ async function main(): Promise<void> {
     });
     check("the thread author is notified of the reply", ownerReplies >= 1, `${ownerReplies}`);
 
-    await createCommentThread({
+    // Thrown by the Collaborator (a Viewer) so §9 can prove AUTHORSHIP IS NOT ENOUGH.
+    const collabThread = await createCommentThread({
       organizationId,
       userId: collabLogin.id,
       clientIdOrSlug: planA.id,
@@ -415,23 +449,72 @@ async function main(): Promise<void> {
     /* ── 9. Resolve/reopen + moderation ───────────────────────────── */
 
     console.log("");
-    console.log("9. Resolve/Reopen and moderation");
+    console.log("9. Resolve/Reopen — Owner/Admin only");
+    const ownerView = await listCommentThreads({
+      organizationId,
+      userId: owner.id,
+      clientIdOrSlug: planA.id,
+      targetType: "plan",
+    });
+    check(
+      "the owner is told they may moderate",
+      ownerView.canModerate === true,
+      `${ownerView.canModerate}`,
+    );
+    const collabView = await listCommentThreads({
+      organizationId,
+      userId: collabLogin.id,
+      clientIdOrSlug: planA.id,
+      targetType: "plan",
+    });
+    check(
+      "a Viewer is told they may not",
+      collabView.canModerate === false,
+      `${collabView.canModerate}`,
+    );
+
     const resolved = await setCommentThreadResolved({
       organizationId,
       userId: owner.id,
       threadId: sectionThread.id,
       resolved: true,
     });
-    check("the author resolves the thread", resolved.resolvedAt !== null);
+    check("the plan owner resolves the thread", resolved.resolvedAt !== null);
     const reopened = await setCommentThreadResolved({
       organizationId,
       userId: owner.id,
       threadId: sectionThread.id,
       resolved: false,
     });
-    check("the author reopens the thread", reopened.resolvedAt === null);
+    check("the owner reopens the thread", reopened.resolvedAt === null);
+
+    const adminResolved = await setCommentThreadResolved({
+      organizationId,
+      userId: adminLogin.id,
+      threadId: sectionThread.id,
+      resolved: true,
+    });
+    check("an Admin resolves someone else's thread", adminResolved.resolvedAt !== null);
+    await setCommentThreadResolved({
+      organizationId,
+      userId: owner.id,
+      threadId: sectionThread.id,
+      resolved: false,
+    });
+
     check(
-      "a non-author teammate cannot resolve someone else's thread",
+      "an author who is neither Owner nor Admin cannot resolve their OWN thread",
+      (await refusalCode(() =>
+        setCommentThreadResolved({
+          organizationId,
+          userId: collabLogin.id,
+          threadId: collabThread.id,
+          resolved: true,
+        }),
+      )) === "comment_forbidden",
+    );
+    check(
+      "a Viewer cannot resolve a thread they did not write",
       (await refusalCode(() =>
         setCommentThreadResolved({
           organizationId,
@@ -441,18 +524,39 @@ async function main(): Promise<void> {
         }),
       )) === "comment_forbidden",
     );
+    check(
+      "an unassigned user is stopped by the access layer, not the moderation rule",
+      (await refusalCode(() =>
+        setCommentThreadResolved({
+          organizationId,
+          userId: stranger.id,
+          threadId: sectionThread.id,
+          resolved: true,
+        }),
+      )) === "not_assigned",
+    );
 
     /* ── 10. Deleting a message and a thread ──────────────────────── */
 
     console.log("");
-    console.log("10. Deleting messages and threads");
+    console.log("10. Deleting messages and threads — Owner/Admin only");
     const collabMessage = replied.messages.find(
       (message) => message.authorUserId === collabLogin.id,
     );
     if (!collabMessage) throw new Error("fixture: collaborator reply missing");
+    check(
+      "an author cannot delete their own message",
+      (await refusalCode(() =>
+        deleteCommentMessage({
+          organizationId,
+          userId: collabLogin.id,
+          messageId: collabMessage.id,
+        }),
+      )) === "comment_forbidden",
+    );
     await deleteCommentMessage({
       organizationId,
-      userId: collabLogin.id,
+      userId: owner.id,
       messageId: collabMessage.id,
     });
     const afterDelete = await listCommentThreads({
@@ -468,6 +572,17 @@ async function main(): Promise<void> {
       "a withdrawn message keeps its place but drops its text",
       Boolean(deletedMessage?.deletedAt) && deletedMessage?.body === "",
       `deletedAt=${deletedMessage?.deletedAt ?? "null"} body="${deletedMessage?.body ?? "?"}"`,
+    );
+
+    check(
+      "an author cannot delete their own thread",
+      (await refusalCode(() =>
+        deleteCommentThread({
+          organizationId,
+          userId: collabLogin.id,
+          threadId: collabThread.id,
+        }),
+      )) === "comment_forbidden",
     );
 
     await deleteCommentThread({

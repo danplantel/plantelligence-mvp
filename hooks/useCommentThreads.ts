@@ -27,6 +27,12 @@ export interface CommentTarget {
 interface CommentListPayload {
   clientId: string;
   threads: CommentThreadView[];
+  /**
+   * Whether this viewer may resolve/delete (Owner/Admin only). It lives in the cache rather
+   * than being derived on the client, so EVERY optimistic write below must carry it forward
+   * — dropping it would blink the moderation controls out of the rail mid-mutation.
+   */
+  canModerate: boolean;
 }
 
 /** Poll cadence while comments mode is open. */
@@ -45,6 +51,7 @@ async function fetchThreads(url: string): Promise<CommentListPayload> {
   const body = (await response.json().catch(() => ({}))) as {
     clientId?: string;
     threads?: CommentThreadView[];
+    canModerate?: boolean;
     error?: string;
   };
   if (!response.ok) {
@@ -53,6 +60,7 @@ async function fetchThreads(url: string): Promise<CommentListPayload> {
   return {
     clientId: body.clientId ?? "",
     threads: Array.isArray(body.threads) ? body.threads : [],
+    canModerate: Boolean(body.canModerate),
   };
 }
 
@@ -77,6 +85,8 @@ export interface UseCommentThreadsResult {
   threads: CommentThreadView[];
   /** The real Client id the server resolved (id or slug in, id out). */
   resolvedClientId: string;
+  /** Owner/Admin only: whether to render the resolve/delete controls at all. */
+  canModerate: boolean;
   isLoading: boolean;
   error: string | null;
   isMutating: boolean;
@@ -185,12 +195,14 @@ export function useCommentThreads(
             const created = payload.thread;
             return {
               clientId: created.clientId,
+              canModerate: current?.canModerate ?? false,
               threads: [...(current?.threads ?? []), created],
             };
           },
           {
             optimisticData: (current) => ({
               clientId: resolvedClientId || target.clientId,
+              canModerate: current?.canModerate ?? false,
               threads: [...(current?.threads ?? []), optimistic],
             }),
             rollbackOnError: true,
@@ -231,6 +243,7 @@ export function useCommentThreads(
             const updated = payload.thread;
             return {
               clientId: current?.clientId ?? resolvedClientId,
+              canModerate: current?.canModerate ?? false,
               threads: (current?.threads ?? []).map((thread) =>
                 thread.id === threadId ? updated : thread,
               ),
@@ -239,6 +252,7 @@ export function useCommentThreads(
           {
             optimisticData: (current) => ({
               clientId: current?.clientId ?? resolvedClientId,
+              canModerate: current?.canModerate ?? false,
               threads: (current?.threads ?? []).map((thread) =>
                 thread.id === threadId
                   ? { ...thread, messages: [...thread.messages, optimistic] }
@@ -278,6 +292,7 @@ export function useCommentThreads(
             const updated = payload.thread;
             return {
               clientId: current?.clientId ?? resolvedClientId,
+              canModerate: current?.canModerate ?? false,
               threads: (current?.threads ?? []).map((thread) =>
                 thread.id === threadId ? updated : thread,
               ),
@@ -286,6 +301,7 @@ export function useCommentThreads(
           {
             optimisticData: (current) => ({
               clientId: current?.clientId ?? resolvedClientId,
+              canModerate: current?.canModerate ?? false,
               threads: (current?.threads ?? []).map((thread) =>
                 thread.id === threadId
                   ? {
@@ -322,6 +338,7 @@ export function useCommentThreads(
             }
             return {
               clientId: current?.clientId ?? resolvedClientId,
+              canModerate: current?.canModerate ?? false,
               threads: (current?.threads ?? []).filter(
                 (thread) => thread.id !== threadId,
               ),
@@ -330,6 +347,7 @@ export function useCommentThreads(
           {
             optimisticData: (current) => ({
               clientId: current?.clientId ?? resolvedClientId,
+              canModerate: current?.canModerate ?? false,
               threads: (current?.threads ?? []).filter(
                 (thread) => thread.id !== threadId,
               ),
@@ -349,6 +367,7 @@ export function useCommentThreads(
       await run(async () => {
         const markDeleted = (current: CommentListPayload | undefined) => ({
           clientId: current?.clientId ?? resolvedClientId,
+          canModerate: current?.canModerate ?? false,
           threads: (current?.threads ?? []).map((thread) =>
             thread.id === threadId
               ? {
@@ -396,6 +415,7 @@ export function useCommentThreads(
   return {
     threads,
     resolvedClientId,
+    canModerate: data?.canModerate ?? false,
     isLoading: enabled ? isLoading : false,
     error: error instanceof Error ? error.message : error ? String(error) : null,
     isMutating,

@@ -57,6 +57,8 @@ interface CommentModeValue {
 
   target: CommentTarget | null;
   threads: CommentThreadView[];
+  /** Owner/Admin only: whether this viewer may resolve/reopen or delete threads. */
+  canModerate: boolean;
   isLoading: boolean;
   error: string | null;
   isMutating: boolean;
@@ -223,6 +225,7 @@ export function CommentModeProvider({
       toggleMode,
       target,
       threads: commentThreads.threads,
+      canModerate: commentThreads.canModerate,
       isLoading: commentThreads.isLoading,
       error: commentThreads.error,
       isMutating: commentThreads.isMutating,
@@ -247,6 +250,7 @@ export function CommentModeProvider({
       toggleMode,
       target,
       commentThreads.threads,
+      commentThreads.canModerate,
       commentThreads.isLoading,
       commentThreads.error,
       commentThreads.isMutating,

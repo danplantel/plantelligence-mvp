@@ -48,7 +48,7 @@ export async function GET(
     );
     const category = request.nextUrl.searchParams.get("category");
 
-    const { clientId, threads } = await listCommentThreads({
+    const { clientId, threads, canModerate } = await listCommentThreads({
       organizationId: session.organizationId,
       userId: session.userId,
       clientIdOrSlug: params.id,
@@ -56,7 +56,9 @@ export async function GET(
       category,
     });
 
-    return NextResponse.json({ success: true, clientId, threads });
+    // `canModerate` tells the rail whether to render Resolve/Delete, so a non-owner/admin
+    // never sees a control the API would refuse. It is per-viewer, never cached by key.
+    return NextResponse.json({ success: true, clientId, threads, canModerate });
   } catch (error) {
     return errorResponse(error);
   }

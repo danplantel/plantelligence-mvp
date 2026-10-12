@@ -164,6 +164,7 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:verify-t2a` | Runs the 25-assertion T2a suite (per-function Custom enforcement, same-vs-per-plan grids, the locked-row refusal, All Plans, the missing-grid refusal, soft warnings and their audit trail, and the summary line). |
 | `npm run teammates:verify-t7` | Runs the 26-assertion T7 suite (the three acceptance criteria, display-vs-access, the mirror's idempotency and removals, hidden categories, and the unmirrorable-contact residue). |
 | `npm run teammates:verify-t9` | Runs the 41-assertion T9 suite (the signed token and its refusals, the mailbox guard, the profile guards, acceptance creating vs reusing a login, the seat conversion, replay, both audit rows, and the tenancy invariant). |
+| `npm run comments:verify` | Runs the 36-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, attachments, and the plan-delete cascade). See §9i. |
 | `npm run teammates:backfill-contacts` | Projects every plan's `keyContacts` onto profiles + assignments (T7). Idempotent; `--dry-run` to count without writing. Run it before the hub reader switch and after adding a new contacts writer. |
 | `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
 
@@ -1470,6 +1471,147 @@ them, and the fixture sweep could not see them either (its pattern stopped at `t
 the suite tracks and removes every login the flow creates — plus the widened sweep in §7.7.
 That is the case that made `verify-backfill` fail on `2 missing`, and it is why the tenancy
 invariant is now an assertion rather than an assumption.
+
+---
+
+## 9i. Comments on Plans & Benefits
+
+Figma-style comment threads on a Plan or a Benefit, read in a right-hand rail. Source spec:
+[`plans/plan-benefit-comments.md`](../plans/plan-benefit-comments.md). It is not a numbered
+teammate ticket, but it belongs in this document for the same reason T4 and T5 do: **its
+rules are access rules**, and they must not drift from the permission grid.
+
+### Where it lives
+
+| Piece | File | Job |
+|---|---|---|
+| Shared contract (pure) | [`lib/comments/types.ts`](../lib/comments/types.ts) | Thread/message/attachment shapes, limits, the anchor input, notification types |
+| Server: access, validation, reads, writes | [`lib/comments/comments.server.ts`](../lib/comments/comments.server.ts) | The one authorization gate, body/anchor/attachment validation, the notification fan-out |
+| Routes | `app/api/clients/[id]/comments`, `.../comments/attachments`, `app/api/comments/threads/[threadId]`, `.../threads/[threadId]/messages`, `.../messages/[messageId]` | HTTP only — they translate, they never decide |
+| Client data | [`hooks/useCommentThreads.ts`](../hooks/useCommentThreads.ts) | The SWR poll and the optimistic writes with rollback |
+| Surface + state | [`comment-mode-provider.tsx`](../components/comments/comment-mode-provider.tsx), [`comments-toggle.tsx`](../components/comments/comments-toggle.tsx) | Registers the page as a surface, owns on/off, exposes `canModerate` |
+| The rail | [`comments-rail.tsx`](../components/comments/comments-rail.tsx) | Thread cards, the persistent composer, the attachment viewer |
+| Composer + viewer | [`comment-composer.tsx`](../components/comments/comment-composer.tsx), [`comment-attachment-modal.tsx`](../components/comments/comment-attachment-modal.tsx) | The shared composer (rail + every reply box) and the file modal |
+
+### The four decisions the spec left open
+
+1. **Persisted rows only, including Drafts.** A thread needs a `CommentThread` row, so
+   Create Plan/Benefit unlocks commenting as soon as the draft exists.
+2. **Section + free text-range anchors.** `anchorKind: "section"`, or `"text"` carrying a
+   `fieldKey`, a `rangeStart`/`rangeEnd` and the selected `quote`.
+3. **Implicit by View.** Anyone who can open the plan may comment, including a
+   Collaborator — `resolveCommentAccess` is `resolvePlanAccess({ level: "view" })`.
+4. **~10s polling, header notifications, @mentions.** SWR `refreshInterval: 10_000` with
+   `refreshWhenHidden: false`; three notification types; mentions resolve against
+   `listMentionableUsers`.
+
+### Who may do what
+
+This is the part that belongs in this document. Commenting is deliberately **not** a grid
+function: it is implied by View, because a Viewer who cannot ask a question makes the
+feature useless.
+
+| Action | Who | Enforced in |
+|---|---|---|
+| Read threads | anyone with View, including Collaborators | `resolveCommentAccess` |
+| Start a thread / reply | anyone with View | `resolveCommentAccess` |
+| **Resolve / reopen** | **Owner or Admin only** | `assertCanModerate` |
+| **Delete a thread or a message** | **Owner or Admin only** | `assertCanModerate` |
+| See the Resolve/Delete controls at all | Owner or Admin only | `canModerate` on the list payload |
+
+**Authorship is deliberately NOT part of the allow-list.** The first version let a thread's
+author moderate their own thread and let a message's author withdraw their own message.
+That reads as "anyone can tidy up after themselves", and it is a privilege escalation: a
+Viewer *can* start a thread (correct), so author-as-moderator would let that Viewer destroy
+a thread and its history (not correct). The rule is now identity/role based, exactly like
+the seat-limit confirmation in §9:
+
+- `isPlanOwner` — the caller owns the plan (`Client.userId`) or its Organization, which
+  `resolveCommentAccess` has already computed, so the common owner case costs no extra query.
+- `isOwnerOrAdminOfOrganization` — a teammate holding the Owner or Admin preset.
+
+**The client is told, rather than left to guess.** `listCommentThreads` returns
+`canModerate`, computed where access is already resolved and passed through the hook →
+provider → rail, so the rail hides the controls instead of offering buttons the API
+refuses. It is per-viewer data inside the list payload, so every optimistic write in
+`useCommentThreads` must carry it forward — drop it and the controls blink out of the rail
+for the duration of each mutation. The UI is presentation only; the API is the enforcement
+point.
+
+An unassigned user is refused by the **access layer** (`not_assigned`) before the
+moderation rule is consulted at all; asserting that ordering is part of the point.
+
+### Attachments
+
+A comment may carry images and arbitrary files: up to **5 per message**, **15 MB** each,
+with the limits shared from `lib/comments/types.ts` and re-checked server-side.
+
+The upload is two steps, and neither of them trusts the client with a location:
+
+1. `POST /api/clients/[id]/comments/attachments` (authorized like commenting itself)
+   validates the name and size and mints the key **server-side**:
+   `org/{ownerUserId}/plans/{clientId}/comments/{ts}-{safeName}`.
+2. The client PUTs straight to the presigned URL and then sends only the descriptor
+   (`key`, `name`, `type`, `size`) with the comment.
+
+`sanitizeAttachments` re-validates on write — the count, the size, and that every key sits
+under **this plan's** `comments/` prefix, so a key cannot be attached to another plan's
+thread. Reads go through the existing `/api/r2/object` proxy, whose authorization already
+covers this shape: `parseR2Key` extracts `comments` as the folder,
+`permissionForR2Folder` returns `undefined` for it, and `resolvePlanAccess` therefore falls
+back to plain **view** — the same implicit-by-View rule the comments API uses. Downloads go
+through `/api/r2/signed-url` with a sanitized `filename` parameter, so a file saves as
+`report.pdf` rather than as its timestamped storage key.
+
+Two consequences worth knowing:
+
+- **A message needs a body OR an attachment.** "Look at this" is a complete comment when it
+  carries a file, so `assertBody` takes a `hasAttachments` flag.
+- **Soft-deleting a message clears its attachments** along with its text, so a withdrawn
+  message cannot leak its files.
+
+### Deliberate UI decisions
+
+Recorded because each of these was reached by removing something, and the removal *is* the
+decision:
+
+- **The rail is the only place threads appear.** The on-page "+" pins, the numbered
+  counters, the section highlights and the drag-to-select text ranges were all removed. A
+  comment is posted from the rail's composer; nothing on the page is clickable to target it.
+- **The composer is pinned to the BOTTOM of the panel**, chat-style, so the thread list
+  scrolls above it — and the same [`CommentComposer`](../components/comments/comment-composer.tsx)
+  serves both that composer and every thread's reply box, so attachments behave identically
+  in both.
+- **One toolbar per card**, top-right: `[Resolve/Reopen] [Delete thread]`. The per-message
+  trash and the bottom delete button were removed; the bottom row keeps only Reply. A
+  non-moderator gets no toolbar at all rather than an empty row, but everyone still sees the
+  Resolved badge — the thread's state is information, moderating it is not.
+- **The panel scrolls on its own**, with a native `.comment-scroll` container instead of a
+  Radix `ScrollArea`. Two causes, both worth remembering: Radix defaults to `type="hover"`
+  (the bar appears only while hovering), and the list was a `flex-1` child without
+  `min-h-0`, so it grew past the rail instead of scrolling inside it.
+- **Thumbnails are never cropped.** An image attachment is sized by its own aspect ratio
+  (`max-h-24 w-auto max-w-full`), not forced into a square with `object-cover`.
+
+### Verification
+
+```
+npm run comments:verify   ->  36/36 assertions passed
+```
+
+Runs against the real data layer with self-cleaning `tcm-verify-*` fixtures. It covers the
+four decisions, the refusals, and specifically the rule above: the owner resolves/reopens,
+an **Admin resolves someone else's thread**, an author who is neither **cannot resolve their
+own thread**, an author cannot delete their own message or their own thread, a Viewer is
+told `canModerate: false` while the owner is told `true`, and an unassigned user is stopped
+by the access layer first. Plus the notification fan-out (reply, new thread, mention, and
+the mention's deep link), the category scoping, and the plan-delete cascade. `npx tsc
+--noEmit` and `eslint` are clean.
+
+**Known residue.** A file uploaded but never submitted leaves an unreferenced object under
+`plans/{id}/comments/`; nothing reads it, so it is harmless, but sweeping that prefix is the
+way to reclaim the space. And per-message delete still exists in the API and the hook while
+having no UI surface since the card refactor.
 
 ---
 

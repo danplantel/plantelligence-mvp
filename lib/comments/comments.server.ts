@@ -440,12 +440,27 @@ export async function listCommentThreads(input: {
   targetType: CommentTargetType;
   /** Real category, for a benefit surface. */
   category?: string | null;
-}): Promise<{ clientId: string; threads: CommentThreadView[] }> {
+}): Promise<{
+  clientId: string;
+  threads: CommentThreadView[];
+  /** May this viewer resolve/reopen or delete — Owner/Admin only. Drives the rail's controls. */
+  canModerate: boolean;
+}> {
   const access = await resolveCommentAccess({
     userId: input.userId,
     clientIdOrSlug: input.clientIdOrSlug,
     category: input.category,
   });
+
+  // Moderation rights are resolved HERE, where access is already computed, so the rail can
+  // hide the Resolve/Delete controls instead of offering buttons the API would refuse. The
+  // `kind: "owner"` short-circuit keeps the plan's own owner off the teammate lookup.
+  const canModerate =
+    access.kind === "owner" ||
+    (await isOwnerOrAdminOfOrganization({
+      userId: input.userId,
+      organizationId: input.organizationId,
+    }));
 
   const rows = await prisma.commentThread.findMany({
     where: {
@@ -467,6 +482,7 @@ export async function listCommentThreads(input: {
   return {
     clientId: access.clientId,
     threads: rows.map((row) => toThreadView(row, authorById)),
+    canModerate,
   };
 }
 
@@ -636,14 +652,28 @@ export async function addCommentMessage(input: {
   return view;
 }
 
-/** May this user resolve/reopen or delete the thread? */
+/**
+ * May this user resolve/reopen a thread, or delete a thread or a message?
+ *
+ * **Owner and Admin only — deliberately NOT the author.** Anyone with View access can
+ * comment and reply (that is the whole point of implicit-by-View), but closing a thread
+ * or destroying it is *moderation*, not authorship, so it is gated on identity and role
+ * for the same reason seats are:
+ *
+ * - `isPlanOwner` — the caller owns the plan (`Client.userId`) or its Organization, which
+ *   `resolveCommentAccess` already computed, so the common owner case costs no extra query.
+ * - `isOwnerOrAdminOfOrganization` — a teammate holding the Owner or Admin preset.
+ *
+ * The author clause was removed on purpose. It made the rule read as "anyone can tidy up
+ * after themselves", which is not the rule: an Editor or Viewer keeps every other ability
+ * and simply cannot moderate. Authorship must not be a privilege escalation, since a
+ * Viewer who starts a thread would otherwise be able to destroy it and its history.
+ */
 async function assertCanModerate(input: {
   userId: string;
   organizationId: string;
-  threadCreatedByUserId: string;
   isPlanOwner: boolean;
 }): Promise<void> {
-  if (input.threadCreatedByUserId === input.userId) return;
   if (input.isPlanOwner) return;
   const ownerOrAdmin = await isOwnerOrAdminOfOrganization({
     userId: input.userId,
@@ -651,7 +681,7 @@ async function assertCanModerate(input: {
   });
   if (ownerOrAdmin) return;
   throw new TeammateDataError(
-    "Only the thread author or an owner/admin can do that.",
+    "Only an owner or admin can resolve or delete comments.",
     403,
     "comment_forbidden",
   );
@@ -678,7 +708,6 @@ export async function setCommentThreadResolved(input: {
   await assertCanModerate({
     userId: input.userId,
     organizationId: input.organizationId,
-    threadCreatedByUserId: thread.createdByUserId,
     isPlanOwner: access.kind === "owner",
   });
 
@@ -716,7 +745,6 @@ export async function deleteCommentMessage(input: {
   await assertCanModerate({
     userId: input.userId,
     organizationId: input.organizationId,
-    threadCreatedByUserId: message.authorUserId,
     isPlanOwner: access.kind === "owner",
   });
 
@@ -747,7 +775,6 @@ export async function deleteCommentThread(input: {
   await assertCanModerate({
     userId: input.userId,
     organizationId: input.organizationId,
-    threadCreatedByUserId: thread.createdByUserId,
     isPlanOwner: access.kind === "owner",
   });
 
