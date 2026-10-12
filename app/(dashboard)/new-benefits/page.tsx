@@ -105,19 +105,6 @@ function NewBenefitsPageInner() {
     ? decodeURIComponent(categoryRaw.replace(/\+/g, " "))
     : null;
 
-  // Comments: Create Benefit is a comment surface for (plan, category). Once a planId is
-  // in the URL the plan exists; a Benefit row is not required to attach a thread.
-  useCommentSurface(
-    planIdParam
-      ? {
-          clientId: planIdParam,
-          targetType: "benefit",
-          category: categoryParam,
-          persisted: true,
-        }
-      : null,
-  );
-
   const {
     currentStep,
     totalSteps,
@@ -146,6 +133,44 @@ function NewBenefitsPageInner() {
   const customBenefitTitle = useBenefitsWizardStore(
     (s) => s.stepData.step1?.benefitTitle ?? "",
   );
+
+  /**
+   * Comments: Create Benefit is a surface for ONE benefit — a thread is keyed by
+   * (plan, category) — so it follows the wizard's own Step 1 selection rather than only the
+   * entry URL. The URL params are the initial values, not the authority: the category picker
+   * is hidden only when the URL already carries a category, so an advisor who arrives without
+   * one chooses it here, and the surface has to re-scope when they do. Reading the URL alone
+   * would file everything from this session into the entry category — or into the empty one.
+   *
+   * The category is canonicalised before it becomes a key, because threads are bucketed by that
+   * string: `Custom` is the legacy deep-link alias for the hub whose stored label is
+   * `Company / Plan Sponsor`, and the Edit Benefit route resolves its slug back to the label.
+   * Registering the alias would give one benefit two threads that never see each other.
+   *
+   * BOTH parts are required. A surface with no category would file into the empty bucket, which
+   * becomes unreachable the moment a category is chosen — an orphaned thread by construction.
+   */
+  const step1PlanId = useBenefitsWizardStore(
+    (s) => s.stepData.step1?.planId ?? "",
+  );
+  const surfaceCategoryRaw = (benefitCategoryName || categoryParam || "").trim();
+  const surfaceCategory = /^custom$/i.test(surfaceCategoryRaw)
+    ? "Company / Plan Sponsor"
+    : surfaceCategoryRaw;
+  // The live store value wins once Step 1 has loaded — the advisor can change the plan in the
+  // wizard even when the URL named one — with the param as the pre-load fallback.
+  const surfacePlanId = step1PlanId || planIdParam;
+  useCommentSurface(
+    surfacePlanId && surfaceCategory
+      ? {
+          clientId: surfacePlanId,
+          targetType: "benefit",
+          category: surfaceCategory,
+          persisted: true,
+        }
+      : null,
+  );
+
   const hasUnsavedChanges = useBenefitsWizardStore((s) =>
     hasUnsavedBenefitsWork(
       {

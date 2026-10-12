@@ -448,6 +448,7 @@ export function CommentsRail() {
     canComment,
     mode,
     setMode,
+    target,
     threads,
     isLoading,
     error,
@@ -519,11 +520,24 @@ export function CommentsRail() {
       aria-label="Comments"
     >
       <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
-        <div className="flex items-center gap-2">
-          <MessageSquare className="h-4 w-4 text-accent-blue" />
-          <span className="text-sm font-semibold">Comments</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <MessageSquare className="h-4 w-4 shrink-0 text-accent-blue" />
+          <span className="shrink-0 text-sm font-semibold">Comments</span>
+          {/* Which benefit these threads belong to. A benefit's thread is keyed by its category
+              and this panel is global, so without a label the reader has to infer whose comments
+              they are looking at from the page behind the panel. */}
+          {target?.targetType === "benefit" && target.category ? (
+            <span
+              className="truncate rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
+              title={target.category}
+            >
+              {target.category}
+            </span>
+          ) : null}
           {threads.length > 0 ? (
-            <span className="text-xs text-muted-foreground">{openCount} open</span>
+            <span className="shrink-0 text-xs text-muted-foreground">
+              {openCount} open
+            </span>
           ) : null}
         </div>
         <div className="flex items-center gap-0.5">

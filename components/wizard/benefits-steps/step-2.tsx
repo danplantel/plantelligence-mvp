@@ -518,10 +518,15 @@ export function BenefitsStep2() {
             <div
                 className="fixed top-0 z-[45]"
                 style={{
-                    // Sidebar + the panel's reserved column — same offsets as the preview.
+                    // Sidebar + the panel's reserved column — same offsets as the preview —
+                    // LESS the Comments rail's reserved column. Without that term this bar runs
+                    // on under the rail, and because it is z-[45] to the rail's z-40 it wins the
+                    // paint: its right-hand Mobile/Desktop toggle lands on the rail's own header
+                    // and close button. Subtracting it also lines the bar up with the wizard
+                    // footer, which already reserves the rail.
                     left: "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
                     width:
-                        "calc(100% - var(--sidebar-width, 16rem) - var(--editor-inset, 0px))",
+                        "calc(100% - var(--sidebar-width, 16rem) - var(--editor-inset, 0px) - var(--comments-inset, 0px))",
                 }}
             >
                 {/* Spacer to clear the fixed header */}
@@ -620,11 +625,14 @@ export function BenefitsStep2() {
                 className="fixed z-40 flex flex-col"
                 style={{
                     top: `${HEADER_HEIGHT + barHeight}px`,
-                    // Clears the sidebar *and* the Editing Panel's reserved column, so the
-                    // preview sits beside both instead of under the panel.
+                    // Clears the sidebar, the Editing Panel's reserved column *and* the Comments
+                    // rail's, so the preview sits beside whichever is open rather than being
+                    // covered by it. It is a scaled render rather than reflowing content, so
+                    // being pushed degrades it gracefully — it gets smaller — which is what makes
+                    // pushing the right answer here instead of letting the rail overlay it.
                     left: "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
                     width:
-                        "calc(100% - var(--sidebar-width, 16rem) - var(--editor-inset, 0px))",
+                        "calc(100% - var(--sidebar-width, 16rem) - var(--editor-inset, 0px) - var(--comments-inset, 0px))",
                     height: `calc(100vh - ${totalFixedHeight}px)`,
                 }}
             >

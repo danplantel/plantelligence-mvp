@@ -1541,6 +1541,41 @@ point.
 An unassigned user is refused by the **access layer** (`not_assigned`) before the
 moderation rule is consulted at all; asserting that ordering is part of the point.
 
+### Which surfaces carry a thread
+
+A page declares itself with `useCommentSurface`, and the panel is global — one surface per page —
+so the header toggle appears only where a thread makes sense.
+
+| Surface | `targetType` | The thread is keyed by |
+|---|---|---|
+| Edit Plan / Create Plan | `plan` | that plan |
+| Edit Benefit | `benefit` | (plan, category), from its route |
+| Create Benefits wizard | `benefit` | (plan, category), from the wizard's own Step 1 selection |
+
+Two things are what make the benefit surfaces **per benefit** rather than per plan:
+
+- **The wizard reads its own state, not just its entry URL.** The URL params are the initial
+  values, not the authority: the category picker is hidden only when the URL already carries a
+  category, so an advisor who arrives without one picks it on Step 1 — and the surface has to
+  re-scope when they do. Reading the URL alone would file every benefit from that session into
+  the entry category, or into the empty one. The live store value wins (the plan itself can be
+  changed in the wizard even when the URL named one), with the param as the pre-load fallback.
+- **The category is canonicalised before it becomes a key**, because threads are bucketed by that
+  *string*. `Custom` is the legacy deep-link alias for the hub whose stored label is
+  `Company / Plan Sponsor`, and the Edit Benefit route resolves its slug back to the label.
+  Registering the alias would give one benefit two threads that never see each other.
+
+Both parts are required before the surface exists at all: a surface with no category would file
+into the empty bucket, which becomes unreachable the moment a category is chosen — an orphaned
+thread by construction. And the rail labels its header with that category, because the panel is
+global: on a benefit page the reader would otherwise have to infer which benefit's thread is on
+screen from the page behind the panel.
+
+The layout side follows the widened-overlay rule below: the Create Benefits step-2 bar and
+preview, and the Edit Benefit preview's toolbar and preview area, all reserve `--comments-inset`
+instead of letting the rail cover them. The step-2 bar matters most — it is `z-[45]` to the rail's
+`z-40`, so at `right: 0` it painted its Mobile/Desktop toggle over the rail's own header.
+
 ### What a comment may contain
 
 A body of up to **10,000 characters** (`MAX_COMMENT_LENGTH` in `lib/comments/types.ts`) — or no
