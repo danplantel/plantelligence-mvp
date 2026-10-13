@@ -1,0 +1,11 @@
+-- Direct messages: carry the newest message's preview on the thread.
+--
+-- The conversation list shows, per row, who spoke last and what they said. Reading that from
+-- `DirectMessage` is either an unbounded "every message in my threads" read or one small query per
+-- conversation on every 10-second poll — neither is acceptable for a list that renders 30 rows.
+--
+-- So the preview is denormalised onto the thread, for exactly the reason `lastMessageAt` already
+-- is: the inbox should not touch the message table at all. It is written on send, and recomputed
+-- by `withdrawDirectMessage` when the message being withdrawn IS the newest one, which is the only
+-- case in which the stored value would go stale.
+ALTER TABLE "DirectThread" ADD COLUMN "lastMessagePreview" TEXT;

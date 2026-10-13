@@ -86,13 +86,66 @@ function scriptDatabaseUrl(): string | undefined {
   return withParam(withParam(base, "connection_limit", "5"), "pool_timeout", "30");
 }
 
-/** Load env then create a client the caller is responsible for disconnecting. */
+/** Prisma codes and messages that mean "the connection failed", not "the database said no". */
+const TRANSIENT_CODES = new Set(["P1001", "P1002", "P1017"]);
+const TRANSIENT_MESSAGE =
+  /can't reach database server|timed out fetching a new connection|connection (?:to the database server )?(?:was )?closed|server has closed the connection/i;
+
+function isTransientConnectionError(error: unknown): boolean {
+  const code = (error as { code?: unknown }).code;
+  if (typeof code === "string" && TRANSIENT_CODES.has(code)) return true;
+  const message = error instanceof Error ? error.message : "";
+  return TRANSIENT_MESSAGE.test(message);
+}
+
+/**
+ * Load env then create a client the caller is responsible for disconnecting.
+ *
+ * RETRIES TRANSIENT CONNECTION FAILURES, mirroring `lib/prisma.ts` — and the asymmetry was the
+ * whole reason these scripts seemed to fail while the app kept working. The app's client retries a
+ * `P1001` two more times before giving up, so a dropped connection is invisible to a user; a script
+ * got one attempt and died mid-suite, which reads as "the database is down" when the database is
+ * fine and a single connection attempt was unlucky. The measurements in the note above were taken
+ * before this existed.
+ *
+ * A CONSTRAINT failure — the thing the verification scripts actually assert on — is never retried:
+ * it is a real answer, and replaying it would only hide it. Only connection-level errors are
+ * replayed, and only when the query provably never reached the database.
+ */
 export function createPrisma(): PrismaClient {
   loadEnv();
   const url = scriptDatabaseUrl();
-  return url
+  const base = url
     ? new PrismaClient({ datasources: { db: { url } } })
     : new PrismaClient();
+
+  const MAX_ATTEMPTS = 3;
+  const BASE_DELAY_MS = 200;
+
+  // `$allOperations` wraps every model operation, so nothing has to remember to retry. The cast is
+  // because `$extends` returns an extended client type while callers want a plain `PrismaClient`;
+  // the delegates they use are identical.
+  return base.$extends({
+    query: {
+      async $allOperations({ args, query }) {
+        let lastError: unknown;
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+          try {
+            return await query(args);
+          } catch (error) {
+            lastError = error;
+            if (attempt === MAX_ATTEMPTS || !isTransientConnectionError(error)) {
+              throw error;
+            }
+            await new Promise((resolve) =>
+              setTimeout(resolve, BASE_DELAY_MS * attempt),
+            );
+          }
+        }
+        throw lastError;
+      },
+    },
+  }) as unknown as PrismaClient;
 }
 
 /* ─────────────────────── assertion helpers ─────────────────────── */

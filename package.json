@@ -34,6 +34,7 @@
     "teammates:verify-t7": "npx tsx scripts/teammates/verify-t7.ts",
     "teammates:verify-org": "npx tsx scripts/teammates/verify-organization-sync.ts",
     "comments:verify": "npx tsx scripts/comments/verify-comments.ts",
+    "messages:verify": "npx tsx scripts/messages/verify-messages.ts",
     "check:no-mongo": "npx tsx scripts/check-no-mongo.ts",
     "repair:unique-conflicts": "npx tsx scripts/repair/fix-unique-conflicts.ts",
     "repair:partial-indexes": "npx tsx scripts/repair/apply-partial-unique-indexes.ts",

@@ -139,6 +139,10 @@ model User {
   meetingCustomTypes MeetingCustomType[]
   tasks             Task[]
   notifications     Notification[]
+  // Direct messages this user takes part in, split by side because a pair is stored in a
+  // canonical order (see `DirectThread`).
+  directThreadsAsA DirectThread[] @relation("DirectThreadParticipantA")
+  directThreadsAsB DirectThread[] @relation("DirectThreadParticipantB")
 }
 
 // Advisor-authored dashboard tasks. System-generated tasks are derived from plan state at
@@ -1014,6 +1018,88 @@ model CommentMessage {
   updatedAt DateTime  @updatedAt
 
   thread CommentThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@index([threadId, createdAt])
+}
+
+// A private 1:1 conversation between two logins in one organization.
+//
+// Unlike a `CommentThread`, this is deliberately NOT keyed to a plan: a DM is between two
+// people, and it must survive any plan being renamed, re-scoped or deleted. Nothing about
+// reading one depends on plan access — the only gate is participation.
+//
+// `userAId`/`userBId` are stored in a CANONICAL order (`userAId < userBId`), and that order is
+// ENFORCED by a CHECK constraint added in the migration — Prisma cannot express a CHECK, so the
+// constraint lives in `20261013182800_direct_thread_pair_order/migration.sql` and nowhere here.
+// It is load-bearing rather than decorative: a unique index on `(organizationId, userAId, userBId)`
+// does NOT stop a swapped insert, which would leave two conversations for one pair (measured, not
+// assumed — see that migration's comment). With the order pinned, the compound unique below means
+// exactly what it says: one thread per pair, so opening a conversation is an upsert.
+//
+// `organizationId` is part of that key because one login can back seats in several organizations
+// (T1 Part B item 5) — the same two people in two organizations are two conversations, not one
+// thread with an ambiguous scope.
+//
+// Read state is ONE WATERMARK PER PARTICIPANT rather than a row per message: unread is then a
+// single `createdAt > myWatermark` count, "mark read" is one update, and the rail gets its
+// "New messages" divider for free.
+model DirectThread {
+  id             String @id @default(cuid())
+  // Plain scalar, like every teammate row: this layer's FKs stop at `User`. The organization
+  // sweep that makes that safe is `deleteOrganizationTeammateData`.
+  organizationId String
+
+  // Canonical pair — `userAId < userBId`, lexicographically.
+  userAId String
+  userBId String
+
+  // NULL means "never opened", which is also what makes every message unread.
+  aReadAt DateTime?
+  bReadAt DateTime?
+
+  // Denormalised so the conversation list can sort without touching `DirectMessage`.
+  lastMessageAt       DateTime @default(now())
+  lastMessageByUserId String?
+  // The newest message's text, flattened and truncated for the list row — denormalised for the
+  // same reason `lastMessageAt` is. Reading it from `DirectMessage` would be either an unbounded
+  // "every message in my threads" read or one small query per conversation on every 10-second
+  // poll; this way the inbox touches one table. A withdrawn message stores its placeholder text,
+  // and withdrawing the NEWEST message recomputes this.
+  lastMessagePreview String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Real relations WITH cascade — deliberately the OPPOSITE of the comment models above, where
+  // the author ids are plain scalars so a deleted login leaves the history readable. A private
+  // conversation must not outlive either participant: deleting an account removes the thread and
+  // its messages, and there is nobody left who should be able to read them.
+  userA User @relation("DirectThreadParticipantA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("DirectThreadParticipantB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  messages DirectMessage[]
+
+  @@unique([organizationId, userAId, userBId])
+  @@index([userAId, lastMessageAt])
+  @@index([userBId, lastMessageAt])
+}
+
+// One message in a `DirectThread`.
+model DirectMessage {
+  id           String       @id @default(cuid())
+  threadId     String
+  thread       DirectThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  authorUserId String
+  // Empty when the message carries only files, exactly as a comment may. `assertBody` refuses
+  // the combination of an empty body and no attachments.
+  body String
+  // [{ key, name, type, size }], like a comment's — but under `org/{organizationId}/messages/…`,
+  // authorized by THREAD PARTICIPATION rather than plan access. See lib/messages.
+  attachments Json?
+  // Soft delete: the row stays so the thread reads as a conversation, and the message renders as
+  // a withdrawn placeholder. Author-only — there is no moderator on a private thread.
+  deletedAt DateTime?
+  createdAt DateTime @default(now())
 
   @@index([threadId, createdAt])
 }
