@@ -30,8 +30,10 @@ import {
 import {
   NO_ACCESS_MESSAGE,
   assertOrganizationKeepsAnOwner,
+  categoryWithinScope,
   countOrganizationOwners,
   listAccessiblePlanIds,
+  listOwnCategoryScopedPlans,
   requirePlanAccess,
   resolveObjectAccess,
   resolvePlanAccess,
@@ -44,6 +46,9 @@ import {
 } from "../../lib/teammates/profiles.server";
 import { upsertAssignment } from "../../lib/teammates/assignments.server";
 import { TeammateDataError } from "../../lib/teammates/errors";
+import { mayUsePath } from "../../lib/teammates/nav-access";
+import { createPermissionChecker } from "../../lib/teammates/permission-levels";
+import { PRESET_PERMISSION_GRIDS } from "../../types/teammate";
 import { getOrCreateOrganizationForUser } from "../../lib/organization";
 
 const KEEP_FIXTURES = process.argv.includes("--keep");
@@ -504,6 +509,14 @@ async function main(): Promise<void> {
       !deactivatedPlanIds.includes(ayres.id),
       deactivatedPlanIds.join(", "),
     );
+    // …and the SECTION scope has to go with it, not just the plan. A deactivated profile
+    // that still contributed a scope would keep a revoked assignment's rows on /benefits.
+    const deactivatedScopes = await listOwnCategoryScopedPlans(contributorLogin.id);
+    check(
+      "deactivating a teammate also drops their category scopes",
+      deactivatedScopes.size === 0,
+      `size=${deactivatedScopes.size}`,
+    );
     await reactivateTeammateProfile({
       id: contributor.id,
       organizationId,
@@ -564,6 +577,195 @@ async function main(): Promise<void> {
     check(
       "the same Viewer gets the row for a documents READ",
       viewerReadRow?.id === ayres.id,
+    );
+
+    /* ── 7. The chrome rule for Collaborators ───────────────────────── */
+
+    console.log("");
+    console.log("7. A Collaborator's chrome is narrowed by ONE shared rule");
+
+    // Pure, so this needs no fixtures — but it IS worth asserting, because it is the rule the
+    // sidebar hides a link by (`visibleNavItems`) and the dashboard layout refuses a typed URL
+    // by (`canUseThisPage`). One map, both outcomes, which is the whole point of the module.
+    const contributorViewer = {
+      isCollaborator: true,
+      can: createPermissionChecker(PRESET_PERMISSION_GRIDS.contributor),
+    };
+    const viewerViewer = {
+      isCollaborator: true,
+      can: createPermissionChecker(PRESET_PERMISSION_GRIDS.viewer),
+    };
+    const ownerViewer = {
+      isCollaborator: false,
+      can: createPermissionChecker(null),
+    };
+
+    const collaboratorHidden = [
+      "/dashboard",
+      "/clients",
+      "/documents",
+      "/communications",
+      "/new-client",
+      "/new-benefits",
+    ];
+    for (const path of collaboratorHidden) {
+      check(
+        `a Collaborator cannot reach ${path} — hidden and refused`,
+        mayUsePath(path, contributorViewer) === false,
+        String(mayUsePath(path, contributorViewer)),
+      );
+    }
+    check(
+      "...including every child of a hidden group, matched by prefix",
+      mayUsePath("/clients/cmv5f0yhp003f4tklcw2aisun", contributorViewer) === false &&
+        mayUsePath("/communications/meetings", contributorViewer) === false &&
+        mayUsePath("/communications/marketing", contributorViewer) === false,
+    );
+    check(
+      "an Owner (or Team Member) is never narrowed by this rule",
+      collaboratorHidden.every((path) => mayUsePath(path, ownerViewer)),
+    );
+    check(
+      "and the Collaborator keeps the destinations they were invited for",
+      mayUsePath("/benefits", contributorViewer) === true &&
+        mayUsePath("/edit-benefit/plan-id/group-health", contributorViewer) === true &&
+        mayUsePath("/edit-client/cmv5f0yhp003f4tklcw2aisun", contributorViewer) === true,
+    );
+
+    // The Create Benefit wizard is the one entry that used to follow the GRID, and it no longer
+    // does: `/new-benefits` is hidden for every Collaborator. The pairing below is the point —
+    // `create_benefits: edit` is ALSO the function the benefit editor saves under, so the row must
+    // stay granted or a Contributor could not save the sections they were invited for. What is
+    // refused is CREATION, not the permission.
+    check(
+      "no Collaborator may create a benefit from scratch — not even a Contributor whose grid says edit",
+      mayUsePath("/new-benefits", contributorViewer) === false,
+    );
+    check(
+      "…and a read-only Collaborator (Viewer / Reviewer) is refused the same way",
+      mayUsePath("/new-benefits", viewerViewer) === false,
+    );
+    check(
+      "the wizard is hidden WITHOUT revoking create_benefits: edit — the editor saves under it",
+      contributorViewer.can("create_benefits", "edit") === true &&
+        viewerViewer.can("create_benefits", "edit") === false,
+    );
+
+    // The capability the hidden `/documents` page must NOT have taken away. The library is
+    // hidden because it is the advisor's workspace, not because a Collaborator lost the
+    // function — if this ever fails, the page was hidden by revoking a permission, and the
+    // chrome and the grid are then stating two different rules.
+    check(
+      "hiding the documents library did not revoke the documents function",
+      contributorViewer.can("documents", "edit") === true,
+    );
+
+    // And the same pairing for the Communications hub. The SECTION is hidden because its three
+    // children are one cross-plan hub; the grid row and the per-plan surface are untouched, since
+    // a plan's meetings render inside the plan (`PlanMeetingsSection` on the Edit Plan page) and
+    // that page is exactly where a collaborator works.
+    check(
+      "hiding the Communications hub did not revoke the meetings function",
+      contributorViewer.can("meetings", "edit") === true,
+    );
+
+    /* ── 8. /benefits narrows to the assignment's SECTIONS ──────────── */
+
+    console.log("");
+    console.log("8. /benefits rows follow the assignment's category scope, not just the plan");
+
+    // The page makes two reads: `/api/clients` (which plans) and `/api/benefits` (which rows).
+    // The first was already scoped by `listAccessiblePlanIds`; this is the second half, and the
+    // criterion it protects is one line long — a Contributor invited for Group Health must not
+    // be shown the plan's other three sections.
+    const contributorScopes = await listOwnCategoryScopedPlans(contributorLogin.id);
+    check(
+      "a Contributor scoped to Group Health has exactly one scoped plan",
+      contributorScopes.size === 1,
+      String(contributorScopes.size),
+    );
+
+    const contributorAyresScope = contributorScopes.get(ayres.id) ?? [];
+    check(
+      "…and it is Ayres, pinned to Group Health alone",
+      contributorAyresScope.length === 1 &&
+        categoryWithinScope(contributorAyresScope, "Group Health") === true,
+      JSON.stringify(contributorAyresScope),
+    );
+    check(
+      "…so the plan's other three sections are outside the scope",
+      categoryWithinScope(contributorAyresScope, "Retirement") === false &&
+        categoryWithinScope(contributorAyresScope, "Group Life") === false &&
+        categoryWithinScope(contributorAyresScope, "Company / Plan Sponsor") === false,
+    );
+
+    // An `all` scope is NOT a narrowing, so the plan is simply absent from the map — which is
+    // exactly what leaves the route's rows for it untouched.
+    const viewerScopes = await listOwnCategoryScopedPlans(viewerLogin.id);
+    check(
+      "an all-categories Viewer has no scoped plan, so every section stays",
+      viewerScopes.size === 0,
+      String(viewerScopes.size),
+    );
+
+    // The Owner owns the plans directly and holds no assignment; an unassigned login has no
+    // profile at all. Both are the "never narrowed" case, so both must produce an empty map
+    // rather than an entry that filters them down to nothing.
+    check(
+      "an Owner is never narrowed by this rule",
+      (await listOwnCategoryScopedPlans(advisor.id)).size === 0,
+    );
+    check(
+      "…and neither is a login with no teammate profile",
+      (await listOwnCategoryScopedPlans(unassignedLogin.id)).size === 0,
+    );
+
+    // The comparison the filter is built on, pinned directly: the wizard's "Custom" hub is the
+    // stored "Company / Plan Sponsor", and the legacy portal names map onto the canonical
+    // categories. A filter that missed an alias would hide the very hub the assignment names.
+    check(
+      "the alias mapping matches the one resolvePlanAccessForPlan uses",
+      categoryWithinScope(["Custom"], "Company / Plan Sponsor") === true &&
+        categoryWithinScope(["Company / Plan Sponsor"], "Custom") === true &&
+        categoryWithinScope(["Group Health"], "Health Insurance") === true &&
+        categoryWithinScope(["Wellness Programs"], "Other") === true &&
+        categoryWithinScope(["Group Health"], "Retirement") === false,
+    );
+
+    // Two live profiles for the SAME login, with different scopes on one plan, union their
+    // lists — and a section named twice is listed once. `getViewerAccess` already unions the
+    // grids of multiple profiles for this same reason.
+    const contributorTwin = await createTeammateProfile({
+      organizationId,
+      actorUserId: advisor.id,
+      type: "collaborator",
+      email: `t2-verify-contributor-twin-${STAMP}@abc.test`,
+      firstName: "Connie",
+      lastName: "Contributor Twin",
+      loginUserId: contributorLogin.id,
+    });
+    created.profileIds.push(contributorTwin.id);
+    created.assignmentIds.push(
+      (
+        await upsertAssignment({
+          organizationId,
+          profileId: contributorTwin.id,
+          clientId: ayres.id,
+          actorUserId: advisor.id,
+          role: "contributor",
+          categoryScope: "selected",
+          categories: ["Group Health", "Group Life"],
+        })
+      ).id,
+    );
+    const unionedAyres =
+      (await listOwnCategoryScopedPlans(contributorLogin.id)).get(ayres.id) ?? [];
+    check(
+      "two live profiles on one plan union their lists, de-duplicated on the alias",
+      unionedAyres.length === 2 &&
+        categoryWithinScope(unionedAyres, "Group Health") === true &&
+        categoryWithinScope(unionedAyres, "Group Life") === true,
+      JSON.stringify(unionedAyres),
     );
   } finally {
     if (!KEEP_FIXTURES) {

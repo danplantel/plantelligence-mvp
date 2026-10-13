@@ -44,16 +44,22 @@ function withParam(url: string, key: string, value: string): string {
 /**
  * The connection string the scripts use: `DATABASE_URL`, with the pool widened for a CLI.
  *
- * Two facts about this project drive the choice, both observed directly:
+ * Three facts about this project drive the choice, all observed directly:
  *
- *  1. `DIRECT_URL` is NOT a usable alternative here. Pointing the scripts at the unpooled
- *     host was tried and reverted — it failed with
+ *  1. The pooled endpoint is the only one that can run a WHOLE suite. `DIRECT_URL` was tried as
+ *     a replacement and reverted — it failed with
  *
  *       P1001: Can't reach database server
  *
  *     twice, once partway through a run and once on the very first query. `prisma migrate`
- *     accepts that endpoint, but ordinary queries through it do not, so the pooled endpoint
- *     is the only one that works for these scripts.
+ *     accepts that endpoint, but ordinary queries through it do not.
+ *
+ *     It is still worth keeping as a way to get a SIGNAL when the pooled host is refusing
+ *     connections (see 3): a throwaway launcher that sets `DATABASE_URL = process.env.DIRECT_URL`
+ *     before importing a verify script runs every assertion through it — measured once, all of
+ *     `verify-t2`'s assertions passed that way — and then the unpooled connection is closed
+ *     mid-cleanup with `P1017: Server has closed the connection`. Green assertions, stranded
+ *     fixtures, which the next pooled run sweeps.
  *
  *  2. The pooled endpoint is shared with the dev server, and a script's burst of parallel
  *     queries can exhaust it. Prisma's default 10s `pool_timeout` is then exceeded and the
@@ -65,6 +71,12 @@ function withParam(url: string, key: string, value: string): string {
  *     which is worse than a slow one. A lower `connection_limit` makes the script queue
  *     instead of burst, and a longer `pool_timeout` lets it wait for a slot rather than
  *     give up.
+ *
+ *  3. `P1001` on the pooled host is ALSO intermittent, and it comes in runs: several consecutive
+ *     attempts fail on the very first query (or inside `sweepStaleFixtures`) and assert nothing at
+ *     all, which reads like a broken script and is not — the host is simply not accepting new
+ *     connections, most often while the dev server is busy. Retry rather than debug; nothing is
+ *     wrong with the code until an assertion itself fails.
  *
  * Stop the dev server for the cleanest signal; this is a mitigation, not a substitute.
  */

@@ -545,6 +545,74 @@ export async function listAccessiblePlanIds(userId: string): Promise<string[]> {
   return [...ids];
 }
 
+/* ───── The other half: which SECTIONS of them the assignment pins ───── */
+
+/**
+ * Is `category` inside an assignment's explicit category list?
+ *
+ * Compared with the same alias mapping `resolvePlanAccessForPlan` uses ("Custom" is
+ * the stored "Company / Plan Sponsor", "Wellness Programs" is "Other"), so a read
+ * that narrows rows to a scope cannot disagree with the check that will refuse the
+ * write. Exported for row-level filters — see `GET /api/benefits`.
+ */
+export function categoryWithinScope(
+  categories: string[],
+  category: string,
+): boolean {
+  const wanted = normalizeCategory(category);
+  return categories.some((candidate) => normalizeCategory(candidate) === wanted);
+}
+
+/**
+ * The plans where the caller's OWN assignments pin them to a category list.
+ *
+ * `listAccessiblePlanIds` answers the first half of spec Part B item 2 ("never see
+ * unassigned plans"); this answers the second — never see unassigned *sections*. A
+ * read that returns one row per plan × category needs both, because with the plan ids
+ * alone a Collaborator invited for Group Health would be shown all four of that plan's
+ * benefit rows: the assignment's category scope is part of the access, not a display
+ * preference.
+ *
+ * A plan WITH an entry is narrowed to exactly those categories. A plan with NO entry is
+ * unnarrowed, deliberately: it is a plan the caller owns, or one an All Plans Team
+ * Member may see, and neither carries a scoped assignment to narrow it — the same
+ * distinction `resolvePlanAccessForPlan` draws when it derives `categories`.
+ *
+ * Deactivated profiles are skipped in JS (see the module header), two live profiles on
+ * one plan union their lists, `categoryScope: "all"` contributes nothing because "all"
+ * is not a narrowing, and an entry with an EMPTY list is a real answer — the caller
+ * holds no section of that plan.
+ */
+export async function listOwnCategoryScopedPlans(
+  userId: string,
+): Promise<Map<string, string[]>> {
+  const profiles = await prisma.teammateProfile.findMany({
+    where: { loginUserId: userId },
+    select: { id: true, deactivatedAt: true },
+  });
+  const profileIds = profiles.filter(isLive).map((profile) => profile.id);
+  if (profileIds.length === 0) return new Map();
+
+  const assignments = await prisma.planAssignment.findMany({
+    where: { profileId: { in: profileIds } },
+    select: { clientId: true, categoryScope: true, categories: true },
+  });
+
+  const byPlan = new Map<string, string[]>();
+  for (const assignment of assignments) {
+    if (assignment.categoryScope !== "selected") continue;
+    const list = byPlan.get(assignment.clientId) ?? [];
+    for (const category of assignment.categories ?? []) {
+      // De-duplicated on the normalized form, so two assignments that both name
+      // "Group Health" list it once and aliases ("Custom" / "Company / Plan Sponsor")
+      // collapse to a single entry.
+      if (!categoryWithinScope(list, category)) list.push(category);
+    }
+    byPlan.set(assignment.clientId, list);
+  }
+  return byPlan;
+}
+
 /* ─────────────── At least one Owner (Part B item 4) ─────────────── */
 
 /**

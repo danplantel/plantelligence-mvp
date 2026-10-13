@@ -22,6 +22,10 @@ import {
   persistPlanSelection,
 } from "@/lib/plan-selector-storage";
 import { isActiveClientStatus } from "@/lib/active-client-status";
+import {
+  getBenefitPortalSegment,
+  getBenefitsHubOpenPortalUrl,
+} from "@/lib/marketing/hub-url";
 import { categoryToSlug } from "@/lib/benefit-category-slug";
 import {
   normalizeBenefitCategoryKey,
@@ -30,8 +34,10 @@ import {
 import { readPersistedBenefitsDraft } from "@/lib/benefits-wizard-store";
 import { Headshot } from "@/components/ui/headshot";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
+import { useViewerAccess } from "@/hooks/useViewerAccess";
 import {
   AlertCircle,
+  ExternalLink,
   Loader2,
   Pencil,
   Plus,
@@ -208,6 +214,55 @@ function NoActivePlansCard({ onViewPlans }: { onViewPlans: () => void }) {
 }
 
 /**
+ * A Collaborator's plan switcher — the plan picker without the search.
+ *
+ * A Collaborator holds a handful of assignments at most, and every one of them is a plan
+ * they were explicitly invited to. A searchable dropdown over "all plans" is the advisor's
+ * control for choosing among plans they own; offering it here would misrepresent an
+ * invitation list as the organization's plan library, which is exactly the "Search Plans"
+ * affordance a Collaborator should not have.
+ *
+ * Rendered only when there is more than one plan: with a single assignment the card's own
+ * header already names the plan, and a one-item picker is a control that cannot change what
+ * is on screen.
+ */
+function CollaboratorPlanSwitcher({
+  plans,
+  value,
+  onChange,
+}: {
+  plans: PlanSearchBarPlan[];
+  value: string;
+  onChange: (planId: string) => void;
+}) {
+  return (
+    <Card className="mb-6 shadow-sm dark:bg-gray-800">
+      <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-2 p-4">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          You have access to
+        </span>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {plans.map((plan) => (
+            <Button
+              key={plan.id}
+              type="button"
+              size="sm"
+              variant={plan.id === value ? "default" : "outline"}
+              // A toggle group rather than a menu: the whole list is on screen, so the
+              // pressed state is what says which plan the card below belongs to.
+              aria-pressed={plan.id === value}
+              onClick={() => onChange(plan.id)}
+            >
+              {plan.companyName}
+            </Button>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
  * Browse Benefits — a plan picker scopes the view to one plan's four benefit
  * pages, each with a Portal Visibility toggle and an action that opens the
  * inline editor (mirrors the "View Plans" list for the plan flow).
@@ -224,6 +279,32 @@ export function BenefitsListPage({
 }) {
   const router = useRouter();
   const { setTitle } = usePageTitleContext();
+  const { isCollaborator, can } = useViewerAccess();
+
+  /**
+   * A Collaborator never publishes — that is a hard block, not a preset default (spec Part
+   * B item 2, §3) — and a read-only Collaborator (Viewer / Reviewer) may not create or save
+   * a benefit either. So both the row's publish control and its action are chosen from this
+   * flag, and the page offers only what the assignment already grants.
+   *
+   * The read is the chrome-level union (`useViewerAccess`), server-seeded so the first paint
+   * cannot show the wrong affordance: `true` for an Owner or Team Member, and for a
+   * Collaborator the union of their assignments — exact for the ordinary one-plan invite.
+   * The per-plan decision still belongs to the page that writes (`/edit-benefit/…`), which
+   * enforces the grid against the plan actually selected.
+   */
+  const mayEditBenefits = can("create_benefits", "edit");
+
+  /**
+   * May this viewer be sent into the Create Benefit wizard?
+   *
+   * No Collaborator may — `/new-benefits` is hidden and refused for them whatever their grid says
+   * (see `NAV_ACCESS_REQUIREMENTS`), so an "Add" button would point at a page the layout would then
+   * refuse with `NoAccessNotice`. The grid row stays granted because the benefit editor saves under
+   * the same function; what a Collaborator does not do is create a benefit from scratch, so a
+   * section with no row yet has no action for them rather than a dead end.
+   */
+  const mayCreateBenefit = mayEditBenefits && !isCollaborator;
 
   // The page's own title, kept with the component it labels — the same arrangement
   // Dashboard and Edit Benefit use. It lives here so `page.tsx` can stay a Server
@@ -318,10 +399,21 @@ export function BenefitsListPage({
       })),
     [planListData],
   );
-  // The selector only offers Active plans, so default to one of those.
+  /**
+   * The plans this page may offer — two views of the same access-scoped list.
+   *
+   * An advisor is choosing among plans they own, so the picker stays Active-only: a Draft
+   * plan's hubs are not live. A Collaborator was invited TO a plan and does not publish, so
+   * the Active filter would hide the very plan they were invited to work on. They see every
+   * plan they hold an assignment for; `/api/clients` has already dropped the rest, and
+   * `/api/benefits` narrows each plan to the sections they were given.
+   */
   const selectablePlans = useMemo(
-    () => plans.filter((p) => isActiveClientStatus(p.status)),
-    [plans],
+    () =>
+      isCollaborator
+        ? plans
+        : plans.filter((p) => isActiveClientStatus(p.status)),
+    [plans, isCollaborator],
   );
 
   /**
@@ -348,11 +440,11 @@ export function BenefitsListPage({
      permanent skeleton. */
   const plansSettled = !isPlanListLoading;
   const hasPlans = plans.length > 0;
-  const hasActivePlans = selectablePlans.length > 0;
+  const hasSelectablePlans = selectablePlans.length > 0;
   // The auto-selection above runs in an effect, so there is exactly one render where the
   // plan list is known and nothing is chosen yet. Counting that as "loading" is what stops
   // "No plans yet. Create a plan first…" from flashing on every cold load.
-  const isSelectingPlan = !selectedPlanId && hasActivePlans;
+  const isSelectingPlan = !selectedPlanId && hasSelectablePlans;
 
   const isPlanContentLoading = isBenefitsLoading || isSelectingPlan;
 
@@ -367,7 +459,7 @@ export function BenefitsListPage({
       ? "plans-failed"
       : !hasPlans
         ? "no-plans"
-        : !hasActivePlans
+        : !hasSelectablePlans
           ? "no-active-plans"
           : isPlanContentLoading
             ? "loading"
@@ -524,24 +616,45 @@ export function BenefitsListPage({
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
 
-      {/* Plan picker — decides which plan's benefits are shown below. */}
-      <Card className="mb-6 shadow-sm dark:bg-gray-800">
-        <CardContent className="p-6">
-          <PlanSearchBar
-            plans={plans}
+      {/* Plan picker — decides which plan's benefits are shown below.
+          A Collaborator gets no plan SEARCH: they were invited to specific plans, so a
+          searchable dropdown over "all plans" is the advisor's control and would present an
+          invitation list as the plan library. With one assignment there is no picker at all —
+          the card's header below names the plan — and with several, the switcher is a plain
+          list of exactly those plans. */}
+      {isCollaborator ? (
+        selectablePlans.length > 1 ? (
+          <CollaboratorPlanSwitcher
+            plans={selectablePlans}
             value={selectedPlanId}
             onChange={handleSelectPlan}
-            title="Benefits"
-            module="benefits"
-            disabled={plans.length === 0}
           />
-        </CardContent>
-      </Card>
+        ) : null
+      ) : (
+        <Card className="mb-6 shadow-sm dark:bg-gray-800">
+          <CardContent className="p-6">
+            <PlanSearchBar
+              plans={plans}
+              value={selectedPlanId}
+              onChange={handleSelectPlan}
+              title="Benefits"
+              module="benefits"
+              disabled={plans.length === 0}
+            />
+          </CardContent>
+        </Card>
+      )}
       
       {/* Organization-wide context: the benefits this advisor's organization offers.
           Plan-independent, permanent, and server-rendered — it is on screen before any of
-          the reads below return. See the component. */}
-      <OrgServiceCategories categories={orgCategories} />
+          the reads below return. See the component.
+
+          Deliberately omitted for a Collaborator. The labels are the OWNER's answer, and a
+          login created by accepting an invitation owns only its own personal organization, so
+          the server's fallback finds no other owner and this strip would read "No service
+          categories selected yet." to a guest of a firm that plainly does offer benefits —
+          wrong, and also beside the point, since the plan below already states what it has. */}
+      {!isCollaborator && <OrgServiceCategories categories={orgCategories} />}
 
       {contentState === "loading" ? (
         <PlanBenefitsSkeleton />
@@ -552,25 +665,39 @@ export function BenefitsListPage({
           onRetry={failure.onRetry}
         />
       ) : contentState === "no-plans" ? (
-        <Card>
-          <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
-            <p className="text-sm text-muted-foreground">
-              No plans yet. Create a plan first, then add its benefits.
-            </p>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                onClick={() => router.push("/new-client")}
-              >
-                Create Plan
-              </Button>
-              <Button className="gap-2" onClick={() => router.push("/new-benefits")}>
-                <Plus className="h-4 w-4" />
-                Create Benefit
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        isCollaborator ? (
+          /* A Collaborator cannot create a plan — the invitation is the only way in — so the
+             advisor's "Create Plan" call to action is replaced by the one action that is
+             actually theirs: waiting for (or asking for) an invitation. */
+          <Card>
+            <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+              <p className="max-w-md text-sm text-muted-foreground">
+                You haven&rsquo;t been added to a plan yet. An advisor has to invite you to a
+                plan before its benefit pages appear here.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
+              <p className="text-sm text-muted-foreground">
+                No plans yet. Create a plan first, then add its benefits.
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => router.push("/new-client")}
+                >
+                  Create Plan
+                </Button>
+                <Button className="gap-2" onClick={() => router.push("/new-benefits")}>
+                  <Plus className="h-4 w-4" />
+                  Create Benefit
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )
       ) : contentState === "no-active-plans" ? (
         <NoActivePlansCard onViewPlans={() => router.push("/clients")} />
       ) : (
@@ -582,7 +709,9 @@ export function BenefitsListPage({
                   {planRows[0]?.planName || "Plan Benefits"}
                 </h2>
                 <p className="text-xs text-muted-foreground">
-                  Publish, hide, and edit this plan&rsquo;s benefit pages.
+                  {isCollaborator
+                    ? "The benefit sections you have access to on this plan."
+                    : "Publish, hide, and edit this plan’s benefit pages."}
                 </p>
               </div>
             </div>
@@ -620,6 +749,18 @@ export function BenefitsListPage({
                 const displayName = isCustomHub
                   ? customTitle ?? "Custom"
                   : row.label;
+                // The benefit's own page on the participant-facing portal — the deep link the
+                // plan-level "Open Portal" button has no way to express.
+                //
+                // `customTitle`, never the raw `title`: for the Custom hub the segment IS the
+                // advisor's name for the benefit, and `title` also carries the wizard's intro
+                // headline ("Welcome to Acme!"), which slugged would link to a segment that does
+                // not exist. `null` falls back to the legacy alias, which is where an unnamed hub
+                // genuinely lives — the same rule the portal's own nav uses.
+                const portalSegment = getBenefitPortalSegment(
+                  row.category,
+                  customTitle,
+                );
                 return (
                   <div key={key} className="flex items-center gap-4 py-3">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border bg-white dark:border-gray-700 dark:bg-gray-900">
@@ -733,26 +874,42 @@ export function BenefitsListPage({
                         showed it ON (reading as "Published") beside an "Add benefit"
                         button that cannot publish anything. */}
                     {row.exists ? (
-                      <div className="flex shrink-0 items-center gap-2">
+                      isCollaborator ? (
+                        /* Publishing is a Collaborator's HARD BLOCK (spec Part B item 2, §3) —
+                           not a preset default that "Customize access" can re-grant. The state
+                           is therefore stated in the same words as the owner's, with no control
+                           to change it; offering a greyed-out switch would imply the block is a
+                           matter of degree. */
                         <span
                           className={cn(
-                            "text-[11px] font-semibold",
+                            "shrink-0 text-[11px] font-semibold",
                             row.isEnabled ? "text-green-600" : "text-gray-400",
                           )}
                         >
                           {row.isEnabled ? "Published" : "Hidden"}
                         </span>
-                        {isToggling ? (
-                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                        ) : null}
-                        <Switch
-                          checked={row.isEnabled}
-                          disabled={isToggling}
-                          onCheckedChange={(checked) =>
-                            handleToggle(row, checked === true)
-                          }
-                        />
-                      </div>
+                      ) : (
+                        <div className="flex shrink-0 items-center gap-2">
+                          <span
+                            className={cn(
+                              "text-[11px] font-semibold",
+                              row.isEnabled ? "text-green-600" : "text-gray-400",
+                            )}
+                          >
+                            {row.isEnabled ? "Published" : "Hidden"}
+                          </span>
+                          {isToggling ? (
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          ) : null}
+                          <Switch
+                            checked={row.isEnabled}
+                            disabled={isToggling}
+                            onCheckedChange={(checked) =>
+                              handleToggle(row, checked === true)
+                            }
+                          />
+                        </div>
+                      )
                     ) : isDraftRow(row) ? (
                       <span className="shrink-0 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
                         Draft
@@ -783,10 +940,43 @@ export function BenefitsListPage({
                           }
                         >
                           <Pencil className="h-3.5 w-3.5" />
-                          Edit
+                          {/* A read-only Collaborator (Viewer / Reviewer) may not save, but
+                              `/edit-benefit/…` is open to them and gates saving on the grid —
+                              so the label says which of the two this is rather than hiding a
+                              destination they can still reach and read. */}
+                          {mayEditBenefits ? "Edit" : "View"}
                         </Button>
+                        {/* A Collaborator is editing a page they would otherwise never see as a
+                            participant does, and the plan-level "Open Portal" button belongs to
+                            the picker they do not get. This opens THIS section, so the editor and
+                            the page it produces are one click apart.
+                            Only for a benefit that EXISTS: before a row is created there is no
+                            page to open, which is the same reason the publish control is absent
+                            above. A Hidden section is still offered — hiding removes it from the
+                            hub's own navigation, it does not remove the page. */}
+                        {isCollaborator ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            aria-label={`Open the portal page for ${displayName}`}
+                            onClick={() => {
+                              const base = getBenefitsHubOpenPortalUrl(
+                                row.planSlug || row.planId,
+                              );
+                              window.open(
+                                portalSegment ? `${base}/${portalSegment}` : base,
+                                "_blank",
+                                "noopener,noreferrer",
+                              );
+                            }}
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Open Portal
+                          </Button>
+                        ) : null}
                       </div>
-                    ) : (
+                    ) : mayCreateBenefit ? (
                       <Button
                         size="sm"
                         className="shrink-0 gap-1.5"
@@ -804,7 +994,7 @@ export function BenefitsListPage({
                             when there is work to return to, "Add" when there is none. */}
                         {isDraftRow(row) ? "Continue" : "Add"}
                       </Button>
-                    )}
+                    ) : null}
                   </div>
                 );
               })}

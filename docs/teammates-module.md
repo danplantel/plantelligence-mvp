@@ -152,7 +152,7 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:indexes` | Applies the T1 indexes directly (idempotent). |
 | `npm run teammates:backfill` | Creates one Organization per existing User and stamps `organizationId` onto User + Client rows. Supports `--dry-run`. |
 | `npm run teammates:verify` | Runs the 24-assertion T1 acceptance suite against the real data layer with self-cleaning fixtures. |
-| `npm run teammates:verify-t2` | Runs the 35-assertion T2 enforcement suite (the three T2 acceptance criteria, the one-Owner invariant, plan lists, and the route guard). |
+| `npm run teammates:verify-t2` | Runs the 56-assertion T2 enforcement suite (the three T2 acceptance criteria, the one-Owner invariant, plan lists, the route guard, the chrome rule that narrows a Collaborator's navigation — including that the Create Benefit wizard is hidden, while the function its editor saves under stays granted — and the category scope that narrows a Collaborator's `/benefits` rows to the sections they were given). |
 | `npm run teammates:verify-t3` | Runs the 53-assertion T3 suite (seat metering, invite expiry, the upgrade-confirm gate, the owner-first team list, onboarding pre-fill, editing a member, and the roles explainer). |
 | `npm run teammates:verify-backfill` | Asserts the post-backfill invariants (every User/Client org'd, legacy `Client.userId` intact). |
 | `npm run teammates:verify-t4` | Runs the 79-assertion T4 suite (the invite path, the category merge, the deep link, the Who-is-this presets, the sponsor-domain guess, the search, the audit row, the card payload the Collaborator card renders, the plan lookup — id-or-slug plus the repair of an unstamped `organizationId` — and the resend, including its cooldown and its three refusals). |
@@ -197,6 +197,18 @@ stamp is indistinguishable from a stranded one.
   fix for this project is to run Postgres locally, which also removes the intercontinental
   round-trip §9i measures. The pooled and direct hosts behave the same here: `DIRECT_URL` publishes
   AAAA records too, so pointing `DATABASE_URL` at it does **not** avoid the choice.
+- **Two users signed in at once, locally: browse `localhost:3000` and `127.0.0.1:3000`.** Those are
+  different HOSTS, and cookies carry no `Domain` attribute (`lib/auth-options.ts` leaves it unset on
+  purpose), so one browser keeps two separate session jars and each can hold a different login. The
+  one thing that broke it was NextAuth's redirect: v4 derives its base URL from `detectOrigin()`,
+  which returns `NEXTAUTH_URL` unless `AUTH_TRUST_HOST` (or `VERCEL`) is set — so signing in from
+  `127.0.0.1` handed the browser back to `localhost`, i.e. straight into the *other* session.
+  `.env.local` now sets `AUTH_TRUST_HOST=true`, which makes the base URL the host the request
+  arrived on. Verified end to end: two different users, one signed in per host, leave each host
+  answering `/api/auth/session` with its own user and redirecting to its own origin. Two caveats —
+  **Google sign-in needs a second redirect URI** registered for the 127.0.0.1 origin
+  (`http://127.0.0.1:3000/api/auth/callback/google`) or it fails with `redirect_uri_mismatch`; and
+  signing out of one host does not sign you out of the other, which is the point.
 
 `prisma db push` now completes cleanly and reports "already in sync" on a second
 run. The `teammates:indexes` script remains as a fallback for the case where a
@@ -566,7 +578,7 @@ a product question, not a refactor.
 ### Verification
 
 ```
-npm run teammates:verify-t2     ->  23/23 assertions passed
+npm run teammates:verify-t2     ->  56/56 assertions passed
 ```
 
 Covers: the Contributor is allowed Ayres → Group Health and denied Ayres →
@@ -575,6 +587,29 @@ throwing form returns 403 with the spec copy; the Viewer can read but not save
 edits or publish; a signed document URL is refused to an unassigned user, allowed
 to an assigned Viewer, and refused across plans because the key's plan segment is
 enforced; and the one-Owner invariant refuses removing the last Owner.
+
+It also pins the **chrome rule** (§9b, "What a Collaborator's chrome offers"): every hidden
+destination is refused for a Collaborator, including a child of a hidden group (a plan id under
+`/clients`, and both `/communications/meetings` and `/communications/marketing`), an Owner is never
+narrowed, and the destinations they *were* invited for stay open (`/benefits`, `/edit-benefit/…`,
+`/edit-client/…`).
+
+The entries whose grid rows are deliberately left **granted** are asserted as pairings, in both
+directions, because a reader who saw only one half would take it for an oversight: `/documents` is
+refused while `documents: edit` still stands, `/communications` is refused while `meetings: edit`
+still stands, and `/new-benefits` is refused — to a Contributor just as much as to a Viewer, however
+the grid reads — while `create_benefits: edit` still stands, because that is the function the BENEFIT
+EDITOR saves under. Hiding the wizard removes creation, not the permission.
+
+And it pins the **second half of the same rule** — the category scope, which is what makes `/benefits`
+show a Collaborator the *sections* they were given rather than all four of a plan's rows (§9b, "What a
+Collaborator's /benefits page offers"): a Contributor scoped to Group Health has exactly one scoped
+plan, pinned to that one section, while the plan's other three compare outside it; an all-categories
+Viewer produces **no** entry, so their rows are left unnarrowed; an Owner, and a login with no
+teammate profile at all, are never narrowed; the alias mapping the filter shares with
+`resolvePlanAccessForPlan` holds both ways ("Custom" ≡ "Company / Plan Sponsor", "Health Insurance" ≡
+"Group Health", "Wellness Programs" ≡ "Other"); two live profiles on one plan union their lists with
+no duplicate section; and deactivating a profile drops the scope along with the plan.
 
 ---
 
@@ -995,6 +1030,104 @@ because the invitation is still open and what the advisor needs is the reason.
 ⚠️ **Resending is not re-inviting.** Re-inviting the same person from the same surface does work —
 it merges onto their existing profile rather than creating a second one (T5's rule) — but it is a
 different act: it re-states the access. A resend re-delivers what was already granted.
+
+### What a Collaborator's chrome offers
+
+The sidebar is not the enforcement point — the API is — but it is where a collaborator's world is
+defined, because the first thing they should see is the work they were invited for. One module
+decides it: [`nav-access.ts`](lib/teammates/nav-access.ts) exports `NAV_ACCESS_REQUIREMENTS` and
+`mayUsePath`, and **two surfaces read it so they cannot disagree** — the sidebar hides a link it may
+not reach (`visibleNavItems`), and the dashboard layout refuses a typed URL with `NoAccessNotice`
+(`canUseThisPage`). Adding a path there hides it and refuses it in the same stroke, which is why it
+is a product decision rather than a CSS one.
+
+| Destination | Rule for a Collaborator |
+|---|---|
+| `/dashboard` | hidden — the advisor's overview of the plans they own |
+| `/clients` (the plans library) | hidden — reachable-by-URL it is still scoped correctly; the library is navigation for someone who owns plans |
+| `/documents` (the documents library) | hidden — a hub; see below |
+| `/communications` (Meetings · Webinars & Replays · Marketing) | hidden as a GROUP — a hub; see below |
+| `/new-client` (Create Plan) | hidden — creating a plan stamps the organization and its owner |
+| `/new-benefits` (Create Benefit) | hidden — the four-step CREATION wizard; see below, it is the one entry that hides a real capability |
+
+Everything else is open, with the grid deciding what they may do there: `/benefits`,
+`/edit-benefit/…`, `/edit-client/…` (open, with saving gated on the grid) and comments (implicit by
+View, §9i). **Settings is deliberately absent from the map**: "a collaborator may see Settings →
+Profile" and "a collaborator may not see Settings → Team" are different questions, and
+`org_settings` — which a Collaborator can never hold (§3) — already answers the second one.
+
+**The hidden entries are the ADVISOR's workspace, and hiding one is a chrome decision rather than a
+capability one.** That distinction is the point of this subsection, because the entries whose
+functions the grid still grants are exactly the ones most likely to look like an oversight:
+
+| Hidden destination | What the grid still grants | Where the collaborator actually uses it |
+|---|---|---|
+| `/documents` | `documents: edit` | the benefit editor, which has its own documents section |
+| `/communications` | `meetings: edit` | the plan itself — `PlanMeetingsSection` on the Edit Plan page |
+| `/new-benefits` | `create_benefits: edit` | nowhere — the deliberate exception; see below |
+
+The first two are not a collaborator's question: one is the firm's document library, the other the
+advisor's cross-plan calendar of what they are running. What a collaborator does with documents or
+meetings is per plan, on the page they were invited to work on — so nothing is lost by not linking to
+them, and that is what makes `collaboratorHidden` the right tool rather than a grid change. Hiding the
+whole Communications group is deliberate for the same reason: its three children are one hub, and
+leaving Marketing (view-only for a Contributor) would leave the section's header pointing at a page
+they cannot open.
+
+`/new-benefits` is the entry where the capability really is gone, and the grid's own naming is why it
+could not be done by revoking a row: `create_benefits: edit` is ALSO the permission the BENEFIT
+EDITOR saves under, so taking it away to kill the wizard would stop a Contributor saving the very
+sections they were invited for. The hard block therefore belongs on the creation flow itself. A
+collaborator works on the sections the advisor created; creating one stays with the advisor.
+
+`verify-t2` asserts all three pairings in both directions — each page is refused **and** each function
+is still granted. If the intent is ever to stop granting Documents, Meetings or the benefit editor to
+collaborators, that belongs in `PRESET_PERMISSION_GRIDS`; otherwise the chrome and the grid state two
+different rules and the next reader cannot tell which is authoritative.
+
+Two consequences worth keeping:
+
+- **A typed URL is refused rather than silently allowed.** Because one map feeds both surfaces,
+  "hidden" here means "no access", not "unlinked" — the page renders `NoAccessNotice` with a
+  one-click "Back to Benefits". A deep link cannot be used to reach a narrowed page.
+- **Owners and Team Members cannot be narrowed by it**, and neither can a failed read:
+  `mayUsePath` returns true immediately when `isCollaborator` is false, and `useViewerAccess` fails
+  **open**, so a transient error can hide nothing and lock nobody out of the chrome.
+
+### What a Collaborator's /benefits page offers
+
+`/benefits` is the one destination a Collaborator is *invited for*, so it is the page that most has to
+say "your sections" rather than "the organization's plans". The chrome decides where they may **go**
+(above); this is what the page itself does differently, and the rule behind all of it is that **the
+assignment is the page**.
+
+| Change | Why |
+|---|---|
+| No plan search | A searchable dropdown over "all plans" is the advisor's control for choosing among plans they own. A Collaborator was invited to specific plans, so the picker becomes a plain list of exactly those — and disappears entirely when there is only one, because the card's header already names it. |
+| Their plans, any status | The picker is Active-only for an advisor because a Draft plan's hubs are not live. A Collaborator does not publish, so that filter would hide the very plan they were invited to work on. |
+| Only their sections | `GET /api/benefits` narrows each plan's four rows to the assignment's category scope — `listOwnCategoryScopedPlans` + `categoryWithinScope` in [`access.server.ts`](lib/teammates/access.server.ts). |
+| No publish control | Publishing is a Collaborator's **hard block**, not a preset default, so the row states Published / Hidden in the owner's own words with nothing to change it. A greyed-out switch would imply the block is a matter of degree. |
+| `View`, not `Edit` | A read-only Collaborator (Viewer / Reviewer) cannot save, but `/edit-benefit/…` is open to them and gates saving on the grid — so the label says which of the two this is rather than hiding a page they can still read. Likewise the row's `Add` is omitted when they may not create. |
+| `Add` never shown | No Collaborator may open `/new-benefits` at all (above), so the row's `Add` / `Continue` button is not rendered for them however the grid reads. A section with no benefit yet therefore has no action rather than a button into a page the layout would refuse — the grid keeps `create_benefits: edit` because the editor saves under it, but creation is not a collaborator's. |
+| `Open Portal`, per benefit | A Collaborator edits pages they would otherwise never see as a participant, and the plan-level "Open Portal" button belongs to the picker they do not get. Each row opens **its own section** (`getBenefitsHubOpenPortalUrl` + `getBenefitPortalSegment`), putting the editor and the page it produces one click apart. Offered for a row that EXISTS — before a benefit is created there is no page to open — and for a Hidden one too, because hiding takes the section out of the hub's own navigation, not out of the site. |
+| No "Your organization offers" strip | Those labels are the OWNER's answer (`User.primaryServiceCategories`), and a login created by accepting an invitation owns only its own personal organization — so the strip's fallback finds no other owner and would read "No service categories selected yet." to a guest of a firm that plainly does offer benefits. Wrong, and beside the point. |
+| A different empty state | With no plans, an advisor is told to create one. A Collaborator cannot create a plan, so the CTA is replaced by the one action that is theirs: being invited. |
+
+The per-benefit link is built from the plan's **slug** (falling back to its id) plus the category's
+own segment. For the Custom hub the segment is the advisor's *name* for the benefit, not the wizard's
+intro headline — `Benefit.title` carries both — so the link passes the same `customTitle` the row is
+already headlined with, and an unnamed hub falls back to the legacy `/wellness-programs` alias, which
+is where the portal's own navigation points too.
+
+**Where the narrowing lives matters.** The section filter is in the API, not in the page: the page
+renders what it is handed. That is the T2 rule (§8, "Every read and write is checked at the API
+layer"), and it is also what makes the page safe against a stale payload — a row the caller is not
+assigned to is never in the response, so no client branch can reveal one.
+
+`GET /api/benefits` already scoped the *plans* through `listAccessiblePlanIds`; `listOwnCategoryScopedPlans`
+supplies the second half. An Owner or an All Plans Team Member gets an **empty** map — they hold no
+scoped assignment — so their rows are returned exactly as before, which is what confines this change to
+the collaborator path.
 
 ### Acceptance
 

@@ -3,7 +3,11 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import prisma from "@/lib/prisma";
 import { getBenefitCompleteness } from "@/lib/benefit-completeness";
-import { listAccessiblePlanIds } from "@/lib/teammates/access.server";
+import {
+  categoryWithinScope,
+  listAccessiblePlanIds,
+  listOwnCategoryScopedPlans,
+} from "@/lib/teammates/access.server";
 
 // Reads the session (request headers), so it must never be statically prerendered.
 export const dynamic = "force-dynamic";
@@ -79,6 +83,15 @@ export async function GET() {
     // picker asked ("plans you may see"). Every plan picker in the app goes through
     // `listAccessiblePlanIds`; this read is now the same kind of read.
     const accessiblePlanIds = await listAccessiblePlanIds(userId);
+
+    // The second half of the same rule (see `listOwnCategoryScopedPlans`): an assignment is
+    // plan-scoped AND category-scoped. With the plan ids alone a Collaborator invited for one
+    // section saw all four of that plan's rows on this page — the section filter below is what
+    // makes "the benefits they have access to" true rather than merely "the plans".
+    //
+    // Empty for an Owner or an All Plans Team Member, who hold no scoped assignment, so their
+    // rows are returned exactly as before.
+    const scopedPlans = await listOwnCategoryScopedPlans(userId);
 
     const clients = await prisma.client.findMany({
       where: { id: { in: accessiblePlanIds } },
@@ -165,7 +178,14 @@ export async function GET() {
         (client.categoryPortalVisibility as Record<string, boolean> | null) ?? {};
       const clientDocuments = documentsByClient.get(client.id) ?? [];
 
+      // `undefined` = this plan is not category-scoped for the caller (owner, or All
+      // Plans teammate) → every section. A list → exactly those sections, and an empty
+      // list → none of them.
+      const scope = scopedPlans.get(client.id);
+
       for (const cat of BENEFIT_CATEGORIES) {
+        if (scope && !categoryWithinScope(scope, cat.category)) continue;
+
         const row = byPlanCategory.get(`${client.id}::${normalize(cat.category)}`);
         // Published requires an actual benefit: no row ⇒ not published, at any
         // visibility value. Visibility then lives on the client (explicit `false`
