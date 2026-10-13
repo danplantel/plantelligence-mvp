@@ -17,6 +17,8 @@ import { mayUsePath } from "@/lib/teammates/nav-access";
 import { DesktopOnlyGate } from "@/components/desktop-only-gate";
 import { CommentModeProvider } from "@/components/comments/comment-mode-provider";
 import { CommentsRail } from "@/components/comments/comments-rail";
+import { MessagesModeProvider } from "@/components/messages/messages-mode-provider";
+import { MessagesRail } from "@/components/messages/messages-rail";
 
 interface NewLayoutClientProps {
   children: React.ReactNode;
@@ -108,6 +110,7 @@ export function NewLayoutClient({
     <DesktopOnlyGate variant="dashboard">
       <SWRConfig value={{ fallback: { [VIEWER_ACCESS_KEY]: viewerAccess } }}>
       <CommentModeProvider>
+        <MessagesModeProvider>
         <Header
           stepper={stepperElement}
           stepTitle={stepTitle}
@@ -121,10 +124,14 @@ export function NewLayoutClient({
               // (`--editor-inset` is only set by the Preview pages).
               marginLeft:
                 "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
-              // Reserves the right-hand Comments rail's column while it is open.
-              // Pages with their own fixed bars still subtract `--comments-inset`
+              // Reserves the right-hand rail's column while EITHER rail is open. `max` rather
+              // than a sum, because the arbiter in lib/right-panel.ts guarantees the two are
+              // never open together — so the variables are never both set, and if a future
+              // refactor ever allowed it this degrades to one rail's width instead of silently
+              // reserving two. Pages with their own fixed bars subtract the same variable
               // themselves (see plans/plan-benefit-comments.md).
-              paddingRight: "var(--comments-inset, 0px)",
+              paddingRight:
+                "max(var(--comments-inset, 0px), var(--messages-inset, 0px))",
             }}
           >
             {canUseThisPage ? (
@@ -144,6 +151,8 @@ export function NewLayoutClient({
           </main>
         </div>
         <CommentsRail />
+        <MessagesRail />
+        </MessagesModeProvider>
       </CommentModeProvider>
       </SWRConfig>
     </DesktopOnlyGate>

@@ -3,6 +3,7 @@
 import { cn } from "@/lib/utils";
 import { NotificationsMenu } from "./notifications-menu";
 import { CommentsToggle } from "@/components/comments/comments-toggle";
+import { MessagesToggle } from "@/components/messages/messages-toggle";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { useEffect, useState, type ReactNode } from "react";
 import { useTheme } from "next-themes";
@@ -260,6 +261,7 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
               : "flex-none ml-auto shrink-0",
           )}
         >
+          <MessagesToggle />
           <CommentsToggle />
           <NotificationsMenu />
           {/* Light/Dark toggle sits immediately beside the notifications bell — both

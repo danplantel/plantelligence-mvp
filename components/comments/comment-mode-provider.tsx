@@ -16,6 +16,7 @@ import {
   type CommentTarget,
 } from "@/hooks/useCommentThreads";
 import { useCommentsLayout } from "@/lib/comments/comments-layout";
+import { useRightPanel } from "@/lib/right-panel";
 import type {
   CommentAnchorInput,
   CommentAttachment,
@@ -147,6 +148,12 @@ export function CommentModeProvider({
 
   const open = canComment && mode === "on";
   useCommentsLayout(open);
+
+  // The right-hand column is SHARED with the Messages rail, so it is claimed rather than assumed:
+  // opening Messages closes this rail, and this rail closes itself in the same tick instead of the
+  // two stacking in one column. The eviction is event-driven — see lib/right-panel.ts for why a
+  // derived "do I own it?" boolean cannot work here.
+  useRightPanel("comments", open, () => setMode("off"));
 
   // Mention candidates, fetched only while the rail is open.
   //
