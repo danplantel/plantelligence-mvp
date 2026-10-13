@@ -257,18 +257,24 @@ is issued.
 
 ## Phases
 
-1. **Data and server.** Models, migration, `messages.server.ts`, `directory.server.ts`, the
-   deletion helpers, the notification coalescer.
-2. **Panel shell.** `right-panel.ts`, `messages-layout.ts`, provider, header toggle with the unread
-   badge, empty rail, list read with the 10s poll.
-3. **The conversation loop.** List → thread, mark-read on open, optimistic send with rollback, the
-   "New messages" divider.
-4. **Directory and open-or-create.** The picker, the grouping, greyed "Invite pending" rows, the
-   upsert that starts a thread.
-5. **Attachments.** The key prefix, the upload route, the participation guard on the object route,
-   the viewer reuse.
-6. **Withdraw, notifications, polish, verification, docs.** Author-only soft delete; the coalesced
-   Bell row; `scripts/messages/verify-messages.ts`; the `docs/teammates-module.md` section.
+**Shipped.** The work ran as five phases (below); the map onto the plan's own numbering is noted
+where they differ. `npm run messages:verify` is green at **41/41**, `tsc` and `eslint` are clean,
+and the feature is documented in `docs/teammates-module.md` §2 and §9j.
+
+1. ✅ **Data and server** (phases 1–3). Models + three migrations, `messages.server.ts`,
+   `directory.server.ts`, the deletion helpers, the notification coalescer, the seven API routes,
+   and the verification suite.
+2. ✅ **Panel shell** (phase 4). `right-panel.ts`, `messages-layout.ts`, provider, header toggle
+   with the unread badge, empty rail, list read with the 10s poll.
+3. ✅ **The conversation loop** (phase 4). List → thread, mark-read on open, optimistic send with
+   rollback, the "New messages" divider, author-only withdraw.
+4. ✅ **Directory and open-or-create** (phase 5). The picker, the grouping, greyed "Invite pending"
+   rows, the `SquarePen` "New message" affordance, the upsert that starts a thread.
+5. ✅ **Attachments** (phase 5). The key prefix, the upload route, the participation guard on the
+   object route, the viewer reuse, staged chips in the composer.
+6. ✅ **Notifications, polish, verification, docs.** The coalesced Bell row; a `$extends` retry
+   wrapper for the verify scripts (see the findings above); `scripts/messages/verify-messages.ts`;
+   the `docs/teammates-module.md` entries.
 
 ## Verification (`scripts/messages/verify-messages.ts`, mirroring `verify-comments`)
 

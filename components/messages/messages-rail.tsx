@@ -1,18 +1,31 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Loader2, RefreshCw, Send, Trash2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  Paperclip,
+  RefreshCw,
+  SquarePen,
+  Trash2,
+  X,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Headshot } from "@/components/ui/headshot";
-import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
-  MAX_DIRECT_MESSAGE_LENGTH,
+  directAttachmentInlineUrl,
+  formatAttachmentSize,
+  isImageAttachment,
+  type DirectAttachment,
   type DirectConversationView,
   type DirectMessageView,
 } from "@/lib/messages/types";
 import { useDirectThread } from "@/hooks/useDirectThread";
+import { CommentAttachmentModal } from "@/components/comments/comment-attachment-modal";
+import { DirectoryPicker } from "./directory-picker";
+import { MessagesComposer } from "./messages-composer";
 import { useOptionalMessagesMode } from "./messages-mode-provider";
 
 /**
@@ -143,17 +156,15 @@ function MessagesThread({ threadId }: { threadId: string }) {
   const mode = useOptionalMessagesMode();
   const currentUserId = mode?.currentUserId ?? null;
 
-  const {
-    thread,
-    isLoading,
-    error,
-    isSending,
-    send,
-    withdraw,
-    markRead,
-  } = useDirectThread(threadId, true);
+  const { thread, isLoading, error, send, withdraw, markRead } = useDirectThread(
+    threadId,
+    true,
+  );
 
-  const [draft, setDraft] = useState("");
+  /** The attachment the reader opened in the shared viewer, or null when it is closed. */
+  const [openAttachment, setOpenAttachment] = useState<DirectAttachment | null>(
+    null,
+  );
   const scrollRef = useRef<HTMLDivElement>(null);
   /** Whether to keep the view pinned to the newest message. Set by the reader's own scrolling. */
   const stickRef = useRef(true);
@@ -209,24 +220,6 @@ function MessagesThread({ threadId }: { threadId: string }) {
     }
     return rows;
   }, [messages, thread?.readAt]);
-
-  const remaining = MAX_DIRECT_MESSAGE_LENGTH - draft.length;
-  const canSend = draft.trim().length > 0 && !isSending;
-
-  const submit = async () => {
-    if (!canSend) return;
-    const body = draft;
-    // Cleared up front so the send feels immediate; restored if the write is refused.
-    setDraft("");
-    try {
-      await send(body);
-    } catch (sendError) {
-      setDraft(body);
-      toast.error(
-        (sendError as Error)?.message ?? "Could not send that message.",
-      );
-    }
-  };
 
   if (isLoading) {
     return (
@@ -335,21 +328,69 @@ function MessagesThread({ threadId }: { threadId: string }) {
                     </span>
                   )}
                   <div className={cn("min-w-0 max-w-[85%]", mine && "order-first")}>
-                    <div
-                      className={cn(
-                        "rounded-lg px-2.5 py-1.5 text-xs whitespace-pre-wrap break-words",
-                        message.deletedAt
-                          ? "bg-muted italic text-muted-foreground"
-                          : mine
-                            ? "bg-accent-blue text-white"
-                            : "bg-muted",
-                        inFlight && "opacity-70",
-                      )}
-                    >
-                      {message.deletedAt
-                        ? "This message was deleted."
-                        : message.body || "Sent an attachment"}
-                    </div>
+                    {message.deletedAt ? (
+                      <div className="rounded-lg bg-muted px-2.5 py-1.5 text-xs italic text-muted-foreground">
+                        This message was deleted.
+                      </div>
+                    ) : (
+                      <>
+                        {message.body && (
+                          <div
+                            className={cn(
+                              "rounded-lg px-2.5 py-1.5 text-xs whitespace-pre-wrap break-words",
+                              mine ? "bg-accent-blue text-white" : "bg-muted",
+                              inFlight && "opacity-70",
+                            )}
+                          >
+                            {message.body}
+                          </div>
+                        )}
+
+                        {/* Attachments: images render as their own thumbnail, any other file as a
+                            labelled chip. Either opens the shared viewer. A message can be files
+                            only, so this block stands on its own rather than assuming a caption. */}
+                        {message.attachments.length > 0 && (
+                          <ul
+                            className={cn(
+                              "flex flex-wrap gap-1.5",
+                              message.body && "mt-1",
+                              inFlight && "opacity-70",
+                            )}
+                          >
+                            {message.attachments.map((attachment) => (
+                              <li key={attachment.key}>
+                                <button
+                                  type="button"
+                                  onClick={() => setOpenAttachment(attachment)}
+                                  className="block max-w-[12rem] text-left"
+                                  title={attachment.name}
+                                >
+                                  {isImageAttachment(attachment.type) ? (
+                                    // Sized by its own aspect ratio inside a 12rem x 6rem box, so
+                                    // the WHOLE image shows — no object-cover crop.
+                                    <img
+                                      src={directAttachmentInlineUrl(attachment.key)}
+                                      alt={attachment.name}
+                                      className="block max-h-24 w-auto max-w-full rounded-md border border-border transition-opacity hover:opacity-90"
+                                    />
+                                  ) : (
+                                    <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] transition-colors hover:bg-muted">
+                                      <Paperclip className="h-3 w-3 shrink-0 text-muted-foreground" />
+                                      <span className="truncate">
+                                        {attachment.name}
+                                      </span>
+                                      <span className="shrink-0 text-muted-foreground">
+                                        {formatAttachmentSize(attachment.size)}
+                                      </span>
+                                    </span>
+                                  )}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </>
+                    )}
                     <div
                       className={cn(
                         "mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground",
@@ -388,49 +429,17 @@ function MessagesThread({ threadId }: { threadId: string }) {
         )}
       </div>
 
-      <div className="shrink-0 border-t border-border p-3">
-        <div className="flex items-end gap-2">
-          <Textarea
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key !== "Enter" || event.shiftKey) return;
-              event.preventDefault();
-              void submit();
-            }}
-            placeholder="Write a message…"
-            rows={1}
-            maxLength={MAX_DIRECT_MESSAGE_LENGTH}
-            aria-label="Write a message"
-            className="min-h-[38px] max-h-32 resize-none text-xs"
-          />
-          <Button
-            size="icon"
-            onClick={() => void submit()}
-            disabled={!canSend}
-            aria-label="Send"
-            title="Send (Enter)"
-            className="h-9 w-9 shrink-0"
-          >
-            {isSending ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </Button>
-        </div>
-        <div className="mt-1 flex items-center justify-between text-[10px] text-muted-foreground">
-          <span>Enter to send, Shift+Enter for a new line</span>
-          {/* Only in the last stretch: a permanent counter is noise on a limit nobody reaches. */}
-          {remaining <= MAX_DIRECT_MESSAGE_LENGTH * 0.2 && (
-            <span
-              className={cn(remaining <= 0 && "font-semibold text-destructive")}
-            >
-              {remaining}
-            </span>
-          )}
-        </div>
-      </div>
+      <MessagesComposer threadId={threadId} onSubmit={send} />
+
+      {/* The comments' viewer, reused: its Open/Download URLs are key-agnostic (`/api/r2/object`),
+          and what authorizes the read behind them is the DIRECT guard, not the plan check — see
+          `resolveDirectAttachmentAccess`. */}
+      <CommentAttachmentModal
+        attachment={openAttachment}
+        onOpenChange={(open) => {
+          if (!open) setOpenAttachment(null);
+        }}
+      />
     </>
   );
 }
@@ -439,6 +448,14 @@ function MessagesThread({ threadId }: { threadId: string }) {
 
 export function MessagesRail() {
   const mode = useOptionalMessagesMode();
+  // Declared before the early return: hooks must run on every render, and the picker is chrome.
+  const [showPicker, setShowPicker] = useState(false);
+  const isOpen = Boolean(mode?.open);
+  useEffect(() => {
+    // Reopening the rail should land on the conversation list, not wherever the reader last left
+    // the picker open.
+    if (!isOpen) setShowPicker(false);
+  }, [isOpen]);
   if (!mode || !mode.open) return null;
 
   const {
@@ -479,19 +496,44 @@ export function MessagesRail() {
             </span>
           )}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7 shrink-0"
-          aria-label="Close messages"
-          onClick={() => setMode("off")}
-        >
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex shrink-0 items-center gap-0.5">
+          {!activeThreadId && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 shrink-0"
+              aria-label={showPicker ? "Back to conversations" : "New message"}
+              title={showPicker ? "Back to conversations" : "New message"}
+              onClick={() => setShowPicker((prev) => !prev)}
+            >
+              {showPicker ? (
+                <ArrowLeft className="h-4 w-4" />
+              ) : (
+                <SquarePen className="h-4 w-4" />
+              )}
+            </Button>
+          )}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 shrink-0"
+            aria-label="Close messages"
+            onClick={() => setMode("off")}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </header>
 
       {activeThreadId ? (
         <MessagesThread threadId={activeThreadId} />
+      ) : showPicker ? (
+        <DirectoryPicker
+          onPicked={(threadId) => {
+            setShowPicker(false);
+            setActiveThreadId(threadId);
+          }}
+        />
       ) : (
         <div className={cn("flex-1 overflow-y-auto", VIEW_ENTER_BACK)}>
           {isLoading ? (
@@ -516,6 +558,15 @@ export function MessagesRail() {
               <p className="mt-1 text-xs text-muted-foreground">
                 Conversations you start or receive will appear here.
               </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-3 gap-1.5"
+                onClick={() => setShowPicker(true)}
+              >
+                <SquarePen className="h-3.5 w-3.5" />
+                New message
+              </Button>
             </div>
           ) : (
             <ul className="divide-y divide-border/60">

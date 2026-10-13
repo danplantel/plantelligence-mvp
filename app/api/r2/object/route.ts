@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth-options";
 import { getObjectFromR2, isR2Configured } from "@/lib/r2";
 import { resolvePortalAdvisorId } from "@/lib/portal-access";
 import { resolveCommentAttachmentAccess } from "@/lib/comments/comments.server";
+import { resolveDirectAttachmentAccess } from "@/lib/messages/messages.server";
 import { resolveObjectAccess } from "@/lib/teammates/access.server";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -76,6 +77,23 @@ export async function GET(request: NextRequest) {
       key,
     });
     if (commentAccess && !commentAccess.allowed) {
+      return NextResponse.json(
+        { error: "Access denied to this object" },
+        { status: 403 },
+      );
+    }
+
+    // Direct-message attachments answer to THREAD PARTICIPATION, and this one cannot defer to the
+    // generic check below. `parseR2Key` does not recognise a DM key's shape
+    // (`org/{organizationId}/messages/{threadId}/…`), so it falls into the org-level fallback —
+    // which authorizes the ORGANIZATION OWNER, the one third party expressly not allowed to read a
+    // private conversation's files. `resolveDirectAttachmentAccess` therefore answers for every DM
+    // key (refusing one that names no thread), and returns null only when the key is not a DM key.
+    const directAccess = await resolveDirectAttachmentAccess({
+      userId: ownerId,
+      key,
+    });
+    if (directAccess && !directAccess.allowed) {
       return NextResponse.json(
         { error: "Access denied to this object" },
         { status: 403 },

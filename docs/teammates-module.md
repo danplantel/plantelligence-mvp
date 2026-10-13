@@ -40,6 +40,9 @@ erDiagram
     Client ||--o{ PlanAssignment : scoped_to
     TeammateProfile ||--o{ TeammateAuditEvent : logged_for
     PlanAssignment ||--o{ TeammateAuditEvent : logged_for
+    User ||--o{ DirectThread : participant_A
+    User ||--o{ DirectThread : participant_B
+    DirectThread ||--o{ DirectMessage : carries
 ```
 
 - **`Organization`** — tenancy root. One per advisor `User` (`ownerUserId`),
@@ -75,6 +78,19 @@ erDiagram
   toggle.
 - **`TeammateAuditEvent`** — who changed what, when, and which soft warnings were
   confirmed.
+- **`DirectThread`** — one private conversation between exactly two logins of an
+  organization: `userAId`/`userBId` in a canonical order, a per-participant read
+  watermark (`aReadAt`/`bReadAt`), and a denormalised `lastMessagePreview` so the
+  inbox never reads the message table. See §9j.
+- **`DirectMessage`** — one message in a thread: author, body, optional JSON
+  attachments, and `deletedAt` for the author-only withdrawal placeholder.
+
+`DirectThread`/`DirectMessage` are the **deliberate exception** to the plain-scalar
+rule below: they carry real, cascading `User` foreign keys, because a private
+conversation has no meaning once a participant's login is gone and the delete
+*should* cascade. The compound unique on the canonical pair and the pair-order
+`CHECK` (see §9j) are why the model needs a real relation where the teammate tables
+do not.
 
 ### Org anchoring is additive by design
 
@@ -165,6 +181,7 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:verify-t7` | Runs the 26-assertion T7 suite (the three acceptance criteria, display-vs-access, the mirror's idempotency and removals, hidden categories, and the unmirrorable-contact residue). |
 | `npm run teammates:verify-t9` | Runs the 44-assertion T9 suite (the signed token and its refusals, the mailbox guard, the profile guards, the inviter's note, acceptance creating vs reusing a login, the seat conversion, replay, both audit rows, and the tenancy invariant — the login anchored to the inviting organization and owning none of its own). |
 | `npm run comments:verify` | Runs the 47-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, and the plan-delete cascade). See §9i. |
+| `npm run messages:verify` | Runs the 41-assertion Direct Messages suite (the directory predicate that doubles as the gate, the refusals — including the organization owner refused a thread between two other people — the canonical pair and the `CHECK` that enforces it, the body limit's boundary, unread and the read watermark, ONE Bell row per conversation, **attachment reads that follow participation and never the org fallback**, and the login-delete cascade). See §9j. |
 | `npm run teammates:backfill-contacts` | Projects every plan's `keyContacts` onto profiles + assignments (T7). Idempotent; `--dry-run` to count without writing. Run it before the hub reader switch and after adding a new contacts writer. |
 | `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
 
@@ -2206,6 +2223,107 @@ and a non-comments key — the two cases the generic proxy must still handle. `n
 `plans/{id}/comments/`; nothing reads it, so it is harmless, but sweeping that prefix is the
 way to reclaim the space. And per-message delete still exists in the API and the hook while
 having no UI surface since the card refactor.
+
+---
+
+## 9j. Direct Messages
+
+Private one-to-one messages between the logins of an organization, delivered in a right-hand
+rail that mirrors the comments rail. Plan, the four decisions and the phase log live in
+[`plans/direct-messages.md`](../plans/direct-messages.md).
+
+### Where it lives
+
+| Layer | File |
+|---|---|
+| Contract (no Prisma, no React) | [`lib/messages/types.ts`](../lib/messages/types.ts) |
+| Directory predicate | [`lib/messages/directory.server.ts`](../lib/messages/directory.server.ts) |
+| Server module — every rule | [`lib/messages/messages.server.ts`](../lib/messages/messages.server.ts) |
+| Routes | `app/api/messages/{threads,directory,attachments}` and `messages/[messageId]`, plus the nested `threads/[threadId]/{,read,messages}` |
+| Hooks | [`hooks/useDirectThreads.ts`](../hooks/useDirectThreads.ts), [`useDirectThread.ts`](../hooks/useDirectThread.ts), [`useDirectDirectory.ts`](../hooks/useDirectDirectory.ts) |
+| UI | `components/messages/{messages-mode-provider,messages-toggle,messages-rail,messages-composer,directory-picker}.tsx` |
+| The right column | [`lib/right-panel.ts`](../lib/right-panel.ts), [`lib/messages/messages-layout.ts`](../lib/messages/messages-layout.ts) |
+
+### The three decisions the spec left open
+
+1. **A rail, not a route.** A Messages icon in the header cluster (numeric unread badge,
+   capped `9+`) opens a fixed right panel at `24rem`, mirroring the comments rail's
+   `--comments-inset` with its own `--messages-inset`. It is global on every dashboard page
+   and needs no nav entry. Opening it CLOSES Comments, and vice versa.
+2. **The directory is the organization.** Who you may message is the organization: the owner,
+   every live Team Member, and every Collaborator who shares at least one plan with you — so
+   collaborator↔collaborator is allowed. It mirrors the @mention candidate set minus the
+   category filter.
+3. **Match Comments, then tighten.** 10s SWR polls for both the inbox and the open thread,
+   attachments and the shared viewer reused, no edit, author-only withdrawal with no admin
+   moderation, unread from a per-participant read watermark, and ONE coalesced Bell row per
+   conversation.
+
+### The directory predicate and the gate are the same function
+
+`GET /api/messages/directory` and the open-thread gate both consult
+`listDirectDirectory`/`canMessageUser`, so a row the picker offers is a row the API accepts —
+the offer and the refusal cannot disagree. A seat with **no login yet** (invited but not
+accepted) is *listed* with `selectable: false` rather than hidden, so an advisor can see the
+person exists and why they cannot be messaged. A profile still in the `contact` state is not
+listed at all: it is a mirrored key contact, not a person who can hold a conversation.
+
+### One conversation per pair, whichever order the ids arrive in
+
+`userAId`/`userBId` are stored canonically (`a < b`), and a compound unique on
+`(organizationId, userAId, userBId)` stops a second row for the same pair. A single column
+cannot enforce the *ordering*, though — Prisma expresses no `CHECK`, and the first probe proved
+a swapped duplicate was accepted — so the pair order is a real Postgres `CHECK`
+(`"userAId" COLLATE "C" < "userBId" COLLATE "C"`, in its own migration). `openDirectThread`
+sorts before it writes; the constraint is what makes the sort an invariant rather than a
+convention, and the suite asserts the refusal **by the constraint's own name**.
+
+### Unread, and the one-row Bell
+
+`aReadAt`/`bReadAt` are per-participant watermarks, not per-message read rows: an unread count
+is "messages after my watermark, excluding my own". The rail marks read ONCE per (conversation,
+newest message), so a background poll cannot clear a badge on the reader's behalf. Notifications
+**coalesce**: `coalesceDirectNotification` updates the existing unread row for the thread rather
+than inserting a second, so a chatty conversation cannot bury the plan notifications. The row
+deep-links to `/?messages=<threadId>`, which the provider opens.
+
+### Attachments answer to participation, never the org fallback
+
+A DM key is `org/{organizationId}/messages/{threadId}/…` (`directAttachmentPrefix`). The THREAD
+id is in the key — not a message id — so the read guard can answer from participation alone, with
+no window in which an uploaded-but-unattached file needs a coarser rule. That guard matters
+because `parseR2Key` does not recognise this shape and would fall into its org-level fallback,
+authorizing the ORGANIZATION OWNER — the one third party expressly not allowed to read a private
+conversation's files. `resolveDirectAttachmentAccess` therefore answers for every DM key
+(refusing one that names no thread) and returns `null` only when the key is not a DM key, so
+[`app/api/r2/object/route.ts`](../app/api/r2/object/route.ts) can never defer a DM read to the
+generic check. The presign route (`POST /api/messages/attachments`) checks participation BEFORE
+minting a key, because a presigned URL is a capability.
+
+### Why the right column needs an owner
+
+Comments and Messages are two panels that want the same box. The first attempt used a derived
+boolean, which is stale on the commit that claims the column — the losing panel read the old
+value and stayed open. [`lib/right-panel.ts`](../lib/right-panel.ts) is therefore EVENT-DRIVEN:
+`requestRightPanel` evicts the current owner, `releaseRightPanel` acts only if the caller still
+owns it, and `useRightPanel` hands each provider an `onEvicted` callback so the evicted side sets
+its own mode to `"off"`. The dashboard takes the MAX of the two insets
+(`--comments-inset`, `--messages-inset`) because the rails are mutually exclusive.
+
+### Verification
+
+```
+npm run messages:verify   ->  41/41 assertions passed
+```
+
+Runs against the real data layer with self-cleaning fixtures: the directory (who the owner may
+reach, a login-less seat listed-but-not-selectable, a deactivated seat absent, and the mutual
+block for a Collaborator on a plan they cannot see); the gate's refusals (self-thread,
+non-member, and the organization owner refused a thread between two other people); the canonical
+pair and the by-name `CHECK` refusal; the body-limit boundary; unread and the watermark; the
+one-row Bell; the attachment guard (a participant allowed, **the owner refused**, an unthreaded
+key refused, and a comment key left alone for the generic check); and the login-delete cascade.
+`npx tsc --noEmit` and `eslint` are clean.
 
 ---
 
