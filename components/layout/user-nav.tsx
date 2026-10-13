@@ -102,6 +102,10 @@ export function UserNav({ compact = false }: { compact?: boolean }) {
   const userName = headerProfile?.name || session?.user?.name || "";
   const userEmail = headerProfile?.email || session?.user?.email || "";
   const userTitle = headerProfile?.title || "";
+  // The role badge above the name. Optional on purpose (see `HeaderProfile.roleLabel`): a failed
+  // lookup, or a payload from an older build of the route, omits the row rather than drawing an
+  // empty pill.
+  const userRole = headerProfile?.roleLabel || "";
 
   if (session) {
     // Show skeleton while loading
@@ -110,6 +114,9 @@ export function UserNav({ compact = false }: { compact?: boolean }) {
         <div className="relative flex items-center gap-3 h-12 px-3">
           <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse" />
           <div className="flex flex-col items-start gap-1">
+            {/* Three rows, matching the real control, so the header does not grow when the
+                payload lands — the role badge is why there is a third one. */}
+            <div className="h-3 w-16 rounded-full bg-gray-200 animate-pulse" />
             <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
             <div className="h-3 w-16 bg-gray-200 rounded animate-pulse" />
           </div>
@@ -124,7 +131,11 @@ export function UserNav({ compact = false }: { compact?: boolean }) {
             <Button
               variant="ghost"
               className={cn(
-                "relative flex items-center gap-3 h-12 rounded-lg hover:bg-accent-blue hover:text-white min-w-0",
+                // The badge is a third row, which is why the name and title step down a size —
+                // together they still fit the control's own height. `group` lets the badge
+                // restyle itself on hover: the trigger's hover paints accent-blue, which is
+                // exactly the badge's resting colour.
+                "group relative flex items-center gap-3 h-12 rounded-lg hover:bg-accent-blue hover:text-white min-w-0",
                 compact ? "shrink-0 px-2" : "px-3",
               )}
             >
@@ -140,15 +151,29 @@ export function UserNav({ compact = false }: { compact?: boolean }) {
               </Avatar>
               {!compact && (
                 <div className="flex flex-col items-start min-w-0">
+                  {/* The role, ABOVE the name: the one line that says what this account IS rather
+                      than who they are. Deliberately tiny (`text-[9px]`) and shrink-wrapped —
+                      it is a label, so the name below stays the loudest thing in the control.
+                      `group-hover:bg-white/25` keeps it readable when the trigger turns
+                      accent-blue on hover; without it the pill would be accent-on-accent and
+                      vanish exactly when the pointer is over it. */}
+                  {userRole && (
+                    <span
+                      className="mb-0.5 w-fit max-w-[200px] truncate rounded-full bg-accent-blue px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-3 tracking-wide text-white group-hover:bg-white/25"
+                      title={userRole}
+                    >
+                      {userRole}
+                    </span>
+                  )}
                   <span
-                    className="text-sm font-medium truncate max-w-[200px]"
+                    className="text-xs font-medium truncate max-w-[200px]"
                     title={userName}
                   >
                     {userName}
                   </span>
                   {userTitle && (
                     <span
-                      className="text-xs truncate max-w-[200px]"
+                      className="text-[10px] truncate max-w-[200px]"
                       title={userTitle}
                     >
                       {userTitle}

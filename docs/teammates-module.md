@@ -152,7 +152,7 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:indexes` | Applies the T1 indexes directly (idempotent). |
 | `npm run teammates:backfill` | Creates one Organization per existing User and stamps `organizationId` onto User + Client rows. Supports `--dry-run`. |
 | `npm run teammates:verify` | Runs the 24-assertion T1 acceptance suite against the real data layer with self-cleaning fixtures. |
-| `npm run teammates:verify-t2` | Runs the 56-assertion T2 enforcement suite (the three T2 acceptance criteria, the one-Owner invariant, plan lists, the route guard, the chrome rule that narrows a Collaborator's navigation — including that the Create Benefit wizard is hidden, while the function its editor saves under stays granted — and the category scope that narrows a Collaborator's `/benefits` rows to the sections they were given). |
+| `npm run teammates:verify-t2` | Runs the 65-assertion T2 enforcement suite (the three T2 acceptance criteria, the one-Owner invariant, plan lists, the route guard, the chrome rule that narrows a Collaborator's navigation — including that the Create Benefit wizard is hidden, while the function its editor saves under stays granted — the category scope that narrows a Collaborator's `/benefits` rows to the sections they were given, and the rule behind the role badge the header prints). |
 | `npm run teammates:verify-t3` | Runs the 53-assertion T3 suite (seat metering, invite expiry, the upgrade-confirm gate, the owner-first team list, onboarding pre-fill, editing a member, and the roles explainer). |
 | `npm run teammates:verify-backfill` | Asserts the post-backfill invariants (every User/Client org'd, legacy `Client.userId` intact). |
 | `npm run teammates:verify-t4` | Runs the 79-assertion T4 suite (the invite path, the category merge, the deep link, the Who-is-this presets, the sponsor-domain guess, the search, the audit row, the card payload the Collaborator card renders, the plan lookup — id-or-slug plus the repair of an unstamped `organizationId` — and the resend, including its cooldown and its three refusals). |
@@ -578,7 +578,7 @@ a product question, not a refactor.
 ### Verification
 
 ```
-npm run teammates:verify-t2     ->  56/56 assertions passed
+npm run teammates:verify-t2     ->  65/65 assertions passed
 ```
 
 Covers: the Contributor is allowed Ayres → Group Health and denied Ayres →
@@ -610,6 +610,12 @@ teammate profile at all, are never narrowed; the alias mapping the filter shares
 `resolvePlanAccessForPlan` holds both ways ("Custom" ≡ "Company / Plan Sponsor", "Health Insurance" ≡
 "Group Health", "Wellness Programs" ≡ "Other"); two live profiles on one plan union their lists with
 no duplicate section; and deactivating a profile drops the scope along with the plan.
+
+And it pins the **role badge** the header prints (§9b, "What the header badge says about the viewer"):
+an Owner reads Owner, a Collaborator seat reads Collaborator whatever preset it holds, an *invited*
+login that owns an Organization of its own **still** reads Collaborator — the trap the seat-first
+ordering exists for — a Team Member reads the role they hold including the most privileged one across
+two plans, and a login holding an Owner seat in a second organization reads Owner.
 
 ---
 
@@ -1093,6 +1099,42 @@ Two consequences worth keeping:
 - **Owners and Team Members cannot be narrowed by it**, and neither can a failed read:
   `mayUsePath` returns true immediately when `isCollaborator` is false, and `useViewerAccess` fails
   **open**, so a transient error can hide nothing and lock nobody out of the chrome.
+
+### What the header badge says about the viewer
+
+The dashboard header prints a small accent-blue badge above the signed-in user's name. It is **not** a
+collaborator-only affordance: it answers "what am I here as?" for everyone. One rule decides it —
+[`getViewerRoleLabel`](lib/teammates/viewer-role.server.ts) — resolved by `GET /api/profile/header`
+beside the name, title and avatar it already returned, and handed to
+[`user-nav`](components/layout/user-nav.tsx) as `roleLabel`.
+
+| Viewer | Badge | Why |
+|---|---|---|
+| The organization's owner | **Owner** | They hold no seat at all, which is this codebase's signature for ownership |
+| A Collaborator seat | **Collaborator** | Whatever preset it holds — the product's word for these people ("Invite Collaborator", the Collaborators section), while the preset name is the invite dialog's internal vocabulary |
+| A Team Member seat | **Owner / Admin / Editor / Viewer** | The role they hold, in the words the Settings team list uses, summarised across their plans |
+| A login with seats in several organizations | the most privileged | The badge reports what they are anywhere, so an Owner seat in one organization wins over a Collaborator seat in another |
+| Any of the above, when the lookup failed | *no badge* | The badge is decoration: `getViewerRoleLabel` returns `null` rather than throwing, so a role failure cannot cost the name, title or avatar |
+
+Two traps are worth keeping, because both were hit while building it:
+
+- **The seat must be read FIRST — never ownership.** An invited login commonly OWNS its own personal
+  Organization (`resolveOrganizationId` creates one on demand; the T1 backfill created one per User),
+  so asking "does this user own an organization?" reports **every collaborator as an Owner**. It is
+  the same trap `/accept-invite` documents for the tenancy anchor, and `verify-t2` builds exactly
+  that state — an invited login holding its own Organization — to assert the badge still reads
+  Collaborator.
+- **A Collaborator is labelled by their TYPE, not their preset.** "Contributor" is a permission-grid
+  preset, not something to print beside a person's name: [`collaborator-card.tsx`](components/teammates/collaborator-card.tsx)
+  already falls back to their company rather than show it, and a Reviewer is still a Collaborator to
+  a reader. The badge follows the same rule, so a collaborator's fine-grained role never reaches the
+  chrome.
+
+The name and title step down a size (`text-xs` and `text-[10px]`) to make room for the badge, which
+keeps the control at its original height and keeps the name the loudest thing in it. The badge also
+restyles itself on hover (`group-hover:bg-white/25`) because the trigger's own hover paints
+accent-blue — the badge's resting colour — and would otherwise swallow the pill exactly when the
+pointer is on it.
 
 ### What a Collaborator's /benefits page offers
 

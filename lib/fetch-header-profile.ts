@@ -17,6 +17,16 @@ export interface HeaderProfile {
   avatarUrl: string | null;
   /** Same-origin proxy URL for the avatar, used when `avatarUrl` is missing or fails. */
   avatarFallbackUrl: string | null;
+  /**
+   * The viewer's role, ready to render — "Owner", "Admin", "Editor", "Contributor",
+   * "Reviewer", "Viewer", "Custom", or the access type ("Team Member" / "Collaborator") when
+   * the seat has no role yet. `null` when the lookup failed, which is why the header treats it
+   * as optional: the badge is context, and its absence must not cost the name, title or avatar.
+   *
+   * Optional as well as nullable so a payload produced by an older build of the route still
+   * typechecks against this contract.
+   */
+  roleLabel?: string | null;
 }
 
 let request: Promise<HeaderProfile | null> | null = null;

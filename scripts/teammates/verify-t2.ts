@@ -39,6 +39,7 @@ import {
   resolvePlanAccess,
 } from "../../lib/teammates/access.server";
 import { getAuthorizedClient } from "../../lib/teammates/plan-guard.server";
+import { getViewerRoleLabel } from "../../lib/teammates/viewer-role.server";
 import {
   createTeammateProfile,
   deactivateTeammateProfile,
@@ -766,6 +767,173 @@ async function main(): Promise<void> {
         categoryWithinScope(unionedAyres, "Group Health") === true &&
         categoryWithinScope(unionedAyres, "Group Life") === true,
       JSON.stringify(unionedAyres),
+    );
+
+    /* ── 9. The role badge the header renders ───────────────────────── */
+
+    console.log("");
+    console.log("9. The header says what the viewer IS, from one shared rule");
+
+    // The badge above the name in `user-nav`, resolved by `getViewerRoleLabel`. Two sources, and
+    // the ORDER is the rule: the SEAT first, then "no seat at all" as the owner's signature.
+    check(
+      "the organization's owner reads Owner — they hold no seat at all",
+      (await getViewerRoleLabel(advisor.id)) === "Owner",
+    );
+    // A login with no seat at all is the OWNER's signature in this codebase — `getViewerAccess`
+    // applies the same rule, and an advisor never has a TeammateProfile.
+    check(
+      "a login with no seat reads Owner, matching the chrome's own 'no profile' rule",
+      (await getViewerRoleLabel(unassignedLogin.id)) === "Owner",
+    );
+    // A Collaborator seat reads "Collaborator" whatever preset it holds: that is the product's
+    // word for these people ("Invite Collaborator", the Collaborators section), while the preset
+    // name is the invite dialog's internal vocabulary. `collaborator-card.tsx` refuses to print
+    // "Contributor" beside a name for exactly this reason.
+    check(
+      "a Contributor seat reads Collaborator, not the preset's own name",
+      (await getViewerRoleLabel(contributorLogin.id)) === "Collaborator",
+    );
+    // The trap that fixes this module's ordering, made concrete on a fixture of its own. An
+    // invited login commonly OWNS an Organization — the T1 backfill created one per User, and
+    // `resolveOrganizationId` creates one on demand — so "owns an organization" cannot be the
+    // owner test. Reading it first reported EVERY collaborator as an Owner, which is the same
+    // trap `/accept-invite` documents for the tenancy anchor. A dedicated login is used here
+    // because the run's Viewer login carries a second, unrelated seat — see the last check below.
+    const invitedLogin = await prisma.user.create({
+      data: {
+        name: `T2 Invited ${STAMP}`,
+        email: `t2-verify-invited-${STAMP}@example.test`,
+      },
+      select: { id: true },
+    });
+    created.userIds.push(invitedLogin.id);
+    const invitedSeat = await createTeammateProfile({
+      organizationId,
+      actorUserId: advisor.id,
+      type: "collaborator",
+      role: "contributor",
+      email: `t2-verify-invited-person-${STAMP}@abc.test`,
+      firstName: "Ida",
+      lastName: "Invited",
+      loginUserId: invitedLogin.id,
+    });
+    created.profileIds.push(invitedSeat.id);
+    created.assignmentIds.push(
+      (
+        await upsertAssignment({
+          organizationId,
+          profileId: invitedSeat.id,
+          clientId: ayres.id,
+          actorUserId: advisor.id,
+          role: "contributor",
+          categoryScope: "selected",
+          categories: ["Group Health"],
+        })
+      ).id,
+    );
+    const invitedOwnOrganizationId = await getOrCreateOrganizationForUser(
+      invitedLogin.id,
+    );
+    created.organizationIds.push(invitedOwnOrganizationId);
+    const invitedOwnOrganization = await prisma.organization.findUnique({
+      where: { id: invitedOwnOrganizationId },
+      select: { ownerUserId: true },
+    });
+    check(
+      "an invited login really does own an organization of its own (the trap is real, not hypothetical)",
+      invitedOwnOrganization?.ownerUserId === invitedLogin.id,
+    );
+    check(
+      "…and STILL reads Collaborator, because the SEAT outranks ownership",
+      (await getViewerRoleLabel(invitedLogin.id)) === "Collaborator",
+    );
+
+    // An invitation raised before any plan exists — a seat with nothing attached to it yet. It
+    // still reads as a Collaborator, because the badge describes the SEAT rather than what it has
+    // so far been given.
+    const pendingSeat = await createTeammateProfile({
+      organizationId,
+      actorUserId: advisor.id,
+      type: "collaborator",
+      role: "reviewer",
+      email: `t2-verify-pending-${STAMP}@abc.test`,
+      firstName: "Pat",
+      lastName: "Pending",
+      loginUserId: unassignedLogin.id,
+    });
+    created.profileIds.push(pendingSeat.id);
+    check(
+      "a collaborator seat with no assignment yet still reads Collaborator",
+      (await getViewerRoleLabel(unassignedLogin.id)) === "Collaborator",
+    );
+
+    // An INTERNAL seat is the other half of the rule, and the only case where the role summary
+    // runs at all: a Team Member reads the role they hold, in the words the Settings team list
+    // uses — a Collaborator would not be told apart from one another by a preset name.
+    const staffLogin = await prisma.user.create({
+      data: {
+        name: `T2 Staff ${STAMP}`,
+        email: `t2-verify-staff-${STAMP}@example.test`,
+      },
+      select: { id: true },
+    });
+    created.userIds.push(staffLogin.id);
+    const staff = await createTeammateProfile({
+      organizationId,
+      actorUserId: advisor.id,
+      type: "team_member",
+      email: `t2-verify-staff-person-${STAMP}@abc.test`,
+      firstName: "Sam",
+      lastName: "Staff",
+      loginUserId: staffLogin.id,
+    });
+    created.profileIds.push(staff.id);
+    check(
+      "a Team Member seat with no role and no assignment reads Team Member",
+      (await getViewerRoleLabel(staffLogin.id)) === "Team Member",
+    );
+
+    // …and the SUMMARY: with assignments, the most privileged of them wins — the same rule the
+    // Settings team list applies, so the two surfaces cannot describe one person differently.
+    created.assignmentIds.push(
+      (
+        await upsertAssignment({
+          organizationId,
+          profileId: staff.id,
+          clientId: ayres.id,
+          actorUserId: advisor.id,
+          role: "viewer",
+          categoryScope: "all",
+        })
+      ).id,
+    );
+    created.assignmentIds.push(
+      (
+        await upsertAssignment({
+          organizationId,
+          profileId: staff.id,
+          clientId: precisionOptical.id,
+          actorUserId: advisor.id,
+          role: "editor",
+          categoryScope: "all",
+        })
+      ).id,
+    );
+    check(
+      "…while a Team Member with two plans reads the most privileged (Viewer + Editor → Editor)",
+      (await getViewerRoleLabel(staffLogin.id)) === "Editor",
+    );
+
+    // One login can back seats in SEVERAL organizations — the T1 model allows it — and this run's
+    // Viewer login is one of those: a Collaborator seat on Ayres AND the Owner-role Team Member
+    // seat of the ghost organization built for the one-Owner test above. The badge reports the
+    // most privileged thing the login IS anywhere, so it reads Owner: not because ownership
+    // outranks a seat (the check above proves it does not), but because the summary across their
+    // seats does.
+    check(
+      "a login holding an Owner seat in another organization reads Owner",
+      (await getViewerRoleLabel(viewerLogin.id)) === "Owner",
     );
   } finally {
     if (!KEEP_FIXTURES) {

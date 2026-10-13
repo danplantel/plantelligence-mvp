@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth-options";
 import prisma from "@/lib/prisma";
 import { getR2ObjectProxyUrl, toR2BrandingKey } from "@/lib/branding-image-url";
 import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
+import { getViewerRoleLabel } from "@/lib/teammates/viewer-role.server";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,13 @@ export const dynamic = "force-dynamic";
  * being streamed through `/api/r2/object` (measured at ~5.5s for one headshot).
  * `avatarFallbackUrl` carries the proxy path for setups where a presigned URL
  * won't render, so the client can fall back instead of losing the image.
+ *
+ * A fifth value rides along: `roleLabel`. The identity is not self-describing — "Dana" reads
+ * differently as a Contributor than as an Owner — and the rule for it is shared with anything else
+ * that needs it (see lib/teammates/viewer-role.server.ts). It is resolved AFTER the avatar rather
+ * than beside the other selects, because the presign is the expensive half of this route and the
+ * label is two small indexed lookups; and it returns null rather than throwing, so a role lookup
+ * can never stop the name, title and avatar from rendering.
  */
 export async function GET() {
   try {
@@ -111,9 +119,11 @@ export async function GET() {
           : null;
     }
 
+    const roleLabel = await getViewerRoleLabel(userId);
+
     return NextResponse.json({
       success: true,
-      data: { name, email, title, avatarUrl, avatarFallbackUrl },
+      data: { name, email, title, avatarUrl, avatarFallbackUrl, roleLabel },
     });
   } catch (error) {
     console.error("Error fetching header profile:", error);
