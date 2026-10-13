@@ -128,6 +128,26 @@ export function MessagesModeProvider({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [mode, setMode]);
 
+  /**
+   * Escape closes the rail — the promise the plan makes for the panel.
+   *
+   * Guarded against a focused field on purpose: the composer keeps its draft in local state and the
+   * rail unmounts when it closes, so an unguarded Escape would silently discard a half-written
+   * message. Escape from the panel's own chrome closes it; Escape from inside a field does not.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const el = event.target as HTMLElement | null;
+      const tag = el?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea" || el?.isContentEditable) return;
+      setMode("off");
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, setMode]);
+
   const toggle = useCallback(() => {
     setMode(mode === "on" ? "off" : "on");
   }, [mode, setMode]);

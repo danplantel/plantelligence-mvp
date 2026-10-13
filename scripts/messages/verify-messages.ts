@@ -13,7 +13,8 @@
  *   6. send validation and the body limit's exact boundary;
  *   7. withdrawal — author only, leaving a placeholder;
  *   8. the attachment guard, which must never defer to the object route's org-level fallback;
- *   9. account deletion cascading the conversation away.
+ *   9. account deletion cascading the conversation away;
+ *  10. "load earlier" paging — the page boundary, the cursor, and the exhausted tail.
  *
  * Fixtures are `tdm-verify-*` and are cleaned up unless `--keep` is passed.
  */
@@ -748,6 +749,76 @@ async function main(): Promise<void> {
       "the thread and its messages are gone",
       survivingThreads === 0 && survivingMessages === 0,
       `${survivingThreads} / ${survivingMessages}`,
+    );
+
+    /* ── 9. "Load earlier" paging ─────────────────────────────────── */
+
+    console.log("");
+    console.log("9. Load earlier — the page boundary and the cursor");
+
+    // A dedicated conversation with MORE than one page, seeded directly so the timestamps are
+    // deterministic: 55 rows, one second apart. Driving this through `sendDirectMessage` would be 55
+    // round trips and could cluster messages into the same millisecond, which the strict
+    // `createdAt <` cursor would then skip.
+    const paging = await openDirectThread({
+      organizationId,
+      userId: owner.id,
+      otherUserId: carl.loginId,
+    });
+    const PAGE_SEED = 55;
+    const seedBase = Date.now() - PAGE_SEED * 1000;
+    await prisma.directMessage.createMany({
+      data: Array.from({ length: PAGE_SEED }, (_, index) => ({
+        threadId: paging.threadId,
+        authorUserId: carl.loginId,
+        body: `page-${index}`,
+        createdAt: new Date(seedBase + index * 1000),
+      })),
+    });
+
+    const firstPage = await getDirectThread({
+      organizationId,
+      userId: owner.id,
+      threadId: paging.threadId,
+    });
+    check(
+      "a conversation longer than one page returns exactly the page size and says there is more",
+      firstPage.messages.length === 50 && firstPage.hasEarlier === true,
+      `${firstPage.messages.length} / hasEarlier=${firstPage.hasEarlier}`,
+    );
+
+    // The cursor continues from the OLDEST message shown — the first element of an oldest-first page.
+    const oldestShown = firstPage.messages[0];
+    const secondPage = await getDirectThread({
+      organizationId,
+      userId: owner.id,
+      threadId: paging.threadId,
+      before: oldestShown.createdAt,
+    });
+    check(
+      "the cursor returns the remainder and reports the history exhausted",
+      secondPage.messages.length === PAGE_SEED - 50 && secondPage.hasEarlier === false,
+      `${secondPage.messages.length} / hasEarlier=${secondPage.hasEarlier}`,
+    );
+
+    const firstIds = new Set(firstPage.messages.map((message) => message.id));
+    check(
+      "the two pages do not overlap, and together they are the whole conversation",
+      secondPage.messages.every((message) => !firstIds.has(message.id)) &&
+        firstIds.size + secondPage.messages.length === PAGE_SEED,
+      `${firstIds.size} + ${secondPage.messages.length}`,
+    );
+
+    const beforeEverything = await getDirectThread({
+      organizationId,
+      userId: owner.id,
+      threadId: paging.threadId,
+      before: new Date(seedBase - 60_000).toISOString(),
+    });
+    check(
+      "a cursor older than the whole conversation is an empty, exhausted page",
+      beforeEverything.messages.length === 0 && beforeEverything.hasEarlier === false,
+      `${beforeEverything.messages.length} / hasEarlier=${beforeEverything.hasEarlier}`,
     );
   } finally {
     if (!KEEP_FIXTURES) {

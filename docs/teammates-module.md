@@ -181,7 +181,7 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:verify-t7` | Runs the 26-assertion T7 suite (the three acceptance criteria, display-vs-access, the mirror's idempotency and removals, hidden categories, and the unmirrorable-contact residue). |
 | `npm run teammates:verify-t9` | Runs the 44-assertion T9 suite (the signed token and its refusals, the mailbox guard, the profile guards, the inviter's note, acceptance creating vs reusing a login, the seat conversion, replay, both audit rows, and the tenancy invariant — the login anchored to the inviting organization and owning none of its own). |
 | `npm run comments:verify` | Runs the 47-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, and the plan-delete cascade). See §9i. |
-| `npm run messages:verify` | Runs the 41-assertion Direct Messages suite (the directory predicate that doubles as the gate, the refusals — including the organization owner refused a thread between two other people — the canonical pair and the `CHECK` that enforces it, the body limit's boundary, unread and the read watermark, ONE Bell row per conversation, **attachment reads that follow participation and never the org fallback**, and the login-delete cascade). See §9j. |
+| `npm run messages:verify` | Runs the 45-assertion Direct Messages suite (the directory predicate that doubles as the gate, the refusals — including the organization owner refused a thread between two other people — the canonical pair and the `CHECK` that enforces it, the body limit's boundary, unread and the read watermark, ONE Bell row per conversation, **attachment reads that follow participation and never the org fallback**, the **`load earlier` page boundary and its cursor**, and the login-delete cascade). See §9j. |
 | `npm run teammates:backfill-contacts` | Projects every plan's `keyContacts` onto profiles + assignments (T7). Idempotent; `--dry-run` to count without writing. Run it before the hub reader switch and after adding a new contacts writer. |
 | `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
 
@@ -2300,6 +2300,23 @@ conversation's files. `resolveDirectAttachmentAccess` therefore answers for ever
 generic check. The presign route (`POST /api/messages/attachments`) checks participation BEFORE
 minting a key, because a presigned URL is a capability.
 
+### Paging, and the panel's keyboard contract
+
+**"Load earlier".** `getDirectThread` returns the newest `THREAD_PAGE_SIZE` (50) with `hasEarlier`
+and accepts a `?before=<ISO>` cursor. The client keeps the older pages in state SEPARATE from the
+polled newest page ([`hooks/useDirectThread.ts`](../hooks/useDirectThread.ts)) — merged into the SWR
+value instead, the 10s poll would wipe the history the reader had paged back to — and stitches them
+at read time, de-duplicating against the newest page because a message that arrives between the two
+reads can legitimately appear in both. The scroll pin is keyed on the NEWEST MESSAGE ID rather than
+the list length, so paging older messages in does not yank the view to the bottom.
+
+**The panel's contract.** Escape closes the rail, guarded so a focused `input`/`textarea` does not
+lose a half-written message (the composer's draft is local state and the rail unmounts on close);
+focus moves into the panel when it opens, fired on the transition only so a poll cannot steal focus
+back; the open thread is an `aria-live="polite"` region and the conversation list is not, so a
+background poll for a thread the reader is not looking at stays silent; and a run of messages from
+one author draws the avatar once, with a spacer keeping the run aligned beneath it.
+
 ### Why the right column needs an owner
 
 Comments and Messages are two panels that want the same box. The first attempt used a derived
@@ -2313,7 +2330,7 @@ its own mode to `"off"`. The dashboard takes the MAX of the two insets
 ### Verification
 
 ```
-npm run messages:verify   ->  41/41 assertions passed
+npm run messages:verify   ->  45/45 assertions passed
 ```
 
 Runs against the real data layer with self-cleaning fixtures: the directory (who the owner may
@@ -2322,8 +2339,11 @@ block for a Collaborator on a plan they cannot see); the gate's refusals (self-t
 non-member, and the organization owner refused a thread between two other people); the canonical
 pair and the by-name `CHECK` refusal; the body-limit boundary; unread and the watermark; the
 one-row Bell; the attachment guard (a participant allowed, **the owner refused**, an unthreaded
-key refused, and a comment key left alone for the generic check); and the login-delete cascade.
-`npx tsc --noEmit` and `eslint` are clean.
+key refused, and a comment key left alone for the generic check); the `load earlier` boundary (a
+55-message conversation returns exactly 50 with more to come, the cursor returns the remainder
+exhausted, the two pages are disjoint and together complete, and a cursor older than the whole
+conversation is an empty page); and the login-delete cascade. `npx tsc --noEmit` and `eslint` are
+clean.
 
 ---
 

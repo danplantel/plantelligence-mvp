@@ -23,6 +23,7 @@ import {
   type DirectMessageView,
 } from "@/lib/messages/types";
 import { useDirectThread } from "@/hooks/useDirectThread";
+import { useViewerAccess } from "@/hooks/useViewerAccess";
 import { CommentAttachmentModal } from "@/components/comments/comment-attachment-modal";
 import { DirectoryPicker } from "./directory-picker";
 import { MessagesComposer } from "./messages-composer";
@@ -156,10 +157,18 @@ function MessagesThread({ threadId }: { threadId: string }) {
   const mode = useOptionalMessagesMode();
   const currentUserId = mode?.currentUserId ?? null;
 
-  const { thread, isLoading, error, send, withdraw, markRead } = useDirectThread(
-    threadId,
-    true,
-  );
+  const {
+    thread,
+    messages,
+    isLoading,
+    error,
+    send,
+    withdraw,
+    markRead,
+    hasEarlier,
+    isLoadingEarlier,
+    loadEarlier,
+  } = useDirectThread(threadId, true);
 
   /** The attachment the reader opened in the shared viewer, or null when it is closed. */
   const [openAttachment, setOpenAttachment] = useState<DirectAttachment | null>(
@@ -169,7 +178,6 @@ function MessagesThread({ threadId }: { threadId: string }) {
   /** Whether to keep the view pinned to the newest message. Set by the reader's own scrolling. */
   const stickRef = useRef(true);
 
-  const messages = thread?.messages ?? [];
   const newest = messages[messages.length - 1] ?? null;
 
   /**
@@ -193,11 +201,19 @@ function MessagesThread({ threadId }: { threadId: string }) {
     void markRead();
   }, [thread, newest, currentUserId, markRead]);
 
+  /**
+   * Pin to the newest message — keyed on the NEWEST ID, not the list length.
+   *
+   * Paging in an older page also changes the length, and jumping to the bottom on that would throw
+   * the reader away from the history they just asked for. Only a genuinely new newest message
+   * should move the view.
+   */
+  const newestId = newest?.id ?? null;
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || !stickRef.current) return;
     el.scrollTop = el.scrollHeight;
-  }, [messages.length]);
+  }, [newestId]);
 
   /** Day separators, plus the "New messages" divider at the reader's own watermark. */
   const rendered = useMemo<RenderedRow[]>(() => {
@@ -269,15 +285,44 @@ function MessagesThread({ threadId }: { threadId: string }) {
           stickRef.current =
             el.scrollHeight - el.scrollTop - el.clientHeight < 120;
         }}
+        // Announce new messages here, and ONLY here: the conversation list is not a live region, so
+        // a background poll for a thread the reader is not looking at stays silent.
+        aria-live="polite"
+        aria-relevant="additions"
         className={cn("flex-1 overflow-y-auto px-3 py-3", VIEW_ENTER_FORWARD)}
       >
+        {hasEarlier && (
+          <div className="flex justify-center pb-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 text-[11px]"
+              disabled={isLoadingEarlier}
+              onClick={async () => {
+                try {
+                  await loadEarlier();
+                } catch (loadError) {
+                  toast.error(
+                    (loadError as Error)?.message ??
+                      "Could not load earlier messages.",
+                  );
+                }
+              }}
+            >
+              {isLoadingEarlier && (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              )}
+              Load earlier messages
+            </Button>
+          </div>
+        )}
         {rendered.length === 0 ? (
           <p className="py-8 text-center text-xs text-muted-foreground">
             No messages yet — say hello.
           </p>
         ) : (
           <ul className="space-y-2">
-            {rendered.map((row) => {
+            {rendered.map((row, index) => {
               if (row.kind === "day") {
                 return (
                   <li
@@ -308,6 +353,13 @@ function MessagesThread({ threadId }: { threadId: string }) {
                 message.authorUserId === currentUserId ||
                 message.authorUserId === "pending";
               const inFlight = message.id.startsWith("temp-");
+              // Group a run: the avatar is drawn once, on the first message of a run by the same
+              // author, with a spacer keeping the rest of the run aligned beneath it.
+              const previous = rendered[index - 1];
+              const startsRun =
+                !previous ||
+                previous.kind !== "message" ||
+                previous.message.authorUserId !== message.authorUserId;
 
               return (
                 <li
@@ -317,16 +369,19 @@ function MessagesThread({ threadId }: { threadId: string }) {
                     mine ? "justify-end" : "justify-start",
                   )}
                 >
-                  {!mine && (
-                    <span className="mt-0.5 h-6 w-6 shrink-0 overflow-hidden rounded-full bg-muted">
-                      <Headshot
-                        src={thread.participant.headshot}
-                        alt={thread.participant.name}
-                        monogramName={thread.participant.name}
-                        wrapperClassName="rounded-full"
-                      />
-                    </span>
-                  )}
+                  {!mine &&
+                    (startsRun ? (
+                      <span className="mt-0.5 h-6 w-6 shrink-0 overflow-hidden rounded-full bg-muted">
+                        <Headshot
+                          src={thread.participant.headshot}
+                          alt={thread.participant.name}
+                          monogramName={thread.participant.name}
+                          wrapperClassName="rounded-full"
+                        />
+                      </span>
+                    ) : (
+                      <span className="w-6 shrink-0" aria-hidden="true" />
+                    ))}
                   <div className={cn("min-w-0 max-w-[85%]", mine && "order-first")}>
                     {message.deletedAt ? (
                       <div className="rounded-lg bg-muted px-2.5 py-1.5 text-xs italic text-muted-foreground">
@@ -456,6 +511,19 @@ export function MessagesRail() {
     // the picker open.
     if (!isOpen) setShowPicker(false);
   }, [isOpen]);
+
+  // Move focus into the panel when it opens, so a keyboard reader lands inside it instead of having
+  // to tab in from the header. Fired on the TRANSITION only, so a poll or a re-render cannot steal
+  // focus back from wherever the reader has since moved.
+  const railRef = useRef<HTMLElement>(null);
+  const wasOpen = useRef(false);
+  useEffect(() => {
+    if (isOpen && !wasOpen.current) railRef.current?.focus();
+    wasOpen.current = isOpen;
+  }, [isOpen]);
+
+  const { isCollaborator } = useViewerAccess();
+
   if (!mode || !mode.open) return null;
 
   const {
@@ -472,9 +540,11 @@ export function MessagesRail() {
 
   return (
     <aside
+      ref={railRef}
+      tabIndex={-1}
       role="complementary"
       aria-label="Messages"
-      className="fixed right-0 top-16 z-40 flex h-[calc(100vh-4rem)] w-[24rem] flex-col border-l border-border bg-background shadow-sm"
+      className="fixed right-0 top-16 z-40 flex h-[calc(100vh-4rem)] w-[24rem] flex-col border-l border-border bg-background shadow-sm focus:outline-none"
     >
       <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-2">
         <div className="flex min-w-0 items-center gap-1.5">
@@ -555,8 +625,12 @@ export function MessagesRail() {
           ) : conversations.length === 0 ? (
             <div className="px-6 py-10 text-center">
               <p className="text-xs font-medium">No messages yet</p>
+              {/* A Collaborator has a smaller roster and a more specific question — "who can I even
+                  reach?" — so the copy answers that instead of describing the mechanism. */}
               <p className="mt-1 text-xs text-muted-foreground">
-                Conversations you start or receive will appear here.
+                {isCollaborator
+                  ? "You can message the advisor who invited you, and the team on your plans."
+                  : "Conversations you start or receive will appear here."}
               </p>
               <Button
                 variant="outline"

@@ -257,8 +257,8 @@ is issued.
 
 ## Phases
 
-**Shipped.** The work ran as five phases (below); the map onto the plan's own numbering is noted
-where they differ. `npm run messages:verify` is green at **41/41**, `tsc` and `eslint` are clean,
+**Shipped.** The work ran as six phases (below); the map onto the plan's own numbering is noted
+where they differ. `npm run messages:verify` is green at **45/45**, `tsc` and `eslint` are clean,
 and the feature is documented in `docs/teammates-module.md` §2 and §9j.
 
 1. ✅ **Data and server** (phases 1–3). Models + three migrations, `messages.server.ts`,
@@ -275,6 +275,11 @@ and the feature is documented in `docs/teammates-module.md` §2 and §9j.
 6. ✅ **Notifications, polish, verification, docs.** The coalesced Bell row; a `$extends` retry
    wrapper for the verify scripts (see the findings above); `scripts/messages/verify-messages.ts`;
    the `docs/teammates-module.md` entries.
+7. ✅ **Polish — the promises v1 skipped.** "Load earlier" paging (the `?before=` cursor the routes
+   already accepted, wired into the hook and the rail, with older pages held apart from the polled
+   page so a poll cannot wipe history); the panel's keyboard contract (Escape closes, focus moves in
+   on open, `aria-live` in the open thread only); consecutive-message avatar grouping; the
+   Collaborator's tailored empty state; and four paging assertions in the suite (41 → 45).
 
 ## Verification (`scripts/messages/verify-messages.ts`, mirroring `verify-comments`)
 

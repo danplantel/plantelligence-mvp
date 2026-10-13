@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import useSWR from "swr";
 import { mutate as mutateGlobal } from "swr";
 import { DIRECT_INBOX_KEY } from "./useDirectThreads";
@@ -35,6 +35,12 @@ async function fetchThread(url: string): Promise<DirectThreadView> {
 
 export interface UseDirectThreadResult {
   thread: DirectThreadView | null;
+  /**
+   * The conversation's messages, oldest first — the newest page PLUS every page pulled in by
+   * `loadEarlier`, de-duplicated. The rail renders this rather than `thread.messages` so a paged-in
+   * history and the polled newest page read as one continuous list.
+   */
+  messages: DirectMessageView[];
   isLoading: boolean;
   error: string | null;
   errorStatus: number | null;
@@ -44,6 +50,11 @@ export interface UseDirectThreadResult {
   withdraw: (messageId: string) => Promise<void>;
   markRead: () => Promise<void>;
   refresh: () => void;
+  /** True while older messages remain to the past of the oldest one currently shown. */
+  hasEarlier: boolean;
+  isLoadingEarlier: boolean;
+  /** Pull the previous page. Throws so the caller can surface the failure; the cursor is not moved. */
+  loadEarlier: () => Promise<void>;
 }
 
 /**
@@ -187,8 +198,76 @@ export function useDirectThread(
     void mutate();
   }, [mutate]);
 
+  /* ─────────────────────────── Paging: "load earlier" ─────────────────────────── */
+
+  /**
+   * Older pages are held SEPARATELY from the SWR page and merged at read time.
+   *
+   * That is deliberate: the 10s poll revalidates the newest page and would otherwise wipe
+   * anything the reader had paged back to. Keeping them apart means a poll replaces only the
+   * newest slice, and the merge below is what stitches the two together for the rail.
+   */
+  const [older, setOlder] = useState<DirectMessageView[]>([]);
+  const [earlierExhausted, setEarlierExhausted] = useState(false);
+  const [isLoadingEarlier, setIsLoadingEarlier] = useState(false);
+
+  // A different conversation starts from a clean slate; pages from the previous thread must not
+  // bleed into this one.
+  useEffect(() => {
+    setOlder([]);
+    setEarlierExhausted(false);
+  }, [threadId]);
+
+  const loadEarlier = useCallback(async () => {
+    if (!threadId || isLoadingEarlier) return;
+    // The cursor is the oldest message ON SCREEN, so the next page continues exactly from there
+    // whether or not the reader has paged before.
+    const oldest = older[0] ?? data?.messages?.[0];
+    if (!oldest) return;
+
+    setIsLoadingEarlier(true);
+    try {
+      const response = await fetch(
+        `/api/messages/threads/${encodeURIComponent(threadId)}?before=${encodeURIComponent(
+          oldest.createdAt,
+        )}`,
+        { cache: "no-store" },
+      );
+      const payload = (await response.json().catch(() => ({}))) as {
+        thread?: DirectThreadView;
+        error?: string;
+      };
+      if (!response.ok || !payload.thread) {
+        throw new Error(payload.error ?? "Could not load earlier messages.");
+      }
+      setOlder((prev) => [...payload.thread!.messages, ...prev]);
+      setEarlierExhausted(!payload.thread.hasEarlier);
+    } finally {
+      setIsLoadingEarlier(false);
+    }
+  }, [threadId, older, data?.messages, isLoadingEarlier]);
+
+  const baseMessages = data?.messages;
+  const messages = useMemo(() => {
+    const base = baseMessages ?? [];
+    if (older.length === 0) return base;
+    // De-duplicate against the newest page: a message that arrived between the two reads can
+    // legitimately appear in both, and it must not render twice.
+    const seen = new Set(base.map((message) => message.id));
+    return [...older.filter((message) => !seen.has(message.id)), ...base];
+  }, [baseMessages, older]);
+
+  // Exhausted once a page came back short; otherwise "more exists" iff we have paged at least once
+  // or the newest page said so.
+  const hasEarlier = earlierExhausted
+    ? false
+    : older.length > 0
+      ? true
+      : Boolean(data?.hasEarlier);
+
   return {
     thread: data ?? null,
+    messages,
     isLoading: isLoading && !data,
     error: error ? error.message : null,
     errorStatus: error?.status ?? null,
@@ -197,5 +276,8 @@ export function useDirectThread(
     withdraw,
     markRead,
     refresh,
+    hasEarlier,
+    isLoadingEarlier,
+    loadEarlier,
   };
 }
