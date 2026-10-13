@@ -62,6 +62,18 @@ export interface InvitationView {
   inviterName?: string | null;
   organizationName?: string | null;
   /**
+   * The note the inviter typed when they sent the invitation — the one free-text field in the
+   * invite dialog, and the only part of the invitation written in their own words.
+   *
+   * Read off the seat's ASSIGNMENTS rather than the profile: `inviteCollaboratorToPlan` keeps it
+   * on `PlanAssignment.inviteNote`, because a note belongs to the grant it came with — and a
+   * re-invite for another category merges onto the existing assignment, so the note follows the
+   * access instead of being duplicated next to it.
+   *
+   * Null when the advisor left it blank, which is the common case: the dialog marks it optional.
+   */
+  inviteNote?: string | null;
+  /**
    * The plan being offered, and ONLY when the invitation covers exactly one.
    *
    * Null for several plans and for a seat that covers all of them: naming the first assignment
@@ -230,7 +242,14 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
     prisma.planAssignment.findMany({
       where: { organizationId, profileId },
       orderBy: { createdAt: "asc" },
-      select: { clientId: true, categoryScope: true, categories: true },
+      // `inviteNote` travels with the rest: the note the inviter wrote is shown to the invitee on
+      // the acceptance page, and it lives on the assignment — see `InvitationView`.
+      select: {
+        clientId: true,
+        categoryScope: true,
+        categories: true,
+        inviteNote: true,
+      },
     }),
     prisma.user.findUnique({
       where: { email: profile.email },
@@ -254,6 +273,20 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
   const categories: string[] = Array.isArray(assignmentCategories)
     ? assignmentCategories
     : [];
+
+  /**
+   * The inviter's note, from the FIRST assignment that carries one.
+   *
+   * "First with a note" rather than "the first assignment": a seat covering several plans gets one
+   * assignment per plan, and only the invite that was actually raised writes a note — so reading
+   * `assignments[0]` alone would show nothing whenever the note landed on a later row. When two
+   * notes disagree the earliest wins, which is what the resend email sends too (`team.server.ts`
+   * reads `assignments[0]`).
+   */
+  const inviteNote =
+    assignments.find(
+      (assignment) => (assignment.inviteNote ?? "").trim().length > 0,
+    )?.inviteNote?.trim() ?? null;
 
   return {
     status: "ok",
@@ -279,6 +312,7 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
       : null,
     inviterName: inviter?.name ?? inviter?.email ?? null,
     organizationName,
+    inviteNote,
     planName: plan?.companyName ?? null,
     sectionName:
       singleAssignment?.categoryScope === "selected" && categories.length > 0

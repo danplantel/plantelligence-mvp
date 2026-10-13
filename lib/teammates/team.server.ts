@@ -639,6 +639,13 @@ export async function resendTeamMemberInvite(input: {
   organizationId: string;
   actorUserId: string;
   profileId: string;
+  /**
+   * Test-only, and the same escape hatch the other two invite writers carry (`addTeamMember`,
+   * `inviteCollaboratorToPlan`): the verification suite exercises the resend — the refusals, the
+   * untouched window, the cooldown — without mailing a fixture address. The routes never set it,
+   * so production behaviour is unchanged.
+   */
+  skipEmail?: boolean;
 }): Promise<ResendInviteResult> {
   const profile = await getTeammateProfile(input.profileId, input.organizationId);
   if (!profile) {
@@ -821,7 +828,12 @@ export async function resendTeamMemberInvite(input: {
   let emailSent = false;
   let emailError: string | null = null;
   try {
-    if (current.type === "collaborator") {
+    if (input.skipEmail) {
+      // Nothing sent, and `emailSent` stays FALSE rather than short-circuiting before the audit
+      // row: "we chased this person" and "the chase was skipped" are different facts, and the row
+      // below is the record of which one happened. Nothing else in this function is skipped —
+      // the window, the link and the refusals are all exactly as a real resend has them.
+    } else if (current.type === "collaborator") {
       // A collaborator holds no seat and was invited to complete a benefit section, not to
       // join a team. Resending must use the SAME template the first invitation used, or the
       // recipient is told they were "added as a Team Member" — the very thing this section
@@ -895,7 +907,7 @@ export async function resendTeamMemberInvite(input: {
         categories: allCategories ? null : categoryNames,
       });
     }
-    emailSent = true;
+    if (!input.skipEmail) emailSent = true;
   } catch (error) {
     emailError = error instanceof Error ? error.message : "Unknown email error";
     console.error("[teammates/team] invitation resend failed", error);

@@ -28,7 +28,11 @@
 import prisma from "@/lib/prisma";
 import { TeammateDataError } from "./errors";
 import { recordTeammateAuditEvent } from "./audit.server";
-import { organizationDisplayName } from "@/lib/organization";
+import {
+  getOrCreateOrganizationForUser,
+  organizationDisplayName,
+} from "@/lib/organization";
+import { planIdOrSlug } from "@/lib/plan-lookup";
 import { getAssignment, upsertAssignment } from "./assignments.server";
 import {
   createTeammateProfile,
@@ -106,15 +110,54 @@ function parseDueDate(value: string | null | undefined): Date | null {
  *
  * No `select` — `getBenefitCompleteness` reads many columns off the row, and
  * `/api/benefits` passes the full client for the same reason.
+ *
+ * Two things this lookup has to get right, because the caller hands it whatever the wizard
+ * was opened with rather than a value it chose:
+ *
+ * 1. **Id OR slug.** `resolvePlanAccess` matches either column, so the same plan opens fine
+ *    whichever spelling arrived — but accepting only the primary key here made the invite the
+ *    one action that failed on a plan the advisor was already looking at, with a message
+ *    ("Plan not found in this organization.") that reads as a tenancy problem rather than as
+ *    the spelling mismatch it was. `planIdOrSlug` is the shared predicate; using it keeps this
+ *    lookup on the same rule as every other plan check.
+ *
+ * 2. **A plan whose `organizationId` was never stamped.** The teammate layer reads plans by
+ *    that column, so an unstamped row is invisible to every org-scoped read — including the
+ *    one below. Creation stamps it (`/api/clients/create`, the wizard's save-draft and
+ *    complete routes) and `scripts/teammates/backfill-organizations.ts` repairs older rows,
+ *    but a row that slipped through must not make the invite impossible while the plan it
+ *    names opens fine for its owner. So rather than refuse the row, the organization is
+ *    resolved the way those routes resolve it — from the owner — written back, and then
+ *    compared like any other. The row heals on first use, and any future read of the same
+ *    plan finds it properly tenant-scoped.
+ *
+ * A row that already names an organization is NEVER repaired onto the caller's: a plan
+ * belonging to somebody else is refused outright, exactly as before.
  */
-async function loadPlan(organizationId: string, clientId: string) {
+async function loadPlan(organizationId: string, clientIdOrSlug: string) {
   const client = await prisma.client.findFirst({
-    where: { id: clientId, organizationId },
+    where: planIdOrSlug(clientIdOrSlug),
   });
   if (!client) {
     throw new TeammateDataError("Plan not found in this organization.", 404);
   }
-  return client;
+  if (client.organizationId === organizationId) return client;
+
+  if (client.organizationId) {
+    throw new TeammateDataError("Plan not found in this organization.", 404);
+  }
+
+  // Unstamped: the plan is reachable only by its owner, so the owner's organization is the
+  // plan's — the same derivation `/api/clients/[id]` and the save-draft route already make.
+  const ownerOrganizationId = await getOrCreateOrganizationForUser(client.userId);
+  if (ownerOrganizationId !== organizationId) {
+    throw new TeammateDataError("Plan not found in this organization.", 404);
+  }
+  await prisma.client.update({
+    where: { id: client.id },
+    data: { organizationId },
+  });
+  return { ...client, organizationId };
 }
 
 /* ─────────────────────────── Domain guess ─────────────────────────── */
@@ -402,6 +445,15 @@ export async function inviteCollaboratorToPlan(
   }
 
   const plan = await loadPlan(input.organizationId, input.clientId);
+  /**
+   * Everything below keys off the RESOLVED id, never `input.clientId`.
+   *
+   * The caller may have handed over a slug, and a slug is not a plan id: written into
+   * `PlanAssignment.clientId` it would create a row that no by-id lookup (or `resolvePlanAccess`)
+   * can ever match, and the invite would appear to succeed while granting nothing. Same for the
+   * audit row and the `edit-benefit` deep link in the email.
+   */
+  const planId = plan.id;
 
   // The person: an explicit pick from the search wins, else the email decides.
   // Either route reuses an existing profile (Part B item 5).
@@ -446,7 +498,7 @@ export async function inviteCollaboratorToPlan(
 
   const existing = await getAssignment({
     profileId: profile.id,
-    clientId: input.clientId,
+    clientId: planId,
     organizationId: input.organizationId,
   });
 
@@ -484,7 +536,7 @@ export async function inviteCollaboratorToPlan(
   const assignment = await upsertAssignment({
     organizationId: input.organizationId,
     profileId: profile.id,
-    clientId: input.clientId,
+    clientId: planId,
     actorUserId: input.actorUserId,
     role,
     categoryScope,
@@ -508,7 +560,7 @@ export async function inviteCollaboratorToPlan(
     targetCategories.map((value) =>
       missingFieldsForCategory({
         organizationId: input.organizationId,
-        clientId: input.clientId,
+        clientId: planId,
         category: value,
       }),
     ),
@@ -523,7 +575,7 @@ export async function inviteCollaboratorToPlan(
     assignmentId: assignment.id,
     details: {
       source: input.source ?? "create_benefits",
-      clientId: input.clientId,
+      clientId: planId,
       categories: targetCategories,
       whoIsThis: input.whoIsThis ?? null,
       whoIsThisLabel:
@@ -578,7 +630,7 @@ export async function inviteCollaboratorToPlan(
         // benefit list, because there is no single section to open.
         sectionUrl:
           targetCategories.length === 1
-            ? `${appBaseUrl()}/edit-benefit/${input.clientId}/${categoryToSlug(
+            ? `${appBaseUrl()}/edit-benefit/${planId}/${categoryToSlug(
                 targetCategories[0],
               )}`
             : `${appBaseUrl()}/benefits`,
@@ -625,6 +677,17 @@ export interface PlanAssignmentRow {
   name: string;
   email: string;
   headshot: string | null;
+  /**
+   * The seat's OWN details — what the invitee typed on the acceptance page.
+   *
+   * They belong here because a Collaborator card is a PERSON card, not a permission row: without
+   * them it could only show the role and company the assignment knows about, so somebody who
+   * entered their job title and phone number while accepting still rendered as "No Title" with
+   * no way to reach them.
+   */
+  jobTitle: string | null;
+  phone: string | null;
+  phoneExtension: string | null;
   personType: TeammatePersonType;
   companyName: string | null;
   role: TeammateAssignmentRole;
@@ -695,6 +758,9 @@ export async function listPlanAssignments({
           profile.email,
         email: profile.email,
         headshot: profile.headshot ?? null,
+        jobTitle: profile.jobTitle ?? null,
+        phone: profile.phone ?? null,
+        phoneExtension: profile.phoneExtension ?? null,
         personType: profile.type,
         companyName: profile.companyId
           ? (companyNameById.get(profile.companyId) ?? null)

@@ -108,6 +108,13 @@ interface PlanAssignmentRow {
   name: string;
   email: string;
   headshot: string | null;
+  /**
+   * The seat's own details. The Collaborators section renders them on the card, so they have to
+   * survive this local shape as well as the server's — see `PlanAssignmentRow` there.
+   */
+  jobTitle?: string | null;
+  phone?: string | null;
+  phoneExtension?: string | null;
   /** `team_member` for anyone holding a seat — the Collaborators section drops those. */
   personType: string;
   companyName?: string | null;
@@ -278,6 +285,11 @@ export function CategoryExplorer({
           name: person.name || person.email,
           email: person.email,
           headshot: person.headshot ?? null,
+          // Carried through explicitly — this builder enumerates fields, so anything left out is
+          // dropped here rather than by the card. See `PlanAssignmentRow`.
+          jobTitle: person.jobTitle ?? null,
+          phone: person.phone ?? null,
+          phoneExtension: person.phoneExtension ?? null,
           companyName: person.companyName ?? null,
           role: person.role,
           categoryScope: person.categoryScope,

@@ -131,6 +131,9 @@ async function main(): Promise<void> {
       categories: ["Group Health"],
       email: janeEmail,
       name: "Jane Smith",
+      // The inviter's own words, carried onto the assignment. Padded, so the assertion below also
+      // pins the trim.
+      note: "  Please add the group numbers before Friday.  ",
       // No mail leaves the machine.
       skipEmail: true,
       source: "key_contacts",
@@ -225,6 +228,22 @@ async function main(): Promise<void> {
         okView.planName === `Ayres ${STAMP}` &&
         okView.sectionName === "Group Health",
       `${okView.inviterName} / ${okView.planName} / ${okView.sectionName}`,
+    );
+    check(
+      "and carries the note the inviter wrote, trimmed",
+      okView.inviteNote === "Please add the group numbers before Friday.",
+      JSON.stringify(okView.inviteNote),
+    );
+    // Absent rather than stale when the advisor left it blank — the case the dialog's
+    // "(optional)" label makes the common one. Cleared on the assignment, because that is where
+    // the invite put it.
+    await prisma.planAssignment.updateMany({
+      where: { organizationId, profileId: invited.profileId },
+      data: { inviteNote: null },
+    });
+    check(
+      "and no note is shown when none was written",
+      (await loadInvitation(janeToken)).inviteNote === null,
     );
     check(
       "no account exists yet, so the page will ask for a password",
@@ -564,7 +583,7 @@ async function main(): Promise<void> {
     // `signIn`, so it has to do the same. Without this the accepted login is the one User
     // with no `organizationId`, which `verify-backfill` reports as a regression.
     console.log("");
-    console.log("9. Every login this flow creates owns an Organization");
+    console.log("9. Every login this flow creates lands in the inviting organization");
 
     const acceptedLogins = await prisma.user.findMany({
       where: { email: { in: [janeEmail, teammateEmail] } },
@@ -585,13 +604,26 @@ async function main(): Promise<void> {
         .join(", ") || "all linked",
     );
 
+    // Deliberately NOT a personal Organization any more. Acceptance ANCHORS the account to the
+    // firm that invited it, because the `getOrCreateOrganizationForUser` call that used to sit
+    // here minted an empty workspace per invitee and `getOrgSession()` then scoped their whole
+    // session to it — the invited person got a workspace of their own instead of the seat they
+    // were given, and the firm that invited them never saw them arrive. Asserting the ABSENCE
+    // pins that fix against a regression; the anchor assertion is what the T1 invariant
+    // ("every User has an organizationId") actually rests on now.
     const ownedOrgs = await prisma.organization.count({
       where: { ownerUserId: { in: acceptedLogins.map((row) => row.id) } },
     });
     check(
-      "with an Organization owned by that login, exactly as `signIn` would have made",
-      ownedOrgs === acceptedLogins.length,
-      `${ownedOrgs} of ${acceptedLogins.length}`,
+      "and owns no Organization of their own — accepting joins a firm, it does not mint one",
+      ownedOrgs === 0,
+      `${ownedOrgs} personal organization(s)`,
+    );
+    check(
+      "each login is anchored to the organization that invited them",
+      acceptedLogins.length === 2 &&
+        acceptedLogins.every((row) => row.organizationId === organizationId),
+      acceptedLogins.map((row) => row.organizationId ?? "null").join(", "),
     );
   } finally {
     if (!KEEP_FIXTURES) {

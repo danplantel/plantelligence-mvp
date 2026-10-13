@@ -34,6 +34,15 @@ export interface CollaboratorDetailPerson {
   name: string;
   email: string;
   headshot: string | null;
+  /**
+   * The seat's own details, when the caller has them — `/api/teammates/plan-assignments` returns
+   * them, and the card shows them so a collaborator appears as the person they described on the
+   * acceptance page rather than only as the role this list happens to know. Optional because a
+   * builder may legitimately not carry them.
+   */
+  jobTitle?: string | null;
+  phone?: string | null;
+  phoneExtension?: string | null;
   companyName?: string | null;
   role: string;
   categoryScope: "all" | "selected";

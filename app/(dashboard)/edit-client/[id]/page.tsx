@@ -386,6 +386,10 @@ interface PlanCollaboratorRow {
   name: string;
   email: string;
   headshot: string | null;
+  /** The seat's own details, shown on the card — see `PlanAssignmentRow`. */
+  jobTitle?: string | null;
+  phone?: string | null;
+  phoneExtension?: string | null;
   role: string;
   categoryScope: "all" | "selected";
   categories: string[];

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   useBenefitsWizardStore,
   FAQItem,
@@ -104,6 +104,10 @@ interface PlanCollaboratorRow {
   name: string;
   email: string;
   headshot: string | null;
+  /** The seat's own details, shown on the card — see `PlanAssignmentRow`. */
+  jobTitle?: string | null;
+  phone?: string | null;
+  phoneExtension?: string | null;
   /**
    * `team_member` for anyone who holds a paid seat (or an invitation that reserves one),
    * `collaborator` for the free external people this section is about. The API has always
@@ -178,6 +182,49 @@ function SupportContactCardsSkeleton() {
               <Skeleton className="h-4 w-3/4" />
               <Skeleton className="h-3 w-1/2" />
               <Skeleton className="h-3 w-2/3" />
+            </div>
+            <Skeleton className="h-8 w-full rounded-md" />
+          </CardContent>
+        </Card>
+      ))}
+    </>
+  );
+}
+
+/**
+ * The Collaborators placeholder, shown while the plan's assignments are being read.
+ *
+ * Without it the section rendered its EMPTY state — a 0 badge and "No collaborators yet" — for the
+ * couple of seconds that read takes, which is a claim about the plan made while the answer is still
+ * in flight. That is the same mistake the Support Contacts cards above were fixed for, and it reads
+ * worse here: "none" is exactly what an advisor would believe, and a collaborator is the one thing
+ * on this step that can still arrive.
+ *
+ * Four cards, because that is what one row holds (`lg:grid-cols-4`), each mirroring the real card's
+ * boxes — avatar row, detail block, status chip — so the reveal is a fade rather than a relayout.
+ * The detail block is FOUR lines for that reason: the real card always draws name, title, email and
+ * phone, so a three-line placeholder would move the page when it resolved.
+ */
+function CollaboratorCardsSkeleton() {
+  return (
+    <>
+      {Array.from({ length: 4 }).map((_, index) => (
+        <Card
+          key={index}
+          aria-hidden="true"
+          className="border-gray-100 dark:border-gray-700 dark:bg-gray-800"
+        >
+          <CardContent className="space-y-2 p-3">
+            <div className="flex items-center gap-2.5">
+              <Skeleton className="h-4 w-4 shrink-0 rounded-full" />
+              <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+              <Skeleton className="ml-auto h-7 w-7 shrink-0 rounded-md" />
+            </div>
+            <div className="space-y-0.5">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3 w-1/2" />
+              <Skeleton className="h-3 w-2/3" />
+              <Skeleton className="h-3 w-1/2" />
             </div>
             <Skeleton className="h-8 w-full rounded-md" />
           </CardContent>
@@ -273,6 +320,13 @@ export function BenefitsStep3({
   const [collaboratorPendingDelete, setCollaboratorPendingDelete] =
     useState<CollaboratorDetailPerson | null>(null);
   const [isDeletingCollaborator, setIsDeletingCollaborator] = useState(false);
+  /**
+   * The Collaborator whose invitation is being re-sent.
+   *
+   * Held by id rather than as a boolean so only THAT card swaps its icon for a spinner — the
+   * section lists several people and a shared flag would put every card in a loading state.
+   */
+  const [resendingProfileId, setResendingProfileId] = useState<string | null>(null);
   // Owner/Admin only: whether the seat grant is offered at all. The API enforces it too.
   const { canManageTeam } = useViewerAccess();
   /**
@@ -295,6 +349,17 @@ export function BenefitsStep3({
    * say it for both.
    */
   const [contactsResolved, setContactsResolved] = useState(false);
+  /**
+   * Whether the assignments have EVER been read.
+   *
+   * Deliberately not `seatStatusResolved`, which goes back to false on every run — including the
+   * refresh after an invite — because the seat ladder must stop offering a seat the moment one is
+   * granted. The LIST must not go back with it: blanking rows the advisor is already reading, in
+   * order to draw the same rows again a second later, is a blink rather than feedback. So the
+   * placeholder is tied to "never loaded", and a refresh leaves the current rows on screen while
+   * the new ones arrive. Same distinction as `contactsResolved` above.
+   */
+  const [collaboratorsLoaded, setCollaboratorsLoaded] = useState(false);
   const invitePlanId = step1Data?.planId || "";
   const inviteCategory = String(step1Data?.benefitCategory || "");
 
@@ -312,8 +377,10 @@ export function BenefitsStep3({
     if (!invitePlanId) {
       setCollaborators([]);
       setOwnerEmails([]);
-      // Nothing to wait for: without a plan there are no seats to look up.
+      // Nothing to wait for: without a plan there are no seats to look up, and — for the list's
+      // placeholder — nothing to wait for either. The empty state is the honest answer here.
       setSeatStatusResolved(true);
+      setCollaboratorsLoaded(true);
       return;
     }
 
@@ -354,7 +421,11 @@ export function BenefitsStep3({
       } finally {
         // Every path settles: a failed read falls back to the button rather than spinning
         // forever, and the lists are already empty for it.
-        if (!cancelled) setSeatStatusResolved(true);
+        if (!cancelled) {
+          setSeatStatusResolved(true);
+          // Sticky, so this only ever takes the placeholder away.
+          setCollaboratorsLoaded(true);
+        }
       }
     })();
 
@@ -821,6 +892,70 @@ export function BenefitsStep3({
   };
 
   /**
+   * Re-deliver a pending collaborator's invitation.
+   *
+   * The same `resend_invite` action the other collaborator lists use, so all four surfaces
+   * behave identically. A resend is a DELIVERY retry rather than a new grant: the link is minted
+   * from `invitedAt`, so an open invitation goes out again with the same link and the same
+   * window. Only a LAPSED hold starts a new one, and the server owns that decision — here it is
+   * one call either way.
+   *
+   * A mail failure is reported rather than treated as a failed action: the invitation is still
+   * open, and what the advisor needs is the reason, not another error.
+   */
+  const resendCollaboratorInvite = async (person: CollaboratorDetailPerson) => {
+    setResendingProfileId(person.profileId);
+    try {
+      const response = await fetch(
+        `/api/teammates/team/${encodeURIComponent(person.profileId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "resend_invite" }),
+        },
+      );
+      const body = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        emailSent?: boolean;
+        emailError?: string | null;
+        member?: { expiresInDays?: number; refreshedWindow?: boolean };
+      };
+      if (!response.ok) {
+        toast.error(body.error ?? "Could not resend the invitation");
+        return;
+      }
+      // The days the emailed link actually has left, which is not always fourteen: a resend of an
+      // open invitation reports the REMAINDER, and a refreshed one reports the new window. The
+      // copy is built from the server's number so the toast cannot promise a longer hold than the
+      // email just did.
+      const days = body.member?.expiresInDays;
+      const windowNote =
+        typeof days === "number"
+          ? body.member?.refreshedWindow
+            ? ` A fresh invitation was issued and expires in ${days} day${
+                days === 1 ? "" : "s"
+              }.`
+            : ` Their invitation has ${days} day${days === 1 ? "" : "s"} left.`
+          : "";
+      if (body.emailSent) {
+        toast.success(`Invitation re-sent to ${person.email}.${windowNote}`);
+        // Same refresh the invite and the removal use, so the card's expiry line re-reads.
+        setCollaboratorsRefreshKey((key) => key + 1);
+      } else {
+        toast.warning(
+          body.emailError
+            ? `Could not send the invitation: ${body.emailError}`
+            : "The invitation was not sent.",
+        );
+      }
+    } catch {
+      toast.error("Could not resend the invitation");
+    } finally {
+      setResendingProfileId(null);
+    }
+  };
+
+  /**
    * Persist a contact the shared editor produced.
    *
    * Written straight away rather than left in local state, for the same reason
@@ -1080,11 +1215,26 @@ export function BenefitsStep3({
                         >
                           {isSelected && <Check className="w-3.5 w-3.5" />}
                         </div>
-                        {contact.headshot && (
-                          <div className="w-8 h-8 shrink-0 overflow-hidden rounded-full border border-gray-100 dark:border-gray-700">
-                            <Headshot src={contact.headshot} alt={contact.name ?? "Contact"} />
-                          </div>
-                        )}
+                        {/* The avatar slot is reserved whether or not there is a photo. It is
+                            32px beside a 16px selection dot, so omitting it halved the top row's
+                            height and made that whole card shorter than its neighbours — the same
+                            raggedness the four-line detail block below is written to avoid. With
+                            no photo the monogram stands in, so the reserved space reads as an
+                            avatar rather than as a gap (and when there is no name either, the
+                            slot simply stays empty — `Headshot` renders nothing rather than a
+                            broken image). */}
+                        <div className="w-8 h-8 shrink-0 overflow-hidden rounded-full border border-gray-100 dark:border-gray-700">
+                          <Headshot
+                            src={contact.headshot}
+                            alt={contact.name ?? "Contact"}
+                            monogramName={
+                              contact.name ??
+                              `${contact.firstName ?? ""} ${
+                                contact.lastName ?? ""
+                              }`.trim()
+                            }
+                          />
+                        </div>
                         <div className="ml-auto flex shrink-0 items-center">
                           {/* Edit this contact's own details. `stopPropagation` keeps the
                               card's toggle from firing as well — this is the person's data,
@@ -1141,16 +1291,32 @@ export function BenefitsStep3({
                         >
                           {contact.title || "No Title"}
                         </p>
-                        <p title={contact.email} className="truncate text-xs leading-tight text-muted-foreground">
-                          {contact.email}
+                        {/* Email and phone are drawn even when the contact has neither, and the
+                            placeholder is the reason: this block is what sets the CARD's height.
+                            An empty email was a collapsed `<p>` and a missing phone was no
+                            element at all, so a contact captured with only a name, title and
+                            number came out a line shorter than one with an address — and with
+                            two selected, the taller card defined the row. Four lines always now
+                            (name, title, email, phone), so the cards sit level whatever the
+                            advisor happened to capture.
+
+                            The placeholders are not just alignment either: a support contact
+                            employees cannot email or call is a gap worth seeing at the moment
+                            they are being chosen. */}
+                        <p
+                          title={contact.email || "No email"}
+                          className="truncate text-xs leading-tight text-muted-foreground"
+                        >
+                          {contact.email || "No email"}
                         </p>
                         {/* Shown in the display format, not the stored digits: the card is a
                             preview of what employees will read on the benefit page. */}
-                        {formattedPhone ? (
-                          <p title={formattedPhone} className="truncate text-xs leading-tight text-muted-foreground">
-                            {formattedPhone}
-                          </p>
-                        ) : null}
+                        <p
+                          title={formattedPhone || "No phone"}
+                          className="truncate text-xs leading-tight text-muted-foreground"
+                        >
+                          {formattedPhone || "No phone"}
+                        </p>
                       </div>
 
                       {/* Promote this person into a paid Team Member seat — unless a seat
@@ -1342,9 +1508,16 @@ export function BenefitsStep3({
               <span className="text-lg font-bold text-foreground">
                 Collaborators
               </span>
-              <Badge variant="secondary" className="font-medium">
-                {planCollaborators.length}
-              </Badge>
+              {/* A count is an answer, so it is only shown once there IS one. Until the first
+                  read lands the badge holds its own space with a placeholder rather than reporting
+                  0, which is a number the advisor would act on. */}
+              {collaboratorsLoaded ? (
+                <Badge variant="secondary" className="font-medium">
+                  {planCollaborators.length}
+                </Badge>
+              ) : (
+                <Skeleton className="h-5 w-9 shrink-0 rounded-full" />
+              )}
               <Button
                 type="button"
                 variant="outline"
@@ -1375,7 +1548,13 @@ export function BenefitsStep3({
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4 pt-0">
             <div className="space-y-3">
-              {planCollaborators.length === 0 ? (
+              {/* Unknown before empty — the order the Support Contacts grid above already uses,
+                  and the reason `collaboratorsLoaded` exists rather than a length test. */}
+              {!collaboratorsLoaded ? (
+                <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <CollaboratorCardsSkeleton />
+                </div>
+              ) : planCollaborators.length === 0 ? (
                 <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
                   No collaborators yet. Invite a plan sponsor, an outside advisor or a
                   provider rep to help fill in this section.
@@ -1393,6 +1572,19 @@ export function BenefitsStep3({
                           ? () => setCollaboratorPendingDelete(person)
                           : undefined
                       }
+                      /* Offered only while the invitation is live and pending — the same gate the
+                         other two collaborator lists apply, so a card never shows a retry the
+                         server would refuse (already accepted, or a contact with no hold). It is
+                         also Owner/Admin-only, like the removal above it: the endpoint requires
+                         `org_settings`. */
+                      onResendInvite={
+                        canManageTeam &&
+                        !person.deactivatedAt &&
+                        person.state === "invited"
+                          ? () => void resendCollaboratorInvite(person)
+                          : undefined
+                      }
+                      resending={resendingProfileId === person.profileId}
                     />
                   ))}
                 </div>

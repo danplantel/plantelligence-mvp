@@ -51,9 +51,13 @@ export async function GET(request: NextRequest) {
   }
 
   const [assignments, ownerEmails] = await Promise.all([
+    // `access.clientId` is the REAL plan id, and that matters here: the check above accepts an
+    // id or a slug, but an assignment's `clientId` is always the id. Passing the raw parameter
+    // through would let a slug query match nothing and report "No collaborators yet." for a plan
+    // that has some — an empty roster that looks like an answer rather than a lookup that missed.
     listPlanAssignments({
       organizationId: session.organizationId,
-      clientId: planId,
+      clientId: access.clientId,
     }),
     organizationOwnerEmails(session.organizationId),
   ]);

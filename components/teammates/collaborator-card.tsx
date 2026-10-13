@@ -61,10 +61,20 @@ export function CollaboratorCard({
 
   const roleLabel =
     PRESET_ROLE_LABELS[person.role as TeammateAssignmentRole] ?? person.role;
-  // "Contributor" is the default every invited collaborator gets, so it says nothing —
-  // the company is more useful on that line, and the lists already hide the label.
+  /**
+   * The card's second line: the person's OWN job title first, then the role, then the company.
+   *
+   * The title leads because it is the field the invitee fills in on the acceptance page, and it is
+   * what employees would read on a portal card — the whole reason this card exists. Letting the
+   * role lead (as this did) made somebody who had typed "Retirement Plan Advisor" render as
+   * "No Title", because a default Contributor role deliberately says nothing.
+   *
+   * The fallbacks are unchanged: a non-default role still names itself (a Reviewer is worth
+   * knowing about), and "Contributor" still falls through to the company.
+   */
   const secondLine =
-    roleLabel !== "Contributor" ? roleLabel : (person.companyName ?? "");
+    (person.jobTitle ?? "").trim() ||
+    (roleLabel !== "Contributor" ? roleLabel : (person.companyName ?? ""));
 
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" || event.key === " ") {
@@ -131,6 +141,10 @@ export function CollaboratorCard({
           displayName: person.name,
           title: secondLine,
           email: person.email,
+          // The ways to reach them, which `ContactCard` already knows how to draw — it was only
+          // ever handed the email, so a collaborator's phone never appeared.
+          phone: person.phone,
+          phoneExtension: person.phoneExtension,
         }}
         showSeatControl={false}
         onEdit={onEdit}

@@ -42,7 +42,11 @@ import {
   searchCollaborators,
   suggestWhoIsThisContext,
 } from "../../lib/teammates/invites.server";
-import { addTeamMember } from "../../lib/teammates/team.server";
+import {
+  INVITE_RESEND_COOLDOWN_SECONDS,
+  addTeamMember,
+  resendTeamMemberInvite,
+} from "../../lib/teammates/team.server";
 import { findOrCreatePartnerCompany } from "../../lib/teammates/companies.server";
 import { getSeatUsage } from "../../lib/teammates/seats.server";
 import { TeammateDataError } from "../../lib/teammates/errors";
@@ -497,6 +501,34 @@ async function main(): Promise<void> {
     check("with their display name", janeRow?.name === "Jane Smith", janeRow?.name ?? "none");
     check("their email", janeRow?.email === janeEmail, janeRow?.email ?? "none");
     check("the person type", janeRow?.personType === "collaborator");
+
+    // The seat's OWN details travel through this payload, and the Collaborator card renders them,
+    // so they are asserted here rather than only in a browser: somebody who filled in their title
+    // and number on the acceptance page must not come out as "No Title" with no way to reach them.
+    // That is exactly what happened while `listPlanAssignments` returned neither field — the card
+    // could only describe the ROLE, and a default Contributor role deliberately says nothing.
+    await prisma.teammateProfile.update({
+      where: { id: first.profileId },
+      data: {
+        jobTitle: "Retirement Plan Advisor",
+        phone: "5551234567",
+        phoneExtension: "42",
+      },
+    });
+    const detailedRow = (
+      await listPlanAssignments({ organizationId, clientId: planA.id })
+    ).find((row) => row.profileId === first.profileId);
+    check(
+      'the row carries the seat\'s job title, so the card is not stuck on "No Title"',
+      detailedRow?.jobTitle === "Retirement Plan Advisor",
+      detailedRow?.jobTitle ?? "null",
+    );
+    check(
+      "and the phone with its extension, so the card can show how to reach them",
+      detailedRow?.phone === "5551234567" && detailedRow?.phoneExtension === "42",
+      `${detailedRow?.phone ?? "null"} ext. ${detailedRow?.phoneExtension ?? "null"}`,
+    );
+
     check(
       "the merged category list",
       (janeRow?.categories ?? []).length === 2,
@@ -661,6 +693,255 @@ async function main(): Promise<void> {
       (await prisma.planAssignment.count({
         where: { organizationId, role: "reviewer" },
       })) >= 0,
+    );
+
+    /* ── 12. The plan lookup: id or slug, and the unstamped row ─────── */
+
+    console.log("");
+    console.log("12. The invite resolves the plan the way every other plan check does");
+
+    // A plan whose `organizationId` was never stamped — the shape a row left behind by an
+    // older creation path has, and the shape that produced a real report: "Plan not found in
+    // this organization." while the same plan opened fine for its owner. Every other plan
+    // check falls back to the owner; the invite was the one call that refused the row outright.
+    const legacyPlan = await prisma.client.create({
+      data: {
+        userId: owner.id,
+        // Deliberately NO `organizationId`: this is the bug, not an oversight.
+        companyName: `Legacy Draft ${STAMP}`,
+        slug: `t4-verify-legacy-${STAMP}`,
+        status: "Draft",
+        keyContacts: [],
+      },
+      select: { id: true, organizationId: true },
+    });
+    created.clientIds.push(legacyPlan.id);
+    check(
+      "the fixture really is unstamped",
+      legacyPlan.organizationId === null,
+      String(legacyPlan.organizationId),
+    );
+
+    const legacyInvite = await inviteCollaboratorToPlan({
+      organizationId,
+      actorUserId: owner.id,
+      // The SLUG, not the id: the wizard hands over whatever its entry URL carried, and both
+      // spellings name the same plan.
+      clientId: `t4-verify-legacy-${STAMP}`,
+      category: PLAN_A_CATEGORY,
+      email: `t4-verify-legacy-${STAMP}@abbenefits.test`,
+      whoIsThis: "outside_advisor",
+      skipEmail: true,
+    });
+    created.profileIds.push(legacyInvite.profileId);
+    check(
+      "an unstamped plan accepts the invite, addressed by slug",
+      Boolean(legacyInvite.assignmentId),
+      legacyInvite.assignmentId || "none",
+    );
+    check(
+      "and the row is stamped with its owner's organization, so org-scoped reads find it",
+      (
+        await prisma.client.findUnique({
+          where: { id: legacyPlan.id },
+          select: { organizationId: true },
+        })
+      )?.organizationId === organizationId,
+    );
+    check(
+      "the assignment is keyed off the RESOLVED id, never the slug",
+      (
+        await prisma.planAssignment.findFirst({
+          where: { organizationId, profileId: legacyInvite.profileId },
+          select: { clientId: true },
+        })
+      )?.clientId === legacyPlan.id,
+    );
+
+    // A plan that already names somebody else's organization is refused, and is NOT repaired
+    // onto the caller's: the healing above only ever applies to a row with no organization at
+    // all, so the tenant boundary is unchanged.
+    const foreignOwner = await prisma.user.create({
+      data: {
+        name: `T4 Foreign Owner ${STAMP}`,
+        email: `t4-verify-foreign-${STAMP}@example.test`,
+      },
+      select: { id: true },
+    });
+    created.userIds.push(foreignOwner.id);
+    const foreignOrganizationId = await getOrCreateOrganizationForUser(foreignOwner.id);
+    created.organizationIds.push(foreignOrganizationId);
+    const foreignPlan = await prisma.client.create({
+      data: {
+        userId: foreignOwner.id,
+        organizationId: foreignOrganizationId,
+        companyName: `Foreign Plan ${STAMP}`,
+        slug: `t4-verify-foreign-plan-${STAMP}`,
+        status: "Active",
+        keyContacts: [],
+      },
+      select: { id: true },
+    });
+    created.clientIds.push(foreignPlan.id);
+
+    let foreignRefusal = "(no error)";
+    try {
+      await inviteCollaboratorToPlan({
+        organizationId,
+        actorUserId: owner.id,
+        clientId: foreignPlan.id,
+        category: PLAN_A_CATEGORY,
+        email: `t4-verify-nobody-${STAMP}@abbenefits.test`,
+        whoIsThis: "outside_advisor",
+        skipEmail: true,
+      });
+    } catch (error) {
+      foreignRefusal =
+        error instanceof TeammateDataError
+          ? `${error.status}:${error.message}`
+          : `not-a-data-error: ${(error as Error).message}`;
+    }
+    check(
+      "another organization's plan is still refused, with the same message",
+      foreignRefusal === "404:Plan not found in this organization.",
+      foreignRefusal,
+    );
+    check(
+      "and it was not repaired onto the caller's organization",
+      (
+        await prisma.client.findUnique({
+          where: { id: foreignPlan.id },
+          select: { organizationId: true },
+        })
+      )?.organizationId === foreignOrganizationId,
+    );
+
+    /* ── 13. Resending an invitation ────────────────────────────────── */
+
+    console.log("");
+    console.log("13. A resend re-delivers an invitation without re-granting anything");
+
+    /** Run an expected refusal and report `status:code`, so one failure names itself. */
+    const refusalOf = async (run: () => Promise<unknown>): Promise<string> => {
+      try {
+        await run();
+        return "(no error)";
+      } catch (error) {
+        return error instanceof TeammateDataError
+          ? `${error.status}:${error.code ?? "(no code)"}`
+          : `not-a-data-error: ${(error as Error).message}`;
+      }
+    };
+
+    // The action every collaborator card offers. `skipEmail` keeps the suite's own rule — no mail
+    // leaves the machine — while everything else runs exactly as a real resend has it: the window,
+    // the minted link, the audit row and every guard.
+    const invitedBefore = await prisma.teammateProfile.findUnique({
+      where: { id: first.profileId },
+      select: { invitedAt: true },
+    });
+    const resent = await resendTeamMemberInvite({
+      organizationId,
+      actorUserId: owner.id,
+      profileId: first.profileId,
+      skipEmail: true,
+    });
+    const invitedAfter = await prisma.teammateProfile.findUnique({
+      where: { id: first.profileId },
+      select: { invitedAt: true },
+    });
+    check(
+      "a pending collaborator's invitation can be re-sent",
+      resent.state === "invited" && resent.refreshedWindow === false,
+      JSON.stringify({ state: resent.state, refreshed: resent.refreshedWindow }),
+    );
+    check(
+      "the open window is re-delivered, not extended",
+      invitedAfter?.invitedAt?.getTime() === invitedBefore?.invitedAt?.getTime(),
+      `${invitedBefore?.invitedAt?.toISOString()} -> ${invitedAfter?.invitedAt?.toISOString()}`,
+    );
+    check(
+      "and the email is told the days actually left, not a fresh fourteen",
+      resent.expiresInDays === 14,
+      String(resent.expiresInDays),
+    );
+    check(
+      "a skipped send never claims to have sent",
+      resent.emailSent === false,
+      String(resent.emailSent),
+    );
+
+    // The cooldown is enforced FROM THE AUDIT TRAIL, so it is asserted by writing the row a
+    // successful send would have written. That also keeps the assertion independent of whether this
+    // machine has a working SMTP host — and a send that FAILED deliberately does not start a
+    // cooldown, because it never reached the recipient's inbox.
+    await prisma.teammateAuditEvent.create({
+      data: {
+        organizationId,
+        actorUserId: owner.id,
+        action: "invite_resent",
+        profileId: first.profileId,
+        details: { emailSent: true, cooldownSeconds: INVITE_RESEND_COOLDOWN_SECONDS },
+      },
+    });
+    check(
+      "an immediate second resend is refused by the cooldown",
+      (await refusalOf(() =>
+        resendTeamMemberInvite({
+          organizationId,
+          actorUserId: owner.id,
+          profileId: first.profileId,
+          skipEmail: true,
+        }),
+      )) === "429:invite_resend_cooldown",
+    );
+
+    // The three states a resend cannot mean anything in. Driven through the collaborator §12
+    // created — nothing after this depends on their state.
+    await prisma.teammateProfile.update({
+      where: { id: legacyInvite.profileId },
+      data: { state: "active" },
+    });
+    check(
+      "an accepted invitation is refused rather than re-sent",
+      (await refusalOf(() =>
+        resendTeamMemberInvite({
+          organizationId,
+          actorUserId: owner.id,
+          profileId: legacyInvite.profileId,
+          skipEmail: true,
+        }),
+      )) === "409:invite_already_accepted",
+    );
+    await prisma.teammateProfile.update({
+      where: { id: legacyInvite.profileId },
+      data: { state: "contact" },
+    });
+    check(
+      "a contact with no open invitation is refused (inviting them is a different act)",
+      (await refusalOf(() =>
+        resendTeamMemberInvite({
+          organizationId,
+          actorUserId: owner.id,
+          profileId: legacyInvite.profileId,
+          skipEmail: true,
+        }),
+      )) === "409:no_open_invitation",
+    );
+    await prisma.teammateProfile.update({
+      where: { id: legacyInvite.profileId },
+      data: { state: "invited", deactivatedAt: new Date() },
+    });
+    check(
+      "a deactivated person is refused before any other rule is consulted",
+      (await refusalOf(() =>
+        resendTeamMemberInvite({
+          organizationId,
+          actorUserId: owner.id,
+          profileId: legacyInvite.profileId,
+          skipEmail: true,
+        }),
+      )) === "409:profile_deactivated",
     );
   } finally {
     if (!KEEP_FIXTURES) {

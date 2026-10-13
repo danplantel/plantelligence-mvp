@@ -155,7 +155,7 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:verify-t2` | Runs the 35-assertion T2 enforcement suite (the three T2 acceptance criteria, the one-Owner invariant, plan lists, and the route guard). |
 | `npm run teammates:verify-t3` | Runs the 53-assertion T3 suite (seat metering, invite expiry, the upgrade-confirm gate, the owner-first team list, onboarding pre-fill, editing a member, and the roles explainer). |
 | `npm run teammates:verify-backfill` | Asserts the post-backfill invariants (every User/Client org'd, legacy `Client.userId` intact). |
-| `npm run teammates:verify-t4` | Runs the 62-assertion T4 suite (the invite path, the category merge, the deep link, the Who-is-this presets, the sponsor-domain guess, the search, and the audit row). |
+| `npm run teammates:verify-t4` | Runs the 79-assertion T4 suite (the invite path, the category merge, the deep link, the Who-is-this presets, the sponsor-domain guess, the search, the audit row, the card payload the Collaborator card renders, the plan lookup — id-or-slug plus the repair of an unstamped `organizationId` — and the resend, including its cooldown and its three refusals). |
 | `npm run teammates:verify-t5` | Runs the 38-assertion T5 suite (contact → invited without duplication, the plan-scoped section choice, the Contributor default, the source on the audit row, and the merge on re-invite). |
 | `npm run repair:unique-conflicts` | Finds (and with `--apply`, removes) duplicate session rows that block unique-index builds. |
 | `npm run repair:partial-indexes` | Re-applies the partial unique index on `Client.slug`. |
@@ -163,7 +163,7 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:verify-t6` | Runs the 35-assertion T6 suite (the four acceptance criteria, per-assignment role and visibility, the Delete guard, the audit trail, and All Plans staying Team-Member-only). |
 | `npm run teammates:verify-t2a` | Runs the 25-assertion T2a suite (per-function Custom enforcement, same-vs-per-plan grids, the locked-row refusal, All Plans, the missing-grid refusal, soft warnings and their audit trail, and the summary line). |
 | `npm run teammates:verify-t7` | Runs the 26-assertion T7 suite (the three acceptance criteria, display-vs-access, the mirror's idempotency and removals, hidden categories, and the unmirrorable-contact residue). |
-| `npm run teammates:verify-t9` | Runs the 41-assertion T9 suite (the signed token and its refusals, the mailbox guard, the profile guards, acceptance creating vs reusing a login, the seat conversion, replay, both audit rows, and the tenancy invariant). |
+| `npm run teammates:verify-t9` | Runs the 44-assertion T9 suite (the signed token and its refusals, the mailbox guard, the profile guards, the inviter's note, acceptance creating vs reusing a login, the seat conversion, replay, both audit rows, and the tenancy invariant — the login anchored to the inviting organization and owning none of its own). |
 | `npm run comments:verify` | Runs the 47-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, and the plan-delete cascade). See §9i. |
 | `npm run teammates:backfill-contacts` | Projects every plan's `keyContacts` onto profiles + assignments (T7). Idempotent; `--dry-run` to count without writing. Run it before the hub reader switch and after adding a new contacts writer. |
 | `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
@@ -186,6 +186,17 @@ stamp is indistinguishable from a stranded one.
   `pnpm : ... cannot be loaded because running scripts is disabled`.
   `Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned` fixes it
   without admin rights.
+- **A network that can route IPv6 to AWS — this one cannot, and it makes the database look down.**
+  Both Neon hosts publish **AAAA** records beside their A records, and Prisma's engine picks a
+  family per connection, so the symptom is INTERMITTENT rather than constant: the same script
+  passes on one run and dies on the next with `P1001 Can't reach database server at …`, while the
+  app's own reads, `psql` and `Test-NetConnection -ComputerName <host>` all look fine, because those
+  resolve IPv4. One step settles the diagnosis: a TCP test to the host's **A** address succeeds and
+  the same test to one of its **AAAA** addresses fails instantly. Retrying genuinely works — it is a
+  coin toss per connection — but the durable fix is to restore IPv6 on the router, and the better
+  fix for this project is to run Postgres locally, which also removes the intercontinental
+  round-trip §9i measures. The pooled and direct hosts behave the same here: `DIRECT_URL` publishes
+  AAAA records too, so pointing `DATABASE_URL` at it does **not** avoid the choice.
 
 `prisma db push` now completes cleanly and reports "already in sync" on a second
 run. The `teammates:indexes` script remains as a fallback for the case where a
@@ -912,10 +923,83 @@ includes the pair only when the advisor actually supplied a note or a date — a
 "add another category" re-invite leaves the original invite intact, while a
 deliberately filled form still writes exactly what it shows.
 
+### The plan the invite was raised on
+
+The wizard hands the invite whatever its entry URL carried, so `loadPlan` — the one plan lookup in
+[`invites.server.ts`](lib/teammates/invites.server.ts) — has to be as forgiving as every other plan
+check, and it was not. Two things were wrong, and both surfaced as the **same** message:
+
+> **Plan not found in this organization.**
+
+1. **It matched the primary key only.** `resolvePlanAccess` has always accepted an id *or* a slug,
+   so the plan opened fine for the advisor already looking at it, while the invite — which asked
+   for a key — refused it. The lookup now uses the shared `planIdOrSlug` predicate, and everything
+   downstream keys off the **resolved id**: a slug written into `PlanAssignment.clientId` would
+   create an assignment no by-id lookup can ever match, so the invite would appear to succeed
+   while granting nothing. That covers the assignment, the audit row, and the `edit-benefit` deep
+   link in the email.
+2. **It required a stamped `organizationId`.** The teammate layer reads plans by that column, so a
+   row with no organization is invisible to it — and a row created before the creation paths began
+   stamping is exactly that. Comments, the Benefits list and the owner's own plan read all still
+   worked, because they fall back to the owner; the invite was the only call that refused the row
+   outright. Rather than reject it, the organization is now derived the way `/api/clients/[id]`
+   and the save-draft route derive it — from the plan's owner — written back, and then compared.
+   The row **heals on first use** and every later org-scoped read finds it, while a plan that
+   already names another organization is still refused, because the repair only ever applies to a
+   row with no organization at all.
+
+This was found on a real plan whose `organizationId` was null — `comments-llc`, the same plan the
+comment-latency logs came from. `npm run teammates:backfill-organizations` (idempotent, `--dry-run`
+to count first) repaired it in a single pass, and it is the right remedy for any other row in that
+state.
+
+The roster read carries the same correction. `/api/teammates/plan-assignments` authorizes with
+`resolvePlanAccess` (id *or* slug) but now queries with `access.clientId`, the real id: passing the
+raw parameter through let a slug query match nothing and report "No collaborators yet." for a plan
+that has some — an empty roster that reads like an answer rather than like a lookup that missed.
+
+### Resending an invitation
+
+Four surfaces list collaborators, and each card carries a **resend** action: Create Plan → Key
+Contacts, Edit Plan, Create Benefits → Contacts (this step) and Edit Benefit → Contacts (the same
+step rendered with `section="contacts"`). All four call the same
+`PATCH /api/teammates/team/{profileId}` with `action: "resend_invite"`, so there is one
+implementation of what a resend means rather than four that could drift.
+
+A resend is a **delivery** retry, not a new grant. The link is minted from `invitedAt`, so an open
+invitation goes out again with the same link and the same window — the advisor is chasing an email,
+not extending a hold. Two exceptions the server owns:
+
+- a **lapsed** hold is released and reopened, because its old token is already dead and
+  redelivering it would send a link that is refused on arrival; that refreshes `invitedAt`, so the
+  card's expiry line moves;
+- a **Team Member's** refreshed hold re-takes its seat through the same `assertSeatAvailable` check
+  the add flow uses — a collaborator holds no seat to re-take, which is why the seat check is
+  conditional on the profile type.
+
+Three states cannot mean anything, and each is refused with its own code: deactivated
+(`profile_deactivated`), already accepted (`invite_already_accepted` — they can sign in), and a
+Contact with no open invitation (`no_open_invitation`, because inviting them is `addTeamMember`).
+A resend **cooldown** (the `invite_resent` audit row plus `INVITE_RESEND_COOLDOWN_SECONDS`)
+protects the recipient's inbox, and a send that *failed* does not start it — a broken mail server
+must not also lock the advisor out of retrying.
+
+**The button is gated identically everywhere**: `canManageTeam && !person.deactivatedAt &&
+person.state === "invited"`. The two category-accordion surfaces apply it inside
+`CollaboratorCategoryAccordions`; Create/Edit Benefit render `CollaboratorCard` directly and so
+state the same three conditions beside it in `step-3.tsx`. A retry is therefore never offered where
+the server would refuse it, and the endpoint's own `org_settings` requirement is mirrored by the
+Owner/Admin-only check. A mail failure is reported as a warning rather than as a failed action,
+because the invitation is still open and what the advisor needs is the reason.
+
+⚠️ **Resending is not re-inviting.** Re-inviting the same person from the same surface does work —
+it merges onto their existing profile rather than creating a second one (T5's rule) — but it is a
+different act: it re-states the access. A resend re-delivers what was already granted.
+
 ### Acceptance
 
 ```
-npm run teammates:verify-t4     ->  62/62 assertions passed
+npm run teammates:verify-t4     ->  79/79 assertions passed
 ```
 
 Covers the reachable criteria: an invite writes exactly the plan and category it was
@@ -930,6 +1014,24 @@ hiding deactivated people; and every invite is audited. It also asserts the
 **deferral** for criterion 4 — `PlanAssignment` has no review column — so the gap is
 recorded rather than implied. No email leaves the machine: every invite in the script
 passes `skipEmail: true`.
+
+It pins the lookup too: a plan with **no** `organizationId` accepts an invite addressed by
+**slug**, the row is then stamped with its owner's organization, and the assignment is keyed on
+the resolved id — while another organization's plan is still refused with the same message and is
+**not** repaired onto the caller's organization.
+
+And it covers the **resend**, which had no assertions before it became a button on four surfaces: a
+pending collaborator's invitation goes out again with the *same* `invitedAt` (asserted on the stored
+value, not on the shape of the result), the reported window is the days actually left, a skipped
+send never claims to have sent, and an immediate second attempt is refused by the cooldown — the
+cooldown row is written directly, so the assertion does not depend on this machine having a working
+SMTP host, which is also what makes "a *failed* send does not start a cooldown" testable. The three
+states a resend cannot mean anything in are pinned to their codes: `invite_already_accepted`,
+`no_open_invitation`, and `profile_deactivated`.
+
+The **card payload** is pinned as well: the row carries the seat's own `jobTitle`, `phone` and
+`phoneExtension`, so a collaborator who filled those in on the acceptance page cannot silently fall
+back to "No Title" on the card with no way to reach them.
 
 ### Deferred, with the reason
 
@@ -1395,7 +1497,8 @@ nothing turned it into access — and access is resolved **by login**, because
 1. `inviteCollaboratorToPlan` mints a signed token from the profile's own `invitedAt` and
    puts it in the email's primary CTA.
 2. `GET /accept-invite/[token]` renders `loadInvitation(token)`: who invited you, which plan
-   and section it is about, and the invited mailbox as a locked, read-only field.
+   and section it is about, the note the inviter wrote, and the invited mailbox as a locked,
+   read-only field.
 3. `POST /api/teammates/accept-invite` runs `acceptInvitation`, which re-validates from
    scratch (a link can be replayed or edited between render and submit), creates or reuses
    the login, and activates the profile.
@@ -1407,13 +1510,22 @@ nothing turned it into access — and access is resolved **by login**, because
   the old gate would have dropped them into the advisor wizard. The `jwt` callback now also
   latches a user who holds an active teammate profile — including the
   `{ deactivatedAt: null }`-vs-absent trap, which needs the explicit two-branch `OR`.
-- **`signIn` creates an Organization for every new User.** Acceptance creates a User *outside*
-  `signIn`, so it has to do the same, or the accepted login is the one User in the database
-  with no `organizationId` — exactly what `verify-backfill` asserts against. `acceptInvitation`
-  now calls `getOrCreateOrganizationForUser`. It grants nothing extra: access comes from the
-  profile's assignments, never from that organization, so the personal, planless Organization
-  is invisible to authorization. (Recorded in the QA checklist as a non-bug, because it looks
-  surprising in the database.)
+- **`signIn` gives every new User an Organization — but an accepted invitation must not mint a
+  second firm.** Acceptance creates a User *outside* `signIn`, so the T1 invariant (every User
+  carries an `organizationId`) still has to hold, or the accepted login is the one User in the
+  database without one — exactly what `verify-backfill` asserts against. The first fix called
+  `getOrCreateOrganizationForUser`, which satisfies the invariant by creating an Organization
+  **owned by the invitee**: every accepted invitation produced a brand-new empty workspace, and
+  `getOrgSession()` then scoped that person's whole session to it. The invited teammate ended up
+  with a workspace of their own instead of the seat they had been given, and the firm that invited
+  them never saw them arrive. Acceptance now **anchors** the account to the INVITING organization
+  (`anchorTeammateUserToInvitingOrganization`), keeping the old helper only as the fallback for the
+  one case where there is nothing to anchor to (a profile deleted between the two calls). Access is
+  unaffected either way — it comes from the profile's assignments, never from the account's
+  organization — so this is a question of which workspace the person lands in, and the answer is
+  the firm's. `verify-t9` asserts both halves: the login's `organizationId` equals the inviting
+  firm's, and it owns **no** personal Organization. (The QA checklist's "non-bug" note described the
+  older behaviour, which is why it looked surprising in the database.)
 - **No token existed.** Nothing on the profile can prove "this link is ours" — `profileId` is
   an ObjectId, not a secret. T9 signs `{ profileId, organizationId, email, invitedAt }` with
   `NEXTAUTH_SECRET` and lets it expire with the 14-day invite hold, so revocation needs no
@@ -1431,6 +1543,46 @@ profile. Two consequences worth keeping:
   fact it worked.
 - A **forwarded** link is refused unless the mailbox matches, because the mailbox is the
   identity here.
+
+### A collaborator's screen has no card
+
+The same form serves both roles, but they are invited for different reasons. Three groups —
+**Card Type** (Individual vs Team / Support Line), **Show on contact card**, and the
+**call-to-action** button — describe how a person appears to EMPLOYEES on a portal contact card.
+That is a Team Member's setup: a collaborator is invited to help finish one section and is not one
+of the people employees contact, so none of the three is rendered for them (`isCollaborator` in
+[`invite-accept-form.tsx`](components/teammates/invite-accept-form.tsx:1)).
+
+Four details make the omission correct rather than merely smaller:
+
+- **The card keys are left OUT of the payload, not zeroed.** An absent key already means "leave
+  what the seat holds" to the accept route, and `displayEmail` / `displayPhone` /
+  `enableContactButton` are deliberately **tri-state** (`Boolean?`) where NULL is "never
+  configured" and the portal resolves it as *show* (`prisma/schema.prisma` says why that default
+  was chosen). Zeroing them from a screen that no longer offers the choice would quietly configure
+  "hide" for every collaborator.
+- **The CTA validation is skipped for them.** A seat seeded from a Key Contact can arrive with
+  `enableContactButton` and a *schedule* type already set, and the form refuses a schedule button
+  with no scheduling URL — a rule that would otherwise block acceptance over a field that is no
+  longer on the page.
+- **Email and phone stay.** They are still collected, because the organization still needs a way to
+  reach the person, and the number is stored on the profile exactly as before. What they stop being
+  is a statement about a card, and the form says so where the card section used to be, so the phone
+  field does not read as going nowhere.
+- **The Portal Preview goes with them, and the form collapses to one column.** A preview previews
+  something, and a collaborator has no card to preview — so the right-hand `SmallVerticalCard` is
+  not rendered at all, and the two-column grid becomes the same single centred `max-w-lg` column the
+  loading, invalid, accepted and non-redeemable states already use. That also removes a real
+  inconsistency rather than merely tidying: the preview drew the seat's SEEDED values, which are
+  exactly the values the form no longer offers a way to change, so it could have shown a card the
+  invitee had no control over.
+
+**The tri-state asymmetry is invisible here, deliberately.** `displayEmail` / `displayPhone` /
+`enableContactButton` are `Boolean?`, and `loadInvitation` collapses NULL to `undefined` — the client
+cannot tell "never configured" from "hidden". Rather than guess which one the reader means, this
+screen neither reads nor writes those columns for a collaborator: whatever the organization
+configured stays configured, and with no toggle and no preview there is nothing on the page that
+could state it wrongly. A Team Member's screen is unaffected and still shows both.
 
 ### Failure vocabulary
 
@@ -1454,12 +1606,13 @@ invite is how the login comes to exist.
 
 ### Verification
 
-`npm run teammates:verify-t9` — 41 assertions: the token round-trip and its three refusals
+`npm run teammates:verify-t9` — 44 assertions: the token round-trip and its three refusals
 (tampered, malformed, past the hold), the mailbox guard, the four profile guards
 (missing/Contact/deactivated/never-invited), acceptance creating *and* reusing a login without
 overwriting an existing password or name, the seat conversion (`seatsUsed` unchanged), replay,
-the weak-password refusal, both audit rows, and the tenancy invariant that every login the
-flow creates owns an Organization.
+the weak-password refusal, both audit rows, and the tenancy invariant in both of its halves —
+every login the flow creates carries an `organizationId`, that id is the **inviting** firm's, and
+the login owns no Organization of its own.
 
 No mail leaves the machine: the invite is raised with `skipEmail: true` and the token is minted
 exactly as `invites.server.ts` mints it.
@@ -1467,10 +1620,10 @@ exactly as `invites.server.ts` mints it.
 **Retrospective.** T9 shipped its own version of the stranded-fixture bug: the logins it
 creates are made *inside* `acceptInvitation`, so `verify-t9`'s cleanup list did not include
 them, and the fixture sweep could not see them either (its pattern stopped at `t5` and
-`@example.test`). The fix has two halves — the service now gives the login an Organization, and
-the suite tracks and removes every login the flow creates — plus the widened sweep in §7.7.
-That is the case that made `verify-backfill` fail on `2 missing`, and it is why the tenancy
-invariant is now an assertion rather than an assumption.
+`@example.test`). The fix has two halves — the service now puts the login in an Organization (the
+inviting firm's, per the anchor above), and the suite tracks and removes every login the flow
+creates — plus the widened sweep in §7.7. That is the case that made `verify-backfill` fail on
+`2 missing`, and it is why the tenancy invariant is now an assertion rather than an assumption.
 
 ---
 
@@ -1955,6 +2108,6 @@ access".
   `listAccessiblePlanIds` into the plan selector.
 - **T9 follow-up** — the accept route's per-IP throttle is in-process and non-durable (it
   resets on redeploy and does not span instances); a shared store is the real fix if abuse
-  ever matters. And there is no dedicated **resend invitation** action — resending means
-  re-inviting the same person from the same surface, which merges onto their existing
-  profile rather than creating a second one (T5's rule).
+  ever matters. (A dedicated **resend invitation** action does exist — see §9b's "Resending an
+  invitation"; this bullet used to say it did not, which stopped being true when
+  `resendTeamMemberInvite` and the `resend_invite` action landed.)
