@@ -39,6 +39,7 @@ import { deletePlansAndScopedDataForUser } from "../../lib/delete-user-plans-and
 import { createTeammateProfile } from "../../lib/teammates/profiles.server";
 import { upsertAssignment } from "../../lib/teammates/assignments.server";
 import { TeammateDataError } from "../../lib/teammates/errors";
+import { getPersonCard } from "../../lib/teammates/person-card.server";
 import {
   addCommentMessage,
   assignTask,
@@ -1692,6 +1693,168 @@ async function main(): Promise<void> {
           sourceTaskId: "not-a-task-of-mine",
         }),
       )) === "source_task_not_yours",
+    );
+
+    /* ── §22. The profile card: who may be looked up, and what it shows ── */
+
+    // A login with NO seat in this organization. Their `User` row exists — which is exactly the
+    // point: `loadPersonIdentities` resolves them happily, so it is the ORGANIZATION gate (and not a
+    // missing account) that has to refuse them.
+    const outsiderLogin = await prisma.user.create({
+      data: {
+        name: `TCM Outsider ${STAMP}`,
+        email: `tcm-verify-outsider-${STAMP}@example.test`,
+      },
+      select: { id: true },
+    });
+    created.userIds.push(outsiderLogin.id);
+
+    // A second Collaborator who shares NO plan with the first: listed in the directory, and not
+    // selectable. The card must still describe them — only the button goes.
+    const lonelyLogin = await prisma.user.create({
+      data: {
+        name: `TCM Lonely ${STAMP}`,
+        email: `tcm-verify-lonely-${STAMP}@example.test`,
+      },
+      select: { id: true },
+    });
+    created.userIds.push(lonelyLogin.id);
+    const lonely = await createTeammateProfile({
+      organizationId,
+      actorUserId: owner.id,
+      type: "collaborator",
+      email: `tcm-verify-lonely-${STAMP}@abbenefits.test`,
+      firstName: "Lena",
+      lastName: "Lonely",
+      loginUserId: lonelyLogin.id,
+    });
+    created.profileIds.push(lonely.id);
+    await prisma.teammateProfile.update({
+      where: { id: lonely.id },
+      data: { state: "active" },
+    });
+
+    // The two sources hold DIFFERENT values, so the precedence is asserted rather than assumed: the
+    // seat is the organization's record, and the login's stale copy must not win.
+    await prisma.teammateProfile.update({
+      where: { id: mentionee.id },
+      data: {
+        jobTitle: "Senior Advisor",
+        phone: "(555) 010-2030",
+        phoneExtension: "412",
+        designations: ["CFP"],
+      },
+    });
+    await prisma.user.update({
+      where: { id: mentioneeLogin.id },
+      data: {
+        title: "stale login title",
+        phone: "(555) 999-9999",
+        designations: ["STALE"],
+      },
+    });
+    // The Owner holds NO seat, so their details exist only on the login row — the case that used to
+    // render a blank card.
+    await prisma.user.update({
+      where: { id: owner.id },
+      data: {
+        title: "Principal",
+        phone: "(555) 010-1010",
+        phoneExtension: "7",
+        designations: ["AIF"],
+      },
+    });
+    await prisma.organization.update({
+      where: { id: organizationId },
+      data: { organizationEmail: `firm-${STAMP}@abbenefits.test` },
+    });
+
+    const mentioneeCard = await getPersonCard({
+      organizationId,
+      viewerUserId: adminLogin.id,
+      userId: mentioneeLogin.id,
+    });
+    check(
+      "the card names a teammate from their SEAT, with the standing that decided their eligibility",
+      mentioneeCard?.name === "Zelda Mention" &&
+        mentioneeCard.standingLabel === "Team Member" &&
+        mentioneeCard.isSelf === false,
+      JSON.stringify(mentioneeCard),
+    );
+    check(
+      "…and takes their title, phone, extension and designations from the seat, NOT the login's stale copy",
+      mentioneeCard?.jobTitle === "Senior Advisor" &&
+        mentioneeCard.phone === "(555) 010-2030" &&
+        mentioneeCard.phoneExtension === "412" &&
+        mentioneeCard.designations.join() === "CFP",
+      JSON.stringify(mentioneeCard),
+    );
+
+    const ownerCard = await getPersonCard({
+      organizationId,
+      viewerUserId: adminLogin.id,
+      userId: owner.id,
+    });
+    check(
+      "the OWNER — who holds no seat — still shows a title, phone and credentials, from their login row",
+      ownerCard?.jobTitle === "Principal" &&
+        ownerCard.phone === "(555) 010-1010" &&
+        ownerCard.phoneExtension === "7" &&
+        ownerCard.designations.join() === "AIF",
+      JSON.stringify(ownerCard),
+    );
+    check(
+      "…and is chipped Owner, with the organization's shared address carried alongside their own",
+      ownerCard?.standingLabel === "Owner" &&
+        ownerCard.roleLabel === "Owner" &&
+        ownerCard.organizationEmail === `firm-${STAMP}@abbenefits.test` &&
+        ownerCard.email === `tcm-verify-owner-${STAMP}@example.test`,
+      JSON.stringify(ownerCard),
+    );
+
+    const selfCard = await getPersonCard({
+      organizationId,
+      viewerUserId: owner.id,
+      userId: owner.id,
+    });
+    check(
+      "your OWN card opens even though the directory excludes you — and offers no Message button",
+      selfCard?.isSelf === true && selfCard.canMessage === false,
+      JSON.stringify(selfCard),
+    );
+
+    check(
+      "a login holding no seat in THIS organization is not somebody this card will describe",
+      (await getPersonCard({
+        organizationId,
+        viewerUserId: owner.id,
+        userId: outsiderLogin.id,
+      })) === null &&
+        (await prisma.user.findUnique({ where: { id: outsiderLogin.id } })) !== null,
+      "the row exists, so the refusal is the organization gate rather than a missing account",
+    );
+
+    const lonelyCard = await getPersonCard({
+      organizationId,
+      viewerUserId: collabLogin.id,
+      userId: lonelyLogin.id,
+    });
+    check(
+      "a Collaborator sees a colleague they may NOT message: the card renders, the button does not",
+      lonelyCard?.name === "Lena Lonely" &&
+        lonelyCard.standingLabel === "Collaborator" &&
+        lonelyCard.canMessage === false,
+      JSON.stringify(lonelyCard),
+    );
+    check(
+      "…and the same card offers a Team Member, because a Collaborator may always reach one",
+      (
+        await getPersonCard({
+          organizationId,
+          viewerUserId: collabLogin.id,
+          userId: mentioneeLogin.id,
+        })
+      )?.canMessage === true,
     );
   } finally {
     if (!KEEP_FIXTURES) {

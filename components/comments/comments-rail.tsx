@@ -52,6 +52,7 @@ import { CommentAttachmentModal } from "./comment-attachment-modal";
 import { CommentComposer } from "./comment-composer";
 import { CommentTaskCard } from "./comment-task-card";
 import { AssignTaskDialog } from "./assign-task-dialog";
+import { UserProfileProvider, useUserProfile } from "./user-profile-context";
 
 type ThreadFilter = "open" | "resolved" | "all";
 
@@ -104,6 +105,7 @@ function MessageRow({
   onOpenAttachment: (attachment: CommentAttachment) => void;
 }) {
   const { canModerate, withdrawAssignment } = useCommentMode();
+  const { open: openProfile } = useUserProfile();
   const name = messageAuthorName(message, currentUserId);
   // Defensive against a stale SWR cache written before attachments existed.
   const attachments = message.attachments ?? [];
@@ -115,6 +117,21 @@ function MessageRow({
     Boolean(task) &&
     task?.id !== "pending-task" &&
     (canModerate || task?.assignedByUserId === currentUserId);
+
+  // A name is a door only when there is somebody behind it: never the reader's own (there is nothing
+  // to look up), never a `"pending"` author or assignee (an optimistic placeholder that has no
+  // account yet), and never a comment whose login was deleted — that one resolves no author at all,
+  // which is why `message.author` is checked rather than assumed.
+  const authorProfileId =
+    message.author && message.authorUserId !== currentUserId
+      ? message.authorUserId
+      : null;
+  const assigneeProfileId =
+    task &&
+    task.assignedToUserId !== currentUserId &&
+    task.assignedToUserId !== "pending"
+      ? task.assignedToUserId
+      : null;
 
   return (
     <li className="flex gap-2">
@@ -128,7 +145,18 @@ function MessageRow({
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-xs font-medium">{name}</span>
+          {authorProfileId ? (
+            <button
+              type="button"
+              onClick={() => openProfile(authorProfileId)}
+              title={`View ${name}'s profile`}
+              className="truncate rounded-sm text-xs font-medium underline-offset-2 transition-colors hover:text-accent-blue hover:underline"
+            >
+              {name}
+            </button>
+          ) : (
+            <span className="truncate text-xs font-medium">{name}</span>
+          )}
           <span className="shrink-0 text-[10px] text-muted-foreground">
             {relativeTime(message.createdAt)}
           </span>
@@ -141,6 +169,9 @@ function MessageRow({
             assignedByName={name}
             mayWithdraw={mayWithdraw}
             onWithdraw={() => void withdrawAssignment(message.id)}
+            onOpenAssignee={
+              assigneeProfileId ? () => openProfile(assigneeProfileId) : null
+            }
             className="mt-1"
           />
         ) : null}
@@ -634,8 +665,26 @@ function RailComposer({
  * The right-hand Comments rail: a PERSISTENT composer, an open/resolved filter, and a
  * thread card per thread (messages, reply, resolve/reopen, delete). The composer is the
  * single entry point for new comments; comments are not anchored to a page section.
+ *
+ * Wrapped in the profile provider rather than plumbing a callback down through every card, thread
+ * and reply that can draw a name. The panel owns ONE profile dialog, and any name inside it — a
+ * message's author, an assignment's assignee — can ask for it. See `user-profile-context`.
  */
 export function CommentsRail() {
+  return (
+    <UserProfileProvider>
+      <CommentsPanel />
+    </UserProfileProvider>
+  );
+}
+
+/**
+ * The rail itself.
+ *
+ * Split from `CommentsRail` so the provider can wrap the tree WITHOUT re-indenting four hundred
+ * lines of JSX around it — the panel's markup is unchanged, only its ancestor is new.
+ */
+function CommentsPanel() {
   const {
     canComment,
     mode,
@@ -825,7 +874,9 @@ export function CommentsRail() {
         // grows — at z-40 they would paint over our composer. At z-50 the panel wins by DOM
         // order (it is mounted after the page content), while dialogs and popovers, which
         // portal into `document.body` after it, still paint above it.
-        expanded ? "z-50 w-[44rem] shadow-2xl" : "z-40 w-[22rem]",
+        // The narrow width matches `COMMENTS_RAIL_WIDTH` — and therefore the Messages rail, which
+        // shares this column, so swapping between the two panels cannot move the page.
+        expanded ? "z-50 w-[44rem] shadow-2xl" : "z-40 w-[24rem]",
       )}
       aria-label="Comments"
     >

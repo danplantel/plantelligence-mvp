@@ -26,14 +26,22 @@ export interface NotificationsResult {
   markRead: (id: string) => void;
   /** Mark every unread notification read. */
   markAllRead: () => void;
+  /**
+   * Remove one notification for good.
+   *
+   * Optimistic like `markRead`: the row leaves the list at once and the DELETE follows. Unlike the
+   * bell's meeting and document rows — DERIVED on every fetch, so they can only be closed in the
+   * browser — a notification is a stored row, so this removal is a write and every device agrees.
+   */
+  remove: (id: string) => void;
 }
 
 /**
  * Loads the caller's persisted notifications and keeps them fresh on a 60s interval.
  *
- * Read/unread state lives on the server, so this is deliberately NOT the
- * localStorage dismissal the meeting/document reminders use: closing a notification
- * here is a real write, and a second device sees the same state.
+ * Read/unread state AND deletion both live on the server, so this is deliberately NOT the
+ * localStorage dismissal the meeting/document reminders use: reading or removing a notification here
+ * is a real write, and a second device sees the same state.
  */
 export function useNotifications(): NotificationsResult {
   const [items, setItems] = useState<AppNotification[]>([]);
@@ -114,9 +122,29 @@ export function useNotifications(): NotificationsResult {
     }).catch(() => undefined);
   }, []);
 
+  const remove = useCallback(
+    (id: string) => {
+      const target = itemsRef.current.find((item) => item.id === id);
+      if (!target) return;
+
+      setItems((prev) => prev.filter((item) => item.id !== id));
+      // Only an UNREAD row was being counted, so only an unread row may move the badge.
+      if (!target.readAt) setUnreadCount((count) => Math.max(count - 1, 0));
+
+      void fetch(`/api/notifications/${id}`, { method: "DELETE" })
+        .then((response) => {
+          // The server disagrees — the row is not ours, or is already gone — so reload rather than
+          // leave the list missing something the feed still holds.
+          if (!response.ok) void load();
+        })
+        .catch(() => void load());
+    },
+    [load],
+  );
+
   const refresh = useCallback(() => {
     void load();
   }, [load]);
 
-  return { items, unreadCount, isLoading, refresh, markRead, markAllRead };
+  return { items, unreadCount, isLoading, refresh, markRead, markAllRead, remove };
 }

@@ -1142,15 +1142,16 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
       <div
         className="fixed top-0 z-[45]"
         style={{
-          // Same offsets as the preview below — sidebar + the panel's column — LESS the
-          // Comments rail's reserved column. Without that last term this bar runs on under the
-          // rail, and its right-hand Mobile/Desktop toggle lands on top of the rail's own
-          // header (it is z-[45] to the rail's z-40, so it wins the paint and hides the close
-          // button). Subtracting it also aligns this bar with the wizard footer, which already
-          // reserves the rail.
+          // Same offsets as the preview below — sidebar + the panel's column — LESS the rail's
+          // reserved column. Without that last term this bar runs on under the rail and its
+          // right-hand Mobile/Desktop toggle lands on top of the rail's own header, hiding the
+          // close button. It used to lean on `z-[45]` beating the rail's `z-40`, which no longer
+          // holds now that EITHER rail claims `z-50`; clearing the column is what keeps the
+          // controls off it. The `max` covers the Messages rail, which takes the same column, and
+          // it also aligns this bar with the wizard footer, which already reserves the rail.
           left: "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
           width:
-            "calc(100% - var(--sidebar-width, 16rem) - var(--editor-inset, 0px) - var(--comments-inset, 0px))",
+            "calc(100% - var(--sidebar-width, 16rem) - var(--editor-inset, 0px) - max(var(--comments-inset, 0px), var(--messages-inset, 0px)))",
         }}
       >
         <div style={{ height: `${HEADER_HEIGHT}px` }} />
@@ -1357,17 +1358,17 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
       <div
         className="fixed z-40 flex flex-col"
         style={{
-          // Clears the sidebar, the Editing Panel's column *and* the Comments rail's, so the
-          // preview sits beside BOTH tool columns rather than being covered by either. It is a
-          // scaled render rather than reflowing content, so absorbing them degrades it
-          // gracefully — it gets smaller — which is what makes that the right trade on this
-          // step: both panels stay usable, and nothing is hidden or suppressed. Same right edge
-          // as the wizard footer, which already reserves the rail and would otherwise disagree
-          // with this element.
+          // Clears the sidebar, the Editing Panel's column *and* the rail's — whichever of the two
+          // rails is open, they share it — so the preview sits beside BOTH tool columns rather than
+          // being covered by either. It is a scaled render rather than reflowing content, so
+          // absorbing them degrades it gracefully — it gets smaller — which is what makes that the
+          // right trade on this step: both panels stay usable, and nothing is hidden or suppressed.
+          // Same right edge as the wizard footer, which already reserves the rail and would
+          // otherwise disagree with this element.
           top: `${HEADER_HEIGHT + barHeight}px`,
           left: "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
           width:
-            "calc(100% - var(--sidebar-width, 16rem) - var(--editor-inset, 0px) - var(--comments-inset, 0px))",
+            "calc(100% - var(--sidebar-width, 16rem) - var(--editor-inset, 0px) - max(var(--comments-inset, 0px), var(--messages-inset, 0px)))",
           height: `calc(100vh - ${totalFixedHeight}px)`,
         }}
       >

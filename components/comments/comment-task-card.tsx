@@ -25,6 +25,7 @@ export function CommentTaskCard({
   assignedByName,
   mayWithdraw,
   onWithdraw,
+  onOpenAssignee,
   className,
 }: {
   /** Null when the task is GONE — withdrawn, or deleted with its plan. */
@@ -36,6 +37,14 @@ export function CommentTaskCard({
   /** The assigner, or a moderator. Rendered only when it could actually succeed. */
   mayWithdraw: boolean;
   onWithdraw: () => void;
+  /**
+   * Opens the assignee's profile card, or null when there is nobody to open.
+   *
+   * Null — rather than a callback that does nothing — because the card has to know the difference:
+   * a name that looks clickable and is not is worse than a plain one. The caller decides (that is
+   * where the reader's own id and the `"pending"` placeholder are known), and this card only draws.
+   */
+  onOpenAssignee: (() => void) | null;
   className?: string;
 }) {
   const withdrawn = task === null;
@@ -105,9 +114,20 @@ export function CommentTaskCard({
                     wrapperClassName="rounded-full"
                   />
                 </span>
-                <span className="truncate font-medium text-foreground/80">
-                  {task.assignedToName}
-                </span>
+                {onOpenAssignee ? (
+                  <button
+                    type="button"
+                    onClick={onOpenAssignee}
+                    title={`View ${task.assignedToName}'s profile`}
+                    className="truncate rounded-sm font-medium text-foreground/80 underline-offset-2 transition-colors hover:text-accent-blue hover:underline"
+                  >
+                    {task.assignedToName}
+                  </button>
+                ) : (
+                  <span className="truncate font-medium text-foreground/80">
+                    {task.assignedToName}
+                  </span>
+                )}
               </p>
               <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
                 <span

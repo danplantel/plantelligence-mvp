@@ -641,11 +641,16 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
       {/* `data-bottom-action-bar` lets the Preview tab measure this bar and end its
           fixed preview area above it, instead of the bar painting over the last
           section of the portal preview (see EditBenefitPreviewSection). */}
-      {/* `right` clears the Comments rail while it is open. */}
+      {/* `right` clears whichever rail is open. `max` rather than the Comments inset alone: the
+          Messages rail claims the same column (never both — the arbiter in lib/right-panel.ts), and
+          Cancel + Save Changes are right-aligned, so a bar that ignored Messages would put them
+          BEHIND it. The same expression `layout-client` gives the page content. */}
       <div
         data-bottom-action-bar
         className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-lg"
-        style={{ right: "var(--comments-inset, 0px)" }}
+        style={{
+          right: "max(var(--comments-inset, 0px), var(--messages-inset, 0px))",
+        }}
       >
         <div
           className={cn(

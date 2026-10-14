@@ -610,9 +610,10 @@ export function NewClientWizard({
           className="fixed bottom-0 bg-background border-t z-50 dark:border-gray-700"
           style={{
             left: "var(--sidebar-width, 0)",
-            // `--comments-inset` clears the right-hand Comments rail while it is open.
+            // The right inset clears whichever rail is open — Comments and Messages share this
+            // column, and neither may sit over the wizard's own Cancel / Next bar.
             width:
-              "calc(100% - var(--sidebar-width, 0) - var(--comments-inset, 0px))",
+              "calc(100% - var(--sidebar-width, 0) - max(var(--comments-inset, 0px), var(--messages-inset, 0px)))",
             transition: "left 200ms ease-in-out, width 200ms ease-in-out",
           }}
         >

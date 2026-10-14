@@ -126,6 +126,7 @@ export function NotificationsMenu() {
     isLoading: appNotificationsLoading,
     markRead,
     markAllRead,
+    remove: removeNotification,
   } = useNotifications();
   const [open, setOpen] = useState(false);
 
@@ -293,38 +294,58 @@ export function NotificationsMenu() {
                 </p>
               ) : (
                 appNotifications.map((notification) => (
-                  <DropdownMenuItem
+                  // The row and its Delete are SIBLINGS, exactly as the meeting and document rows
+                  // are: a button nested inside a `DropdownMenuItem` would also fire the item's
+                  // `onSelect`, so deleting one would open it on the way out.
+                  <div
                     key={notification.id}
-                    className="flex w-full min-w-0 items-start gap-2 p-3 cursor-pointer"
-                    onSelect={() => handleNotificationSelect(notification)}
+                    className="flex w-full min-w-0 items-start"
                   >
-                    <span
-                      className={cn(
-                        "mt-1.5 h-2 w-2 shrink-0 rounded-full",
-                        notification.readAt ? "bg-transparent" : "bg-accent-blue",
-                      )}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p
+                    <DropdownMenuItem
+                      className="flex flex-1 min-w-0 items-start gap-2 p-3 cursor-pointer"
+                      onSelect={() => handleNotificationSelect(notification)}
+                    >
+                      <span
                         className={cn(
-                          "truncate text-sm",
-                          notification.readAt
-                            ? "text-muted-foreground"
-                            : "font-medium",
+                          "mt-1.5 h-2 w-2 shrink-0 rounded-full",
+                          notification.readAt ? "bg-transparent" : "bg-accent-blue",
                         )}
-                      >
-                        {notification.title}
-                      </p>
-                      {notification.body ? (
-                        <p className="truncate text-xs text-muted-foreground">
-                          {notification.body}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p
+                          className={cn(
+                            "truncate text-sm",
+                            notification.readAt
+                              ? "text-muted-foreground"
+                              : "font-medium",
+                          )}
+                        >
+                          {notification.title}
                         </p>
-                      ) : null}
-                      <p className="mt-0.5 text-[10px] text-muted-foreground">
-                        {formatNotificationWhen(notification.createdAt)}
-                      </p>
-                    </div>
-                  </DropdownMenuItem>
+                        {notification.body ? (
+                          <p className="truncate text-xs text-muted-foreground">
+                            {notification.body}
+                          </p>
+                        ) : null}
+                        <p className="mt-0.5 text-[10px] text-muted-foreground">
+                          {formatNotificationWhen(notification.createdAt)}
+                        </p>
+                      </div>
+                    </DropdownMenuItem>
+                    {/* Says "Delete", not "Close": this row really goes, and comes back only if
+                        something new is addressed to the reader. The meeting and document rows
+                        above keep "Close", because those are remarks about live plan state that
+                        the next fetch would only recompute. */}
+                    <button
+                      type="button"
+                      aria-label={`Delete notification: ${notification.title}`}
+                      title="Delete"
+                      onClick={() => removeNotification(notification.id)}
+                      className="mr-1 mt-1.5 shrink-0 self-start rounded-md p-1 text-muted-foreground opacity-60 transition-colors hover:bg-black/5 hover:opacity-100 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring dark:hover:bg-white/10"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 ))
               )}
             </div>

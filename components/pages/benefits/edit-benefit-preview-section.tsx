@@ -394,11 +394,12 @@ export function EditBenefitPreviewSection({
           top: `${topOffset}px`,
           left:
             "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
-          // Stop where the Comments rail begins rather than running on under it. This bar is
-          // z-[45] to the rail's z-40, so at `right: 0` it wins the paint and its right-hand
-          // controls land on top of the rail's own header — the same collision the Create Plan
-          // and Create Benefits step-2 bars had. See docs/teammates-module.md §9i.
-          right: "var(--comments-inset, 0px)",
+          // Stop where the rail begins rather than running on under it. This bar used to lean on
+          // `z-[45]` beating the rail's `z-40`, which no longer holds now that EITHER rail claims
+          // `z-50`; clearing the column is what keeps these controls off the rail's header. The
+          // `max` covers the Messages rail, which takes the same column. See
+          // docs/teammates-module.md §9i.
+          right: "max(var(--comments-inset, 0px), var(--messages-inset, 0px))",
           transition: "left 300ms ease-in-out",
         }}
       >
@@ -467,9 +468,10 @@ export function EditBenefitPreviewSection({
           top: `${topOffset + (barHeight > 0 ? barHeight : 50)}px`,
           left:
             "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
-          // Reserve the Comments rail's column too, so the preview is pushed beside it instead
-          // of having its right-hand side covered while the comments about it are being read.
-          right: "var(--comments-inset, 0px)",
+          // Reserve the rail's column too, so the preview is pushed beside it instead of having
+          // its right-hand side covered while the conversation about it is being read —
+          // whichever of the two rails is open, since they share this column.
+          right: "max(var(--comments-inset, 0px), var(--messages-inset, 0px))",
           // Stop at the top of the page's action bar so the preview's own scroll
           // area ends where the bar begins — the bottom of the portal content stays
           // reachable instead of hiding behind it.

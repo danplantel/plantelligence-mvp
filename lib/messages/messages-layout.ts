@@ -5,8 +5,9 @@ import { useEffect } from "react";
 /**
  * Width of the right-hand Messages rail.
  *
- * Wider than the comments rail's 22rem on purpose: a chat line runs longer than a comment card and
- * the composer wants room, and the two panels are never open together, so nothing has to fit both.
+ * The SAME width as the comments rail (`COMMENTS_RAIL_WIDTH`) on purpose: the two panels occupy one
+ * column and the dashboard takes the `max` of their insets, so any difference between them would
+ * shift the whole page sideways every time the reader swapped rails.
  */
 export const MESSAGES_RAIL_WIDTH = "24rem";
 

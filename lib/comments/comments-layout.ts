@@ -2,8 +2,15 @@
 
 import { useEffect } from "react";
 
-/** Width of the right-hand Comments rail. */
-export const COMMENTS_RAIL_WIDTH = "22rem";
+/**
+ * Width of the right-hand Comments rail.
+ *
+ * Deliberately EQUAL to the Messages rail's (`MESSAGES_RAIL_WIDTH`): the two panels occupy one column,
+ * and the dashboard's `paddingRight` takes the `max` of the two insets — so a difference between them
+ * would shift the whole page sideways every time the reader swapped rails. The panel's own class and
+ * this constant have to move together; they are two spellings of one number.
+ */
+export const COMMENTS_RAIL_WIDTH = "24rem";
 
 /**
  * Window event fired while the Comments rail is open, mirroring

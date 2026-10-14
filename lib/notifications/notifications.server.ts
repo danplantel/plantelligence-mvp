@@ -6,6 +6,10 @@
  * persisted rows addressed to a specific `User`, each with its own read state, so a
  * notification survives a reload and is per-person rather than per-device.
  *
+ * That difference is also why DELETING one is a write here rather than a browser dismissal: a derived
+ * reminder cannot be deleted — it would be recomputed on the very next fetch, which is why the bell
+ * can only close it locally — whereas a notification is a row that can genuinely go.
+ *
  * Server-only.
  */
 
@@ -121,6 +125,23 @@ export async function markNotificationRead(input: {
   const result = await prisma.notification.updateMany({
     where: { id: input.id, userId: input.userId, readAt: null },
     data: { readAt: new Date() },
+  });
+  return result.count;
+}
+
+/**
+ * Delete one notification. Scoped by `userId`, so a row addressed to somebody else is simply not
+ * found — the same rule `markNotificationRead` follows, and the reason this uses `deleteMany` rather
+ * than `delete`: an id that is not the caller's answers "0 removed" instead of throwing.
+ *
+ * Returns the number of rows removed (0 when it was not theirs, or already gone).
+ */
+export async function deleteNotification(input: {
+  id: string;
+  userId: string;
+}): Promise<number> {
+  const result = await prisma.notification.deleteMany({
+    where: { id: input.id, userId: input.userId },
   });
   return result.count;
 }

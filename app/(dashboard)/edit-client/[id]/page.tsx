@@ -5541,10 +5541,14 @@ export default function EditClientPage() {
         />
       </div>
 
-      {/* Fixed Save Button Bar — `right` clears the Comments rail while it is open. */}
+      {/* Fixed Save Button Bar — `right` clears whichever rail is open, so Save can never end up
+          behind it. `max` rather than the Comments inset alone, for the same reason Edit Benefit's
+          bar uses it: the two rails share this column, and these buttons are right-aligned. */}
       <div
         className="fixed bottom-0 left-0 right-0 z-50 border-t bg-background shadow-lg"
-        style={{ right: "var(--comments-inset, 0px)" }}
+        style={{
+          right: "max(var(--comments-inset, 0px), var(--messages-inset, 0px))",
+        }}
       >
         <div
           className={cn(

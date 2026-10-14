@@ -46,7 +46,16 @@ import { useOptionalMessagesMode } from "./messages-mode-provider";
  * re-solve the layout contract the rail already satisfies.
  *
  * Placed at `top-16` (the header's own height) so the header's controls stay reachable while it is
- * open, and `z-40`, matching the comments rail so the two never stack.
+ * open, and at `z-50` — the tier the comments rail claims while it is wide, and the tier a page's own
+ * fixed bottom action bar uses. At EQUAL z this panel wins on DOM order, because `layout-client`
+ * mounts it AFTER the page content, so a bar (Edit Benefit's Cancel / Save Changes, Edit Client's
+ * twin) can no longer paint over the composer. Dialogs and popovers are unaffected: Radix portals
+ * them into `document.body` after everything, so they keep the layer above this panel — which is what
+ * the profile card and the attachment viewer depend on.
+ *
+ * A bar that has to stay reachable BESIDE the rail clears its column itself, with
+ * `max(--comments-inset, --messages-inset)` — the same expression `layout-client` gives the page
+ * content. Raising this panel's z alone would have put those buttons behind it.
  */
 function relativeTime(iso: string): string {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60_000);
@@ -716,7 +725,7 @@ export function MessagesRail() {
       tabIndex={-1}
       role="complementary"
       aria-label="Messages"
-      className="fixed right-0 top-16 z-40 flex h-[calc(100vh-4rem)] w-[24rem] flex-col border-l border-border bg-background shadow-sm focus:outline-none"
+      className="fixed right-0 top-16 z-50 flex h-[calc(100vh-4rem)] w-[24rem] flex-col border-l border-border bg-background shadow-sm focus:outline-none"
     >
       <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-2">
         <div className="flex min-w-0 items-center gap-1.5">

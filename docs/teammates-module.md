@@ -181,7 +181,7 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:verify-t2a` | Runs the 25-assertion T2a suite (per-function Custom enforcement, same-vs-per-plan grids, the locked-row refusal, All Plans, the missing-grid refusal, soft warnings and their audit trail, and the summary line). |
 | `npm run teammates:verify-t7` | Runs the 26-assertion T7 suite (the three acceptance criteria, display-vs-access, the mirror's idempotency and removals, hidden categories, and the unmirrorable-contact residue). |
 | `npm run teammates:verify-t9` | Runs the 44-assertion T9 suite (the signed token and its refusals, the mailbox guard, the profile guards, the inviter's note, acceptance creating vs reusing a login, the seat conversion, replay, both audit rows, and the tenancy invariant — the login anchored to the inviting organization and owning none of its own). |
-| `npm run comments:verify` | Runs the 94-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, the **per-person `currently typing` signal — named, self-expiring, cleared on reply, and reported for the surface's own composer as well as for threads**, and the plan-delete cascade). See §9i. |
+| `npm run comments:verify` | Runs the 102-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, the **per-person `currently typing` signal — named, self-expiring, cleared on reply, and reported for the surface's own composer as well as for threads**, **assigning work from a thread (who may be handed it, the derived offer enumerated into inner tasks, the write and its notification, and the dashboard's one-row-per-unit-of-work side of it)**, **the profile card (the organization gate, the seat-before-login precedence that keeps the Owner's card from being blank, and the messaging standing the button is drawn from)**, and the plan-delete cascade). See §9i. |
 | `npm run messages:verify` | Runs the 59-assertion Direct Messages suite (the directory predicate that doubles as the gate, the refusals — including the organization owner refused a thread between two other people — the canonical pair and the `CHECK` that enforces it, the body limit's boundary, unread and the read watermark, ONE Bell row per conversation, **attachment reads that follow participation and never the org fallback**, the **`load earlier` page boundary and its cursor**, the **self-expiring `currently typing` signal (peer-only, cleared on send, and marked on the conversation list)**, and the login-delete cascade). See §9j. |
 | `npm run teammates:backfill-contacts` | Projects every plan's `keyContacts` onto profiles + assignments (T7). Idempotent; `--dry-run` to count without writing. Run it before the hub reader switch and after adding a new contacts writer. |
 | `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
@@ -2426,7 +2426,61 @@ kind. The card therefore reads as two lines: the heading above, the specific wor
 The suite covers it in §17 (who and where, including that each offer is one INNER task and that the
 offer is narrowed by the assignee's reach), §18 (the write and its traces), §19 (the draft/Needs-Attention
 interaction — asserted rather than assumed, since it is the behaviour a reader notices first), §20 (the
-login lifecycle) and §21 (the panel path and the mirror).
+login lifecycle) and §21 (the panel path, the mirror, and the profile card's own rules: the organization
+gate that refuses a login holding no seat here, the seat-before-login precedence that keeps the OWNER's
+card from being blank, the self card with no Message button, and the collaborator standing that decides
+whether that button is drawn at all).
+
+### Clicking a name — the profile card
+
+A reader who wants to know who they are talking to clicks the name. That opens ONE dialog, shared by
+every name in the panel — a message's author and an assignment's assignee today, anything else that
+draws a person tomorrow — because a per-surface dialog would be a second answer to "who is this?"
+
+**Its own state, not a prop.** [`user-profile-context.tsx`](components/comments/user-profile-context.tsx)
+owns the one "whose card is open" value and renders the dialog; any name can call
+`useUserProfile().open(userId)`. Threading an `onOpenProfile` callback down through the card, the thread
+view and every reply would put a new required prop on three unrelated components, and the next place a
+name is drawn would have to remember to add it again. `CommentsRail` is now a two-line wrapper around
+`CommentsPanel` for exactly that reason: the provider wraps the tree without re-indenting four hundred
+lines of JSX around it.
+
+**Three rules about what is clickable.** Your own name is not (there is nothing to look up); a
+`"pending"` author or assignee is not (an optimistic placeholder with no account behind it yet); and an
+author whose login was deleted is not (it resolves no `author`, so the row already reads "Removed user").
+Each condition is decided where the fact is known and handed to the card as
+`onOpenAssignee: (() => void) | null`, so a name that looks clickable always is.
+
+**It shows what Settings → Profile shows.** Title, role, their email, the organization's shared email,
+phone and extension, and designations — in that screen's order, and only when they are actually set. The
+seat fields follow Settings' own precedence, SEAT first and the login's row second, because the seat is
+the record the organization keeps while the login's copy is what signup captured. Reading the seat alone
+left the OWNER — who holds no seat — with no title, no phone and no credentials at all, which is the gap
+this closed. The picture is the one deliberate exception: it stays the identity resolver's login-first
+rule, so the face on the card is the face the rail is already drawing beside the name that was clicked.
+
+The phone goes through `formatPhoneWithExtension` — the project's ONE phone formatter — so the card cannot
+print a number differently from the Profile, the portal or a contact card, and the extension rides along
+as "Ext. 412"; a number the formatter cannot recognise is passed through as stored rather than dropped.
+The facts are a LABELLED grid rather than a sentence, because an unlabelled address cannot say whether it
+belongs to the person or to the firm they work for. And the card closes: `DialogClose` at its foot beside
+the corner X, because its facts can run past the fold and Escape / overlay-click already mean the same
+thing everywhere else.
+
+**The read answers only what it may answer.**
+[`person-card.server.ts`](lib/teammates/person-card.server.ts) returns null for anyone the viewer's own
+directory does not list — which is BOTH the membership test and the leak guard, since
+`loadPersonIdentities` will happily resolve a `User` id belonging to another company. It is also why the
+card reads the seat scoped by organization rather than through `findTeammateProfileForUser`, which takes
+a login's earliest seat across every organization it has ever held.
+
+**The Message button cannot be refused.** `card.canMessage` is the `selectable` flag off that same
+directory entry — the exact value `canMessageUser` derives and `POST /api/messages/threads` enforces. A
+card offering a conversation the API then declines is the failure mode this module has closed twice
+already, and the standing is stated in words when it is absent, so a missing button reads as a rule
+rather than as a bug. Pressing it opens the thread and hands off to the Messages rail, which owns the
+conversation, its typing signals and its composer — the two panels share one column, so taking Messages
+is what closes Comments.
 
 ### Scrolling to what you just wrote
 
@@ -2516,7 +2570,7 @@ thread — which is what the scope key exists for.
 ### Verification
 
 ```
-npm run comments:verify   ->  94/94 assertions passed
+npm run comments:verify   ->  102/102 assertions passed
 ```
 
 Runs against the real data layer with self-cleaning `tcm-verify-*` fixtures. It covers the
@@ -2574,7 +2628,20 @@ rail that mirrors the comments rail. Plan, the four decisions and the phase log 
 1. **A rail, not a route.** A Messages icon in the header cluster (numeric unread badge,
    capped `9+`) opens a fixed right panel at `24rem`, mirroring the comments rail's
    `--comments-inset` with its own `--messages-inset`. It is global on every dashboard page
-   and needs no nav entry. Opening it CLOSES Comments, and vice versa.
+   and needs no nav entry. Opening it CLOSES Comments, and vice versa. Two of its details are
+   contracts rather than styling, and both now match the comments rail:
+   - **The same WIDTH** (`COMMENTS_RAIL_WIDTH` = `MESSAGES_RAIL_WIDTH` = `24rem`). The dashboard takes
+     the max of the two insets, so a difference would shift the whole page every time the reader
+     swapped rails. The panel's class and the constant are two spellings of one number and move
+     together.
+   - **`z-50`, not `z-40`.** A page's own fixed bottom action bar (Edit Benefit / Edit Client) is
+     `z-50` and used to paint over the composer. At EQUAL z this panel wins on DOM order, being
+     mounted after the page content, while dialogs and popovers still win by portaling in after both
+     — which is what the profile card and the attachment viewer rely on. A bar that must stay
+     reachable BESIDE the rail clears its column itself, with
+     `max(var(--comments-inset, 0px), var(--messages-inset, 0px))` — the same expression
+     `layout-client` gives the page content. Raising the panel's z without that second half would
+     have put Cancel and Save Changes behind it, which is why the two were changed together.
 2. **The directory is the organization.** Who you may message is the organization: the owner,
    every live Team Member, and every Collaborator who shares at least one plan with you — so
    collaborator↔collaborator is allowed. It mirrors the @mention candidate set minus the
@@ -2612,6 +2679,25 @@ newest message), so a background poll cannot clear a badge on the reader's behal
 **coalesce**: `coalesceDirectNotification` updates the existing unread row for the thread rather
 than inserting a second, so a chatty conversation cannot bury the plan notifications. The row
 deep-links to `/?messages=<threadId>`, which the provider opens.
+
+### Deleting one notification — a write, not a browser dismissal
+
+The Bell holds three kinds of row and only two of them can be closed. Meeting reminders and expiring
+documents are **DERIVED** from plan state on every fetch, so a delete would be undone by the very next
+poll — which is exactly why `useDismissedNotifications` keeps those in `localStorage`, and why the
+control is labelled "Close". A `Notification` row is stored and addressed to one `User`, so removing it
+is a real write every device agrees with, and that row's control says "Delete".
+
+`DELETE /api/notifications/[id]` → `deleteNotification({ id, userId })`, a `deleteMany` scoped by the
+session `userId` so somebody else's id removes nothing and answers 404 rather than 403 — "that exists
+but is not yours" would confirm a row the caller may not know about. `useNotifications().remove` is
+optimistic (the row leaves at once, and only an UNREAD row moves the badge, because only unread rows
+were counted) and RELOADS the feed if the server refuses, rather than leaving the list missing
+something the feed still holds.
+
+The row and its button are SIBLINGS, not nested: a `button` inside a `DropdownMenuItem` also fires the
+item's `onSelect`, so a nested Delete would open the notification on its way out. The meeting and
+document rows already had that shape; the Team rows were given it rather than reinventing a second one.
 
 ### Attachments answer to participation, never the org fallback
 
