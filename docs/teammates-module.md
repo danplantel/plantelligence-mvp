@@ -2263,6 +2263,33 @@ watch arrive will land. It was first drawn under the header; the bottom is where
 annotates the composer rather than the panel. Since that composer only exists in the list view, the
 line does too — in an open thread the panel shows that thread's own line instead.
 
+### Scrolling to what you just wrote
+
+`scrollToBottom` in [`lib/scroll-to-bottom.ts`](lib/scroll-to-bottom.ts) is shared by both rails so the
+gesture is identical in the two — two slightly different glides on two panels of one app reads as a
+bug. Three scroll behaviours, and the distinction between them is the point:
+
+- **The open thread starts at its end** — the newest reply, where a conversation is read from and
+  where the next one will land. Keyed on the thread id, so switching threads re-anchors and a re-render
+  does not. This one JUMPS: arriving on a panel that animates itself downward reads as a glitch rather
+  than as feedback.
+- **A reply ANIMATES the thread to the bottom.** The reader posted, so the message travelling into
+  view is what confirms where it went. Driven by a flag set at submit time and consumed on the next
+  render, once the optimistic reply is in the DOM and counted in `scrollHeight`.
+- **Posting a new comment ANIMATES the list to the bottom.** A new thread card appends at the end
+  (threads are oldest-first), so the card gliding up is what tells the reader where their comment went.
+
+Only the reader's own send animates, and only the reader's own send scrolls at all. Both surfaces have
+a 10s poll, and animating for an incoming message would drag the reader out of the middle of what they
+were reading — that asymmetry is why this is a flag rather than "scroll whenever the list grows". The
+gap between a DM's send and a comments send is zero in both cases, so the animation is imperceptible
+there and only really plays when the reader had scrolled away.
+
+`prefers-reduced-motion: reduce` short-circuits to the jump. That setting asks for movement to be
+avoided, and animating a whole message viewport is about as much movement as a page can make — which
+is why this lives in one helper rather than as a `behavior: "smooth"` at each call site, where one of
+them would eventually forget.
+
 **This section previously said the persistent composer was deliberately not wired**, on the grounds
 that creating a thread just to say "typing" would litter the list with empty threads. The reasoning
 about not creating a thread was right; the conclusion was wrong, and only surfaced when the feature was
@@ -2428,6 +2455,12 @@ nothing in the UI admits to waiting.
   flight disables nothing — a comment is not a form submission.
 - **The in-flight bubble says "sending" quietly** — dimmed slightly, with its withdraw control
   withheld until a real id exists — rather than with a progress affordance.
+- **Sending re-pins the view, with a glide.** The thread follows new messages only while the reader is
+  already at the bottom, so an incoming message cannot yank them out of the history they are reading —
+  but that gate also meant sending while scrolled up left your OWN message off-screen. The send path
+  re-arms the pin and marks that scroll as the one worth animating, so the list travels down to your
+  message instead of teleporting. The list stays pinned afterwards, which is where the reader now is by
+  definition. Shared with Comments: [`lib/scroll-to-bottom.ts`](lib/scroll-to-bottom.ts).
 
 ### Why the right column needs an owner
 

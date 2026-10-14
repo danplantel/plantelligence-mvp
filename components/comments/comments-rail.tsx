@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertTriangle,
   Check,
@@ -31,6 +31,7 @@ import {
   type CommentThreadView,
   type CommentTypingPerson,
 } from "@/lib/comments/types";
+import { scrollToBottom } from "@/lib/scroll-to-bottom";
 import { useCommentTyping } from "@/hooks/useCommentTyping";
 import { useCommentMode } from "./comment-mode-provider";
 import { CommentAttachmentModal } from "./comment-attachment-modal";
@@ -396,6 +397,31 @@ function ThreadView({
   const { currentUserId, reply, setActiveThreadId } = useCommentMode();
   const [parent, ...replies] = thread.messages;
 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  /**
+   * Set when the READER sends, so the next render scrolls to the bottom.
+   *
+   * A flag rather than "scroll whenever the list grows" on purpose: replies arrive on the 10s poll
+   * too, and scrolling for those would yank the reader away from the middle of a thread they were
+   * reading. Only their own send deserves that.
+   */
+  const stickRef = useRef(false);
+
+  // Opening a thread starts at its end — the newest reply — which is where a chat is read from and
+  // where a send is about to land. Same behaviour as the DM thread, and a JUMP rather than a glide:
+  // arriving on a panel that animates itself downward reads as a glitch, not as feedback.
+  useEffect(() => {
+    scrollToBottom(scrollRef.current);
+  }, [thread.id]);
+
+  useEffect(() => {
+    if (!stickRef.current) return;
+    stickRef.current = false;
+    // The reader's own reply, so this is the one scroll worth animating. Runs after paint, so the
+    // optimistic reply is already in the DOM and counted in `scrollHeight`.
+    scrollToBottom(scrollRef.current, true);
+  }, [thread.messages.length]);
+
   if (!parent) return null;
 
   return (
@@ -422,7 +448,10 @@ function ThreadView({
         </div>
       </div>
 
-      <div className="comment-scroll min-h-0 flex-1 overflow-y-auto">
+      <div
+        ref={scrollRef}
+        className="comment-scroll min-h-0 flex-1 overflow-y-auto"
+      >
         <div className="p-3">
           {/* The parent, marked off with a left accent the way Slack marks off the message a
               thread hangs off. */}
@@ -474,6 +503,9 @@ function ThreadView({
           submitLabel="Reply"
           onTyping={() => onTyping(thread.id)}
           onSubmit={async (body, attachments) => {
+            // Re-arm the pin so the reader watches their reply land, even from further up the
+            // thread. `scrollToBottom` runs on the next render, once the optimistic reply exists.
+            stickRef.current = true;
             await reply(thread.id, body, attachments);
           }}
         />
@@ -487,7 +519,14 @@ function ThreadView({
  * comment starts here rather than from a floating button on the page. Comments are not
  * anchored to a page section, so every post is a plain comment on the whole plan/benefit.
  */
-function RailComposer({ onTyping }: { onTyping: () => void }) {
+function RailComposer({
+  onTyping,
+  onSendStart,
+}: {
+  onTyping: () => void;
+  /** Called the instant the reader submits, so the list can re-pin before the card appears. */
+  onSendStart: () => void;
+}) {
   const { createThread } = useCommentMode();
 
   return (
@@ -496,6 +535,7 @@ function RailComposer({ onTyping }: { onTyping: () => void }) {
       submitLabel="Comment"
       onTyping={onTyping}
       onSubmit={async (body, attachments) => {
+        onSendStart();
         await createThread(
           { anchorKind: "section", sectionKey: GENERAL_SECTION_KEY },
           body,
@@ -558,6 +598,22 @@ export function CommentsRail() {
       ),
     [threads, filter],
   );
+
+  const listScrollRef = useRef<HTMLDivElement>(null);
+  /** Set when the reader posts a NEW comment, so the list scrolls to the thread it just created. */
+  const stickListRef = useRef(false);
+
+  // A new comment appends a thread card to the END of the list (threads are oldest-first), so a send
+  // scrolls there — otherwise the reader has to hunt for the thread they just started. Keyed on the
+  // visible count so it fires once the card is actually rendered, and never on a poll: an incoming
+  // comment from somebody else must not move the list under the reader.
+  useEffect(() => {
+    if (!stickListRef.current) return;
+    stickListRef.current = false;
+    // Animated, for the same reason as a reply: the reader posted, and the card travelling into view
+    // is what tells them where their comment went.
+    scrollToBottom(listScrollRef.current, true);
+  }, [visible.length]);
 
   // Keep relative timestamps honest ("just now" must not freeze), and reveal a selected
   // thread even when the current filter would hide it — e.g. a resolved thread opened
@@ -730,7 +786,10 @@ export function CommentsRail() {
               )}
             </div>
           ) : (
-            <div className="comment-scroll min-h-0 flex-1 overflow-y-auto">
+            <div
+              ref={listScrollRef}
+              className="comment-scroll min-h-0 flex-1 overflow-y-auto"
+            >
               <div className="space-y-2 p-3">
                 {visible.length === 0 ? (
                   <div className="flex flex-col items-center justify-center gap-2 px-4 py-12 text-center">
@@ -780,7 +839,12 @@ export function CommentsRail() {
                 {composerTypingLabel}
               </p>
             ) : null}
-            <RailComposer onTyping={notifyComposerTyping} />
+            <RailComposer
+              onTyping={notifyComposerTyping}
+              onSendStart={() => {
+                stickListRef.current = true;
+              }}
+            />
           </div>
         </div>
       )}

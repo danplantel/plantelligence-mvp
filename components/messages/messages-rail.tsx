@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Headshot } from "@/components/ui/headshot";
 import { cn } from "@/lib/utils";
+import { scrollToBottom } from "@/lib/scroll-to-bottom";
 import {
   directAttachmentInlineUrl,
   formatAttachmentSize,
@@ -275,11 +276,19 @@ function MessagesThread({ threadId }: { threadId: string }) {
    * the reader away from the history they just asked for. Only a genuinely new newest message
    * should move the view.
    */
+  /**
+   * Whether the scroll this render triggers should ANIMATE. Set only by the send path, because that
+   * is the one scroll the reader is owed feedback for — an incoming message must not set the list
+   * gliding under them. Consumed and cleared by the effect below.
+   */
+  const smoothScrollRef = useRef(false);
+
   const newestId = newest?.id ?? null;
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || !stickRef.current) return;
-    el.scrollTop = el.scrollHeight;
+    scrollToBottom(el, smoothScrollRef.current);
+    smoothScrollRef.current = false;
     // `peerIsTyping` is a dependency too: the bubble is an arrival at the bottom of the list, and a
     // reader already pinned there should see it appear without scrolling.
   }, [newestId, peerIsTyping]);
@@ -566,7 +575,24 @@ function MessagesThread({ threadId }: { threadId: string }) {
 
       <MessagesComposer
         threadId={threadId}
-        onSubmit={send}
+        onSubmit={async (body, attachments) => {
+          /**
+           * Sending is the reader explicitly saying "I want to see this", so it RE-ARMS the pin.
+           *
+           * The scroll effect above is gated on `stickRef`, which the reader's own scrolling turns
+           * off — that gate is what stops an incoming message yanking them back down while they are
+           * reading history. But it also meant that sending while scrolled up left your own message
+           * off-screen. Re-arming here pins the list for this send and keeps it pinned afterwards,
+           * which is where the reader now is by definition.
+           *
+           * The effect itself fires on the NEXT render, once the optimistic bubble exists — so this
+           * only has to set the intent. `smoothScrollRef` marks THIS scroll as the one worth
+           * animating; the effect clears it again so later arrivals stay instant.
+           */
+          stickRef.current = true;
+          smoothScrollRef.current = true;
+          await send(body, attachments);
+        }}
         onTyping={notifyTyping}
       />
 
