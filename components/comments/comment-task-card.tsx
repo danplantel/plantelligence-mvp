@@ -1,0 +1,126 @@
+"use client";
+
+import { CheckCircle2, ClipboardList, Undo2 } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { DERIVED_TASK_LABELS } from "@/lib/dashboard-tasks";
+import type { CommentTaskView } from "@/lib/comments/types";
+
+/**
+ * An assignment, as the thread shows it.
+ *
+ * A CARD rather than a sentence, which is the whole reason a message carries a `kind`: the reader
+ * has to be able to see who was asked for what, and whether it is still outstanding, without reading
+ * prose and without the rail guessing at English. Everything it renders comes from the message's
+ * `task` — never from parsing the message body, which is only the fallback for the one case where
+ * there is no task left to report on.
+ *
+ * The state is LIVE, resolved with the thread: ticking the work off on the dashboard is visible here
+ * the next time the thread is read, and nobody has to remember to update the conversation.
+ */
+
+export function CommentTaskCard({
+  task,
+  body,
+  assignedByName,
+  mayWithdraw,
+  onWithdraw,
+  className,
+}: {
+  /** Null when the task is GONE — withdrawn, or deleted with its plan. */
+  task: CommentTaskView | null;
+  /** The message's plain-text fallback, shown when there is no task left to describe. */
+  body: string;
+  /** The assigner, from the message's own author row. */
+  assignedByName: string;
+  /** The assigner, or a moderator. Rendered only when it could actually succeed. */
+  mayWithdraw: boolean;
+  onWithdraw: () => void;
+  className?: string;
+}) {
+  const withdrawn = task === null;
+  const done = Boolean(task?.done);
+  const derivedLabel = task?.derivedKind
+    ? DERIVED_TASK_LABELS[task.derivedKind]
+    : null;
+
+  return (
+    <div
+      className={cn(
+        "rounded-lg border border-border bg-background p-2.5",
+        // A withdrawn card is deliberately quieter than a live one: it is history, and it should
+        // read that way at a glance rather than competing with the work still outstanding.
+        withdrawn && "border-dashed bg-muted/20",
+        className,
+      )}
+    >
+      <div className="flex items-start gap-2">
+        <span
+          className={cn(
+            "mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full",
+            done
+              ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+              : withdrawn
+                ? "bg-muted text-muted-foreground"
+                : "bg-accent-blue/10 text-accent-blue",
+          )}
+        >
+          {done ? (
+            <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+          ) : (
+            <ClipboardList className="h-3.5 w-3.5" aria-hidden="true" />
+          )}
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-medium">
+            {task ? task.title : body}
+          </p>
+
+          {task ? (
+            <>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                Assigned by {assignedByName} to {task.assignedToName}
+              </p>
+              <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
+                <span
+                  className={cn(
+                    "rounded-full px-1.5 py-0.5 font-medium",
+                    done
+                      ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400"
+                      : "bg-accent-blue/10 text-accent-blue",
+                  )}
+                >
+                  {done ? "Completed" : "To do"}
+                </span>
+                {derivedLabel ? (
+                  <span className="rounded-full bg-muted px-1.5 py-0.5">
+                    {derivedLabel}
+                    {task.benefitCategory ? ` · ${task.benefitCategory}` : ""}
+                  </span>
+                ) : null}
+              </p>
+            </>
+          ) : (
+            <p className="mt-0.5 text-[11px] italic text-muted-foreground">
+              This assignment was withdrawn — the task is no longer on anyone&rsquo;s dashboard.
+            </p>
+          )}
+        </div>
+
+        {/* Only ever offered where it would succeed: the assigner taking back their own request, or a
+            moderator tidying up after a colleague. */}
+        {task && mayWithdraw ? (
+          <button
+            type="button"
+            onClick={onWithdraw}
+            title="Withdraw this assignment"
+            aria-label="Withdraw this assignment"
+            className="shrink-0 rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <Undo2 className="h-3.5 w-3.5" />
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}

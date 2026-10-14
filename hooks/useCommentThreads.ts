@@ -102,6 +102,10 @@ function tempMessage(
     attachments,
     createdAt: new Date().toISOString(),
     deletedAt: null,
+    // Always a plain comment: this placeholder stands in for what the COMPOSER is about to post,
+    // while an assignment is written from the assign dialog, which owns its own card.
+    kind: "comment",
+    task: null,
   };
 }
 
@@ -127,6 +131,29 @@ export interface UseCommentThreadsResult {
     body: string,
     attachments?: CommentAttachment[],
   ) => Promise<void>;
+  /**
+   * Hand work to somebody from this thread.
+   *
+   * `assigneeName` is carried for the OPTIMISTIC card only — the server resolves the real one with
+   * the thread it returns, so the card can never end up naming somebody the server did not.
+   */
+  assignTask: (
+    threadId: string,
+    input: {
+      assigneeUserId: string;
+      assigneeName: string;
+      title: string;
+      /** The picker's opaque id for a derived task, when the work came from one. */
+      derivedTaskId?: string;
+    },
+  ) => Promise<void>;
+  /**
+   * Take an assignment back. The card stays; the work goes.
+   *
+   * Keyed by the MESSAGE alone: an id identifies exactly one card on this surface, so callers do not
+   * have to know which thread it sits in — and cannot get it wrong.
+   */
+  withdrawAssignment: (messageId: string) => Promise<void>;
   setResolved: (threadId: string, resolved: boolean) => Promise<void>;
   deleteThread: (threadId: string) => Promise<void>;
   deleteMessage: (messageId: string, threadId: string) => Promise<void>;
@@ -319,6 +346,141 @@ export function useCommentThreads(
     [mutate, optimisticAuthor, resolvedClientId, run],
   );
 
+  const assignTask = useCallback(
+    async (
+      threadId: string,
+      input: {
+        assigneeUserId: string;
+        assigneeName: string;
+        title: string;
+        derivedTaskId?: string;
+      },
+    ) => {
+      await run(async () => {
+        // The optimistic card is built from what the dialog already knows, so the work appears to land
+        // without a round trip. Its task id is a PLACEHOLDER and nothing reads it as an id: the card
+        // renders title/byline/state, and the withdrawal control is withheld while it is a placeholder
+        // because there is no server row to withdraw yet.
+        const optimistic: CommentMessageView = {
+          ...tempMessage(
+            `Assigned a task to ${input.assigneeName}: ${input.title}`,
+            [],
+            optimisticAuthor,
+          ),
+          kind: "task_assignment",
+          task: {
+            id: "pending-task",
+            title: input.title,
+            done: false,
+            doneAt: null,
+            assignedByUserId: currentUserId ?? "pending",
+            assignedToUserId: input.assigneeUserId,
+            assignedToName: input.assigneeName,
+            derivedKind: null,
+            benefitCategory: null,
+            clientId: resolvedClientId || null,
+          },
+        };
+
+        await mutate(
+          async (current) => {
+            const response = await fetch(
+              `/api/comments/threads/${encodeURIComponent(threadId)}/assignments`,
+              {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  assigneeUserId: input.assigneeUserId,
+                  title: input.title,
+                  derivedTaskId: input.derivedTaskId,
+                }),
+              },
+            );
+            const payload = (await response.json().catch(() => ({}))) as {
+              data?: CommentThreadView;
+              error?: string;
+            };
+            if (!response.ok || !payload.data) {
+              throw new Error(payload?.error ?? "Could not assign the task.");
+            }
+            const updated = payload.data;
+            return {
+              clientId: current?.clientId ?? resolvedClientId,
+              canModerate: current?.canModerate ?? false,
+              threads: (current?.threads ?? []).map((thread) =>
+                thread.id === threadId ? updated : thread,
+              ),
+            };
+          },
+          {
+            optimisticData: (current) => ({
+              clientId: current?.clientId ?? resolvedClientId,
+              canModerate: current?.canModerate ?? false,
+              threads: (current?.threads ?? []).map((thread) =>
+                thread.id === threadId
+                  ? { ...thread, messages: [...thread.messages, optimistic] }
+                  : thread,
+              ),
+            }),
+            rollbackOnError: true,
+            revalidate: false,
+            populateCache: true,
+          },
+        );
+      });
+    },
+    [currentUserId, mutate, optimisticAuthor, resolvedClientId, run],
+  );
+
+  const withdrawAssignment = useCallback(
+    async (messageId: string) => {
+      await run(async () => {
+        /**
+         * The card is DETACHED rather than removed — its `task` becomes null and it reads as
+         * withdrawn, which is exactly what the server leaves behind. So the withdrawal renders from
+         * the same rule the server applies: no task, nothing left to report on.
+         *
+         * Applied across EVERY thread rather than one named by the caller: a message id already
+         * identifies exactly one card on this surface, so there is no thread to be told about and no
+         * way to patch the wrong one.
+         */
+        const detach = (current: CommentListPayload | undefined) => ({
+          clientId: current?.clientId ?? resolvedClientId,
+          canModerate: current?.canModerate ?? false,
+          threads: (current?.threads ?? []).map((thread) => ({
+            ...thread,
+            messages: thread.messages.map((message) =>
+              message.id === messageId ? { ...message, task: null } : message,
+            ),
+          })),
+        });
+
+        await mutate(
+          async (current) => {
+            const response = await fetch(
+              `/api/comments/assignments/${encodeURIComponent(messageId)}`,
+              { method: "DELETE" },
+            );
+            const payload = (await response.json().catch(() => ({}))) as {
+              error?: string;
+            };
+            if (!response.ok) {
+              throw new Error(payload?.error ?? "Could not withdraw the assignment.");
+            }
+            return detach(current);
+          },
+          {
+            optimisticData: detach,
+            rollbackOnError: true,
+            revalidate: false,
+            populateCache: true,
+          },
+        );
+      });
+    },
+    [mutate, resolvedClientId, run],
+  );
+
   const setResolved = useCallback(
     async (threadId: string, resolved: boolean) => {
       await run(async () => {
@@ -478,6 +640,8 @@ export function useCommentThreads(
     }, [mutate]),
     createThread,
     reply,
+    assignTask,
+    withdrawAssignment,
     setResolved,
     deleteThread,
     deleteMessage,

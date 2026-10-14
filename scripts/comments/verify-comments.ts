@@ -19,20 +19,34 @@
  *  12. "currently typing" — per thread, per person, named, self-expiring, cleared on reply;
  *  13. the persistent composer's SURFACE-scoped typing, and its one-row-per-person invariant;
  *  14. a LANDED comment retiring the mark it makes a lie, so the pill and the composer line can
- *      never contradict each other on screen.
+ *      never contradict each other on screen;
+ *  15. an author's IDENTITY from their seat — a teammate's picture and name, with the owner's login
+ *      as the case that has no seat at all;
+ *  16. assigning work — who may be handed it on each surface, and which derived tasks may be
+ *      delegated;
+ *  17. the assignment WRITE — one task, one kinded message and one notification, completion showing
+ *      in the thread, withdrawal, and the refusals (a Collaborator on a plan thread, a directly
+ *      posted id for a task that cannot be delegated);
+ *  18. the DASHBOARD's side of it — one row per unit of work, with the derived row suppressed for the
+ *      assignee alone and the assigned row carrying its identity.
  *
  * Fixtures are `tcm-verify-*` and are cleaned up unless `--keep` is passed.
  */
 import { check, createPrisma, failureCount, summary } from "../teammates/shared";
 import { getOrCreateOrganizationForUser } from "../../lib/organization";
+import { deletePlansAndScopedDataForUser } from "../../lib/delete-user-plans-and-scoped-data";
 import { createTeammateProfile } from "../../lib/teammates/profiles.server";
 import { upsertAssignment } from "../../lib/teammates/assignments.server";
 import { TeammateDataError } from "../../lib/teammates/errors";
 import {
   addCommentMessage,
+  assignTask,
   createCommentThread,
   deleteCommentMessage,
   deleteCommentThread,
+  getThreadAssignable,
+  listAssignableDerivedTasks,
+  listAssignableUsers,
   listCommentThreads,
   listCommentTyping,
   listMentionableUsers,
@@ -40,8 +54,15 @@ import {
   markSurfaceTyping,
   resolveCommentAttachmentAccess,
   setCommentThreadResolved,
+  withdrawAssignment,
 } from "../../lib/comments/comments.server";
 import {
+  listManualTasks,
+  listSystemTasks,
+  suppressedDerivedRows,
+} from "../../lib/dashboard-tasks.server";
+import {
+  COMMENT_NOTIFICATION_TYPES,
   MAX_COMMENT_LENGTH,
   liveTypingPeople,
   newestMessageAt,
@@ -1113,9 +1134,462 @@ async function main(): Promise<void> {
         { authorUserId: owner.id, createdAt: afterMark },
       ]).length === 1,
     );
+
+    /* ── 16. A seat's picture and name reach the comments UI ──────── */
+
+    console.log("");
+    console.log("16. A Collaborator's seat picture reaches the comments UI");
+
+    // The reported bug. A teammate's picture and name live on their SEAT — the self-service profile —
+    // and the resolvers here read the login alone, so every Collaborator drew as a monogram while the
+    // DM rail (which did fall back to the seat) drew their picture. The owner is the exception that
+    // hid it: they hold no seat and keep theirs on the login.
+    // The login's own picture wins by design, so it is cleared first: this asserts the FALLBACK to the
+    // seat, which is the half that never existed here.
+    await prisma.user.update({
+      where: { id: collabLogin.id },
+      data: { headshot: null },
+    });
+    await prisma.teammateProfile.updateMany({
+      where: { organizationId, loginUserId: collabLogin.id },
+      data: {
+        headshot: "https://example.test/dana.png",
+        firstName: "Dana",
+        lastName: "Scully",
+      },
+    });
+
+    const withSeatPictures = await listCommentThreads({
+      organizationId,
+      userId: owner.id,
+      clientIdOrSlug: planA.id,
+      targetType: "plan",
+    });
+    const seatPicturedAuthor = withSeatPictures.threads
+      .flatMap((thread) => thread.messages)
+      .find((message) => message.authorUserId === collabLogin.id)?.author;
+    check(
+      "a Collaborator's SEAT picture renders on their comment, not a monogram",
+      seatPicturedAuthor?.headshot === "https://example.test/dana.png",
+      JSON.stringify(seatPicturedAuthor ?? null),
+    );
+    check(
+      "…and their name comes from the seat too, the same rule the DM rail applies",
+      seatPicturedAuthor?.name === "Dana Scully",
+      JSON.stringify(seatPicturedAuthor ?? null),
+    );
+    check(
+      "the owner, who holds no seat, still renders from their own login",
+      withSeatPictures.threads
+        .flatMap((thread) => thread.messages)
+        .find((message) => message.authorUserId === owner.id)?.author?.userId === owner.id,
+    );
+
+    /* ── 17. Assigning work — the permission matrix ───────────────── */
+
+    console.log("");
+    console.log("17. Assigning from a thread — who, and where");
+
+    const heldCategory = normalizeBenefitCategoryKey("Group Health");
+
+    // A PLAN thread is internal work: the Collaborator can comment on it — implicit by View — but
+    // can never be handed it. This is the rule the whole feature turns on.
+    const planCandidates = await listAssignableUsers({
+      organizationId,
+      userId: owner.id,
+      clientIdOrSlug: planA.id,
+      targetType: "plan",
+    });
+    check(
+      "a Collaborator is never an assignee on a PLAN thread",
+      !planCandidates.some((person) => person.userId === collabLogin.id),
+      JSON.stringify(planCandidates),
+    );
+    check(
+      "…while the firm's own people are — a Team Member and an Admin",
+      planCandidates.some((person) => person.userId === mentioneeLogin.id) &&
+        planCandidates.some((person) => person.userId === adminLogin.id),
+      JSON.stringify(planCandidates.map((person) => person.userId)),
+    );
+    check(
+      "…and the assigner is not offered themselves",
+      !planCandidates.some((person) => person.userId === owner.id),
+      JSON.stringify(planCandidates.map((person) => person.userId)),
+    );
+
+    // A BENEFIT-category thread may be handed to a Collaborator, and the category scope is what
+    // decides WHICH — the same list the @mention picker resolves, so the two cannot disagree.
+    const benefitCandidates = await listAssignableUsers({
+      organizationId,
+      userId: owner.id,
+      clientIdOrSlug: planA.id,
+      targetType: "benefit",
+      category: heldCategory,
+    });
+    check(
+      "a Collaborator IS assignable on a benefit thread for a category they hold",
+      benefitCandidates.some(
+        (person) =>
+          person.userId === collabLogin.id && person.kind === "collaborator",
+      ),
+      JSON.stringify(benefitCandidates),
+    );
+
+    // The derived tasks offered must be THIS plan's, and never the one that cannot be delegated:
+    // publishing is Owner/Admin work with its own attestation, so a task row for it would be a
+    // promise the assignee could not keep.
+    const derivedSource = await listSystemTasks([planA.id]);
+    const offered = await listAssignableDerivedTasks({
+      organizationId,
+      clientId: planA.id,
+      targetType: "plan",
+    });
+    check(
+      "the offered derived tasks are this plan's, minus the ones that cannot be delegated",
+      offered.every((task) => task.kind !== "ready-to-publish") &&
+        offered.length ===
+          derivedSource.filter((task) => task.kind !== "ready-to-publish").length,
+      `${offered.length} offered of ${derivedSource.length} derived`,
+    );
+    const benefitOffered = await listAssignableDerivedTasks({
+      organizationId,
+      clientId: planA.id,
+      targetType: "benefit",
+      category: heldCategory,
+    });
+    check(
+      "…and on a benefit thread they are narrowed to that category's own work",
+      benefitOffered.every((task) => task.category === heldCategory) &&
+        benefitOffered.every((task) => task.kind === "incomplete-benefit"),
+      JSON.stringify(benefitOffered),
+    );
+
+    check(
+      "a Collaborator cannot even be OFFERED the assign dialog",
+      (await refusalCode(() =>
+        getThreadAssignable({
+          organizationId,
+          userId: collabLogin.id,
+          threadId: sectionThread.id,
+        }),
+      )) === "comment_forbidden",
+    );
+    check(
+      "…while the owner is handed the same candidates the list resolved",
+      (
+        await getThreadAssignable({
+          organizationId,
+          userId: owner.id,
+          threadId: sectionThread.id,
+        })
+      ).users.length === planCandidates.length,
+    );
+    check(
+      "an outsider cannot be offered it either",
+      (await refusalCode(() =>
+        getThreadAssignable({
+          organizationId,
+          userId: stranger.id,
+          threadId: sectionThread.id,
+        }),
+      )) === "not_assigned",
+    );
+
+    // An ordinary comment is not an assignment, and the read says so rather than leaving the rail to
+    // infer it from an absent field.
+    const plainThread = await listCommentThreads({
+      organizationId,
+      userId: owner.id,
+      clientIdOrSlug: planA.id,
+      targetType: "plan",
+    });
+    check(
+      'a plain comment reads as kind "comment" with no task attached',
+      plainThread.threads
+        .flatMap((thread) => thread.messages)
+        .every((message) => message.kind === "comment" && message.task === null),
+      JSON.stringify(
+        plainThread.threads.flatMap((thread) => thread.messages).map((m) => m.kind),
+      ),
+    );
+
+    /* ── 18. Assigning, and taking it back ────────────────────────── */
+
+    console.log("");
+    console.log("18. Assigning a task — the write, and the traces it leaves");
+
+    const assigned = await assignTask({
+      organizationId,
+      userId: owner.id,
+      threadId: sectionThread.id,
+      assigneeUserId: mentioneeLogin.id,
+      title: "Review the company details",
+    });
+    const card = assigned.messages[assigned.messages.length - 1];
+    check(
+      "the assignment lands as a KINDED message carrying the task's live state",
+      card.kind === "task_assignment" &&
+        card.task !== null &&
+        card.task.done === false &&
+        card.task.assignedToUserId === mentioneeLogin.id &&
+        card.task.assignedByUserId === owner.id,
+      JSON.stringify(card.task),
+    );
+    check(
+      "…and its plain-text body says what happened, for the notification and the eye",
+      card.body.includes("Review the company details"),
+      card.body,
+    );
+
+    const taskRow = card.task
+      ? await prisma.task.findUnique({ where: { id: card.task.id } })
+      : null;
+    check(
+      "ONE stored task, owned by the assignee, stamped with who asked and which conversation",
+      taskRow?.userId === mentioneeLogin.id &&
+        taskRow?.assignedByUserId === owner.id &&
+        taskRow?.clientId === planA.id &&
+        taskRow?.sourceThreadId === sectionThread.id &&
+        taskRow?.sourceMessageId === card.id,
+      JSON.stringify(taskRow),
+    );
+    check(
+      "…which is work the assignee can already see on their own dashboard",
+      (await listManualTasks(mentioneeLogin.id, [planA.id])).some(
+        (task) => task.id === taskRow?.id && task.planName !== null,
+      ),
+    );
+
+    const assignmentNotification = await prisma.notification.findFirst({
+      where: {
+        userId: mentioneeLogin.id,
+        type: COMMENT_NOTIFICATION_TYPES.taskAssigned,
+      },
+      select: { href: true },
+    });
+    check(
+      "and exactly ONE notification, deep-linking the thread it came from",
+      Boolean(assignmentNotification?.href?.includes(sectionThread.id)) &&
+        (await prisma.notification.count({
+          where: {
+            userId: mentioneeLogin.id,
+            type: COMMENT_NOTIFICATION_TYPES.taskAssigned,
+          },
+        })) === 1,
+      JSON.stringify(assignmentNotification),
+    );
+
+    // The rule from the WRITE side. A Collaborator is absent from a plan thread's candidate list, so
+    // this one membership test refuses them — there is no second copy of the rule to drift.
+    check(
+      "a Collaborator cannot be assigned work on a PLAN thread",
+      (await refusalCode(() =>
+        assignTask({
+          organizationId,
+          userId: owner.id,
+          threadId: sectionThread.id,
+          assigneeUserId: collabLogin.id,
+          title: "Not allowed on a plan thread",
+        }),
+      )) === "assignee_not_allowed",
+    );
+    check(
+      "…but on a benefit thread they hold, the same call is accepted",
+      (
+        await assignTask({
+          organizationId,
+          userId: owner.id,
+          threadId: ghThread.id,
+          assigneeUserId: collabLogin.id,
+          title: "Check the Group Health summary",
+        })
+      ).messages.some((message) => message.task?.assignedToUserId === collabLogin.id),
+    );
+
+    // A derived id is accepted only if the freshly derived list offers it — so the one task this
+    // feature refuses to delegate cannot be smuggled in by naming it directly.
+    check(
+      "an undelegable derived task is refused even when its id is posted directly",
+      (await refusalCode(() =>
+        assignTask({
+          organizationId,
+          userId: owner.id,
+          threadId: sectionThread.id,
+          assigneeUserId: mentioneeLogin.id,
+          derivedTaskId: `system-ready-to-publish-${planA.id}`,
+        }),
+      )) === "derived_task_not_offered",
+    );
+    check(
+      "a Collaborator cannot assign at all",
+      (await refusalCode(() =>
+        assignTask({
+          organizationId,
+          userId: collabLogin.id,
+          threadId: ghThread.id,
+          assigneeUserId: adminLogin.id,
+          title: "I am not a moderator",
+        }),
+      )) === "comment_forbidden",
+    );
+
+    // Completion belongs to the assignee, and the thread reports it — work it asked for is never
+    // silently stale.
+    if (taskRow) {
+      await prisma.task.update({
+        where: { id: taskRow.id },
+        data: { done: true, doneAt: new Date() },
+      });
+    }
+    const afterCompletion = await listCommentThreads({
+      organizationId,
+      userId: owner.id,
+      clientIdOrSlug: planA.id,
+      targetType: "plan",
+    });
+    check(
+      "ticking the task off makes the thread's card read as completed",
+      afterCompletion.threads
+        .flatMap((thread) => thread.messages)
+        .find((message) => message.id === card.id)?.task?.done === true,
+    );
+
+    // The assignee owns the task but not the request. Letting them withdraw would let somebody
+    // quietly erase what they were asked for.
+    check(
+      "the assignee cannot withdraw the assignment they were given",
+      (await refusalCode(() =>
+        withdrawAssignment({
+          organizationId,
+          userId: mentioneeLogin.id,
+          messageId: card.id,
+        }),
+      )) === "comment_forbidden",
+    );
+
+    check(
+      "the assigner can — which deletes the task",
+      (
+        await withdrawAssignment({
+          organizationId,
+          userId: owner.id,
+          messageId: card.id,
+        })
+      ).threadId === sectionThread.id &&
+        (await prisma.task.count({ where: { id: taskRow?.id ?? "none" } })) === 0,
+    );
+    const afterWithdrawal = await listCommentThreads({
+      organizationId,
+      userId: owner.id,
+      clientIdOrSlug: planA.id,
+      targetType: "plan",
+    });
+    check(
+      "…and the card stays where it was, reporting that there is nothing to report",
+      afterWithdrawal.threads
+        .flatMap((thread) => thread.messages)
+        .find((message) => message.id === card.id)?.task === null,
+    );
+
+    /* ── 19. One row per unit of work ─────────────────────────────── */
+
+    console.log("");
+    console.log("19. The dashboard keeps ONE row per unit of work");
+
+    // The test needs a REAL derived task to be worth anything, so the fixture is checked first: with
+    // none to delegate, de-duplication would pass by having nothing to de-duplicate, and a green tick
+    // that means nothing is worse than a red one.
+    const delegable = await listAssignableDerivedTasks({
+      organizationId,
+      clientId: planA.id,
+      targetType: "plan",
+    });
+    const target = delegable[0];
+    check(
+      "the fixture plan offers a derived task to delegate",
+      Boolean(target),
+      JSON.stringify(delegable.map((task) => task.id)),
+    );
+
+    if (target) {
+      await assignTask({
+        organizationId,
+        userId: owner.id,
+        threadId: sectionThread.id,
+        assigneeUserId: mentioneeLogin.id,
+        derivedTaskId: target.id,
+      });
+
+      const assigneeRows = await listManualTasks(mentioneeLogin.id, [planA.id]);
+      check(
+        "the assigned row carries the derived task's identity, so nothing is lost by suppressing it",
+        assigneeRows.some(
+          (task) => task.derivedKind === target.kind && task.href !== null,
+        ),
+        JSON.stringify(assigneeRows.map((task) => [task.derivedKind, task.href])),
+      );
+
+      // The assignee has plan access, so they can already see the derived row for this issue. The
+      // assignment has to REPLACE it, not sit beside it.
+      const forAssignee = await listSystemTasks(
+        [planA.id],
+        await suppressedDerivedRows(mentioneeLogin.id),
+      );
+      check(
+        "…and the derived row is suppressed FOR THEM — one row per unit of work",
+        !forAssignee.some((task) => task.id === target.id),
+        JSON.stringify(forAssignee.map((task) => task.id)),
+      );
+
+      const forOwner = await listSystemTasks([planA.id]);
+      check(
+        "…while everybody else still sees it, because for them it is not work they were given",
+        forOwner.some((task) => task.id === target.id),
+        JSON.stringify(forOwner.map((task) => task.id)),
+      );
+
+      // A typed-title assignment stands in for no derived row, so it must suppress none — which is
+      // what keeps the rule about inheritance rather than about assignments in general.
+      await assignTask({
+        organizationId,
+        userId: owner.id,
+        threadId: sectionThread.id,
+        assigneeUserId: adminLogin.id,
+        title: "Covers no derived row",
+      });
+      const adminSuppressions = await suppressedDerivedRows(adminLogin.id);
+      check(
+        "a task assigned with a TYPED title suppresses nothing — it stands in for nothing",
+        adminSuppressions.size === 0,
+        JSON.stringify([...adminSuppressions]),
+      );
+    }
+
+    /* ── 20. Lifecycle: the work follows the login ────────────────── */
+
+    console.log("");
+    console.log("20. Deleting a login takes the work assigned to it");
+
+    // Guarded so it cannot pass by having nothing to delete — and it must run last, because it takes
+    // this login's plans and tasks away with it.
+    const adminTaskCount = await prisma.task.count({
+      where: { userId: adminLogin.id },
+    });
+    await deletePlansAndScopedDataForUser(adminLogin.id);
+    check(
+      "…and the tasks it held go with it, before the user row could block the delete",
+      adminTaskCount > 0 &&
+        (await prisma.task.count({ where: { userId: adminLogin.id } })) === 0,
+      `${adminTaskCount} before`,
+    );
   } finally {
     if (!KEEP_FIXTURES) {
       await prisma.notification.deleteMany({
+        where: { userId: { in: created.userIds } },
+      });
+      // Assigned tasks point at fixture LOGINS, and `Task.userId` is a real relation with no cascade —
+      // so they have to go before the users, or the cleanup fails on the foreign key.
+      await prisma.task.deleteMany({
         where: { userId: { in: created.userIds } },
       });
       await prisma.commentThread.deleteMany({

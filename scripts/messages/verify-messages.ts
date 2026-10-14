@@ -17,7 +17,8 @@
  *  10. "load earlier" paging — the page boundary, the cursor, and the exhausted tail;
  *  11. "currently typing" — the peer's side only, self-expiry, and cleared on send;
  *  12. the conversation list's typing poll — every conversation at once, never the reader's own;
- *  13. the MARK beside the bit — a peer's own message retiring dots a poll would still show.
+ *  13. the MARK beside the bit — a peer's own message retiring dots a poll would still show;
+ *  14. the peer's IDENTITY from their SEAT — picture and name, with the login's own as the fallback.
  *
  * Fixtures are `tdm-verify-*` and are cleaned up unless `--keep` is passed.
  */
@@ -1000,6 +1001,45 @@ async function main(): Promise<void> {
       (await refusalCode(() =>
         listTypingThreadIds({ organizationId, userId: stranger.id }),
       )) === "not_a_member",
+    );
+
+    /* ── 12. A seat's picture and name reach the participant view ─── */
+
+    console.log("");
+    console.log("12. A Collaborator's seat picture reaches the DM rail");
+
+    // The same report as the comments one, read from this side. The picture and the name belong to the
+    // SEAT, and both features now resolve them through ONE loader
+    // (lib/teammates/identity.server.ts), so neither panel can drift from the other again.
+    //
+    // The login's own picture wins by design, so it is cleared first: this asserts the FALLBACK, which
+    // is the half the comments resolver was missing.
+    await prisma.user.update({
+      where: { id: carl.loginId },
+      data: { headshot: null },
+    });
+    await prisma.teammateProfile.updateMany({
+      where: { organizationId, loginUserId: carl.loginId },
+      data: {
+        headshot: "https://example.test/carl.png",
+        firstName: "Carl",
+        lastName: "Weathers",
+      },
+    });
+    const withSeatPicture = await getDirectThread({
+      organizationId,
+      userId: owner.id,
+      threadId: paging.threadId,
+    });
+    check(
+      "the peer's SEAT picture reaches the participant view",
+      withSeatPicture.participant.headshot === "https://example.test/carl.png",
+      JSON.stringify(withSeatPicture.participant),
+    );
+    check(
+      "…and so does the seat's own name, with the login as the fallback",
+      withSeatPicture.participant.name === "Carl Weathers",
+      JSON.stringify(withSeatPicture.participant),
     );
   } finally {
     if (!KEEP_FIXTURES) {

@@ -5,6 +5,7 @@ import {
   AlertTriangle,
   Check,
   ChevronLeft,
+  ClipboardList,
   Loader2,
   Lock,
   Maximize2,
@@ -39,6 +40,8 @@ import { useCommentTyping } from "@/hooks/useCommentTyping";
 import { useCommentMode } from "./comment-mode-provider";
 import { CommentAttachmentModal } from "./comment-attachment-modal";
 import { CommentComposer } from "./comment-composer";
+import { CommentTaskCard } from "./comment-task-card";
+import { AssignTaskDialog } from "./assign-task-dialog";
 
 type ThreadFilter = "open" | "resolved" | "all";
 
@@ -90,9 +93,18 @@ function MessageRow({
   currentUserId: string | null;
   onOpenAttachment: (attachment: CommentAttachment) => void;
 }) {
+  const { canModerate, withdrawAssignment } = useCommentMode();
   const name = messageAuthorName(message, currentUserId);
   // Defensive against a stale SWR cache written before attachments existed.
   const attachments = message.attachments ?? [];
+  const task = message.task;
+  // Offered only where it would actually succeed: the assigner taking back their own request, or a
+  // moderator tidying up after a colleague. A placeholder task — one still in flight — has no server
+  // row to withdraw yet, so the control waits for the real one.
+  const mayWithdraw =
+    Boolean(task) &&
+    task?.id !== "pending-task" &&
+    (canModerate || task?.assignedByUserId === currentUserId);
 
   return (
     <li className="flex gap-2">
@@ -112,11 +124,24 @@ function MessageRow({
           </span>
         </div>
 
+        {message.kind === "task_assignment" ? (
+          <CommentTaskCard
+            task={task}
+            body={message.body}
+            assignedByName={name}
+            mayWithdraw={mayWithdraw}
+            onWithdraw={() => void withdrawAssignment(message.id)}
+            className="mt-1"
+          />
+        ) : null}
+
         {message.deletedAt ? (
           <p className="mt-0.5 whitespace-pre-wrap break-words text-xs italic text-muted-foreground">
             This message was deleted.
           </p>
-        ) : message.body ? (
+        ) : // An assignment's body is its FALLBACK text, and the card above owns it — rendering both
+        // would say the same thing twice.
+        message.body && message.kind !== "task_assignment" ? (
           <p className="mt-0.5 whitespace-pre-wrap break-words text-xs">
             {message.body}
           </p>
@@ -406,8 +431,11 @@ function ThreadView({
   scrollSignal: number;
   onOpenAttachment: (attachment: CommentAttachment) => void;
 }) {
-  const { currentUserId, reply, setActiveThreadId } = useCommentMode();
+  const { currentUserId, canModerate, assignTask, reply, setActiveThreadId } =
+    useCommentMode();
   const [parent, ...replies] = thread.messages;
+  /** The assign dialog, mounted only for a moderator and only once they ask for it. */
+  const [assignOpen, setAssignOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   /**
@@ -462,6 +490,18 @@ function ThreadView({
           </span>
         ) : null}
         <div className="ml-auto flex items-center gap-0.5">
+          {canModerate ? (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 rounded-full px-2 text-xs text-muted-foreground"
+              onClick={() => setAssignOpen(true)}
+              title="Assign a task from this thread"
+            >
+              <ClipboardList className="h-3.5 w-3.5" />
+              Assign
+            </Button>
+          ) : null}
           <ThreadModerationControls thread={thread} />
         </div>
       </div>
@@ -528,6 +568,25 @@ function ThreadView({
           }}
         />
       </div>
+
+      {/* Owner/Admin only, and it asks the API what THIS thread may offer before drawing anything —
+          so nothing it presents can be refused, and a reader who cannot assign issues no request at
+          all because the dialog is not mounted until they ask for it. */}
+      <AssignTaskDialog
+        open={assignOpen}
+        onOpenChange={setAssignOpen}
+        threadId={thread.id}
+        onAssign={async (input) => {
+          try {
+            await assignTask(thread.id, input);
+            return null;
+          } catch (error) {
+            return error instanceof Error
+              ? error.message
+              : "Could not assign the task.";
+          }
+        }}
+      />
     </div>
   );
 }

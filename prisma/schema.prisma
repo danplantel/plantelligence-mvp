@@ -148,6 +148,14 @@ model User {
 // Advisor-authored dashboard tasks. System-generated tasks are derived from plan state at
 // read time (see lib/dashboard-tasks.ts) and are deliberately not stored here — they have no
 // lifecycle of their own and would go stale the moment the underlying plan changed.
+//
+// The exception is an ASSIGNMENT (plans/comment-task-assignment.md): work an Owner or Admin hands
+// to somebody from inside a comment thread. That has to be STORED, for two reasons a derived task
+// cannot satisfy — it lands on the ASSIGNEE's dashboard rather than the reader's, and it is work
+// being asked for rather than a symptom being shown, so it must not evaporate the moment the plan
+// changes under it. When it was assigned from one of the derived tasks the row carries that task's
+// kind and category, so it renders with the same icon and destination link and can SUPERSEDE the
+// derived row it stands in for.
 model Task {
   id        String    @id @default(cuid())
   userId    String
@@ -160,10 +168,32 @@ model Task {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
+  // ── Assignment provenance. All null for a task the viewer wrote for themselves. ──
+  //
+  // Who handed this over. A plain scalar, like a comment's author id: a deleted login leaves the
+  // work standing with a "Removed user" byline rather than taking the task down with it.
+  assignedByUserId String?
+  // The conversation it was assigned in, and the message that announced it. Scalars on purpose —
+  // the task outlives a deleted thread, because the work is not owned by the discussion.
+  sourceThreadId  String?
+  sourceMessageId String?
+  // The DERIVED task this stands in for, when it was assigned from one. `(clientId, derivedKind,
+  // benefitCategory)` is exactly the identity of a derived row — its id is
+  // `system-{kind}-{planId}-{category}` — which is what lets the dashboard show ONE row per unit
+  // of work instead of two.
+  derivedKind     String?
+  benefitCategory String?
+  // Reserved. No UI yet; a due date is the natural next addition to the assign dialog.
+  dueAt DateTime?
+
   user User @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([userId, done])
+  @@index([assignedByUserId])
+  @@index([sourceThreadId])
+  // The de-duplication read: "does this reader hold an assignment covering this derived row?"
+  @@index([userId, clientId, derivedKind])
 }
 
 // In-app notifications (persisted, per-user read/unread).
@@ -1007,6 +1037,17 @@ model CommentMessage {
   threadId     String
   authorUserId String
   body         String
+  // "comment" | "task_assignment".
+  //
+  // A KIND rather than a prose line, so an assignment renders as a card (title, assignee, live
+  // state) instead of a sentence a reader has to parse — and so nothing downstream has to
+  // pattern-match English to find one. `body` still carries a plain-text fallback, which is what
+  // the notification and any consumer that does not know what a card is will show.
+  kind String @default("comment")
+  // The Task this message announces or reports on, when `kind` is "task_assignment". A plain
+  // scalar, like the author id: the message outlives a deleted login, and the task is what the
+  // dashboard reads.
+  taskId String?
   // Mentioned User ids, parsed at write time so the notification pass does not re-parse.
   mentions  String[]  @default([])
   // Files attached to this message: [{ key, name, type, size }]. Each `key` lives under
@@ -1021,6 +1062,9 @@ model CommentMessage {
   thread CommentThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
   @@index([threadId, createdAt])
+  // "Which card reports on this task?" — the read that keeps a card's state honest as the task
+  // behind it is completed or withdrawn.
+  @@index([taskId])
 }
 
 // "Currently typing" on a comments surface.

@@ -1,7 +1,14 @@
 import prisma from "@/lib/prisma";
 import { ACTIVE_CLIENT_STATUSES } from "@/lib/active-client-status";
-import type { ManualTask, SystemTask } from "@/lib/dashboard-tasks";
+import {
+  derivedTaskKey,
+  type ManualTask,
+  type SystemTask,
+} from "@/lib/dashboard-tasks";
 import { issueDestination } from "@/lib/plan-attention-actions";
+import type { PlanAttentionIssueKind } from "@/lib/plan-needs-attention";
+import { resolveOrganizationId } from "@/lib/organization";
+import { loadPersonIdentities } from "@/lib/teammates/identity.server";
 import {
   evaluatePlanAttention,
   type PlanAttentionIssue,
@@ -48,6 +55,14 @@ const isDraft = (status: string | null | undefined) =>
 
 export async function listSystemTasks(
   accessiblePlanIds: readonly string[],
+  /**
+   * Derived rows to leave out — the ones this reader holds a live ASSIGNMENT for.
+   *
+   * Passed in rather than looked up here, so this stays a pure derivation of PLAN state: a caller
+   * with no assignments to consider (the comments picker, which is deciding what to offer) simply
+   * omits it and gets the full list.
+   */
+  suppressed?: ReadonlySet<string>,
 ): Promise<SystemTask[]> {
   // Drafts are included alongside live plans: a draft with nothing outstanding is "ready to
   // publish", which is the only task that applies to a plan with no issues at all.
@@ -70,6 +85,12 @@ export async function listSystemTasks(
     const { issues } = evaluatePlanAttention(plan);
 
     for (const issue of issues) {
+      // One row per unit of work. While this reader holds an assignment covering the issue, their
+      // assigned row stands in for this one and carries its icon and its destination link, so
+      // nothing is lost by leaving the derived row out — the alternative is two rows for one job.
+      if (suppressed?.has(derivedTaskKey(plan.id, issue.kind, issue.category ?? null))) {
+        continue;
+      }
       tasks.push({
         // Keyed by plan and kind (plus category) so the row survives a refetch.
         id: `system-${issue.kind}-${plan.id}-${issue.category ?? ""}`,
@@ -77,10 +98,19 @@ export async function listSystemTasks(
         planName: plan.companyName,
         href: issueDestination(plan.id, issue).href,
         kind: issue.kind,
+        // The parts of that id, in the clear — see `SystemTask.clientId`.
+        clientId: plan.id,
+        category: issue.category ?? null,
       });
     }
 
-    if (isDraft(plan.status) && issues.length === 0) {
+    if (
+      isDraft(plan.status) &&
+      issues.length === 0 &&
+      // Never suppressed in practice — publishing cannot be delegated, so no assignment can cover it
+      // — but the rule is kept unconditional so it stays true if that ever changes.
+      !suppressed?.has(derivedTaskKey(plan.id, "ready-to-publish", null))
+    ) {
       tasks.push({
         id: `system-ready-to-publish-${plan.id}`,
         title: "Ready to publish",
@@ -89,11 +119,39 @@ export async function listSystemTasks(
         // the publish action with its attestation dialog.
         href: `/new-benefits?planId=${encodeURIComponent(plan.id)}`,
         kind: "ready-to-publish",
+        clientId: plan.id,
+        category: null,
       });
     }
   }
 
   return tasks;
+}
+
+/**
+ * The derived rows a reader no longer needs to see, because they hold an assignment covering them.
+ *
+ * Only assignments that came from a DERIVED task suppress anything — one assigned with a typed title
+ * covers no derived row, because there is none it stands in for.
+ *
+ * Completed assignments still suppress: the row that replaces the derived one is the reader's own,
+ * and it stays in the list (ticked) as the record of what they were asked for. Letting the derived
+ * row return the moment they tick it off would put two rows back for one job, which is the thing
+ * this exists to prevent.
+ */
+export async function suppressedDerivedRows(userId: string): Promise<Set<string>> {
+  const assignments = await prisma.task.findMany({
+    where: { userId, derivedKind: { not: null } },
+    select: { clientId: true, derivedKind: true, benefitCategory: true },
+  });
+
+  return new Set(
+    assignments.flatMap((task) =>
+      task.clientId && task.derivedKind
+        ? [derivedTaskKey(task.clientId, task.derivedKind, task.benefitCategory)]
+        : [],
+    ),
+  );
 }
 
 export async function listManualTasks(
@@ -110,6 +168,10 @@ export async function listManualTasks(
       done: true,
       createdAt: true,
       clientId: true,
+      // Assignment provenance: all null for a task the reader wrote themselves.
+      assignedByUserId: true,
+      derivedKind: true,
+      benefitCategory: true,
     },
   });
 
@@ -134,6 +196,21 @@ export async function listManualTasks(
     for (const plan of plans) nameById.set(plan.id, plan.companyName);
   }
 
+  // Who asked for the work, for the rows that came from a comment. One batched read through the same
+  // identity resolver every other byline in the product uses, and nothing at all when the reader has
+  // no assigned rows.
+  const assignerIds = tasks
+    .map((task) => task.assignedByUserId)
+    .filter((id): id is string => Boolean(id));
+  // Nothing at all for the common case of a reader with no assigned rows — not even the organization
+  // lookup that the identity resolver needs.
+  const assigners = assignerIds.length
+    ? await loadPersonIdentities({
+        organizationId: await resolveOrganizationId(userId),
+        userIds: assignerIds,
+      })
+    : new Map();
+
   return tasks.map((task) => ({
     id: task.id,
     title: task.title,
@@ -141,5 +218,19 @@ export async function listManualTasks(
     createdAt: task.createdAt.toISOString(),
     clientId: task.clientId,
     planName: task.clientId ? (nameById.get(task.clientId) ?? null) : null,
+    assignedByUserId: task.assignedByUserId,
+    assignedByName: task.assignedByUserId
+      ? (assigners.get(task.assignedByUserId)?.name ?? null)
+      : null,
+    derivedKind: task.derivedKind,
+    // Recomputed from the derived identity rather than stored, so the link cannot go stale as the
+    // routing changes — and it is the SAME function the derived row itself links through.
+    href:
+      task.derivedKind && task.clientId
+        ? issueDestination(task.clientId, {
+            kind: task.derivedKind as PlanAttentionIssueKind,
+            category: task.benefitCategory ?? undefined,
+          }).href
+        : null,
   }));
 }

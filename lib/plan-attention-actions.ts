@@ -29,7 +29,14 @@ export interface IssueDestination {
  */
 export function issueDestination(
   planId: string,
-  issue: PlanAttentionIssue,
+  /**
+   * Only two fields are ever read, and the parameter says so.
+   *
+   * Narrowed deliberately: a caller that knows a plan, a kind and a category — the dashboard
+   * rebuilding the link for an ASSIGNED task out of what it stored — should not have to invent the
+   * chip text `PlanAttentionIssue` also carries just to get a URL.
+   */
+  issue: Pick<PlanAttentionIssue, "kind" | "category">,
 ): IssueDestination {
   const id = encodeURIComponent(planId);
 

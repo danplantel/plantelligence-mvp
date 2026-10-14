@@ -101,6 +101,15 @@ export const COMMENT_NOTIFICATION_TYPES = {
   threadCreated: "comment_thread_created",
   reply: "comment_reply",
   mention: "comment_mention",
+  /**
+   * A task was handed to you from a comment thread.
+   *
+   * Its own type rather than `reply`, because it is about WORK rather than about the conversation:
+   * the bell has to be able to say "you have been given something to do" and deep-link to the thread
+   * it came from, and a reader scanning the list should be able to tell the two apart without
+   * opening either.
+   */
+  taskAssigned: "comment_task_assigned",
 } as const;
 
 export type CommentNotificationType =
@@ -152,6 +161,98 @@ export interface CommentMessageView {
   createdAt: string;
   /** Non-null when the message was withdrawn; `body` is empty then. */
   deletedAt: string | null;
+  /**
+   * What this message IS.
+   *
+   * A `"task_assignment"` renders as a CARD rather than as prose, which is the whole reason the
+   * kind exists: the rail must not have to recognise an assignment by reading English.
+   */
+  kind: CommentMessageKind;
+  /**
+   * The task this message announces, with its LIVE state — read at thread-read time, so a card
+   * reports the work rather than freezing the moment it was assigned.
+   *
+   * Null on an ordinary comment, and equally null on an assignment whose task is GONE: withdrawn,
+   * or deleted along with its plan. One value rather than a flag plus a payload, on purpose — the
+   * card reads "withdrawn" precisely because there is nothing left to report on.
+   */
+  task: CommentTaskView | null;
+}
+
+/* ─────────────────── Assigning work from a thread ─────────────────── */
+
+export type CommentMessageKind = "comment" | "task_assignment";
+
+/**
+ * The three standings a person can hold in an organization.
+ *
+ * The same three words the messages module calls `DirectPersonKind`, kept as its own name here
+ * because the dependency runs ONE way — `lib/messages/types.ts` imports from this module, so
+ * importing back would make the two features a cycle. Two names for one vocabulary is the lesser
+ * evil against that, and the words are asserted to match where it matters: the assignee rule.
+ */
+export type AssignableStanding = "owner" | "team_member" | "collaborator";
+
+/** One person an assignment may be handed to on a given surface. */
+export interface AssignableUser {
+  userId: string;
+  name: string;
+  email: string;
+  headshot: string | null;
+  /** The standing that decided their eligibility, so the picker can explain itself. */
+  kind: AssignableStanding;
+}
+
+/**
+ * A task's live state, as a comment card shows it.
+ *
+ * Deliberately a projection of `Task` rather than the row: the card needs to name the work, who
+ * asked for it, who owns it and whether it is done — and nothing about how the dashboard stores it.
+ */
+export interface CommentTaskView {
+  id: string;
+  title: string;
+  done: boolean;
+  doneAt: string | null;
+  assignedByUserId: string;
+  assignedToUserId: string;
+  /**
+   * The assignee's display name.
+   *
+   * Resolved server-side with the rest of the card, because the alternative is the rail parsing the
+   * message body — and this whole feature introduced a MESSAGE KIND precisely so that reading an
+   * assignment would never mean reading English.
+   */
+  assignedToName: string;
+  /** The derived row this stands in for, when it was assigned from one. */
+  derivedKind: string | null;
+  benefitCategory: string | null;
+  clientId: string | null;
+}
+
+/**
+ * One of the plan's DERIVED tasks, as the assigner is offered it.
+ *
+ * `id` is the synthetic id the dashboard module produced, handed back verbatim and never taken
+ * apart — the server re-derives the list and matches on it, so a client cannot describe a task the
+ * module would not have offered. See `plans/comment-task-assignment.md` §8.
+ */
+export interface AssignableDerivedTask {
+  id: string;
+  title: string;
+  /** The plan's name, so the picker can name the work without a second lookup. */
+  planName: string;
+  /** The destination that resolves it, carried onto the assignee's dashboard row. */
+  href: string;
+  /** "incomplete-benefit" | "uncategorized-documents" | "missing-disclaimers". */
+  kind: string;
+  category: string | null;
+}
+
+/** Everything the assign dialog is offered, for one thread. */
+export interface ThreadAssignable {
+  users: AssignableUser[];
+  derivedTasks: AssignableDerivedTask[];
 }
 
 export interface CommentThreadView {

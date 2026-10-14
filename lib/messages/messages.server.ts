@@ -23,6 +23,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { loadPersonIdentities } from "@/lib/teammates/identity.server";
 import { createNotification } from "@/lib/notifications/notifications.server";
 import { TeammateDataError } from "@/lib/teammates/errors";
 import { canMessageUser, isDirectOrgMember } from "./directory.server";
@@ -65,57 +66,29 @@ async function loadParticipantViews(input: {
   organizationId: string;
   userIds: string[];
 }): Promise<Map<string, DirectParticipantView>> {
-  const ids = [...new Set(input.userIds.filter(Boolean))];
+  // The seat lookup, the name precedence and the picture fallback all come from the ONE resolver —
+  // this module used to own them, which is how the comments rail ended up with a different (and
+  // picture-less) answer for the same person. See lib/teammates/identity.server.ts.
+  const identities = await loadPersonIdentities(input);
   const views = new Map<string, DirectParticipantView>();
-  if (ids.length === 0) return views;
 
-  const [users, organization, seats] = await Promise.all([
-    prisma.user.findMany({
-      where: { id: { in: ids } },
-      select: { id: true, name: true, email: true, headshot: true },
-    }),
-    prisma.organization.findUnique({
-      where: { id: input.organizationId },
-      select: { ownerUserId: true },
-    }),
-    prisma.teammateProfile.findMany({
-      where: { organizationId: input.organizationId, loginUserId: { in: ids } },
-      select: {
-        loginUserId: true,
-        type: true,
-        firstName: true,
-        lastName: true,
-        headshot: true,
-      },
-    }),
-  ]);
-
-  const seatByUserId = new Map(seats.map((seat) => [seat.loginUserId, seat]));
-
-  for (const user of users) {
-    const seat = seatByUserId.get(user.id);
-    const profileName = seat
-      ? [seat.firstName, seat.lastName]
-          .map((part) => (part ?? "").trim())
-          .filter(Boolean)
-          .join(" ")
-      : "";
-
+  for (const person of identities.values()) {
     // The Owner holds no seat, so ownership is read from the Organization first. A login with
     // neither (a removed teammate whose account survives) falls to `collaborator`: of the two
     // possible answers, the one that over-claims nothing is the right one to guess.
-    const kind: DirectPersonKind =
-      organization?.ownerUserId === user.id
-        ? "owner"
-        : seat?.type === "team_member"
-          ? "team_member"
-          : "collaborator";
+    const kind: DirectPersonKind = person.isOrganizationOwner
+      ? "owner"
+      : person.seatType === "team_member"
+        ? "team_member"
+        : "collaborator";
 
-    views.set(user.id, {
-      userId: user.id,
-      name: profileName || user.name?.trim() || user.email,
-      email: user.email,
-      headshot: user.headshot ?? seat?.headshot ?? null,
+    views.set(person.userId, {
+      userId: person.userId,
+      // A DM names the peer absolutely: an email is a poor name but a better one than nothing, since
+      // there is no card or roster around it to explain an absence.
+      name: person.name || person.email,
+      email: person.email,
+      headshot: person.headshot,
       kind,
       label: DIRECT_PERSON_KIND_LABELS[kind],
     });

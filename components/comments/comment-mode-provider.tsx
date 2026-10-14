@@ -83,6 +83,25 @@ interface CommentModeValue {
   setResolved: (threadId: string, resolved: boolean) => Promise<void>;
   deleteThread: (threadId: string) => Promise<void>;
   deleteMessage: (messageId: string, threadId: string) => Promise<void>;
+  /**
+   * Hand work to somebody from a thread.
+   *
+   * Exposed here rather than owned by the rail so BOTH places a card can be drawn — the list and the
+   * open thread — reach the same mutation, exactly as `reply` and `deleteMessage` already do. Owner
+   * and Admin only: the API refuses anyone else, and the control is not rendered for them.
+   */
+  assignTask: (
+    threadId: string,
+    input: {
+      assigneeUserId: string;
+      assigneeName: string;
+      title: string;
+      /** The picker's opaque id for a derived task, when the work came from one. */
+      derivedTaskId?: string;
+    },
+  ) => Promise<void>;
+  /** Take an assignment back. The card stays; the work goes. Keyed by the message alone. */
+  withdrawAssignment: (messageId: string) => Promise<void>;
 
   mentionable: MentionableUser[];
 
@@ -264,6 +283,8 @@ export function CommentModeProvider({
       setActiveThreadId,
       createThread: commentThreads.createThread,
       reply: commentThreads.reply,
+      assignTask: commentThreads.assignTask,
+      withdrawAssignment: commentThreads.withdrawAssignment,
       setResolved: commentThreads.setResolved,
       deleteThread: commentThreads.deleteThread,
       deleteMessage: commentThreads.deleteMessage,
@@ -288,6 +309,8 @@ export function CommentModeProvider({
       commentThreads.refresh,
       commentThreads.createThread,
       commentThreads.reply,
+      commentThreads.assignTask,
+      commentThreads.withdrawAssignment,
       commentThreads.setResolved,
       commentThreads.deleteThread,
       commentThreads.deleteMessage,

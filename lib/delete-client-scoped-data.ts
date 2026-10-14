@@ -22,6 +22,13 @@ export async function deleteClientAndScopedData(
   // Plan-scoped children (webinar/benefit/document/meeting/marketing rows all
   // carry clientId; they are independent, so remove them in parallel).
   await Promise.all([
+    // Tasks ASSIGNED against this plan's work, which exist only to point at it (see
+    // plans/comment-task-assignment.md). Deliberately only the assigned ones: a self-authored task
+    // that merely links to the plan is the advisor's own note, and deleting somebody's to-do list
+    // because a plan was removed is not ours to decide.
+    prisma.task.deleteMany({
+      where: { clientId, assignedByUserId: { not: null } },
+    }),
     prisma.webinar.deleteMany({ where: { clientId } }),
     // Benefit rows have a required BenefitToClient relation — they must go
     // before the client row or the delete throws P2014.

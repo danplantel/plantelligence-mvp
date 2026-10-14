@@ -16,10 +16,11 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type {
-  DashboardTasksResponse,
-  ManualTask,
-  SystemTask,
+import {
+  DERIVED_TASK_LABELS,
+  type DashboardTasksResponse,
+  type ManualTask,
+  type SystemTask,
 } from "@/lib/dashboard-tasks";
 
 const jsonFetcher = (url: string) => fetch(url).then((r) => r.json());
@@ -320,6 +321,21 @@ function ManualTaskRow({
   const [value, setValue] = useState(task.title);
   const [isSaving, setIsSaving] = useState(false);
 
+  /**
+   * The derived row this one replaces, when it came from an automated task and was assigned.
+   *
+   * The derived row is SUPPRESSED for this reader — one row per unit of work — so the icon and the
+   * destination have to live here instead, or the reader would lose the very things that tell them
+   * what kind of problem this is and where to fix it.
+   */
+  const derivedKind = task.derivedKind
+    ? (task.derivedKind as SystemTask["kind"])
+    : null;
+  const derivedMeta = derivedKind ? KINDS[derivedKind] : null;
+  const derivedLabel = task.derivedKind
+    ? DERIVED_TASK_LABELS[task.derivedKind]
+    : null;
+
   function startEditing() {
     // Seeded from the task each time, so cancelling and reopening does not keep a stale draft.
     setValue(task.title);
@@ -412,27 +428,52 @@ function ManualTaskRow({
             {task.planName}
           </Link>
         )}
+
+        {/* Where an ASSIGNED row came from, and what it stands in for. */}
+        {task.assignedByUserId ? (
+          <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-muted-foreground">
+            {derivedMeta && derivedLabel ? (
+              <span
+                className={cn("inline-flex items-center gap-1", derivedMeta.className)}
+              >
+                <derivedMeta.icon className="size-3" aria-hidden="true" />
+                {derivedLabel}
+              </span>
+            ) : null}
+            {task.href ? (
+              <Link href={task.href} className="text-accent-blue hover:underline">
+                Fix it here
+              </Link>
+            ) : null}
+            <span>Assigned by {task.assignedByName ?? "a teammate"}</span>
+          </span>
+        ) : null}
       </span>
 
-      {/* Revealed on row hover, or on focus so keyboard users can reach them. */}
-      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition focus-within:opacity-100 group-hover:opacity-100">
-        <button
-          type="button"
-          onClick={startEditing}
-          aria-label={`Edit "${task.title}"`}
-          className="rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-        >
-          <Pencil className="size-3.5" />
-        </button>
-        <button
-          type="button"
-          onClick={onDelete}
-          aria-label={`Delete "${task.title}"`}
-          className="rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
-        >
-          <X className="size-3.5" />
-        </button>
-      </div>
+      {/* Revealed on row hover, or on focus so keyboard users can reach them — and withheld entirely
+          on an ASSIGNED row. The assignee may complete the work, but the record of who asked for it
+          is the assignment's: editing or erasing it from here would rewrite history the thread still
+          shows. Withdrawal belongs to the assigner, through the comment it came from. */}
+      {task.assignedByUserId ? null : (
+        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition focus-within:opacity-100 group-hover:opacity-100">
+          <button
+            type="button"
+            onClick={startEditing}
+            aria-label={`Edit "${task.title}"`}
+            className="rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          >
+            <Pencil className="size-3.5" />
+          </button>
+          <button
+            type="button"
+            onClick={onDelete}
+            aria-label={`Delete "${task.title}"`}
+            className="rounded-md p-1 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          >
+            <X className="size-3.5" />
+          </button>
+        </div>
+      )}
     </li>
   );
 }

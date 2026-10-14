@@ -4,7 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { listManualTasks, listSystemTasks } from "@/lib/dashboard-tasks.server";
+import {
+  listManualTasks,
+  listSystemTasks,
+  suppressedDerivedRows,
+} from "@/lib/dashboard-tasks.server";
 import { listAccessiblePlanIds } from "@/lib/teammates/access.server";
 
 /** Task titles are free text but short by nature; this bounds abuse and keeps rows readable. */
@@ -31,8 +35,13 @@ export async function GET(request: NextRequest) {
     // reader's own to-do list.
     const accessiblePlanIds = await listAccessiblePlanIds(userId);
 
+    // One row per unit of work: a derived row is left out while the reader holds an assignment
+    // covering it, and the assigned row carries that row's icon and destination link instead. Read
+    // in parallel with everything else because it is only a second small query on the same user.
     const [system, manual] = await Promise.all([
-      listSystemTasks(accessiblePlanIds),
+      suppressedDerivedRows(userId).then((suppressed) =>
+        listSystemTasks(accessiblePlanIds, suppressed),
+      ),
       listManualTasks(userId, accessiblePlanIds),
     ]);
 

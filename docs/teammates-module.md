@@ -181,8 +181,8 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:verify-t2a` | Runs the 25-assertion T2a suite (per-function Custom enforcement, same-vs-per-plan grids, the locked-row refusal, All Plans, the missing-grid refusal, soft warnings and their audit trail, and the summary line). |
 | `npm run teammates:verify-t7` | Runs the 26-assertion T7 suite (the three acceptance criteria, display-vs-access, the mirror's idempotency and removals, hidden categories, and the unmirrorable-contact residue). |
 | `npm run teammates:verify-t9` | Runs the 44-assertion T9 suite (the signed token and its refusals, the mailbox guard, the profile guards, the inviter's note, acceptance creating vs reusing a login, the seat conversion, replay, both audit rows, and the tenancy invariant — the login anchored to the inviting organization and owning none of its own). |
-| `npm run comments:verify` | Runs the 60-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, the **per-person `currently typing` signal — named, self-expiring, cleared on reply, and reported for the surface's own composer as well as for threads**, and the plan-delete cascade). See §9i. |
-| `npm run messages:verify` | Runs the 57-assertion Direct Messages suite (the directory predicate that doubles as the gate, the refusals — including the organization owner refused a thread between two other people — the canonical pair and the `CHECK` that enforces it, the body limit's boundary, unread and the read watermark, ONE Bell row per conversation, **attachment reads that follow participation and never the org fallback**, the **`load earlier` page boundary and its cursor**, the **self-expiring `currently typing` signal (peer-only, cleared on send, and marked on the conversation list)**, and the login-delete cascade). See §9j. |
+| `npm run comments:verify` | Runs the 92-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, the **per-person `currently typing` signal — named, self-expiring, cleared on reply, and reported for the surface's own composer as well as for threads**, and the plan-delete cascade). See §9i. |
+| `npm run messages:verify` | Runs the 59-assertion Direct Messages suite (the directory predicate that doubles as the gate, the refusals — including the organization owner refused a thread between two other people — the canonical pair and the `CHECK` that enforces it, the body limit's boundary, unread and the read watermark, ONE Bell row per conversation, **attachment reads that follow participation and never the org fallback**, the **`load earlier` page boundary and its cursor**, the **self-expiring `currently typing` signal (peer-only, cleared on send, and marked on the conversation list)**, and the login-delete cascade). See §9j. |
 | `npm run teammates:backfill-contacts` | Projects every plan's `keyContacts` onto profiles + assignments (T7). Idempotent; `--dry-run` to count without writing. Run it before the hub reader switch and after adding a new contacts writer. |
 | `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
 
@@ -2286,6 +2286,95 @@ watch arrive will land. It was first drawn under the header; the bottom is where
 annotates the composer rather than the panel. Since that composer only exists in the list view, the
 line does too — in an open thread the panel shows that thread's own line instead.
 
+### Whose face is that? — ONE identity rule
+
+Every author rendered anywhere in this panel arrives through `loadAuthors`, and `loadAuthors` now
+delegates to [`loadPersonIdentities`](lib/teammates/identity.server.ts) in the teammates module. It did
+not, and the result was a bug a reader could see: a Collaborator's comment drew as a monogram while the
+same person's face appeared in the DM rail.
+
+**A person exists twice.** As a LOGIN (`User`) and, when they hold a seat, as a PROFILE
+(`TeammateProfile`). Both carry a name and a picture, and the seat is the one the teammate actually
+edits — the self-service profile is what the organization sees. The comments resolvers read the login
+alone (`user.headshot ?? null`), so every member with a seat fell back to nothing. The organization's
+OWNER was the exception that hid it: the owner holds no seat and keeps their picture on the login, so
+the one person most likely to be looking at the panel was the one person it rendered correctly. The DM
+rail already had the fallback (`user.headshot ?? seat?.headshot`) and so looked fine.
+
+**One rule, one implementation.** The precedence now lives in `loadPersonIdentities`: the seat's
+first/last name else the login's own name, and the login's picture else the seat's. That picture order is
+deliberately the one the DM rail already shipped with, which is what makes this a fix for the comments
+panel rather than a change of behaviour in the DM one. A surface still keeps its own WORDING for an
+absent name — a DM prefers an email to nothing, a comment says "Unknown user" — but it no longer keeps
+its own precedence, which is exactly how the two drifted apart in the first place. Three callers use it:
+`loadAuthors` (thread cards, replies, the typing line, the open thread), the @mention candidate list —
+which already loaded the profile rows and then threw the picture away — and the DM rail's participant
+view, whose `kind`/label logic it also feeds. The DM directory in
+[`directory.server.ts`](lib/messages/directory.server.ts) keeps its own seat-centric read, because it
+must also describe people who are invited and hold no login at all.
+
+The regression test is the suite's §16: a picture and a name are written to the profile directly and must
+come back on that author's comment, with the owner still rendering from their login.
+
+### Assigning work from a thread
+
+An Owner or Admin can hand a piece of dashboard work to somebody from inside a comment, and the whole
+feature exists because of one structural fact about the dashboard: **automated tasks are derived on every
+read and never stored** (`listSystemTasks`, from plan state, for whoever can reach the plan), while
+**manual tasks are stored rows** in `Task`, read per user. So handing work to *somebody else* has to
+materialise a row on THEIR dashboard — there is no other mechanism that reaches another person's list —
+and the plan for it is [`plans/comment-task-assignment.md`](../plans/comment-task-assignment.md).
+
+**Who may assign, and to whom.** Assignment is gated on `assertCanAssign`, which reads the same
+`isModerator` predicate moderation does and refuses with the same code — so the thread payload's
+existing `canModerate` is also what shows the Assign control, and no second capability is sent to the
+rail. The assignee must appear in the surface's own candidate list, which is the `@mention` list filtered
+by standing:
+
+| Surface | Who may be assigned |
+| --- | --- |
+| A **plan** thread | Only the Owner, an Admin or a Team Member. **Never a Collaborator** — a plan-wide thread is internal work, and they are absent from its candidate list. |
+| A **benefit-category** thread | The same, plus Collaborators **who hold that category** — the exact set the mentionable list resolved, so the picker and the write cannot disagree. |
+
+The assigner is excluded (handing yourself work you already own is a no-op with steps).
+
+**What may be delegated.** Either one of the plan's automated tasks, or a typed title. A derived id is
+accepted only as the picker's opaque id, looked up in a freshly derived list, so nothing can be smuggled
+in by naming it — and **`ready-to-publish` is never offered**, because publishing is a capability
+(Owner/Admin, with its own attestation dialog) rather than work somebody can do with the access they
+have. That test — *can the assignee actually do this* — is what decides delegability.
+
+**One row per unit of work.** A stored assignment that came from an automated task carries
+`(clientId, derivedKind, benefitCategory)`, which is exactly the identity of a derived row. While the
+assignee holds it, that derived row is **suppressed for them** (`suppressedDerivedRows` feeding
+`listSystemTasks`) and the assigned row takes its place carrying the same icon and the same destination
+link, so nothing is lost. Everybody else keeps their derived row, because for them it is not work they
+were given. `derivedTaskKey` is the one definition of that identity, so the writer that stores the parts
+and the reader that suppresses on them cannot drift.
+
+**The comment side.** A message carries `kind` (`"comment" | "task_assignment"`), which is what lets the
+rail render an assignment as a **card** — title, "Assigned by Dana to Carl", a state chip read LIVE from
+the task, and a derived-task chip — instead of a sentence anything would have to pattern-match out of
+English. The message body still carries plain text ("Assigned a task to Carl: …") for the notification
+and for the one case with nothing left to describe. Withdrawal deletes the **task** and keeps the
+**message**: the request is history the conversation is entitled to, and the work is not. That is also
+why a withdrawn card needs no stored flag — there is simply no task left to report on.
+
+| Event | The card | The stored task |
+| --- | --- | --- |
+| Plan deleted | cascades with its thread | **deleted** — an assignment exists only to point at that plan's work. A self-authored task merely *linked* to the plan survives: it is the advisor's own note. |
+| Thread deleted | cascades | **kept** — work is not owned by the discussion about it. |
+| Login deleted | kept (author ids are scalars) | **deleted**, before the `User` row, because `Task.userId` is a real relation with no cascade and would block it. Tasks the login ASSIGNED to others stay; their byline degrades to "a teammate". |
+| Task completed | reads "Completed" | the row stays, ticked |
+| Assignment withdrawn | reads "Withdrawn" | deleted; the derived row returns |
+
+**Entry points.** `GET .../threads/[threadId]/assignable` (what the dialog may offer — a read of the
+permission question as much as of the data), `POST .../threads/[threadId]/assignments`, and
+`DELETE .../assignments/[messageId]`. The surface always comes from the thread row, never the query
+string. The suite covers it in §17 (who and where), §18 (the write and its traces) and §19 (the
+dashboard's one row), with §19 opening on a guard that the fixture plan really does offer a derived task
+— a green tick that means nothing would be worse than a red one.
+
 ### Scrolling to what you just wrote
 
 `scrollToBottom` in [`lib/scroll-to-bottom.ts`](lib/scroll-to-bottom.ts) is shared by both rails so the
@@ -2374,7 +2463,7 @@ thread — which is what the scope key exists for.
 ### Verification
 
 ```
-npm run comments:verify   ->  60/60 assertions passed
+npm run comments:verify   ->  92/92 assertions passed
 ```
 
 Runs against the real data layer with self-cleaning `tcm-verify-*` fixtures. It covers the
@@ -2501,6 +2590,12 @@ back; the open thread is an `aria-live="polite"` region and the conversation lis
 background poll for a thread the reader is not looking at stays silent; and a run of messages from
 one author draws the avatar once, with a spacer keeping the run aligned beneath it.
 
+**Whose face is that?** The peer's name and picture come from the same identity resolver the comments
+panel uses — [`loadPersonIdentities`](lib/teammates/identity.server.ts), which reads the seat as well as
+the login. It is one function because the two panels had two answers: this rail fell back to the seat and
+drew pictures, while the comments rail read the login alone and drew monograms for every teammate who is
+not the Owner. §9i's *"Whose face is that?"* has the whole story.
+
 When something lands while the reader has scrolled up, a **"N new messages"** pill appears at the top
 of the thread and takes them to it. It is the shared
 [`NewMessagesPill`](components/new-messages-pill.tsx), explained alongside the comments rail in §9i's
@@ -2612,7 +2707,7 @@ rather than lagging, so it was built.
 ### Verification
 
 ```
-npm run messages:verify   ->  57/57 assertions passed
+npm run messages:verify   ->  59/59 assertions passed
 ```
 
 Runs against the real data layer with self-cleaning fixtures: the directory (who the owner may
