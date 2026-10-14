@@ -46,12 +46,19 @@ export function CommentComposer({
   placeholder = "Write a comment…",
   submitLabel = "Comment",
 }: CommentComposerProps) {
-  const { target, mentionable, isMutating } = useCommentMode();
+  const { target, mentionable } = useCommentMode();
   const [text, setText] = useState("");
   const [pending, setPending] = useState<PendingAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [busy, setBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  /**
+   * Guards a double submit WITHOUT locking the composer.
+   *
+   * A ref rather than state because it has to be true within the same tick as the second call, which
+   * a `setBusy` would not be — and because nothing should look busy while a comment is in flight:
+   * the comment is already on screen and the box is already clear.
+   */
+  const sendingRef = useRef(false);
   // Lets the emoji picker splice a glyph in at the caret rather than appending it.
   const textareaRef = useRef<MentionTextareaHandle>(null);
 
@@ -132,9 +139,11 @@ export function CommentComposer({
   };
 
   const submit = async () => {
-    // Same guard as the button's `disabled`, so pressing Enter during an upload cannot
-    // post a comment that the button would have refused.
-    if (!canSubmit || busy || uploading) return;
+    // Same guard as the button's `disabled`, so pressing Enter during an upload cannot post a
+    // comment that the button would have refused. `sendingRef` and not state, so a second Enter in
+    // the same tick cannot double-post.
+    if (!canSubmit || sendingRef.current || uploading) return;
+    sendingRef.current = true;
 
     /**
      * Clear BEFORE awaiting the write.
@@ -146,6 +155,9 @@ export function CommentComposer({
      *
      * The write still has to succeed. On failure the optimistic message rolls back, and the
      * text and the staged attachments come back with it, so nothing is silently lost.
+     *
+     * And nothing spins: there is no spinner on the button, because from the advisor's side there is
+     * nothing to wait for — showing one would invent latency the UI has already decided not to show.
      */
     const submittedText = text.trim();
     const submittedAttachments = pending.map(({ key, name, type, size }) => ({
@@ -157,7 +169,6 @@ export function CommentComposer({
 
     setText("");
     setPending([]);
-    setBusy(true);
     try {
       await onSubmit(submittedText, submittedAttachments);
     } catch (error) {
@@ -172,7 +183,7 @@ export function CommentComposer({
         error instanceof Error ? error.message : "Could not add comment.",
       );
     } finally {
-      setBusy(false);
+      sendingRef.current = false;
     }
   };
 
@@ -228,7 +239,7 @@ export function CommentComposer({
             className="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground"
             onClick={() => fileInputRef.current?.click()}
             disabled={
-              uploading || busy || pending.length >= MAX_ATTACHMENTS_PER_MESSAGE
+              uploading || pending.length >= MAX_ATTACHMENTS_PER_MESSAGE
             }
             title={
               pending.length >= MAX_ATTACHMENTS_PER_MESSAGE
@@ -243,12 +254,9 @@ export function CommentComposer({
             )}
             Attach
           </Button>
-          {/* Beside the paperclip. An emoji alone is a valid comment, so this stays enabled
-              on an empty box — it only stops while the comment is being submitted. */}
-          <EmojiPicker
-            disabled={busy}
-            onPick={(emoji) => textareaRef.current?.insert(emoji)}
-          />
+          {/* Beside the paperclip. An emoji alone is a valid comment, so this stays enabled on an
+              empty box — and never disabled by a submit, because the box is already clear. */}
+          <EmojiPicker onPick={(emoji) => textareaRef.current?.insert(emoji)} />
         </div>
 
         <div className="flex items-center gap-2">
@@ -269,14 +277,13 @@ export function CommentComposer({
           <Button
             size="sm"
             className="h-7 bg-accent-blue px-3 text-[11px] hover:bg-accent-blue/90"
-            disabled={busy || isMutating || uploading || !canSubmit}
+            disabled={uploading || !canSubmit}
             onClick={submit}
           >
-            {busy ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Send className="h-3.5 w-3.5" />
-            )}
+            {/* Never a spinner — the comment is already posted as far as this UI is concerned.
+                `isMutating` is deliberately not consulted either: it stays true for the whole
+                optimistic write, so disabling on it would freeze the box the moment you used it. */}
+            <Send className="h-3.5 w-3.5" />
             <span className="ml-1.5">{submitLabel}</span>
           </Button>
         </div>

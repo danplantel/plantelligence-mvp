@@ -2192,6 +2192,12 @@ Plus two client-side changes so the wait is not *felt*, whatever the connection 
   until the server answered — on a slow connection that is the part that looks broken. The
   identity comes from the mentionable list the rail already fetches, so it costs no request, and
   the placeholder falls back to "You" until that list arrives.
+- **The send button never spins, and nothing locks.** A spinner on Send is an admission that the UI
+  is waiting, when the comment is already on screen and the box is already clear — so it would
+  *invent* latency the optimistic write had just removed. For the same reason the composer is not
+  disabled while a write is in flight: attach, emoji and the box itself all stay usable, so the next
+  comment can be started while the last is still travelling. The only guard is a `sendingRef` — a ref
+  and not state, so a second Enter in the same tick cannot double-post — and it is invisible.
 
 Neither is a substitute for fixing the connection: at ~500ms per round-trip, a write of ~10
 round-trips is still seconds of server time. It just no longer holds the UI hostage.
@@ -2326,6 +2332,28 @@ plain textarea and a direct splice, since a DM carries no mentions and does not 
 re-applied in the handler: the server must never be the one to refuse an over-long body. The
 thread's error state carries the same Try again / no-retry-on-403 rule the conversation list applies,
 so the two views answer a missing conversation the same way.
+
+### Sending feels instant
+
+The Instagram contract, in both features: the message is on screen before the request leaves, and
+nothing in the UI admits to waiting.
+
+- **Optimistic writes.** [`useDirectThread`](../hooks/useDirectThread.ts) and
+  [`useCommentThreads`](../hooks/useCommentThreads.ts) both mutate through SWR's optimistic path, so
+  the bubble, the inbox preview, the ordering and the unread counts all move on the same tick as the
+  click. `rollbackOnError` undoes it if the write is refused.
+- **The composer clears before the await, and restores on failure**
+  ([`messages-composer.tsx`](../components/messages/messages-composer.tsx)). Clearing in a `then`
+  meant watching your own message appear while still staring at the words that produced it, for as
+  long as the write took — and the natural response to a box that looks stuck is to press Send again,
+  which is the one thing that makes it worse. Restoring unconditionally matches the comments
+  composer, so the two behave identically.
+- **No spinner on Send, and nothing disabled while sending.** The only loading indicator left in
+  either composer is the paperclip's, and that one is honest: a file genuinely is not staged until
+  its upload returns, so the send button legitimately stays disabled on `uploading`. A send in
+  flight disables nothing — a comment is not a form submission.
+- **The in-flight bubble says "sending" quietly** — dimmed slightly, with its withdraw control
+  withheld until a real id exists — rather than with a progress affordance.
 
 ### Why the right column needs an owner
 

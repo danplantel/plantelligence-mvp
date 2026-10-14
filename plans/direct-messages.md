@@ -258,7 +258,7 @@ is issued.
 
 ## Phases
 
-**Shipped.** The work ran as nine phases (below); the map onto the plan's own numbering is noted
+**Shipped.** The work ran as ten phases (below); the map onto the plan's own numbering is noted
 where they differ. `npm run messages:verify` is green at **54/54**, `tsc` and `eslint` are clean,
 and the feature is documented in `docs/teammates-module.md` §2 and §9j.
 
@@ -303,6 +303,14 @@ and the feature is documented in `docs/teammates-module.md` §2 and §9j.
     paint their own list. **This reverses the note in phase 9's docs draft** that the list was
     deliberately omitted: that reasoning was right about reusing the 10s inbox poll and wrong about the
     feature — with its own fast poll the list is correct rather than stale.
+11. ✅ **Sending feels instant (DM *and* Comments).** No spinner on the send button in either
+    composer; the draft and staged files are cleared **before** the `await` and restored on failure;
+    nothing is disabled while a write is in flight, so the next message can be composed immediately;
+    and the double-send guard became a `sendingRef` — a ref, not state, so a second Enter in the same
+    tick cannot double-post, and it is invisible. This finishes the client half of the "Posting
+    latency" work in `docs/teammates-module.md` §9i: the optimistic writes were already there, but the
+    box still waited on the response and the button still said "busy". No server change, so the suite
+    stays at 54/54.
 
 ## Verification (`scripts/messages/verify-messages.ts`, mirroring `verify-comments`)
 

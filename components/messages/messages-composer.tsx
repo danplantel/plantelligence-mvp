@@ -43,15 +43,22 @@ export function MessagesComposer({
   const [draft, setDraft] = useState("");
   const [pending, setPending] = useState<DirectAttachment[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   // Lets the emoji picker splice a glyph in at the caret rather than appending it.
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  /**
+   * Guards a double send WITHOUT locking the composer.
+   *
+   * A ref and not state on purpose: it has to be true within the same tick as the second call, which
+   * a `setBusy` would not be. Crucially it is invisible — nothing is disabled while a message is in
+   * flight, because the whole point is that sending never feels like waiting.
+   */
+  const sendingRef = useRef(false);
 
   // An attachment alone is a complete message — "look at this" needs no caption — so either one
-  // enables Send.
+  // enables Send. A send in flight is not a reason to disable it: the box is already empty.
   const canSend =
-    (draft.trim().length > 0 || pending.length > 0) && !busy && !uploading;
+    (draft.trim().length > 0 || pending.length > 0) && !uploading;
 
   const handleFiles = async (files: FileList | null) => {
     if (!files || files.length === 0) return;
@@ -117,17 +124,42 @@ export function MessagesComposer({
     }
   };
 
+  /**
+   * Send — and make it feel instant, the way a chat app does.
+   *
+   * The message is ALREADY on screen by the time this runs: `useDirectThread` writes it through
+   * SWR's optimistic path, so the bubble, the inbox preview and the ordering all move immediately.
+   * That is exactly why the box is cleared here and now rather than in a `then`: holding the text
+   * until the round trip returned meant watching your own message appear while still staring at the
+   * words that produced it, for as long as the write took. On a slow link the box looked stuck, and
+   * the natural response — pressing Send again — was the one thing that made it worse.
+   *
+   * Nothing spins. There is no spinner on the button because from the reader's side there is nothing
+   * in flight to wait for; a spinner here would *invent* latency the UI has already decided not to
+   * show.
+   *
+   * Failure is fully recoverable, which is what makes the optimism safe: the optimistic bubble rolls
+   * back (`rollbackOnError`) and the text and staged files come back with it, so nothing is silently
+   * lost. Restoring unconditionally matches the comments composer, so the two behave identically.
+   */
   const submit = async () => {
-    if (!canSend) return;
-    setBusy(true);
+    if (!canSend || sendingRef.current) return;
+    sendingRef.current = true;
+
+    const submittedText = draft;
+    const submittedAttachments = pending;
+
+    setDraft("");
+    setPending([]);
+
     try {
-      await onSubmit(draft, pending);
-      setDraft("");
-      setPending([]);
+      await onSubmit(submittedText, submittedAttachments);
     } catch (error) {
+      setDraft(submittedText);
+      setPending(submittedAttachments);
       toast.error((error as Error)?.message ?? "Could not send that message.");
     } finally {
-      setBusy(false);
+      sendingRef.current = false;
     }
   };
 
@@ -224,7 +256,7 @@ export function MessagesComposer({
           className="h-9 w-9 shrink-0"
           onClick={() => inputRef.current?.click()}
           disabled={
-            uploading || busy || pending.length >= MAX_ATTACHMENTS_PER_MESSAGE
+            uploading || pending.length >= MAX_ATTACHMENTS_PER_MESSAGE
           }
           aria-label="Attach a file"
           title={
@@ -241,11 +273,8 @@ export function MessagesComposer({
         </Button>
 
         {/* The comments picker, reused. An emoji alone is a valid message, so it stays enabled on an
-            empty box and only stops while the message is being sent. */}
-        <EmojiPicker
-          disabled={busy || uploading}
-          onPick={(emoji) => insertAtCaret(emoji)}
-        />
+            empty box — and it is never disabled by a send, because the box is already clear. */}
+        <EmojiPicker onPick={(emoji) => insertAtCaret(emoji)} />
 
         <Button
           size="icon"
@@ -255,11 +284,8 @@ export function MessagesComposer({
           aria-label="Send"
           title="Send (Enter)"
         >
-          {busy ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
-          )}
+          {/* Never a spinner. The message is already sent as far as this UI is concerned. */}
+          <Send className="h-4 w-4" />
         </Button>
       </div>
 
