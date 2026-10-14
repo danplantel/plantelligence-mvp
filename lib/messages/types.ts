@@ -52,6 +52,32 @@ export {
  */
 export const MAX_DIRECT_MESSAGE_LENGTH = MAX_COMMENT_LENGTH;
 
+/* ─────────────────────────── "Currently typing" ─────────────────────────── */
+
+/**
+ * How long a typing ping stays live, shared by the writer and the reader.
+ *
+ * The signal is a TIMESTAMP, so this is the only thing that ends it: the reader reports "typing"
+ * only while the peer's timestamp is newer than this. That is what makes the indicator
+ * self-healing — there is no "stopped typing" event to lose.
+ *
+ * Long enough to bridge the gap between keystrokes (a pause to think should not flicker the dots
+ * off and on) and short enough that the dots cannot plausibly outlive the typing.
+ */
+export const TYPING_TTL_MS = 6000;
+
+/** How often the OPEN conversation asks whether the other person is typing. */
+export const TYPING_POLL_MS = 2500;
+
+/**
+ * The floor between two typing pings from the same writer.
+ *
+ * A fast typist fires an input event per keystroke; without this every one of them would be a
+ * request. The TTL covers the gap, so a ping every couple of seconds is indistinguishable from
+ * one per key while being two orders of magnitude cheaper.
+ */
+export const TYPING_PING_THROTTLE_MS = 2000;
+
 /* ─────────────────────────────── Wire types ─────────────────────────────── */
 
 /**
@@ -117,6 +143,15 @@ export interface DirectThreadView {
   hasEarlier: boolean;
   /** This reader's own watermark, ISO, or null when they have never opened it. */
   readAt: string | null;
+  /**
+   * Is the OTHER participant typing right now, per the TTL.
+   *
+   * Always about the other person and never about the caller — the server resolves it from the
+   * side opposite the reader — so the rail can render it unconditionally without a self-check.
+   * The dedicated typing endpoint is the fast path; this field is the thread read's answer, and
+   * a stale-but-recent true here simply means the dots survive one poll cycle.
+   */
+  peerTyping: boolean;
 }
 
 /**

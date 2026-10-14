@@ -202,8 +202,9 @@ Details that carry the feature:
   thread.
 - **Accessibility**: the rail is `role="complementary"`, focus moves into it on open, Escape
   closes, and new messages announce via `aria-live` **only** in the open thread.
-- **Deliberately not in v1**: message editing, seen/delivered receipts, typing indicators, group
-  threads, reactions, search, email or push delivery, block/mute.
+- **Deliberately not in v1**: message editing, seen/delivered receipts, group threads, reactions,
+  search, email or push delivery, block/mute. (Typing indicators were on this list originally and
+  were then built at the user's request — see phase 9.)
 
 ## Files
 
@@ -257,8 +258,8 @@ is issued.
 
 ## Phases
 
-**Shipped.** The work ran as six phases (below); the map onto the plan's own numbering is noted
-where they differ. `npm run messages:verify` is green at **45/45**, `tsc` and `eslint` are clean,
+**Shipped.** The work ran as nine phases (below); the map onto the plan's own numbering is noted
+where they differ. `npm run messages:verify` is green at **54/54**, `tsc` and `eslint` are clean,
 and the feature is documented in `docs/teammates-module.md` §2 and §9j.
 
 1. ✅ **Data and server** (phases 1–3). Models + three migrations, `messages.server.ts`,
@@ -280,6 +281,28 @@ and the feature is documented in `docs/teammates-module.md` §2 and §9j.
    page so a poll cannot wipe history); the panel's keyboard contract (Escape closes, focus moves in
    on open, `aria-live` in the open thread only); consecutive-message avatar grouping; the
    Collaborator's tailored empty state; and four paging assertions in the suite (41 → 45).
+8. ✅ **Composer parity with Comments.** The shared `EmojiPicker` in the DM composer, splicing the
+   glyph at the caret (a plain textarea plus a direct splice — no mention machinery, and the length
+   cap re-applied because a splice bypasses `maxLength`); the plan's "Start one from the directory"
+   empty-state copy; and the thread's error state given the list's Try again / no-retry-on-403 rule.
+9. ✅ **"Currently typing".** Note: the original v1 list in *The rail — UX anatomy* put "typing
+   indicators" under *Deliberately not in v1*, so this is a deliberate reversal at the user's
+   request. `aTypingAt`/`bTypingAt` on `DirectThread` — a self-expiring timestamp rather than a
+   boolean, so nothing has to send a "stopped typing" event, and in the DATABASE rather than memory
+   because the app is multi-process; `markDirectTyping` (writes the caller's own side) and
+   `getDirectTyping` (reads the peer's), both behind the participation gate; the fast 2.5s poll on
+   the open thread with a throttled, fire-and-forget ping; `sendDirectMessage` clearing the sender's
+   signal; and the Instagram-style three-dot bubble, staggered and reduced-motion aware, with five
+   assertions added to the suite (45 → 50).
+10. ✅ **"Currently typing" on the conversation list.** `listTypingThreadIds` + `GET /api/messages/typing`
+    return the ids of the caller's conversations whose PEER is typing, in ONE query — deliberately not
+    a flag on the inbox read, which returns up to fifty conversations with per-thread unread counts and
+    is far too heavy to repeat every 2.5s. The row replaces its message preview with the same dots, at
+    list scale. `useDirectTypingThreads(enabled)` keeps the list poll and the open-thread poll from
+    ever running at once. Four assertions added (50 → 54), including that the reader's OWN ping cannot
+    paint their own list. **This reverses the note in phase 9's docs draft** that the list was
+    deliberately omitted: that reasoning was right about reusing the 10s inbox poll and wrong about the
+    feature — with its own fast poll the list is correct rather than stale.
 
 ## Verification (`scripts/messages/verify-messages.ts`, mirroring `verify-comments`)
 
@@ -300,6 +323,11 @@ and the feature is documented in `docs/teammates-module.md` §2 and §9j.
 | An empty body with no attachments is refused; exactly the limit is accepted | The boundary, as `verify-comments` pins it |
 | A non-participant cannot fetch a DM attachment | The object route's guard |
 | Deleting either login removes the thread and its messages | The cascade |
+| A typing ping lights the OTHER participant's indicator, not the sender's | The signal is per-side |
+| A stale typing timestamp reads as "not typing" | The self-expiring design |
+| Sending clears the sender's typing signal | The message is what the dots promised |
+| A non-participant can neither write nor read the typing signal | The same gate as the thread |
+| A conversation longer than one page pages back with a cursor, and the pages are disjoint | `load earlier` |
 
 ## Edge cases
 

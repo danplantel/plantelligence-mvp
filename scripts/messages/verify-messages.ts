@@ -14,7 +14,10 @@
  *   7. withdrawal — author only, leaving a placeholder;
  *   8. the attachment guard, which must never defer to the object route's org-level fallback;
  *   9. account deletion cascading the conversation away;
- *  10. "load earlier" paging — the page boundary, the cursor, and the exhausted tail.
+ *  10. "load earlier" paging — the page boundary, the cursor, and the exhausted tail;
+ *  11. "currently typing" — the peer's side only, self-expiry, and cleared on send;
+ *  12. the conversation list's typing poll — every conversation at once, never the reader's own.
+ *  11. "currently typing" — the peer's side only, self-expiry, and cleared on send.
  *
  * Fixtures are `tdm-verify-*` and are cleaned up unless `--keep` is passed.
  */
@@ -38,8 +41,11 @@ import {
 import { listDirectDirectory } from "../../lib/messages/directory.server";
 import {
   getDirectThread,
+  getDirectTyping,
   listDirectThreads,
+  listTypingThreadIds,
   markDirectThreadRead,
+  markDirectTyping,
   openDirectThread,
   resolveDirectAttachmentAccess,
   sendDirectMessage,
@@ -819,6 +825,122 @@ async function main(): Promise<void> {
       "a cursor older than the whole conversation is an empty, exhausted page",
       beforeEverything.messages.length === 0 && beforeEverything.hasEarlier === false,
       `${beforeEverything.messages.length} / hasEarlier=${beforeEverything.hasEarlier}`,
+    );
+
+    /* ── 10. "Currently typing" ───────────────────────────────────── */
+
+    console.log("");
+    console.log("10. Currently typing — the peer's side only, self-expiring");
+
+    await markDirectTyping({
+      organizationId,
+      userId: carl.loginId,
+      threadId: paging.threadId,
+    });
+    check(
+      "a typing ping lights the OTHER participant's indicator, and not the sender's own",
+      (await getDirectTyping({ organizationId, userId: owner.id, threadId: paging.threadId }))
+        .typing === true &&
+        (await getDirectTyping({ organizationId, userId: carl.loginId, threadId: paging.threadId }))
+          .typing === false,
+    );
+
+    // The timestamp IS the mechanism, so an old one must read as "not typing" — that is what makes
+    // the indicator self-healing with no "stopped typing" event. Both sides are set so the
+    // assertion does not depend on which of the pair the fixture's login turned out to be.
+    await prisma.directThread.update({
+      where: { id: paging.threadId },
+      data: {
+        aTypingAt: new Date(Date.now() - 60_000),
+        bTypingAt: new Date(Date.now() - 60_000),
+      },
+    });
+    check(
+      "the signal expires on its own once the timestamp is stale",
+      (await getDirectTyping({ organizationId, userId: owner.id, threadId: paging.threadId }))
+        .typing === false,
+    );
+
+    await markDirectTyping({
+      organizationId,
+      userId: carl.loginId,
+      threadId: paging.threadId,
+    });
+    await sendDirectMessage({
+      organizationId,
+      userId: carl.loginId,
+      threadId: paging.threadId,
+      body: "typing ends here",
+    });
+    check(
+      "sending a message clears the sender's own typing signal",
+      (await getDirectTyping({ organizationId, userId: owner.id, threadId: paging.threadId }))
+        .typing === false,
+    );
+
+    check(
+      "a non-participant cannot write the typing signal",
+      (await refusalCode(() =>
+        markDirectTyping({
+          organizationId,
+          userId: owner.id,
+          threadId: coraCarl.threadId,
+        }),
+      )) === "not_a_participant",
+    );
+    check(
+      "…nor read it",
+      (await refusalCode(() =>
+        getDirectTyping({
+          organizationId,
+          userId: owner.id,
+          threadId: coraCarl.threadId,
+        }),
+      )) === "not_a_participant",
+    );
+
+    /* ── 11. The conversation list's typing poll ──────────────────── */
+
+    console.log("");
+    console.log("11. Currently typing — the conversation list");
+
+    await markDirectTyping({
+      organizationId,
+      userId: carl.loginId,
+      threadId: paging.threadId,
+    });
+    check(
+      "the list marks the conversation whose PEER is typing",
+      (await listTypingThreadIds({ organizationId, userId: owner.id })).includes(
+        paging.threadId,
+      ),
+    );
+    check(
+      "…and never one the READER is typing in — your own ping cannot paint your own list",
+      !(await listTypingThreadIds({ organizationId, userId: carl.loginId })).includes(
+        paging.threadId,
+      ),
+    );
+
+    await prisma.directThread.update({
+      where: { id: paging.threadId },
+      data: {
+        aTypingAt: new Date(Date.now() - 60_000),
+        bTypingAt: new Date(Date.now() - 60_000),
+      },
+    });
+    check(
+      "an expired ping drops out of the list",
+      !(await listTypingThreadIds({ organizationId, userId: owner.id })).includes(
+        paging.threadId,
+      ),
+    );
+
+    check(
+      "a non-member is refused the list",
+      (await refusalCode(() =>
+        listTypingThreadIds({ organizationId, userId: stranger.id }),
+      )) === "not_a_member",
     );
   } finally {
     if (!KEEP_FIXTURES) {

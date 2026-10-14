@@ -278,6 +278,40 @@
       transform: scale(1.25);
     }
   }
+
+  /*
+   * Direct messages: the "currently typing" dots.
+   *
+   * The chat convention, and the reason it works — three dots in the other person's bubble, each
+   * rising and fading IN SEQUENCE rather than together. Synchronised motion reads as "loading";
+   * a stagger reads as "alive". The offset comes from an inline `animation-delay` per dot, so this
+   * is only the shape of a single cycle.
+   */
+  @keyframes dm-typing-dot {
+    0%,
+    60%,
+    100% {
+      transform: translateY(0);
+      opacity: 0.35;
+    }
+    30% {
+      transform: translateY(-3px);
+      opacity: 1;
+    }
+  }
+
+  .dm-typing-dot {
+    animation: dm-typing-dot 1.2s ease-in-out infinite;
+  }
+
+  /* Rest state for a reader who has asked the platform for less motion: the dots stay legible but
+     stop travelling. */
+  @media (prefers-reduced-motion: reduce) {
+    .dm-typing-dot {
+      animation: none;
+      opacity: 0.6;
+    }
+  }
 }
 
 /* ── Benefits Hub Portal: force light theme regardless of dashboard dark mode ── */

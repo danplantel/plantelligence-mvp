@@ -80,8 +80,9 @@ erDiagram
   confirmed.
 - **`DirectThread`** — one private conversation between exactly two logins of an
   organization: `userAId`/`userBId` in a canonical order, a per-participant read
-  watermark (`aReadAt`/`bReadAt`), and a denormalised `lastMessagePreview` so the
-  inbox never reads the message table. See §9j.
+  watermark (`aReadAt`/`bReadAt`), a per-participant **typing** timestamp
+  (`aTypingAt`/`bTypingAt`, self-expiring — see §9j), and a denormalised
+  `lastMessagePreview` so the inbox never reads the message table. See §9j.
 - **`DirectMessage`** — one message in a thread: author, body, optional JSON
   attachments, and `deletedAt` for the author-only withdrawal placeholder.
 
@@ -181,7 +182,7 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:verify-t7` | Runs the 26-assertion T7 suite (the three acceptance criteria, display-vs-access, the mirror's idempotency and removals, hidden categories, and the unmirrorable-contact residue). |
 | `npm run teammates:verify-t9` | Runs the 44-assertion T9 suite (the signed token and its refusals, the mailbox guard, the profile guards, the inviter's note, acceptance creating vs reusing a login, the seat conversion, replay, both audit rows, and the tenancy invariant — the login anchored to the inviting organization and owning none of its own). |
 | `npm run comments:verify` | Runs the 47-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, and the plan-delete cascade). See §9i. |
-| `npm run messages:verify` | Runs the 45-assertion Direct Messages suite (the directory predicate that doubles as the gate, the refusals — including the organization owner refused a thread between two other people — the canonical pair and the `CHECK` that enforces it, the body limit's boundary, unread and the read watermark, ONE Bell row per conversation, **attachment reads that follow participation and never the org fallback**, the **`load earlier` page boundary and its cursor**, and the login-delete cascade). See §9j. |
+| `npm run messages:verify` | Runs the 54-assertion Direct Messages suite (the directory predicate that doubles as the gate, the refusals — including the organization owner refused a thread between two other people — the canonical pair and the `CHECK` that enforces it, the body limit's boundary, unread and the read watermark, ONE Bell row per conversation, **attachment reads that follow participation and never the org fallback**, the **`load earlier` page boundary and its cursor**, the **self-expiring `currently typing` signal (peer-only, cleared on send, and marked on the conversation list)**, and the login-delete cascade). See §9j. |
 | `npm run teammates:backfill-contacts` | Projects every plan's `keyContacts` onto profiles + assignments (T7). Idempotent; `--dry-run` to count without writing. Run it before the hub reader switch and after adding a new contacts writer. |
 | `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
 
@@ -2255,7 +2256,8 @@ rail that mirrors the comments rail. Plan, the four decisions and the phase log 
    collaborator↔collaborator is allowed. It mirrors the @mention candidate set minus the
    category filter.
 3. **Match Comments, then tighten.** 10s SWR polls for both the inbox and the open thread,
-   attachments and the shared viewer reused, no edit, author-only withdrawal with no admin
+   attachments, the shared viewer and the comments emoji picker reused, no edit, author-only
+   withdrawal with no admin
    moderation, unread from a per-participant read watermark, and ONE coalesced Bell row per
    conversation.
 
@@ -2317,6 +2319,14 @@ back; the open thread is an `aria-live="polite"` region and the conversation lis
 background poll for a thread the reader is not looking at stays silent; and a run of messages from
 one author draws the avatar once, with a spacer keeping the run aligned beneath it.
 
+**Composer parity.** The DM composer reuses the comments
+[`EmojiPicker`](../components/comments/emoji-picker.tsx) and splices the glyph in at the CARET — a
+plain textarea and a direct splice, since a DM carries no mentions and does not need
+`MentionTextarea`'s machinery. A splice bypasses the textarea's `maxLength`, so the length cap is
+re-applied in the handler: the server must never be the one to refuse an over-long body. The
+thread's error state carries the same Try again / no-retry-on-403 rule the conversation list applies,
+so the two views answer a missing conversation the same way.
+
 ### Why the right column needs an owner
 
 Comments and Messages are two panels that want the same box. The first attempt used a derived
@@ -2327,10 +2337,61 @@ owns it, and `useRightPanel` hands each provider an `onEvicted` callback so the 
 its own mode to `"off"`. The dashboard takes the MAX of the two insets
 (`--comments-inset`, `--messages-inset`) because the rails are mutually exclusive.
 
+### Currently typing
+
+A "currently typing" indicator in the Instagram idiom: three dots in the peer's lane, each rising in
+sequence. The stagger is the whole trick — synchronised dots read as a spinner, staggered ones read
+as a person.
+
+**A timestamp, not a boolean.** `DirectThread` carries `aTypingAt`/`bTypingAt`, mirroring the read
+watermarks. The reader treats anything older than `TYPING_TTL_MS` (6s) as "not typing", so the signal
+decays on its own: there is no "stopped typing" event to lose, a closed laptop cannot leave the dots
+running, and a dropped request self-heals. It lives in the **database rather than process memory**
+because the app runs across processes — an in-memory map would be per-instance, so two participants
+routed to different instances would simply never see each other type.
+
+**The peer's side only.** `markDirectTyping` writes the CALLER's own column and returns no state;
+`getDirectTyping` reads the side OPPOSITE the caller. The rail can therefore render the indicator
+unconditionally, and a mistake there cannot make you appear to be typing to yourself. Both go through
+the same participation gate as the thread — no admin override — so the signal can be neither pushed
+into nor read out of a conversation the caller is not in. `getDirectThread` also carries `peerTyping`,
+so the slower thread read can light the dots before the fast poll answers.
+
+**Three cadences, and the two typing ones never overlap.** The open conversation polls typing every
+2.5s; the conversation list polls its own typing endpoint every 2.5s; messages stay at 10s. Moving a
+whole conversation or a fifty-row inbox on every tick to answer a one-bit question would be the wrong
+trade, which is why the typing reads are separate and small. Only ONE of the two typing polls is live
+at a time: the list poll runs while the list is on screen, and opening a conversation hands the job to
+that thread's poll (`useDirectTypingThreads(enabled)`), so neither pays for the other's answer. The
+ping is throttled to one per 2s in the hook — not at the call site, so no caller can flood the
+endpoint by forgetting to — and it is fire-and-forget, because a dropped ping is worthless by
+definition and the next keystroke sends another. Sending a message **clears** the sender's signal: the
+message is what the dots promised, and leaving them up for the rest of the TTL would show the peer a
+second, phantom arrival.
+
+**The bubble, and the list row.** In an open conversation, `TypingBubble` sits in the peer's lane with
+the same avatar gutter, exactly where their next message will land, so the message replaces it instead
+of shifting the list. The dots are decorative and animate from a `dm-typing-dot` keyframe with a
+per-dot `animation-delay`; the accessible content is an `sr-only` line, announced once for free by the
+conversation's existing polite live region — there is no second live region to say it twice. The
+keyframe switches off under `prefers-reduced-motion: reduce`.
+
+In the conversation LIST, the typing state **replaces** the preview rather than sitting beside it —
+"typing" and "their last message" answer the same question, and showing both is noise — using the same
+dots at list scale so the two read as one idea. This is served by
+[`listTypingThreadIds`](../lib/messages/messages.server.ts), **one** query returning the ids of the
+caller's conversations whose PEER is typing, rather than folding a flag into the inbox read: the inbox
+returns up to fifty conversations with per-thread unread counts, far too much work to repeat every
+2.5s. It is per-side like everything else here, so a ping you sent yourself can never paint a row in
+your own list. **The earlier draft of this section said the list was deliberately omitted** because
+the 10s inbox cadence would have made it stale against a 6s TTL; that reasoning was right about
+reusing the inbox poll and wrong about the feature — a dedicated 2.5s poll makes the list correct
+rather than lagging, so it was built.
+
 ### Verification
 
 ```
-npm run messages:verify   ->  45/45 assertions passed
+npm run messages:verify   ->  54/54 assertions passed
 ```
 
 Runs against the real data layer with self-cleaning fixtures: the directory (who the owner may
@@ -2342,8 +2403,11 @@ one-row Bell; the attachment guard (a participant allowed, **the owner refused**
 key refused, and a comment key left alone for the generic check); the `load earlier` boundary (a
 55-message conversation returns exactly 50 with more to come, the cursor returns the remainder
 exhausted, the two pages are disjoint and together complete, and a cursor older than the whole
-conversation is an empty page); and the login-delete cascade. `npx tsc --noEmit` and `eslint` are
-clean.
+conversation is an empty page); the typing signal (a ping lights the PEER's indicator and not the
+sender's own, a stale timestamp reads as not typing, sending clears the sender's signal, and a
+non-participant can neither write nor read it); the LIST's typing poll (the conversation whose peer
+is typing is marked, the one the reader is typing in is **not**, an expired ping drops out, and a
+non-member is refused); and the login-delete cascade. `npx tsc --noEmit` and `eslint` are clean.
 
 ---
 

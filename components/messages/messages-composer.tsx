@@ -5,6 +5,7 @@ import { Loader2, Paperclip, Send, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { EmojiPicker } from "@/components/comments/emoji-picker";
 import { cn } from "@/lib/utils";
 import {
   MAX_ATTACHMENTS_PER_MESSAGE,
@@ -30,10 +31,13 @@ import {
 export function MessagesComposer({
   threadId,
   onSubmit,
+  onTyping,
   placeholder = "Write a message…",
 }: {
   threadId: string;
   onSubmit: (body: string, attachments: DirectAttachment[]) => Promise<void>;
+  /** Fired on the reader's own input so the peer can be told. Throttled by the caller. */
+  onTyping?: () => void;
   placeholder?: string;
 }) {
   const [draft, setDraft] = useState("");
@@ -41,6 +45,8 @@ export function MessagesComposer({
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Lets the emoji picker splice a glyph in at the caret rather than appending it.
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // An attachment alone is a complete message — "look at this" needs no caption — so either one
   // enables Send.
@@ -127,6 +133,33 @@ export function MessagesComposer({
 
   const remaining = MAX_DIRECT_MESSAGE_LENGTH - draft.length;
 
+  /**
+   * Splice a glyph in at the CARET, not at the end.
+   *
+   * The comments composer does this through `MentionTextarea`'s imperative handle, but a DM carries
+   * no mentions, so a plain textarea and a direct splice is the whole requirement — and it keeps the
+   * mention machinery out of this feature. The caret is restored on the next frame, after React has
+   * committed the new value; without that the selection collapses to the end of the box.
+   */
+  const insertAtCaret = (glyph: string) => {
+    const el = textareaRef.current;
+    const start = el?.selectionStart ?? draft.length;
+    const end = el?.selectionEnd ?? start;
+    const next = draft.slice(0, start) + glyph + draft.slice(end);
+    // A splice bypasses the textarea's `maxLength`, so the limit is re-applied here — the server
+    // must never be the one to refuse an over-long body.
+    if (next.length > MAX_DIRECT_MESSAGE_LENGTH) return;
+    const caret = start + glyph.length;
+    setDraft(next);
+    // An emoji is input like any other keystroke, so it counts as typing.
+    onTyping?.();
+    requestAnimationFrame(() => {
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(caret, caret);
+    });
+  };
+
   return (
     <div className="shrink-0 border-t border-border p-3">
       {pending.length > 0 && (
@@ -160,8 +193,12 @@ export function MessagesComposer({
 
       <div className="flex items-end gap-2">
         <Textarea
+          ref={textareaRef}
           value={draft}
-          onChange={(event) => setDraft(event.target.value)}
+          onChange={(event) => {
+            setDraft(event.target.value);
+            onTyping?.();
+          }}
           onKeyDown={(event) => {
             if (event.key !== "Enter" || event.shiftKey) return;
             event.preventDefault();
@@ -202,6 +239,13 @@ export function MessagesComposer({
             <Paperclip className="h-4 w-4" />
           )}
         </Button>
+
+        {/* The comments picker, reused. An emoji alone is a valid message, so it stays enabled on an
+            empty box and only stops while the message is being sent. */}
+        <EmojiPicker
+          disabled={busy || uploading}
+          onPick={(emoji) => insertAtCaret(emoji)}
+        />
 
         <Button
           size="icon"

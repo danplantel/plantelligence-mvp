@@ -23,6 +23,10 @@ import {
   type DirectMessageView,
 } from "@/lib/messages/types";
 import { useDirectThread } from "@/hooks/useDirectThread";
+import {
+  useDirectTyping,
+  useDirectTypingThreads,
+} from "@/hooks/useDirectTyping";
 import { useViewerAccess } from "@/hooks/useViewerAccess";
 import { CommentAttachmentModal } from "@/components/comments/comment-attachment-modal";
 import { DirectoryPicker } from "./directory-picker";
@@ -81,10 +85,13 @@ const VIEW_ENTER_BACK =
 function ConversationRow({
   conversation,
   currentUserId,
+  peerTyping,
   onOpen,
 }: {
   conversation: DirectConversationView;
   currentUserId: string | null;
+  /** The other participant is typing right now, per the list's own fast poll. */
+  peerTyping: boolean;
   onOpen: () => void;
 }) {
   const { participant, unreadCount } = conversation;
@@ -123,17 +130,38 @@ function ConversationRow({
             </span>
           </span>
           <span className="mt-0.5 flex items-center gap-1">
-            <span
-              className={cn(
-                "truncate text-[11px]",
-                unreadCount > 0
-                  ? "font-medium text-foreground"
-                  : "text-muted-foreground",
-              )}
-            >
-              {mine ? "You: " : ""}
-              {preview}
-            </span>
+            {peerTyping ? (
+              // The typing state REPLACES the preview rather than sitting beside it: "typing" and
+              // "their last message" answer the same question — what is this conversation doing
+              // right now — and showing both is noise. Same dots as the thread's bubble, at list
+              // scale, so the two read as one idea.
+              <span className="flex items-center gap-1.5">
+                <span className="flex items-center gap-0.5" aria-hidden="true">
+                  {[0, 1, 2].map((index) => (
+                    <span
+                      key={index}
+                      className="dm-typing-dot h-1 w-1 rounded-full bg-accent-blue"
+                      style={{ animationDelay: `${index * 160}ms` }}
+                    />
+                  ))}
+                </span>
+                <span className="text-[11px] font-medium text-accent-blue">
+                  typing
+                </span>
+              </span>
+            ) : (
+              <span
+                className={cn(
+                  "truncate text-[11px]",
+                  unreadCount > 0
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground",
+                )}
+              >
+                {mine ? "You: " : ""}
+                {preview}
+              </span>
+            )}
             {unreadCount > 0 && (
               <span className="ml-auto flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-accent-blue px-1 text-[10px] font-semibold leading-none text-white">
                 {unreadCount > 9 ? "9+" : unreadCount}
@@ -153,6 +181,37 @@ type RenderedRow =
   | { kind: "divider"; key: string }
   | { kind: "message"; key: string; message: DirectMessageView };
 
+/**
+ * "Currently typing" — the chat convention, in the peer's lane.
+ *
+ * Three dots in a bubble, each rising and fading IN SEQUENCE rather than together: synchronised
+ * motion reads as a loading spinner, a stagger reads as a person. It sits exactly where the peer's
+ * next message will land, with the same avatar gutter, so the message replaces it instead of
+ * shifting the list.
+ *
+ * The dots are decorative and the bubble is not: the `sr-only` line is the whole accessible content,
+ * and because it is added inside the conversation's polite live region it is announced once, for
+ * free, when it appears. There is no second live region here to announce it twice.
+ */
+function TypingBubble({ name }: { name: string }) {
+  return (
+    <div className="mt-2 flex gap-2">
+      <span className="w-6 shrink-0" aria-hidden="true" />
+      <div className="inline-flex items-center gap-1 rounded-lg bg-muted px-2.5 py-2">
+        <span className="sr-only">{name} is typing</span>
+        {[0, 1, 2].map((index) => (
+          <span
+            key={index}
+            aria-hidden="true"
+            className="dm-typing-dot h-1.5 w-1.5 rounded-full bg-muted-foreground"
+            style={{ animationDelay: `${index * 160}ms` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function MessagesThread({ threadId }: { threadId: string }) {
   const mode = useOptionalMessagesMode();
   const currentUserId = mode?.currentUserId ?? null;
@@ -162,9 +221,11 @@ function MessagesThread({ threadId }: { threadId: string }) {
     messages,
     isLoading,
     error,
+    errorStatus,
     send,
     withdraw,
     markRead,
+    refresh,
     hasEarlier,
     isLoadingEarlier,
     loadEarlier,
@@ -179,6 +240,12 @@ function MessagesThread({ threadId }: { threadId: string }) {
   const stickRef = useRef(true);
 
   const newest = messages[messages.length - 1] ?? null;
+
+  // The peer's typing signal, on its own faster poll. `peerTyping` is null until the first answer,
+  // in which case the thread read's own (slower) answer stands in — so the dots appear on the first
+  // frame the conversation has any opinion at all, and the fast poll merely sharpens it.
+  const { peerTyping, notifyTyping } = useDirectTyping(threadId, true);
+  const peerIsTyping = peerTyping ?? Boolean(thread?.peerTyping);
 
   /**
    * Mark read — once per (conversation, newest message).
@@ -213,7 +280,9 @@ function MessagesThread({ threadId }: { threadId: string }) {
     const el = scrollRef.current;
     if (!el || !stickRef.current) return;
     el.scrollTop = el.scrollHeight;
-  }, [newestId]);
+    // `peerIsTyping` is a dependency too: the bubble is an arrival at the bottom of the list, and a
+    // reader already pinned there should see it appear without scrolling.
+  }, [newestId, peerIsTyping]);
 
   /** Day separators, plus the "New messages" divider at the reader's own watermark. */
   const rendered = useMemo<RenderedRow[]>(() => {
@@ -252,6 +321,14 @@ function MessagesThread({ threadId }: { threadId: string }) {
         <p className="text-xs text-muted-foreground">
           {error ?? "That conversation could not be opened."}
         </p>
+        {/* A refusal (403) is not worth retrying; a failure is — the rule the list already applies,
+            so the two views answer a missing conversation the same way. */}
+        {errorStatus !== 403 && (
+          <Button variant="outline" size="sm" className="gap-1.5" onClick={refresh}>
+            <RefreshCw className="h-3.5 w-3.5" />
+            Try again
+          </Button>
+        )}
       </div>
     );
   }
@@ -482,9 +559,16 @@ function MessagesThread({ threadId }: { threadId: string }) {
             })}
           </ul>
         )}
+
+        {/* The peer is typing. */}
+        {peerIsTyping && <TypingBubble name={thread.participant.name} />}
       </div>
 
-      <MessagesComposer threadId={threadId} onSubmit={send} />
+      <MessagesComposer
+        threadId={threadId}
+        onSubmit={send}
+        onTyping={notifyTyping}
+      />
 
       {/* The comments' viewer, reused: its Open/Download URLs are key-agnostic (`/api/r2/object`),
           and what authorizes the read behind them is the DIRECT guard, not the plan check — see
@@ -523,6 +607,13 @@ export function MessagesRail() {
   }, [isOpen]);
 
   const { isCollaborator } = useViewerAccess();
+
+  // The conversation LIST's typing poll — live only while the list is what is on screen. Opening a
+  // conversation hands the job to that thread's own poll, so the two never run at once and neither
+  // is paying for the other's answer.
+  const typingThreadIds = useDirectTypingThreads(
+    isOpen && !mode?.activeThreadId && !showPicker,
+  );
 
   if (!mode || !mode.open) return null;
 
@@ -630,7 +721,7 @@ export function MessagesRail() {
               <p className="mt-1 text-xs text-muted-foreground">
                 {isCollaborator
                   ? "You can message the advisor who invited you, and the team on your plans."
-                  : "Conversations you start or receive will appear here."}
+                  : "Start one from the directory, or wait for someone to message you."}
               </p>
               <Button
                 variant="outline"
@@ -649,6 +740,7 @@ export function MessagesRail() {
                   key={conversation.threadId}
                   conversation={conversation}
                   currentUserId={mode.currentUserId}
+                  peerTyping={typingThreadIds.has(conversation.threadId)}
                   onOpen={() => setActiveThreadId(conversation.threadId)}
                 />
               ))}

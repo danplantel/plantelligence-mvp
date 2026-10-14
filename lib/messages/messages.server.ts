@@ -32,6 +32,7 @@ import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_ATTACHMENT_BYTES,
   MAX_DIRECT_MESSAGE_LENGTH,
+  TYPING_TTL_MS,
   directAttachmentPrefix,
   directAttachmentThreadId,
   directMessageHref,
@@ -142,6 +143,21 @@ interface ThreadRow {
   userBId: string;
   aReadAt: Date | null;
   bReadAt: Date | null;
+  aTypingAt: Date | null;
+  bTypingAt: Date | null;
+}
+
+/**
+ * Is this typing timestamp still live?
+ *
+ * The TTL is the entire mechanism. A ping older than `TYPING_TTL_MS` simply means "not typing",
+ * which is what lets the signal expire without anyone sending a "stopped typing" event — a closed
+ * laptop or a dropped request self-heals. A timestamp slightly in the FUTURE (clock skew) counts as
+ * live, which is the harmless direction.
+ */
+function isTypingLive(value: Date | null | undefined): boolean {
+  if (!value) return false;
+  return Date.now() - value.getTime() < TYPING_TTL_MS;
 }
 
 /**
@@ -166,6 +182,8 @@ async function requireDirectThreadAccess(input: {
       userBId: true,
       aReadAt: true,
       bReadAt: true,
+      aTypingAt: true,
+      bTypingAt: true,
     },
   });
   if (!thread) {
@@ -474,12 +492,17 @@ export async function getDirectThread(input: {
 
   const watermark = thread.userAId === input.userId ? thread.aReadAt : thread.bReadAt;
 
+  // The PEER's typing timestamp — the side opposite the reader. Resolved here rather than in the
+  // rail so there is exactly one place that knows `a`/`b` means "the other person" for this caller.
+  const peerTypingAt = thread.userAId === input.userId ? thread.bTypingAt : thread.aTypingAt;
+
   return {
     threadId: thread.id,
     participant,
     messages: page.map(toMessageView),
     hasEarlier,
     readAt: watermark ? watermark.toISOString() : null,
+    peerTyping: isTypingLive(peerTypingAt),
   };
 }
 
@@ -500,6 +523,81 @@ function toMessageView(row: {
     createdAt: row.createdAt.toISOString(),
     deletedAt: row.deletedAt ? row.deletedAt.toISOString() : null,
   };
+}
+
+/* ─────────────────────────── "Currently typing" ─────────────────────────── */
+
+/**
+ * Record that the caller is typing right now.
+ *
+ * Writes the CALLER's own side and returns nothing: the writer has no business learning whether the
+ * other person is typing from a write. Participation is required, so the signal cannot be pushed
+ * into a conversation the caller is not in.
+ *
+ * Cheap on purpose — a single column update with no read of the messages, because the client sends
+ * these repeatedly while someone types.
+ */
+export async function markDirectTyping(input: {
+  organizationId: string;
+  userId: string;
+  threadId: string;
+}): Promise<void> {
+  const thread = await requireDirectThreadAccess(input);
+  await prisma.directThread.update({
+    where: { id: thread.id },
+    data: thread.userAId === input.userId
+      ? { aTypingAt: new Date() }
+      : { bTypingAt: new Date() },
+  });
+}
+
+/**
+ * Is the OTHER participant typing right now? The fast path, polled on its own short interval.
+ *
+ * It reports the peer's side only — a caller can already see their own keystrokes — so the rail
+ * never has to filter itself out and a bug there cannot make you appear to be typing to yourself.
+ */
+export async function getDirectTyping(input: {
+  organizationId: string;
+  userId: string;
+  threadId: string;
+}): Promise<{ typing: boolean }> {
+  const thread = await requireDirectThreadAccess(input);
+  const peerTypingAt = thread.userAId === input.userId ? thread.bTypingAt : thread.aTypingAt;
+  return { typing: isTypingLive(peerTypingAt) };
+}
+
+/**
+ * Which of the reader's conversations have the OTHER person typing right now?
+ *
+ * The fast poll behind the conversation LIST. One query, one bit per row — deliberately NOT folded
+ * into the inbox read, because that returns up to fifty conversations with per-thread unread counts
+ * and would be far too much work to repeat every couple of seconds to answer "who is typing".
+ *
+ * The filter is per-side, exactly like the single-thread read: the reader's OWN column is never
+ * consulted, so a ping you sent yourself cannot paint a row in your own list. Expiry is the same
+ * TTL, which is what makes the list correct without any "stopped typing" event.
+ */
+export async function listTypingThreadIds(input: {
+  organizationId: string;
+  userId: string;
+}): Promise<string[]> {
+  await requireDirectMembership(input);
+
+  const cutoff = new Date(Date.now() - TYPING_TTL_MS);
+  const rows = await prisma.directThread.findMany({
+    where: {
+      organizationId: input.organizationId,
+      OR: [
+        // I am A, so the peer is B and B's column is the one that counts.
+        { userAId: input.userId, bTypingAt: { gt: cutoff } },
+        { userBId: input.userId, aTypingAt: { gt: cutoff } },
+      ],
+    },
+    select: { id: true },
+  });
+
+  return rows.map((row) => row.id);
 }
 
 /* ─────────────────────────────── Writes ─────────────────────────────── */
@@ -584,8 +682,12 @@ export async function sendDirectMessage(input: {
       lastMessageByUserId: input.userId,
       lastMessagePreview: body ? snippet(body) : ATTACHMENT_PREVIEW,
       // Sending is also reading: the sender's own watermark moves with their message, so the
-      // message they just wrote is never counted as unread for them.
-      ...(thread.userAId === input.userId ? { aReadAt: now } : { bReadAt: now }),
+      // message they just wrote is never counted as unread for them. And it CLEARS their typing
+      // signal — the message itself is what the dots promised, so leaving them up for the rest of
+      // the TTL would show the peer a second, phantom arrival.
+      ...(thread.userAId === input.userId
+        ? { aReadAt: now, aTypingAt: null }
+        : { bReadAt: now, bTypingAt: null }),
     },
   });
 

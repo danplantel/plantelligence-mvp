@@ -1057,6 +1057,19 @@ model DirectThread {
   aReadAt DateTime?
   bReadAt DateTime?
 
+  // "Currently typing" — one self-expiring timestamp per participant, mirroring the read
+  // watermarks above.
+  //
+  // A TIMESTAMP and not a boolean, so the signal decays on its own: nobody has to send a "stopped
+  // typing" event, a closed laptop cannot leave the dots animating forever, and a dropped request
+  // cannot strand the state. The reader treats anything older than TYPING_TTL_MS as "not typing".
+  //
+  // On the row rather than in process memory because the app is deployed across processes: an
+  // in-memory map would be per-instance, so two participants routed to different instances would
+  // simply never see each other type.
+  aTypingAt DateTime?
+  bTypingAt DateTime?
+
   // Denormalised so the conversation list can sort without touching `DirectMessage`.
   lastMessageAt       DateTime @default(now())
   lastMessageByUserId String?
