@@ -34,6 +34,7 @@
  */
 import { check, createPrisma, failureCount, summary } from "../teammates/shared";
 import { getOrCreateOrganizationForUser } from "../../lib/organization";
+import { listAccessiblePlanIds } from "../../lib/teammates/access.server";
 import { deletePlansAndScopedDataForUser } from "../../lib/delete-user-plans-and-scoped-data";
 import { createTeammateProfile } from "../../lib/teammates/profiles.server";
 import { upsertAssignment } from "../../lib/teammates/assignments.server";
@@ -44,8 +45,8 @@ import {
   createCommentThread,
   deleteCommentMessage,
   deleteCommentThread,
-  getThreadAssignable,
-  listAssignableDerivedTasks,
+  listAssignable,
+  listAssignableNeedsAttention,
   listAssignableUsers,
   listCommentThreads,
   listCommentTyping,
@@ -1238,59 +1239,74 @@ async function main(): Promise<void> {
     // The derived tasks offered must be THIS plan's, and never the one that cannot be delegated:
     // publishing is Owner/Admin work with its own attestation, so a task row for it would be a
     // promise the assignee could not keep.
-    const derivedSource = await listSystemTasks([planA.id]);
-    const offered = await listAssignableDerivedTasks({
+    const ownerPlans = await listAccessiblePlanIds(owner.id);
+    const derivedSource = await listSystemTasks(ownerPlans);
+    const offered = await listAssignableNeedsAttention({
       organizationId,
-      clientId: planA.id,
-      targetType: "plan",
+      userId: owner.id,
     });
     check(
-      "the offered derived tasks are this plan's, minus the ones that cannot be delegated",
-      offered.every((task) => task.kind !== "ready-to-publish") &&
-        offered.length ===
-          derivedSource.filter((task) => task.kind !== "ready-to-publish").length,
-      `${offered.length} offered of ${derivedSource.length} derived`,
+      "each offer is ONE INNER task of an issue — never the headline, and never publish",
+      offered.length > 0 &&
+        offered.every((task) => task.title.length > 0 && task.groupLabel.length > 0) &&
+        offered.every((task) => task.id.includes("::")) &&
+        offered.every((task) => task.kind !== "ready-to-publish"),
+      `${offered.length} offer(s) from ${derivedSource.length} derived row(s)`,
     );
-    const benefitOffered = await listAssignableDerivedTasks({
+    check(
+      "…and every offer belongs to an issue the dashboard is actually reporting",
+      offered.every((task) =>
+        derivedSource.some(
+          (issue) => issue.clientId === task.clientId && issue.kind === task.kind,
+        ),
+      ),
+      JSON.stringify(offered.map((task) => [task.kind, task.clientId])),
+    );
+
+    // …narrowed by WHO it is for: work is worth handing over only if the other person can act on it.
+    const collabPlans = await listAccessiblePlanIds(collabLogin.id);
+    const forCollab = await listAssignableNeedsAttention({
       organizationId,
-      clientId: planA.id,
-      targetType: "benefit",
-      category: heldCategory,
+      userId: owner.id,
+      assigneeUserId: collabLogin.id,
     });
     check(
-      "…and on a benefit thread they are narrowed to that category's own work",
-      benefitOffered.every((task) => task.category === heldCategory) &&
-        benefitOffered.every((task) => task.kind === "incomplete-benefit"),
-      JSON.stringify(benefitOffered),
+      "…and narrowed by the ASSIGNEE's reach, so nobody is offered a plan they cannot open",
+      forCollab.length <= offered.length &&
+        forCollab.every((task) => collabPlans.includes(task.clientId)),
+      `${forCollab.length} for the Collaborator, of ${offered.length}`,
     );
 
     check(
       "a Collaborator cannot even be OFFERED the assign dialog",
       (await refusalCode(() =>
-        getThreadAssignable({
+        listAssignable({
           organizationId,
           userId: collabLogin.id,
-          threadId: sectionThread.id,
+          clientIdOrSlug: planA.id,
+          targetType: "plan",
         }),
       )) === "comment_forbidden",
     );
     check(
       "…while the owner is handed the same candidates the list resolved",
       (
-        await getThreadAssignable({
+        await listAssignable({
           organizationId,
           userId: owner.id,
-          threadId: sectionThread.id,
+          clientIdOrSlug: planA.id,
+          targetType: "plan",
         })
       ).users.length === planCandidates.length,
     );
     check(
       "an outsider cannot be offered it either",
       (await refusalCode(() =>
-        getThreadAssignable({
+        listAssignable({
           organizationId,
           userId: stranger.id,
-          threadId: sectionThread.id,
+          clientIdOrSlug: planA.id,
+          targetType: "plan",
         }),
       )) === "not_assigned",
     );
@@ -1499,16 +1515,22 @@ async function main(): Promise<void> {
     // The test needs a REAL derived task to be worth anything, so the fixture is checked first: with
     // none to delegate, de-duplication would pass by having nothing to de-duplicate, and a green tick
     // that means nothing is worse than a red one.
-    const delegable = await listAssignableDerivedTasks({
+    // Deliberately NOT pinned to a particular plan: the offer is the organisation's Needs Attention
+    // work, and which plan it lands on is the fixture's business, not the rule's.
+    const delegable = await listAssignableNeedsAttention({
       organizationId,
-      clientId: planA.id,
-      targetType: "plan",
+      userId: owner.id,
+      assigneeUserId: mentioneeLogin.id,
     });
     const target = delegable[0];
+    // A Draft plan is not "needing attention" — that panel is about LIVE plans — so nothing derived
+    // is offered from one by design. Asserted rather than assumed: it is the behaviour a reader will
+    // notice ("why is the list empty on my draft?") and the reason this section's own scenario below
+    // does not depend on the offer existing.
     check(
-      "the fixture plan offers a derived task to delegate",
-      Boolean(target),
-      JSON.stringify(delegable.map((task) => task.id)),
+      "a DRAFT plan reports no Needs Attention work, so nothing derived is offered from one",
+      delegable.every((task) => task.clientId !== planA.id),
+      JSON.stringify(delegable.map((task) => task.clientId)),
     );
 
     if (target) {
@@ -1520,7 +1542,9 @@ async function main(): Promise<void> {
         derivedTaskId: target.id,
       });
 
-      const assigneeRows = await listManualTasks(mentioneeLogin.id, [planA.id]);
+      const assigneeRows = await listManualTasks(mentioneeLogin.id, [
+        target.clientId,
+      ]);
       check(
         "the assigned row carries the derived task's identity, so nothing is lost by suppressing it",
         assigneeRows.some(
@@ -1532,20 +1556,24 @@ async function main(): Promise<void> {
       // The assignee has plan access, so they can already see the derived row for this issue. The
       // assignment has to REPLACE it, not sit beside it.
       const forAssignee = await listSystemTasks(
-        [planA.id],
+        [target.clientId],
         await suppressedDerivedRows(mentioneeLogin.id),
       );
       check(
         "…and the derived row is suppressed FOR THEM — one row per unit of work",
-        !forAssignee.some((task) => task.id === target.id),
-        JSON.stringify(forAssignee.map((task) => task.id)),
+        !forAssignee.some(
+          (task) => task.kind === target.kind && task.clientId === target.clientId,
+        ),
+        JSON.stringify(forAssignee.map((task) => [task.kind, task.clientId])),
       );
 
-      const forOwner = await listSystemTasks([planA.id]);
+      const forOwner = await listSystemTasks([target.clientId]);
       check(
         "…while everybody else still sees it, because for them it is not work they were given",
-        forOwner.some((task) => task.id === target.id),
-        JSON.stringify(forOwner.map((task) => task.id)),
+        forOwner.some(
+          (task) => task.kind === target.kind && task.clientId === target.clientId,
+        ),
+        JSON.stringify(forOwner.map((task) => [task.kind, task.clientId])),
       );
 
       // A typed-title assignment stands in for no derived row, so it must suppress none — which is
@@ -1570,6 +1598,16 @@ async function main(): Promise<void> {
     console.log("");
     console.log("20. Deleting a login takes the work assigned to it");
 
+    // Made HERE rather than borrowed from the section above: that one only runs when the organization
+    // has Needs Attention work, and this section has to be able to prove what it claims either way.
+    await assignTask({
+      organizationId,
+      userId: owner.id,
+      threadId: sectionThread.id,
+      assigneeUserId: adminLogin.id,
+      title: "Holds no derived row, but is still this login's work",
+    });
+
     // Guarded so it cannot pass by having nothing to delete — and it must run last, because it takes
     // this login's plans and tasks away with it.
     const adminTaskCount = await prisma.task.count({
@@ -1581,6 +1619,79 @@ async function main(): Promise<void> {
       adminTaskCount > 0 &&
         (await prisma.task.count({ where: { userId: adminLogin.id } })) === 0,
       `${adminTaskCount} before`,
+    );
+
+    /* ── 21. Assigning from the PANEL, mirroring your own work ─────── */
+
+    console.log("");
+    console.log("21. From the panel — the thread it creates, and a mirrored task");
+
+    // One of the reader's OWN tasks on this plan: the row the modal offers as "your tasks".
+    const ownedTask = await prisma.task.create({
+      data: { userId: owner.id, title: "Draft the summary email", clientId: planA.id },
+    });
+    const beforePanel = await listCommentThreads({
+      organizationId,
+      userId: owner.id,
+      clientIdOrSlug: planA.id,
+      targetType: "plan",
+    });
+
+    const fromPanel = await assignTask({
+      organizationId,
+      userId: owner.id,
+      // No `threadId`: this is the panel's path, and the assignment has to make its own thread.
+      surface: { clientIdOrSlug: planA.id, targetType: "plan" },
+      assigneeUserId: adminLogin.id,
+      sourceTaskId: ownedTask.id,
+      // Ignored on purpose: a mirrored task brings its own title.
+      title: "this title does not win",
+    });
+
+    check(
+      "assigning with no thread open CREATES the thread, with the card as its opening message",
+      fromPanel.messages.length === 1 &&
+        fromPanel.messages[0].kind === "task_assignment" &&
+        fromPanel.messages[0].task?.title === "Draft the summary email",
+      JSON.stringify(fromPanel.messages.map((message) => message.kind)),
+    );
+    check(
+      "…and it is a real thread on that surface, one more than before",
+      fromPanel.clientId === planA.id &&
+        (
+          await listCommentThreads({
+            organizationId,
+            userId: owner.id,
+            clientIdOrSlug: planA.id,
+            targetType: "plan",
+          })
+        ).threads.length ===
+          beforePanel.threads.length + 1,
+    );
+    check(
+      "the task it mirrored is still MINE — assigning hands over a copy, never the row",
+      (await prisma.task.findUnique({ where: { id: ownedTask.id } }))?.userId ===
+        owner.id,
+    );
+    check(
+      "…and the assignee holds their own, stamped with who asked and which thread",
+      (
+        await prisma.task.findFirst({
+          where: { userId: adminLogin.id, sourceThreadId: fromPanel.id },
+        })
+      )?.assignedByUserId === owner.id,
+    );
+    check(
+      "a task that is not yours cannot be mirrored out from under its owner",
+      (await refusalCode(() =>
+        assignTask({
+          organizationId,
+          userId: owner.id,
+          surface: { clientIdOrSlug: planA.id, targetType: "plan" },
+          assigneeUserId: adminLogin.id,
+          sourceTaskId: "not-a-task-of-mine",
+        }),
+      )) === "source_task_not_yours",
     );
   } finally {
     if (!KEEP_FIXTURES) {

@@ -137,16 +137,20 @@ export interface UseCommentThreadsResult {
    * `assigneeName` is carried for the OPTIMISTIC card only — the server resolves the real one with
    * the thread it returns, so the card can never end up naming somebody the server did not.
    */
-  assignTask: (
-    threadId: string,
-    input: {
-      assigneeUserId: string;
-      assigneeName: string;
-      title: string;
-      /** The picker's opaque id for a derived task, when the work came from one. */
-      derivedTaskId?: string;
-    },
-  ) => Promise<void>;
+  assignTask: (input: {
+    /**
+     * The thread to assign into — optional, because omitting it means the assignment CREATES the
+     * thread. That is the panel's case: the button is available with nothing open.
+     */
+    threadId?: string | null;
+    assigneeUserId: string;
+    assigneeName: string;
+    title: string;
+    /** The picker's opaque id for a derived task, when the work came from one. */
+    derivedTaskId?: string;
+    /** The assigner's own dashboard task this mirrors, when the work was picked from their list. */
+    sourceTaskId?: string;
+  }) => Promise<void>;
   /**
    * Take an assignment back. The card stays; the work goes.
    *
@@ -347,15 +351,23 @@ export function useCommentThreads(
   );
 
   const assignTask = useCallback(
-    async (
-      threadId: string,
-      input: {
-        assigneeUserId: string;
-        assigneeName: string;
-        title: string;
-        derivedTaskId?: string;
-      },
-    ) => {
+    async (input: {
+      /**
+       * The thread to assign into.
+       *
+       * Omitted when the reader assigns from the PANEL with nothing open — and then the assignment
+       * creates the thread, so there is no optimistic card: there is no list to insert it into, and a
+       * placeholder thread that is immediately replaced would flash. The server's answer fills the
+       * cache instead, which is also what keeps the rail honest about which thread exists now.
+       */
+      threadId?: string | null;
+      assigneeUserId: string;
+      assigneeName: string;
+      title: string;
+      derivedTaskId?: string;
+      /** Set when the work was picked from the assigner's own dashboard tasks on this plan. */
+      sourceTaskId?: string;
+    }) => {
       await run(async () => {
         // The optimistic card is built from what the dialog already knows, so the work appears to land
         // without a round trip. Its task id is a PLACEHOLDER and nothing reads it as an id: the card
@@ -376,16 +388,22 @@ export function useCommentThreads(
             assignedByUserId: currentUserId ?? "pending",
             assignedToUserId: input.assigneeUserId,
             assignedToName: input.assigneeName,
+            // Unknown until the server answers: the optimistic card shows a monogram rather than a
+            // wrong face.
+            assignedToHeadshot: null,
             derivedKind: null,
             benefitCategory: null,
             clientId: resolvedClientId || null,
+            derivedGroupLabel: null,
           },
         };
 
         await mutate(
           async (current) => {
             const response = await fetch(
-              `/api/comments/threads/${encodeURIComponent(threadId)}/assignments`,
+              `/api/clients/${encodeURIComponent(
+                target?.clientId ?? resolvedClientId,
+              )}/comments/assignments`,
               {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -393,6 +411,13 @@ export function useCommentThreads(
                   assigneeUserId: input.assigneeUserId,
                   title: input.title,
                   derivedTaskId: input.derivedTaskId,
+                  sourceTaskId: input.sourceTaskId,
+                  // The thread rides in the BODY when there is one. The server still takes the surface
+                  // from the thread ROW rather than trusting these values, and falls back to them only
+                  // when the assignment is itself what creates the thread.
+                  threadId: input.threadId ?? undefined,
+                  targetType: target?.targetType ?? "plan",
+                  category: target?.category ?? null,
                 }),
               },
             );
@@ -407,21 +432,26 @@ export function useCommentThreads(
             return {
               clientId: current?.clientId ?? resolvedClientId,
               canModerate: current?.canModerate ?? false,
-              threads: (current?.threads ?? []).map((thread) =>
-                thread.id === threadId ? updated : thread,
-              ),
+              threads: input.threadId
+                ? (current?.threads ?? []).map((thread) =>
+                    thread.id === input.threadId ? updated : thread,
+                  )
+                : [...(current?.threads ?? []), updated],
             };
           },
           {
-            optimisticData: (current) => ({
-              clientId: current?.clientId ?? resolvedClientId,
-              canModerate: current?.canModerate ?? false,
-              threads: (current?.threads ?? []).map((thread) =>
-                thread.id === threadId
-                  ? { ...thread, messages: [...thread.messages, optimistic] }
-                  : thread,
-              ),
-            }),
+            // Only where there is a thread to put the card in — see the note on `threadId` above.
+            optimisticData: input.threadId
+              ? (current) => ({
+                  clientId: current?.clientId ?? resolvedClientId,
+                  canModerate: current?.canModerate ?? false,
+                  threads: (current?.threads ?? []).map((thread) =>
+                    thread.id === input.threadId
+                      ? { ...thread, messages: [...thread.messages, optimistic] }
+                      : thread,
+                  ),
+                })
+              : undefined,
             rollbackOnError: true,
             revalidate: false,
             populateCache: true,
@@ -429,7 +459,7 @@ export function useCommentThreads(
         );
       });
     },
-    [currentUserId, mutate, optimisticAuthor, resolvedClientId, run],
+    [currentUserId, mutate, optimisticAuthor, resolvedClientId, run, target],
   );
 
   const withdrawAssignment = useCallback(

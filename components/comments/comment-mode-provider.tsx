@@ -90,16 +90,17 @@ interface CommentModeValue {
    * open thread — reach the same mutation, exactly as `reply` and `deleteMessage` already do. Owner
    * and Admin only: the API refuses anyone else, and the control is not rendered for them.
    */
-  assignTask: (
-    threadId: string,
-    input: {
-      assigneeUserId: string;
-      assigneeName: string;
-      title: string;
-      /** The picker's opaque id for a derived task, when the work came from one. */
-      derivedTaskId?: string;
-    },
-  ) => Promise<void>;
+  assignTask: (input: {
+    /** The thread to assign into. Omitted and the assignment creates one — the panel's case. */
+    threadId?: string | null;
+    assigneeUserId: string;
+    assigneeName: string;
+    title: string;
+    /** The picker's opaque id for a derived task, when the work came from one. */
+    derivedTaskId?: string;
+    /** The assigner's own dashboard task this mirrors, when the work was picked from their list. */
+    sourceTaskId?: string;
+  }) => Promise<void>;
   /** Take an assignment back. The card stays; the work goes. Keyed by the message alone. */
   withdrawAssignment: (messageId: string) => Promise<void>;
 

@@ -183,6 +183,11 @@ model Task {
   // of work instead of two.
   derivedKind     String?
   benefitCategory String?
+  // The needs-attention HEADING the work came from, e.g. "Incomplete benefit: Group Life", when it was
+  // assigned from one of the issues under it. Carried because the heading is not derivable from the
+  // kind and category — "No disclaimers configured" is a heading, "Missing disclaimers" is the kind —
+  // and a reader looking at the card needs to know which problem the inner task belongs to.
+  derivedGroupLabel String?
   // Reserved. No UI yet; a due date is the natural next addition to the assign dialog.
   dueAt DateTime?
 

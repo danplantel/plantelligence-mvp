@@ -1,6 +1,7 @@
 "use client";
 
 import { CheckCircle2, ClipboardList, Undo2 } from "lucide-react";
+import { Headshot } from "@/components/ui/headshot";
 import { cn } from "@/lib/utils";
 import { DERIVED_TASK_LABELS } from "@/lib/dashboard-tasks";
 import type { CommentTaskView } from "@/lib/comments/types";
@@ -72,14 +73,41 @@ export function CommentTaskCard({
         </span>
 
         <div className="min-w-0 flex-1">
+          {/* The HEADING it came from, above the work itself: "Incomplete benefit: Group Life" is the
+              problem, and "No support contact assigned" is what somebody has to do about it. Neither
+              is much use on its own, which is why both travel. */}
+          {task?.derivedGroupLabel ? (
+            <p
+              className="mb-0.5 truncate text-[10px] font-medium text-[#FF6900]"
+              title={task.derivedGroupLabel}
+            >
+              {task.derivedGroupLabel}
+            </p>
+          ) : null}
           <p className="text-xs font-medium">
             {task ? task.title : body}
           </p>
 
           {task ? (
             <>
+              {/* Who asked, and then — on its OWN line — who it is for. Two different people, and
+                  running them together in one sentence made the assignee the hard part to find. */}
               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                Assigned by {assignedByName} to {task.assignedToName}
+                Assigned by {assignedByName}
+              </p>
+              <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <span className="shrink-0">To</span>
+                <span className="h-4 w-4 shrink-0 overflow-hidden rounded-full bg-muted">
+                  <Headshot
+                    src={task.assignedToHeadshot}
+                    alt={task.assignedToName}
+                    monogramName={task.assignedToName}
+                    wrapperClassName="rounded-full"
+                  />
+                </span>
+                <span className="truncate font-medium text-foreground/80">
+                  {task.assignedToName}
+                </span>
               </p>
               <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-muted-foreground">
                 <span
@@ -92,7 +120,11 @@ export function CommentTaskCard({
                 >
                   {done ? "Completed" : "To do"}
                 </span>
-                {derivedLabel ? (
+                {/* The kind chip is a FALLBACK, not a second label: the heading above already says
+                    which problem this belongs to, and printing both made the card say the same thing
+                    twice in two colours. Kept only for a derived assignment made BEFORE the heading
+                    was stored, where losing the kind entirely would be worse than a second line. */}
+                {derivedLabel && !task.derivedGroupLabel ? (
                   <span className="rounded-full bg-muted px-1.5 py-0.5">
                     {derivedLabel}
                     {task.benefitCategory ? ` · ${task.benefitCategory}` : ""}

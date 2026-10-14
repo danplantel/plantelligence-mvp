@@ -14,10 +14,15 @@
 import prisma from "@/lib/prisma";
 import {
   isOwnerOrAdminOfOrganization,
+  listAccessiblePlanIds,
   parseR2Key,
   resolvePlanAccess,
 } from "@/lib/teammates/access.server";
-import { listSystemTasks } from "@/lib/dashboard-tasks.server";
+import { listManualTasks } from "@/lib/dashboard-tasks.server";
+import {
+  issueDestination,
+} from "@/lib/plan-attention-actions";
+import { listPlansNeedingAttention } from "@/lib/plan-needs-attention.server";
 import { TeammateDataError } from "@/lib/teammates/errors";
 import { loadPersonIdentities } from "@/lib/teammates/identity.server";
 import { createNotification } from "@/lib/notifications/notifications.server";
@@ -25,11 +30,13 @@ import { categoryToSlug } from "@/lib/benefit-category-slug";
 import {
   COMMENT_NOTIFICATION_TYPES,
   COMMENT_TYPING_TTL_MS,
+  GENERAL_SECTION_KEY,
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_ATTACHMENT_BYTES,
   MAX_COMMENT_LENGTH,
   normalizeBenefitCategoryKey,
   type AssignableDerivedTask,
+  type AssignableOwnTask,
   type AssignableStanding,
   type AssignableUser,
   type CommentAnchorInput,
@@ -176,6 +183,7 @@ async function loadTaskViews(
       derivedKind: true,
       benefitCategory: true,
       clientId: true,
+      derivedGroupLabel: true,
     },
   });
   // The assignee's name travels with the card: resolved through the same identity resolver as every
@@ -197,9 +205,12 @@ async function loadTaskViews(
       assignedByUserId: task.assignedByUserId ?? task.userId,
       assignedToUserId: task.userId,
       assignedToName: assignees.get(task.userId)?.name || "a teammate",
+      // Free: the same resolver call that produced the name already carried the picture.
+      assignedToHeadshot: assignees.get(task.userId)?.headshot ?? null,
       derivedKind: task.derivedKind,
       benefitCategory: task.benefitCategory,
       clientId: task.clientId,
+      derivedGroupLabel: task.derivedGroupLabel,
     });
   }
   return views;
@@ -630,31 +641,58 @@ export async function listAssignableUsers(input: {
  * dialog — so a task row for it would be a promise the assignee could not keep. Work only the
  * assigner can do is not work to delegate.
  */
-export async function listAssignableDerivedTasks(input: {
+export async function listAssignableNeedsAttention(input: {
   organizationId: string;
-  clientId: string;
-  targetType: CommentTargetType;
-  /** Real category, for a benefit surface. */
-  category?: string | null;
+  userId: string;
+  /**
+   * Narrow the offer to plans THIS person can reach, once one has been picked.
+   *
+   * The whole point of handing work over is that the other person can act on it, so a task whose plan
+   * they cannot open is a dead end dressed up as a choice. That is why the dialog re-asks the moment
+   * the assignee changes.
+   */
+  assigneeUserId?: string | null;
 }): Promise<AssignableDerivedTask[]> {
-  const derived = await listSystemTasks([input.clientId]);
-  const category =
-    input.targetType === "benefit"
-      ? normalizeBenefitCategoryKey(input.category)
-      : null;
+  const [mine, theirs] = await Promise.all([
+    listAccessiblePlanIds(input.userId),
+    input.assigneeUserId
+      ? listAccessiblePlanIds(input.assigneeUserId)
+      : Promise.resolve(null),
+  ]);
+  const planIds = theirs ? mine.filter((id) => theirs.includes(id)) : mine;
+  if (planIds.length === 0) return [];
 
-  return derived
-    .filter((task) => task.clientId === input.clientId)
-    .filter((task) => task.kind !== "ready-to-publish")
-    .filter((task) => category === null || task.category === category)
-    .map((task) => ({
-      id: task.id,
-      title: task.title,
-      planName: task.planName,
-      href: task.href,
-      kind: task.kind,
-      category: task.category,
-    }));
+  // The dashboard's OWN Needs Attention read — the same one behind the tile and the detail panel —
+  // so the dialog offers what the panel is already showing rather than a second derivation of it.
+  const flagged = await listPlansNeedingAttention(planIds);
+
+  const items: AssignableDerivedTask[] = [];
+  for (const plan of flagged) {
+    for (const issue of plan.details.issues) {
+      // The issue's own identity, which is what the assigned row stores as `derivedKind` +
+      // `benefitCategory`: the dashboard's de-duplication keys on the ISSUE, so two inner tasks of
+      // one issue still replace that issue's single derived row rather than adding to it.
+      const issueId = `system-${issue.kind}-${plan.id}-${issue.category ?? ""}`;
+      const fields = issue.missing ?? [];
+      // Each missing FIELD is its own unit of work. "Incomplete benefit: Group Life" is a heading;
+      // "No support contact assigned" is the job somebody can actually be handed. An issue with
+      // nothing to enumerate is offered as itself, or it would be impossible to assign at all.
+      const units = fields.length > 0 ? fields : [issue.label];
+      for (const field of units) {
+        items.push({
+          id: `${issueId}::${field}`,
+          title: field,
+          groupLabel: issue.label,
+          planName: plan.companyName,
+          clientId: plan.id,
+          href: issueDestination(plan.id, issue).href,
+          kind: issue.kind,
+          category: issue.category ?? null,
+        });
+      }
+    }
+  }
+  return items;
 }
 
 /**
@@ -666,23 +704,20 @@ export async function listAssignableDerivedTasks(input: {
  * `assertCanAssign` the write will use, so an offer can never be made by someone the write would
  * refuse — the picker lists exactly what the API accepts.
  */
-export async function getThreadAssignable(input: {
+export async function listAssignable(input: {
   organizationId: string;
   userId: string;
-  threadId: string;
+  clientIdOrSlug: string;
+  targetType: CommentTargetType;
+  /** Real category, for a benefit surface. */
+  category?: string | null;
+  /** Whose reachability the automated tasks are narrowed by, once a person has been picked. */
+  assigneeUserId?: string | null;
 }): Promise<ThreadAssignable> {
-  const thread = await prisma.commentThread.findFirst({
-    where: { id: input.threadId, organizationId: input.organizationId },
-    select: { id: true, clientId: true, targetType: true, benefitCategory: true },
-  });
-  if (!thread) {
-    throw new TeammateDataError("Comment thread not found.", 404, "thread_not_found");
-  }
-
   const access = await resolveCommentAccess({
     userId: input.userId,
-    clientIdOrSlug: thread.clientId,
-    category: thread.benefitCategory,
+    clientIdOrSlug: input.clientIdOrSlug,
+    category: input.category,
   });
   await assertCanAssign({
     userId: input.userId,
@@ -690,24 +725,48 @@ export async function getThreadAssignable(input: {
     isPlanOwner: access.kind === "owner",
   });
 
-  const targetType = thread.targetType as CommentTargetType;
-  const [users, derivedTasks] = await Promise.all([
+  const [users, derivedTasks, myTasks] = await Promise.all([
     listAssignableUsers({
       organizationId: input.organizationId,
       userId: input.userId,
-      clientIdOrSlug: thread.clientId,
-      targetType,
-      category: thread.benefitCategory,
+      clientIdOrSlug: access.clientId,
+      targetType: input.targetType,
+      category: input.category,
     }),
-    listAssignableDerivedTasks({
+    listAssignableNeedsAttention({
       organizationId: input.organizationId,
-      clientId: thread.clientId,
-      targetType,
-      category: thread.benefitCategory,
+      userId: input.userId,
+      assigneeUserId: input.assigneeUserId ?? null,
     }),
+    listAssignableOwnTasks(input.userId),
   ]);
 
-  return { users, derivedTasks };
+  return { users, derivedTasks, myTasks };
+}
+
+/**
+ * The assigner's OWN manual tasks on this plan — the rows the DASHBOARD shows for it.
+ *
+ * Read through `listManualTasks`, the same function the dashboard uses, so the dialog offers the same
+ * tasks rather than a second opinion about which exist. Only rows they wrote THEMSELVES are offered:
+ * one already assigned to them is somebody else's request already, and mirroring it would put the same
+ * work on two dashboards under one name.
+ */
+async function listAssignableOwnTasks(
+  userId: string,
+): Promise<AssignableOwnTask[]> {
+  const tasks = await listManualTasks(userId, await listAccessiblePlanIds(userId));
+  return tasks
+    // Every task the reader wrote, from the WHOLE dashboard To-Do list rather than this one plan —
+    // that is the list they are looking at when they decide to hand something over. Rows assigned TO
+    // them are excluded: those are already somebody else's request.
+    .filter((task) => task.assignedByUserId === null)
+    .map((task) => ({
+      id: task.id,
+      title: task.title,
+      done: task.done,
+      planName: task.planName,
+    }));
 }
 
 /** Matches the dashboard's own limit, so a title typed here is one that surface would accept. */
@@ -733,25 +792,59 @@ const MAX_TASK_TITLE_LENGTH = 200;
 export async function assignTask(input: {
   organizationId: string;
   userId: string;
-  threadId: string;
+  /**
+   * The thread to assign into.
+   *
+   * Omitted when the assigner works from the PANEL with nothing open, and then the assignment MAKES a
+   * thread — work somebody is being asked for needs somewhere to be discussed, and that is exactly
+   * what the main panel's button is for. The card becomes the thread's opening message.
+   */
+  threadId?: string | null;
+  /** Required when there is no `threadId`: the surface to create the thread on. */
+  surface?: {
+    clientIdOrSlug: string;
+    targetType: CommentTargetType;
+    category?: string | null;
+  };
   assigneeUserId: string;
-  /** Free text. Ignored when `derivedTaskId` names the work instead. */
+  /** Free text. Ignored when the work is named by `derivedTaskId` or mirrored from `sourceTaskId`. */
   title?: unknown;
   /** The picker's opaque id for one of the plan's derived tasks. Never taken apart. */
   derivedTaskId?: unknown;
+  /** The assigner's OWN dashboard task this mirrors, when the work was picked from their list. */
+  sourceTaskId?: unknown;
 }): Promise<CommentThreadView> {
-  const thread = await prisma.commentThread.findFirst({
-    where: { id: input.threadId, organizationId: input.organizationId },
-    include: { messages: { orderBy: { createdAt: "asc" } } },
-  });
-  if (!thread) {
+  // The surface comes from the THREAD when there is one — so a caller cannot name a benefit thread and
+  // ask for a plan-scoped candidate list — and from the caller only when there is no thread yet.
+  const existingThread = input.threadId
+    ? await prisma.commentThread.findFirst({
+        where: { id: input.threadId, organizationId: input.organizationId },
+        select: { id: true, clientId: true, targetType: true, benefitCategory: true },
+      })
+    : null;
+  if (input.threadId && !existingThread) {
     throw new TeammateDataError("Comment thread not found.", 404, "thread_not_found");
+  }
+
+  const surface = existingThread
+    ? {
+        clientIdOrSlug: existingThread.clientId,
+        targetType: existingThread.targetType as CommentTargetType,
+        category: existingThread.benefitCategory as string | null,
+      }
+    : input.surface;
+  if (!surface) {
+    throw new TeammateDataError(
+      "An assignment needs a thread, or a surface to create one on.",
+      400,
+      "surface_required",
+    );
   }
 
   const access = await resolveCommentAccess({
     userId: input.userId,
-    clientIdOrSlug: thread.clientId,
-    category: thread.benefitCategory,
+    clientIdOrSlug: surface.clientIdOrSlug,
+    category: surface.category,
   });
   await assertCanAssign({
     userId: input.userId,
@@ -759,27 +852,22 @@ export async function assignTask(input: {
     isPlanOwner: access.kind === "owner",
   });
 
-  const targetType = thread.targetType as CommentTargetType;
-  const [candidates, offered, authorById] = await Promise.all([
+  const targetType = surface.targetType;
+  const [candidates, offered] = await Promise.all([
     listAssignableUsers({
       organizationId: input.organizationId,
       userId: input.userId,
-      clientIdOrSlug: thread.clientId,
+      clientIdOrSlug: access.clientId,
       targetType,
-      category: thread.benefitCategory,
+      category: surface.category,
     }),
-    listAssignableDerivedTasks({
+    listAssignableNeedsAttention({
       organizationId: input.organizationId,
-      clientId: thread.clientId,
-      targetType,
-      category: thread.benefitCategory,
+      userId: input.userId,
+      // Narrowed by the ASSIGNEE: the point of handing work over is that they can act on it, and the
+      // write is the last place that can be sure of that.
+      assigneeUserId: input.assigneeUserId,
     }),
-    // The assigner's own name is needed for the message and the notification, and their row is the
-    // one a byline falls back to — so it is loaded with everything else rather than after the write.
-    loadAuthors(input.organizationId, [
-      input.userId,
-      ...thread.messages.map((message) => message.authorUserId),
-    ]),
   ]);
 
   const assignee = candidates.find((person) => person.userId === input.assigneeUserId);
@@ -804,11 +892,38 @@ export async function assignTask(input: {
     );
   }
 
+  // A task picked from the assigner's OWN list is MIRRORED, never moved: only their own rows on this
+  // plan qualify, and the copy simply takes the title. Nothing is stored to link the two, because
+  // there is nothing to keep in sync — the assignee's row is theirs, and the assigner's stays put.
+  const sourceTaskId =
+    typeof input.sourceTaskId === "string" ? input.sourceTaskId.trim() : "";
+  const mirrored = sourceTaskId
+    ? await prisma.task.findFirst({
+        where: {
+          id: sourceTaskId,
+          userId: input.userId,
+          // Any plan: the modal offers the reader's WHOLE To-Do list, so the copy keeps the plan the
+          // source was filed against rather than being forced onto this thread's.
+          assignedByUserId: null,
+        },
+        select: { title: true, clientId: true },
+      })
+    : null;
+  if (sourceTaskId && !mirrored) {
+    throw new TeammateDataError(
+      "That task is not one of yours on this plan.",
+      400,
+      "source_task_not_yours",
+    );
+  }
+
   const title = derived
     ? derived.title
-    : typeof input.title === "string"
-      ? input.title.trim()
-      : "";
+    : mirrored
+      ? mirrored.title
+      : typeof input.title === "string"
+        ? input.title.trim()
+        : "";
   if (!title) {
     throw new TeammateDataError("A task title is required.", 400, "title_required");
   }
@@ -820,23 +935,60 @@ export async function assignTask(input: {
     );
   }
 
-  const message = await prisma.$transaction(async (tx) => {
-    const task = await tx.task.create({
+  /**
+   * Written in a deliberate ORDER rather than in one transaction.
+   *
+   * An interactive transaction looked tidier, but against a pooled connection with this project's
+   * retry-on-transient layer it is worse than useless: a retried statement comes back to a transaction
+   * the pooler has already closed (`P2028`), so a momentary blip fails the whole assignment. Ordered
+   * writes fail softly instead, and the order is chosen so every partial state is survivable:
+   *
+   *  1. the thread, if there is not one — an empty thread is invisible (nothing renders a thread with
+   *     no messages), so a crash here costs nothing;
+   *  2. the task — unannounced work, which the assignee can still see and complete;
+   *  3. the message, LAST, against a task that already exists — so nothing is ever announced that
+   *     somebody cannot do.
+   */
+  const thread = existingThread
+    ? existingThread
+    : await prisma.commentThread.create({
+        data: {
+          organizationId: input.organizationId,
+          clientId: access.clientId,
+          targetType,
+          benefitCategory:
+            targetType === "benefit"
+              ? normalizeBenefitCategoryKey(surface.category)
+              : null,
+          // The same anchor the panel's persistent composer uses: an assignment is not about a
+          // section of the page, and this thread exists for the WORK rather than for a spot on it.
+          anchorKind: "section",
+          sectionKey: GENERAL_SECTION_KEY,
+          createdByUserId: input.userId,
+        },
+        select: { id: true },
+      });
+
+  {
+    const task = await prisma.task.create({
       data: {
         userId: assignee.userId,
         title,
         // The plan link puts the work in the assignee's own plan context. On a benefit thread the
         // category rides along too, which is what lets the dashboard recognise the derived row this
         // stands in for and show one row instead of two.
-        clientId: thread.clientId,
+        clientId: access.clientId,
         assignedByUserId: input.userId,
         sourceThreadId: thread.id,
         derivedKind: derived?.kind ?? null,
         benefitCategory: derived?.category ?? null,
+        // The HEADING, so the card can say which problem the inner task belongs to. Not derivable from
+        // the two above: a heading carries the category, a count, or a different phrase per kind.
+        derivedGroupLabel: derived?.groupLabel ?? null,
       },
     });
 
-    const created = await tx.commentMessage.create({
+    const created = await prisma.commentMessage.create({
       data: {
         threadId: thread.id,
         authorUserId: input.userId,
@@ -851,13 +1003,23 @@ export async function assignTask(input: {
 
     // The back-reference is for audit and for the withdrawal path; the message's `taskId` is the
     // link the reads actually travel.
-    await tx.task.update({
+    await prisma.task.update({
       where: { id: task.id },
       data: { sourceMessageId: created.id },
     });
+  }
 
-    return created;
+  // Re-read for the view. The thread now exists with the card in it, and every author on it — the
+  // assigner among them, since they wrote the card — comes from one pass, so no byline falls back to
+  // nothing. The thread is what the rail reconciles against, created or pre-existing alike.
+  const assigned = await prisma.commentThread.findFirstOrThrow({
+    where: { id: thread.id },
+    include: { messages: { orderBy: { createdAt: "asc" } } },
   });
+  const authorById = await loadAuthors(
+    input.organizationId,
+    assigned.messages.map((message) => message.authorUserId),
+  );
 
   const assignerName = authorById.get(input.userId)?.name || "Someone";
   await notifyEvent({
@@ -867,13 +1029,13 @@ export async function assignTask(input: {
     type: COMMENT_NOTIFICATION_TYPES.taskAssigned,
     title: `${assignerName} assigned you a task`,
     body: snippet(title),
-    href: commentHref(thread),
+    href: commentHref(assigned),
   });
 
   return toThreadView(
-    { ...thread, messages: [...thread.messages, message] },
+    assigned,
     authorById,
-    await loadTaskViews(input.organizationId, [...thread.messages, message]),
+    await loadTaskViews(input.organizationId, assigned.messages),
   );
 }
 

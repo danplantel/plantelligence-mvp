@@ -224,10 +224,22 @@ export interface CommentTaskView {
    * assignment would never mean reading English.
    */
   assignedToName: string;
+  /**
+   * The assignee's picture, from the same identity resolver as every other face in the product — so a
+   * teammate's seat photo shows here exactly as it does beside their own comments.
+   */
+  assignedToHeadshot: string | null;
   /** The derived row this stands in for, when it was assigned from one. */
   derivedKind: string | null;
   benefitCategory: string | null;
   clientId: string | null;
+  /**
+   * The needs-attention HEADING this inner task came from, e.g. "Incomplete benefit: Group Life".
+   *
+   * The card shows it above the title, because the title is the specific thing that is missing and the
+   * heading is the problem it belongs to — neither is much use without the other.
+   */
+  derivedGroupLabel: string | null;
 }
 
 /**
@@ -239,9 +251,24 @@ export interface CommentTaskView {
  */
 export interface AssignableDerivedTask {
   id: string;
+  /**
+   * The individual thing that is missing, e.g. "No support contact assigned".
+   *
+   * One offer per inner task, not one per issue: "Incomplete benefit: Group Life" is a HEADING, and
+   * the work somebody can actually be handed is the field underneath it.
+   */
   title: string;
+  /** The heading it belongs to, e.g. "Incomplete benefit: Group Life". */
+  groupLabel: string;
   /** The plan's name, so the picker can name the work without a second lookup. */
   planName: string;
+  /**
+   * The plan it belongs to.
+   *
+   * The offer spans the ORGANISATION's outstanding work rather than one plan, so the id is what lets
+   * the caller group it, label it, and match it against the derived row it would replace.
+   */
+  clientId: string;
   /** The destination that resolves it, carried onto the assignee's dashboard row. */
   href: string;
   /** "incomplete-benefit" | "uncategorized-documents" | "missing-disclaimers". */
@@ -249,10 +276,28 @@ export interface AssignableDerivedTask {
   category: string | null;
 }
 
-/** Everything the assign dialog is offered, for one thread. */
+/**
+ * One of the assigner's OWN dashboard tasks on this plan, as the dialog offers it.
+ *
+ * The same rows the DASHBOARD shows for the plan (`listManualTasks`), narrowed to the ones written by
+ * the person assigning. Picking one MIRRORS it onto the assignee: the assigner's own row stays exactly
+ * where it is, because handing work to somebody must never silently empty the list of whoever asked.
+ */
+export interface AssignableOwnTask {
+  id: string;
+  title: string;
+  done: boolean;
+  /** The plan it is filed against, when it has one — the dashboard's To-Do list spans them all. */
+  planName: string | null;
+}
+
+/** Everything the assign dialog is offered, for one comments surface. */
 export interface ThreadAssignable {
   users: AssignableUser[];
+  /** The plan's automated tasks — the dashboard's own derived rows. */
   derivedTasks: AssignableDerivedTask[];
+  /** The assigner's own dashboard tasks on this plan. */
+  myTasks: AssignableOwnTask[];
 }
 
 export interface CommentThreadView {

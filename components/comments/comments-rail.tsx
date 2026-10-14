@@ -18,6 +18,16 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Headshot } from "@/components/ui/headshot";
 import { cn } from "@/lib/utils";
 import {
@@ -195,6 +205,12 @@ function MessageRow({
 function ThreadModerationControls({ thread }: { thread: CommentThreadView }) {
   const { setResolved, deleteThread, canModerate } = useCommentMode();
   const [busy, setBusy] = useState(false);
+  /**
+   * Deleting a thread takes its replies and any assignment it carries with it, and cannot be undone —
+   * so it asks first. The question lives HERE, next to the only control that can ask it, rather than
+   * at a call site that a future caller could forget.
+   */
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   if (!canModerate) return null;
 
@@ -236,14 +252,38 @@ function ThreadModerationControls({ thread }: { thread: CommentThreadView }) {
         size="icon"
         className="h-6 w-6 rounded-full text-muted-foreground hover:text-red-600"
         disabled={busy}
-        onClick={() =>
-          void run(() => deleteThread(thread.id), "Could not delete the thread.")
-        }
+        onClick={() => setConfirmOpen(true)}
         aria-label="Delete this thread"
         title="Delete"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </Button>
+
+      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <AlertDialogContent className="max-w-sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete this thread?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Every reply goes with it, and any task assigned from it stops being anybody&rsquo;s
+              work. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-row gap-2 sm:gap-2">
+            <AlertDialogCancel className="mt-0">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-red-600 text-white hover:bg-red-700"
+              onClick={() =>
+                void run(
+                  () => deleteThread(thread.id),
+                  "Could not delete the thread.",
+                )
+              }
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
@@ -431,11 +471,8 @@ function ThreadView({
   scrollSignal: number;
   onOpenAttachment: (attachment: CommentAttachment) => void;
 }) {
-  const { currentUserId, canModerate, assignTask, reply, setActiveThreadId } =
-    useCommentMode();
+  const { currentUserId, reply, setActiveThreadId } = useCommentMode();
   const [parent, ...replies] = thread.messages;
-  /** The assign dialog, mounted only for a moderator and only once they ask for it. */
-  const [assignOpen, setAssignOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   /**
@@ -490,18 +527,6 @@ function ThreadView({
           </span>
         ) : null}
         <div className="ml-auto flex items-center gap-0.5">
-          {canModerate ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-7 gap-1.5 rounded-full px-2 text-xs text-muted-foreground"
-              onClick={() => setAssignOpen(true)}
-              title="Assign a task from this thread"
-            >
-              <ClipboardList className="h-3.5 w-3.5" />
-              Assign
-            </Button>
-          ) : null}
           <ThreadModerationControls thread={thread} />
         </div>
       </div>
@@ -569,24 +594,6 @@ function ThreadView({
         />
       </div>
 
-      {/* Owner/Admin only, and it asks the API what THIS thread may offer before drawing anything —
-          so nothing it presents can be refused, and a reader who cannot assign issues no request at
-          all because the dialog is not mounted until they ask for it. */}
-      <AssignTaskDialog
-        open={assignOpen}
-        onOpenChange={setAssignOpen}
-        threadId={thread.id}
-        onAssign={async (input) => {
-          try {
-            await assignTask(thread.id, input);
-            return null;
-          } catch (error) {
-            return error instanceof Error
-              ? error.message
-              : "Could not assign the task.";
-          }
-        }}
-      />
     </div>
   );
 }
@@ -642,6 +649,10 @@ export function CommentsRail() {
     refresh,
     setActiveThreadId,
     currentUserId,
+    // Assignment reads the same standing moderation does, so the panel asks the context that already
+    // knows it rather than deriving a second answer.
+    canModerate,
+    assignTask,
   } = useCommentMode();
 
   // Who is typing across every thread on this surface, in ONE poll — the rail shows all of them at
@@ -748,6 +759,8 @@ export function CommentsRail() {
 
   /** Bumped when the pill is clicked, so an open thread scrolls to its newest reply. */
   const [scrollSignal, setScrollSignal] = useState(0);
+  /** The assign dialog, mounted only once a moderator actually asks for it. */
+  const [assignOpen, setAssignOpen] = useState(false);
 
   /**
    * The typing signals that SURVIVED their own authors' messages.
@@ -878,6 +891,45 @@ export function CommentsRail() {
           <NewMessagesPill count={newCommentCount} onClick={jumpToNewComments} />
         </div>
       ) : null}
+
+      {/* Assign, on the MAIN panel rather than inside a thread. What is being handed over is the
+          WORK, not a conversation — so the reader can ask for it before any thread exists, and the
+          assignment creates the thread it lands in. Owner/Admin only, the same `canModerate` the
+          server refuses on, and rendered in both views so it never disappears mid-task. */}
+      {canModerate ? (
+        <div className="flex shrink-0 items-center justify-end border-b border-border px-3 py-1.5">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1.5 rounded-full px-2.5 text-xs text-muted-foreground"
+            onClick={() => setAssignOpen(true)}
+            title="Assign a task from this panel"
+          >
+            <ClipboardList className="h-3.5 w-3.5" />
+            Assign Task
+          </Button>
+        </div>
+      ) : null}
+
+      {/* Drawn only when asked for, so a reader who cannot assign issues no request at all. */}
+      <AssignTaskDialog
+        open={assignOpen}
+        onOpenChange={setAssignOpen}
+        clientId={target?.clientId ?? ""}
+        targetType={target?.targetType ?? "plan"}
+        category={target?.category ?? null}
+        onAssign={async (input) => {
+          try {
+            // No thread: the assignment creates one. See the note on the panel band above.
+            await assignTask(input);
+            return null;
+          } catch (error) {
+            return error instanceof Error
+              ? error.message
+              : "Could not assign the task.";
+          }
+        }}
+      />
 
       {activeThread ? (
         /* One thread gets the whole panel: parent, replies, and its own composer. The list

@@ -181,7 +181,7 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:verify-t2a` | Runs the 25-assertion T2a suite (per-function Custom enforcement, same-vs-per-plan grids, the locked-row refusal, All Plans, the missing-grid refusal, soft warnings and their audit trail, and the summary line). |
 | `npm run teammates:verify-t7` | Runs the 26-assertion T7 suite (the three acceptance criteria, display-vs-access, the mirror's idempotency and removals, hidden categories, and the unmirrorable-contact residue). |
 | `npm run teammates:verify-t9` | Runs the 44-assertion T9 suite (the signed token and its refusals, the mailbox guard, the profile guards, the inviter's note, acceptance creating vs reusing a login, the seat conversion, replay, both audit rows, and the tenancy invariant — the login anchored to the inviting organization and owning none of its own). |
-| `npm run comments:verify` | Runs the 92-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, the **per-person `currently typing` signal — named, self-expiring, cleared on reply, and reported for the surface's own composer as well as for threads**, and the plan-delete cascade). See §9i. |
+| `npm run comments:verify` | Runs the 94-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, the **per-person `currently typing` signal — named, self-expiring, cleared on reply, and reported for the surface's own composer as well as for threads**, and the plan-delete cascade). See §9i. |
 | `npm run messages:verify` | Runs the 59-assertion Direct Messages suite (the directory predicate that doubles as the gate, the refusals — including the organization owner refused a thread between two other people — the canonical pair and the `CHECK` that enforces it, the body limit's boundary, unread and the read watermark, ONE Bell row per conversation, **attachment reads that follow participation and never the org fallback**, the **`load earlier` page boundary and its cursor**, the **self-expiring `currently typing` signal (peer-only, cleared on send, and marked on the conversation list)**, and the login-delete cascade). See §9j. |
 | `npm run teammates:backfill-contacts` | Projects every plan's `keyContacts` onto profiles + assignments (T7). Idempotent; `--dry-run` to count without writing. Run it before the hub reader switch and after adding a new contacts writer. |
 | `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
@@ -2368,12 +2368,65 @@ why a withdrawn card needs no stored flag — there is simply no task left to re
 | Task completed | reads "Completed" | the row stays, ticked |
 | Assignment withdrawn | reads "Withdrawn" | deleted; the derived row returns |
 
-**Entry points.** `GET .../threads/[threadId]/assignable` (what the dialog may offer — a read of the
-permission question as much as of the data), `POST .../threads/[threadId]/assignments`, and
-`DELETE .../assignments/[messageId]`. The surface always comes from the thread row, never the query
-string. The suite covers it in §17 (who and where), §18 (the write and its traces) and §19 (the
-dashboard's one row), with §19 opening on a guard that the fixture plan really does offer a derived task
-— a green tick that means nothing would be worse than a red one.
+**Entry points.** `GET /api/clients/[id]/comments/assignable` (what the dialog may offer — a read of
+the permission question as much as of the data), `POST /api/clients/[id]/comments/assignments`, and
+`DELETE /api/comments/assignments/[messageId]`.
+
+Assignment is keyed by the SURFACE rather than by a thread, because it does not need one. The Assign
+button sits on the **main panel**, not inside a thread, and the work is what is being handed over
+rather than the conversation — so with nothing open the assignment **creates the thread it will live
+in**, with the card as that thread's opening message, anchored to the same `GENERAL_SECTION_KEY` the
+panel's persistent composer uses. When a thread *is* named it travels in the request body, and the
+server still reads the surface from that thread's ROW; the query values are only the fallback for the
+case where the assignment is itself what creates the thread.
+
+**The dialog offers three sources of work**, because the dashboard is where the reader already knows
+what needs doing:
+
+- **Needs Attention**, read through `listPlansNeedingAttention` — the panel's own read, so the dialog
+  shows what that panel shows rather than a second derivation of it. Each issue is then **enumerated
+  into its inner tasks**: "Incomplete benefit: Group Life" is a HEADING, and the work somebody can
+  actually be handed is the field underneath it ("No support contact assigned", "Plan documents
+  missing"). One radio per inner task, grouped under the heading. A Draft plan is NOT "needing
+  attention" — the panel is about live plans — so a draft offers none of this, which is the first thing
+  a reader may wonder about. `ready-to-publish` is never offered: publishing is a capability, not work
+  to hand over. And the list is narrowed by the person picked, so nobody is offered a plan they cannot
+  open — which is why the dialog re-asks the moment the assignee changes.
+- **Your To-Do list**, straight from `listManualTasks` — the dashboard's own manual read, across every
+  plan rather than this one, filtered to rows you wrote yourself (one assigned *to* you is somebody
+  else's request already). Picking one **mirrors** it: the assignee gets their own row on the thread and
+  yours stays exactly where it is, because handing work to somebody must never silently empty the list
+  of whoever asked. Nothing is stored to link the two: the assignee's row is theirs, and there is
+  nothing to keep in sync. A task that is not yours is refused (`source_task_not_yours`), so one can
+  never be mirrored out from under its owner.
+- **A title typed fresh.**
+
+A derived assignment is filed against the plan its ISSUE is on, and a mirrored one against the plan its
+source was filed against — either may differ from the thread's own plan now that the offer spans the
+organisation, and the wrong plan would mean the dashboard's de-duplication matched nothing.
+
+**Written in order, not in a transaction.** The thread (if there is none), then the task, then the card
+LAST. An interactive transaction looked tidier but is worse than useless against a pooled connection
+with this project's retry-on-transient layer: a retried statement returns to a transaction the pooler has
+already closed (`P2028`), so a momentary blip fails the whole assignment. Ordered writes fail softly, and
+the order is chosen so every partial state is survivable — an empty thread renders as nothing, unannounced
+work is still completable, and nothing is ever announced that somebody cannot do.
+
+**Deleting a thread asks first.** The confirmation lives beside the only control that can delete one, so
+no future caller can bypass it; it says what actually goes (every reply, and any task assigned from it),
+because "Delete" alone does not warn that somebody else's work disappears with it.
+
+**Both halves of the work travel to the card.** An offer is an INNER task — "No support contact
+assigned" — and the heading it belongs to ("Incomplete benefit: Group Life") is what tells a reader
+which problem it is part of, so `Task.derivedGroupLabel` carries it to the card and the dashboard row.
+It cannot be rebuilt from `derivedKind` and `benefitCategory`: a heading carries the category, a count,
+or a different phrase per kind — "No disclaimers configured" is a heading, "Missing disclaimers" is the
+kind. The card therefore reads as two lines: the heading above, the specific work below.
+
+The suite covers it in §17 (who and where, including that each offer is one INNER task and that the
+offer is narrowed by the assignee's reach), §18 (the write and its traces), §19 (the draft/Needs-Attention
+interaction — asserted rather than assumed, since it is the behaviour a reader notices first), §20 (the
+login lifecycle) and §21 (the panel path and the mirror).
 
 ### Scrolling to what you just wrote
 
@@ -2463,7 +2516,7 @@ thread — which is what the scope key exists for.
 ### Verification
 
 ```
-npm run comments:verify   ->  92/92 assertions passed
+npm run comments:verify   ->  94/94 assertions passed
 ```
 
 Runs against the real data layer with self-cleaning `tcm-verify-*` fixtures. It covers the
