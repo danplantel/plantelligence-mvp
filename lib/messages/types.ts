@@ -70,6 +70,15 @@ export const TYPING_TTL_MS = COMMENT_TYPING_TTL_MS;
 export const TYPING_POLL_MS = COMMENT_TYPING_POLL_MS;
 export const TYPING_PING_THROTTLE_MS = COMMENT_TYPING_PING_THROTTLE_MS;
 
+/**
+ * The "has their message overtaken their mark?" pair, from the same canonical module.
+ *
+ * Re-exported rather than reimplemented for the reason the constants above are: one rule, one
+ * implementation, so a DM and a comment can never disagree about when dots stop. See
+ * `typingMarkStands` for why the reader has to apply it at all.
+ */
+export { newestMessageAt, typingMarkStands } from "@/lib/comments/types";
+
 /* ─────────────────────────────── Wire types ─────────────────────────────── */
 
 /**
@@ -144,6 +153,14 @@ export interface DirectThreadView {
    * a stale-but-recent true here simply means the dots survive one poll cycle.
    */
   peerTyping: boolean;
+  /**
+   * WHEN the peer last said they were typing, ISO, or null.
+   *
+   * Carried beside the boolean so the rail can retire dots that a message of theirs has made a lie:
+   * `peerTyping` is a snapshot of a TTL, so it cannot know that the thing being typed has since been
+   * sent. Same field, same purpose as a comment's `CommentTypingPerson.typingAt`.
+   */
+  peerTypingAt: string | null;
 }
 
 /**

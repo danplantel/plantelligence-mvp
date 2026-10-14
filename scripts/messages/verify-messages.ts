@@ -16,8 +16,8 @@
  *   9. account deletion cascading the conversation away;
  *  10. "load earlier" paging — the page boundary, the cursor, and the exhausted tail;
  *  11. "currently typing" — the peer's side only, self-expiry, and cleared on send;
- *  12. the conversation list's typing poll — every conversation at once, never the reader's own.
- *  11. "currently typing" — the peer's side only, self-expiry, and cleared on send.
+ *  12. the conversation list's typing poll — every conversation at once, never the reader's own;
+ *  13. the MARK beside the bit — a peer's own message retiring dots a poll would still show.
  *
  * Fixtures are `tdm-verify-*` and are cleaned up unless `--keep` is passed.
  */
@@ -37,6 +37,8 @@ import {
   DIRECT_MESSAGE_NOTIFICATION_TYPE,
   MAX_DIRECT_MESSAGE_LENGTH,
   directAttachmentPrefix,
+  newestMessageAt,
+  typingMarkStands,
 } from "../../lib/messages/types";
 import { listDirectDirectory } from "../../lib/messages/directory.server";
 import {
@@ -845,6 +847,36 @@ async function main(): Promise<void> {
           .typing === false,
     );
 
+    // The BIT is the TTL's answer; the MARK is what lets the rail retire dots that a message has
+    // already made a lie. Both travel, because the polls are not in step — without the mark the
+    // "N new messages" pill can appear above a bubble still claiming its author is typing.
+    const peerTypingRead = await getDirectTyping({
+      organizationId,
+      userId: owner.id,
+      threadId: paging.threadId,
+    });
+    check(
+      "the typing read carries the MARK as well as the bit",
+      peerTypingRead.typing === true &&
+        typeof peerTypingRead.typingAt === "string" &&
+        !Number.isNaN(new Date(peerTypingRead.typingAt).getTime()),
+      JSON.stringify(peerTypingRead),
+    );
+
+    const readWithMark = await getDirectThread({
+      organizationId,
+      userId: owner.id,
+      threadId: paging.threadId,
+    });
+    check(
+      "…and the thread read carries it too, for the polls that have not answered yet",
+      readWithMark.peerTyping === true && typeof readWithMark.peerTypingAt === "string",
+      JSON.stringify({
+        peerTyping: readWithMark.peerTyping,
+        peerTypingAt: readWithMark.peerTypingAt,
+      }),
+    );
+
     // The timestamp IS the mechanism, so an old one must read as "not typing" — that is what makes
     // the indicator self-healing with no "stopped typing" event. Both sides are set so the
     // assertion does not depend on which of the pair the fixture's login turned out to be.
@@ -876,6 +908,33 @@ async function main(): Promise<void> {
       "sending a message clears the sender's own typing signal",
       (await getDirectTyping({ organizationId, userId: owner.id, threadId: paging.threadId }))
         .typing === false,
+    );
+
+    // The rule the rail applies across the two reads at once: a message of theirs newer than the mark
+    // retires them, whatever the polls happen to be showing. Synthetic timestamps, so the assertion
+    // cannot be sensitive to clock skew between the application and the database.
+    const markAt = new Date(Date.now() - 5_000).toISOString();
+    check(
+      "a peer message newer than their mark retires the dots; an older one leaves them standing",
+      typingMarkStands(
+        markAt,
+        newestMessageAt(
+          [{ authorUserId: carl.loginId, createdAt: new Date().toISOString() }],
+          carl.loginId,
+        ),
+      ) === false &&
+        typingMarkStands(
+          markAt,
+          newestMessageAt(
+            [
+              {
+                authorUserId: carl.loginId,
+                createdAt: new Date(Date.now() - 10_000).toISOString(),
+              },
+            ],
+            carl.loginId,
+          ),
+        ) === true,
     );
 
     check(

@@ -15,10 +15,14 @@ import { Button } from "@/components/ui/button";
 import { Headshot } from "@/components/ui/headshot";
 import { cn } from "@/lib/utils";
 import { scrollToBottom } from "@/lib/scroll-to-bottom";
+import { NewMessagesPill } from "@/components/new-messages-pill";
+import { useNewMessages } from "@/hooks/useNewMessages";
 import {
   directAttachmentInlineUrl,
   formatAttachmentSize,
   isImageAttachment,
+  newestMessageAt,
+  typingMarkStands,
   type DirectAttachment,
   type DirectConversationView,
   type DirectMessageView,
@@ -245,8 +249,38 @@ function MessagesThread({ threadId }: { threadId: string }) {
   // The peer's typing signal, on its own faster poll. `peerTyping` is null until the first answer,
   // in which case the thread read's own (slower) answer stands in — so the dots appear on the first
   // frame the conversation has any opinion at all, and the fast poll merely sharpens it.
-  const { peerTyping, notifyTyping } = useDirectTyping(threadId, true);
-  const peerIsTyping = peerTyping ?? Boolean(thread?.peerTyping);
+  const { peerTyping, peerTypingAt, notifyTyping } = useDirectTyping(threadId, true);
+
+  /**
+   * Whether to draw the dots: the server's verdict AND the reader's evidence against it.
+   *
+   * `peerTyping` is the TTL's answer, from whichever read has spoken. `typingMarkStands` is this
+   * panel's own: the messages are in hand here, so a message of the peer's newer than their mark
+   * retires the dots immediately. Without that half the pill can appear above a bubble that still
+   * claims its author is typing — the message and the mark arrive on two different polls, so for one
+   * cycle the panel holds "they are typing" and "they have spoken" and would believe both.
+   */
+  const peerUserId = thread?.participant.userId ?? null;
+  const peerIsTyping =
+    (peerTyping ?? Boolean(thread?.peerTyping)) &&
+    typingMarkStands(
+      peerTypingAt ?? thread?.peerTypingAt ?? null,
+      peerUserId ? newestMessageAt(messages, peerUserId) : 0,
+    );
+
+  /**
+   * Whether the reader is pinned to the newest message — as STATE as well as the `stickRef` the
+   * scroll effects consult. The ref cannot drive a render, and the new-messages count has to
+   * re-render the moment the reader scrolls away or comes back.
+   */
+  const [atBottom, setAtBottom] = useState(true);
+
+  const { count: newCount, clear: clearNewMessages } = useNewMessages({
+    scopeId: threadId,
+    messages,
+    currentUserId,
+    atBottom,
+  });
 
   /**
    * Mark read — once per (conversation, newest message).
@@ -292,6 +326,16 @@ function MessagesThread({ threadId }: { threadId: string }) {
     // `peerIsTyping` is a dependency too: the bubble is an arrival at the bottom of the list, and a
     // reader already pinned there should see it appear without scrolling.
   }, [newestId, peerIsTyping]);
+
+  /** What the "N new messages" pill does: take the reader down, and catch the marker up. */
+  const jumpToNewest = () => {
+    stickRef.current = true;
+    setAtBottom(true);
+    // The direct call below animates; clearing the flag stops the NEXT arrival animating too.
+    smoothScrollRef.current = false;
+    scrollToBottom(scrollRef.current, true);
+    clearNewMessages();
+  };
 
   /** Day separators, plus the "New messages" divider at the reader's own watermark. */
   const rendered = useMemo<RenderedRow[]>(() => {
@@ -344,6 +388,14 @@ function MessagesThread({ threadId }: { threadId: string }) {
 
   return (
     <>
+      {/* Discord's pill: shown only while something landed and the reader is NOT level with it. */}
+      <NewMessagesPill
+        count={newCount}
+        onClick={jumpToNewest}
+        // Floated over the top of the message list, just below the panel's own 3rem header.
+        className="absolute left-1/2 top-14 z-10 -translate-x-1/2"
+      />
+
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
         <span className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-muted">
           <Headshot
@@ -368,8 +420,11 @@ function MessagesThread({ threadId }: { threadId: string }) {
         onScroll={() => {
           const el = scrollRef.current;
           if (!el) return;
-          stickRef.current =
-            el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+          const near = el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+          stickRef.current = near;
+          // Functional update: this fires on every scroll event, and React bails out when the value
+          // is unchanged, so only the threshold crossing re-renders.
+          setAtBottom((previous) => (previous === near ? previous : near));
         }}
         // Announce new messages here, and ONLY here: the conversation list is not a live region, so
         // a background poll for a thread the reader is not looking at stays silent.

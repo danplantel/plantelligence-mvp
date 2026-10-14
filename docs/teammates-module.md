@@ -181,8 +181,8 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:verify-t2a` | Runs the 25-assertion T2a suite (per-function Custom enforcement, same-vs-per-plan grids, the locked-row refusal, All Plans, the missing-grid refusal, soft warnings and their audit trail, and the summary line). |
 | `npm run teammates:verify-t7` | Runs the 26-assertion T7 suite (the three acceptance criteria, display-vs-access, the mirror's idempotency and removals, hidden categories, and the unmirrorable-contact residue). |
 | `npm run teammates:verify-t9` | Runs the 44-assertion T9 suite (the signed token and its refusals, the mailbox guard, the profile guards, the inviter's note, acceptance creating vs reusing a login, the seat conversion, replay, both audit rows, and the tenancy invariant — the login anchored to the inviting organization and owning none of its own). |
-| `npm run comments:verify` | Runs the 57-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, the **per-person `currently typing` signal — named, self-expiring, cleared on reply, and reported for the surface's own composer as well as for threads**, and the plan-delete cascade). See §9i. |
-| `npm run messages:verify` | Runs the 54-assertion Direct Messages suite (the directory predicate that doubles as the gate, the refusals — including the organization owner refused a thread between two other people — the canonical pair and the `CHECK` that enforces it, the body limit's boundary, unread and the read watermark, ONE Bell row per conversation, **attachment reads that follow participation and never the org fallback**, the **`load earlier` page boundary and its cursor**, the **self-expiring `currently typing` signal (peer-only, cleared on send, and marked on the conversation list)**, and the login-delete cascade). See §9j. |
+| `npm run comments:verify` | Runs the 60-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, the **per-person `currently typing` signal — named, self-expiring, cleared on reply, and reported for the surface's own composer as well as for threads**, and the plan-delete cascade). See §9i. |
+| `npm run messages:verify` | Runs the 57-assertion Direct Messages suite (the directory predicate that doubles as the gate, the refusals — including the organization owner refused a thread between two other people — the canonical pair and the `CHECK` that enforces it, the body limit's boundary, unread and the read watermark, ONE Bell row per conversation, **attachment reads that follow participation and never the org fallback**, the **`load earlier` page boundary and its cursor**, the **self-expiring `currently typing` signal (peer-only, cleared on send, and marked on the conversation list)**, and the login-delete cascade). See §9j. |
 | `npm run teammates:backfill-contacts` | Projects every plan's `keyContacts` onto profiles + assignments (T7). Idempotent; `--dry-run` to count without writing. Run it before the hub reader switch and after adding a new contacts writer. |
 | `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
 
@@ -2249,10 +2249,33 @@ Expiry, the self-clearing write and the participation rule are the DM's, unchang
 `markCommentTyping` resolves the thread's own plan and category, and `markSurfaceTyping` resolves the
 surface itself — both through the same `resolveCommentAccess` a reply or a new thread uses. The reader
 applies `COMMENT_TYPING_TTL_MS` (6s) so nothing ever sends a "stopped typing" event. Posting a comment
-clears BOTH of the author's rows, because the author may have been composing either a reply or a new
-comment and a stale row in the other scope is invisible to the person who created it but visible to
-everyone else. And the read prunes stale rows as it goes, so the table tracks who is typing now rather
-than everyone who ever did.
+clears BOTH of the author's rows, because the author may have been composing either box and a stale row
+in the other scope is invisible to the person who created it but visible to everyone else. And the read
+prunes stale rows as it goes, so the table tracks who is typing now rather than everyone who ever did.
+
+**A landed comment retires the typing mark it makes a lie, and that is settled at RENDER time.** The
+first version cleared the author's rows only on the reply path: `createCommentThread` posted the comment
+and left the SURFACE row standing, which produced the contradiction a reader actually saw — the
+"N new messages" pill (it counts across the whole surface, so a new thread raises it) sitting above a
+composer line still naming its author as typing for the rest of the 6s TTL. Neither half was wrong on its
+own; it was the pair that lied. The clear now runs on both paths, before the notifications, and the suite
+asserts it: *creating a thread clears the composer's typing signal*.
+
+That clear is necessary but not sufficient, because the message and the mark arrive on DIFFERENT polls —
+messages at 10s, typing at 2.5s. A reader can therefore hold a message that landed after the snapshot
+which still shows its author typing, and no amount of care at the write end fixes a client holding two
+stale reads. So the rule lives where the two snapshots meet: in the render. It is a comparison of two
+server timestamps, `typingMarkStands(mark, newestMessageAt(messages, author))` — a person whose own
+message is newer than their mark is not typing, because whatever they were writing, they have sent it —
+and [`liveTypingPeople`](lib/comments/types.ts) drops exactly those people before the rail draws a line.
+The rail is the only place holding both halves, which is why the rule is applied there rather than in
+the hook that fetches one of them.
+
+It is an ADDITIONAL reason to stop drawing dots, never the only one: the server's own verdict still
+applies the TTL, so a mark that merely expired is caught exactly where it always was, and the two are
+combined with `&&`. Retirement only ever follows the typer's OWN messages — somebody else's comment
+cannot silence you — and someone who sends and carries on typing gets their dots back, because their
+next ping is newer than the message it followed.
 
 Two UI decisions worth naming. A thread's line is a LINE, not a bubble: it has to fit inside a compact
 card as well as at the bottom of an open thread, and a bubble would be a second message-shaped thing on
@@ -2290,6 +2313,58 @@ avoided, and animating a whole message viewport is about as much movement as a p
 is why this lives in one helper rather than as a `behavior: "smooth"` at each call site, where one of
 them would eventually forget.
 
+### "N new messages" — the Discord pill
+
+A clickable pill appears at the top of the panel — "1 new message", or "N new messages" — whenever a
+comment arrives that the reader has not acknowledged. Clicking it dismisses the count and takes the
+view to the newest content.
+
+The count is a MARKER, not a scroll position — [`useNewMessages`](hooks/useNewMessages.ts) seeds it at
+the newest message the first time data arrives, and everything newer than that from the OTHER side
+counts. That is what makes it per-session: opening a panel produces no count for the history already on
+screen, because the marker starts at today's newest message rather than at zero. Own messages never
+count, including the optimistic placeholder (`pending`) — a "new messages" affordance is a "there is
+something for you" affordance.
+
+**In the comments rail the marker only moves when the pill is clicked**, because that rail numbers
+across EVERY thread on the surface and so has no single "bottom" to be at. An open conversation does
+have one, and passes `atBottom` so the marker also advances while the reader is level with the newest —
+which is what stops the pill appearing for a message they can already see. One hook, two behaviours,
+chosen by the caller.
+
+**This was first built the other way round, and it did not work.** The original version hung the pill
+off the OPEN THREAD's scroller and derived "is the reader scrolled up?" from that element's scroll
+events. That made the feature depend on one element behaving: if that container did not actually
+scroll — a short thread in a tall panel — no scroll event ever fired, `atBottom` stayed stuck at its
+initial `true`, every arrival was treated as already seen, and the pill could never appear. It also
+meant the pill only existed in a thread, while the box the reader actually types in is the rail's
+persistent composer. The current design reports what ARRIVED, which the panel can know for certain
+without inferring anything about the viewport, and renders at the top of the panel in both views.
+
+**One constraint the rebuild had to respect:** `CommentsRail` returns `null` while comments mode is
+off, so the count's hooks (`useMemo` for the flattened comments, `useNewMessages`, the `scrollSignal`
+counter) must be declared ABOVE that early return, with the rail's other hooks. Adding them beside the
+code that uses them — the natural place to write them — puts them below the return, and a hook that
+only runs while the panel is open is a hook that runs a different number of times per render: React
+throws *"Rendered more hooks than during the previous render"* the first time the panel toggles. The
+handlers derived from those hooks (`jumpToNewComments`, which needs the open thread) stay below it,
+since only the hook CALLS have to be unconditional.
+
+**The marker inside [`useNewMessages`](hooks/useNewMessages.ts:36) is state, not a ref**, and that was
+learned the hard way too. Held in a ref it could be moved by `clear()` without ever invalidating the
+memoised count, so clicking the comments rail's pill scrolled the list — proving the handler ran — and
+left the pill sitting there: a ref is not a dependency, so nothing recomputed. It never
+self-corrected either, because SWR's deep-compare keeps the same `data` for an unchanged poll payload,
+so no later render arrived to recompute the memo. The DM thread hid the same bug — its click happens to
+set `atBottom`, which IS a dependency, so its count collapsed for an unrelated reason. With the marker
+as state the dismissal is a genuine re-render in both callers.
+
+It lives in [`components/new-messages-pill.tsx`](components/new-messages-pill.tsx), shared by both rails
+for the same reason the dot animation and the scroll helper are — one gesture, so it cannot drift into
+two. The component owns only its appearance; positioning is supplied by the call site, because the DM
+floats it over a scrolling list while the comments rail renders it in normal flow as a band under its
+header (in flow deliberately — a floated pill would collide with the filter row beneath it).
+
 **This section previously said the persistent composer was deliberately not wired**, on the grounds
 that creating a thread just to say "typing" would litter the list with empty threads. The reasoning
 about not creating a thread was right; the conclusion was wrong, and only surfaced when the feature was
@@ -2299,7 +2374,7 @@ thread — which is what the scope key exists for.
 ### Verification
 
 ```
-npm run comments:verify   ->  57/57 assertions passed
+npm run comments:verify   ->  60/60 assertions passed
 ```
 
 Runs against the real data layer with self-cleaning `tcm-verify-*` fixtures. It covers the
@@ -2426,6 +2501,11 @@ back; the open thread is an `aria-live="polite"` region and the conversation lis
 background poll for a thread the reader is not looking at stays silent; and a run of messages from
 one author draws the avatar once, with a spacer keeping the run aligned beneath it.
 
+When something lands while the reader has scrolled up, a **"N new messages"** pill appears at the top
+of the thread and takes them to it. It is the shared
+[`NewMessagesPill`](components/new-messages-pill.tsx), explained alongside the comments rail in §9i's
+*"N new messages"*.
+
 **Composer parity.** The DM composer reuses the comments
 [`EmojiPicker`](../components/comments/emoji-picker.tsx) and splices the glyph in at the CARET — a
 plain textarea and a direct splice, since a DM carries no mentions and does not need
@@ -2489,8 +2569,14 @@ routed to different instances would simply never see each other type.
 `getDirectTyping` reads the side OPPOSITE the caller. The rail can therefore render the indicator
 unconditionally, and a mistake there cannot make you appear to be typing to yourself. Both go through
 the same participation gate as the thread — no admin override — so the signal can be neither pushed
-into nor read out of a conversation the caller is not in. `getDirectThread` also carries `peerTyping`,
-so the slower thread read can light the dots before the fast poll answers.
+into nor read out of a conversation the caller is not in. Both reads also carry the MARK — `peerTypingAt`
+from the thread read, `typingAt` from the fast poll — because the bit alone cannot answer the one question
+that matters at render time: whether a message of the peer's has already overtaken it. `getDirectThread`
+carries `peerTyping` as well, so the slower read can light the dots before the fast poll answers, and the
+rail combines whichever answer is freshest with `typingMarkStands` — the same rule the comments rail
+applies, from the same module. See §9i's *"A landed comment retires the typing mark"* for the case that
+proved it: the pill and the dots can otherwise be on screen at once, each from a read that was true when
+it was taken.
 
 **Three cadences, and the two typing ones never overlap.** The open conversation polls typing every
 2.5s; the conversation list polls its own typing endpoint every 2.5s; messages stay at 10s. Moving a
@@ -2526,7 +2612,7 @@ rather than lagging, so it was built.
 ### Verification
 
 ```
-npm run messages:verify   ->  54/54 assertions passed
+npm run messages:verify   ->  57/57 assertions passed
 ```
 
 Runs against the real data layer with self-cleaning fixtures: the directory (who the owner may

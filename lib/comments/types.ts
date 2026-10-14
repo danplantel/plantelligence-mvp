@@ -217,6 +217,14 @@ export interface CommentTypingPerson {
   userId: string;
   name: string;
   headshot: string | null;
+  /**
+   * When this person last said they were typing — ISO, on the SERVER's clock.
+   *
+   * The server has already applied the TTL before sending this (a person in the list is live), so
+   * this is not a second expiry check: it is carried so the reader can tell whether a message of
+   * theirs has overtaken the mark. See `typingMarkStands`.
+   */
+  typingAt: string;
 }
 
 /**
@@ -276,4 +284,76 @@ export function commentComposerTypingLabel(
 export interface CommentSurfaceTyping {
   byThread: CommentTypingByThread;
   composers: CommentTypingPerson[];
+}
+
+/* ─────────────── When a typing mark stops being true ─────────────── */
+
+/** The two fields of a message that decide whether a typing mark is still believable. */
+export interface TypingEvidenceMessage {
+  authorUserId: string;
+  createdAt: string;
+}
+
+/**
+ * The newest `createdAt` among ONE person's messages, or `0` when they have posted none.
+ *
+ * `0` rather than `null` so the comparison below needs no special case: an empty set of messages
+ * cannot overtake anything.
+ */
+export function newestMessageAt(
+  messages: TypingEvidenceMessage[],
+  authorUserId: string,
+): number {
+  let newest = 0;
+  for (const message of messages) {
+    if (message.authorUserId !== authorUserId) continue;
+    const at = new Date(message.createdAt).getTime();
+    if (at > newest) newest = at;
+  }
+  return newest;
+}
+
+/**
+ * Is a typing mark still believable, or has a message of theirs overtaken it?
+ *
+ * A mark is a claim about NOW — "I am typing" — and a message created after it retires the claim on
+ * the spot: whatever they were writing, they have sent it. That is a comparison of two SERVER
+ * timestamps, not a longer TTL and not a guess about anything else.
+ *
+ * This has to happen in the reader's render because the pill and the typing line arrive on two
+ * DIFFERENT polls — comments: a 10s message poll against a 2.5s typing poll; DMs: the thread read
+ * against its own fast poll. Each is a snapshot, so the reader can hold a message that landed after
+ * the snapshot that still shows its author typing, and nothing at the WRITE end can fix a reader
+ * holding two stale reads. The render is the one place both snapshots meet, so it is where the
+ * contradiction has to be resolved. On the server the signal is already right — a post clears the
+ * row — and this closes the gap between two correct answers read at two different moments.
+ *
+ * It is an ADDITIONAL reason to stop showing dots, never the only one: callers pair it with the
+ * server's own boolean, which is what still applies the TTL.
+ *
+ * Both timestamps are written server-side, so this assumes only that the application's clock and
+ * the database's agree to well within the gap between someone's last keystroke and their send.
+ */
+export function typingMarkStands(
+  mark: string | null | undefined,
+  newestAuthored: number,
+): boolean {
+  if (!mark) return false;
+  return new Date(mark).getTime() >= newestAuthored;
+}
+
+/**
+ * The typing marks worth rendering: everyone whose own messages have not overtaken them.
+ *
+ * `messages` is every message the caller holds for the surface or thread the marks belong to. A mark
+ * whose owner posted somewhere not in this list simply stands — the filter can only retire on
+ * evidence it actually has.
+ */
+export function liveTypingPeople(
+  people: CommentTypingPerson[],
+  messages: TypingEvidenceMessage[],
+): CommentTypingPerson[] {
+  return people.filter((person) =>
+    typingMarkStands(person.typingAt, newestMessageAt(messages, person.userId)),
+  );
 }

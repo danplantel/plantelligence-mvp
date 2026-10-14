@@ -19,24 +19,41 @@ async function fetchTypingThreads(url: string): Promise<string[]> {
   return Array.isArray(payload.typingThreadIds) ? payload.typingThreadIds : [];
 }
 
-async function fetchTyping(url: string): Promise<boolean> {
+/** One answer from the peer's typing endpoint: the TTL's verdict, and the mark it was based on. */
+interface DirectTypingAnswer {
+  typing: boolean;
+  typingAt: string | null;
+}
+
+async function fetchTyping(url: string): Promise<DirectTypingAnswer> {
   const response = await fetch(url, { cache: "no-store" });
   const payload = (await response.json().catch(() => ({}))) as {
     typing?: boolean;
+    typingAt?: string | null;
     error?: string;
   };
   if (!response.ok) {
     throw new Error(payload?.error ?? "Could not read the typing state.");
   }
-  return Boolean(payload.typing);
+  return { typing: Boolean(payload.typing), typingAt: payload.typingAt ?? null };
 }
 
 export interface UseDirectTypingResult {
   /**
    * The PEER's state, or `null` before the first answer — null rather than false so the caller can
    * fall back to the thread read's own answer instead of briefly asserting "not typing".
+   *
+   * This is the TTL's verdict ALONE. A caller that can also see the messages should pair it with
+   * `peerTypingAt` before drawing anything, so a message of theirs retires them — see
+   * `typingMarkStands`.
    */
   peerTyping: boolean | null;
+  /**
+   * When the peer last said they were typing, ISO. `null` once it has expired or been cleared by
+   * their send, and `undefined` before the first answer — the same tri-state as `peerTyping`, and
+   * for the same reason.
+   */
+  peerTypingAt: string | null | undefined;
   /** Call on the reader's own input. Throttled, and fire-and-forget. */
   notifyTyping: () => void;
 }
@@ -61,7 +78,7 @@ export function useDirectTyping(
       ? `/api/messages/threads/${encodeURIComponent(threadId)}/typing`
       : null;
 
-  const { data } = useSWR<boolean>(key, fetchTyping, {
+  const { data } = useSWR<DirectTypingAnswer>(key, fetchTyping, {
     refreshInterval: TYPING_POLL_MS,
     refreshWhenHidden: false,
     revalidateOnFocus: false,
@@ -78,7 +95,11 @@ export function useDirectTyping(
     }).catch(() => undefined);
   }, [threadId]);
 
-  return { peerTyping: data ?? null, notifyTyping };
+  return {
+    peerTyping: data ? data.typing : null,
+    peerTypingAt: data ? data.typingAt : undefined,
+    notifyTyping,
+  };
 }
 
 /**

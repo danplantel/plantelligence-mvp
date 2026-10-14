@@ -17,7 +17,9 @@
  *  10. benefit threads scoped and normalized by category;
  *  11. plan deletion cascading its threads and messages;
  *  12. "currently typing" — per thread, per person, named, self-expiring, cleared on reply;
- *  13. the persistent composer's SURFACE-scoped typing, and its one-row-per-person invariant.
+ *  13. the persistent composer's SURFACE-scoped typing, and its one-row-per-person invariant;
+ *  14. a LANDED comment retiring the mark it makes a lie, so the pill and the composer line can
+ *      never contradict each other on screen.
  *
  * Fixtures are `tcm-verify-*` and are cleaned up unless `--keep` is passed.
  */
@@ -41,7 +43,10 @@ import {
 } from "../../lib/comments/comments.server";
 import {
   MAX_COMMENT_LENGTH,
+  liveTypingPeople,
+  newestMessageAt,
   normalizeBenefitCategoryKey,
+  typingMarkStands,
 } from "../../lib/comments/types";
 
 const KEEP_FIXTURES = process.argv.includes("--keep");
@@ -1028,6 +1033,85 @@ async function main(): Promise<void> {
           targetType: "plan",
         }),
       )) === "not_assigned",
+    );
+
+    /* ── 15. A landed comment retires the mark it makes a lie ─────── */
+
+    console.log("");
+    console.log("15. Typing stops when the comment LANDS — the pill can never beat the line");
+
+    // The reported bug, exactly: the rail's persistent composer pings the SURFACE, and creating a
+    // thread has to clear that row the way a reply already did. Without the clear the count (which
+    // spans the surface) raises the pill for the new thread while the composer line still names its
+    // author as typing, which is what a reader saw.
+    await markSurfaceTyping({
+      organizationId,
+      userId: collabLogin.id,
+      clientIdOrSlug: planA.id,
+      targetType: "plan",
+    });
+    const composingWhileSending = await listCommentTyping({
+      organizationId,
+      userId: owner.id,
+      clientIdOrSlug: planA.id,
+      targetType: "plan",
+    });
+    const composerMark = composingWhileSending.composers[0]?.typingAt ?? "";
+    check(
+      "the mark travels with the typer, so a reader can tell when a message has overtaken it",
+      composerMark !== "" && !Number.isNaN(new Date(composerMark).getTime()),
+      JSON.stringify(composingWhileSending.composers),
+    );
+
+    const composerThread = await createCommentThread({
+      organizationId,
+      userId: collabLogin.id,
+      clientIdOrSlug: planA.id,
+      targetType: "plan",
+      anchor: { anchorKind: "section", sectionKey: "company" },
+      body: "My comment, so my typing signal goes with it.",
+    });
+    check(
+      "creating a thread clears the composer's typing signal — the missing clear that let the pill beat the line",
+      (
+        await listCommentTyping({
+          organizationId,
+          userId: owner.id,
+          clientIdOrSlug: planA.id,
+          targetType: "plan",
+        })
+      ).composers.length === 0 && composerThread.messages.length === 1,
+    );
+
+    // The other half of the guarantee, and the reason it cannot be left to the write path alone: the
+    // pill and the typing line arrive on polls that are not in step, so a reader can hold two stale
+    // but individually correct answers at once. The rule applied at render time is a comparison of
+    // timestamps — synthetic here, so the assertion cannot be sensitive to clock skew.
+    const afterMark = new Date(new Date(composerMark).getTime() + 1000).toISOString();
+    const beforeMark = new Date(new Date(composerMark).getTime() - 1000).toISOString();
+    check(
+      "a message newer than the mark retires it, and one older than it does not",
+      typingMarkStands(
+        composerMark,
+        newestMessageAt(
+          [{ authorUserId: collabLogin.id, createdAt: afterMark }],
+          collabLogin.id,
+        ),
+      ) === false &&
+        typingMarkStands(
+          composerMark,
+          newestMessageAt(
+            [{ authorUserId: collabLogin.id, createdAt: beforeMark }],
+            collabLogin.id,
+          ),
+        ) === true,
+    );
+
+    check(
+      "…and only the typer's OWN messages retire them — somebody else's comment does not",
+      liveTypingPeople(composingWhileSending.composers, [
+        { authorUserId: owner.id, createdAt: afterMark },
+      ]).length === 1,
     );
   } finally {
     if (!KEEP_FIXTURES) {

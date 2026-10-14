@@ -494,6 +494,9 @@ export async function getDirectThread(input: {
 
   // The PEER's typing timestamp — the side opposite the reader. Resolved here rather than in the
   // rail so there is exactly one place that knows `a`/`b` means "the other person" for this caller.
+  // It is RETURNED as well as resolved: the boolean applies the TTL, and the timestamp is what lets
+  // the rail retire the dots once a message of the peer's has overtaken them (the two arrive on
+  // different polls, so the reader can briefly hold both).
   const peerTypingAt = thread.userAId === input.userId ? thread.bTypingAt : thread.aTypingAt;
 
   return {
@@ -503,6 +506,7 @@ export async function getDirectThread(input: {
     hasEarlier,
     readAt: watermark ? watermark.toISOString() : null,
     peerTyping: isTypingLive(peerTypingAt),
+    peerTypingAt: peerTypingAt ? peerTypingAt.toISOString() : null,
   };
 }
 
@@ -556,15 +560,22 @@ export async function markDirectTyping(input: {
  *
  * It reports the peer's side only — a caller can already see their own keystrokes — so the rail
  * never has to filter itself out and a bug there cannot make you appear to be typing to yourself.
+ *
+ * The MARK goes out beside the bit. The bit is the TTL's answer, and the mark is what lets the rail
+ * retire dots a message has already made a lie — the typing poll and the thread read are not in step,
+ * so "still typing" can otherwise outlive "has spoken" by a poll cycle. See `typingMarkStands`.
  */
 export async function getDirectTyping(input: {
   organizationId: string;
   userId: string;
   threadId: string;
-}): Promise<{ typing: boolean }> {
+}): Promise<{ typing: boolean; typingAt: string | null }> {
   const thread = await requireDirectThreadAccess(input);
   const peerTypingAt = thread.userAId === input.userId ? thread.bTypingAt : thread.aTypingAt;
-  return { typing: isTypingLive(peerTypingAt) };
+  return {
+    typing: isTypingLive(peerTypingAt),
+    typingAt: peerTypingAt ? peerTypingAt.toISOString() : null,
+  };
 }
 
 /**

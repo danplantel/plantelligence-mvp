@@ -779,7 +779,7 @@ export async function listCommentTyping(input: {
       userId: { not: input.userId },
     },
     orderBy: { pingedAt: "asc" },
-    select: { scopeKey: true, threadId: true, userId: true },
+    select: { scopeKey: true, threadId: true, userId: true, pingedAt: true },
   });
   if (rows.length === 0) return { byThread: {}, composers: [] };
 
@@ -796,6 +796,9 @@ export async function listCommentTyping(input: {
       userId: author.userId,
       name: author.name,
       headshot: author.headshot,
+      // The mark travels with the name so the rail can retire it the moment a message of theirs
+      // arrives — the polls are not in step, so "still typing" can otherwise outlive "has spoken".
+      typingAt: row.pingedAt.toISOString(),
     };
     if (row.scopeKey === scopeKey) {
       composers.push(person);
@@ -876,6 +879,24 @@ export async function createCommentThread(input: {
       },
     },
     include: { messages: { orderBy: { createdAt: "asc" } } },
+  });
+
+  /**
+   * The comment IS what the typing signal promised, so the signal goes with it — the same clear the
+   * reply path does, and the one this path was missing.
+   *
+   * Without it a NEW comment leaves the rail's surface row behind for the rest of the TTL, and the two
+   * panels contradict each other on screen: the pill counts the new thread (the count spans the whole
+   * surface) while the composer line still names its author as typing. BOTH keys are cleared, because
+   * the author may have been composing in either box, and a stale row in the other scope is invisible
+   * to whoever created it but visible to everyone else.
+   */
+  await clearCommentTyping({
+    threadId: row.id,
+    userId: input.userId,
+    clientId: access.clientId,
+    targetType: input.targetType,
+    category: input.category,
   });
 
   // The author's own row and the plan's name are both needed only for the notification titles,

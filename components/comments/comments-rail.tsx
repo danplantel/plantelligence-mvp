@@ -26,12 +26,15 @@ import {
   commentTypingLabel,
   formatAttachmentSize,
   isImageAttachment,
+  liveTypingPeople,
   type CommentAttachment,
   type CommentMessageView,
   type CommentThreadView,
   type CommentTypingPerson,
 } from "@/lib/comments/types";
 import { scrollToBottom } from "@/lib/scroll-to-bottom";
+import { NewMessagesPill } from "@/components/new-messages-pill";
+import { useNewMessages } from "@/hooks/useNewMessages";
 import { useCommentTyping } from "@/hooks/useCommentTyping";
 import { useCommentMode } from "./comment-mode-provider";
 import { CommentAttachmentModal } from "./comment-attachment-modal";
@@ -385,6 +388,7 @@ function ThreadView({
   thread,
   typing,
   onTyping,
+  scrollSignal,
   onOpenAttachment,
 }: {
   thread: CommentThreadView;
@@ -392,6 +396,14 @@ function ThreadView({
   typing: CommentTypingPerson[];
   /** Tells the thread its reader has started typing. Throttled upstream. */
   onTyping: (threadId: string) => void;
+  /**
+   * Increments when the rail's new-comments pill is clicked.
+   *
+   * A counter and not a boolean: the rail owns the notification (it watches every thread at once)
+   * while this view owns its own scroller, and a counter lets repeated clicks each fire. It also
+   * keeps the two decoupled — no shared ref to keep in step.
+   */
+  scrollSignal: number;
   onOpenAttachment: (attachment: CommentAttachment) => void;
 }) {
   const { currentUserId, reply, setActiveThreadId } = useCommentMode();
@@ -421,6 +433,12 @@ function ThreadView({
     // optimistic reply is already in the DOM and counted in `scrollHeight`.
     scrollToBottom(scrollRef.current, true);
   }, [thread.messages.length]);
+
+  // The rail's pill asked for the newest reply. Guarded on zero so mounting does not count as a click.
+  useEffect(() => {
+    if (!scrollSignal) return;
+    scrollToBottom(scrollRef.current, true);
+  }, [scrollSignal]);
 
   if (!parent) return null;
 
@@ -564,6 +582,7 @@ export function CommentsRail() {
     activeThreadId,
     refresh,
     setActiveThreadId,
+    currentUserId,
   } = useCommentMode();
 
   // Who is typing across every thread on this surface, in ONE poll — the rail shows all of them at
@@ -630,6 +649,73 @@ export function CommentsRail() {
     }
   }, [activeThreadId, visible]);
 
+  /**
+   * Every comment on this surface, oldest first — what the new-comments pill counts.
+   *
+   * Flattened ACROSS threads on purpose: the pill is about the surface, not one conversation, so a
+   * reply on any thread here can raise it. That is also why it needs no scroll position at all — it
+   * reports what arrived, which is the one thing the panel can know for certain without guessing at
+   * the reader's viewport. (The earlier attempt inferred "am I scrolled up?" from the open thread's
+   * scroller, which made the whole feature depend on that one element behaving.)
+   *
+   * Declared up here WITH the other hooks, never below the early return: a hook that only runs while
+   * the panel is open is a hook that runs a different number of times per render.
+   */
+  const allComments = useMemo(
+    () =>
+      threads
+        .flatMap((thread) => thread.messages)
+        .sort(
+          (a, b) =>
+            new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(),
+        ),
+    [threads],
+  );
+
+  // Reset the marker when the reader moves to a different surface (another plan or category), which
+  // is the only thing that should make the count start over.
+  const surfaceKey = `${target?.clientId ?? ""}:${target?.targetType ?? ""}:${
+    target?.category ?? ""
+  }`;
+
+  // No `atBottom`: the rail has no single bottom to be at, so the marker only advances when the pill
+  // is clicked — and the count then stands until the reader acknowledges it.
+  const { count: newCommentCount, clear: clearNewComments } = useNewMessages({
+    scopeId: surfaceKey,
+    messages: allComments,
+    currentUserId,
+    atBottom: false,
+  });
+
+  /** Bumped when the pill is clicked, so an open thread scrolls to its newest reply. */
+  const [scrollSignal, setScrollSignal] = useState(0);
+
+  /**
+   * The typing signals that SURVIVED their own authors' messages.
+   *
+   * The rail is the only place holding both halves of the story — who says they are typing, and
+   * everything they have posted — and the two arrive on different polls, so it is also the only place
+   * the contradiction between them can be settled. `liveTypingPeople` drops anyone whose own message
+   * is newer than their mark, which is what stops the pill appearing above a composer line still
+   * claiming its author is typing. See `typingMarkStands` for the argument in full.
+   *
+   * Declared up here with the other hooks, never below the early return below.
+   */
+  const liveComposers = useMemo(
+    () => liveTypingPeople(composerTypers, allComments),
+    [composerTypers, allComments],
+  );
+  const liveTypersByThread = useMemo(() => {
+    const live: Record<string, CommentTypingPerson[]> = {};
+    for (const [threadId, people] of Object.entries(typingByThread)) {
+      const survivors = liveTypingPeople(people, allComments);
+      // A key with nobody left is DROPPED rather than left as an empty array, so every consumer keeps
+      // asking `?? []` and treating "present" as "someone is typing".
+      if (survivors.length > 0) live[threadId] = survivors;
+    }
+    return live;
+  }, [typingByThread, allComments]);
+
   if (!canComment || mode !== "on") return null;
 
   const openCount = threads.filter((thread) => !thread.resolvedAt).length;
@@ -641,7 +727,15 @@ export function CommentsRail() {
 
   // Someone is composing a NEW comment — the SURFACE-scoped signal, deliberately distinct from a
   // thread's. It has no card to sit on, so it is rendered once, directly under the header.
-  const composerTypingLabel = commentComposerTypingLabel(composerTypers);
+  const composerTypingLabel = commentComposerTypingLabel(liveComposers);
+
+  const jumpToNewComments = () => {
+    clearNewComments();
+    setScrollSignal((value) => value + 1);
+    // When the LIST is what is showing, take it to the bottom too — threads are ordered oldest-first,
+    // so the newest card is there. An open thread scrolls itself off `scrollSignal`.
+    if (!activeThread) scrollToBottom(listScrollRef.current, true);
+  };
 
   return (
     <aside
@@ -717,13 +811,23 @@ export function CommentsRail() {
         </div>
       </div>
 
+      {/* The new-comments pill, in normal FLOW directly under the header — the top of the comments
+          UI, in both views. In flow rather than floated because it must not collide with the filter
+          row below it, and because a band that pushes the content down is honest about being there. */}
+      {newCommentCount > 0 ? (
+        <div className="flex shrink-0 justify-center border-b border-border bg-background py-1.5">
+          <NewMessagesPill count={newCommentCount} onClick={jumpToNewComments} />
+        </div>
+      ) : null}
+
       {activeThread ? (
         /* One thread gets the whole panel: parent, replies, and its own composer. The list
            (and its composer) is what it replaces — that is the Slack model. */
         <ThreadView
           thread={activeThread}
-          typing={typingByThread[activeThread.id] ?? []}
+          typing={liveTypersByThread[activeThread.id] ?? []}
           onTyping={notifyTyping}
+          scrollSignal={scrollSignal}
           onOpenAttachment={setViewing}
         />
       ) : (
@@ -808,7 +912,7 @@ export function CommentsRail() {
                     <ThreadCard
                       key={thread.id}
                       thread={thread}
-                      typing={typingByThread[thread.id] ?? []}
+                      typing={liveTypersByThread[thread.id] ?? []}
                       onOpenThread={setActiveThreadId}
                       onOpenAttachment={setViewing}
                     />
