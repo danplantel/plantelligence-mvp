@@ -12,6 +12,9 @@
 
 import { PERSON_TYPE_LABELS, PRESET_ROLE_LABELS } from "@/types/teammate";
 import {
+  COMMENT_TYPING_PING_THROTTLE_MS,
+  COMMENT_TYPING_POLL_MS,
+  COMMENT_TYPING_TTL_MS,
   MAX_ATTACHMENT_BYTES,
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_COMMENT_LENGTH,
@@ -55,28 +58,17 @@ export const MAX_DIRECT_MESSAGE_LENGTH = MAX_COMMENT_LENGTH;
 /* ─────────────────────────── "Currently typing" ─────────────────────────── */
 
 /**
- * How long a typing ping stays live, shared by the writer and the reader.
+ * The typing cadence — the SAME three numbers the comments feature uses, imported rather than
+ * restated.
  *
- * The signal is a TIMESTAMP, so this is the only thing that ends it: the reader reports "typing"
- * only while the peer's timestamp is newer than this. That is what makes the indicator
- * self-healing — there is no "stopped typing" event to lose.
- *
- * Long enough to bridge the gap between keystrokes (a pause to think should not flicker the dots
- * off and on) and short enough that the dots cannot plausibly outlive the typing.
+ * A DM and a comment expire identically as far as a reader is concerned, and two panels that disagree
+ * about how long "typing" lasts is exactly the kind of drift the shared body limit already exists to
+ * prevent. The canonical definitions live in `lib/comments/types.ts`, which is the older feature (and
+ * the source of the other limits this module borrows).
  */
-export const TYPING_TTL_MS = 6000;
-
-/** How often the OPEN conversation asks whether the other person is typing. */
-export const TYPING_POLL_MS = 2500;
-
-/**
- * The floor between two typing pings from the same writer.
- *
- * A fast typist fires an input event per keystroke; without this every one of them would be a
- * request. The TTL covers the gap, so a ping every couple of seconds is indistinguishable from
- * one per key while being two orders of magnitude cheaper.
- */
-export const TYPING_PING_THROTTLE_MS = 2000;
+export const TYPING_TTL_MS = COMMENT_TYPING_TTL_MS;
+export const TYPING_POLL_MS = COMMENT_TYPING_POLL_MS;
+export const TYPING_PING_THROTTLE_MS = COMMENT_TYPING_PING_THROTTLE_MS;
 
 /* ─────────────────────────────── Wire types ─────────────────────────────── */
 

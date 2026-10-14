@@ -280,14 +280,16 @@
   }
 
   /*
-   * Direct messages: the "currently typing" dots.
+   * "Currently typing" dots — shared by Direct Messages and Comments.
    *
-   * The chat convention, and the reason it works — three dots in the other person's bubble, each
-   * rising and fading IN SEQUENCE rather than together. Synchronised motion reads as "loading";
-   * a stagger reads as "alive". The offset comes from an inline `animation-delay` per dot, so this
-   * is only the shape of a single cycle.
+   * The chat convention, and the reason it works — three dots, each rising and fading IN SEQUENCE
+   * rather than together. Synchronised motion reads as "loading"; a stagger reads as "alive". The
+   * offset comes from an inline `animation-delay` per dot, so this is only the shape of one cycle.
+   *
+   * Neutral name on purpose: both features animate the same thing, and the one visual language is
+   * the point — a reader should not have to learn two "typing" gestures in one app.
    */
-  @keyframes dm-typing-dot {
+  @keyframes typing-dot {
     0%,
     60%,
     100% {
@@ -300,14 +302,14 @@
     }
   }
 
-  .dm-typing-dot {
-    animation: dm-typing-dot 1.2s ease-in-out infinite;
+  .typing-dot {
+    animation: typing-dot 1.2s ease-in-out infinite;
   }
 
   /* Rest state for a reader who has asked the platform for less motion: the dots stay legible but
      stop travelling. */
   @media (prefers-reduced-motion: reduce) {
-    .dm-typing-dot {
+    .typing-dot {
       animation: none;
       opacity: 0.6;
     }

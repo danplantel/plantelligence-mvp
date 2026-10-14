@@ -22,6 +22,7 @@ import { createNotification } from "@/lib/notifications/notifications.server";
 import { categoryToSlug } from "@/lib/benefit-category-slug";
 import {
   COMMENT_NOTIFICATION_TYPES,
+  COMMENT_TYPING_TTL_MS,
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_ATTACHMENT_BYTES,
   MAX_COMMENT_LENGTH,
@@ -30,8 +31,11 @@ import {
   type CommentAttachment,
   type CommentAuthorView,
   type CommentMessageView,
+  type CommentSurfaceTyping,
   type CommentTargetType,
   type CommentThreadView,
+  type CommentTypingByThread,
+  type CommentTypingPerson,
   type MentionableUser,
 } from "./types";
 
@@ -511,6 +515,31 @@ async function notifyEvent(input: {
 
 /* ─────────────────────────────── Reads ─────────────────────────────── */
 
+/**
+ * The threads belonging to ONE comments surface — a plan, or one benefit category of it.
+ *
+ * Shared by the thread read and the typing poll so the two can never disagree about which threads a
+ * surface contains. That matters more than usual here: the typing read is scoped by the same
+ * predicate as the list, so a thread the reader can see is exactly the set of threads whose typing
+ * they can be told about.
+ */
+function surfaceThreadWhere(input: {
+  organizationId: string;
+  clientId: string;
+  targetType: CommentTargetType;
+  category?: string | null;
+}) {
+  return {
+    organizationId: input.organizationId,
+    clientId: input.clientId,
+    targetType: input.targetType,
+    benefitCategory:
+      input.targetType === "benefit"
+        ? normalizeBenefitCategoryKey(input.category)
+        : null,
+  };
+}
+
 export async function listCommentThreads(input: {
   organizationId: string;
   userId: string;
@@ -541,15 +570,12 @@ export async function listCommentThreads(input: {
     }));
 
   const rows = await prisma.commentThread.findMany({
-    where: {
+    where: surfaceThreadWhere({
       organizationId: input.organizationId,
       clientId: access.clientId,
       targetType: input.targetType,
-      benefitCategory:
-        input.targetType === "benefit"
-          ? normalizeBenefitCategoryKey(input.category)
-          : null,
-    },
+      category: input.category,
+    }),
     orderBy: { createdAt: "asc" },
     include: { messages: { orderBy: { createdAt: "asc" } } },
   });
@@ -562,6 +588,226 @@ export async function listCommentThreads(input: {
     threads: rows.map((row) => toThreadView(row, authorById)),
     canModerate,
   };
+}
+
+/* ───────────────────────── "Currently typing" ───────────────────────── */
+
+/**
+ * The two scopes a typing signal can have, as the single `scopeKey` the table is uniquely keyed by.
+ *
+ * A reply is scoped to its THREAD. The rail's persistent composer is scoped to the SURFACE, because
+ * it is composing a NEW thread and there is no thread id to attribute the signal to — the case the
+ * first pass missed, which left the indicator invisible in the one box a reader actually types in.
+ *
+ * The surface key joins the client id, the target type and the category with `:`. It is only ever
+ * compared for equality, never parsed back, so the separator cannot be ambiguous: two different
+ * surfaces would need a colon inside a benefit category, and those come from the fixed controlled
+ * vocabulary in `config/onboarding/service-categories`.
+ */
+function threadTypingKey(threadId: string): string {
+  return `thread:${threadId}`;
+}
+
+function surfaceTypingKey(input: {
+  clientId: string;
+  targetType: CommentTargetType;
+  category?: string | null;
+}): string {
+  return `surface:${input.clientId}:${input.targetType}:${input.category ?? ""}`;
+}
+
+/**
+ * Record that the caller is typing a REPLY in this thread.
+ *
+ * Gated by the SAME `resolveCommentAccess` as posting a reply, resolved through the thread's own plan
+ * and category — so the signal can only be raised in a thread the caller could actually reply to, and
+ * a Collaborator scoped to one benefit category cannot announce themselves in another.
+ *
+ * An upsert on `(scopeKey, userId)`, so a ping moves one row rather than adding one per keystroke.
+ */
+export async function markCommentTyping(input: {
+  organizationId: string;
+  userId: string;
+  threadId: string;
+}): Promise<void> {
+  const thread = await prisma.commentThread.findFirst({
+    where: { id: input.threadId, organizationId: input.organizationId },
+    select: { id: true, clientId: true, benefitCategory: true },
+  });
+  if (!thread) {
+    throw new TeammateDataError("Comment thread not found.", 404, "thread_not_found");
+  }
+  await resolveCommentAccess({
+    userId: input.userId,
+    clientIdOrSlug: thread.clientId,
+    category: thread.benefitCategory,
+  });
+
+  const scopeKey = threadTypingKey(thread.id);
+  const now = new Date();
+  await prisma.commentTyping.upsert({
+    where: { scopeKey_userId: { scopeKey, userId: input.userId } },
+    create: { scopeKey, threadId: thread.id, userId: input.userId, pingedAt: now },
+    update: { pingedAt: now, threadId: thread.id },
+  });
+}
+
+/**
+ * Record that the caller is typing a NEW comment on this surface — the rail's persistent composer.
+ *
+ * There is no thread to hang the signal on, so it is scoped to the surface (the plan, or one benefit
+ * category) and rendered once, above the thread list, rather than against any card. Gated exactly the
+ * way creating a thread is: `resolveCommentAccess` on the surface itself.
+ */
+export async function markSurfaceTyping(input: {
+  organizationId: string;
+  userId: string;
+  clientIdOrSlug: string;
+  targetType: CommentTargetType;
+  category?: string | null;
+}): Promise<void> {
+  const access = await resolveCommentAccess({
+    userId: input.userId,
+    clientIdOrSlug: input.clientIdOrSlug,
+    category: input.category,
+  });
+
+  const scopeKey = surfaceTypingKey({
+    clientId: access.clientId,
+    targetType: input.targetType,
+    category: input.category,
+  });
+  const now = new Date();
+  await prisma.commentTyping.upsert({
+    where: { scopeKey_userId: { scopeKey, userId: input.userId } },
+    create: { scopeKey, threadId: null, userId: input.userId, pingedAt: now },
+    update: { pingedAt: now },
+  });
+}
+
+/**
+ * Drop one person's typing rows for a surface-and-thread pair.
+ *
+ * Called when their comment LANDS: the message is what the signal promised, so leaving either row
+ * behind would show the rail its own author still typing for the rest of the TTL after their words
+ * are visibly on screen. BOTH scopes go, because an author may have been composing either a reply or
+ * a new comment and the caller cannot know which — and a stale row in the other scope is invisible to
+ * the person who created it but visible to everyone else.
+ *
+ * Never throws — a failure here is not worth failing an otherwise successful post over.
+ */
+export async function clearCommentTyping(input: {
+  threadId: string;
+  userId: string;
+  clientId: string;
+  targetType: CommentTargetType;
+  category?: string | null;
+}): Promise<void> {
+  await prisma.commentTyping
+    .deleteMany({
+      where: {
+        userId: input.userId,
+        scopeKey: {
+          in: [
+            threadTypingKey(input.threadId),
+            surfaceTypingKey({
+              clientId: input.clientId,
+              targetType: input.targetType,
+              category: input.category,
+            }),
+          ],
+        },
+      },
+    })
+    .catch(() => undefined);
+}
+
+/**
+ * Who is typing on one comments surface: the per-thread replies, plus the surface's own composer.
+ *
+ * ONE query for the whole surface, because the rail renders every thread on it at once — a request
+ * per card every couple of seconds is precisely what to avoid. The caller is excluded in the WHERE,
+ * so the UI never has to filter itself out and cannot accidentally show you typing to yourself.
+ *
+ * The surface scope is queried even when the surface has NO threads yet, which is exactly the moment
+ * someone is composing the first comment.
+ *
+ * Stale rows are deleted on the way through. That is what keeps the table proportional to who is
+ * typing NOW rather than to everyone who ever did: nothing else would ever remove a row, because the
+ * signal is deliberately eventless. The delete is scoped to the same keys and cutoff as the read, so
+ * the two cannot disagree about what counts as live.
+ */
+export async function listCommentTyping(input: {
+  organizationId: string;
+  userId: string;
+  clientIdOrSlug: string;
+  targetType: CommentTargetType;
+  category?: string | null;
+}): Promise<CommentSurfaceTyping> {
+  const access = await resolveCommentAccess({
+    userId: input.userId,
+    clientIdOrSlug: input.clientIdOrSlug,
+    category: input.category,
+  });
+
+  const threads = await prisma.commentThread.findMany({
+    where: surfaceThreadWhere({
+      organizationId: input.organizationId,
+      clientId: access.clientId,
+      targetType: input.targetType,
+      category: input.category,
+    }),
+    select: { id: true },
+  });
+
+  const scopeKey = surfaceTypingKey({
+    clientId: access.clientId,
+    targetType: input.targetType,
+    category: input.category,
+  });
+  const keys = [...threads.map((thread) => threadTypingKey(thread.id)), scopeKey];
+  const cutoff = new Date(Date.now() - COMMENT_TYPING_TTL_MS);
+
+  await prisma.commentTyping
+    .deleteMany({ where: { scopeKey: { in: keys }, pingedAt: { lt: cutoff } } })
+    .catch(() => undefined);
+
+  const rows = await prisma.commentTyping.findMany({
+    where: {
+      scopeKey: { in: keys },
+      pingedAt: { gt: cutoff },
+      userId: { not: input.userId },
+    },
+    orderBy: { pingedAt: "asc" },
+    select: { scopeKey: true, threadId: true, userId: true },
+  });
+  if (rows.length === 0) return { byThread: {}, composers: [] };
+
+  const authors = await loadAuthors(rows.map((row) => row.userId));
+
+  const byThread: CommentTypingByThread = {};
+  const composers: CommentTypingPerson[] = [];
+  for (const row of rows) {
+    const author = authors.get(row.userId);
+    // A row for a login that no longer exists has nothing to render. Skipped rather than shown as a
+    // nameless "Someone is typing", which is worse than silence.
+    if (!author) continue;
+    const person: CommentTypingPerson = {
+      userId: author.userId,
+      name: author.name,
+      headshot: author.headshot,
+    };
+    if (row.scopeKey === scopeKey) {
+      composers.push(person);
+      continue;
+    }
+    // Defensive: a thread-scoped key always carries a threadId, so this cannot happen — but dropping
+    // the row is better than failing the whole poll over it.
+    if (!row.threadId) continue;
+    (byThread[row.threadId] ??= []).push(person);
+  }
+
+  return { byThread, composers };
 }
 
 /* ─────────────────────────────── Writes ─────────────────────────────── */
@@ -714,6 +960,15 @@ export async function addCommentMessage(input: {
       mentions,
       attachments: attachments.length > 0 ? (attachments as any) : undefined,
     },
+  });
+
+  // The reply IS what the typing signal promised, so it goes with it.
+  await clearCommentTyping({
+    threadId: thread.id,
+    userId: input.userId,
+    clientId: thread.clientId,
+    targetType: thread.targetType as CommentTargetType,
+    category: thread.benefitCategory,
   });
 
   const authorById = await loadAuthors([

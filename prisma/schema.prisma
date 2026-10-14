@@ -994,6 +994,7 @@ model CommentThread {
   // the UI renders a "Removed user" fallback instead.
   client   Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
   messages CommentMessage[]
+  typing   CommentTyping[]
 
   @@index([organizationId, clientId])
   @@index([clientId, benefitCategory])
@@ -1020,6 +1021,50 @@ model CommentMessage {
   thread CommentThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
 
   @@index([threadId, createdAt])
+}
+
+// "Currently typing" on a comments surface.
+//
+// A ROW PER (scope, person) rather than a column on the thread. That is the structural difference
+// from `DirectThread`, whose `aTypingAt`/`bTypingAt` fit on the row because a DM has exactly two
+// participants: on a comment thread ANYONE who can comment on the surface can take part, so the
+// number of people who might be typing at once is unbounded and has no fixed pair to lay out.
+//
+// Expiry works exactly as it does for a DM — `pingedAt` is a timestamp and the reader applies
+// `COMMENT_TYPING_TTL_MS` — so the signal decays with no "stopped typing" event, and a closed laptop
+// cannot leave a name stuck on a card. Rows are tiny and are pruned opportunistically whenever a
+// surface is read, so the table stays proportional to who is typing right now rather than to the
+// history of who ever did.
+//
+// `userId` is a plain scalar, like `CommentMessage.authorUserId` and deliberately unlike the DM's
+// cascading `User` FKs: a comment thread outlives a deleted login (the history stays readable), so a
+// typing row must simply disappear rather than take anything with it.
+model CommentTyping {
+  id String @id @default(cuid())
+
+  // WHAT is being typed into, as one always-present key:
+  //
+  //   `thread:{threadId}`                               — a reply to an existing thread
+  //   `surface:{clientId}:{targetType}:{category}`      — the rail's persistent composer, which is
+  //                                                        composing a NEW thread and therefore has
+  //                                                        no thread to attribute the signal to
+  //
+  // Non-null on purpose, so ONE unique index covers both cases. Two nullable columns would have
+  // needed TWO uniques and would have leaned on PostgreSQL treating NULLs as distinct in a unique
+  // index — a footnote rather than a guarantee, and exactly the kind of thing that quietly stops
+  // being true one migration later.
+  scopeKey String
+
+  // Set only for a thread-scoped row, purely to carry the cascade. Nullable because a surface row
+  // has no thread to point at — which is the entire reason the surface case exists.
+  threadId String?
+  userId   String
+  pingedAt DateTime @default(now())
+
+  thread CommentThread? @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  @@unique([scopeKey, userId])
+  @@index([scopeKey, pingedAt])
 }
 
 // A private 1:1 conversation between two logins in one organization.

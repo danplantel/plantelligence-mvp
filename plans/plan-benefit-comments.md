@@ -84,6 +84,13 @@ model CommentMessage {
 }
 ```
 
+- `CommentTyping` (added after v1) — one row per `(threadId, userId)` with a `pingedAt`
+  timestamp, for the "currently typing" indicator. A table rather than columns on the thread
+  because a comment thread has NO fixed pair of participants, unlike a DM (see
+  §9i of `docs/teammates-module.md`). Expiry is by timestamp + a TTL, so nothing sends a
+  "stopped typing" event, and stale rows are pruned when the surface is read. `userId` is a
+  plain scalar like `CommentMessage.authorUserId`, so a deleted login leaves nothing behind;
+  the only FK is on the thread, so deleting a plan takes these with it.
 - Real relation to `Client` with `onDelete: Cascade` so deleting a plan removes its threads.
 - A benefit's threads are keyed by `clientId + benefitCategory`; the benefit hard-delete
   path (`purgeDraftBenefit` / benefit DELETE `purge=1`) removes that category's threads.
@@ -205,3 +212,16 @@ toggle is shown disabled with a "Save a draft to comment" tooltip.
 4. Text ranges: selection capture and highlight overlays.
 5. Instrument the four surfaces; wire draft unlocking.
 6. Mentions, filters, moderation, polish, verification.
+7. ✅ **"Currently typing"** (post-v1, at the user's request, mirroring the DM indicator).
+   `CommentTyping` + two migrations, `markCommentTyping` / `markSurfaceTyping` / `listCommentTyping`
+   (one surface-wide read that excludes the caller and prunes as it goes), the two routes,
+   `useCommentTyping`, the named `TypingLine` on the thread card and the open thread, and ten
+   assertions (47 → 57). The cadence constants live in `lib/comments/types.ts` and are re-exported
+   by `lib/messages/types.ts`, so the two features cannot drift about how long "typing" lasts.
+8. ✅ **The composer's own scope** (a fix, not a new feature). The first cut scoped a typing signal to
+   a THREAD only, so the rail's persistent composer — the box a reader actually types in, which
+   composes a NEW thread — produced no signal at all, and the indicator looked broken. `scopeKey` now
+   carries either scope (`thread:{id}` or `surface:{clientId}:{targetType}:{category}`) on one
+   non-null column with one unique index, and the rail shows "… is typing a comment" under its header.
+   The old stance, that wiring the composer would mean creating a thread just to say "typing", was
+   right about the thread and wrong about the conclusion — the surface scope is the answer it missed.

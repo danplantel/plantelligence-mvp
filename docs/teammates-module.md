@@ -181,7 +181,7 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:verify-t2a` | Runs the 25-assertion T2a suite (per-function Custom enforcement, same-vs-per-plan grids, the locked-row refusal, All Plans, the missing-grid refusal, soft warnings and their audit trail, and the summary line). |
 | `npm run teammates:verify-t7` | Runs the 26-assertion T7 suite (the three acceptance criteria, display-vs-access, the mirror's idempotency and removals, hidden categories, and the unmirrorable-contact residue). |
 | `npm run teammates:verify-t9` | Runs the 44-assertion T9 suite (the signed token and its refusals, the mailbox guard, the profile guards, the inviter's note, acceptance creating vs reusing a login, the seat conversion, replay, both audit rows, and the tenancy invariant — the login anchored to the inviting organization and owning none of its own). |
-| `npm run comments:verify` | Runs the 47-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, and the plan-delete cascade). See §9i. |
+| `npm run comments:verify` | Runs the 57-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, the **per-person `currently typing` signal — named, self-expiring, cleared on reply, and reported for the surface's own composer as well as for threads**, and the plan-delete cascade). See §9i. |
 | `npm run messages:verify` | Runs the 54-assertion Direct Messages suite (the directory predicate that doubles as the gate, the refusals — including the organization owner refused a thread between two other people — the canonical pair and the `CHECK` that enforces it, the body limit's boundary, unread and the read watermark, ONE Bell row per conversation, **attachment reads that follow participation and never the org fallback**, the **`load earlier` page boundary and its cursor**, the **self-expiring `currently typing` signal (peer-only, cleared on send, and marked on the conversation list)**, and the login-delete cascade). See §9j. |
 | `npm run teammates:backfill-contacts` | Projects every plan's `keyContacts` onto profiles + assignments (T7). Idempotent; `--dry-run` to count without writing. Run it before the hub reader switch and after adding a new contacts writer. |
 | `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
@@ -2202,10 +2202,77 @@ Plus two client-side changes so the wait is not *felt*, whatever the connection 
 Neither is a substitute for fixing the connection: at ~500ms per round-trip, a write of ~10
 round-trips is still seconds of server time. It just no longer holds the UI hostage.
 
+### Currently typing
+
+Both rails share ONE visual language for "typing" — the `typing-dot` keyframe, defined once in
+[`globals.css`](app/globals.css) and used by the DM bubble, the DM list row and the comments line
+alike — but the comments implementation differs from a DM's in the three places a comment thread's
+shape forces it to.
+
+**A row per (scope, person), not a column on the thread.** `CommentTyping` is its own table keyed by
+`(scopeKey, userId)` with a `pingedAt` timestamp. A DM fits `aTypingAt`/`bTypingAt` on its row because
+it has exactly two participants; a comment thread has no fixed pair at all — anyone who can comment on
+the surface can take part — so the set of people who might be typing at once is unbounded and cannot
+be laid out as two columns.
+
+**Two scopes in one key.** `scopeKey` is `thread:{threadId}` for a reply, or
+`surface:{clientId}:{targetType}:{category}` for the rail's persistent composer. That second scope is
+the fix for a real miss: the composer at the bottom of the panel composes a NEW thread, so a
+thread-scoped signal has nothing to hang on — and the first version, which only supported the thread
+scope, therefore showed nothing in the one box a reader actually types in. `threadId` survives
+nullable, purely to carry the cascade.
+
+One always-present `scopeKey` rather than two nullable columns buys a single unique index covering
+both cases. The two-column version would have needed two uniques and would have leaned on PostgreSQL
+treating NULLs as distinct inside a unique index — a footnote rather than a guarantee, and precisely
+the kind of thing that quietly stops being true one migration later. The suite asserts the invariant it
+exists for: pinging twice keeps ONE row per person per scope.
+
+**It names whoever is typing.** `commentTypingLabel` renders "Dana is typing", "Dana and Carl are
+typing", or "3 people are typing". A bare "typing…" would be ambiguous on a card that several people
+share, which is the one thing a DM's indicator never had to solve. Past two names it stops listing
+them: a card two lines tall to say "typing" is worse than the ambiguity.
+
+**One poll for the whole surface, answering both scopes.** `GET /api/clients/[id]/comments/typing`
+returns `{ byThread, composers }` — the per-thread map for every thread the reader can see, plus the
+people composing a new comment — so the rail's cards, its open thread and its header line all read out
+of a single response. It is deliberately separate from the thread-list read (scoped, and at 10s far too
+slow for a typing indicator) and from the DM's endpoint (which is inherently one conversation). The
+surface scope is queried even when the surface has no threads yet, which is exactly the moment someone
+is composing the first comment. Together they feed three places — a thread's card, the foot of an open
+thread, and the composer — from one response. [`useCommentTyping`](hooks/useCommentTyping.ts) polls it
+at 2.5s, enabled only while the panel is open and the viewer may comment, and it `POST`s to that same
+URL for the composer ping — so the read and the write cannot disagree about which surface the signal
+is for.
+
+Expiry, the self-clearing write and the participation rule are the DM's, unchanged.
+`markCommentTyping` resolves the thread's own plan and category, and `markSurfaceTyping` resolves the
+surface itself — both through the same `resolveCommentAccess` a reply or a new thread uses. The reader
+applies `COMMENT_TYPING_TTL_MS` (6s) so nothing ever sends a "stopped typing" event. Posting a comment
+clears BOTH of the author's rows, because the author may have been composing either a reply or a new
+comment and a stale row in the other scope is invisible to the person who created it but visible to
+everyone else. And the read prunes stale rows as it goes, so the table tracks who is typing now rather
+than everyone who ever did.
+
+Two UI decisions worth naming. A thread's line is a LINE, not a bubble: it has to fit inside a compact
+card as well as at the bottom of an open thread, and a bubble would be a second message-shaped thing on
+a card already showing one. The composer's is worded differently on purpose — "Dana is typing a
+comment" against a thread's "Dana is typing" — and sits at the very BOTTOM of the panel, immediately
+above the box it is about, where the reader's eye already is and where the comment they are about to
+watch arrive will land. It was first drawn under the header; the bottom is where it belongs, because it
+annotates the composer rather than the panel. Since that composer only exists in the list view, the
+line does too — in an open thread the panel shows that thread's own line instead.
+
+**This section previously said the persistent composer was deliberately not wired**, on the grounds
+that creating a thread just to say "typing" would litter the list with empty threads. The reasoning
+about not creating a thread was right; the conclusion was wrong, and only surfaced when the feature was
+used and nothing appeared. The surface scope gives the signal somewhere to live without inventing a
+thread — which is what the scope key exists for.
+
 ### Verification
 
 ```
-npm run comments:verify   ->  47/47 assertions passed
+npm run comments:verify   ->  57/57 assertions passed
 ```
 
 Runs against the real data layer with self-cleaning `tcm-verify-*` fixtures. It covers the
@@ -2214,9 +2281,16 @@ an **Admin resolves someone else's thread**, an author who is neither **cannot r
 own thread**, an author cannot delete their own message or their own thread, a Viewer is
 told `canModerate: false` while the owner is told `true`, and an unassigned user is stopped
 by the access layer first. Plus the notification fan-out (reply, new thread, mention, and
-the mention's deep link), the category scoping, and the plan-delete cascade. And it pins the
+the mention's deep link), the category scoping, and the plan-delete cascade. It pins the
 body limit at both ends — exactly the 10,000 limit accepted, one character over refused — so
-the number cannot drift silently.
+the number cannot drift silently. And it pins the typing signal from every side that matters:
+another participant is told *who* is typing, the typer is never shown their own, a stale row
+reads as "not typing", posting a reply clears the author's row, and someone outside the plan
+can neither ping a thread nor be told who is typing on it. The surface scope gets its own
+assertions too — a new comment being typed is reported as a composer typer rather than against a
+thread, pinging twice keeps ONE row per person (the invariant the single `scopeKey` unique
+exists for), posting clears the surface row as well as the thread's, and a non-member cannot
+ping the surface either.
 
 The Collaborator's scope is asserted the same way the API enforces it: the collaborator is
 mentionable on the category they hold and **not** on one they do not, nor on a plan they are not

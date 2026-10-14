@@ -15,7 +15,9 @@
  *   8. moderation — resolve/reopen is Owner/Admin only, NEVER the author;
  *   9. deleting a message and a thread (Owner/Admin only, with the author refused);
  *  10. benefit threads scoped and normalized by category;
- *  11. plan deletion cascading its threads and messages.
+ *  11. plan deletion cascading its threads and messages;
+ *  12. "currently typing" — per thread, per person, named, self-expiring, cleared on reply;
+ *  13. the persistent composer's SURFACE-scoped typing, and its one-row-per-person invariant.
  *
  * Fixtures are `tcm-verify-*` and are cleaned up unless `--keep` is passed.
  */
@@ -30,7 +32,10 @@ import {
   deleteCommentMessage,
   deleteCommentThread,
   listCommentThreads,
+  listCommentTyping,
   listMentionableUsers,
+  markCommentTyping,
+  markSurfaceTyping,
   resolveCommentAttachmentAccess,
   setCommentThreadResolved,
 } from "../../lib/comments/comments.server";
@@ -849,6 +854,180 @@ async function main(): Promise<void> {
       (await prisma.commentMessage.count({
         where: { thread: { clientId: planC.id } },
       })) === 0,
+    );
+
+    /* ── 13. "Currently typing" ───────────────────────────────────── */
+
+    console.log("");
+    console.log("13. Currently typing — per thread, per person, named");
+
+    await markCommentTyping({
+      organizationId,
+      userId: collabLogin.id,
+      threadId: sectionThread.id,
+    });
+    const ownerSeesTyping = await listCommentTyping({
+      organizationId,
+      userId: owner.id,
+      clientIdOrSlug: planA.id,
+      targetType: "plan",
+    });
+    check(
+      "another participant is told WHO is typing in the thread",
+      ownerSeesTyping.byThread[sectionThread.id]?.length === 1 &&
+        ownerSeesTyping.byThread[sectionThread.id]?.[0]?.userId === collabLogin.id,
+      JSON.stringify(ownerSeesTyping.byThread[sectionThread.id]),
+    );
+    const collabSeesTyping = await listCommentTyping({
+      organizationId,
+      userId: collabLogin.id,
+      clientIdOrSlug: planA.id,
+      targetType: "plan",
+    });
+    check(
+      "…and the typer is never shown their own typing",
+      collabSeesTyping.byThread[sectionThread.id] === undefined,
+      JSON.stringify(collabSeesTyping.byThread[sectionThread.id]),
+    );
+
+    // The timestamp IS the mechanism, so an old one must read as "not typing" — this is what makes
+    // the indicator self-healing with no "stopped typing" event. The read prunes as it goes, so this
+    // also covers the row actually leaving the table.
+    await prisma.commentTyping.updateMany({
+      where: { threadId: sectionThread.id },
+      data: { pingedAt: new Date(Date.now() - 60_000) },
+    });
+    check(
+      "the signal expires on its own once stale",
+      (
+        await listCommentTyping({
+          organizationId,
+          userId: owner.id,
+          clientIdOrSlug: planA.id,
+          targetType: "plan",
+        })
+      ).byThread[sectionThread.id] === undefined,
+    );
+
+    await markCommentTyping({
+      organizationId,
+      userId: collabLogin.id,
+      threadId: sectionThread.id,
+    });
+    await addCommentMessage({
+      organizationId,
+      userId: collabLogin.id,
+      threadId: sectionThread.id,
+      body: "Replying clears my own typing signal.",
+    });
+    check(
+      "posting a reply clears the author's own typing signal",
+      (
+        await listCommentTyping({
+          organizationId,
+          userId: owner.id,
+          clientIdOrSlug: planA.id,
+          targetType: "plan",
+        })
+      ).byThread[sectionThread.id] === undefined,
+    );
+
+    /* ── 14. The persistent composer's SURFACE-scoped signal ──────── */
+
+    console.log("");
+    console.log("14. Currently typing — the rail's persistent composer");
+
+    // The case that was missed on the first pass: the big composer at the bottom of the panel
+    // composes a NEW thread, so the signal has no thread to hang on and is scoped to the surface.
+    await markSurfaceTyping({
+      organizationId,
+      userId: collabLogin.id,
+      clientIdOrSlug: planA.id,
+      targetType: "plan",
+    });
+    const surfaceTyping = await listCommentTyping({
+      organizationId,
+      userId: owner.id,
+      clientIdOrSlug: planA.id,
+      targetType: "plan",
+    });
+    check(
+      "a new comment being typed is reported as a COMPOSER typer, not against a thread",
+      surfaceTyping.composers.length === 1 &&
+        surfaceTyping.composers[0]?.userId === collabLogin.id &&
+        Object.keys(surfaceTyping.byThread).length === 0,
+      JSON.stringify(surfaceTyping),
+    );
+
+    // The invariant the single non-null `scopeKey` unique exists for: pinging again moves the row
+    // rather than adding a second one. (The DM's canonical-pair lesson, applied before it bit.)
+    await markSurfaceTyping({
+      organizationId,
+      userId: collabLogin.id,
+      clientIdOrSlug: planA.id,
+      targetType: "plan",
+    });
+    const surfaceRows = await prisma.commentTyping.count({
+      where: { scopeKey: `surface:${planA.id}:plan:`, userId: collabLogin.id },
+    });
+    check(
+      "pinging twice keeps ONE surface row per person, not two",
+      surfaceRows === 1,
+      `${surfaceRows}`,
+    );
+
+    // Posting the comment clears the surface row too — otherwise the rail would show the author
+    // still composing for the rest of the TTL after their comment is visibly in the list.
+    await addCommentMessage({
+      organizationId,
+      userId: collabLogin.id,
+      threadId: sectionThread.id,
+      body: "Posting clears my composer signal as well.",
+    });
+    check(
+      "posting a comment clears the author's SURFACE signal as well as the thread's",
+      (
+        await listCommentTyping({
+          organizationId,
+          userId: owner.id,
+          clientIdOrSlug: planA.id,
+          targetType: "plan",
+        })
+      ).composers.length === 0,
+    );
+
+    check(
+      "someone with no access to the plan cannot ping the surface either",
+      (await refusalCode(() =>
+        markSurfaceTyping({
+          organizationId,
+          userId: stranger.id,
+          clientIdOrSlug: planA.id,
+          targetType: "plan",
+        }),
+      )) === "not_assigned",
+    );
+
+    check(
+      "someone with no access to the plan cannot ping a thread",
+      (await refusalCode(() =>
+        markCommentTyping({
+          organizationId,
+          userId: stranger.id,
+          threadId: sectionThread.id,
+        }),
+      )) === "not_assigned",
+    );
+    check(
+      "…nor be told who is typing on it",
+      (await refusalCode(() =>
+        listCommentTyping({
+          organizationId,
+          userId: stranger.id,
+          clientIdOrSlug: planA.id,
+          targetType: "plan",
+        }),
+      )) === "not_assigned",
     );
   } finally {
     if (!KEEP_FIXTURES) {

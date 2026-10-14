@@ -140,7 +140,7 @@ function ConversationRow({
                   {[0, 1, 2].map((index) => (
                     <span
                       key={index}
-                      className="dm-typing-dot h-1 w-1 rounded-full bg-accent-blue"
+                      className="typing-dot h-1 w-1 rounded-full bg-accent-blue"
                       style={{ animationDelay: `${index * 160}ms` }}
                     />
                   ))}
@@ -203,7 +203,7 @@ function TypingBubble({ name }: { name: string }) {
           <span
             key={index}
             aria-hidden="true"
-            className="dm-typing-dot h-1.5 w-1.5 rounded-full bg-muted-foreground"
+            className="typing-dot h-1.5 w-1.5 rounded-full bg-muted-foreground"
             style={{ animationDelay: `${index * 160}ms` }}
           />
         ))}

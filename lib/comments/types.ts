@@ -183,3 +183,97 @@ export interface MentionableUser {
   email: string;
   headshot: string | null;
 }
+
+/* ─────────────────────────── "Currently typing" ─────────────────────────── */
+
+/**
+ * The typing cadence, in ONE place for the whole product.
+ *
+ * The Direct Messages feature reads these same three numbers (re-exported under its own names in
+ * `lib/messages/types.ts`) rather than declaring its own, on the same principle that gives the two
+ * features one body limit: a reader should not have to remember that "typing" lasts six seconds in
+ * one panel and eight in the other.
+ *
+ * `TTL` is the whole mechanism — a ping older than this is simply not typing — which is what lets
+ * the signal expire with no "stopped typing" event. It is long enough to bridge a pause for thought
+ * (the dots should not flicker off and on) and short enough that it cannot outlive the typing.
+ */
+export const COMMENT_TYPING_TTL_MS = 6000;
+
+/** How often an open comments rail asks who is typing across the threads it is showing. */
+export const COMMENT_TYPING_POLL_MS = 2500;
+
+/**
+ * The floor between two pings from the same writer in the same thread.
+ *
+ * A fast typist fires an input event per keystroke; without this every one of them would be a
+ * request. The TTL covers the gap, so one ping every couple of seconds is indistinguishable from
+ * one per key while being two orders of magnitude cheaper.
+ */
+export const COMMENT_TYPING_PING_THROTTLE_MS = 2000;
+
+/** One person currently typing in a comment thread. */
+export interface CommentTypingPerson {
+  userId: string;
+  name: string;
+  headshot: string | null;
+}
+
+/**
+ * Who is typing, keyed by thread id.
+ *
+ * A whole surface in one map, because the rail shows every thread on it at once: one request per
+ * thread would be a request per card, every couple of seconds.
+ *
+ * The reader is NEVER in here. The server resolves the map from the caller's own id, so neither the
+ * card nor the composer has to filter themselves out — and a mistake in the UI cannot make you appear
+ * to be typing to yourself.
+ */
+export type CommentTypingByThread = Record<string, CommentTypingPerson[]>;
+
+/**
+ * "Dana is typing" / "Dana and Carl are typing" / "3 people are typing".
+ *
+ * A comment thread can have MANY participants, which is the one place this diverges from the DM
+ * indicator: "typing…" alone would be ambiguous on a card that several people share, so the line
+ * names whoever it can. Over two names it stops listing them — a card two lines tall to say "typing"
+ * is worse than the ambiguity.
+ */
+export function commentTypingLabel(people: CommentTypingPerson[]): string {
+  const names = people.map((person) => person.name).filter(Boolean);
+  if (names.length === 0) return "";
+  if (names.length === 1) return `${names[0]} is typing`;
+  if (names.length === 2) return `${names[0]} and ${names[1]} are typing`;
+  return `${names.length} people are typing`;
+}
+
+/**
+ * "Dana is typing a comment" — the SURFACE-level wording, for the rail's persistent composer.
+ *
+ * The noun is the whole difference: a thread line is about a reply ("is typing"), this one is about
+ * composing a brand-new comment, and on a panel showing both at once the two must not read alike —
+ * the reader needs to know whether to look at a card or at the composer.
+ */
+export function commentComposerTypingLabel(
+  people: CommentTypingPerson[],
+): string {
+  const names = people.map((person) => person.name).filter(Boolean);
+  if (names.length === 0) return "";
+  if (names.length === 1) return `${names[0]} is typing a comment`;
+  if (names.length === 2) return `${names[0]} and ${names[1]} are typing`;
+  return `${names.length} people are typing`;
+}
+
+/**
+ * Everything one surface's typing poll answers: the per-thread replies, and the surface's own
+ * composer.
+ *
+ * Two shapes because they are shown in two places — a thread's line belongs on that thread's card or
+ * at the foot of its open view, while the composer's belongs once, above the list. `composers` is an
+ * array rather than a map because a surface has exactly one composer no matter how many threads hang
+ * off it.
+ */
+export interface CommentSurfaceTyping {
+  byThread: CommentTypingByThread;
+  composers: CommentTypingPerson[];
+}

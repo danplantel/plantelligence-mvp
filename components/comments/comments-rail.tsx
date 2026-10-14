@@ -22,12 +22,16 @@ import { cn } from "@/lib/utils";
 import {
   GENERAL_SECTION_KEY,
   commentAttachmentInlineUrl,
+  commentComposerTypingLabel,
+  commentTypingLabel,
   formatAttachmentSize,
   isImageAttachment,
   type CommentAttachment,
   type CommentMessageView,
   type CommentThreadView,
+  type CommentTypingPerson,
 } from "@/lib/comments/types";
+import { useCommentTyping } from "@/hooks/useCommentTyping";
 import { useCommentMode } from "./comment-mode-provider";
 import { CommentAttachmentModal } from "./comment-attachment-modal";
 import { CommentComposer } from "./comment-composer";
@@ -224,12 +228,59 @@ function ThreadModerationControls({ thread }: { thread: CommentThreadView }) {
  * findable. The face pile is the "who is in this conversation" signal Slack puts on the
  * "N replies" line.
  */
+/**
+ * The "currently typing" line — the comments take on the DM's dots.
+ *
+ * Two deliberate differences from the DM bubble, both forced by the shape of a comment thread:
+ *
+ *  - it NAMES whoever is typing, because a thread has no fixed pair of participants and a bare
+ *    "typing…" on a card several people share would be ambiguous; and
+ *  - it is a LINE rather than a bubble, because it has to sit inside a compact card as well as at the
+ *    bottom of an open thread — a bubble would be a second message-shaped thing on a card that is
+ *    already showing one.
+ *
+ * The dots are decorative and the label is the accessible content, so the line is read as plain text
+ * wherever it appears.
+ */
+function TypingLine({
+  people,
+  className,
+}: {
+  people: CommentTypingPerson[];
+  className?: string;
+}) {
+  const label = commentTypingLabel(people);
+  if (!label) return null;
+  return (
+    <p
+      className={cn(
+        "flex items-center gap-1.5 text-[11px] font-medium text-accent-blue",
+        className,
+      )}
+    >
+      <span className="flex items-center gap-0.5" aria-hidden="true">
+        {[0, 1, 2].map((index) => (
+          <span
+            key={index}
+            className="typing-dot h-1 w-1 rounded-full bg-accent-blue"
+            style={{ animationDelay: `${index * 160}ms` }}
+          />
+        ))}
+      </span>
+      {label}
+    </p>
+  );
+}
+
 function ThreadCard({
   thread,
+  typing,
   onOpenThread,
   onOpenAttachment,
 }: {
   thread: CommentThreadView;
+  /** People typing in this thread right now — never the reader. */
+  typing: CommentTypingPerson[];
   onOpenThread: (threadId: string) => void;
   onOpenAttachment: (attachment: CommentAttachment) => void;
 }) {
@@ -275,6 +326,10 @@ function ThreadCard({
           onOpenAttachment={onOpenAttachment}
         />
       </ul>
+
+      {/* Where the next reply will land, above the reply summary — so the card shows that the
+          conversation is live without having to be opened to find out. */}
+      <TypingLine people={typing} className="mt-2 px-1" />
 
       {/* The only way into the thread — deliberately its own control rather than a click on
           the card, so the moderation buttons above cannot end up nested in a click target. */}
@@ -327,9 +382,15 @@ function ThreadCard({
  */
 function ThreadView({
   thread,
+  typing,
+  onTyping,
   onOpenAttachment,
 }: {
   thread: CommentThreadView;
+  /** People typing in this thread right now — never the reader. */
+  typing: CommentTypingPerson[];
+  /** Tells the thread its reader has started typing. Throttled upstream. */
+  onTyping: (threadId: string) => void;
   onOpenAttachment: (attachment: CommentAttachment) => void;
 }) {
   const { currentUserId, reply, setActiveThreadId } = useCommentMode();
@@ -399,6 +460,10 @@ function ThreadView({
               No replies yet — start the thread below.
             </p>
           )}
+
+          {/* At the bottom of the replies, where the next one will land, so the arrival replaces
+              the line rather than shifting the thread. */}
+          <TypingLine people={typing} className="mt-3 px-1" />
         </div>
       </div>
 
@@ -407,6 +472,7 @@ function ThreadView({
         <CommentComposer
           placeholder="Reply…"
           submitLabel="Reply"
+          onTyping={() => onTyping(thread.id)}
           onSubmit={async (body, attachments) => {
             await reply(thread.id, body, attachments);
           }}
@@ -421,13 +487,14 @@ function ThreadView({
  * comment starts here rather than from a floating button on the page. Comments are not
  * anchored to a page section, so every post is a plain comment on the whole plan/benefit.
  */
-function RailComposer() {
+function RailComposer({ onTyping }: { onTyping: () => void }) {
   const { createThread } = useCommentMode();
 
   return (
     <CommentComposer
       placeholder="Write a comment…"
       submitLabel="Comment"
+      onTyping={onTyping}
       onSubmit={async (body, attachments) => {
         await createThread(
           { anchorKind: "section", sectionKey: GENERAL_SECTION_KEY },
@@ -458,6 +525,21 @@ export function CommentsRail() {
     refresh,
     setActiveThreadId,
   } = useCommentMode();
+
+  // Who is typing across every thread on this surface, in ONE poll — the rail shows all of them at
+  // once, so a fetch per card is the thing to avoid. Enabled only while the panel is actually open
+  // and the viewer may comment at all: a 2.5s request for a closed panel is pure waste.
+  const {
+    byThread: typingByThread,
+    composers: composerTypers,
+    notifyTyping,
+    notifyComposerTyping,
+  } = useCommentTyping({
+    enabled: canComment && mode === "on",
+    clientId: target?.clientId ?? null,
+    targetType: target?.targetType ?? "plan",
+    category: target?.category ?? null,
+  });
 
   const [filter, setFilter] = useState<ThreadFilter>("open");
   // The attachment currently open in the viewer modal; null keeps it closed.
@@ -500,6 +582,10 @@ export function CommentsRail() {
   // directly rather than just highlighting a card in the list.
   const activeThread =
     threads.find((thread) => thread.id === activeThreadId) ?? null;
+
+  // Someone is composing a NEW comment — the SURFACE-scoped signal, deliberately distinct from a
+  // thread's. It has no card to sit on, so it is rendered once, directly under the header.
+  const composerTypingLabel = commentComposerTypingLabel(composerTypers);
 
   return (
     <aside
@@ -578,7 +664,12 @@ export function CommentsRail() {
       {activeThread ? (
         /* One thread gets the whole panel: parent, replies, and its own composer. The list
            (and its composer) is what it replaces — that is the Slack model. */
-        <ThreadView thread={activeThread} onOpenAttachment={setViewing} />
+        <ThreadView
+          thread={activeThread}
+          typing={typingByThread[activeThread.id] ?? []}
+          onTyping={notifyTyping}
+          onOpenAttachment={setViewing}
+        />
       ) : (
         /* The wrapper exists only so the whole view is ONE animated element — the header
            above it stays put, which is what makes the swap read as the body changing rather
@@ -658,6 +749,7 @@ export function CommentsRail() {
                     <ThreadCard
                       key={thread.id}
                       thread={thread}
+                      typing={typingByThread[thread.id] ?? []}
                       onOpenThread={setActiveThreadId}
                       onOpenAttachment={setViewing}
                     />
@@ -670,7 +762,25 @@ export function CommentsRail() {
           {/* Persistent composer — pinned to the BOTTOM of the panel, chat-style, so the
               thread list scrolls above it. In a thread, that thread's own composer takes over. */}
           <div className="shrink-0 border-t border-border p-3">
-            <RailComposer />
+            {/* The composer's own line, immediately above the box it is about — the bottom of the
+                panel, where the reader's eye already is, and where the comment they are about to
+                watch arrive will land. Worded differently from a thread's line ("… is typing a
+                comment" against "… is typing") so the two can never be confused for each other. */}
+            {composerTypingLabel ? (
+              <p className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-accent-blue">
+                <span className="flex items-center gap-0.5" aria-hidden="true">
+                  {[0, 1, 2].map((index) => (
+                    <span
+                      key={index}
+                      className="typing-dot h-1 w-1 rounded-full bg-accent-blue"
+                      style={{ animationDelay: `${index * 160}ms` }}
+                    />
+                  ))}
+                </span>
+                {composerTypingLabel}
+              </p>
+            ) : null}
+            <RailComposer onTyping={notifyComposerTyping} />
           </div>
         </div>
       )}

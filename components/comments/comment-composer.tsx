@@ -25,6 +25,15 @@ export interface CommentComposerProps {
    * the composer only clears itself once it resolves.
    */
   onSubmit: (body: string, attachments: CommentAttachment[]) => Promise<void>;
+  /**
+   * Fired on the reader's own input, so a thread can be told they are typing. Throttled by the
+   * caller.
+   *
+   * Only the REPLY composer passes this. The rail's persistent composer has no thread to attribute a
+   * signal to — a thread does not exist until the first comment is posted, and creating one just to
+   * say "typing" would litter the list with empty threads nobody ever finished.
+   */
+  onTyping?: () => void;
   placeholder?: string;
   submitLabel?: string;
 }
@@ -43,6 +52,7 @@ type PendingAttachment = CommentAttachment & { id: string };
  */
 export function CommentComposer({
   onSubmit,
+  onTyping,
   placeholder = "Write a comment…",
   submitLabel = "Comment",
 }: CommentComposerProps) {
@@ -192,7 +202,10 @@ export function CommentComposer({
       <MentionTextarea
         ref={textareaRef}
         value={text}
-        onValueChange={setText}
+        onValueChange={(next) => {
+          setText(next);
+          onTyping?.();
+        }}
         mentionable={mentionable}
         placeholder={placeholder}
         className="min-h-[64px] text-xs"
