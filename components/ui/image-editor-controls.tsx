@@ -20,7 +20,12 @@ interface ImageEditorControlsProps {
   onScaleChange: (newScale: number) => void;
   /** Optional callback fired when the user releases the slider thumb. */
   onScaleCommit?: () => void;
-  /** Horizontally center the image inside the guide (its current height is kept). */
+  /**
+   * Centre the image on the guide, on BOTH axes — its scale is kept, only the position moves.
+   *
+   * "Center" is taken at its word: the button used to reset the horizontal position alone, which
+   * left an image sitting against the top or bottom edge exactly where it was.
+   */
   onCenter: () => void;
   /** Bring the image's top edge onto the guide's top edge. */
   onAlignTop: () => void;
@@ -114,7 +119,7 @@ export function ImageEditorControls({
           size="sm"
           onClick={onCenter}
           disabled={disabled}
-          title="Center the image horizontally"
+          title="Center the image on the guide (both axes)"
           className="flex-1 text-[9px] sm:text-[10px] md:text-xs h-7 sm:h-8 md:h-9 whitespace-nowrap"
         >
           Align Center

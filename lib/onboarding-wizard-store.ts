@@ -382,7 +382,13 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
           });
         }
 
-        // Normalize website URL if present
+        // Normalize website URL if present.
+        //
+        // This runs on EVERY change, not once on submit — the wizard stores each keystroke and the
+        // input is seeded back from the store — so whatever it removes disappears from the field as
+        // it is typed. That is why `normalizeCleanDomain` now removes only the protocol: it used to
+        // strip `www.` as well, which made those four characters impossible to type here and in
+        // Settings, whose Branding tab saves through this same path.
         let normalizedData = { ...data };
         if (data.website) {
           normalizedData.website = normalizeCleanDomain(data.website);

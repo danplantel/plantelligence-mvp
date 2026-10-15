@@ -1283,24 +1283,43 @@ export function SimpleImageEditorModal({
     handleClose();
   };
 
+  /**
+   * Centre the image on the crop frame, on BOTH axes.
+   *
+   * This used to set `left` alone — "Horizontally center the image only" — on the reasoning that
+   * the framing rules are horizontal. But the button says Align Center, and an image sitting
+   * against the top or bottom edge is precisely what somebody is trying to fix when they reach for
+   * it, so the second axis is part of what the label promises. Only the position changes; the scale
+   * is untouched, exactly as before.
+   *
+   * Centred on the CANVAS, which is the frame's centre: the guide is centred inside the editing
+   * pasteboard (`getGuidelineMetrics` derives it from that symmetry), so the canvas centre and the
+   * frame centre are the same point on both axes.
+   *
+   * Expressed as a delta against `getBoundingRect()` rather than an absolute `left`/`top`, so it is
+   * correct whatever the object's origin is — the same arithmetic `alignImageVertically` uses.
+   */
   const centerImage = () => {
-    if (fabricCanvasRef.current) {
-      const canvas = fabricCanvasRef.current;
-      const activeObject = canvas.getActiveObject();
-      if (activeObject) {
-        // Reset auto-size flag when user manually centers
-        setWasAutoSized(false);
-        // Horizontally center the image only (originX is "center").
-        // Preserve the current vertical position and scale.
-        activeObject.set({
-          left: canvas.width! / 2,
-        });
-        activeObject.setCoords();
-        canvas.renderAll();
-        evaluateGuidelineBounds();
-        generatePreview();
-      }
-    }
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+    const activeObject = canvas.getActiveObject();
+    if (!activeObject) return;
+
+    // Reset auto-size flag when user manually centers
+    setWasAutoSized(false);
+    const bounds = activeObject.getBoundingRect();
+    activeObject.set({
+      left:
+        (activeObject.left || 0) +
+        (canvas.getWidth() / 2 - (bounds.left + bounds.width / 2)),
+      top:
+        (activeObject.top || 0) +
+        (canvas.getHeight() / 2 - (bounds.top + bounds.height / 2)),
+    });
+    activeObject.setCoords();
+    canvas.renderAll();
+    evaluateGuidelineBounds();
+    generatePreview();
   };
 
   /**
