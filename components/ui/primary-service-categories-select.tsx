@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback } from "react";
+import { Fragment, useCallback, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PRIMARY_SERVICE_CATEGORY_OPTIONS } from "@/lib/service-categories";
 
@@ -20,6 +20,27 @@ interface PrimaryServiceCategoriesSelectProps {
   dataField?: string;
   /** Paint a red validation outline around the group. */
   destructive?: boolean;
+  /**
+   * An extra control that selects or clears several options at once, rendered immediately after
+   * the LAST value it covers.
+   *
+   * It is deliberately NOT a category: it stores nothing of its own, and its own tick is derived
+   * from the values it covers. Two reasons that matters:
+   *
+   *  - the selections it belongs to are persisted and validated as a fixed vocabulary, so inventing
+   *    a member for a convenience control would put a value in the data that no category means;
+   *  - it is a shortcut for one particular customer, not a fifth answer to "which categories do you
+   *    offer", so surfaces that read those answers (the portal's category keys, the contact seeder)
+   *    must never see it.
+   *
+   * Callers name the values, so the control cannot claim to cover something it does not — and
+   * `values` is expected to exclude anything the caller wants left alone.
+   */
+  selectAll?: {
+    label: string;
+    /** The option values it sets and clears. It renders after the last of them. */
+    values: string[];
+  };
 }
 
 /**
@@ -38,8 +59,48 @@ export function PrimaryServiceCategoriesSelect({
   helperText,
   dataField,
   destructive = false,
+  selectAll,
 }: PrimaryServiceCategoriesSelectProps) {
   const options = [...PRIMARY_SERVICE_CATEGORY_OPTIONS];
+
+  const selectAllValues = selectAll?.values ?? [];
+
+  /**
+   * The master control's own tick, and it moves ONLY when the user clicks the control itself.
+   *
+   * Deliberately not derived from the values it covers. A derived tick made it a mirror of the
+   * three categories — on once all three were on, dashed once some were — which meant the box
+   * changed state while the user was working somewhere else entirely, and left them unable to tell
+   * whether they had switched it on. It is a one-shot convenience, so it behaves like one: tick
+   * "Retirement" by hand and this box is exactly as you left it.
+   *
+   * A consequence worth knowing, because it is the point rather than a bug: it can read as on while
+   * nothing it covers is selected, if the categories are then cleared individually. Clearing them
+   * is the user's edit; the box reflects the user's last click on it.
+   */
+  const [selectAllChecked, setSelectAllChecked] = useState(false);
+
+  /**
+   * Set or clear everything the master covers, and nothing else.
+   *
+   * `maxSelections` is deliberately not applied here. The cap stops a person adding more categories
+   * than the vocabulary supports; this control is the declared union of what the list offers, so
+   * silently stopping short would make its own label a lie. It also cannot breach the cap with this
+   * list: it covers the three benefit categories, and the largest selection it can produce is those
+   * three plus "Other" — the cap of four, exactly.
+   */
+  const handleSelectAllChange = (checked: boolean | "indeterminate") => {
+    const next = new Set(selectedValues);
+    if (checked === true) {
+      for (const value of selectAllValues) next.add(value);
+    } else {
+      for (const value of selectAllValues) next.delete(value);
+    }
+    setSelectAllChecked(checked === true);
+    onSelectionChange([...next]);
+  };
+
+  const lastSelectAllValue = selectAllValues[selectAllValues.length - 1];
 
   const handleCheckboxChange = useCallback((option: string, checked: boolean | "indeterminate") => {
     // Handle indeterminate state as unchecked
@@ -75,22 +136,47 @@ export function PrimaryServiceCategoriesSelect({
             selectedValues.length >= maxSelections && !isSelected;
 
           return (
-            <div key={option} className="flex items-center space-x-2">
-              <Checkbox
-                id={`category-${option}`}
-                checked={isSelected}
-                onCheckedChange={(checked) =>
-                  handleCheckboxChange(option, checked)
-                }
-                disabled={disabled || isAtMaxAndNotSelected}
-              />
-              <label
-                htmlFor={`category-${option}`}
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-              >
-                {option}
-              </label>
-            </div>
+            <Fragment key={option}>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id={`category-${option}`}
+                  checked={isSelected}
+                  onCheckedChange={(checked) =>
+                    handleCheckboxChange(option, checked)
+                  }
+                  disabled={disabled || isAtMaxAndNotSelected}
+                />
+                <label
+                  htmlFor={`category-${option}`}
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  {option}
+                </label>
+              </div>
+
+              {/* Rendered after the last value it covers, so what it selects is always the set of
+                  options directly above it — and never a later one, which is how "Other" stays out
+                  of a blanket selection without anyone having to remember to exclude it. */}
+              {selectAll != null && option === lastSelectAllValue ? (
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="category-select-all"
+                    checked={selectAllChecked}
+                    onCheckedChange={handleSelectAllChange}
+                    disabled={disabled}
+                  />
+                  <label
+                    htmlFor="category-select-all"
+                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                  >
+                    {selectAll.label}{" "}
+                    <span className="font-normal text-muted-foreground">
+                      (selects the categories above)
+                    </span>
+                  </label>
+                </div>
+              ) : null}
+            </Fragment>
           );
         })}
       </div>

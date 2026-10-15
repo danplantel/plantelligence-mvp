@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Briefcase } from "lucide-react";
 import {
   categoriesToStep2Services,
+  serviceCategoryOptions,
   step2ServicesToCategories,
 } from "./services-section.funcs";
 import { PrimaryServiceCategoriesSelect } from "@/components/ui/primary-service-categories-select";
@@ -68,6 +69,22 @@ export function ServicesSection({
           maxSelections={4}
           dataField="services"
           destructive={errorFields.includes("services")}
+          /*
+           * A convenience for the advisor who serves employers directly: they almost always offer
+           * every benefit category, so one click spares three.
+           *
+           * It is NOT a stored category — the Step 2 answer stays the four canonical ones, which is
+           * what every reader of `primaryServiceCategories` expects — and it deliberately never
+           * touches "Other", because that one means "something else entirely" and owns the text
+           * field below, which a blanket selection must not silently require.
+           *
+           * The values are derived as "every category except Other" rather than listed, so the rule
+           * the control follows is the rule written here and cannot drift from the option list.
+           */
+          selectAll={{
+            label: "Company / Plan Sponsor",
+            values: serviceCategoryOptions.filter((option) => option !== "Other"),
+          }}
         />
         {errorFields.includes("services") && (
           <p className="text-xs text-red-500 dark:text-red-400 mt-1">
