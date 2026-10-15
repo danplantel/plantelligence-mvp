@@ -304,6 +304,17 @@ export function ChipTypeahead({
           setOpen(true);
         }}
         onFocus={() => setOpen(true)}
+        /**
+         * Clicking the field reopens the list, and this is NOT redundant with `onFocus`.
+         *
+         * A row commits on `mousedown` with `preventDefault` — deliberately, so that clicking a row
+         * does not blur the input before the click lands. The side effect is that the input HOLDS
+         * focus through a mouse selection, so the `commit` that just closed the list is followed by
+         * clicks that produce no focus event at all. The list could then only be reopened by
+         * genuinely blurring the field first — click somewhere else, then back — which is the
+         * "I pick a designation, click the box again, and nothing appears for ages" report.
+         */
+        onClick={() => setOpen(true)}
         onKeyDown={onKeyDown}
         className={cn(
           "flex h-9 w-full rounded-lg border bg-white px-3 py-1 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/20 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-800",
