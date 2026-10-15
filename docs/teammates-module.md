@@ -3120,6 +3120,205 @@ comments directory and from DMs.
 
 ---
 
+## 9l. Owner self-deletion — handover, not demolition
+
+### The rule
+
+Deleting an account was unconditional, and for an Owner that made the dialog a lie. Its copy spoke
+only about "your profile" while the request behind it did this:
+
+| # | Step | What it destroyed |
+| --- | --- | --- |
+| 1 | `deletePlansAndScopedDataForUser()` | **every plan** (`Client` by `userId`), documents, benefits, meetings, marketing flyers, webinars, tasks, wizard drafts |
+| 4 | `deleteOrganizationForOwner()` | **the Organization row** plus every TeammateProfile, PlanAssignment, TeammateCompany, TeammateAuditEvent and DirectThread in it |
+
+So an Owner with teammates took their teammates' access, the plans those teammates were invited to,
+and the organization itself out of existence — one typed phrase, no mention of any of it.
+
+The deletion flow now asks **who should take over** first, and only deletes the organization when
+there is nobody to hand it to.
+
+### Two invariants the handover has to preserve
+
+**The owner and the plans must agree.** `Organization.ownerUserId` is the tenancy root, but a plan is
+also anchored by legacy `Client.userId`, and several paths *derive* one from the other:
+[`invites.server.ts`](../lib/teammates/invites.server.ts) resolves the org from `client.userId`,
+[`presign-upload`](../app/api/r2/presign-upload/route.ts) matches a client with `{ id, userId: orgId }`,
+and [`isPlanOwner()`](../lib/teammates/access.server.ts:159) reads the legacy anchor. Moving
+`ownerUserId` alone leaves plans that no route can upload a document to.
+
+**One organization per owner.** `ownerUserId` carries no unique constraint and
+[`auth-options.ts`](../lib/auth-options.ts:269) creates an organization at *every* signup — so a
+teammate already owns an empty shell of their own. Every lookup is
+`findFirst({ where: { ownerUserId } })` with no ordering, so the person we just promoted could be
+answered with their empty shell instead of the workspace they now own. The handover retires it.
+
+### The flow
+
+```mermaid
+flowchart TD
+    A[Delete My Profile] --> B[Dialog 1 - type the phrase to confirm]
+    B -->|Cancel| Z[Stop]
+    B -->|Confirmed| C[GET /api/profile/delete-impact]
+    C -->|read fails| W[Toast - nothing deleted]
+    C -->|owns nothing| G[DELETE - plain account removal]
+    C -->|has successors| E[Dialog 2a - who takes over]
+    C -->|nobody eligible| F[Dialog 2b - the warning, with real counts]
+    E -->|pick and confirm| H[DELETE with transferTo]
+    E -->|Cancel| Z
+    F -->|confirm| I[DELETE with no transfer]
+    H --> G2[Handed over - then the account goes]
+    I --> G3[Organization and plans deleted]
+```
+
+- **Dialog 1** is unchanged except for one honest line: it should not promise either outcome.
+- **Dialog 2a** is a radio picker, Cancel-only. There is deliberately **no "delete everything
+  anyway"** — it would sit one click from a button the user has already decided to press, and it is
+  the accident this flow exists to prevent.
+- **Dialog 2b** names the real counts from the impact read, and its button says *delete everything*
+  where 2a's says *hand over*, so the two can never be confused in a screenshot.
+- **An empty organization still gets dialog 2b**, worded for what it is ("there is nothing in it
+  yet"). It deliberately does *not* skip the warning: an empty organization is exactly what a new
+  owner has, so a shortcut for it made the flow look identical to the behaviour it replaced for the
+  person testing it — and "if there are no other users, warn them" is the instruction, not "warn
+  them unless the organization happens to be empty".
+- A **failed impact read does not fall through to the deletion.** "We could not check whether you own
+  an organization" resolving to "deleted anyway" is precisely the accident being prevented.
+
+### The destructive branch has to be ASKED FOR
+
+A warning dialog is a UI affordance, and a UI affordance is not a rule. `DELETE /api/profile/delete`
+had **two** callers from the start — Settings, and the onboarding wizard's "Cancel signup" — and the
+second one deleted an Owner's organization, its plans and its teammates' access behind a dialog that
+mentioned only "your account". Guarding it in the Settings component would have left that path
+exactly as it was.
+
+So `requireOrganizationDeletionAcknowledged` gates the destructive branch, and a caller must say
+which consequence it showed:
+
+| Caller sends | Meaning | Result |
+| --- | --- | --- |
+| `?transferTo=<profileId>` | the handover dialog ran | handed over, then deleted |
+| `?confirmOrganization=true` | the warning was shown and accepted | deleted |
+| neither | nothing was shown | **409 `organization_would_be_deleted`** when the organization has plans or teammates |
+
+An **empty organization** passes the gate without a flag: nothing to lose, nobody to offer as a
+successor, and that is exactly the "abandon signup" case the wizard's cancel exists for. The rule is
+about content, not about ownership — which is what keeps a genuinely empty sign-up cancellation from
+being blocked by a confirmation for something that does not exist.
+
+The wizard additionally recognises the 409 and says where to go instead, rather than reporting it as
+a failed cancel. Any future caller gets the same protection without having to remember anything:
+forgetting to acknowledge is a refusal, not a silent demolition.
+
+### What moves, and what does not
+
+| Belongs to the organization → re-anchored to the successor | Personal to the departing user → deleted |
+| --- | --- |
+| every `Client` — `userId`, and `organizationId` filled if it was null | the login, wizard sessions and their child tables |
+| all documents, benefits, meetings-by-client, analytics — via the client relation | `Task` rows: `Task.userId` is the **assignee**, so moving them would hand the successor the ex-owner's to-do list |
+| `Plan` (retirement / video plans), `MarketingFlyer`, `Webinar`, `FutureContact` | `Headshot` and `MarketingAsset` rows |
+| `Meeting` + `MeetingCustomType`, as a pair | |
+| the teammate layer — already org-scoped, untouched | |
+| the owner's profiles in *other* organizations — still flagged and notified (§9k) | |
+
+### Re-anchor first, then let the cascade delete only what is personal
+
+The deletion cascade is keyed on `userId`, and that is the useful property rather than the problem:
+**whatever is re-anchored before it runs is spared automatically**, with no second list of exceptions
+to keep in sync and no edit to `deletePlansAndScopedDataForUser` itself.
+
+### The storage anchor
+
+R2 keys are `org/{segment}/…` where the segment is a user id captured at upload time, and the two
+cases differ:
+
+- **Plan-scoped** keys authorize on the **plan id alone** through
+  [`resolveObjectAccess()`](../lib/teammates/access.server.ts:743) — they survive any handover.
+- **Org-level** keys (advisor headshot, advisor logo) resolve the segment with
+  `findFirst({ where: { ownerUserId: orgSegment } })`. After a handover nothing matched the old
+  segment, so **every pre-existing org-level file would 403 for the whole team** — including the new
+  owner, whose only claim on the organization is ownership itself, because a handover deliberately
+  removes their seat.
+
+`Organization.storageAnchorUserId` records where the bytes are. `resolveObjectAccess` resolves a
+segment against `ownerUserId` **or** the anchor, and checks ownership before the seat — so the new
+owner can reach the organization's own assets with no profile at all. This is the forward-only,
+alias-shaped half of residual migration debt item 2: nothing is re-keyed, and a second handover
+leaves the anchor where the bytes were first written.
+
+### Order, and the one part that is not best-effort
+
+`transferOrganizationOwnership` runs **before every destructive step** in the route, and a refusal
+returns 400 having deleted nothing. The flagging block below it deliberately swallows failures — an
+account deletion must not be blocked by bookkeeping — but "we could not hand your organization over"
+has to stop the request, or the caller loses the organization they were trying to save.
+
+Inside the writer: verify the successor (re-read, never trust the posted profile id) → re-anchor the
+content → copy the organization's identity onto the successor's `User` row → promote → drop the
+successor's own seat → retire their empty shells → re-sync → notify → audit.
+
+The identity copy-forward is not cosmetic. `syncOrganizationIdentity` mirrors name, email, firm
+profile and branding **from the owner's row, and only while they are the owner**, so promoting
+without it would let the successor's next profile save re-brand the organization as their personal
+setup. Copying first makes the next sync a no-op — and the writer returns what that sync still had to
+change, so a missed field is reported rather than assumed away.
+
+### Known limits
+
+- **A dual-role account is excluded, not merged.** Somebody who already runs a workspace with plans
+  cannot be promoted; two organizations per owner would break every `findFirst({ ownerUserId })` in
+  the codebase.
+- **A seat with no login cannot take over.** An invitation that was never accepted has nobody to
+  promote, which is why the picker's copy says so.
+- **The notification deep-links to `/settings`**, not to the organization. The successor's workspace
+  is reachable from the app itself; the notification's job is to say the handover happened.
+- **A failed notification does not fail the handover** — it has already happened by then. The result
+  carries `notifiedSuccessor` so the caller can see it went out.
+
+### Files
+
+| File | What it does |
+| --- | --- |
+| [`lib/teammates/ownership.server.ts`](../lib/teammates/ownership.server.ts) | `listOwnershipSuccessors`, `describeOwnerDeletionImpact`, `transferOrganizationOwnership` |
+| [`app/api/profile/delete-impact/route.ts`](../app/api/profile/delete-impact/route.ts) | the read both dialogs share |
+| [`app/api/profile/delete/route.ts`](../app/api/profile/delete/route.ts) | `?transferTo=` — handover first, fail hard, and report which mode ran |
+| [`lib/teammates/access.server.ts`](../lib/teammates/access.server.ts:778) | the anchor segment, and the owner-before-seat check |
+| [`prisma/schema.prisma`](../prisma/schema.prisma:1464) | `Organization.storageAnchorUserId` + its migration |
+| [`components/settings/ownership-successor-dialog.tsx`](../components/settings/ownership-successor-dialog.tsx) | dialog 2a, the picker |
+| [`app/(dashboard)/settings/page.tsx`](../app/(dashboard)/settings/page.tsx) | the routing, dialog 2b, the honest success screen, and the acknowledgement the route asks for |
+| [`components/wizard/onboarding-wizard-stepper.tsx`](../components/wizard/onboarding-wizard-stepper.tsx) | "Cancel signup" — the second caller, and the one that used to delete an organization silently |
+| [`lib/teammates/viewer-access.server.ts`](../lib/teammates/viewer-access.server.ts:76) | a session that outlives its account answers as no-access instead of logging `User not found` |
+
+### Verification
+
+```
+npm run teammates:verify-ownership   ->  all 57 assertions passed
+```
+
+Against the real data layer, with self-cleaning `tow-verify-*` fixtures. It asserts eligibility
+(a Collaborator, an un-accepted invitation, the owner's own seat and a dual-role account are all
+refused a place in the picker); that **an organization cannot be deleted silently** (the un-flagged
+delete is refused, an acknowledgement is accepted, a handover is its own acknowledgement, and an
+empty organization or an account owning nothing is let through); that **every ineligible `transferTo`
+is refused with its own code and changes NOTHING** (owner, anchor, plans and the successor's seat all
+verified untouched); the handover
+itself (both plans and the legacy `Plan` row re-anchored, the plan→organization derivation still
+answering, the successor owning exactly one organization, their seat gone, the identity copied, the
+audit row, the notification); the R2 reads that the storage anchor exists for (a live teammate and
+the new owner can both read a key under the *previous* owner's segment, a new-segment upload
+resolves, a stranger and a deactivated seat are still refused); and that §9k's flag-and-notify still
+works alongside it, including that the notification goes to the **other** organization's owner and
+not to the one that just changed hands.
+
+Not asserted, deliberately: the `MarketingFlyer`, `Webinar`, `Meeting`, `MeetingCustomType` and
+`FutureContact` re-anchors. They are the same `updateMany` call as `Plan`, and building a valid
+fixture for each would mean guessing required columns this suite cannot check.
+
+`npx tsc --noEmit` and `eslint` are clean.
+
+---
+
 ## 10. Residual migration debt
 
 Tracked, deliberately **not** part of T1:
@@ -3131,6 +3330,13 @@ Tracked, deliberately **not** part of T1:
    (`app/api/r2/signed-url`, `r2/delete`, `r2/presign-upload`, and the
    `buildUploadKey({ orgId })` callers). Moving to a stable organization id
    invalidates existing keys, so it needs a copy/alias plan.
+
+   **Partly done, forward-only.** §9l added `Organization.storageAnchorUserId` and taught
+   `resolveObjectAccess` to resolve an org-level segment against it, so an ownership handover no
+   longer 403s every pre-existing org-level file. That is the *alias* half of the plan, applied at
+   the one place a handover makes it bite: nothing is re-keyed, and new writes still use a user id
+   as the segment. A move to a stable organization id would reuse the same column and the same
+   resolver, and would still need a decision about keys written after the switch.
 3. **Portal owner resolution.** `lib/portal-access.ts` derives the owning advisor
    from `Client.userId`; it should resolve through `organizationId`.
 4. **Organization membership.** `Organization` currently models a single

@@ -1465,6 +1465,20 @@ model Organization {
   id                String   @id @default(cuid())
   name              String
   ownerUserId       String
+  // The user id whose R2 segment this organization's OWN-LEVEL objects were written under:
+  // `org/{storageAnchorUserId}/uploads/{subPath}/…` — the advisor headshot, the advisor logo.
+  //
+  // NULL for every organization that has never been handed over, which is all of them today.
+  // It exists because `ownerUserId` MOVES and the segment does not: `resolveObjectAccess`
+  // authorizes an org-level key by resolving its segment back to an organization
+  // (`findFirst({ where: { ownerUserId: orgSegment } })`), so the moment a handover changed the
+  // owner, every object already written under the previous owner's id became unresolvable — the
+  // advisor's own logo would 403 for the whole team that had just been given the organization.
+  //
+  // A re-key of every stored object was the alternative and is why this column exists instead:
+  // this is a record of a FACT (where the bytes are), so it is written once on handover and never
+  // rewritten. See `transferOrganizationOwnership` in lib/teammates/ownership.server.ts.
+  storageAnchorUserId String?
   organizationEmail String?
   // T3 seat metering. Both are placeholders until tier pricing is final (spec
   // Open Decisions): a null `seatsIncluded` falls back to DEFAULT_SEATS_INCLUDED,

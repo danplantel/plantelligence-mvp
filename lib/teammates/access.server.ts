@@ -775,7 +775,7 @@ export async function resolveObjectAccess({
     if (organization?.ownerUserId === userId) return { allowed: true };
   }
 
-  // …or this user is a TEAMMATE of the organization the segment names.
+  // …or the segment is where an organization's own assets were written.
   //
   // Org-level keys are written with the OWNER's user id as the segment —
   // `org/{ownerUserId}/uploads/{subPath}/…` (lib/r2.ts), which is where an advisor headshot,
@@ -789,14 +789,31 @@ export async function resolveObjectAccess({
   // against. This closes that gap: a person with a live seat in the organization may read the
   // organization's own assets, which is what being in the organization means.
   //
-  // `ownerUserId` carries no unique constraint (see prisma/schema.prisma), so this resolves the
+  // TWO columns are matched, not one. The segment is a user id captured at upload time, so it
+  // names the owner AS OF THE UPLOAD and cannot follow a change of ownership — that is what
+  // `Organization.storageAnchorUserId` records. Matching `ownerUserId` covers the organization
+  // the segment has always described; matching the anchor covers the one that was handed over,
+  // whose bytes are still filed under the previous owner's id. Without the second arm, an
+  // ownership handover would 403 the organization's own logo for the very team that just
+  // received it.
+  //
+  // Neither column carries a unique constraint (see prisma/schema.prisma), so this resolves the
   // organization with `findFirst` rather than `findUnique`. Deactivated profiles are excluded
   // (`isLive`), so losing a seat loses the assets.
   if (orgSegment) {
     const organization = await prisma.organization.findFirst({
-      where: { ownerUserId: orgSegment },
-      select: { id: true },
+      where: {
+        OR: [{ ownerUserId: orgSegment }, { storageAnchorUserId: orgSegment }],
+      },
+      select: { id: true, ownerUserId: true },
     });
+
+    // The owner may read the organization's own assets. This has to be checked HERE and not left
+    // to the seat lookup below, because an ownership handover deliberately removes the
+    // successor's own TeammateProfile — the owner holds no seat — so the person the organization
+    // now belongs to would otherwise be refused its logo.
+    if (organization?.ownerUserId === userId) return { allowed: true };
+
     if (organization) {
       const profile = await prisma.teammateProfile.findFirst({
         where: { organizationId: organization.id, loginUserId: userId },

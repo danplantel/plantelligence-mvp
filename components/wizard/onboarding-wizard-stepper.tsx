@@ -90,7 +90,24 @@ export function OnboardingWizardStepper({
         // "Failed to delete account" alone hid every cause behind one toast.
         const body = (await response
           .json()
-          .catch(() => ({}))) as { error?: string };
+          .catch(() => ({}))) as { error?: string; code?: string };
+
+        // The organization guard, from `requireOrganizationDeletionAcknowledged`.
+        //
+        // NOT a failed cancel, and deliberately not phrased as one: it means this account owns an
+        // organization with plans or teammates in it, so cancelling signup here would take their
+        // access with it. This dialog only ever spoke about "your account", and that is exactly how
+        // an Owner's organization used to disappear without a warning. The message names the
+        // surface that can hand the organization over instead of destroying it.
+        if (body?.code === "organization_would_be_deleted") {
+          setCancelDialogOpen(false);
+          toast.error(
+            body.error ??
+              "Your account owns an organization. Delete your profile from Settings so you can hand it over first.",
+          );
+          return;
+        }
+
         throw new Error(
           body?.error || `Failed to delete account (${response.status})`,
         );

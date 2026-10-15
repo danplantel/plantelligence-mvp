@@ -74,6 +74,25 @@ function rankOf(access: PermissionAccess): number {
 }
 
 export async function getViewerAccess(userId: string): Promise<ViewerAccess> {
+  /**
+   * A session can outlive the account it belongs to, and that is a NORMAL state rather than a
+   * failure: deleting your profile signs you out, but the redirect takes a moment, the chrome is
+   * still mounted, and a second tab may be polling this endpoint throughout. The read below would
+   * throw `[organization] User not found` and the route would log it as an error on every one of
+   * those requests — noise that looks like a bug in the teammate layer and is not.
+   *
+   * Answered with the same fail-open shape a failed read returns, deliberately: there is no access
+   * to report for an account that no longer exists, and the caller is on its way to the sign-in
+   * page anyway.
+   */
+  const account = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true },
+  });
+  if (!account) {
+    return { isCollaborator: false, functions: null, canManageTeam: false };
+  }
+
   const organizationId = await resolveOrganizationId(userId);
 
   /**

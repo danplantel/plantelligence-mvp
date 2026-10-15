@@ -21,6 +21,9 @@ export const TEAM_MEMBER_ACCEPTED_TYPE = "team_member_accepted";
 /** Somebody deleted their own account and an Owner/Admin has yet to confirm it. */
 export const PROFILE_SELF_DELETED_TYPE = "profile_self_deleted";
 
+/** Somebody was promoted to Owner when the previous owner deleted their account. */
+export const ORGANIZATION_OWNERSHIP_TYPE = "organization_ownership_transferred";
+
 /** Where a "team member accepted" notification sends the reader. */
 const MEMBERS_DEEP_LINK = "/settings?tab=members";
 
@@ -265,6 +268,39 @@ export async function notifyTeamMemberAccepted(input: {
  *
  * @returns how many notifications were written (0 when there is nobody to tell).
  */
+/**
+ * Tell the person who was just handed an organization.
+ *
+ * A promotion nobody is told about is a promotion nobody notices: from the new owner's side the
+ * organization simply appears in their workspace already carrying the previous owner's name and
+ * branding, with no other signal that anything happened. This is that signal.
+ *
+ * Addressed to the successor ALONE, unlike `notifySelfDeletedProfile` above, which goes to every
+ * Owner and Admin: the handover is a completed fact rather than a request for somebody to act, and
+ * a notification is a to-do list, not a changelog.
+ *
+ * Best-effort by design — see the caller. The handover has already happened by the time this runs,
+ * so a failed write must not turn a success into an error the caller would try again.
+ */
+export async function notifyOwnershipTransferred(input: {
+  organizationId: string;
+  newOwnerUserId: string;
+  organizationName: string;
+  actorUserId?: string | null;
+}): Promise<void> {
+  await createNotification({
+    organizationId: input.organizationId,
+    userId: input.newOwnerUserId,
+    type: ORGANIZATION_OWNERSHIP_TYPE,
+    title: `You are now the Owner of ${input.organizationName}`,
+    body: "The previous owner deleted their account and handed the organization to you. Its plans, documents, branding and teammates are yours to manage.",
+    // Settings is where an owner's own account lives; the organization's screens are all reachable
+    // from the workspace itself.
+    href: "/settings",
+    actorUserId: input.actorUserId ?? null,
+  });
+}
+
 export async function notifySelfDeletedProfile(input: {
   organizationId: string;
   profileId: string;

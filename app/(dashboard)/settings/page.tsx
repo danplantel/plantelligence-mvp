@@ -19,6 +19,10 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ProfileSettingsSection } from "@/components/pages/settings/profile-settings-section";
+import {
+  OwnershipSuccessorDialog,
+  type OwnershipSuccessorOption,
+} from "@/components/settings/ownership-successor-dialog";
 import { BrandingSettingsSection } from "@/components/pages/settings/branding-settings-section";
 import { OrganizationSettingsSection } from "@/components/pages/settings/organization-settings-section";
 import { TeamAndDisclaimersSection } from "@/components/pages/settings/team-and-disclaimers-section";
@@ -105,6 +109,26 @@ function firstNonEmptyList<T>(...lists: (T[] | null | undefined)[]): T[] {
  */
 const DELETE_PROFILE_PHRASE = "delete profile";
 
+/**
+ * `GET /api/profile/delete-impact` — what deleting this account would do to the organization
+ * behind it.
+ *
+ * Restated here rather than imported from `ownership.server.ts`, for the same reason the successor
+ * dialog restates its own shape: a client component must not reach into a server module for a type,
+ * because that is how Prisma ends up on the wrong side of the boundary.
+ */
+interface DeletionImpact {
+  ownsOrganization: boolean;
+  organizationId: string | null;
+  organizationName: string | null;
+  /** Plans that would go with the account. */
+  plans: number;
+  /** Live Team Member seats the departing owner is leaving behind. */
+  teamMembers: number;
+  collaborators: number;
+  successors: OwnershipSuccessorOption[];
+}
+
 export default function SettingsPage() {
   const { setTitle, setSubtitle } = usePageTitleContext();
   const { stepData } = useOnboardingWizardStore();
@@ -160,6 +184,161 @@ export default function SettingsPage() {
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const isDeleteProfileConfirmed =
     deleteConfirmText.trim().toLowerCase() === DELETE_PROFILE_PHRASE;
+
+  /**
+   * The organization behind this account, as the last read reported it.
+   *
+   * Read when the deletion is finally confirmed rather than on mount: it is only meaningful once
+   * somebody is about to delete their account, and it names people who may have been promoted or
+   * deactivated since this page loaded.
+   */
+  const [deletionImpact, setDeletionImpact] = useState<DeletionImpact | null>(null);
+  const [isLoadingImpact, setIsLoadingImpact] = useState(false);
+  const [successorDialogOpen, setSuccessorDialogOpen] = useState(false);
+  const [deletionWarningOpen, setDeletionWarningOpen] = useState(false);
+  const [isTransferring, setIsTransferring] = useState(false);
+  /**
+   * Which of the two destructive modes actually ran, for the success screen.
+   *
+   * `null` means "not yet". "Your organization was handed over to X" and "your organization was
+   * deleted" are the same `success: true` from the API otherwise, and the success screen has to say
+   * one of them rather than guess from which dialog the user went through.
+   */
+  const [deletionOutcome, setDeletionOutcome] = useState<{
+    transferred: boolean;
+    successorName: string | null;
+  } | null>(null);
+
+  /**
+   * Whether the organization the warning is about holds anything at all.
+   *
+   * It does not decide WHETHER to warn — every owner is warned — only how to word it. An
+   * organization with no plans and nobody in it is a shell, and listing "0 plans" under a heading
+   * that promises everything will be deleted reads as alarm rather than information.
+   */
+  const organizationIsEmpty =
+    !!deletionImpact &&
+    deletionImpact.plans === 0 &&
+    deletionImpact.teamMembers === 0 &&
+    deletionImpact.collaborators === 0;
+
+  /**
+   * Delete the account, handing the organization over first when a successor was chosen.
+   *
+   * The transfer is not a second request: `?transferTo=` makes the handover part of the same
+   * operation, so there is no window where the organization has been given away but the account
+   * still exists. The route runs the handover BEFORE any destructive step and refuses the whole
+   * request if it fails.
+   */
+  const performDeletion = async (
+    {
+      transferToProfileId = null,
+      acknowledgedOrganization = false,
+      successorName = null,
+    }: {
+      /** Hand the organization to this person before deleting. */
+      transferToProfileId?: string | null;
+      /** The warning was shown and accepted — see `requireOrganizationDeletionAcknowledged`. */
+      acknowledgedOrganization?: boolean;
+      successorName?: string | null;
+    } = {},
+  ) => {
+    setIsDeleting(true);
+    try {
+      // The route insists on being TOLD which consequence the caller showed — `transferTo` for a
+      // handover, `confirmOrganization` for the warning — and refuses the request when neither was
+      // sent and the organization has anything in it. That is what stops any other surface from
+      // deleting an Owner's organization silently, and this dialog is where the answer is earned.
+      const params = new URLSearchParams();
+      if (transferToProfileId) params.set("transferTo", transferToProfileId);
+      if (acknowledgedOrganization) params.set("confirmOrganization", "true");
+      const query = params.toString();
+
+      const res = await fetch(`/api/profile/delete${query ? `?${query}` : ""}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        toast.error(
+          "Failed to delete profile. " + (body?.error || "Please try again."),
+        );
+        setIsDeleting(false);
+        setIsTransferring(false);
+        return;
+      }
+      const body = (await res.json().catch(() => ({}))) as {
+        organization?: { transferred?: boolean };
+      };
+      setDeletionOutcome({
+        transferred: Boolean(body?.organization?.transferred),
+        successorName,
+      });
+      setSuccessorDialogOpen(false);
+      setDeletionWarningOpen(false);
+      // The success state lives in the first dialog, which was closed to show the picker or the
+      // warning — reopened here so there is exactly one place that reports the outcome.
+      setShowDeleteConfirmDialog(true);
+      setDeletionSuccess(true);
+      // Show success state for 3 seconds, then redirect to sign-in
+      setTimeout(() => {
+        window.location.href = "/signin";
+      }, 3000);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Please try again.";
+      toast.error("Failed to delete profile. " + msg);
+      setIsDeleting(false);
+      setIsTransferring(false);
+    }
+  };
+
+  /**
+   * The confirm button's first job is to find out what it is confirming.
+   *
+   * An Owner with somebody to hand the organization to needs the picker; an Owner without one needs
+   * the warning; everyone else goes straight through. A failed read does NOT fall through to the
+   * deletion — "we could not check whether you own an organization" must never resolve to "deleted
+   * anyway", which is precisely the accident this flow exists to prevent.
+   */
+  const handleDeleteProfileClick = async () => {
+    setIsLoadingImpact(true);
+    let impact: DeletionImpact | null = null;
+    try {
+      const res = await fetch("/api/profile/delete-impact", {
+        cache: "no-store",
+      });
+      if (res.ok) impact = (await res.json()) as DeletionImpact;
+    } catch {
+      impact = null;
+    } finally {
+      setIsLoadingImpact(false);
+    }
+
+    if (!impact) {
+      toast.error(
+        "Could not check your organization. Nothing was deleted — please try again.",
+      );
+      return;
+    }
+
+    // Anyone who owns an organization gets a second step — ALWAYS, even when the organization is
+    // empty. The empty case used to skip straight to the delete, on the reasoning that there was
+    // nothing to warn about. That reasoning was wrong in the one way that matters: an empty
+    // organization is exactly what a new owner has, so the flow looked identical to the behaviour it
+    // replaced for the person testing it. The warning now words itself around an empty organization
+    // instead, and the route enforces the same rule from the other side.
+    if (!impact.ownsOrganization) {
+      await performDeletion();
+      return;
+    }
+
+    setDeletionImpact(impact);
+    setShowDeleteConfirmDialog(false);
+    if (impact.successors.length > 0) {
+      setSuccessorDialogOpen(true);
+    } else {
+      setDeletionWarningOpen(true);
+    }
+  };
 
   // Disclaimers section (folded into the Organization tab) — dirty state +
   // imperative handle for save/reset.
@@ -1436,6 +1615,14 @@ export default function SettingsPage() {
                         Permanently delete your profile and all associated data.
                         This includes your wizard sessions, branding, plans,
                         clients, and documents. This action cannot be undone.
+                        {organizationName ? (
+                          <>
+                            {" "}
+                            Because you own {organizationName}, you will first be
+                            asked who should take it over — or told what is lost
+                            if nobody can.
+                          </>
+                        ) : null}
                       </p>
                     </div>
                     <Button
@@ -1610,10 +1797,16 @@ export default function SettingsPage() {
                 <CheckCircle2 className="w-10 h-10 text-green-600 dark:text-green-400" />
               </div>
               <AlertDialogTitle className="text-xl font-semibold text-gray-900 dark:text-gray-100">
-                Successfully Deleted Profile
+                {deletionOutcome?.transferred
+                  ? "Profile Deleted — Organization Handed Over"
+                  : "Successfully Deleted Profile"}
               </AlertDialogTitle>
               <AlertDialogDescription className="text-sm text-gray-600 dark:text-gray-400">
-                Your profile and all associated data have been permanently deleted.
+                {deletionOutcome?.transferred
+                  ? `Your profile has been permanently deleted, and ${
+                      deletionOutcome.successorName ?? "your teammate"
+                    } is now the owner of ${deletionImpact?.organizationName ?? "your organization"}. You no longer have access to it.`
+                  : "Your profile and all associated data have been permanently deleted."}
               </AlertDialogDescription>
             </div>
           ) : (
@@ -1683,43 +1876,146 @@ export default function SettingsPage() {
                   Cancel
                 </AlertDialogCancel>
                 <Button
-                  onClick={async () => {
-                    setIsDeleting(true);
-                    try {
-                      const res = await fetch("/api/profile/delete", {
-                        method: "DELETE",
-                      });
-                      if (res.ok) {
-                        setDeletionSuccess(true);
-                        // Show success state for 3 seconds, then redirect to sign-in
-                        setTimeout(() => {
-                          window.location.href = "/signin";
-                        }, 3000);
-                      } else {
-                        const body = await res.json().catch(() => ({}));
-                        const msg = body?.error || "Please try again.";
-                        toast.error("Failed to delete profile. " + msg);
-                        setIsDeleting(false);
-                      }
-                    } catch (err) {
-                      const msg = err instanceof Error ? err.message : "Please try again.";
-                      toast.error("Failed to delete profile. " + msg);
-                      setIsDeleting(false);
-                    }
-                  }}
+                  // The first click does not delete: it asks what deleting means for this account,
+                  // and the answer decides which dialog comes next.
+                  onClick={() => void handleDeleteProfileClick()}
                   // Locked until the phrase is typed — see the gate above the footer.
-                  disabled={isDeleting || !isDeleteProfileConfirmed}
+                  disabled={isDeleting || isLoadingImpact || !isDeleteProfileConfirmed}
                   variant="destructive"
                   className="flex-1 bg-red-600 text-white hover:bg-red-700"
                 >
-                  {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  {isDeleting ? "Deleting..." : "Yes, Delete My Profile"}
+                  {(isDeleting || isLoadingImpact) && (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  )}
+                  {isLoadingImpact
+                    ? "Checking..."
+                    : isDeleting
+                      ? "Deleting..."
+                      : "Yes, Delete My Profile"}
                 </Button>
               </AlertDialogFooter>
             </>
           )}
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* ══ The two follow-up dialogs ══
+
+          The dialog above asks "are you sure". These ask what "sure" means for an account that owns
+          an organization, which is information the first one cannot have until it has looked. Only
+          one of them ever opens, and neither can be dismissed by Escape or an outside click: Radix's
+          AlertDialog ignores both, and each carries an explicit Cancel. */}
+
+      {/* Deleting an Owner's account with nobody to hand it to. A warning, not a confirmation:
+          the numbers are here so the loss can be counted rather than imagined, and the button says
+          "everything" because that is what it does — unlike the picker's, which hands over. */}
+      <AlertDialog
+        open={deletionWarningOpen}
+        onOpenChange={(open) => {
+          if (!isDeleting) setDeletionWarningOpen(open);
+        }}
+      >
+        <AlertDialogContent className="sm:max-w-[480px]">
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="flex-shrink-0 w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/40 flex items-center justify-center">
+                <ShieldAlert className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <AlertDialogTitle className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                Nobody can take over{" "}
+                {deletionImpact?.organizationName ?? "your organization"}
+              </AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-left text-gray-600 text-muted-foreground space-y-3">
+              {organizationIsEmpty ? (
+                <p>
+                  No one else can own this organization, and there is nothing in it
+                  yet — no plans and no teammates. Deleting your profile deletes the
+                  organization with it. This cannot be undone.
+                </p>
+              ) : (
+                <>
+                  <p>
+                    No one else can own this organization — only teammates who have
+                    accepted their invitation and signed in can. Deleting your profile
+                    therefore deletes the whole organization. This will permanently
+                    remove:
+                  </p>
+                  <ul className="list-disc pl-5 text-left text-sm space-y-1">
+                    <li className="text-left">
+                      The organization itself —{" "}
+                      {deletionImpact?.organizationName ?? "your organization"}
+                    </li>
+                    <li className="text-left">
+                      {deletionImpact?.plans ?? 0} plan
+                      {(deletionImpact?.plans ?? 0) === 1 ? "" : "s"} and every
+                      document, benefit and meeting in{" "}
+                      {(deletionImpact?.plans ?? 0) === 1 ? "it" : "them"}
+                    </li>
+                    <li className="text-left">
+                      Access for {deletionImpact?.teamMembers ?? 0} team member
+                      {(deletionImpact?.teamMembers ?? 0) === 1 ? "" : "s"} and{" "}
+                      {deletionImpact?.collaborators ?? 0} collaborator
+                      {(deletionImpact?.collaborators ?? 0) === 1 ? "" : "s"}
+                    </li>
+                    <li className="text-left">Your account and login credentials</li>
+                  </ul>
+                  <p className="font-semibold text-red-600 dark:text-red-400">
+                    This action cannot be undone.
+                  </p>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter className="flex flex-row items-center gap-2 sm:gap-2 mt-4">
+            <AlertDialogCancel
+              disabled={isDeleting}
+              className="flex-1 m-0 border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
+            >
+              Cancel
+            </AlertDialogCancel>
+            <Button
+              // The acknowledgement the route asks for. Without it this button's request would be
+              // refused — which is the point: the flag can only be sent by a caller that showed
+              // what it is confirming.
+              onClick={() =>
+                void performDeletion({ acknowledgedOrganization: true })
+              }
+              disabled={isDeleting}
+              variant="destructive"
+              className="flex-1 bg-red-600 text-white hover:bg-red-700"
+            >
+              {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              {isDeleting
+                ? "Deleting..."
+                : "Delete everything and my profile"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Handing the organization over. No "delete everything anyway": that would be one click from
+          the button the user has already decided to press, and it is the accident this dialog
+          exists to prevent. Cancel is the only other way out. */}
+      <OwnershipSuccessorDialog
+        open={successorDialogOpen}
+        onOpenChange={setSuccessorDialogOpen}
+        organizationName={deletionImpact?.organizationName ?? "your organization"}
+        successors={deletionImpact?.successors ?? []}
+        isSubmitting={isTransferring}
+        onConfirm={(profileId) => {
+          const chosen =
+            deletionImpact?.successors.find(
+              (person) => person.profileId === profileId,
+            ) ?? null;
+          setIsTransferring(true);
+          void performDeletion({
+            transferToProfileId: profileId,
+            successorName: chosen?.name ?? null,
+          });
+        }}
+      />
 
       {/* Unsaved Changes Dialog */}
       <AlertDialog

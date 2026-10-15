@@ -33,6 +33,7 @@
     "teammates:verify-t6": "npx tsx scripts/teammates/verify-t6.ts",
     "teammates:verify-t7": "npx tsx scripts/teammates/verify-t7.ts",
     "teammates:verify-org": "npx tsx scripts/teammates/verify-organization-sync.ts",
+    "teammates:verify-ownership": "npx tsx scripts/teammates/verify-ownership-transfer.ts",
     "comments:verify": "npx tsx scripts/comments/verify-comments.ts",
     "messages:verify": "npx tsx scripts/messages/verify-messages.ts",
     "check:no-mongo": "npx tsx scripts/check-no-mongo.ts",

@@ -48,7 +48,13 @@ export type TeammateAuditAction =
   // and the mail failed" is exactly the kind of question the trail exists to answer.
   | "invite_resent"
   | "custom_access_set"
-  | "seat_limit_upgrade_confirmed";
+  | "seat_limit_upgrade_confirmed"
+  // The organization changed hands. Its own action rather than a `profile_*` write, because
+  // nothing about a person changed: the tenancy root moved, and every plan, document and
+  // collaborator in it moved with it. A trail that could not say "on this date this organization
+  // became somebody else's" would be unable to answer the only question anyone asks after a
+  // handover.
+  | "organization_ownership_transferred";
 
 export interface RecordTeammateAuditEventInput {
   organizationId: string;
