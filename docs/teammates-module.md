@@ -3008,6 +3008,118 @@ non-member is refused); and the login-delete cascade. `npx tsc --noEmit` and `es
 
 ---
 
+## 9k. Self-service deletion — the person leaves, the Owner confirms
+
+### The rule
+
+A login holder may delete their own account. That must not let them empty an organization's roster
+on the way out, so `DELETE /api/profile/delete` does **not** remove teammate rows. For every
+organization the person holds access in — and does not own — it:
+
+1. flags each `TeammateProfile` bound to that login with `selfDeletedAt`,
+2. records a `profile_self_deleted` audit event, and
+3. leaves the seat, the profile and **every** plan assignment exactly where they were.
+
+Nothing is released until an Owner or Admin confirms. The confirmation is the audited action; the
+flag is only the request for one.
+
+### Both kinds are flagged — this was the bug
+
+`markProfilesSelfDeletedByLogin` used to flag `type: "team_member"` only, and the comment above it
+said why: the marker existed to put a "seat still held" notice in front of an Owner, and a
+Collaborator holds no seat. That reasoning left a real hole. A Collaborator's access is a set of
+plan assignments rather than a seat, and it is **just as invisible** once their login is gone: they
+could delete their account and remain a fully working Collaborator — still listed on every plan,
+still in the comments directory, still DM-able, still mentionable — with nothing on any screen to
+say they had gone and nobody able to release it.
+
+The marker therefore now means *"this person deleted their own login and their access needs
+reviewing"*, which is true of both kinds, and each surface words the review for the kind it is
+showing: a seat for a Team Member, plain access for a Collaborator. The audit detail follows suit —
+`personType` records which, and `seatRetained` reports `profile.type === "team_member"` rather than
+a flat `true`, because claiming a seat for a Collaborator would send an admin looking for something
+that never existed.
+
+`deactivated` and `contact` profiles are still **not** flagged: a deactivated person's access has
+already ended and a Contact holds none, so marking either would raise a confirmation for nothing.
+
+### The Owner and Admin are told
+
+Nothing notified on self-deletion before — the action left an audit row and nothing else, on a
+surface nobody has a reason to open.
+
+`notifySelfDeletedProfile` writes one notification per flagged profile to the organization's Owner
+(`Organization.ownerUserId`) **plus** every live Team Member holding an assignment whose role is the
+`owner` or `admin` preset — the same rule `isOwnerOrAdminOfOrganization` applies, read in one pass
+over the roster instead of asked per person. Editors and Viewers are deliberately left out: the
+confirmation is an `org_settings` action, so pointing them at a screen they cannot act on would be
+noise.
+
+The two kinds deep-link differently, because the person is confirmed where they are managed:
+
+| Kind | `href` | Body |
+| --- | --- | --- |
+| Collaborator | `BENEFITS_DEEP_LINK` (`/benefits`) | "Their access is still in place. Confirm the deletion to remove them as a Collaborator." |
+| Team Member | `MEMBERS_DEEP_LINK` (`/settings?tab=members`) | the same sentence, ending "Team Member" |
+
+Fired from `route.ts` **per profile, in its own `try`/`catch`**, and the whole flagging block is
+itself best-effort: one organization's notification write failing must not stop the others and must
+not block the account deletion. Deleting your own account cannot be held hostage by a notification.
+
+### Confirming — two surfaces, one action
+
+`PATCH /api/teammates/team/{profileId}` with `{ action: "confirm_self_deletion" }` →
+`confirmSelfDeletedProfile`, which **refuses a profile that was not self-deleted**, so this is not a
+second route to removal. Confirming deletes the person, removes all their assignments, and releases
+the seat.
+
+**Team Member** — Settings → People & Access, the `FilledSeatCard` (`submitConfirmSelfDeletion` in
+[`team-members-section.tsx`](../components/pages/settings/team-members-section.tsx)). Unchanged
+this round.
+
+**Collaborator** — the benefit's Contacts step (Create / Edit Benefit, Step 3), where the
+collaborator cards already render. `selfDeletedAt` was threaded onto that read
+(`PlanAssignmentRow.selfDeletedAt` → `/api/teammates/plan-assignments` → `PlanCollaboratorRow` →
+`CollaboratorDetailPerson`), and the card becomes a single-purpose surface:
+
+- the footer is a red **"Confirm deletion"** button instead of the usual status chip, and it takes
+  over the whole card — a self-deleted card's one meaningful action *is* the confirmation;
+- the pencil, the trash and the resend icon are **withheld**: every one of them addresses an account
+  that no longer exists (the pencil's modal offers a seat grant, the trash is a plan-level removal,
+  the resend targets a deleted inbox);
+- with no handler — a viewer who may not manage people — the footer falls back to the status label
+  "Profile deleted" and the card falls back to the detail modal, with the title saying so rather
+  than promising an action that is not there.
+
+The list is **re-read** after confirming, not patched locally: the person leaves every plan they were
+on, not just the one this step edits, so the server is the only thing that knows which rows went.
+
+### Known limit, deliberately
+
+The notification deep-links to `/benefits`, not to the specific plan's Contacts step. A Collaborator
+can hold assignments on several plans and the marker is per person, so a single-target link would be
+right for exactly one of them. The Bell is a pointer to the surface; the cards are where the work is.
+
+### Files
+
+| File | What it does |
+| --- | --- |
+| [`lib/teammates/profiles.server.ts`](../lib/teammates/profiles.server.ts) | `markProfilesSelfDeletedByLogin` — both kinds, honest `seatRetained`, returns `flagged` |
+| [`lib/notifications/notifications.server.ts`](../lib/notifications/notifications.server.ts) | `PROFILE_SELF_DELETED_TYPE`, `BENEFITS_DEEP_LINK`, `notifySelfDeletedProfile` |
+| [`app/api/profile/delete/route.ts`](../app/api/profile/delete/route.ts) | step 4b/4c — flag, then notify per flagged profile |
+| [`lib/teammates/invites.server.ts`](../lib/teammates/invites.server.ts) | `PlanAssignmentRow.selfDeletedAt` |
+| [`components/teammates/collaborator-card.tsx`](../components/teammates/collaborator-card.tsx) | the "Profile deleted" card and its confirm |
+| [`components/wizard/benefits-steps/step-3.tsx`](../components/wizard/benefits-steps/step-3.tsx) | `confirmCollaboratorSelfDeletion` + the confirm dialog |
+
+### Verification
+
+`npx tsc --noEmit` and `eslint` clean across every file above. Manual check: delete a
+collaborator's account, confirm the Owner and Admin both receive the Bell notification, then confirm
+the deletion from the benefit's Contacts step and check the person is gone from the plan, from the
+comments directory and from DMs.
+
+---
+
 ## 10. Residual migration debt
 
 Tracked, deliberately **not** part of T1:

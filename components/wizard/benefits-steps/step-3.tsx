@@ -121,6 +121,14 @@ interface PlanCollaboratorRow {
   state: TeammateProfileState;
   deactivatedAt: string | null;
   inviteDueDate: string | null;
+  /**
+   * Set when the person deleted their OWN login and an Owner or Admin has not yet accepted it.
+   *
+   * `DELETE /api/profile/delete` flags the profile instead of removing it — their access is
+   * deliberately left in place — so on this card it means "they asked to go; somebody here has
+   * to confirm". Carried by `/api/teammates/plan-assignments` (see `PlanAssignmentRow`).
+   */
+  selfDeletedAt?: string | null;
 }
 
 /**
@@ -327,6 +335,17 @@ export function BenefitsStep3({
    * section lists several people and a shared flag would put every card in a loading state.
    */
   const [resendingProfileId, setResendingProfileId] = useState<string | null>(null);
+  /**
+   * The Collaborator whose OWN account deletion is awaiting confirmation, and whether that
+   * PATCH is in flight.
+   *
+   * Deliberately a separate state from `collaboratorPendingDelete` above: that one removes a
+   * person from THIS plan, while this one accepts the `selfDeletedAt` marker and removes them
+   * from the whole organization — every plan they are on, seat included.
+   */
+  const [confirmingSelfDeletion, setConfirmingSelfDeletion] =
+    useState<CollaboratorDetailPerson | null>(null);
+  const [isConfirmingSelfDeletion, setIsConfirmingSelfDeletion] = useState(false);
   // Owner/Admin only: whether the seat grant is offered at all. The API enforces it too.
   const { canManageTeam } = useViewerAccess();
   /**
@@ -952,6 +971,51 @@ export function BenefitsStep3({
       toast.error("Could not resend the invitation");
     } finally {
       setResendingProfileId(null);
+    }
+  };
+
+  /**
+   * Accept a Collaborator's own account deletion.
+   *
+   * `DELETE /api/profile/delete` flags the profile `selfDeletedAt` and deliberately leaves the
+   * person's access alone, because a login holder must not be able to empty an organization's
+   * roster on their own. The marker is what puts the person on this card; this handler is the
+   * advisor's half of the pair. `confirmSelfDeletedProfile` refuses a profile that was not
+   * self-deleted, so this is not a second route to removal.
+   *
+   * The person leaves EVERY plan they were on, not just the one this step edits, so the list is
+   * re-read rather than patched locally — the server knows which rows went.
+   */
+  const confirmCollaboratorSelfDeletion = async (
+    person: CollaboratorDetailPerson,
+  ) => {
+    setIsConfirmingSelfDeletion(true);
+    try {
+      const response = await fetch(
+        `/api/teammates/team/${encodeURIComponent(person.profileId)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ action: "confirm_self_deletion" }),
+        },
+      );
+      const body = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      if (!response.ok) {
+        toast.error(body.error ?? "Could not confirm the deletion");
+        return;
+      }
+      toast.success(`${person.name} was removed from your organization.`);
+      // Their detail modal, if open, now describes somebody who is gone.
+      setSelectedCollaborator((current) =>
+        current?.profileId === person.profileId ? null : current,
+      );
+      setCollaboratorsRefreshKey((key) => key + 1);
+    } catch {
+      toast.error("Could not confirm the deletion");
+    } finally {
+      setIsConfirmingSelfDeletion(false);
     }
   };
 
@@ -1584,6 +1648,16 @@ export function BenefitsStep3({
                           ? () => void resendCollaboratorInvite(person)
                           : undefined
                       }
+                      /* They deleted their own login: until an Owner or Admin accepts it the
+                         profile — and their access — is still here. Routed to a SEPARATE confirm
+                         rather than the removal above, because they are asking to leave the
+                         organization, not this one plan. Owner/Admin-only, like every other write
+                         in this section. */
+                      onConfirmDeletion={
+                        person.selfDeletedAt && canManageTeam
+                          ? () => setConfirmingSelfDeletion(person)
+                          : undefined
+                      }
                       resending={resendingProfileId === person.profileId}
                     />
                   ))}
@@ -1670,6 +1744,38 @@ export function BenefitsStep3({
           canManageSeats={canManageTeam}
           currentCustomBenefit={currentCustomBenefit}
           onGranted={() => setCollaboratorsRefreshKey((key) => key + 1)}
+        />
+
+        {/* Accepting a Collaborator's own deletion. A different action from the removal below:
+            that one takes them off this plan, this one takes them out of the organization —
+            every plan, seat included — and cannot be undone. Confirmed because the person is
+            already gone from the product and the only thing left to decide is the cleanup. */}
+        <ConfirmDialog
+          open={!!confirmingSelfDeletion}
+          onOpenChange={(open) => {
+            if (!open && !isConfirmingSelfDeletion) setConfirmingSelfDeletion(null);
+          }}
+          onConfirm={async () => {
+            if (confirmingSelfDeletion) {
+              await confirmCollaboratorSelfDeletion(confirmingSelfDeletion);
+            }
+            setConfirmingSelfDeletion(null);
+          }}
+          title={
+            confirmingSelfDeletion
+              ? `Confirm ${confirmingSelfDeletion.name}'s deletion?`
+              : ""
+          }
+          description={
+            confirmingSelfDeletion
+              ? `${confirmingSelfDeletion.name} deleted their own account. Confirming removes them from your organization along with their access to every plan they were assigned to. This cannot be undone.`
+              : ""
+          }
+          confirmText="Yes, confirm"
+          cancelText="Cancel"
+          variant="destructive"
+          isLoading={isConfirmingSelfDeletion}
+          loadingText="Confirming..."
         />
 
         {/* Removing a Collaborator from the plan. Confirmed first because access ends

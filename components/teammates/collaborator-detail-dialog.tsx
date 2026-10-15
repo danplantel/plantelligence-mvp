@@ -50,6 +50,14 @@ export interface CollaboratorDetailPerson {
   /** "contact" | "invited" | "active". */
   state?: string;
   deactivatedAt?: string | null;
+  /**
+   * Set when this person deleted their OWN login — the flag `markProfilesSelfDeletedByLogin`
+   * writes, which is what an Owner/Admin confirms.
+   *
+   * Carried on the card because the confirmation has to happen where the person is shown, and for
+   * a Collaborator that is the plan's own Contacts list — they appear nowhere else.
+   */
+  selfDeletedAt?: string | null;
   inviteDueDate?: string | null;
 }
 

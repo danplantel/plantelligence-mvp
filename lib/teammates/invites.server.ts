@@ -696,6 +696,14 @@ export interface PlanAssignmentRow {
   showOnBenefitsHub: boolean;
   state: TeammateProfileState;
   deactivatedAt: Date | null;
+  /**
+   * Set when the person deleted their OWN login and an Owner/Admin has yet to confirm it.
+   *
+   * Carried to the card because the confirmation belongs where the person is shown: the plan's own
+   * Collaborators list is the only place a Collaborator appears, so it is the only place their
+   * deletion can be confirmed.
+   */
+  selfDeletedAt: Date | null;
   inviteNote: string | null;
   inviteDueDate: Date | null;
 }
@@ -771,6 +779,7 @@ export async function listPlanAssignments({
         showOnBenefitsHub: assignment.showOnBenefitsHub,
         state: profile.state,
         deactivatedAt: profile.deactivatedAt ?? null,
+        selfDeletedAt: profile.selfDeletedAt ?? null,
         inviteNote: inviteMeta.inviteNote,
         inviteDueDate: inviteMeta.inviteDueDate,
       },

@@ -654,28 +654,50 @@ export async function reactivateTeammateProfile({
  * the `loginUserId` link is left in place as the record of whose login it was, and clearing
  * it here would make a re-add indistinguishable from any other profile.
  *
- * Only profiles that actually HOLD a seat are flagged: a Team Member, not deactivated, and
- * `active` (or inside a pending invite window). A deactivated or Contact profile consumes no
- * seat, so flagging it would leave a "seat still held" notice pointing at a seat nobody is
- * holding.
+ * BOTH kinds are flagged — a Team Member and a COLLABORATOR.
+ *
+ * This was a seat concept when it was written, and the comment said so: only profiles that HOLD
+ * a seat were marked, because the marker puts a "seat still held" notice in front of an Owner.
+ * That reasoning left a real hole. A collaborator's access is a set of plan assignments rather
+ * than a seat, and it is just as invisible once their login is gone — so a collaborator who
+ * deleted their account kept every assignment, with nothing on any screen to say they had gone
+ * and nobody able to release it. The marker therefore means "this person deleted their own login
+ * and their access needs reviewing", which is true of both, and each surface words the review
+ * for the kind it is showing (a seat for a Team Member, plain access for a collaborator).
+ *
+ * DEACTIVATED and CONTACT profiles are still NOT flagged: a deactivated person's access has
+ * already ended and a Contact holds none, so marking either would raise a confirmation for
+ * nothing. The `loginUserId` match already excludes a Contact that never had an account.
  *
  * Returns the number of profiles flagged and the organizations they belong to, so the
  * caller can report what survived the deletion.
  */
 export async function markProfilesSelfDeletedByLogin(
   loginUserId: string,
-): Promise<{ profiles: number; organizations: string[] }> {
+): Promise<{
+  profiles: number;
+  organizations: string[];
+  /**
+   * The profiles that were flagged, so the caller can raise a notification per person.
+   *
+   * A count is not enough for that: a notification is addressed to ONE organization and names ONE
+   * profile, and this login may hold several across different organizations.
+   */
+  flagged: { id: string; organizationId: string }[];
+}> {
   const profiles = await prisma.teammateProfile.findMany({
     where: {
       loginUserId,
       selfDeletedAt: null,
       deactivatedAt: null,
-      type: "team_member",
+      type: { in: ["team_member", "collaborator"] },
       state: { in: ["active", "invited"] },
     },
-    select: { id: true, organizationId: true },
+    select: { id: true, organizationId: true, type: true },
   });
-  if (profiles.length === 0) return { profiles: 0, organizations: [] };
+  if (profiles.length === 0) {
+    return { profiles: 0, organizations: [], flagged: [] };
+  }
 
   const now = new Date();
   await prisma.teammateProfile.updateMany({
@@ -691,9 +713,11 @@ export async function markProfilesSelfDeletedByLogin(
       profileId: profile.id,
       details: {
         reason: "account_deleted_by_owner",
-        // The profile and its seat were intentionally retained; the confirmation that
-        // releases them is a separate, audited action.
-        seatRetained: true,
+        personType: profile.type,
+        // The profile — and the seat, when there is one — is intentionally retained; the
+        // confirmation that releases it is a separate, audited action. A collaborator holds no
+        // seat, and claiming one would send an admin looking for something that never existed.
+        seatRetained: profile.type === "team_member",
       },
     });
   }
@@ -701,6 +725,10 @@ export async function markProfilesSelfDeletedByLogin(
   return {
     profiles: profiles.length,
     organizations: [...new Set(profiles.map((profile) => profile.organizationId))],
+    flagged: profiles.map((profile) => ({
+      id: profile.id,
+      organizationId: profile.organizationId,
+    })),
   };
 }
 

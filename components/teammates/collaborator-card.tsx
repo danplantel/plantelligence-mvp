@@ -1,7 +1,7 @@
 "use client";
 
 import type { KeyboardEvent, ReactNode } from "react";
-import { Loader2, Mail, MailCheck, UserCheck } from "lucide-react";
+import { AlertTriangle, Loader2, Mail, MailCheck, UserCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { ContactCard } from "@/components/contacts/contact-card";
@@ -32,6 +32,7 @@ export function CollaboratorCard({
   onEdit,
   onDelete,
   onResendInvite,
+  onConfirmDeletion,
   resending = false,
 }: {
   person: CollaboratorDetailPerson;
@@ -46,18 +47,34 @@ export function CollaboratorCard({
   onDelete?: () => void;
   /** Omitted when there is nothing to resend (not pending, or no handler). */
   onResendInvite?: () => void;
+  /**
+   * The Owner/Admin's confirmation of a self-service account deletion.
+   *
+   * When the person deleted their OWN login this becomes the card's ONLY action, and it takes over
+   * the whole card: the profile itself is what is being removed, so a plan-level removal, an
+   * invitation resend or a seat grant would each be aimed at an account that no longer exists. See
+   * `confirmSelfDeletedProfile`.
+   */
+  onConfirmDeletion?: () => void;
   /** A resend is in flight for this person — swaps the icon for a spinner. */
   resending?: boolean;
 }) {
+  /**
+   * Checked FIRST, because it is the more specific state and it changes what the card IS: every
+   * other action on this card addresses a live account, and there is none.
+   */
+  const isSelfDeleted = Boolean(person.selfDeletedAt);
   const isPending = !person.deactivatedAt && person.state === "invited";
 
-  const statusLabel = person.deactivatedAt
-    ? "Deactivated"
-    : isPending
-      ? "Invite Pending"
-      : person.state === "active"
-        ? "Active"
-        : "Contact";
+  const statusLabel = isSelfDeleted
+    ? "Profile deleted"
+    : person.deactivatedAt
+      ? "Deactivated"
+      : isPending
+        ? "Invite Pending"
+        : person.state === "active"
+          ? "Active"
+          : "Contact";
 
   const roleLabel =
     PRESET_ROLE_LABELS[person.role as TeammateAssignmentRole] ?? person.role;
@@ -79,11 +96,42 @@ export function CollaboratorCard({
   const handleKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
+      // Keyboard activation reaches the same target the pointer does, or the card would be
+      // unreachable without a mouse for the one state that needs an action.
+      if (isSelfDeleted) {
+        onConfirmDeletion?.();
+        return;
+      }
       onOpen();
     }
   };
 
-  const footer = (
+  /**
+   * The footer is where this card states what condition somebody is in — and "deleted their own
+   * account" is a condition with exactly one action attached, so the two are the same element
+   * rather than a chip with a control beside it.
+   */
+  const footer = isSelfDeleted ? (
+    <button
+      type="button"
+      onClick={(event) => {
+        // The whole card is a click target; without this, confirming would also open the detail
+        // modal underneath it.
+        event.stopPropagation();
+        onConfirmDeletion?.();
+      }}
+      disabled={!onConfirmDeletion}
+      title={
+        onConfirmDeletion
+          ? "Confirm this deletion and remove their access"
+          : "An Owner or Admin confirms this deletion"
+      }
+      className="flex h-8 w-full items-center justify-center gap-1.5 rounded-md border border-red-300 bg-red-50 px-3 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:cursor-default disabled:hover:bg-red-50 dark:border-red-900 dark:bg-red-950/30 dark:text-red-400"
+    >
+      <AlertTriangle className="h-3.5 w-3.5" />
+      {onConfirmDeletion ? "Confirm deletion" : statusLabel}
+    </button>
+  ) : (
     <div
       className={
         isPending
@@ -104,7 +152,9 @@ export function CollaboratorCard({
 
   // The card's top-right cluster. The click is stopped so resending never also opens the
   // detail modal underneath, exactly like the old list row's button.
-  const actions: ReactNode = onResendInvite ? (
+  // Never offered on a self-deleted card: there is no open invitation to retry, and the account
+  // the link would go to has been deleted.
+  const actions: ReactNode = onResendInvite && !isSelfDeleted ? (
     <Button
       size="icon"
       variant="ghost"
@@ -129,9 +179,20 @@ export function CollaboratorCard({
     <div
       role="button"
       tabIndex={0}
-      onClick={onOpen}
+      // A self-deleted card's one meaningful action IS the confirmation, so the whole surface
+      // becomes that rather than opening a modal whose controls all assume a live account.
+      // Without the handler — a viewer who may not manage people — it falls back to the modal,
+      // which is the only thing left to offer them, and the copy below says so rather than
+      // promising an action that is not there.
+      onClick={isSelfDeleted ? (onConfirmDeletion ?? onOpen) : onOpen}
       onKeyDown={handleKeyDown}
-      title="View collaborator details"
+      title={
+        isSelfDeleted
+          ? onConfirmDeletion
+            ? "Confirm this deletion"
+            : "This profile was deleted — an Owner or Admin confirms it"
+          : "View collaborator details"
+      }
       className="h-full cursor-pointer rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <ContactCard
@@ -147,8 +208,10 @@ export function CollaboratorCard({
           phoneExtension: person.phoneExtension,
         }}
         showSeatControl={false}
-        onEdit={onEdit}
-        onDelete={onDelete}
+        // Withheld while self-deleted: both the pencil's modal (which offers a seat grant) and the
+        // trash (a plan-level removal) assume an account that still exists.
+        onEdit={isSelfDeleted ? undefined : onEdit}
+        onDelete={isSelfDeleted ? undefined : onDelete}
         actions={actions}
         footer={footer}
       />
