@@ -452,16 +452,46 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
       return;
     }
 
+    const isDataUrl = header.url.startsWith("data:");
+    const previewSrc =
+      header.previewUrl || (isDataUrl ? header.url : backgroundPreviewDataUrl);
+
+    /**
+     * Paint the editor's own output BEFORE the R2 round-trip.
+     *
+     * This is the whole point of the DataURL: the cropped image is already in memory, so there is
+     * nothing to wait for — and the card was waiting anyway, because the slot's props only caught up
+     * when this handler finished uploading.
+     *
+     * Two things have to be true for the preview to appear, and setting only the second is what
+     * made this look fixed when it wasn't:
+     *
+     *  - the slot needs a non-empty `url`, or `BrandImagesSection` passes no `currentImage` at all
+     *    and the card renders its EMPTY drop zone — with the busy overlay on top of it;
+     *  - `previewUrl` is what the card actually draws, and what `BrandImageUpload` tests with
+     *    `previewIsInline` to decide whether a spinner is honest. Without it the preview resolves
+     *    through the R2 proxy, which is a round-trip by definition.
+     *
+     * ONLY local state is touched here, never the store: the base64 must not reach the saved draft,
+     * and that is why the persistence call stays below, after the upload, holding the R2 key. The
+     * `if` is not a formality either — a slot re-cropped from an existing image still hands over a
+     * data URL, so every upload path is covered, while a value that is already an R2 key has
+     * nothing new to show and is left to the proxy.
+     */
+    if (isDataUrl) {
+      setBackgroundImage(header.url);
+      setBackgroundFileName(header.fileName);
+      setBackgroundPreviewDataUrl(previewSrc);
+      backgroundPreviewDataUrlRef.current = previewSrc;
+    }
+
     let storedUrl = header.url;
-    if (header.url.startsWith("data:")) {
+    if (isDataUrl) {
       const r2Key = await uploadBackgroundToR2(header.url, header.fileName);
       if (r2Key) storedUrl = r2Key;
     }
 
-    // Use the modal's data-URL preview for immediate display + caching.
-    const previewSrc =
-      header.previewUrl ||
-      (header.url.startsWith("data:") ? header.url : backgroundPreviewDataUrl);
+    // Persistence, and the point at which the slot's stored value becomes the R2 key.
     await handleBackgroundFieldChange(storedUrl, header.fileName, previewSrc);
   };
 
@@ -752,6 +782,27 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
               header: backgroundImage
                 ? {
                     url: backgroundImage,
+                    /**
+                     * The DataURL for this slot, so the preview paints the image the advisor
+                     * just cropped instead of resolving the R2 key through the proxy.
+                     *
+                     * `BrandImageUpload` already prefers `previewUrl` over the proxy URL for
+                     * exactly this reason — "no R2 proxy round-trip needed" — and this step was
+                     * the one caller not passing it, which is why the hero banner sat behind a
+                     * spinner while the full-resolution data URL was already in memory two
+                     * state variables away.
+                     *
+                     * Seeded from the module-level cache, which is what carries it across
+                     * leaving Step 3 and coming back within the same page load. After a full
+                     * reload there is no DataURL anywhere — the store strips base64 on purpose
+                     * — so the proxy is the only way to draw the stored image, and the brief
+                     * pause there is the honest cost of not shipping megabytes of base64 in the
+                     * saved draft. The proxy read still happens behind the preview; it is just
+                     * no longer what the preview waits for.
+                     */
+                    previewUrl:
+                      backgroundPreviewDataUrl ||
+                      getCachedPreviewDataUrl(backgroundImage),
                     fileName: backgroundFileName,
                     fileSize: 0,
                     width: 0,
