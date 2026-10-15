@@ -12,6 +12,11 @@ import { OrganizationType } from "@/types/wizard";
  *    (Step 1's Team Size section) and must not be implied by organization type.
  *  - "Financial Advisor / RIA" is a MERGED segment (the former Independent
  *    Advisor + RIA choices), stored under `financial_advisor_ria`.
+ *  - ARRAY ORDER IS THE READING ORDER. Both consumers render this array as-is — the
+ *    Step 1 radio grid and the summary edit modal's Select — so moving an entry is a
+ *    visible change to the wizard rather than a tidy-up of the file. It is also the whole
+ *    of the ordering logic: nothing indexes the array or takes a default from it, so
+ *    reordering cannot change which option is preselected for an existing answer.
  *
  * Legacy ids (`independent`, `ria`, `hybrid`, `broker`, `insurance`,
  * `recordkeeper`, `plan_sponsor`, `peo`, `trust_services`) are folded into the
@@ -25,6 +30,12 @@ export interface OrganizationTypeOption {
 }
 
 export const organizationOptions: OrganizationTypeOption[] = [
+  // First because it is the answer this list is most often read for — see the ordering note above.
+  {
+    value: OrganizationType.EMPLOYER_PLAN_SPONSOR,
+    label: "Employer / Plan Sponsor",
+    description: "Employers offering retirement or insurance benefits directly.",
+  },
   {
     value: OrganizationType.FINANCIAL_ADVISOR_RIA,
     label: "Financial Advisor / RIA",
@@ -52,11 +63,6 @@ export const organizationOptions: OrganizationTypeOption[] = [
     value: OrganizationType.RECORDKEEPER_TPA,
     label: "Recordkeeper / TPA",
     description: "Retirement plan recordkeeping, testing, and administration.",
-  },
-  {
-    value: OrganizationType.EMPLOYER_PLAN_SPONSOR,
-    label: "Employer / Plan Sponsor",
-    description: "Employers offering retirement or insurance benefits directly.",
   },
   {
     value: OrganizationType.HR_OUTSOURCING_PEO,
