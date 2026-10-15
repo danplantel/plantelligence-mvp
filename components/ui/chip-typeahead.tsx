@@ -1,12 +1,14 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
   useRef,
   useState,
   type KeyboardEvent as ReactKeyboardEvent,
 } from "react";
+import { createPortal } from "react-dom";
 import { cn } from "@/lib/utils";
 import { GripVertical, X } from "lucide-react";
 
@@ -22,6 +24,12 @@ export interface ChipTypeaheadOption {
 
 /** Lowercase and strip everything but letters/digits: "shrm cp" === "SHRM-CP". */
 const squash = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+/** Gap between the input and its list, in px. */
+const LIST_GAP = 4;
+/** The list's own cap (`max-h-64`) and the minimum height worth drawing. */
+const LIST_MAX_PX = 256;
+const LIST_MIN_PX = 96;
 
 export interface ChipTypeaheadProps {
   options: ChipTypeaheadOption[];
@@ -84,6 +92,47 @@ export function ChipTypeahead({
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  /** The list is portalled (see the render), so "is this click inside?" has two answers. */
+  const listRef = useRef<HTMLUListElement>(null);
+  /**
+   * Where the portalled list is pinned, in VIEWPORT coordinates.
+   *
+   * The list used to be an `absolute` child of this container. An absolutely positioned box is
+   * still part of its scrolling ancestor's overflow, so opening a list that hangs BELOW the input
+   * made the page taller and gave the wizard's scroll region somewhere new to scroll to — focusing
+   * the field moved the page. `fixed` content is outside that calculation, so the list floats over
+   * the form rather than extending it.
+   *
+   * Measured when the list OPENS rather than during render: opening is a user gesture, the input is
+   * on screen by definition, and it puts the first paint in the right place instead of a frame at
+   * the top-left corner. The reposition effect keeps it current afterwards.
+   */
+  const [listRect, setListRect] = useState<{
+    left: number;
+    top: number;
+    bottom: number;
+    width: number;
+  } | null>(null);
+
+  const measureInput = useCallback(() => {
+    const input = inputRef.current;
+    if (!input) return null;
+    const rect = input.getBoundingClientRect();
+    return {
+      left: rect.left,
+      top: rect.top,
+      bottom: rect.bottom,
+      width: rect.width,
+    };
+  }, []);
+
+  /** Measure, then open — every path that opens the list goes through here. */
+  const openList = () => {
+    const rect = measureInput();
+    if (rect) setListRect(rect);
+    setOpen(true);
+  };
 
   const labelFor = (value: string) => {
     if (valueLabel) return valueLabel(value);
@@ -158,15 +207,42 @@ export function ChipTypeahead({
     setHighlighted(0);
   }, [query, rows.length]);
 
-  // Close on outside click.
+  // Close on outside click. TWO containers now: the field, and the portalled list — which is a
+  // child of <body>, so `containerRef` alone would read a click on a ROW as an outside click. It
+  // happens to still work, because React's own handler runs before the document listener and
+  // commits first; relying on that ordering is precisely the kind of thing that breaks silently.
   useEffect(() => {
     const onDocMouseDown = (e: MouseEvent) => {
-      if (!containerRef.current) return;
-      if (!containerRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (containerRef.current?.contains(target)) return;
+      if (listRef.current?.contains(target)) return;
+      setOpen(false);
     };
     document.addEventListener("mousedown", onDocMouseDown);
     return () => document.removeEventListener("mousedown", onDocMouseDown);
   }, []);
+
+  /**
+   * Keep the list attached to its input while anything scrolls, or the window resizes.
+   *
+   * A `fixed` list does not travel with the page, so without this it would sit still while the
+   * field it belongs to scrolled away from it. The scroll listener is registered in the CAPTURE
+   * phase deliberately: scroll does not bubble, so a listener on `window` alone would miss the
+   * wizard's own scroll container — which is the container this whole change is about.
+   */
+  useEffect(() => {
+    if (!open) return;
+    const reposition = () => {
+      const rect = measureInput();
+      if (rect) setListRect(rect);
+    };
+    window.addEventListener("scroll", reposition, true);
+    window.addEventListener("resize", reposition);
+    return () => {
+      window.removeEventListener("scroll", reposition, true);
+      window.removeEventListener("resize", reposition);
+    };
+  }, [open, measureInput]);
 
   const commit = (value: string) => {
     if (!value || atMax) return;
@@ -195,7 +271,7 @@ export function ChipTypeahead({
   const onKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setOpen(true);
+      openList();
       setHighlighted((i) => Math.min(i + 1, Math.max(rows.length - 1, 0)));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
@@ -217,6 +293,26 @@ export function ChipTypeahead({
   };
 
   const listboxId = `${id ?? "chip-typeahead"}-listbox`;
+
+  /**
+   * Which way the list opens, and how tall it may be.
+   *
+   * Measured against the VIEWPORT, because the list is `fixed` now — what matters is how much
+   * screen is left on each side, not where it sits in the document. Opening upward is expressed as
+   * a `bottom` offset so the list's own height is never needed to place it, only to cap it, which
+   * keeps this to one pass rather than render → measure → re-render.
+   */
+  const viewportHeight = typeof window === "undefined" ? 0 : window.innerHeight;
+  const spaceBelow = listRect ? viewportHeight - listRect.bottom - LIST_GAP : 0;
+  const spaceAbove = listRect ? listRect.top - LIST_GAP : 0;
+  const opensUpward =
+    listRect != null &&
+    spaceBelow < LIST_MIN_PX + LIST_GAP &&
+    spaceAbove > spaceBelow;
+  const listMaxHeight = Math.max(
+    LIST_MIN_PX,
+    Math.min(LIST_MAX_PX, opensUpward ? spaceAbove : spaceBelow),
+  );
 
   return (
     <div ref={containerRef} className={cn("relative", className)}>
@@ -299,11 +395,12 @@ export function ChipTypeahead({
         disabled={disabled}
         value={query}
         placeholder={atMax ? "Maximum reached" : placeholder}
+        ref={inputRef}
         onChange={(e) => {
           setQuery(e.target.value);
-          setOpen(true);
+          openList();
         }}
-        onFocus={() => setOpen(true)}
+        onFocus={openList}
         /**
          * Clicking the field reopens the list, and this is NOT redundant with `onFocus`.
          *
@@ -314,7 +411,7 @@ export function ChipTypeahead({
          * genuinely blurring the field first — click somewhere else, then back — which is the
          * "I pick a designation, click the box again, and nothing appears for ages" report.
          */
-        onClick={() => setOpen(true)}
+        onClick={openList}
         onKeyDown={onKeyDown}
         className={cn(
           "flex h-9 w-full rounded-lg border bg-white px-3 py-1 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/20 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-800",
@@ -324,41 +421,61 @@ export function ChipTypeahead({
         )}
       />
 
-      {open && !disabled && (rows.length > 0 || query.trim().length > 0) && (
-        <ul
-          id={listboxId}
-          role="listbox"
-          className="absolute z-50 mt-1 max-h-64 w-full overflow-y-auto rounded-lg border bg-popover p-1 text-sm shadow-md"
-        >
-          {rows.length > 0 ? (
-            rows.map((row, index) => (
-              <li
-                key={`${row.isCustom ? "custom:" : ""}${row.value}`}
-                role="option"
-                aria-selected={index === highlighted}
-                className={cn(
-                  "flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5",
-                  index === highlighted && "bg-accent",
-                )}
-                onMouseEnter={() => setHighlighted(index)}
-                onMouseDown={(e) => {
-                  // Prevent the input from blurring before the click registers.
-                  e.preventDefault();
-                  commit(row.value);
-                }}
-              >
-                {row.isCustom ? (
-                  <span className="text-muted-foreground">{row.label}</span>
-                ) : (
-                  row.label
-                )}
-              </li>
-            ))
-          ) : (
-            <li className="px-2 py-1.5 text-muted-foreground">No matches</li>
-          )}
-        </ul>
-      )}
+      {/*
+        Portalled to <body> and pinned with fixed coordinates. Inline, the list added its own height
+        to the page's scrollable area the moment the field was focused; outside the form entirely, it
+        cannot. See `listRect`.
+      */}
+      {open &&
+        !disabled &&
+        listRect &&
+        (rows.length > 0 || query.trim().length > 0) &&
+        createPortal(
+          <ul
+            ref={listRef}
+            id={listboxId}
+            role="listbox"
+            style={{
+              position: "fixed",
+              left: listRect.left,
+              width: listRect.width,
+              maxHeight: listMaxHeight,
+              ...(opensUpward
+                ? { bottom: viewportHeight - listRect.top + LIST_GAP }
+                : { top: listRect.bottom + LIST_GAP }),
+            }}
+            className="z-50 overflow-y-auto rounded-lg border bg-popover p-1 text-sm shadow-md"
+          >
+            {rows.length > 0 ? (
+              rows.map((row, index) => (
+                <li
+                  key={`${row.isCustom ? "custom:" : ""}${row.value}`}
+                  role="option"
+                  aria-selected={index === highlighted}
+                  className={cn(
+                    "flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5",
+                    index === highlighted && "bg-accent",
+                  )}
+                  onMouseEnter={() => setHighlighted(index)}
+                  onMouseDown={(e) => {
+                    // Prevent the input from blurring before the click registers.
+                    e.preventDefault();
+                    commit(row.value);
+                  }}
+                >
+                  {row.isCustom ? (
+                    <span className="text-muted-foreground">{row.label}</span>
+                  ) : (
+                    row.label
+                  )}
+                </li>
+              ))
+            ) : (
+              <li className="px-2 py-1.5 text-muted-foreground">No matches</li>
+            )}
+          </ul>,
+          document.body,
+        )}
     </div>
   );
 }
