@@ -1425,11 +1425,24 @@ collaborator hard blocks, the last-Owner guard and the audit rows. What was miss
 
 ### Two interaction choices
 
-- **Rows apply immediately; the access block is saved deliberately.** A row edits one
-  assignment, so there is nothing to reconcile and instant feedback matches T6 Part B
-  item 1 ("access ends immediately"). The Plan/Benefits block changes *which*
-  assignments exist — the server reconciles that by removing the ones that drop out —
-  so it gets an explicit Save rather than firing as the advisor ticks boxes.
+- **A row's add and remove apply immediately; the access block is saved deliberately.**
+  A row addresses ONE assignment, so there is nothing to reconcile and instant feedback
+  matches T6 Part B item 1 ("access ends immediately"). The Plan/Benefits block changes
+  *which* assignments exist — the server reconciles that by removing the ones that drop
+  out — so it gets an explicit Save rather than firing as the advisor ticks boxes. (The
+  role dropdown and the Show on Benefits Hub toggle are a third thing again: they write
+  to a local draft and are committed by that same Save, which is separate from a row
+  appearing or going.)
+- **Both of those act on the CLICK, not on the round trip.** Ticking a plan appends its row to
+  "Assignments by plan" at once — carrying a recognisable temporary id — and the server's row replaces
+  it IN PLACE when it lands, so the item neither waits to appear nor jumps to the end of the list when
+  it becomes real. Its per-plan controls stay disabled until that replacement, because they address an
+  assignment BY ID and there is no id to address yet; that is why the placeholder is marked rather than
+  made to look real. Remove takes the row out immediately too, with its plan tick and any pending edit,
+  and a refusal puts all three back where they stood instead of leaving the screen claiming an access
+  the server still holds. A second click on Remove within the same frame is dropped rather than sent:
+  the row is still mounted for that one frame, and a second DELETE would answer 404 and roll back a
+  removal that had already succeeded.
 - **`Custom` is rendered but not selectable.** It needs T2a's plan-first grid. The
   server refuses the role too (`custom_role_unavailable`), so the disabled entry
   documents a real gap instead of opening a dead end.

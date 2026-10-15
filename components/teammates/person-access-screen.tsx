@@ -70,6 +70,22 @@ const CANONICAL_CATEGORY_OPTIONS = BENEFIT_CONTACT_CATEGORIES.filter(
   (category) => category !== CUSTOM_BENEFIT_CATEGORY,
 );
 
+/**
+ * The id an optimistically-added assignment row carries until the server names it.
+ *
+ * A per-plan control addresses an assignment BY ID, so a row that has not been created yet cannot be
+ * edited — which is exactly why this is prefixed and recognisable rather than looking like a real id:
+ * `isOptimisticAssignmentId` is what keeps those controls disabled for the second or two it exists.
+ */
+function optimisticAssignmentId(planId: string): string {
+  return `pending-assignment-${planId}`;
+}
+
+/** Is this row still being created? See {@link optimisticAssignmentId}. */
+function isOptimisticAssignmentId(id: string): boolean {
+  return id.startsWith("pending-assignment-");
+}
+
 export interface PersonAccessScreenProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -257,22 +273,61 @@ export function PersonAccessScreen({
    *
    * The per-plan controls (Role, Show on Benefits Hub) address an assignment by id, so a plan
    * that exists only as a draft cannot be edited. This writes the one assignment now — via
-   * `POST /api/teammates/assignments`, which touches only that plan — and appends the returned
-   * row to the screen, so its controls work at once instead of only after Save access.
+   * `POST /api/teammates/assignments`, which touches only that plan.
+   *
+   * The row is appended OPTIMISTICALLY, before the request: ticking a plan has to put an item in
+   * "Assignments by plan" on the click rather than after a round trip. The placeholder carries a
+   * temporary id and its controls are disabled until the server's row arrives and replaces it IN
+   * PLACE — so the item neither waits to appear nor jumps to the end of the list when it does. A
+   * refusal takes the row and the tick back with it.
    *
    * The append is deliberate rather than a full `reload()`: a reload re-hydrates `planIds`,
    * `categoryScope` and `categories` from the server and would discard the reader's in-progress
    * draft (an untick, or a category they just picked).
    *
-   * Removal is unchanged — unticking leaves the assignment in place and Save access removes it.
+   * Removal is unchanged here — unticking leaves the assignment in place and Save access removes it.
+   * The Remove button is the one that acts at once (see `removeAssignmentRow`).
    */
   const addPlanToAccess = useCallback(
     async (planId: string) => {
       if (!profileId) return;
       if (planIds.includes(planId)) return;
 
+      const pendingId = optimisticAssignmentId(planId);
+      const pendingRow = {
+        id: pendingId,
+        clientId: planId,
+        planName: planNameById.get(planId) ?? "Plan",
+        role: "contributor",
+        categoryScope: "all",
+        categories: [],
+        showOnBenefitsHub: true,
+        permissionSet: null,
+        inviteNote: null,
+        inviteDueDate: null,
+        invitedAt: null,
+        lastChangedAt: null,
+      } as unknown as MembershipDetail["assignments"][number];
+
+      /** The whole optimistic add, undone: the tick and the placeholder row both go. */
+      const rollback = () => {
+        setPlanIds((prev) => prev.filter((id) => id !== planId));
+        setDetail((prev) =>
+          prev
+            ? {
+                ...prev,
+                assignments: prev.assignments.filter((row) => row.id !== pendingId),
+              }
+            : prev,
+        );
+      };
+
       setPlanIds((prev) => (prev.includes(planId) ? prev : [...prev, planId]));
       setAddingPlanId(planId);
+      setDetail((prev) =>
+        prev ? { ...prev, assignments: [...prev.assignments, pendingRow] } : prev,
+      );
+
       try {
         const response = await fetch("/api/teammates/assignments", {
           method: "POST",
@@ -292,7 +347,7 @@ export function PersonAccessScreen({
         };
         const created = body.assignment;
         if (!response.ok || !created?.id) {
-          setPlanIds((prev) => prev.filter((id) => id !== planId));
+          rollback();
           toast.error(body.error ?? "Could not add this plan");
           return;
         }
@@ -312,14 +367,21 @@ export function PersonAccessScreen({
           lastChangedAt: null,
         } as MembershipDetail["assignments"][number];
 
+        // REPLACE the placeholder where it stands rather than appending: the row is already on
+        // screen, so moving it to the end would read as a second plan having been added.
         setDetail((prev) =>
           prev
-            ? { ...prev, assignments: [...prev.assignments, newAssignment] }
+            ? {
+                ...prev,
+                assignments: prev.assignments.map((row) =>
+                  row.id === pendingId ? newAssignment : row,
+                ),
+              }
             : prev,
         );
         onChanged();
       } catch {
-        setPlanIds((prev) => prev.filter((id) => id !== planId));
+        rollback();
         toast.error("Could not add this plan");
       } finally {
         setAddingPlanId(null);
@@ -487,9 +549,65 @@ export function PersonAccessScreen({
       [assignmentId]: { ...prev[assignmentId], showOnBenefitsHub },
     }));
 
-  /** The first of the three actions (spec T6 Part A item 5). */
+  /**
+   * The first of the three actions (spec T6 Part A item 5).
+   *
+   * OPTIMISTIC: the row leaves the list on the click and the DELETE follows. This waits for the round
+   * trip — the item sat there for the whole request, which reads as a button that did nothing.
+   *
+   * A refusal puts the row back where it stood, with its plan tick and its pending edit, rather than
+   * leaving the screen claiming an access the server still holds. Dropping the row, its plan and any
+   * pending edit locally is deliberate — a `reload()` here would discard every other unsaved change in
+   * the modal.
+   */
   const removeAssignmentRow = async (assignmentId: string, planName: string) => {
+    // A second click in the same frame cannot be stopped by the DOM: the row is still mounted, and its
+    // Remove button stays enabled until the re-render takes it away. Without this guard the second
+    // DELETE would answer 404 and roll back a removal that had already succeeded.
+    if (pendingAssignmentId === assignmentId) return;
+
+    const before = detail?.assignments ?? [];
+    const index = before.findIndex((row) => row.id === assignmentId);
+    const removedRow = index >= 0 ? before[index] : undefined;
+    const removedDraft = assignmentDrafts[assignmentId];
+
+    /** Undo the removal: the row returns to its own position, tick and draft included. */
+    const rollback = () => {
+      if (!removedRow) return;
+      setDetail((prev) => {
+        if (!prev) return prev;
+        const next = [...prev.assignments];
+        next.splice(Math.min(index, next.length), 0, removedRow);
+        return { ...prev, assignments: next };
+      });
+      setPlanIds((prev) =>
+        prev.includes(removedRow.clientId)
+          ? prev
+          : [...prev, removedRow.clientId],
+      );
+      if (removedDraft) {
+        setAssignmentDrafts((prev) => ({ ...prev, [assignmentId]: removedDraft }));
+      }
+    };
+
     setPendingAssignmentId(assignmentId);
+    setDetail((prev) =>
+      prev
+        ? {
+            ...prev,
+            assignments: prev.assignments.filter((row) => row.id !== assignmentId),
+          }
+        : prev,
+    );
+    if (removedRow) {
+      setPlanIds((prev) => prev.filter((id) => id !== removedRow.clientId));
+    }
+    setAssignmentDrafts((prev) => {
+      const next = { ...prev };
+      delete next[assignmentId];
+      return next;
+    });
+
     try {
       const response = await fetch(`/api/teammates/assignments/${assignmentId}`, {
         method: "DELETE",
@@ -498,33 +616,14 @@ export function PersonAccessScreen({
         error?: string;
       };
       if (!response.ok) {
+        rollback();
         toast.error(body.error ?? "Could not remove this assignment");
         return;
       }
-      // Drop the row, its plan and any pending edit locally rather than re-reading the person:
-      // a reload here would discard every other unsaved change in the modal.
-      const removedClientId = detail?.assignments.find(
-        (row) => row.id === assignmentId,
-      )?.clientId;
-      setDetail((prev) =>
-        prev
-          ? {
-              ...prev,
-              assignments: prev.assignments.filter((row) => row.id !== assignmentId),
-            }
-          : prev,
-      );
-      if (removedClientId) {
-        setPlanIds((prev) => prev.filter((id) => id !== removedClientId));
-      }
-      setAssignmentDrafts((prev) => {
-        const next = { ...prev };
-        delete next[assignmentId];
-        return next;
-      });
       onChanged();
       toast.success(`Removed their access to ${planName}.`);
     } catch {
+      rollback();
       toast.error("Could not remove this assignment");
     } finally {
       setPendingAssignmentId(null);
@@ -832,7 +931,10 @@ export function PersonAccessScreen({
                 ) : (
                   <ul className="space-y-2">
                     {detail.assignments.map((assignment) => {
-                      const isPending = pendingAssignmentId === assignment.id;
+                      // A row that is still being CREATED carries a temporary id, so its controls stay
+                      // disabled until the server's row replaces it. A row being removed is already
+                      // out of this list, which is why nothing here tracks it.
+                      const isPending = isOptimisticAssignmentId(assignment.id);
                       return (
                         <li
                           key={assignment.id}
@@ -872,6 +974,7 @@ export function PersonAccessScreen({
                                   assignmentDrafts[assignment.id]?.role ??
                                   assignment.role
                                 }
+                                disabled={isPending}
                                 onValueChange={(value) => {
                                   // T2a: Custom is not written from here. Choosing it
                                   // opens the plan-first grid, which decides the plans,
@@ -931,6 +1034,9 @@ export function PersonAccessScreen({
                                 onCheckedChange={(checked) =>
                                   setAssignmentHub(assignment.id, checked)
                                 }
+                                // Nothing may edit a row the server has not named yet: the write
+                                // addresses the assignment by id.
+                                disabled={isPending}
                               />
                             </div>
                           </div>
