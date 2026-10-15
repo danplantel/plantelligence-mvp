@@ -1443,6 +1443,14 @@ collaborator hard blocks, the last-Owner guard and the audit rows. What was miss
   the server still holds. A second click on Remove within the same frame is dropped rather than sent:
   the row is still mounted for that one frame, and a second DELETE would answer 404 and roll back a
   removal that had already succeeded.
+- **Unticking a pill hides its row; re-ticking brings it BACK.** An untick is a draft change —
+  membership ends when Save access runs — so the row is set aside in `detachedAssignments` rather than
+  deleted, and a re-tick restores it exactly: same id, same role, same category scope, same pending
+  edit. The alternative (delete, then re-create on a re-tick) asks the server to duplicate an
+  assignment that is still in place and throws away whatever the reader had chosen for it. One
+  interleaving needs care and is handled explicitly: an "instant add" unticked while its request is
+  still in flight — the success handler reads a ref of `planIds` to know, and lands the REAL row in the
+  set-aside group rather than putting a row with an id the server has never heard of back on screen.
 - **`Custom` is rendered but not selectable.** It needs T2a's plan-first grid. The
   server refuses the role too (`custom_role_unavailable`), so the disabled entry
   documents a real gap instead of opening a dead end.

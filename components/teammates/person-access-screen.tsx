@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   AlertTriangle,
@@ -157,6 +157,28 @@ export function PersonAccessScreen({
   const [addingPlanId, setAddingPlanId] = useState<string | null>(null);
 
   /**
+   * The assignment rows hidden by UNTICKING their plan.
+   *
+   * An untick is a draft change — membership ends when Save access runs — so the row is set ASIDE
+   * rather than deleted: re-ticking the pill puts it back exactly as it was, role, category scope and
+   * pending edit included. Without this the row would have to be re-created, which asks the server to
+   * duplicate an assignment that still exists and loses whatever the reader had chosen for it.
+   */
+  const [detachedAssignments, setDetachedAssignments] = useState<
+    MembershipDetail["assignments"]
+  >([]);
+
+  /**
+   * `planIds` as it is NOW, for a callback that finishes later.
+   *
+   * An "instant add" can be unticked while its request is in flight, and its success handler has to
+   * know: the row it has just created belongs in `detachedAssignments`, not on screen. Reading
+   * `planIds` there would read the value from the render that STARTED the call.
+   */
+  const planIdsRef = useRef<string[]>([]);
+  planIdsRef.current = planIds;
+
+  /**
    * Per-assignment edits — role and "Show on Benefits Hub" — held here until Save access.
    *
    * These used to PATCH the assignment and re-read the person on every change, which spun a
@@ -179,8 +201,10 @@ export function PersonAccessScreen({
     setDetail(next);
     setPlanScope(next.profile.allPlans ? "all_plans" : "certain_plans");
     setPlanIds(next.assignments.map((assignment) => assignment.clientId));
-    // A fresh read is the new baseline: any pending row edits are now reflected server-side.
+    // A fresh read is the new baseline: any pending row edits are now reflected server-side, and the
+    // rows an untick had set aside are either back in `assignments` or genuinely gone.
     setAssignmentDrafts({});
+    setDetachedAssignments([]);
 
     // Pre-fill benefits access from what the person already holds: "All" only when
     // every assignment covers every category, otherwise the union of what they have.
@@ -309,7 +333,10 @@ export function PersonAccessScreen({
         lastChangedAt: null,
       } as unknown as MembershipDetail["assignments"][number];
 
-      /** The whole optimistic add, undone: the tick and the placeholder row both go. */
+      /**
+       * The whole optimistic add, undone: the tick and the placeholder row both go — including out of
+       * `detachedAssignments`, where an untick during the request may have parked the placeholder.
+       */
       const rollback = () => {
         setPlanIds((prev) => prev.filter((id) => id !== planId));
         setDetail((prev) =>
@@ -319,6 +346,9 @@ export function PersonAccessScreen({
                 assignments: prev.assignments.filter((row) => row.id !== pendingId),
               }
             : prev,
+        );
+        setDetachedAssignments((prev) =>
+          prev.filter((row) => row.id !== pendingId),
         );
       };
 
@@ -367,18 +397,29 @@ export function PersonAccessScreen({
           lastChangedAt: null,
         } as MembershipDetail["assignments"][number];
 
-        // REPLACE the placeholder where it stands rather than appending: the row is already on
-        // screen, so moving it to the end would read as a second plan having been added.
-        setDetail((prev) =>
-          prev
-            ? {
-                ...prev,
-                assignments: prev.assignments.map((row) =>
-                  row.id === pendingId ? newAssignment : row,
-                ),
-              }
-            : prev,
-        );
+        if (planIdsRef.current.includes(planId)) {
+          // REPLACE the placeholder where it stands rather than appending: the row is already on
+          // screen, so moving it to the end would read as a second plan having been added.
+          setDetail((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  assignments: prev.assignments.map((row) =>
+                    row.id === pendingId ? newAssignment : row,
+                  ),
+                }
+              : prev,
+          );
+        } else {
+          // The plan was unticked while this was still in flight. The row is real now, so the
+          // placeholder becomes the REAL row — held aside rather than shown, and removed by Save
+          // access exactly as the untick asked. Leaving the placeholder in its place would restore a
+          // row whose id the server has never heard of the moment the reader ticked the pill again.
+          setDetachedAssignments((prev) => [
+            ...prev.filter((row) => row.id !== pendingId),
+            newAssignment,
+          ]);
+        }
         onChanged();
       } catch {
         rollback();
@@ -390,12 +431,52 @@ export function PersonAccessScreen({
     [profileId, planIds, planNameById, onChanged],
   );
 
+  /**
+   * Tick / untick a plan pill.
+   *
+   * The pill and "Assignments by plan" move together, in both directions, on the click:
+   *
+   *  - UNTICKING hides the plan's row at once. It does NOT delete it — membership ends when Save
+   *    access runs, as the section states — so the row is set aside in `detachedAssignments`, where a
+   *    re-tick can put it back exactly as it was.
+   *  - TICKING restores that held row if there is one, rather than creating a second: the assignment
+   *    still exists server-side, and the reader's role and category choices for it are still attached
+   *    to it. Only a plan with no held row is created.
+   */
   const togglePlan = (planId: string) => {
     if (planIds.includes(planId)) {
-      // Deselect: membership is removed when Save access runs, as the section states.
       setPlanIds((prev) => prev.filter((id) => id !== planId));
+
+      const row = detail?.assignments.find((entry) => entry.clientId === planId);
+      // Nothing to hide when the plan has no row yet — an add still in flight, or one that failed.
+      if (!row) return;
+
+      setDetail((prev) =>
+        prev
+          ? {
+              ...prev,
+              assignments: prev.assignments.filter((entry) => entry.id !== row.id),
+            }
+          : prev,
+      );
+      setDetachedAssignments((prev) =>
+        prev.some((entry) => entry.id === row.id) ? prev : [...prev, row],
+      );
       return;
     }
+
+    const detached = detachedAssignments.find((entry) => entry.clientId === planId);
+    if (detached) {
+      setDetachedAssignments((prev) =>
+        prev.filter((entry) => entry.id !== detached.id),
+      );
+      setPlanIds((prev) => (prev.includes(planId) ? prev : [...prev, planId]));
+      setDetail((prev) =>
+        prev ? { ...prev, assignments: [...prev.assignments, detached] } : prev,
+      );
+      return;
+    }
+
     // Select: create the assignment now so its Role + hub toggle are usable immediately.
     void addPlanToAccess(planId);
   };
@@ -511,6 +592,9 @@ export function PersonAccessScreen({
       }
 
       const removed = body.member?.removedAssignments ?? 0;
+      // The server has removed the rows the unticked plans owned, so nothing is being held aside any
+      // more. A stale set would let a later re-tick resurrect a row that no longer exists.
+      setDetachedAssignments([]);
 
       // Dismiss first, toast second — sequentially, as the confirmation reads better on a
       // closed modal.
