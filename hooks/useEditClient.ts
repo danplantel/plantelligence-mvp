@@ -952,7 +952,7 @@ export function useEditClient() {
         provideSpanishVersions,
         disclaimers,
         status: clientStatus,
-        // Normalize so API always receives the 4 canonical keys (Retirement, Group Life, Group Health, Other)
+        // Normalize so API always receives the 4 canonical keys (Retirement, Group Health, Group Life, Other)
         categoryPortalVisibility: getCategoryPortalVisibility(categoryPortalVisibility),
       };
 

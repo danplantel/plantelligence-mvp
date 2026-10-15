@@ -374,11 +374,11 @@ export interface Disclaimer {
 }
 
 /** Canonical portal category keys used for per-category disclaimers.
- *  Must match `categoryPortalVisibility` keys (Retirement, Group Life, Group Health, Other). */
+ *  Must match `categoryPortalVisibility` keys (Retirement, Group Health, Group Life, Other). */
 export const PORTAL_DISCLAIMER_CATEGORIES = [
   "Retirement",
-  "Group Life",
   "Group Health",
+  "Group Life",
   "Other",
 ] as const;
 
@@ -389,7 +389,7 @@ export interface DisclaimersData {
    *  kept optional for backward compatibility with older data. */
   disclaimers?: Disclaimer[];
   /** Per-category disclaimers keyed by canonical category
-   *  (Retirement, Group Life, Group Health, Other). Each category can have its own
+   *  (Retirement, Group Health, Group Life, Other). Each category can have its own
    *  disclaimer that renders on that category's portal page footer. */
   byCategory?: Partial<Record<PortalDisclaimerCategory, Disclaimer>>;
   disclosuresText?: string;

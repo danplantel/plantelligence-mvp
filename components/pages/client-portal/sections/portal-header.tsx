@@ -54,7 +54,7 @@ interface PortalHeaderProps {
   showAlertBanner?: boolean;
   enableLogoHover?: boolean;
   onLogoClick?: () => void;
-  /** Per-category show/hide in portal; keys: Retirement, Group Life, Group Health, Other */
+  /** Per-category show/hide in portal; keys: Retirement, Group Health, Group Life, Other */
   categoryPortalVisibility?: Record<string, boolean> | null;
   /**
    * The plan's Benefit rows, as returned by `GET /api/clients/[id]?forPortal=1`

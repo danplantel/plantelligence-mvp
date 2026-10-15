@@ -125,8 +125,8 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
 
   const serviceOptions = [
     { value: ServiceType.RETIREMENT, label: "Retirement", description: "" },
-    { value: ServiceType.GROUP_LIFE_DISABILITY, label: "Group Life", description: "" },
     { value: ServiceType.GROUP_HEALTH, label: "Group Health", description: "" },
+    { value: ServiceType.GROUP_LIFE_DISABILITY, label: "Group Life", description: "" },
     { value: ServiceType.OTHER, label: "Other", description: "" },
   ];
 

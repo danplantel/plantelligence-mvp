@@ -1511,8 +1511,8 @@ export function DocumentsUploadSection({
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="Retirement">Retirement</SelectItem>
-                            <SelectItem value="Group Life">Group Life</SelectItem>
                             <SelectItem value="Group Health">Group Health</SelectItem>
+                            <SelectItem value="Group Life">Group Life</SelectItem>
                             <SelectItem value="Multiple">Multiple</SelectItem>
                             <SelectItem value="Other Benefits">Other</SelectItem>
                           </SelectContent>
@@ -1738,8 +1738,8 @@ export function DocumentsUploadSection({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Retirement">{getDocumentCategoryDisplayLabel("Retirement")}</SelectItem>
-                    <SelectItem value="Group Life">{getDocumentCategoryDisplayLabel("Group Life")}</SelectItem>
                     <SelectItem value="Group Health">{getDocumentCategoryDisplayLabel("Group Health")}</SelectItem>
+                    <SelectItem value="Group Life">{getDocumentCategoryDisplayLabel("Group Life")}</SelectItem>
                     <SelectItem value="Multiple">{getDocumentCategoryDisplayLabel("Multiple")}</SelectItem>
                     <SelectItem value="Other Benefits">{getDocumentCategoryDisplayLabel("Other Benefits")}</SelectItem>
                   </SelectContent>
@@ -1944,8 +1944,8 @@ export function DocumentsUploadSection({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="Retirement">Retirement</SelectItem>
-              <SelectItem value="Group Life">Group Life</SelectItem>
               <SelectItem value="Group Health">Group Health</SelectItem>
+              <SelectItem value="Group Life">Group Life</SelectItem>
               <SelectItem value="Multiple">Multiple</SelectItem>
               <SelectItem value="Other Benefits">Other</SelectItem>
             </SelectContent>

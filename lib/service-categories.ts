@@ -4,10 +4,19 @@ import { ServiceType } from "@/types/wizard";
  * Single source of truth for primary service category labels.
  * Used in Step 2 (onboarding), Settings, and User.primaryServiceCategories.
  */
+/**
+ * Order is DISPLAY order, and it is the canonical one for the whole app: this array drives the
+ * Step 2 / Settings checkboxes directly, `canonicalIndex` sorts stored answers against it, and
+ * every other ordered list of benefit categories is expected to agree with it.
+ *
+ * Group Health before Group Life, deliberately — that is the order the rest of the product already
+ * used (the Benefits list, the portal nav, the contact and document pickers), so this list was the
+ * outlier rather than the reference.
+ */
 export const PRIMARY_SERVICE_CATEGORY_OPTIONS = [
   "Retirement",
-  "Group Life",
   "Group Health",
+  "Group Life",
   "Other",
 ] as const;
 

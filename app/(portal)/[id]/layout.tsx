@@ -207,7 +207,7 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     const compName = clientData?.companyName || "[Company Name]";
 
     // Universal disclaimer text with placeholders resolved. Only the Benefits Hub
-    // pages (Retirement, Group Life, Group Health, Other) include a [Company Name];
+    // pages (Retirement, Group Health, Group Life, Other) include a [Company Name];
     // the Landing Page, News and Events, etc. use the organization name only.
     const isCategoryHub = !!getCurrentCategoryKey();
     const universalText = resolveDefaultDisclosuresText(
@@ -266,12 +266,12 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     const currentCategoryKey = getCurrentCategoryKey();
 
     // 0. Per-category disclaimer (byCategory) — highest priority on category pages.
-    // Each benefit category (Retirement, Group Life, Group Health, Other) can have
+    // Each benefit category (Retirement, Group Health, Group Life, Other) can have
     // its own disclaimer configured in the Create Benefit Flow (BenefitsStep5),
     // mapped to that category's portal hub page:
     //   Retirement   → /retirement
-    //   Group Life   → /life-insurance
     //   Group Health → /health-insurance
+    //   Group Life   → /life-insurance
     //   Other        → /wellness-programs
     const perCategoryDisclaimer = currentCategoryKey
       ? byCategory?.[currentCategoryKey]

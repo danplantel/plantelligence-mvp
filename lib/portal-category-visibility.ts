@@ -18,8 +18,8 @@ export const HIDDEN_CATEGORY_PORTAL_VISIBILITY: CategoryPortalVisibility =
 /** Canonical visibility keys (must match Edit Panel and PRIMARY_SERVICE_CATEGORY_OPTIONS) */
 const VISIBILITY_KEYS_READONLY = [
   "Retirement",
-  "Group Life",
   "Group Health",
+  "Group Life",
   "Other",
 ] as const;
 
@@ -164,7 +164,7 @@ export function isCategoryVisibleInPortal(
   return visibility[key] !== false;
 }
 
-/** Map contact benefitsCategories (wizard/UI names) to Edit Panel visibility keys (Retirement, Group Life, Group Health, Other) */
+/** Map contact benefitsCategories (wizard/UI names) to Edit Panel visibility keys (Retirement, Group Health, Group Life, Other) */
 const CONTACT_CATEGORY_TO_VISIBILITY_KEY: Record<string, string> = {
   // Retirement (including wizard label "Retirement Plan Benefits")
   Retirement: "Retirement",
@@ -242,7 +242,7 @@ function categoryToVisibilityKey(cat: string): string {
   return "Other";
 }
 
-/** True when every portal category (Retirement, Group Life, Group Health, Other) is hidden */
+/** True when every portal category (Retirement, Group Health, Group Life, Other) is hidden */
 export function areAllCategoriesHiddenInPortal(
   visibility: CategoryPortalVisibility | null | undefined,
 ): boolean {
@@ -320,7 +320,7 @@ function collectCategoryStringsFromObj(obj: unknown, depth: number): string[] {
 
 /**
  * Extract benefit category strings from a contact (benefitsCategories, benefitsCategory, category, etc.)
- * and normalize to visibility keys (Retirement, Group Life, Group Health, Other).
+ * and normalize to visibility keys (Retirement, Group Health, Group Life, Other).
  */
 export function getContactCategories(contact: Record<string, unknown> | null | undefined): string[] {
   if (!contact || typeof contact !== "object") return [];

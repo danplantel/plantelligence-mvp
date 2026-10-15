@@ -41,7 +41,7 @@ import {
 /**
  * Benefits Step 5 – Per-Category Disclaimers
  *
- * Each benefit category (Retirement, Group Life, Group Health, Other) can have
+ * Each benefit category (Retirement, Group Health, Group Life, Other) can have
  * its own disclaimer that appears in the Footer of that category's portal page.
  * The disclaimer being edited is implied by the category selected in Step 1,
  * and each category retains its own disclaimer in the plan record.

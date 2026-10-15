@@ -2318,8 +2318,8 @@ function EditComplianceDocumentsSection({
   // Preview tab: only benefit categories (no "All Docs" - hub preview shows by category)
   const benefitCategories: BenefitsCategory[] = [
     "Retirement",
-    "Group Life",
     "Group Health",
+    "Group Life",
     "Other Benefits",
   ];
 

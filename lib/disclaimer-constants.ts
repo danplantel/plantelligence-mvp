@@ -45,7 +45,7 @@ export function getFlyerCategoryDisclaimer(category: string): string | null {
  * Builds the default disclosures text with `[Organization Name]` resolved.
  *
  * `[Organization Name]` is always replaced with `orgName`. `[Company Name]` is only
- * included for the Benefits Hub pages (Retirement, Group Life, Group Health, Other) —
+ * included for the Benefits Hub pages (Retirement, Group Health, Group Life, Other) —
  * pass `includeCompanyName: true` along with a `compName`. For the Landing Page,
  * Settings, and News and Events pages, omit it and the "and [Company Name]" clause
  * is removed entirely (with correct grammar).
