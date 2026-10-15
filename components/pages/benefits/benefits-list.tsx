@@ -26,6 +26,7 @@ import {
   getBenefitPortalSegment,
   getBenefitsHubOpenPortalUrl,
 } from "@/lib/marketing/hub-url";
+import { withCommentsRail } from "@/lib/comments/portal-surface";
 import { categoryToSlug } from "@/lib/benefit-category-slug";
 import {
   normalizeBenefitCategoryKey,
@@ -964,8 +965,11 @@ export function BenefitsListPage({
                               const base = getBenefitsHubOpenPortalUrl(
                                 row.planSlug || row.planId,
                               );
+                              // The flag wraps the FINISHED url, segment and all.
                               window.open(
-                                portalSegment ? `${base}/${portalSegment}` : base,
+                                withCommentsRail(
+                                  portalSegment ? `${base}/${portalSegment}` : base,
+                                ),
                                 "_blank",
                                 "noopener,noreferrer",
                               );

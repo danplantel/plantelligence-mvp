@@ -1,14 +1,13 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Loader2, Paperclip, Send, X } from "lucide-react";
+import { Loader2, Paperclip, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   MAX_ATTACHMENTS_PER_MESSAGE,
   MAX_ATTACHMENT_BYTES,
   MAX_COMMENT_LENGTH,
-  formatAttachmentSize,
   type CommentAttachment,
 } from "@/lib/comments/types";
 import { cn } from "@/lib/utils";
@@ -18,6 +17,10 @@ import {
   MentionTextarea,
   type MentionTextareaHandle,
 } from "./mention-textarea";
+import {
+  StagedAttachmentList,
+  useStagedAttachments,
+} from "./staged-attachments";
 
 export interface CommentComposerProps {
   /**
@@ -38,17 +41,94 @@ export interface CommentComposerProps {
   submitLabel?: string;
 }
 
-/** An uploaded file waiting to be posted with the comment. */
-type PendingAttachment = CommentAttachment & { id: string };
+/**
+ * Put ONE file under this plan's comment prefix and return its key, or null.
+ *
+ * Deliberately never throws — the staging hook turns a null into a visibly failed chip, and a
+ * rejection into the same thing. The shape this replaces was a `try`/`finally` with **no `catch`**
+ * around two `fetch` calls, so a blocked or failed upload rejected into nothing at all: the spinner
+ * stopped, no chip appeared, and no message was shown.
+ *
+ * TWO ATTEMPTS, and the second is the point:
+ *
+ *  1. Ask the server to presign a key, then PUT the file straight to R2. The fast path.
+ *  2. If that cannot complete, send the bytes THROUGH our own origin, which stores them in R2
+ *     server-side. A direct PUT is cross-origin, so it depends on the bucket's CORS policy naming the
+ *     origin this page is served from — and the Portal Comments UI is served at the environment ROOT
+ *     while the dashboard may be on a different host. Every other upload in this app has the same
+ *     fallback; comments were the last one without it.
+ *
+ * A refusal from OUR OWN route (no access, too large, storage not configured) is reported and NOT
+ * retried: the relay would be refused for exactly the same reason.
+ */
+async function uploadCommentAttachment(input: {
+  file: File;
+  clientId: string;
+  category: string | null;
+}): Promise<string | null> {
+  const { file, clientId, category } = input;
+  if (!clientId) return null;
+
+  const type = file.type || "application/octet-stream";
+  const endpoint = `/api/clients/${encodeURIComponent(
+    clientId,
+  )}/comments/attachments`;
+
+  try {
+    const presign = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: file.name, type, size: file.size, category }),
+    });
+    const payload = (await presign.json().catch(() => ({}))) as {
+      uploadUrl?: string;
+      key?: string;
+      error?: string;
+    };
+
+    if (!presign.ok) {
+      toast.error(payload.error ?? `Could not prepare ${file.name}.`);
+      return null;
+    }
+
+    if (payload.uploadUrl && payload.key) {
+      const put = await fetch(payload.uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": type },
+        body: file,
+      });
+      if (put.ok) return payload.key;
+    }
+  } catch {
+    // The cross-origin step threw. Fall through to the relay rather than give up silently.
+  }
+
+  try {
+    const form = new FormData();
+    form.append("file", file);
+    if (category) form.append("category", category);
+    const relay = await fetch(endpoint, { method: "POST", body: form });
+    const payload = (await relay.json().catch(() => ({}))) as {
+      key?: string;
+      error?: string;
+    };
+    if (relay.ok && payload.key) return payload.key;
+    toast.error(payload.error ?? `Could not upload ${file.name}.`);
+    return null;
+  } catch {
+    toast.error(`Could not upload ${file.name}.`);
+    return null;
+  }
+}
 
 /**
- * The shared comment composer: a mention-aware textarea, a paperclip that uploads straight
- * to R2, removable chips for what's staged, and the submit button. Used by both the rail's
- * main composer and each thread's reply box, so attachments behave identically in both.
+ * The shared comment composer: a mention-aware textarea, a paperclip, removable chips for what's
+ * staged, and the submit button. Used by both the rail's main composer and each thread's reply box,
+ * so attachments behave identically in both.
  *
- * The upload is two steps, both authorized the same way as commenting itself: ask the
- * server to presign a key under this plan's comment prefix, PUT the file to R2, then send
- * the descriptor with the comment.
+ * The staging itself — the previews, the per-file state, waiting for this message's own files — lives
+ * in [`useStagedAttachments`](./staged-attachments), shared with the DM composer so the two cannot
+ * drift into behaving differently.
  */
 export function CommentComposer({
   onSubmit,
@@ -58,8 +138,6 @@ export function CommentComposer({
 }: CommentComposerProps) {
   const { target, mentionable } = useCommentMode();
   const [text, setText] = useState("");
-  const [pending, setPending] = useState<PendingAttachment[]>([]);
-  const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   /**
    * Guards a double submit WITHOUT locking the composer.
@@ -72,123 +150,75 @@ export function CommentComposer({
   // Lets the emoji picker splice a glyph in at the caret rather than appending it.
   const textareaRef = useRef<MentionTextareaHandle>(null);
 
-  const canSubmit = text.trim().length > 0 || pending.length > 0;
+  const staging = useStagedAttachments({
+    // Resolves to null rather than throwing when there is no surface yet: the chip then shows as
+    // failed, which is the truth — the key could not be minted for a plan we do not know.
+    upload: (file) =>
+      target
+        ? uploadCommentAttachment({
+            file,
+            clientId: target.clientId,
+            category: target.category ?? null,
+          })
+        : Promise.resolve(null),
+    maxAttachments: MAX_ATTACHMENTS_PER_MESSAGE,
+    maxBytes: MAX_ATTACHMENT_BYTES,
+  });
+
+  const { entries } = staging;
+  const canSubmit = text.trim().length > 0 || entries.length > 0;
   // The counter appears only in the last stretch. A permanent "0 / 10,000" is noise on a
   // limit nobody reaches, but an invisible wall — `maxLength` silently swallowing keystrokes
   // — is worse, so it shows up while there is still room to react.
   const showCount = text.length >= MAX_COMMENT_LENGTH * 0.8;
   const atLimit = text.length >= MAX_COMMENT_LENGTH;
 
-  const handleFiles = async (files: FileList | null) => {
-    if (!files || files.length === 0 || !target) return;
-
-    const room = MAX_ATTACHMENTS_PER_MESSAGE - pending.length;
-    if (room <= 0) {
-      toast.error(`You can attach up to ${MAX_ATTACHMENTS_PER_MESSAGE} files.`);
-      return;
-    }
-
-    setUploading(true);
-    try {
-      for (const file of Array.from(files).slice(0, room)) {
-        if (file.size > MAX_ATTACHMENT_BYTES) {
-          toast.error(`${file.name} is too large (max 15 MB).`);
-          continue;
-        }
-        const type = file.type || "application/octet-stream";
-
-        const presign = await fetch(
-          `/api/clients/${encodeURIComponent(target.clientId)}/comments/attachments`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name: file.name,
-              type,
-              size: file.size,
-              category: target.category ?? null,
-            }),
-          },
-        );
-        const payload = (await presign.json().catch(() => ({}))) as {
-          uploadUrl?: string;
-          key?: string;
-          error?: string;
-        };
-        if (!presign.ok || !payload.uploadUrl || !payload.key) {
-          toast.error(payload.error ?? `Could not prepare ${file.name}.`);
-          continue;
-        }
-
-        const put = await fetch(payload.uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": type },
-          body: file,
-        });
-        if (!put.ok) {
-          toast.error(`Could not upload ${file.name}.`);
-          continue;
-        }
-
-        setPending((prev) => [
-          ...prev,
-          {
-            id: payload.key as string,
-            key: payload.key as string,
-            name: file.name,
-            type,
-            size: file.size,
-          },
-        ]);
-      }
-    } finally {
-      setUploading(false);
-      // Allow re-picking the same file after a remove.
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
+  const handleFiles = (files: FileList | null) => {
+    staging.stage(files);
+    // Allow re-picking the same file after a remove.
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const submit = async () => {
-    // Same guard as the button's `disabled`, so pressing Enter during an upload cannot post a
-    // comment that the button would have refused. `sendingRef` and not state, so a second Enter in
-    // the same tick cannot double-post.
-    if (!canSubmit || sendingRef.current || uploading) return;
+    // `sendingRef` and not state, so a second Enter in the same tick cannot double-post. The button
+    // is NOT disabled while a file uploads any more: waiting on this message's own files is what
+    // `collect` does below, and gating the whole control on a global flag meant an attachment-free
+    // comment could not be sent while an unrelated file was still moving.
+    if (!canSubmit || sendingRef.current) return;
     sendingRef.current = true;
 
     /**
-     * Clear BEFORE awaiting the write.
+     * Clear the TEXT before awaiting anything.
      *
-     * The comment is already on screen optimistically (`useCommentThreads` mutates through
-     * SWR's optimistic path), so holding the text in the box until the response arrived made a
-     * slow round-trip read as a broken one: the advisor watches their comment appear in the
-     * list while still staring at the text they just sent, for as long as the write takes.
+     * The comment is already on screen optimistically (`useCommentThreads` mutates through SWR's
+     * optimistic path), so holding the text in the box until the response arrived made a slow
+     * round-trip read as a broken one: the advisor watches their comment appear in the list while
+     * still staring at the text they just sent, for as long as the write takes.
      *
-     * The write still has to succeed. On failure the optimistic message rolls back, and the
-     * text and the staged attachments come back with it, so nothing is silently lost.
-     *
-     * And nothing spins: there is no spinner on the button, because from the advisor's side there is
-     * nothing to wait for — showing one would invent latency the UI has already decided not to show.
+     * The CHIPS stay until the files are actually on their way, because they are the only thing
+     * showing that an upload is still running.
      */
     const submittedText = text.trim();
-    const submittedAttachments = pending.map(({ key, name, type, size }) => ({
-      key,
-      name,
-      type,
-      size,
-    }));
-
     setText("");
-    setPending([]);
+
+    const submittedAttachments = await staging.collect();
+    if (!submittedAttachments) {
+      // Something will never arrive. Put the text back and say so rather than sending a comment the
+      // reader believes carries a file it does not.
+      setText(submittedText);
+      sendingRef.current = false;
+      toast.error("Some files could not be uploaded. Remove them and try again.");
+      return;
+    }
+
+    staging.clear();
     try {
       await onSubmit(submittedText, submittedAttachments);
     } catch (error) {
+      // The write was refused, so nothing was lost but nothing was stored either: the text and the
+      // (already uploaded) files come back with it.
       setText(submittedText);
-      setPending(
-        submittedAttachments.map((attachment) => ({
-          ...attachment,
-          id: attachment.key,
-        })),
-      );
+      staging.restore(submittedAttachments);
       toast.error(
         error instanceof Error ? error.message : "Could not add comment.",
       );
@@ -213,35 +243,11 @@ export function CommentComposer({
         onSubmit={submit}
       />
 
-      {pending.length > 0 ? (
-        <ul className="mt-2 flex flex-wrap gap-1.5">
-          {pending.map((file) => (
-            <li
-              key={file.id}
-              className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 text-[11px]"
-            >
-              <Paperclip className="h-3 w-3 shrink-0 text-muted-foreground" />
-              <span className="truncate">{file.name}</span>
-              <span className="shrink-0 text-muted-foreground">
-                {formatAttachmentSize(file.size)}
-              </span>
-              <button
-                type="button"
-                onClick={() =>
-                  setPending((prev) =>
-                    prev.filter((entry) => entry.id !== file.id),
-                  )
-                }
-                className="shrink-0 rounded-full text-muted-foreground transition-colors hover:text-red-600"
-                aria-label={`Remove ${file.name}`}
-                title="Remove"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      <StagedAttachmentList
+        entries={entries}
+        onRemove={staging.remove}
+        className="mt-2"
+      />
 
       <div className="mt-2 flex items-center justify-between gap-2">
         <div className="flex items-center gap-0.5">
@@ -251,16 +257,16 @@ export function CommentComposer({
             size="sm"
             className="h-7 gap-1.5 px-2 text-[11px] text-muted-foreground"
             onClick={() => fileInputRef.current?.click()}
-            disabled={
-              uploading || pending.length >= MAX_ATTACHMENTS_PER_MESSAGE
-            }
+            // Not disabled while a file uploads: its progress is on the chip now, and staging another
+            // file behind it is not a race — each upload is independent.
+            disabled={entries.length >= MAX_ATTACHMENTS_PER_MESSAGE}
             title={
-              pending.length >= MAX_ATTACHMENTS_PER_MESSAGE
+              entries.length >= MAX_ATTACHMENTS_PER_MESSAGE
                 ? `Up to ${MAX_ATTACHMENTS_PER_MESSAGE} files`
                 : "Attach a file"
             }
           >
-            {uploading ? (
+            {staging.uploading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
               <Paperclip className="h-3.5 w-3.5" />
@@ -290,10 +296,12 @@ export function CommentComposer({
           <Button
             size="sm"
             className="h-7 bg-accent-blue px-3 text-[11px] hover:bg-accent-blue/90"
-            disabled={uploading || !canSubmit}
+            // Only what the reader can see: text, or a file that is at least staged. A send in
+            // flight is not consulted — `sendingRef` covers the double-press without a dead button.
+            disabled={!canSubmit}
             onClick={submit}
           >
-            {/* Never a spinner — the comment is already posted as far as this UI is concerned.
+            {/* Never a spinner — `collect` waits on the files, so the button does not have to say so.
                 `isMutating` is deliberately not consulted either: it stays true for the whole
                 optimistic write, so disabling on it would freeze the box the moment you used it. */}
             <Send className="h-3.5 w-3.5" />
@@ -307,7 +315,7 @@ export function CommentComposer({
         type="file"
         multiple
         className="hidden"
-        onChange={(event) => void handleFiles(event.target.files)}
+        onChange={(event) => handleFiles(event.target.files)}
       />
     </div>
   );

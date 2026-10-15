@@ -116,11 +116,22 @@ const CommentModeContext = createContext<CommentModeValue | null>(null);
 
 export function CommentModeProvider({
   children,
+  initialMode,
 }: {
   children: React.ReactNode;
+  /**
+   * The mode to start in, before the stored preference is read. Defaults to `"off"`.
+   *
+   * The dashboard omits it and lets the preference decide. The PORTAL passes `"on"`: its rail exists
+   * only because the link asked for it (`?comments=on`), so an advisor who has never expressed a
+   * preference must not arrive at a rail that is already closed — that would make the button they
+   * pressed look like it did nothing. A stored `"on"` still wins, and nothing here can turn the rail
+   * OFF: the restore effect below only ever turns it on.
+   */
+  initialMode?: CommentMode;
 }) {
   const [surface, setSurface] = useState<CommentSurfaceInput | null>(null);
-  const [mode, setModeState] = useState<CommentMode>("off");
+  const [mode, setModeState] = useState<CommentMode>(initialMode ?? "off");
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const { data: session } = useSession();
   const currentUserId = session?.user?.id ?? null;

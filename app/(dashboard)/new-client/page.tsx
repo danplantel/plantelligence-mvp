@@ -25,6 +25,7 @@ import { ResumeOrNewPlanDialog } from "@/components/ui/resume-or-new-plan-dialog
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
+import { withCommentsRail } from "@/lib/comments/portal-surface";
 import { consumePendingDraftSelection } from "@/lib/draft-utils";
 import { isDuplicatePlanNameError } from "@/lib/duplicate-plan-name-error";
 import {
@@ -775,7 +776,13 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
                             successPortalUrl.replace(/^\//, ""),
                           )
                         : successPortalUrl;
-                      window.open(resolvedUrl, "_blank", "noopener,noreferrer");
+                      // With the Comments rail. The flag wraps whichever URL the two branches above
+                      // produced, so it works for the absolute one too.
+                      window.open(
+                        withCommentsRail(resolvedUrl),
+                        "_blank",
+                        "noopener,noreferrer",
+                      );
                       setShowSuccessDialog(false);
                       // window.location.href = "/clients";
                     }}

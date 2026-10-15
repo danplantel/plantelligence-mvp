@@ -26,6 +26,7 @@ import {
   getBenefitPortalSegment,
   getBenefitsHubOpenPortalUrl,
 } from "@/lib/marketing/hub-url";
+import { withCommentsRail } from "@/lib/comments/portal-surface";
 import {
   BENEFIT_TITLE_MAX_LENGTH,
   displayCategoryName,
@@ -393,21 +394,25 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
   };
 
   /**
-   * Open this benefit on the employee portal.
+   * Open this benefit on the employee portal, WITH the Comments rail.
    *
    * The plan segment is the plan's own portal slug (falling back to its id, which the
    * portal resolves too), and the benefit segment is the category's portal page —
    * `/retirement`, `/health-insurance`, `/life-insurance`, or the Custom hub's own
    * name-slug. `getBenefitPortalSegment` returns "" for a category with no dedicated
    * page, so the plan root opens rather than a segment that would 404.
+   *
+   * The rail flag is applied to the FINISHED URL, after the segment — it has to be the last thing
+   * in the URL, which is why `withCommentsRail` wraps the whole expression rather than feeding an
+   * argument to the builder above. See lib/comments/portal-surface.
    */
   const handleOpenPortal = () => {
     const slugOrId = String(selectedPlan?.slug || planId || "").trim();
     if (!slugOrId) return;
     const segment = getBenefitPortalSegment(category, customBenefitName);
-    const url = `${getBenefitsHubOpenPortalUrl(slugOrId)}${
-      segment ? `/${segment}` : ""
-    }`;
+    const url = withCommentsRail(
+      `${getBenefitsHubOpenPortalUrl(slugOrId)}${segment ? `/${segment}` : ""}`,
+    );
     window.open(url, "_blank", "noopener,noreferrer");
   };
 

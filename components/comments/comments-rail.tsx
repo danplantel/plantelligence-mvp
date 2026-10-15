@@ -53,6 +53,7 @@ import { CommentComposer } from "./comment-composer";
 import { CommentTaskCard } from "./comment-task-card";
 import { AssignTaskDialog } from "./assign-task-dialog";
 import { UserProfileProvider, useUserProfile } from "./user-profile-context";
+import { AttachmentThumbnail } from "./attachment-thumbnail";
 
 type ThreadFilter = "open" | "resolved" | "all";
 
@@ -70,6 +71,15 @@ type ThreadFilter = "open" | "resolved" | "all";
  */
 const VIEW_ENTER_FORWARD =
   "animate-in fade-in-0 slide-in-from-right-4 duration-200 ease-out";
+
+/**
+ * How long the panel stays mounted after it is closed, so the slide OUT can finish.
+ *
+ * Must match the `duration-200` on the aside — the panel is unmounted when this elapses, and a
+ * shorter timer would cut the animation off mid-flight while a longer one would leave an invisible
+ * fixed element swallowing clicks.
+ */
+const RAIL_TRANSITION_MS = 200;
 const VIEW_ENTER_BACK =
   "animate-in fade-in-0 slide-in-from-left-4 duration-200 ease-out";
 
@@ -201,12 +211,12 @@ function MessageRow({
                   title={attachment.name}
                 >
                   {isImageAttachment(attachment.type) ? (
-                    // Sized by its own aspect ratio, capped inside a 12rem x 6rem box, so
-                    // the WHOLE image shows — no object-cover crop.
-                    <img
+                    // Sized by its own aspect ratio inside a 12rem x 6rem box, so the WHOLE image
+                    // shows — no object-cover crop. Reserving that space while the bytes stream in
+                    // from R2 is the thumbnail's own job.
+                    <AttachmentThumbnail
                       src={commentAttachmentInlineUrl(attachment.key)}
                       alt={attachment.name}
-                      className="block max-h-24 w-auto max-w-full rounded-md border border-border transition-opacity hover:opacity-90"
                     />
                   ) : (
                     <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] transition-colors hover:bg-muted">
@@ -837,7 +847,45 @@ function CommentsPanel() {
     return live;
   }, [typingByThread, allComments]);
 
-  if (!canComment || mode !== "on") return null;
+  /* ── The panel's own open/close animation ──
+   *
+   * `open` is the real state: it drives the fetches, the thread list and the column the page
+   * reserves. `rendered` outlives it by one transition so the CLOSE can animate — React would
+   * otherwise unmount the element before the browser had a chance to interpolate it off-screen —
+   * and `slidIn` is the transform target, parked off-screen until the frame after the panel mounts,
+   * because a transition needs a starting value to interpolate FROM.
+   *
+   * All of it sits ABOVE the early return, with the other hooks and unconditionally: a hook below a
+   * `return` changes the hook count between renders, which is the crash this file already had once.
+   */
+  const open = canComment && mode === "on";
+  const [rendered, setRendered] = useState(open);
+  const [slidIn, setSlidIn] = useState(false);
+  const everOpened = useRef(false);
+
+  useEffect(() => {
+    if (!open) {
+      // Nothing to animate away. Without this, the first render of a surface whose rail is simply
+      // off would mount the panel for the length of an exit animation on every page load.
+      if (!everOpened.current) return;
+      setSlidIn(false);
+      return;
+    }
+    everOpened.current = true;
+    setRendered(true);
+    setSlidIn(false);
+    const frame = requestAnimationFrame(() => setSlidIn(true));
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
+
+  // Hold the panel in the DOM for the length of the exit, then let it go.
+  useEffect(() => {
+    if (open || !rendered) return;
+    const timer = window.setTimeout(() => setRendered(false), RAIL_TRANSITION_MS);
+    return () => window.clearTimeout(timer);
+  }, [open, rendered]);
+
+  if (!canComment || !rendered) return null;
 
   const openCount = threads.filter((thread) => !thread.resolvedAt).length;
   // The open thread, if any. `activeThreadId` stays the provider's single source of truth for
@@ -868,7 +916,7 @@ function CommentsPanel() {
         // the wide mode — the plan you are commenting on does not move, which is what makes
         // the two readable side by side. `transition-[width]` interpolates because both ends
         // are plain rem lengths, and max-w keeps the wide state sane on a narrow window.
-        "fixed bottom-0 right-0 top-16 flex max-w-[92vw] flex-col overflow-hidden border-l border-border bg-background transition-[width,box-shadow] duration-200 ease-out",
+        "fixed bottom-0 right-0 flex max-w-[92vw] flex-col overflow-hidden border-l border-border bg-background transition-[width,box-shadow,transform] duration-200 ease-out",
         // z-50 only while wide, and only because the page's own fixed action bars (the
         // wizard footer, the edit pages' Save bar) are z-50 and sit exactly where the panel
         // grows — at z-40 they would paint over our composer. At z-50 the panel wins by DOM
@@ -877,7 +925,20 @@ function CommentsPanel() {
         // The narrow width matches `COMMENTS_RAIL_WIDTH` — and therefore the Messages rail, which
         // shares this column, so swapping between the two panels cannot move the page.
         expanded ? "z-50 w-[44rem] shadow-2xl" : "z-40 w-[24rem]",
+        // The open/close slide. `translate-x-full` is 100% of the PANEL's own width, so it parks
+        // exactly off-screen at each of its three widths rather than at a hard-coded distance.
+        slidIn ? "translate-x-0" : "translate-x-full",
+        // A departing panel must not swallow a click aimed at the page underneath it.
+        !open && "pointer-events-none",
       )}
+      // Where the panel starts. `4rem` is the dashboard header it docks beneath; the participant
+      // portal raises it to the full height (`--comments-rail-top: 0px`), because there the portal's
+      // own header clears the rail's COLUMN rather than sitting above it. A CSS variable rather than
+      // a prop because the panel is `position: fixed` and this is a layout fact about the page it is
+      // docked to — see portal-comments-rail.tsx.
+      style={{ top: "var(--comments-rail-top, 4rem)" }}
+      // Off-screen is not the same as absent: while it slides out, hide it from assistive tech too.
+      aria-hidden={!open}
       aria-label="Comments"
     >
       <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4">

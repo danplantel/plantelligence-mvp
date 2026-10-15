@@ -181,7 +181,7 @@ to a preset — so editing a preset later cannot alter existing Custom users.
 | `npm run teammates:verify-t2a` | Runs the 25-assertion T2a suite (per-function Custom enforcement, same-vs-per-plan grids, the locked-row refusal, All Plans, the missing-grid refusal, soft warnings and their audit trail, and the summary line). |
 | `npm run teammates:verify-t7` | Runs the 26-assertion T7 suite (the three acceptance criteria, display-vs-access, the mirror's idempotency and removals, hidden categories, and the unmirrorable-contact residue). |
 | `npm run teammates:verify-t9` | Runs the 44-assertion T9 suite (the signed token and its refusals, the mailbox guard, the profile guards, the inviter's note, acceptance creating vs reusing a login, the seat conversion, replay, both audit rows, and the tenancy invariant — the login anchored to the inviting organization and owning none of its own). |
-| `npm run comments:verify` | Runs the 102-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, the **per-person `currently typing` signal — named, self-expiring, cleared on reply, and reported for the surface's own composer as well as for threads**, **assigning work from a thread (who may be handed it, the derived offer enumerated into inner tasks, the write and its notification, and the dashboard's one-row-per-unit-of-work side of it)**, **the profile card (the organization gate, the seat-before-login precedence that keeps the Owner's card from being blank, and the messaging standing the button is drawn from)**, and the plan-delete cascade). See §9i. |
+| `npm run comments:verify` | Runs the 109-assertion Plan/Benefit comments suite (section + text-range threads, implicit-by-View including a Collaborator, category scope, the refusals, the body limit's exact boundary, the reply/thread/mention notification fan-out, **Owner/Admin-only moderation with the author refused**, **category-scoped mention candidates and attachment reads**, the **per-person `currently typing` signal — named, self-expiring, cleared on reply, and reported for the surface's own composer as well as for threads**, **assigning work from a thread (who may be handed it, the derived offer enumerated into inner tasks, the write and its notification, and the dashboard's one-row-per-unit-of-work side of it)**, **the profile card (the organization gate, the seat-before-login precedence that keeps the Owner's card from being blank, and the messaging standing the button is drawn from)**, **the portal rail (the segment-to-category round trip against `getBenefitPortalSegment`, both Custom-hub addresses, the no-rail paths, and the `?comments=on` flag's URL handling)**, and the plan-delete cascade). See §9i. |
 | `npm run messages:verify` | Runs the 59-assertion Direct Messages suite (the directory predicate that doubles as the gate, the refusals — including the organization owner refused a thread between two other people — the canonical pair and the `CHECK` that enforces it, the body limit's boundary, unread and the read watermark, ONE Bell row per conversation, **attachment reads that follow participation and never the org fallback**, the **`load earlier` page boundary and its cursor**, the **self-expiring `currently typing` signal (peer-only, cleared on send, and marked on the conversation list)**, and the login-delete cascade). See §9j. |
 | `npm run teammates:backfill-contacts` | Projects every plan's `keyContacts` onto profiles + assignments (T7). Idempotent; `--dry-run` to count without writing. Run it before the hub reader switch and after adding a new contacts writer. |
 | `npm run repair:purge-verification-fixtures` | Removes fixtures stranded by an interrupted verify run (dry run; `--apply` to delete). See §7.7. |
@@ -2570,7 +2570,7 @@ thread — which is what the scope key exists for.
 ### Verification
 
 ```
-npm run comments:verify   ->  102/102 assertions passed
+npm run comments:verify   ->  109/109 assertions passed
 ```
 
 Runs against the real data layer with self-cleaning `tcm-verify-*` fixtures. It covers the
@@ -2604,6 +2604,127 @@ way to reclaim the space. And per-message delete still exists in the API and the
 having no UI surface since the card refactor.
 
 ---
+
+### Staging an attachment — the picture appears first, the upload follows
+
+Picking a file used to do nothing visible until its bytes had reached R2, and an `uploading` flag
+disabled **Send** for the whole composer meanwhile — so an unrelated upload could block a comment that
+carried no attachment at all. Both composers now stage through one shared hook
+([`useStagedAttachments`](../components/comments/staged-attachments.tsx)), which changes three things:
+
+- **The chip exists before the upload does.** It appears the instant the file is picked and shows that
+  file's own state: a thumbnail while it moves, a spinner until the key lands, and an explicit
+  "failed" — with the entry KEPT rather than quietly dropped, so a failure is something the reader can
+  see and act on. The paperclip is no longer disabled during an upload either: each upload is
+  independent, and the chip is where its progress now lives.
+- **The preview is an Object URL, NOT a Data URL.** `URL.createObjectURL(file)` is a handle on bytes
+  already in memory, while a Data URL is base64 that inflates the image by a third and materialises it
+  as a multi-megabyte string. A Data URL earns that cost only when the value must cross a serialization
+  boundary — a reload, a stored draft, a service worker — and none of that is in play here: the picture
+  is on screen for a few seconds and is then an R2 key. It must also never reach the database: the
+  attachment column stores `{ key, name, type, size }` and those rows come back on a 10-second poll, so
+  base64 there would be paid for on every poll forever — and `MAX_COMMENT_LENGTH` is 10,000
+  characters, so it could not ride in the body either. Every handle is handed back with
+  `revokeObjectURL` on removal, on a send, and on unmount, because a preview left behind is a leak.
+- **`collect()` waits for THIS message's files and nothing else.** The global `uploading` gate is gone;
+  sending awaits the files the reader actually staged. The chip list deliberately stays on screen
+  through that wait — it is the only thing showing an upload is still running — while the TEXT clears
+  immediately, as before. If any file will never arrive the send is REFUSED and says so, rather than
+  posting a message the reader believes carries a picture it does not.
+
+The staging is one module for both panels, for the reason `lib/scroll-to-bottom.ts` and
+`components/new-messages-pill.tsx` are shared: two copies of one gesture is how the two drift apart.
+
+**The other half is the POSTED image.** Once a comment is sent, its picture streams from R2 through
+`/api/r2/object`, and an `<img>` has no intrinsic size until those bytes arrive — so the bubble used to
+grow an image out of nothing a moment later, which on a slow connection reads as a message that was sent
+without it. [`AttachmentThumbnail`](../components/comments/attachment-thumbnail.tsx) reserves the space
+with a pulsing skeleton and a spinner, fades the image in when it lands, and says "Preview unavailable"
+if it never does, because a skeleton that never resolves is a lie. Two details are load-bearing: it is
+mounted from the start rather than rendered on demand (an `<img>` that is not in the DOM never starts
+fetching) and collapsed with `max-h-0` rather than hidden (`display: none` is not reliably fetched
+across browsers). And the cache guard is the non-obvious one — a browser-cached image can be COMPLETE
+before React attaches `onLoad`, so the event never fires and the thumbnail would sit behind its skeleton
+forever, hence the single `complete` check after mount. The DM rail renders the same component, for the
+same reason the staging is shared.
+
+### The Portal Comments UI
+
+**"The Portal Comments UI" is the Comments panel as it appears on the participant portal** — the same
+rail the dashboard shows, mounted along the right of a portal page. It shares every component, every
+route and every permission rule with the dashboard's; what differs is how it is turned on and the
+chrome around it. That is the name this document uses for it.
+
+The five "Open Portal" buttons used to open a portal with no way to comment on what was being looked
+at. They now append `?comments=on`, and the portal mounts the Portal Comments UI on the right.
+
+**The URL carries a preference; the session carries the authority.** A signed token was considered and
+rejected. The portal is already same-origin with the dashboard — `https://plantel.pro/{slug}` in
+production, `https://dev.plantel.pro/{slug}` in dev, `window.location.origin/{slug}` locally — so the
+session cookie is already sent and the portal layout already reads it. A token would have been a SECOND
+authorization path running beside `resolveCommentAccess`, the one gate every comment read and write
+passes through; a token good for one plan could be replayed at another plan's URL with nothing to stop
+it. So the flag decides only WHETHER the panel is offered, and the existing gate decides what anyone may
+see and do inside it. `on` rather than an id, because `?comment=<threadId>` is already a THREAD deep
+link and two parameters a letter apart meaning different things is a trap.
+
+**Three gates, all of which must open**
+([`portal-comments-rail.tsx`](../components/comments/portal-comments-rail.tsx)): the flag, an
+`authenticated` session, and a desktop viewport. The portal is public — `middleware.ts` deliberately
+leaves it ungated — so a participant, and anyone opening a plain portal link, gets exactly the portal
+that existed before. The desktop gate exists because the portal is what employees open on a phone:
+below the breakpoint the flag is ignored and no column is reserved.
+
+**Which surface a page is.** The portal addresses a benefit page by its own route segment, which is not
+the dashboard's category key — `/health-insurance` is "Group Health" — so
+[`portalCommentsSurface`](../lib/comments/portal-surface.ts) is the inverse of `getBenefitPortalSegment`,
+and the suite asserts the ROUND TRIP between them so a renamed segment cannot silently show one
+category's conversation under another category's page. The plan's landing page is the PLAN surface; an
+unrecognised path — or one belonging to a different plan — gets NO rail rather than the nearest page's
+comments.
+
+**Permissions are untouched**, which is the point: the Portal Comments UI registers the SAME surface the
+dashboard would, addressed by the plan's slug (which `resolveCommentAccess` resolves), so a Collaborator
+scoped to one category still reads the plan landing page and their own categories and is refused outside
+them — exactly as on the dashboard, with no second rule to keep in step.
+
+**Chrome, three details.** The Portal Comments UI is desktop-only. The portal's fixed header, its page
+content and its footer clear the rail's column with `--comments-inset`, because a fixed panel over a
+fixed header is a collision rather than a layout. And the rail's own top offset became a CSS variable
+(`--comments-rail-top`, defaulting to the dashboard's `4rem`), because the portal docks it at the full
+window height — there the header clears the rail's column instead of sitting above it.
+
+**A floating toggle, bottom-right.** The portal has no header action cluster, so a reader who closes the
+panel would have no way back: the flag MOUNTED it and closing it is not a navigation, so nothing
+re-reads the query string. The button uses the same `MessageSquare` and the same active treatment as the
+header's `CommentsToggle`, and it sits at the panel's LEFT edge (`inset + 1.5rem`) while the panel is
+open — parked in the corner it would be underneath the thing it is meant to close, and with the panel
+closed the variable is absent so it returns to the corner.
+
+**It animates both ways**, which needed the panel to outlive its mode for one transition
+(`RAIL_TRANSITION_MS`, matching the aside's `duration-200`): unmounted immediately, there is nothing
+left for the browser to interpolate away. `translate-x-full` is 100% of the panel's OWN width, so it
+parks exactly off-screen at each of its three widths, and a departing panel takes `pointer-events-none`
+so it cannot swallow a click aimed at the page underneath. The state that drives it sits ABOVE the
+early return with the other hooks, for the reason this document records twice already.
+
+**Attaching a file, and the one bug that only showed here.** The composer's upload was a `try`/`finally`
+with **no `catch`** around a presign POST and a direct browser→R2 PUT. The PUT is a CROSS-ORIGIN request,
+so it depends on the bucket's CORS policy naming the origin the page is served from — and the Portal
+Comments UI is served at the environment ROOT while the dashboard may be on another host. A blocked PUT
+throws, and with nothing catching it the spinner simply stopped: no chip, no message, no clue. Two
+things changed. The route now accepts **both** shapes — JSON presigns as before, `multipart/form-data`
+relays the bytes through our own origin and stores them server-side — and the composer tries the direct
+PUT first, then falls back to the relay, reporting any failure it cannot recover from. Both shapes
+authorize with the same `resolveCommentAccess` call and mint the key in the same place
+(`org/{owner}/plans/{id}/comments/…`), so the relay adds no rule and cannot land an object the presigning
+route would not have. That key scheme is deliberately unchanged: `resolveCommentAttachmentAccess` reads
+it back, keyed on `comments/`. Every other upload in this app already carried this fallback
+(`/api/r2/upload-direct`); comments were the last hand-rolled direct PUT.
+
+One consequence of the panel reaching the portal: the profile card's Message button now requires a
+mounted Messages rail as well as `canMessage`. The portal has no messaging, so without that guard the
+card would have offered a button whose handoff goes nowhere.
 
 ## 9j. Direct Messages
 

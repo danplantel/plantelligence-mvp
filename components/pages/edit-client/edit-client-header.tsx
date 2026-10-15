@@ -16,6 +16,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { toast } from "sonner";
 import { ArrowLeft, ExternalLink, Trash2 } from "lucide-react";
 import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
+import { withCommentsRail } from "@/lib/comments/portal-surface";
 
 /**
  * Phrase the advisor must type to unlock Delete Plan. Deleting removes the whole plan — its
@@ -60,7 +61,9 @@ export function EditClientHeader({
   const handleOpenPortal = () => {
     if (clientId) {
       const resolvedSlug = slug || clientId;
-      const url = getBenefitsHubOpenPortalUrl(resolvedSlug);
+      // With the Comments rail: an advisor opened the plan to look at it as a participant does, and
+      // the conversation about PAGE is what they came to have. See lib/comments/portal-surface.
+      const url = withCommentsRail(getBenefitsHubOpenPortalUrl(resolvedSlug));
       window.open(url, "_blank");
     }
   };

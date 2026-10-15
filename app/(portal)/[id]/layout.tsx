@@ -8,7 +8,13 @@ import {
   ClientPortalProvider,
   useClientPortal,
 } from "@/contexts/client-portal-context";
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
+import {
+  useCommentSurface,
+  type CommentSurfaceInput,
+} from "@/components/comments/comment-mode-provider";
+import { PortalCommentsRail } from "@/components/comments/portal-comments-rail";
+import { portalCommentsSurface } from "@/lib/comments/portal-surface";
 import { Button } from "@/components/ui/button";
 import { PortalPopUpOverlay } from "@/components/pages/client-portal/sections/portal-popup-overlay";
 import { AnimatePresence, motion } from "framer-motion";
@@ -108,6 +114,31 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
       ? customBenefitNameToSlug(title)
       : null;
   })();
+
+  /**
+   * Register this portal page as a comment surface.
+   *
+   * Called UNCONDITIONALLY: `useCommentSurface` is a no-op when no provider is mounted, so the flag,
+   * the session and the viewport decide whether anything is listening rather than this component
+   * guessing at it — which also keeps the hook order identical in both cases, the thing a
+   * conditional call would break.
+   *
+   * The surface is addressed by the plan's SLUG, which is what the portal itself uses, and
+   * `resolveCommentAccess` resolves slugs — so the same gate the dashboard uses answers here with no
+   * extra lookup and no second rule.
+   */
+  const portalSurface = useMemo<CommentSurfaceInput | null>(() => {
+    const surface = portalCommentsSurface({
+      pathname: pathname ?? "",
+      planSlug: clientId,
+      customHubSlug,
+    });
+    return surface
+      ? { clientId, targetType: surface.targetType, category: surface.category }
+      : null;
+  }, [pathname, clientId, customHubSlug]);
+
+  useCommentSurface(portalSurface);
 
   useEffect(() => {
     const prev = sessionStorage.getItem("previousPage");
@@ -422,9 +453,21 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
         // UI chrome (nav, buttons, labels, inputs) always uses Outfit in the
         // portal; headline/body text overrides this via the font utilities.
         fontFamily: "var(--font-ui)",
+        // Reserve the Comments rail's column while it is open (see
+        // portal-comments-rail.tsx). It sits on the ROOT so one declaration covers the page content
+        // and the footer. Absent — the common case — this resolves to 0px and the portal is exactly
+        // as it was. The FIXED header cannot inherit it and clears the column itself, below.
+        paddingRight: "var(--comments-inset, 0px)",
       }}
     >
-      <div ref={fixedHeaderRef} className="fixed top-0 left-0 w-full z-50">
+      {/* `right` rather than `w-full`: with a rail open, `left-0 right-<inset>` is what shortens the
+          header to the rail's edge. With no rail the variable is 0px, which is the full width
+          `w-full` used to give. */}
+      <div
+        ref={fixedHeaderRef}
+        className="fixed top-0 left-0 z-50"
+        style={{ right: "var(--comments-inset, 0px)" }}
+      >
         {/* Published Top Banner — rendered above the header */}
         {showBanner && (
           <div
@@ -565,7 +608,12 @@ export default function ClientViewLayout({
 }) {
   return (
     <ClientPortalProvider>
-      <ClientViewLayoutContent>{children}</ClientViewLayoutContent>
+      {/* Arm the Comments rail. The provider renders its children untouched unless the link asked
+          for the rail AND the visitor is a signed-in advisor on a desktop — so a participant, and
+          anyone opening a plain portal link, gets exactly the portal that existed before this. */}
+      <PortalCommentsRail>
+        <ClientViewLayoutContent>{children}</ClientViewLayoutContent>
+      </PortalCommentsRail>
     </ClientPortalProvider>
   );
 }

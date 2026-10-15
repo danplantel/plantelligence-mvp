@@ -41,6 +41,12 @@ import { upsertAssignment } from "../../lib/teammates/assignments.server";
 import { TeammateDataError } from "../../lib/teammates/errors";
 import { getPersonCard } from "../../lib/teammates/person-card.server";
 import {
+  portalCommentsSurface,
+  wantsCommentsRail,
+  withCommentsRail,
+} from "../../lib/comments/portal-surface";
+import { getBenefitPortalSegment } from "../../lib/marketing/hub-url";
+import {
   addCommentMessage,
   assignTask,
   createCommentThread,
@@ -1855,6 +1861,88 @@ async function main(): Promise<void> {
           userId: mentioneeLogin.id,
         })
       )?.canMessage === true,
+    );
+
+    /* ── §23. The portal's Comments rail: the flag, and the surface it registers ── */
+
+    // The relationship that matters is the ROUND TRIP: every category the portal can address must
+    // map back to the category `getBenefitPortalSegment` started from. Asserted that way so the two
+    // functions cannot drift — a renamed segment fails here instead of producing a rail that shows
+    // one category's conversation under another's page.
+    check(
+      "every fixed benefit page the portal addresses maps back to the category it came from",
+      (["Retirement", "Group Health", "Group Life"] as const).every(
+        (category) =>
+          portalCommentsSurface({
+            pathname: `/tcm-verify-plan/${getBenefitPortalSegment(category)}`,
+            planSlug: "tcm-verify-plan",
+          })?.category === category,
+      ),
+    );
+    check(
+      "the Custom hub is Other from BOTH of its addresses — its own name-slug and the legacy one",
+      portalCommentsSurface({
+        pathname: "/tcm-verify-plan/wellness-programs",
+        planSlug: "tcm-verify-plan",
+      })?.category === "Other" &&
+        portalCommentsSurface({
+          pathname: "/tcm-verify-plan/the-advisor-named-it",
+          planSlug: "tcm-verify-plan",
+          customHubSlug: "the-advisor-named-it",
+        })?.category === "Other",
+    );
+    check(
+      "the plan's own landing page is the PLAN surface, carrying no category",
+      (() => {
+        const surface = portalCommentsSurface({
+          pathname: "/tcm-verify-plan",
+          planSlug: "tcm-verify-plan",
+        });
+        return surface?.targetType === "plan" && surface.category === null;
+      })(),
+    );
+    check(
+      "a page the portal does not address gets NO rail, rather than the nearest page's comments",
+      portalCommentsSurface({
+        pathname: "/tcm-verify-plan/news-events",
+        planSlug: "tcm-verify-plan",
+      }) === null &&
+        portalCommentsSurface({
+          pathname: "/tcm-verify-plan/retirement/extra",
+          planSlug: "tcm-verify-plan",
+        }) === null &&
+        // A path belonging to ANOTHER plan must not inherit this layout's plan.
+        portalCommentsSurface({
+          pathname: "/another-plan/retirement",
+          planSlug: "tcm-verify-plan",
+        }) === null,
+    );
+    check(
+      "the flag is composed LAST, and survives every URL shape it can be given",
+      withCommentsRail("https://plantel.pro/acme") ===
+        "https://plantel.pro/acme?comments=on" &&
+        withCommentsRail("https://plantel.pro/acme?tab=2") ===
+          "https://plantel.pro/acme?tab=2&comments=on" &&
+        withCommentsRail("https://plantel.pro/acme#top") ===
+          "https://plantel.pro/acme?comments=on#top" &&
+        // The shape the benefit editor builds: the builder's URL plus a segment, flagged after.
+        withCommentsRail(
+          `${"https://plantel.pro/acme"}${"/health-insurance"}`,
+        ) === "https://plantel.pro/acme/health-insurance?comments=on",
+    );
+    check(
+      "…and asking twice does not add it twice",
+      withCommentsRail(withCommentsRail("https://plantel.pro/acme/x")) ===
+        "https://plantel.pro/acme/x?comments=on",
+    );
+    check(
+      "the reader accepts the exact value ONLY, so a hand-typed flag cannot arm the rail",
+      wantsCommentsRail("?comments=on") &&
+        !wantsCommentsRail("?comments=1") &&
+        !wantsCommentsRail("?comments=") &&
+        !wantsCommentsRail("") &&
+        // `?comment=` is a THREAD deep link, and must never be read as "open the rail".
+        !wantsCommentsRail("?comment=abc"),
     );
   } finally {
     if (!KEEP_FIXTURES) {

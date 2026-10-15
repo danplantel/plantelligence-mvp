@@ -72,6 +72,7 @@ import { toast } from "sonner";
 import { storePendingDraftSelection } from "@/lib/draft-utils";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
+import { withCommentsRail } from "@/lib/comments/portal-surface";
 
 interface Client {
   id: string;
@@ -662,7 +663,12 @@ export function ClientsListDashboardPage() {
                                       className="h-8 w-8"
                                       onClick={() => {
                                         const slug = client.slug || client.id;
-                                        const url = getBenefitsHubOpenPortalUrl(slug);
+                                        // The Hub row's preview link carries the Comments rail too,
+                                        // so the same link means the same thing wherever it is opened
+                                        // from.
+                                        const url = withCommentsRail(
+                                          getBenefitsHubOpenPortalUrl(slug),
+                                        );
                                         window.open(url, "_blank");
                                       }}
                                     >

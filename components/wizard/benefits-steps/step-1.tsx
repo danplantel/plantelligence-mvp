@@ -12,6 +12,7 @@ import {
   invalidateBenefitRowsCache,
 } from "@/lib/fetch-client";
 import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
+import { withCommentsRail } from "@/lib/comments/portal-surface";
 import {
   BenefitsStep1Data,
   BenefitsStep3Data,
@@ -2649,7 +2650,10 @@ export function BenefitsStep1({
                   const plan = plans.find((p: any) => p.id === resolvedPlanId);
                   const slug = (plan as any)?.slug;
                   const resolvedSlug = slug || resolvedPlanId;
-                  const url = getBenefitsHubOpenPortalUrl(resolvedSlug);
+                  // Create Benefits: the plan root, with the Comments rail.
+                  const url = withCommentsRail(
+                    getBenefitsHubOpenPortalUrl(resolvedSlug),
+                  );
                   window.open(url, "_blank");
                 }}
                 className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"

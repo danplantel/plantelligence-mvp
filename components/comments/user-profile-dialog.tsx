@@ -146,6 +146,12 @@ export function UserProfileDialog({
     }
   }
 
+  // The handoff needs somewhere to hand off TO. The participant portal mounts the Comments rail
+  // WITHOUT the Messages rail — there is no messaging for participants — so a Message button there
+  // would be a control whose click does nothing, which is worse than no button at all. `canMessage`
+  // answers "is this pair allowed"; this answers "can this page show the conversation".
+  const canStartConversation = Boolean(person?.canMessage) && messages !== null;
+
   return (
     <Dialog open={userId !== null} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
@@ -208,18 +214,20 @@ export function UserProfileDialog({
           </p>
         ) : null}
 
-        {/* The standing is stated, not implied: a missing button has to explain itself, or it reads
-            as a bug rather than as a rule. */}
-        {person && !person.canMessage ? (
+        {/* The standing is stated, not implied: a missing button has to explain itself, or it reads as
+            a bug rather than as a rule. Two DIFFERENT reasons, so two different sentences. */}
+        {person && !canStartConversation ? (
           <p className="text-[11px] text-muted-foreground">
             {person.isSelf
               ? "This is you."
-              : "You can't message this person — the directory only opens a conversation with the Owner, your team, and collaborators who share a plan with you."}
+              : person.canMessage
+                ? "Messaging lives on your dashboard rather than on the participant portal."
+                : "You can't message this person — the directory only opens a conversation with the Owner, your team, and collaborators who share a plan with you."}
           </p>
         ) : null}
 
         <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
-          {person?.canMessage ? (
+          {canStartConversation ? (
             <Button
               type="button"
               className="w-full gap-2"

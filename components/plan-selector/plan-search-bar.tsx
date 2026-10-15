@@ -13,6 +13,7 @@ import {
   type PlanSelectorModule,
 } from "@/lib/plan-selector-storage";
 import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
+import { withCommentsRail } from "@/lib/comments/portal-surface";
 import { isActiveClientStatus } from "@/lib/active-client-status";
 
 /** Minimal plan shape the selector needs. */
@@ -170,7 +171,11 @@ export function PlanSearchBar({
             onClick={() => {
               const slug = (selectedPlan as { slug?: string | null })?.slug;
               const resolvedSlug = slug || value;
-              const url = getBenefitsHubOpenPortalUrl(resolvedSlug);
+              // With the Comments rail — this is the picker an advisor uses to go and LOOK at a
+              // plan, which is exactly when they have something to say about it.
+              const url = withCommentsRail(
+                getBenefitsHubOpenPortalUrl(resolvedSlug),
+              );
               window.open(url, "_blank");
             }}
             className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"

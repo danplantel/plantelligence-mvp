@@ -34,6 +34,7 @@ import {
 } from "@/hooks/useDirectTyping";
 import { useViewerAccess } from "@/hooks/useViewerAccess";
 import { CommentAttachmentModal } from "@/components/comments/comment-attachment-modal";
+import { AttachmentThumbnail } from "@/components/comments/attachment-thumbnail";
 import { DirectoryPicker } from "./directory-picker";
 import { MessagesComposer } from "./messages-composer";
 import { useOptionalMessagesMode } from "./messages-mode-provider";
@@ -572,11 +573,11 @@ function MessagesThread({ threadId }: { threadId: string }) {
                                 >
                                   {isImageAttachment(attachment.type) ? (
                                     // Sized by its own aspect ratio inside a 12rem x 6rem box, so
-                                    // the WHOLE image shows — no object-cover crop.
-                                    <img
+                                    // the WHOLE image shows — no object-cover crop. The skeleton
+                                    // while it streams from R2 is the thumbnail's own job.
+                                    <AttachmentThumbnail
                                       src={directAttachmentInlineUrl(attachment.key)}
                                       alt={attachment.name}
-                                      className="block max-h-24 w-auto max-w-full rounded-md border border-border transition-opacity hover:opacity-90"
                                     />
                                   ) : (
                                     <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-border bg-muted/40 px-2 py-1 text-[11px] transition-colors hover:bg-muted">
