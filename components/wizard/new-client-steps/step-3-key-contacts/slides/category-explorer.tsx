@@ -75,6 +75,16 @@ export interface CategoryExplorerProps {
    * per-category "Add" buttons in the Collaborators section send.
    */
   onInviteCollaborator?: (categoryId?: string) => void;
+  /**
+   * Bumped by the caller once it has sent a Collaborator invitation.
+   *
+   * The dialog that sends it belongs to the caller, so this list has no way of knowing an
+   * invite happened — without this it keeps showing whatever it fetched on mount, and a
+   * person invited a moment ago is missing from the very section that invited them (the
+   * assignment exists, and comes back as `state: "invited"` as soon as somebody re-reads).
+   * Benefits step 3 and Edit Client already send the same signal to their lists.
+   */
+  collaboratorsRefreshKey?: number;
 }
 
 // ==================== Constants ====================
@@ -136,6 +146,7 @@ export function CategoryExplorer({
   onEditContact,
   onInviteContact,
   onInviteCollaborator,
+  collaboratorsRefreshKey = 0,
 }: CategoryExplorerProps) {
   const { stepData, saveStepDataLocally, draftClientId } = useNewClientWizardStore();
 
@@ -216,7 +227,7 @@ export function CategoryExplorer({
     return () => {
       cancelled = true;
     };
-  }, [draftClientId, seatRefreshKey]);
+  }, [draftClientId, seatRefreshKey, collaboratorsRefreshKey]);
 
   const seatOwnerEmailSet = useMemo(
     () => new Set(seatOwnerEmails.map((address) => address.trim().toLowerCase())),

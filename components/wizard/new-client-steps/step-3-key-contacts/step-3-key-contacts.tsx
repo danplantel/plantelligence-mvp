@@ -126,6 +126,10 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
   // Local slide state — start at slide 0, then sync from store/contacts on mount
   const [slideIndex, setSlideIndexLocal] = useState(0);
   const [initialSlideSynced, setInitialSlideSynced] = useState(false);
+  // Bumped when an invitation is sent, so the explorer's Collaborators section re-reads
+  // and the invitee appears as "Invite Pending". The dialog lives here but the list lives
+  // in the explorer, so this counter is the signal between them.
+  const [collaboratorsRefreshKey, setCollaboratorsRefreshKey] = useState(0);
 
   // Sync the initial slide after mount once contacts and step3SlideIndex are settled.
   // When no contacts exist (brand-new plan), always start at slide 0 (FirstContactPrompt)
@@ -579,6 +583,10 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
                 categoryId ? { benefitsCategories: [categoryId] } : undefined,
               )
             }
+            // Re-read the explorer's Collaborators list after an invite, so the
+            // person just invited shows up as pending rather than after the slide
+            // is re-entered.
+            collaboratorsRefreshKey={collaboratorsRefreshKey}
             onEditContact={(category, contact) => {
               // Pre-populate step3b with the existing contact's data so the form
               // initialises with its values, and include editingContactId so
@@ -732,6 +740,10 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
         ensurePlanId={ensurePlanId}
         prefill={invitePrefill}
         source="key_contacts"
+        // The explorer's Collaborators section owns the list, so it has to be told
+        // the invitation went out: bumping this re-reads the plan's assignments and
+        // the new person appears as an "Invite Pending" card.
+        onInvited={() => setCollaboratorsRefreshKey((key) => key + 1)}
       />
     </div>
   );

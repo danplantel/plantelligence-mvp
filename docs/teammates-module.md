@@ -1535,7 +1535,7 @@ Three details make the swap safe:
   every benefit category, which is what the category-visibility filter (Part B item 3)
   and the per-category readers expect.
 
-### The mirror's four rules
+### The mirror's five rules
 
 1. **A Contact becomes a profile in the `contact` state with no login.** It holds no seat
    (`getSeatUsage` counts only non-contact Team Members) and grants no access (the
@@ -1549,6 +1549,18 @@ Three details make the swap safe:
 4. **The mirror writes no audit events and never changes a role.** It is a projection of
    the advisor's own contact data, not an access decision. Access changes stay audited
    where they are made (T4, T6).
+5. **The Custom hub's storage key is not a grant.** `Company / Plan Sponsor` is both the
+   contact category of the plan sponsor **and** the storage key of a Custom benefit *page*,
+   while an assignment's `categories` are pages. Copying it through granted the Custom
+   benefit page to whoever the plan-sponsor contact is, which is how the Main Contact came
+   to be listed as a Custom Benefits collaborator in Key Contacts (`hasCustomKey` reads that
+   key as exactly that). The mirror drops it (`grantableCategoriesOf`) and keeps the
+   assignment `selected` with no categories — the scope is decided by what the contact
+   *declares*, so a plan-sponsor contact cannot fall through to `all`. A Custom benefit is
+   granted by name (the invite and Manage Access pickers both store this key deliberately),
+   and `Other Benefits` is untouched because that category is a page of its own. Rows already
+   carrying the key are corrected by the next mirror run, since the sync compares scope and
+   categories and updates when they differ.
 
 A plan-sponsor contact whose company **is** the client is deliberately left without a
 `companyId`: creating a Partner/Provider row for an employer is what T1 forbids, and the

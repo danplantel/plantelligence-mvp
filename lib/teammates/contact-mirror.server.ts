@@ -36,6 +36,7 @@
 
 import prisma from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
+import { isCustomHubCategory } from "@/lib/benefit-custom-name";
 import { findOrCreatePartnerCompany } from "./companies.server";
 import {
   createTeammateProfile,
@@ -174,6 +175,24 @@ function categoriesOf(contact: Record<string, unknown>): string[] {
   return one ? [one] : [];
 }
 
+/**
+ * The categories an assignment may grant, from the ones the contact declares.
+ *
+ * The Custom hub's storage key — "Company / Plan Sponsor" — is ALSO the contact category for
+ * the plan sponsor, and the two mean different things: on an assignment, `categories` are
+ * benefit PAGES. Copying the key through therefore granted the Custom benefit page to whoever
+ * the plan-sponsor contact is, and the Collaborators list reads that key as "this person helps
+ * with the Custom benefit" — which is how the Main Contact came to be listed as a Custom
+ * Benefits collaborator.
+ *
+ * A Custom benefit is granted by NAME (the invite and Manage Access pickers both store this key
+ * deliberately for that), so this mirror is the one writer that must not inherit it.
+ * "Other Benefits" is untouched: that category is a benefit page of its own.
+ */
+function grantableCategoriesOf(categories: readonly string[]): string[] {
+  return categories.filter((category) => !isCustomHubCategory(category));
+}
+
 function designationsOf(contact: Record<string, unknown>): string[] {
   const many = contact.designations;
   if (Array.isArray(many)) {
@@ -243,7 +262,13 @@ export async function mirrorPlanContacts(
       continue;
     }
 
-    const categories = categoriesOf(contact);
+    // What the contact declares, then what an assignment may grant from it. The scope answers
+    // "did the contact name any section at all", so it is decided by the declaration — a
+    // plan-sponsor contact declares one even though that category grants no benefit page.
+    const contactCategories = categoriesOf(contact);
+    const categories = grantableCategoriesOf(contactCategories);
+    const categoryScope: "all" | "selected" =
+      contactCategories.length > 0 ? "selected" : "all";
     const designations = designationsOf(contact);
     const { firstName, lastName } = nameParts(contact);
     const jobTitle =
@@ -288,7 +313,9 @@ export async function mirrorPlanContacts(
         phone: str(contact.phone) || null,
         phoneExtension: str(contact.phoneExtension) || null,
         headshot: str(contact.headshot) || null,
-        benefitsSpecialty: categories,
+        // The profile's specialty mirrors what the contact declares; only the GRANT drops the
+        // hub key. See `grantableCategoriesOf`.
+        benefitsSpecialty: contactCategories,
         companyId,
         allPlans: false,
       });
@@ -307,7 +334,9 @@ export async function mirrorPlanContacts(
           phone: str(contact.phone) || null,
           phoneExtension: str(contact.phoneExtension) || null,
           headshot: str(contact.headshot) || null,
-          benefitsSpecialty: categories,
+          // The profile's specialty mirrors what the contact declares; only the GRANT drops
+          // the hub key. See `grantableCategoriesOf`.
+          benefitsSpecialty: contactCategories,
           ...(companyId ? { companyId } : {}),
         },
       });
@@ -329,7 +358,7 @@ export async function mirrorPlanContacts(
           clientId: input.clientId,
           role: "viewer",
           permissionSet: viewerGridJson(),
-          categoryScope: categories.length > 0 ? "selected" : "all",
+          categoryScope,
           categories,
           showOnBenefitsHub,
           contactId,
@@ -372,7 +401,7 @@ export async function mirrorPlanContacts(
     // Rule 4: the role is never changed here.
     const needsSync =
       existing.contactId !== contactId ||
-      existing.categoryScope !== (categories.length > 0 ? "selected" : "all") ||
+      existing.categoryScope !== categoryScope ||
       JSON.stringify(existing.categories) !== JSON.stringify(categories) ||
       existing.showOnBenefitsHub !== showOnBenefitsHub;
 
@@ -381,7 +410,7 @@ export async function mirrorPlanContacts(
         where: { id: existing.id },
         data: {
           contactId,
-          categoryScope: categories.length > 0 ? "selected" : "all",
+          categoryScope,
           categories,
           showOnBenefitsHub,
           lastChangedByUserId: input.actorUserId,
