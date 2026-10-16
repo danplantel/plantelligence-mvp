@@ -114,6 +114,8 @@ export interface InvitationView {
   firstName?: string | null;
   lastName?: string | null;
   jobTitle?: string | null;
+  /** The seat's own credentials, prefilled by the acceptance form. */
+  designations?: string[] | null;
   phone?: string | null;
   phoneExtension?: string | null;
   /** An R2 key — the form's editor resolves it for display. */
@@ -152,7 +154,9 @@ async function landingUrlFor(
     assignment.categoryScope === "selected" &&
     categories.length > 0
   ) {
-    return `/edit-benefit/${assignment.clientId}/${categoryToSlug(categories[0])}`;
+    return `/edit-benefit/${assignment.clientId}/${categoryToSlug(
+      categories[0],
+    )}`;
   }
   // An all-categories assignment, or no assignment at all, has no single section to
   // land on — the plan list is the honest destination.
@@ -192,6 +196,7 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
       firstName: true,
       lastName: true,
       jobTitle: true,
+      designations: true,
       phone: true,
       phoneExtension: true,
       headshot: true,
@@ -284,9 +289,9 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
    * reads `assignments[0]`).
    */
   const inviteNote =
-    assignments.find(
-      (assignment) => (assignment.inviteNote ?? "").trim().length > 0,
-    )?.inviteNote?.trim() ?? null;
+    assignments
+      .find((assignment) => (assignment.inviteNote ?? "").trim().length > 0)
+      ?.inviteNote?.trim() ?? null;
 
   return {
     status: "ok",
@@ -294,6 +299,9 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
     firstName: profile.firstName,
     lastName: profile.lastName,
     jobTitle: profile.jobTitle,
+    designations: Array.isArray(profile.designations)
+      ? profile.designations
+      : [],
     phone: profile.phone,
     phoneExtension: profile.phoneExtension,
     headshot: profile.headshot,
@@ -347,6 +355,8 @@ export interface AcceptInvitationInput {
   firstName?: string | null;
   lastName?: string | null;
   jobTitle?: string | null;
+  /** Their credentials, from the Team Member acceptance form. */
+  designations?: string[] | null;
   phone?: string | null;
   phoneExtension?: string | null;
   /** An R2 key, an absolute URL, or a `data:` URL from a visitor who could not upload. */
@@ -396,8 +406,8 @@ async function storeInviteeHeadshot(
   const extension = /png/i.test(contentType)
     ? "png"
     : /jpe?g/i.test(contentType)
-      ? "jpg"
-      : "png";
+    ? "jpg"
+    : "png";
   // The R2 prefix is keyed by the OWNER's userId, not by the Organization id: every existing
   // teammate headshot lives at `org/{ownerUserId}/uploads/advisor/headshot/…`, and
   // `resolveObjectAccess` reads that segment as a user. Filing this photo under the organization
@@ -479,7 +489,8 @@ export async function acceptInvitation(
   const firstName = (input.firstName ?? "").trim();
   const lastName = (input.lastName ?? "").trim();
   const displayName =
-    [firstName, lastName].filter(Boolean).join(" ") || (input.name ?? "").trim();
+    [firstName, lastName].filter(Boolean).join(" ") ||
+    (input.name ?? "").trim();
 
   if (existing) {
     loginUserId = existing.id;
@@ -487,10 +498,13 @@ export async function acceptInvitation(
     const password = (input.password ?? "").trim();
     if (password.length < 8) {
       // Surfaced as a plain refusal; the page collects a longer one.
-      throw Object.assign(new Error("Choose a password of at least 8 characters."), {
-        status: 400,
-        code: "password_too_short",
-      });
+      throw Object.assign(
+        new Error("Choose a password of at least 8 characters."),
+        {
+          status: 400,
+          code: "password_too_short",
+        },
+      );
     }
     const created = await prisma.user.create({
       data: {
@@ -532,6 +546,17 @@ export async function acceptInvitation(
   const jobTitle = (input.jobTitle ?? "").trim();
   const phone = (input.phone ?? "").trim();
   const phoneExtension = (input.phoneExtension ?? "").trim();
+  // Credentials are a list of short labels, cleaned exactly as the contact editors
+  // clean them: trimmed, blanks dropped and capped, so nothing unbounded reaches the
+  // column. Supplied-ness is tracked separately from the list itself, because an
+  // EMPTY list is a real answer ("I have none") and must clear the seat's copy.
+  const designationsSupplied = Array.isArray(input.designations);
+  const designations = designationsSupplied
+    ? (input.designations as string[])
+        .map((value) => String(value).trim().slice(0, 80))
+        .filter(Boolean)
+        .slice(0, 5)
+    : [];
 
   // Card presentation is written whenever it was SUPPLIED, not only when set: a
   // boolean is meaningful even when false ("do not show my email"), and clearing a
@@ -569,6 +594,7 @@ export async function acceptInvitation(
     phone ||
     phoneExtension ||
     headshot ||
+    designationsSupplied ||
     Object.keys(cardData).length > 0
   ) {
     await updateTeammateProfile({
@@ -579,6 +605,7 @@ export async function acceptInvitation(
         ...(firstName ? { firstName } : {}),
         ...(lastName ? { lastName } : {}),
         ...(jobTitle ? { jobTitle } : {}),
+        ...(designationsSupplied ? { designations } : {}),
         ...(phone ? { phone } : {}),
         ...(phoneExtension ? { phoneExtension } : {}),
         ...(headshot ? { headshot } : {}),

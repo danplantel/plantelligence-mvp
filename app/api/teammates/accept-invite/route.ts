@@ -24,7 +24,8 @@ import { normalizeContactFormTopics } from "@/lib/contact-form-topics";
 /** Meaning per status, in one place so the page and the API cannot disagree. */
 const STATUS_COPY: Record<InvitationStatus, string> = {
   ok: "This invitation is ready to accept.",
-  invalid: "This invitation link is not valid. Ask the person who invited you for a new one.",
+  invalid:
+    "This invitation link is not valid. Ask the person who invited you for a new one.",
   expired:
     "This invitation has expired. Invitations are valid for 14 days — ask for a new one.",
   already_accepted:
@@ -75,7 +76,8 @@ function isThrottled(ip: string): boolean {
   // Opportunistic cleanup so the Map cannot grow without bound.
   if (attempts.size > 500) {
     for (const [key, value] of attempts) {
-      if (value.every((at) => now - at >= ATTEMPT_WINDOW_MS)) attempts.delete(key);
+      if (value.every((at) => now - at >= ATTEMPT_WINDOW_MS))
+        attempts.delete(key);
     }
   }
   return recent.length > MAX_ATTEMPTS;
@@ -94,7 +96,11 @@ export async function GET(request: NextRequest) {
   const token = request.nextUrl.searchParams.get("token") ?? "";
   const view = await loadInvitation(token);
   return NextResponse.json(
-    { status: view.status, message: STATUS_COPY[view.status], invitation: view },
+    {
+      status: view.status,
+      message: STATUS_COPY[view.status],
+      invitation: view,
+    },
     { status: statusCode(view.status) },
   );
 }
@@ -128,12 +134,23 @@ export async function POST(request: NextRequest) {
       // The profile fields the acceptance form collects. An ABSENT key means "not supplied" and
       // leaves what the invite seeded alone, which is why each one is passed as `undefined`
       // rather than as an empty string when the client did not send it.
-      firstName: typeof body.firstName === "string" ? body.firstName : undefined,
+      firstName:
+        typeof body.firstName === "string" ? body.firstName : undefined,
       lastName: typeof body.lastName === "string" ? body.lastName : undefined,
       jobTitle: typeof body.jobTitle === "string" ? body.jobTitle : undefined,
+      // Credentials from the Team Member form. Strings only, so a crafted request
+      // cannot put arbitrary shapes in the column; an absent key still leaves the
+      // seat's own list alone (which is what a collaborator's screen sends).
+      designations: Array.isArray(body.designations)
+        ? body.designations.filter(
+            (value): value is string => typeof value === "string",
+          )
+        : undefined,
       phone: typeof body.phone === "string" ? body.phone : undefined,
       phoneExtension:
-        typeof body.phoneExtension === "string" ? body.phoneExtension : undefined,
+        typeof body.phoneExtension === "string"
+          ? body.phoneExtension
+          : undefined,
       // Usually a `data:` URL: the invitee has no session, so the editor cannot upload and hands
       // the cropped image back inline. The service stores it under the organization's prefix.
       headshot: typeof body.headshot === "string" ? body.headshot : undefined,
