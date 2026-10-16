@@ -540,6 +540,37 @@ export function ContactFormSlide({
   };
 
   /**
+   * The logged-in user's own designations (User.designations, read by /api/profile).
+   *
+   * Their own contact is pre-populated from that profile, so the Designations
+   * section is populated from the same source — a seeded row written before the
+   * seeding copied designations onto it, or a contact the advisor enters their own
+   * address into, opens with the credentials their profile holds.
+   */
+  const profileDesignations = toDesignationList(
+    (advisorProfile as any)?.designations ??
+      (advisorProfile as any)?.user?.designations,
+  );
+  /** Key for the effect below — the array itself is rebuilt on every render. */
+  const profileDesignationsKey = profileDesignations.join("|");
+
+  /**
+   * The designations a form opens with: what the stored row already holds, else the
+   * user's profile designations when the row is THEIRS (matched by email, the same
+   * test `resolveCompanyName` uses above), else nothing.
+   */
+  const initialDesignations = (
+    source: Record<string, any>,
+    emailOverride?: string | null,
+  ): string[] => {
+    const stored = toDesignationList(source.designations ?? source.designation);
+    if (stored.length > 0) return stored;
+    return isOwnContactEmail(emailOverride ?? source.email)
+      ? profileDesignations
+      : [];
+  };
+
+  /**
    * When adding ANOTHER contact to a category that already holds the logged-in
    * user's own (profile-seeded) contact, assume the new contact works for the same
    * company: reuse that primary contact's Company / Organization and Contact
@@ -583,18 +614,23 @@ export function ContactFormSlide({
   const [firstName, setFirstName] = useState(step3bData.firstName || "");
   const [lastName, setLastName] = useState(step3bData.lastName || "");
   const [title, setTitle] = useState(step3bData.title || "");
+  // Opens with the stored list — and for the logged-in user's OWN contact, with the
+  // designations on their profile (see `initialDesignations`).
   const [designations, setDesignations] = useState<string[]>(() =>
-    toDesignationList(
-      (step3bData as any).designations ?? (step3bData as any).designation,
-    ),
+    initialDesignations(step3bData as Record<string, any>, step3bData.email),
   );
 
   /**
    * The pill list writes straight into state, capping each entry as it arrives: a
    * custom designation can be longer than any label in the dictionary, and the
    * per-row inputs this replaced enforced the same limit with `maxLength`.
+   *
+   * Editing also marks the field as touched, which stops the profile prefill (see
+   * the effect below) from re-adding the user's own designations once cleared.
    */
+  const designationsTouchedRef = useRef(false);
   const handleDesignationsChange = (values: string[]) => {
+    designationsTouchedRef.current = true;
     setDesignations(
       values.map((value) => value.slice(0, MAX_DESIGNATION_LENGTH)),
     );
@@ -791,7 +827,8 @@ export function ContactFormSlide({
       setFirstName(sb.firstName || "");
       setLastName(sb.lastName || "");
       setTitle(sb.title || "");
-      setDesignations(toDesignationList(sb.designations ?? sb.designation));
+      setDesignations(initialDesignations(sb, sb.email));
+      designationsTouchedRef.current = false;
       setDisplayName(sb.displayName || "");
       setEmail(sb.email || "");
       setPhone(sb.phone || "");
@@ -867,6 +904,25 @@ export function ContactFormSlide({
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userOrganizationName, email, step3bData.email]);
+
+  // Populate the Designations section for the logged-in user's own contact from
+  // their profile — the same authority the Company / Organization above is
+  // repaired from. The row may only identify them after render (useSession is
+  // async, the profile lands late, or the advisor types their own address into a
+  // new contact form), which is why this is an effect rather than initial state.
+  //
+  // It only ever fills an EMPTY list and only until the field is edited, so
+  // clearing the designations by hand is never undone.
+  useEffect(() => {
+    if (contactType !== "individual") return;
+    if (profileDesignations.length === 0) return;
+    if (designationsTouchedRef.current) return;
+    if (!isOwnContactEmail(email) && !isOwnContactEmail(step3bData.email))
+      return;
+    setDesignations((prev) => (prev.length > 0 ? prev : profileDesignations));
+    // Keyed on the joined profile list: the array itself is rebuilt every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [email, contactType, profileDesignationsKey, step3bData.email]);
 
   // Keep the Phone "show on card" toggle in sync with the phone field: uncheck
   // when there is no phone value. It is intentionally NOT auto-checked when the
