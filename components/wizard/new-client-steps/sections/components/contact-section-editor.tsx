@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState, memo } from "react";
-import { RotateCcw, ChevronDown, ChevronUp, Globe, Calendar, Mail, Phone, Building2, Trash2, Star } from "lucide-react";
+import { RotateCcw, ChevronDown, ChevronUp, Globe, Calendar, Mail, Phone, Building2, Trash2, Star, Save, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { cn } from "@/lib/utils";
 import { ContactFormFields } from "@/components/ui/contact-form-fields";
@@ -64,6 +65,10 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
     // Track which contact is expanded in the editor
     const [expandedContactId, setExpandedContactId] = useState<string | null>(null);
 
+    // The contact whose "Save Changes" is in flight, so only its own button shows the
+    // spinner / disables — the accordions are independent.
+    const [savingContactId, setSavingContactId] = useState<string | null>(null);
+
     // Refs for scrolling to specific contact forms
     const contactRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -118,6 +123,49 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
 
     const handleUpdateContactField = (contactId: string, field: string, value: any) => {
         handleUpdateContactFields(contactId, { [field]: value });
+    };
+
+    /**
+     * Commit one contact and report the outcome.
+     *
+     * Every field in the panel writes through `handleUpdateContactFields` as it
+     * changes, so the edits are already in the store — this pins them locally, on the
+     * server and in the draft in one go, and says whether the server accepted them.
+     * The per-keystroke saves are fire-and-forget, so a failure used to be invisible.
+     */
+    const handleSaveContactChanges = async (
+        contactId: string,
+        e: React.MouseEvent<HTMLButtonElement>,
+    ) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setSavingContactId(contactId);
+        try {
+            const updatedData = { ...keyContactsData, contacts: savedContacts };
+            saveStepDataLocally("keyContacts", updatedData);
+            const serverSaved = await saveStepDataToServer(
+                "keyContacts",
+                updatedData,
+            );
+            if (!serverSaved) {
+                toast.error(
+                    "Could not save this contact to the server. Your changes are kept locally.",
+                );
+                return;
+            }
+            void saveAsDraft().catch((error) => {
+                console.error(
+                    "Background draft save after contact save failed:",
+                    error,
+                );
+            });
+            toast.success("Contact saved");
+        } catch (error) {
+            console.error("Failed to save contact changes:", error);
+            toast.error("Could not save this contact. Please try again.");
+        } finally {
+            setSavingContactId(null);
+        }
     };
 
     const handleDeleteContactFromEditor = async (
@@ -575,7 +623,25 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                             )}
                                         </div>
 
-                                        <div className="pt-4 border-t mt-2 flex justify-end">
+                                        <div className="pt-4 border-t mt-2 flex items-center justify-between gap-2">
+                                            <Button
+                                                type="button"
+                                                size="sm"
+                                                className="h-9"
+                                                disabled={savingContactId === contact.id}
+                                                onClick={(e) =>
+                                                    void handleSaveContactChanges(contact.id, e)
+                                                }
+                                            >
+                                                {savingContactId === contact.id ? (
+                                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                ) : (
+                                                    <Save className="w-4 h-4 mr-2" />
+                                                )}
+                                                {savingContactId === contact.id
+                                                    ? "Saving…"
+                                                    : "Save Changes"}
+                                            </Button>
                                             <Button
                                                 type="button"
                                                 variant="outline"
