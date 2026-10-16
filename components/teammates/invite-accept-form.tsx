@@ -1144,6 +1144,7 @@ export function InviteAcceptForm({ token }: { token: string }) {
             disableAnimation
             baselineBackgroundColor="#ffffff"
             compact
+            disableContactFormButton
           />
         </StickyPreviewContainer>
       ) : null}

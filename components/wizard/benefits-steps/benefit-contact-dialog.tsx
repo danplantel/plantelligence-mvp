@@ -1162,6 +1162,7 @@ export function BenefitContactDialog({
                 baselineBackgroundColor="#ffffff"
                 compact
                 previewPlaceholders
+                disableContactFormButton
               />
             </div>
           </div>

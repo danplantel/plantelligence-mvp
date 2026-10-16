@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import {
+  designationAcronym,
   designationLabel,
   getDesignationOptions,
 } from "@/config/onboarding/designations";
@@ -296,31 +297,35 @@ function ContactCardPreview({
           </h3>
         )}
 
+        {/* Designations — the row directly under the name, so the card reads
+            name → designations → title → company, matching the portal cards.
+            Acronyms only (CFP®, AIF®), held to a SINGLE row: the container does not
+            wrap, and a chip that would not fit shrinks and wraps its own text instead
+            of pushing the row onto a second line. */}
+        {designations.length > 0 && (
+          <div className="-mt-1 flex w-full flex-nowrap items-center justify-center gap-1 overflow-hidden">
+            {designations.map((value, index) => (
+              <span
+                key={index}
+                className="inline-block min-w-0 max-w-full break-words rounded-full bg-gray-100 px-2 py-0.5 text-center text-[10px] leading-tight text-gray-600"
+              >
+                {designationAcronym(value)}
+              </span>
+            ))}
+          </div>
+        )}
+
         {/* Title / Department */}
         <p className="text-[11px] font-medium text-gray-500 text-center -mt-1">
           {resolvedTitle}
         </p>
 
-        {/* Company Name — above the designations, matching the portal cards. */}
+        {/* Company Name — below the designations and title, matching the portal
+            cards' order. */}
         {companyName?.trim() && (
           <p className="text-[11px] font-semibold text-gray-700 text-center -mt-1">
             {companyName}
           </p>
-        )}
-
-        {/* Designations — a wrapping row of chips. The chips themselves wrap too,
-            so a long designation stays inside the card. */}
-        {designations.length > 0 && (
-          <div className="mt-[-2px] flex w-full flex-wrap items-center justify-center gap-1">
-            {designations.map((value, index) => (
-              <span
-                key={index}
-                className="inline-block max-w-full break-words rounded-full bg-gray-100 px-2 py-0.5 text-center text-[10px] leading-tight text-gray-600"
-              >
-                {designationLabel(value)}
-              </span>
-            ))}
-          </div>
         )}
 
         {/* Divider */}
@@ -1847,8 +1852,9 @@ export function ContactFormSlide({
                 {/* Designations — the pill picker the advisor's own profile uses:
                     a typeahead over the shared dictionary, chips you can drag to
                     reorder, and a custom entry for anything the dictionary does not
-                    list. The pills read as this slide's card chips do (full labels),
-                    because the card is previewed right beside the form. */}
+                    list. Pills show the ACRONYM (`chipLabel`), as Step 4's do; the
+                    match list still offers acronym and full name together, so the
+                    spelled-out credential stays visible while choosing. */}
                 <div className="space-y-1" data-field="designations">
                   <Label className="dark:text-gray-300 text-xs font-medium">
                     Designations (optional)
@@ -1857,6 +1863,7 @@ export function ContactFormSlide({
                     options={DESIGNATION_OPTIONS}
                     selectedValues={designations}
                     valueLabel={designationLabel}
+                    chipLabel={designationAcronym}
                     onChange={handleDesignationsChange}
                     placeholder="Type a designation, e.g. CFP®…"
                     allowCustom
@@ -2342,6 +2349,7 @@ export function ContactFormSlide({
             baselineBackgroundColor="#ffffff"
             compact={true}
             previewPlaceholders
+            disableContactFormButton
           />
         </StickyPreviewContainer>
       </div>

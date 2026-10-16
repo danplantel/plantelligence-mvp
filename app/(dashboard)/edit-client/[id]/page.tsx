@@ -1501,6 +1501,7 @@ function EditContactDialog({
               baselineBackgroundColor="#ffffff"
               compact
               previewPlaceholders
+              disableContactFormButton
             />
           </div>
         </div>

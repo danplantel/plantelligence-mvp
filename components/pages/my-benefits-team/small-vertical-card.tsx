@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { Mail, Phone, Clock } from "lucide-react";
 import { getSupportIcon } from "@/lib/support-icons";
-import { designationLabel } from "@/config/onboarding/designations";
+import { designationAcronym } from "@/config/onboarding/designations";
 import { motion } from "framer-motion";
 import { ContactAvatar } from "@/components/pages/my-benefits-team/contact-avatar";
 import { formatPhone } from "@/components/pages/my-benefits-team/utils";
@@ -77,6 +77,18 @@ interface SmallVerticalCardProps {
    *  (used only by the wizard's live Portal Preview — never real portal cards). */
   previewPlaceholders?: boolean;
   /**
+   * Render the Contact Form CTA ("Contact") as a non-interactive label.
+   *
+   * Set by the wizard's Portal Previews. The button still has to look like the
+   * published card, so it is drawn rather than hidden or dimmed — but clicking it
+   * must not navigate, because it opens the live Plantelligence `/contact` page in
+   * a new tab and would take the advisor out of the form they are editing.
+   *
+   * Never set on a real portal card: there the button is the contact's actual way
+   * for a participant to reach them.
+   */
+  disableContactFormButton?: boolean;
+  /**
    * Benefit category this contact speaks for, shown as a tag at the top of the card.
    * Supplied by `BenefitContactCard` on the My Benefits Team page; omitted (undefined)
    * on the benefit category pages and in the wizard previews, where the surrounding
@@ -98,6 +110,7 @@ export function SmallVerticalCard({
   baselineLogoScale,
   compact = false,
   previewPlaceholders = false,
+  disableContactFormButton = false,
   categoryLabel,
 }: SmallVerticalCardProps) {
   const isPrimary = contact.isPrimary || false;
@@ -221,6 +234,10 @@ export function SmallVerticalCard({
         // "Contact" (not "Contact Support").
         label: "Contact",
         url: withContactFormAvatar(contact.websiteUrl || "", contact.headshot),
+        // Marks this button as the Contact Form CTA, so a preview can render it
+        // inert (see `disableContactFormButton`). The legacy website button below is
+        // also type "website" but is a real outbound link, and must keep working.
+        isContactForm: true,
       });
     }
   } else {
@@ -366,6 +383,36 @@ export function SmallVerticalCard({
             {displayNameText}
           </h3>
 
+          {/* DESIGNATIONS — the row directly under the name, so the card reads
+              name → designations → title → company. Acronyms only (CFP®, AIF®), held
+              to a SINGLE row: the container does not wrap, and a chip that would not
+              fit shrinks and wraps its own text instead of pushing the row onto a
+              second line. Hidden for Team/Support Line contacts, whose role line is
+              suppressed too. */}
+          {!isTeamSupport &&
+            (contact.designations || []).some((value) => value && value.trim()) && (
+              <div
+                className={`${gapTitle} flex w-full flex-shrink-0 flex-nowrap items-center justify-center gap-1 overflow-hidden`}
+              >
+                {(contact.designations || [])
+                  .filter((value) => value && value.trim())
+                  .map((value, index) => (
+                    <span
+                      key={index}
+                      className="inline-block min-w-0 max-w-full break-words rounded-full px-2 py-0.5 text-center text-[11px] leading-tight"
+                      style={{
+                        color: textColor || "#4B5563",
+                        backgroundColor: textColor
+                          ? "rgba(255,255,255,0.16)"
+                          : "#F3F4F6",
+                      }}
+                    >
+                      {designationAcronym(value)}
+                    </span>
+                  ))}
+              </div>
+            )}
+
           {/* TITLE / DEPARTMENT LABEL — hidden for Team/Support Line contacts
               because the team name above already conveys it. */}
           {!isTeamSupport && (
@@ -382,8 +429,8 @@ export function SmallVerticalCard({
             </p>
           )}
 
-          {/* COMPANY NAME — above the designations, so the card reads
-              name → title → company → designations. */}
+          {/* COMPANY NAME — below the title, so the card reads name → designations
+              → title → company. */}
           {(resolvedCardCompany || showPlaceholders) && (
             <p
               className={`${subtitleSize} font-semibold ${gapCompany} text-center flex-shrink-0 font-dm-serif`}
@@ -397,34 +444,6 @@ export function SmallVerticalCard({
               {displayCompanyText}
             </p>
           )}
-
-          {/* DESIGNATIONS — a wrapping row of chips (they flow onto another line
-              only when they run out of room). Each chip wraps internally too, so a
-              long designation stays inside the card. Hidden for Team/Support Line
-              contacts, whose role line is suppressed too. */}
-          {!isTeamSupport &&
-            (contact.designations || []).some((value) => value && value.trim()) && (
-              <div
-                className={`${gapTitle} flex w-full flex-shrink-0 flex-wrap items-center justify-center gap-1`}
-              >
-                {(contact.designations || [])
-                  .filter((value) => value && value.trim())
-                  .map((value, index) => (
-                    <span
-                      key={index}
-                      className="inline-block max-w-full break-words rounded-full px-2 py-0.5 text-center text-[11px] leading-tight"
-                      style={{
-                        color: textColor || "#4B5563",
-                        backgroundColor: textColor
-                          ? "rgba(255,255,255,0.16)"
-                          : "#F3F4F6",
-                      }}
-                    >
-                      {designationLabel(value)}
-                    </span>
-                  ))}
-              </div>
-            )}
         </div>
         {/* CONTACT INFO */}
         <div
@@ -551,23 +570,43 @@ export function SmallVerticalCard({
                   ? mix(0.2, "#ffffff", effectiveBrandColor)
                   : "#F3F4F6";
               const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
+              // See the compact path above: the Contact Form CTA is drawn but inert in
+              // a preview, so an advisor cannot navigate out of the wizard mid-edit.
+              const contactFormInert =
+                disableContactFormButton && button.isContactForm === true;
+              const actionClassName = cn(
+                "inline-flex items-center justify-center rounded-lg text-sm transition-colors",
+                "w-full rounded-lg px-4 font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat",
+                subtitleSize,
+                isPrimaryButton ? buttonSize : "py-1.5",
+              );
+              const actionStyle = {
+                backgroundColor: buttonBg,
+                color: buttonColor,
+                border: isPrimaryButton
+                  ? "none"
+                  : isPrimary
+                    ? "1px solid #E5E7EB"
+                    : "1px solid #E5E7EB",
+              };
+
+              if (contactFormInert) {
+                return (
+                  <span
+                    key={idx}
+                    className={cn(actionClassName, "cursor-default")}
+                    style={actionStyle}
+                  >
+                    {button.label}
+                  </span>
+                );
+              }
 
               return (
                 <Button
                   key={idx}
-                  className={cn(
-                    `w-full rounded-lg px-4 ${subtitleSize} font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat`,
-                    isPrimaryButton ? buttonSize : "py-1.5",
-                  )}
-                  style={{
-                    backgroundColor: buttonBg,
-                    color: buttonColor,
-                    border: isPrimaryButton
-                      ? "none"
-                      : isPrimary
-                        ? "1px solid #E5E7EB"
-                        : "1px solid #E5E7EB",
-                  }}
+                  className={actionClassName}
+                  style={actionStyle}
                   onClick={async () => {
                     if (
                       button.type === "schedule" ||
@@ -826,23 +865,43 @@ export function SmallVerticalCard({
                   ? mix(0.2, "#ffffff", effectiveBrandColor)
                   : "#F3F4F6";
               const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
+              // A preview draws the Contact Form CTA but does not act on it (see the
+              // prop's doc): identical size, colour and label to the published card,
+              // minus the navigation to the live `/contact` page.
+              const contactFormInert =
+                disableContactFormButton && button.isContactForm === true;
+              const actionClassName = cn(
+                "inline-flex items-center justify-center rounded-lg text-sm transition-colors",
+                "w-full rounded-lg px-6 text-xs sm:text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat",
+                isPrimaryButton ? "py-2 sm:py-3" : "py-1.5 sm:py-2",
+              );
+              const actionStyle = {
+                backgroundColor: buttonBg,
+                color: buttonColor,
+                border: isPrimaryButton
+                  ? "none"
+                  : isPrimary
+                    ? "1px solid #E5E7EB"
+                    : "1px solid #E5E7EB",
+              };
+
+              if (contactFormInert) {
+                return (
+                  <span
+                    key={idx}
+                    className={cn(actionClassName, "cursor-default")}
+                    style={actionStyle}
+                  >
+                    {button.label}
+                  </span>
+                );
+              }
 
               return (
                 <Button
                   key={idx}
-                  className={cn(
-                    "w-full rounded-lg px-6 text-xs sm:text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat",
-                    isPrimaryButton ? "py-2 sm:py-3" : "py-1.5 sm:py-2",
-                  )}
-                  style={{
-                    backgroundColor: buttonBg,
-                    color: buttonColor,
-                    border: isPrimaryButton
-                      ? "none"
-                      : isPrimary
-                        ? "1px solid #E5E7EB"
-                        : "1px solid #E5E7EB",
-                  }}
+                  className={actionClassName}
+                  style={actionStyle}
                   onClick={async () => {
                     if (
                       button.type === "schedule" ||

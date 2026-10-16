@@ -132,6 +132,7 @@ function RenderCardBySlot({
           index={index}
           disableAnimation={true}
           compact={compact}
+          disableContactFormButton
         />
       );
     default:

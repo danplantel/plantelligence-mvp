@@ -354,6 +354,7 @@ function RenderCardBySlot({
             disableAnimation={true}
             baselineBackgroundColor={baselineBackgroundColor}
             compact={compact}
+            disableContactFormButton
           />
         </div>
       );

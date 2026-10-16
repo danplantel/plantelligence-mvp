@@ -3,7 +3,7 @@
 import { Phone, Mail } from "lucide-react";
 import { Headshot } from "@/components/ui/headshot";
 import type { FAQContact } from "@/components/faq-section";
-import { designationLabel } from "@/config/onboarding/designations";
+import { designationAcronym } from "@/config/onboarding/designations";
 
 interface HaveQuestionsProps {
   brandColor?: string;
@@ -64,22 +64,22 @@ export function HaveQuestions({
                   <p className="text-[16px] font-red-hat text-gray-600">
                     {contact.description}
                   </p>
-                  {/* Designations — a wrapping row of chips under the job title
-                      (they flow onto another line only when they run out of room).
-                      Each chip wraps internally too, so a long designation stays
-                      inside the card. */}
+                  {/* Designations — acronyms only (CFP®, AIF®), under the role line
+                      and held to a SINGLE row: the container does not wrap, and a chip
+                      that would not fit shrinks and wraps its own text instead of
+                      pushing the row onto a second line. */}
                   {(contact.designations || []).some(
                     (value) => value && value.trim(),
                   ) && (
-                    <div className="mt-1 flex w-full flex-wrap items-center justify-center gap-1">
+                    <div className="mt-1 flex w-full flex-nowrap items-center justify-center gap-1 overflow-hidden">
                       {(contact.designations || [])
                         .filter((value) => value && value.trim())
                         .map((value, index) => (
                           <span
                             key={index}
-                            className="inline-block max-w-full break-words rounded-full bg-gray-100 px-2 py-0.5 text-center text-[12px] font-red-hat leading-tight text-gray-600"
+                            className="inline-block min-w-0 max-w-full break-words rounded-full bg-gray-100 px-2 py-0.5 text-center text-[12px] font-red-hat leading-tight text-gray-600"
                           >
-                            {designationLabel(value)}
+                            {designationAcronym(value)}
                           </span>
                         ))}
                     </div>

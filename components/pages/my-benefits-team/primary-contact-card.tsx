@@ -5,7 +5,7 @@ import { BrandingImage } from "@/components/ui/branding-image";
 import { HEADER_LOGO_MAX_WIDTH_PX } from "@/lib/header-logo-band";
 import { Mail, Phone } from "lucide-react";
 import { getSupportIcon } from "@/lib/support-icons";
-import { designationLabel } from "@/config/onboarding/designations";
+import { designationAcronym } from "@/config/onboarding/designations";
 import { motion } from "framer-motion";
 import { PrimaryVisual } from "@/components/pages/my-benefits-team/primary-visual";
 import { readableColor, mix } from "polished";
@@ -282,6 +282,32 @@ export function PrimaryContactCard({
               : contact.name}
           </h2>
 
+          {/* DESIGNATIONS — the row directly under the name, so the card reads
+              name → designations → title → company, matching SmallVerticalCard.
+              Acronyms only (CFP®, AIF®), held to a SINGLE row: the container does not
+              wrap, and a chip that would not fit shrinks and wraps its own text
+              instead of pushing the row onto a second line. Hidden for Team/Support
+              Line contacts, whose role line is suppressed too. */}
+          {!isTeamSupport &&
+            (contact.designations || []).some((value) => value && value.trim()) && (
+              <div className="flex w-full flex-nowrap items-center gap-1 overflow-hidden">
+                {(contact.designations || [])
+                  .filter((value) => value && value.trim())
+                  .map((value, index) => (
+                    <span
+                      key={index}
+                      className="inline-block min-w-0 max-w-full break-words rounded-full px-2 py-0.5 text-center text-[12px] leading-tight"
+                      style={{
+                        color: textColor,
+                        backgroundColor: "rgba(255,255,255,0.16)",
+                      }}
+                    >
+                      {designationAcronym(value)}
+                    </span>
+                  ))}
+              </div>
+            )}
+
           {/* TITLE — hidden for Team/Support Line contacts because the team
               name above already conveys it. */}
           {!isTeamSupport && (
@@ -290,37 +316,13 @@ export function PrimaryContactCard({
             </p>
           )}
 
-          {/* COMPANY NAME — above the designations, so the card reads
-              name → title → company → designations. Brand (primary) color, same
-              as the name above. */}
+          {/* COMPANY NAME — below the title, so the card reads name → designations
+              → title → company. Brand (primary) color, same as the name above. */}
           {(contact.companyName || companyName) && (
             <p className="text-sm sm:text-base font-bold" style={{ color: effectiveBrandColor }}>
               {contact.companyName || companyName}
             </p>
           )}
-
-          {/* DESIGNATIONS — a wrapping row of chips (they flow onto another line
-              only when they run out of room). Each chip wraps internally too, so a
-              long designation stays inside the card. */}
-          {!isTeamSupport &&
-            (contact.designations || []).some((value) => value && value.trim()) && (
-              <div className="flex w-full flex-wrap items-center gap-1">
-                {(contact.designations || [])
-                  .filter((value) => value && value.trim())
-                  .map((value, index) => (
-                    <span
-                      key={index}
-                      className="inline-block max-w-full break-words rounded-full px-2 py-0.5 text-center text-[12px] leading-tight"
-                      style={{
-                        color: textColor,
-                        backgroundColor: "rgba(255,255,255,0.16)",
-                      }}
-                    >
-                      {designationLabel(value)}
-                    </span>
-                  ))}
-              </div>
-            )}
 
           {/* EMAIL (clickable) */}
           {contact.email && contact.displayEmail !== false && (
