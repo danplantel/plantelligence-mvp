@@ -26,8 +26,9 @@ import { ColorPicker } from "@/components/ui/color-picker";
 import { UploadInput } from "@/components/ui/upload-input";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { Headshot } from "@/components/ui/headshot";
-import { MultiSelectDropdown } from "@/components/ui/multi-select-dropdown";
+import { ChipTypeahead } from "@/components/ui/chip-typeahead";
 import {
+  designationAcronym,
   designationLabel,
   getDesignationOptions,
   resolveDesignationIds,
@@ -120,8 +121,13 @@ At <Organization_Name>, we understand that your benefits are more than just perk
 We hope to inspire confidence and peace of mind as you navigate your benefits journey with us.`;
 
   // The designation dictionary (ids + labels) lives in config; values are stored
-  // as ids and rendered through `designationLabel`.
-  const designationOptions = getDesignationOptions();
+  // as ids, matched by `valueLabel` and shortened to the acronym by `chipLabel`.
+  // Rows are labelled acronym-first, exactly as Step 4 labels them.
+  const designationOptions = getDesignationOptions().map((option) => ({
+    value: option.value,
+    label: `${option.acronym} – ${option.label}`,
+    keywords: [option.acronym, option.value, option.label],
+  }));
 
   const serviceOptions = [
     { value: ServiceType.RETIREMENT, label: "Retirement", description: "" },
@@ -671,17 +677,27 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
 
             <div className="space-y-2">
               <Label>Designations (Optional)</Label>
-              <MultiSelectDropdown
+              {/* The same pill picker as Step 4 and Settings → Profile: chips that
+                  can be dragged to reorder, a typeahead over the dictionary, and a
+                  custom entry for anything it does not list. This edits the very
+                  same field, so it must not look like a different control. */}
+              <ChipTypeahead
                 options={designationOptions}
                 selectedValues={editData.designations}
                 valueLabel={designationLabel}
-                onSelectionChange={(values) =>
-                  updateField("designations", values)
+                chipLabel={designationAcronym}
+                onChange={(values) => updateField("designations", values)}
+                placeholder="Type a designation, e.g. CFP…"
+                allowCustom
+                customOptionLabel={(query) =>
+                  `Add as custom designation: “${query}”`
                 }
-                placeholder="Select designations..."
-                allowCustomInput={true}
-                customInputPlaceholder="Add custom designation"
+                maxSelections={5}
+                dataField="designations"
               />
+              <p className="text-xs text-muted-foreground">
+                Add up to 5. They display in this order. Drag to reorder.
+              </p>
             </div>
 
             <div className="space-y-2">

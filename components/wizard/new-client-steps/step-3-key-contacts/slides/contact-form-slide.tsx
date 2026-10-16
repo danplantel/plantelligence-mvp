@@ -4,18 +4,22 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useSession } from "next-auth/react";
 import useSWR from "swr";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
-import { designationLabel } from "@/config/onboarding/designations";
+import {
+  designationLabel,
+  getDesignationOptions,
+} from "@/config/onboarding/designations";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ChipTypeahead } from "@/components/ui/chip-typeahead";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ArrowLeft, ArrowRight, Mail, Phone, BadgeCheck, Calendar, Globe, PiggyBank, Shield, Heart, Puzzle, Users, Briefcase, Info, Plus, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Mail, Phone, BadgeCheck, Calendar, Globe, PiggyBank, Shield, Heart, Puzzle, Users, Briefcase, Info } from "lucide-react";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { Headshot } from "@/components/ui/headshot";
@@ -102,28 +106,6 @@ const MAX_DESIGNATIONS = 5;
 const MAX_DESIGNATION_LENGTH = 80;
 
 /**
- * Normalize a stored designation value into the list of rows the form edits.
- * Designations are a list (the card renders them as a wrapping row of chips);
- * this also tolerates the earlier single-string shape, caps the list at the
- * maximum, caps each entry at the character limit, and always yields at least
- * one row so the field is never invisible.
- */
-const toDesignationList = (value: unknown): string[] => {
-  if (Array.isArray(value)) {
-    const list = value
-      .slice(0, MAX_DESIGNATIONS)
-      .map((v) =>
-        typeof v === "string" ? v.slice(0, MAX_DESIGNATION_LENGTH) : "",
-      );
-    return list.length > 0 ? list : [""];
-  }
-  if (typeof value === "string" && value.trim()) {
-    return [value.slice(0, MAX_DESIGNATION_LENGTH)];
-  }
-  return [""];
-};
-
-/**
  * Trim, drop blanks and cap at the maxima — what actually gets stored on the
  * contact, so no card can ever receive more than `MAX_DESIGNATIONS` entries of
  * more than `MAX_DESIGNATION_LENGTH` characters.
@@ -133,6 +115,34 @@ const cleanDesignationList = (list: string[]): string[] =>
     .map((value) => value.trim().slice(0, MAX_DESIGNATION_LENGTH))
     .filter(Boolean)
     .slice(0, MAX_DESIGNATIONS);
+
+/**
+ * Normalize a stored designation value into the chips the form edits.
+ * Designations are a list (the editor and the card both render them as wrapping
+ * chips); this also tolerates the earlier single-string shape. Blanks are dropped
+ * rather than kept as an empty row — an empty entry would now be a blank pill
+ * rather than an empty input waiting to be filled in.
+ */
+const toDesignationList = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return cleanDesignationList(
+      value.map((v) => (typeof v === "string" ? v : "")),
+    );
+  }
+  if (typeof value === "string") return cleanDesignationList([value]);
+  return [];
+};
+
+/**
+ * The dictionary the picker offers — the same list, and the same acronym-first row
+ * labels, the advisor's own profile offers. Values are ids; `designationLabel`
+ * renders them for the chip, and free text passes through untouched.
+ */
+const DESIGNATION_OPTIONS = getDesignationOptions().map((option) => ({
+  value: option.value,
+  label: `${option.acronym} – ${option.label}`,
+  keywords: [option.acronym, option.value, option.label],
+}));
 
 /** Derive a light card accent color from the category */
 const categoryAccent: Record<string, string> = {
@@ -541,6 +551,15 @@ export function ContactFormSlide({
       (step3bData as any).designations ?? (step3bData as any).designation,
     ),
   );
+
+  /**
+   * The pill list writes straight into state, capping each entry as it arrives: a
+   * custom designation can be longer than any label in the dictionary, and the
+   * per-row inputs this replaced enforced the same limit with `maxLength`.
+   */
+  const handleDesignationsChange = (values: string[]) => {
+    setDesignations(values.map((value) => value.slice(0, MAX_DESIGNATION_LENGTH)));
+  };
   const [displayName, setDisplayName] = useState(step3bData.displayName || "");
   const [email, setEmail] = useState(step3bData.email || "");
   const [phone, setPhone] = useState(step3bData.phone || "");
@@ -1825,70 +1844,32 @@ export function ContactFormSlide({
                     <p className="text-[10px] text-red-500">Job title is required</p>
                   )}
                 </div>
-                {/* Designations — free text, optional and repeatable. They are kept
-                    as separate entries (no commas to remember) and the card lays
-                    them out as a wrapping row of chips. Capped at
-                    MAX_DESIGNATIONS. */}
+                {/* Designations — the pill picker the advisor's own profile uses:
+                    a typeahead over the shared dictionary, chips you can drag to
+                    reorder, and a custom entry for anything the dictionary does not
+                    list. The pills read as this slide's card chips do (full labels),
+                    because the card is previewed right beside the form. */}
                 <div className="space-y-1" data-field="designations">
                   <Label className="dark:text-gray-300 text-xs font-medium">
                     Designations (optional)
                   </Label>
+                  <ChipTypeahead
+                    options={DESIGNATION_OPTIONS}
+                    selectedValues={designations}
+                    valueLabel={designationLabel}
+                    onChange={handleDesignationsChange}
+                    placeholder="Type a designation, e.g. CFP®…"
+                    allowCustom
+                    customOptionLabel={(query) =>
+                      `Add as custom designation: “${query}”`
+                    }
+                    maxSelections={MAX_DESIGNATIONS}
+                    dataField="designations"
+                  />
                   <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                    Up to {MAX_DESIGNATIONS}, {MAX_DESIGNATION_LENGTH} characters
-                    each.
+                    Up to {MAX_DESIGNATIONS}. They display in this order. Drag to
+                    reorder.
                   </p>
-                  {designations.map((value, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Input
-                        value={value}
-                        onChange={(e) => {
-                          const next = [...designations];
-                          next[index] = e.target.value;
-                          setDesignations(next);
-                        }}
-                        placeholder={index === 0 ? "e.g. CFP®" : "e.g. CPA"}
-                        maxLength={MAX_DESIGNATION_LENGTH}
-                        className="h-8 text-sm"
-                      />
-                      {/* Surface the cap as it approaches, so the input blocking
-                          further typing does not read as broken. */}
-                      {value.length >= MAX_DESIGNATION_LENGTH - 15 && (
-                        <span className="shrink-0 text-[10px] tabular-nums text-gray-400 dark:text-gray-500">
-                          {value.length}/{MAX_DESIGNATION_LENGTH}
-                        </span>
-                      )}
-                      {designations.length > 1 && (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setDesignations(
-                              designations.filter((_, i) => i !== index),
-                            )
-                          }
-                          aria-label="Remove designation"
-                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-gray-200 text-gray-400 transition-colors hover:border-red-300 hover:text-red-500 dark:border-gray-600"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {designations.length < MAX_DESIGNATIONS ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setDesignations([...designations, ""])}
-                      className="mt-1 inline-flex items-center gap-1.5 text-xs"
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      Add designation
-                    </Button>
-                  ) : (
-                    <p className="pt-1 text-[10px] text-gray-400 dark:text-gray-500">
-                      Maximum of {MAX_DESIGNATIONS} designations.
-                    </p>
-                  )}
                 </div>
               </>
             ) : (
