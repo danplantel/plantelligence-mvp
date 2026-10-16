@@ -20,7 +20,22 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { ArrowLeft, ArrowRight, Mail, Phone, BadgeCheck, Calendar, Globe, PiggyBank, Shield, Heart, Puzzle, Users, Briefcase, Info } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Mail,
+  Phone,
+  BadgeCheck,
+  Calendar,
+  Globe,
+  PiggyBank,
+  Shield,
+  Heart,
+  Puzzle,
+  Users,
+  Briefcase,
+  Info,
+} from "lucide-react";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { Headshot } from "@/components/ui/headshot";
@@ -31,7 +46,13 @@ import { toast } from "sonner";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { StickyPreviewContainer } from "@/components/ui/sticky-preview-container";
 import { useContactStyles } from "../../sections/hooks/use-contact-styles";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { ContactFormPage } from "@/components/pages/contact-form-page";
 import { buildContactFormHref } from "@/lib/contact-form-link";
 import { ContactFormTopicBuilder } from "@/components/ui/contact-form-topic-builder";
@@ -80,7 +101,10 @@ const formatPhoneNumber = (value: string): string => {
   if (phoneNumber.length <= 3) return phoneNumber;
   if (phoneNumber.length <= 6)
     return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
-  return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6, 10)}`;
+  return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(
+    3,
+    6,
+  )}-${phoneNumber.slice(6, 10)}`;
 };
 
 // The Plantelligence-branded `/contact` URL is built by the shared
@@ -241,9 +265,7 @@ function ContactCardPreview({
       ? `${firstName} ${lastName}`.trim()
       : displayName || "Team Name";
   const resolvedTitle =
-    contactType === "individual"
-      ? title || "Job Title"
-      : "Team / Department";
+    contactType === "individual" ? title || "Job Title" : "Team / Department";
   const avatarSrc = contactType === "individual" ? headshot || "" : "";
   const accentColor = categoryAccent[category] || "#1F3A60";
   const showAvatar = contactType === "individual";
@@ -273,7 +295,11 @@ function ContactCardPreview({
           style={{ borderColor: accentColor }}
         >
           {showAvatar && avatarSrc ? (
-            <Headshot src={avatarSrc} alt={resolvedName} monogramName={resolvedName} />
+            <Headshot
+              src={avatarSrc}
+              alt={resolvedName}
+              monogramName={resolvedName}
+            />
           ) : (
             <span
               className="text-xl font-bold font-dm-serif select-none"
@@ -286,9 +312,7 @@ function ContactCardPreview({
 
         {/* Name */}
         {resolvedName ? (
-          <h3
-            className="text-base font-semibold text-center text-gray-900 font-dm-serif leading-tight"
-          >
+          <h3 className="text-base font-semibold text-center text-gray-900 font-dm-serif leading-tight">
             {resolvedName}
           </h3>
         ) : (
@@ -331,10 +355,13 @@ function ContactCardPreview({
         {/* Divider */}
         <div className="w-full border-t border-gray-100 pt-2 space-y-1.5">
           {/* Email — controlled by displayEmail toggle */}
-          {displayEmail && (
-            email ? (
+          {displayEmail &&
+            (email ? (
               <div className="flex items-center gap-2 text-[11px] text-gray-600">
-                <Mail className="w-3 h-3 flex-shrink-0" style={{ color: accentColor }} />
+                <Mail
+                  className="w-3 h-3 flex-shrink-0"
+                  style={{ color: accentColor }}
+                />
                 <span className="truncate text-gray-500">{email}</span>
               </div>
             ) : (
@@ -342,23 +369,26 @@ function ContactCardPreview({
                 <Mail className="w-3 h-3 flex-shrink-0" />
                 <span>email@company.com</span>
               </div>
-            )
-          )}
+            ))}
 
           {/* Phone — controlled by displayPhone toggle */}
-          {displayPhone && (
-            phone ? (
+          {displayPhone &&
+            (phone ? (
               <div className="flex items-center gap-2 text-[11px] text-gray-600">
-                <Phone className="w-3 h-3 flex-shrink-0" style={{ color: accentColor }} />
-                <span className="truncate text-gray-500">{formatPhoneWithExtension(phone, phoneExtension)}</span>
+                <Phone
+                  className="w-3 h-3 flex-shrink-0"
+                  style={{ color: accentColor }}
+                />
+                <span className="truncate text-gray-500">
+                  {formatPhoneWithExtension(phone, phoneExtension)}
+                </span>
               </div>
             ) : (
               <div className="flex items-center gap-2 text-[11px] text-gray-400">
                 <Phone className="w-3 h-3 flex-shrink-0" />
                 <span>(555) 000-0000</span>
               </div>
-            )
-          )}
+            ))}
         </div>
 
         {/* CTA Button */}
@@ -402,7 +432,6 @@ function ContactCardPreview({
             )}
           </div>
         )}
-
       </CardContent>
     </Card>
   );
@@ -563,7 +592,9 @@ export function ContactFormSlide({
    * per-row inputs this replaced enforced the same limit with `maxLength`.
    */
   const handleDesignationsChange = (values: string[]) => {
-    setDesignations(values.map((value) => value.slice(0, MAX_DESIGNATION_LENGTH)));
+    setDesignations(
+      values.map((value) => value.slice(0, MAX_DESIGNATION_LENGTH)),
+    );
   };
   const [displayName, setDisplayName] = useState(step3bData.displayName || "");
   const [email, setEmail] = useState(step3bData.email || "");
@@ -593,14 +624,14 @@ export function ContactFormSlide({
       // Company / Plan Sponsor follows the same rule: the first sponsor added
       // (the Main Contact) becomes primary, while additional sponsors added
       // from the category explorer default to non-primary.
-      const existingContacts = (
-        stepData.keyContacts?.contacts || []
-      ) as any[];
+      const existingContacts = (stepData.keyContacts?.contacts || []) as any[];
       // Editing an existing contact → mirror the primary state the Category
       // Explorer shows for it (either primary flag), so a contact that is
       // already the primary for its category opens with the box checked.
       const editingContact = step3bData.editingContactId
-        ? existingContacts.find((c: any) => c.id === step3bData.editingContactId)
+        ? existingContacts.find(
+            (c: any) => c.id === step3bData.editingContactId,
+          )
         : null;
       if (
         editingContact &&
@@ -659,20 +690,20 @@ export function ContactFormSlide({
   const [enableCtaButton, setEnableCtaButton] = useState(
     step3bData.enableContactButton ?? false,
   );
-  const [ctaType, setCtaType] = useState<"schedule" | "call" | "email" | "contact">(
-    step3bData.ctaType || "schedule",
-  );
+  const [ctaType, setCtaType] = useState<
+    "schedule" | "call" | "email" | "contact"
+  >(step3bData.ctaType || "schedule");
   const [schedulingUrl, setSchedulingUrl] = useState(
     step3bData.schedulingUrl || "",
   );
-  const [websiteUrl, setWebsiteUrl] = useState(
-    step3bData.websiteUrl || "",
-  );
+  const [websiteUrl, setWebsiteUrl] = useState(step3bData.websiteUrl || "");
   // "Topic of Interest" choices for the Plantelligence `/contact` form. Defaults
   // to the benefits category's suggested list on first open, then the advisor's
   // own configuration once they touch it.
-  const [contactFormTopics, setContactFormTopics] = useState<ContactFormTopic[]>(
-    () => resolveContactFormTopics(category, (step3bData as any).contactFormTopics),
+  const [contactFormTopics, setContactFormTopics] = useState<
+    ContactFormTopic[]
+  >(() =>
+    resolveContactFormTopics(category, (step3bData as any).contactFormTopics),
   );
   // Badge icon for Team / Support Line contacts (headset / multi-person / phone).
   const [supportIcon, setSupportIcon] = useState<SupportIconId>(() =>
@@ -757,9 +788,7 @@ export function ContactFormSlide({
       setFirstName(sb.firstName || "");
       setLastName(sb.lastName || "");
       setTitle(sb.title || "");
-      setDesignations(
-        toDesignationList(sb.designations ?? sb.designation),
-      );
+      setDesignations(toDesignationList(sb.designations ?? sb.designation));
       setDisplayName(sb.displayName || "");
       setEmail(sb.email || "");
       setPhone(sb.phone || "");
@@ -786,9 +815,8 @@ export function ContactFormSlide({
       );
       setIsPrimary(
         (() => {
-          const existingContacts = (
-            stepData.keyContacts?.contacts || []
-          ) as any[];
+          const existingContacts = (stepData.keyContacts?.contacts ||
+            []) as any[];
           const editingContact = sb.editingContactId
             ? existingContacts.find((c: any) => c.id === sb.editingContactId)
             : null;
@@ -829,7 +857,8 @@ export function ContactFormSlide({
   // or when the stored value is a stale organization *type*.
   useEffect(() => {
     if (!userOrganizationName) return;
-    if (!isOwnContactEmail(email) && !isOwnContactEmail(step3bData.email)) return;
+    if (!isOwnContactEmail(email) && !isOwnContactEmail(step3bData.email))
+      return;
     setCompanyName((prev) =>
       isOrgTypePlaceholder(prev) ? userOrganizationName : prev,
     );
@@ -1061,164 +1090,49 @@ export function ContactFormSlide({
       return c;
     });
 
-    const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
+    const updatedKeyContacts = {
+      ...keyContactsData,
+      contacts: updatedContacts,
+    };
     saveStepDataLocally("keyContacts", updatedKeyContacts);
   }, [isPrimary, category, stepData.keyContacts, saveStepDataLocally]);
 
   // Build contact object and save to keyContacts
   // Supports both creating new contacts and editing existing ones
-  const saveContact = useCallback(
-    (): string => {
-      // A reused email would make this contact read as the owner / a Team Member (the
-      // seat ladder matches by email), so refuse to persist it — the same rule the
-      // Client and Benefits editors enforce. Returning "" marks the save failed for
-      // the bottom-bar Next button.
-      if (emailConflict) {
-        toast.error(emailConflict.message);
-        return "";
-      }
-      const keyContactsData = stepData.keyContacts || { contacts: [] };
-      const savedContacts = keyContactsData.contacts || [];
-      const shouldBePrimary = isPrimary;
+  const saveContact = useCallback((): string => {
+    // A reused email would make this contact read as the owner / a Team Member (the
+    // seat ladder matches by email), so refuse to persist it — the same rule the
+    // Client and Benefits editors enforce. Returning "" marks the save failed for
+    // the bottom-bar Next button.
+    if (emailConflict) {
+      toast.error(emailConflict.message);
+      return "";
+    }
+    const keyContactsData = stepData.keyContacts || { contacts: [] };
+    const savedContacts = keyContactsData.contacts || [];
+    const shouldBePrimary = isPrimary;
 
-      // Designations are stored as a list; blanks are dropped and Team/Support
-      // Line contacts never carry them.
-      const cleanedDesignations = cleanDesignationList(designations);
-      const designationsForContact =
-        contactType === "individual" && cleanedDesignations.length > 0
-          ? cleanedDesignations
-          : undefined;
+    // Designations are stored as a list; blanks are dropped and Team/Support
+    // Line contacts never carry them.
+    const cleanedDesignations = cleanDesignationList(designations);
+    const designationsForContact =
+      contactType === "individual" && cleanedDesignations.length > 0
+        ? cleanedDesignations
+        : undefined;
 
-      // Check if we're editing an existing contact (passed via step3b.editingContactId)
-      const editingContactId = step3bData.editingContactId as string | undefined | null;
-      const existingContact = editingContactId
-        ? savedContacts.find((c: any) => c.id === editingContactId)
-        : null;
+    // Check if we're editing an existing contact (passed via step3b.editingContactId)
+    const editingContactId = step3bData.editingContactId as
+      | string
+      | undefined
+      | null;
+    const existingContact = editingContactId
+      ? savedContacts.find((c: any) => c.id === editingContactId)
+      : null;
 
-      if (existingContact) {
-        // Update the existing contact in-place, resetting its category to the current one
-        const updatedContact = {
-          ...existingContact,
-          contactType,
-          benefitsCategories: [category],
-          benefitsCategory: category,
-          firstName: contactType === "individual" ? firstName : undefined,
-          lastName: contactType === "individual" ? lastName : undefined,
-          title: contactType === "individual" ? title : undefined,
-          designations: designationsForContact,
-          displayName: contactType === "team_support" ? displayName : undefined,
-          email,
-          phone,
-          phoneExtension,
-          headshot: contactType === "individual" ? headshot || undefined : undefined,
-          headshotFileName:
-            contactType === "individual" ? headshotFileName || undefined : undefined,
-          companyName:
-            category === "Company / Plan Sponsor"
-              ? companyName || defaultCompanyName
-              : companyName || "",
-          companyLogo:
-            category !== "Company / Plan Sponsor" && externalAdminLogo
-              ? externalAdminLogo
-              : defaultCompanyLogo || undefined,
-          name:
-            contactType === "individual"
-              ? `${firstName} ${lastName}`.trim()
-              : displayName,
-          isPrimary: shouldBePrimary,
-          isPrimaryOverall: shouldBePrimary,
-          displayEmail,
-          displayPhone,
-          displayUrl: enableCtaButton ? ctaType === "contact" : false,
-          displayScheduleAppointment: enableCtaButton ? ctaType === "schedule" : false,
-          enableContactButton: enableCtaButton,
-          contactButtonType: enableCtaButton
-            ? ((ctaType === "schedule" ? "calendar" : ctaType === "call" ? "phone" : ctaType === "email" ? "email" : "url") as "calendar" | "phone" | "email" | "url")
-            : undefined,
-          schedulingUrl: enableCtaButton && ctaType === "schedule" ? schedulingUrl || undefined : undefined,
-          websiteUrl:
-            enableCtaButton && ctaType === "contact"
-              ? buildContactFormHref(
-                  email,
-                  companyName,
-                  contactType === "individual"
-                    ? `${firstName} ${lastName}`.trim()
-                    : displayName,
-                  headshot,
-                  category !== "Company / Plan Sponsor" && externalAdminLogo
-                    ? externalAdminLogo
-                    : defaultCompanyLogo,
-                  title,
-                  getActiveContactFormTopicLabels(contactFormTopics, {
-                    customBenefitTitle,
-                  }),
-                  category,
-                )
-              : undefined,
-          benefitsCategoryOther: category === "Other Benefits" ? customBenefits || undefined : undefined,
-          supportIcon: contactType === "team_support" ? supportIcon : undefined,
-          contactFormTopics,
-        };
-
-        // If this contact is being saved as primary, demote only contacts that
-        // share a category with the promoted contact (one primary per category)
-        const promotedCats: BenefitsCategory[] = [category];
-
-        const baseContacts = shouldBePrimary
-          ? savedContacts.map((c: any) => {
-              const contactCats: BenefitsCategory[] =
-                c.benefitsCategories ||
-                (c.benefitsCategory ? [c.benefitsCategory] : []);
-              const sharesCategory = promotedCats.some((cat) =>
-                contactCats.includes(cat),
-              );
-              if (sharesCategory) {
-                return {
-                  ...c,
-                  isPrimary: false,
-                  isPrimaryOverall: false,
-                };
-              }
-              return c;
-            })
-          : savedContacts;
-
-        const updatedContacts = baseContacts.map((c: any) =>
-          c.id === existingContact.id ? updatedContact : c,
-        );
-        const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
-        saveStepDataLocally("keyContacts", updatedKeyContacts);
-        // Persist editingContactId in step3b so re-entering the form after
-        // navigating back (e.g. via the breadcrumb dots) edits this contact
-        // instead of creating a duplicate.
-        editingContactIdRef.current = existingContact.id;
-        saveStepDataLocally("step3b", {
-          ...step3bData,
-          editingContactId: existingContact.id,
-        });
-        return existingContact.id;
-      }
-
-      // If this contact is being saved as primary, demote only contacts that share
-      // a category with the new contact (one primary per category)
-      const demotedContacts = shouldBePrimary
-        ? savedContacts.map((c: any) => {
-            const contactCats: BenefitsCategory[] =
-              c.benefitsCategories ||
-              (c.benefitsCategory ? [c.benefitsCategory] : []);
-            if (contactCats.includes(category)) {
-              return {
-                ...c,
-                isPrimary: false,
-                isPrimaryOverall: false,
-              };
-            }
-            return c;
-          })
-        : savedContacts;
-
-      const newContact = {
-        id: `contact-${Date.now()}-${Math.random()}`,
+    if (existingContact) {
+      // Update the existing contact in-place, resetting its category to the current one
+      const updatedContact = {
+        ...existingContact,
         contactType,
         benefitsCategories: [category],
         benefitsCategory: category,
@@ -1230,9 +1144,12 @@ export function ContactFormSlide({
         email,
         phone,
         phoneExtension,
-        headshot: contactType === "individual" ? headshot || undefined : undefined,
+        headshot:
+          contactType === "individual" ? headshot || undefined : undefined,
         headshotFileName:
-          contactType === "individual" ? headshotFileName || undefined : undefined,
+          contactType === "individual"
+            ? headshotFileName || undefined
+            : undefined,
         companyName:
           category === "Company / Plan Sponsor"
             ? companyName || defaultCompanyName
@@ -1245,19 +1162,28 @@ export function ContactFormSlide({
           contactType === "individual"
             ? `${firstName} ${lastName}`.trim()
             : displayName,
-        showOnPortal: true,
         isPrimary: shouldBePrimary,
         isPrimaryOverall: shouldBePrimary,
-        displayScope: "thisPortal" as const,
         displayEmail,
         displayPhone,
         displayUrl: enableCtaButton ? ctaType === "contact" : false,
-        displayScheduleAppointment: enableCtaButton ? ctaType === "schedule" : false,
+        displayScheduleAppointment: enableCtaButton
+          ? ctaType === "schedule"
+          : false,
         enableContactButton: enableCtaButton,
         contactButtonType: enableCtaButton
-          ? ((ctaType === "schedule" ? "calendar" : ctaType === "call" ? "phone" : ctaType === "email" ? "email" : "url") as "calendar" | "phone" | "email" | "url")
+          ? ((ctaType === "schedule"
+              ? "calendar"
+              : ctaType === "call"
+              ? "phone"
+              : ctaType === "email"
+              ? "email"
+              : "url") as "calendar" | "phone" | "email" | "url")
           : undefined,
-        schedulingUrl: enableCtaButton && ctaType === "schedule" ? schedulingUrl || undefined : undefined,
+        schedulingUrl:
+          enableCtaButton && ctaType === "schedule"
+            ? schedulingUrl || undefined
+            : undefined,
         websiteUrl:
           enableCtaButton && ctaType === "contact"
             ? buildContactFormHref(
@@ -1277,57 +1203,201 @@ export function ContactFormSlide({
                 category,
               )
             : undefined,
-        benefitsCategoryOther: category === "Other Benefits" ? customBenefits || undefined : undefined,
+        benefitsCategoryOther:
+          category === "Other Benefits"
+            ? customBenefits || undefined
+            : undefined,
         supportIcon: contactType === "team_support" ? supportIcon : undefined,
         contactFormTopics,
       };
 
-      const updatedContacts = [...demotedContacts, newContact];
-      const updatedKeyContacts = { ...keyContactsData, contacts: updatedContacts };
+      // If this contact is being saved as primary, demote only contacts that
+      // share a category with the promoted contact (one primary per category)
+      const promotedCats: BenefitsCategory[] = [category];
+
+      const baseContacts = shouldBePrimary
+        ? savedContacts.map((c: any) => {
+            const contactCats: BenefitsCategory[] =
+              c.benefitsCategories ||
+              (c.benefitsCategory ? [c.benefitsCategory] : []);
+            const sharesCategory = promotedCats.some((cat) =>
+              contactCats.includes(cat),
+            );
+            if (sharesCategory) {
+              return {
+                ...c,
+                isPrimary: false,
+                isPrimaryOverall: false,
+              };
+            }
+            return c;
+          })
+        : savedContacts;
+
+      const updatedContacts = baseContacts.map((c: any) =>
+        c.id === existingContact.id ? updatedContact : c,
+      );
+      const updatedKeyContacts = {
+        ...keyContactsData,
+        contacts: updatedContacts,
+      };
       saveStepDataLocally("keyContacts", updatedKeyContacts);
-      // Persist the new contact's ID in step3b so re-entering the form
-      // edits this contact instead of creating a duplicate.
-      editingContactIdRef.current = newContact.id;
+      // Persist editingContactId in step3b so re-entering the form after
+      // navigating back (e.g. via the breadcrumb dots) edits this contact
+      // instead of creating a duplicate.
+      editingContactIdRef.current = existingContact.id;
       saveStepDataLocally("step3b", {
         ...step3bData,
-        editingContactId: newContact.id,
+        editingContactId: existingContact.id,
       });
-      return newContact.id;
-    },
-    [
-      stepData.keyContacts,
-      step3bData,
+      return existingContact.id;
+    }
+
+    // If this contact is being saved as primary, demote only contacts that share
+    // a category with the new contact (one primary per category)
+    const demotedContacts = shouldBePrimary
+      ? savedContacts.map((c: any) => {
+          const contactCats: BenefitsCategory[] =
+            c.benefitsCategories ||
+            (c.benefitsCategory ? [c.benefitsCategory] : []);
+          if (contactCats.includes(category)) {
+            return {
+              ...c,
+              isPrimary: false,
+              isPrimaryOverall: false,
+            };
+          }
+          return c;
+        })
+      : savedContacts;
+
+    const newContact = {
+      id: `contact-${Date.now()}-${Math.random()}`,
       contactType,
-      category,
-      customBenefits,
-      firstName,
-      lastName,
-      title,
-      designations,
-      displayName,
+      benefitsCategories: [category],
+      benefitsCategory: category,
+      firstName: contactType === "individual" ? firstName : undefined,
+      lastName: contactType === "individual" ? lastName : undefined,
+      title: contactType === "individual" ? title : undefined,
+      designations: designationsForContact,
+      displayName: contactType === "team_support" ? displayName : undefined,
       email,
       phone,
       phoneExtension,
-      headshot,
-      headshotFileName,
-      externalAdminLogo,
-      externalAdminLogoFileName,
-      useCustomLogo,
-      companyName,
-      defaultCompanyName,
-      defaultCompanyLogo,
-      isPrimary,
-      enableCtaButton,
-      ctaType,
-      schedulingUrl,
-      websiteUrl,
+      headshot:
+        contactType === "individual" ? headshot || undefined : undefined,
+      headshotFileName:
+        contactType === "individual"
+          ? headshotFileName || undefined
+          : undefined,
+      companyName:
+        category === "Company / Plan Sponsor"
+          ? companyName || defaultCompanyName
+          : companyName || "",
+      companyLogo:
+        category !== "Company / Plan Sponsor" && externalAdminLogo
+          ? externalAdminLogo
+          : defaultCompanyLogo || undefined,
+      name:
+        contactType === "individual"
+          ? `${firstName} ${lastName}`.trim()
+          : displayName,
+      showOnPortal: true,
+      isPrimary: shouldBePrimary,
+      isPrimaryOverall: shouldBePrimary,
+      displayScope: "thisPortal" as const,
+      displayEmail,
+      displayPhone,
+      displayUrl: enableCtaButton ? ctaType === "contact" : false,
+      displayScheduleAppointment: enableCtaButton
+        ? ctaType === "schedule"
+        : false,
+      enableContactButton: enableCtaButton,
+      contactButtonType: enableCtaButton
+        ? ((ctaType === "schedule"
+            ? "calendar"
+            : ctaType === "call"
+            ? "phone"
+            : ctaType === "email"
+            ? "email"
+            : "url") as "calendar" | "phone" | "email" | "url")
+        : undefined,
+      schedulingUrl:
+        enableCtaButton && ctaType === "schedule"
+          ? schedulingUrl || undefined
+          : undefined,
+      websiteUrl:
+        enableCtaButton && ctaType === "contact"
+          ? buildContactFormHref(
+              email,
+              companyName,
+              contactType === "individual"
+                ? `${firstName} ${lastName}`.trim()
+                : displayName,
+              headshot,
+              category !== "Company / Plan Sponsor" && externalAdminLogo
+                ? externalAdminLogo
+                : defaultCompanyLogo,
+              title,
+              getActiveContactFormTopicLabels(contactFormTopics, {
+                customBenefitTitle,
+              }),
+              category,
+            )
+          : undefined,
+      benefitsCategoryOther:
+        category === "Other Benefits" ? customBenefits || undefined : undefined,
+      supportIcon: contactType === "team_support" ? supportIcon : undefined,
       contactFormTopics,
-      customBenefitTitle,
-      supportIcon,
-      emailConflict,
-      saveStepDataLocally,
-    ],
-  );
+    };
+
+    const updatedContacts = [...demotedContacts, newContact];
+    const updatedKeyContacts = {
+      ...keyContactsData,
+      contacts: updatedContacts,
+    };
+    saveStepDataLocally("keyContacts", updatedKeyContacts);
+    // Persist the new contact's ID in step3b so re-entering the form
+    // edits this contact instead of creating a duplicate.
+    editingContactIdRef.current = newContact.id;
+    saveStepDataLocally("step3b", {
+      ...step3bData,
+      editingContactId: newContact.id,
+    });
+    return newContact.id;
+  }, [
+    stepData.keyContacts,
+    step3bData,
+    contactType,
+    category,
+    customBenefits,
+    firstName,
+    lastName,
+    title,
+    designations,
+    displayName,
+    email,
+    phone,
+    phoneExtension,
+    headshot,
+    headshotFileName,
+    externalAdminLogo,
+    externalAdminLogoFileName,
+    useCustomLogo,
+    companyName,
+    defaultCompanyName,
+    defaultCompanyLogo,
+    isPrimary,
+    enableCtaButton,
+    ctaType,
+    schedulingUrl,
+    websiteUrl,
+    contactFormTopics,
+    customBenefitTitle,
+    supportIcon,
+    emailConflict,
+    saveStepDataLocally,
+  ]);
 
   // Always point to the latest saveContact so the event listener below
   // never suffers from a stale closure (same root cause as the flush).
@@ -1345,8 +1415,7 @@ export function ContactFormSlide({
       );
     };
     window.addEventListener("step3SaveContactRequest", handler);
-    return () =>
-      window.removeEventListener("step3SaveContactRequest", handler);
+    return () => window.removeEventListener("step3SaveContactRequest", handler);
   }, []); // Stable subscription — handler reads latest saveContact via ref
 
   // Validate form
@@ -1390,7 +1459,11 @@ export function ContactFormSlide({
     }
 
     // Company / Organization is required for non-Plan-Sponsor contacts
-    if (category !== "Company / Plan Sponsor" && !isFromSomeoneElse && !companyName.trim()) {
+    if (
+      category !== "Company / Plan Sponsor" &&
+      !isFromSomeoneElse &&
+      !companyName.trim()
+    ) {
       errors.push("companyName");
     }
 
@@ -1433,7 +1506,10 @@ export function ContactFormSlide({
     if (errors.length > 0) {
       // Scroll to and focus the first invalid field, then show a toast
       const firstError = errors[0];
-      const errorRefMap: Record<string, React.RefObject<HTMLInputElement | null>> = {
+      const errorRefMap: Record<
+        string,
+        React.RefObject<HTMLInputElement | null>
+      > = {
         firstName: firstNameRef,
         lastName: lastNameRef,
         title: titleRef,
@@ -1456,10 +1532,10 @@ export function ContactFormSlide({
         emailConflict
           ? emailConflict.message
           : errors.includes(CONTACT_VISIBILITY_FIELD)
-            ? CONTACT_VISIBILITY_HELPER_TEXT
-            : enableCtaButton && ctaType === "contact" && !emailValid
-              ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
-              : "Please fill out all required fields",
+          ? CONTACT_VISIBILITY_HELPER_TEXT
+          : enableCtaButton && ctaType === "contact" && !emailValid
+          ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
+          : "Please fill out all required fields",
       );
     }
 
@@ -1499,10 +1575,10 @@ export function ContactFormSlide({
     category === "Company / Plan Sponsor"
       ? "Company / Plan Sponsor"
       : category === "Other Benefits"
-        ? "Other Benefits"
-        : category === "Third Party Contact"
-          ? "External HR / Administrator"
-          : category;
+      ? "Other Benefits"
+      : category === "Third Party Contact"
+      ? "External HR / Administrator"
+      : category;
 
   // Category icons matching CategoryExplorer
   const categoryIcons: Record<
@@ -1534,7 +1610,10 @@ export function ContactFormSlide({
         value={companyName}
         onChange={(e) => setCompanyName(e.target.value)}
         placeholder="e.g. Benefits Provider Inc."
-        className={cn("h-8 text-sm", hasError("companyName") && "border-red-500")}
+        className={cn(
+          "h-8 text-sm",
+          hasError("companyName") && "border-red-500",
+        )}
       />
       {hasError("companyName") && (
         <p className="text-[10px] text-red-500">
@@ -1544,11 +1623,13 @@ export function ContactFormSlide({
     </div>
   ) : null;
 
-  // Contact Company Logo — shown for all non-Plan-Sponsor contacts. Hoisted into
-  // a variable so it can render at different positions depending on contact type:
-  //   • Team/Support Line → ABOVE the Company / Organization input (see the
-  //     Team/Support branch below).
-  //   • Individual        → at its original position further down the form.
+  // Contact Company Logo — shown for all non-Plan-Sponsor contacts ("benefit
+  // category" contacts). Hoisted into a variable so it can render at the TOP of
+  // the form for every contact type:
+  //   • Individual (and "Someone Else" / TPA) → rendered in the shared field list
+  //     near the top of the card, ahead of Company / Organization.
+  //   • Team/Support Line → rendered first inside the Team/Support branch, ahead
+  //     of the Support Icon picker and Company / Organization.
   const contactCompanyLogoInput =
     category !== "Company / Plan Sponsor" ? (
       <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2 space-y-2.5">
@@ -1556,7 +1637,8 @@ export function ContactFormSlide({
           Upload Contact Company Logo
         </Label>
         <p className="text-[10px] text-gray-400 dark:text-gray-500">
-          Upload a logo to display on this contact&rsquo;s portal card instead of the plan&rsquo;s company logo.
+          Upload a logo to display on this contact&rsquo;s portal card instead
+          of the plan&rsquo;s company logo.
         </p>
 
         {/* Upload logo */}
@@ -1611,7 +1693,9 @@ export function ContactFormSlide({
       {/* Header - compact */}
       <div className="text-center space-y-1 max-w-lg">
         <div className="flex items-center justify-center gap-2">
-          {CategoryIcon && <CategoryIcon className="w-5 h-5 text-accent-blue" />}
+          {CategoryIcon && (
+            <CategoryIcon className="w-5 h-5 text-accent-blue" />
+          )}
           <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100">
             {isGuided
               ? "Tell us about your primary contact"
@@ -1636,631 +1720,689 @@ export function ContactFormSlide({
             {isFromSomeoneElse
               ? "Back to contact selection"
               : isGuided
-                ? "Back"
-                : "Back to categories"}
+              ? "Back"
+              : "Back to categories"}
           </button>
 
           <Card className="w-full dark:bg-gray-800 dark:border-gray-700 shadow-sm">
             <CardContent className="pt-3 space-y-2.5">
-            {/* Contact Type - Radio List (compact) */}
-            <div className="space-y-1.5">
-              <Label className="dark:text-gray-300 font-medium text-sm">
-                Contact Type
-              </Label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setContactType("individual")}
-                  className={cn(
-                    "flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all",
-                    contactType === "individual"
-                      ? "border-accent-blue bg-accent-blue/5 shadow-sm"
-                      : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-                  )}
-                >
-                  <div
+              {/* Contact Type - Radio List (compact) */}
+              <div className="space-y-1.5">
+                <Label className="dark:text-gray-300 font-medium text-sm">
+                  Contact Type
+                </Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setContactType("individual")}
                     className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                      "flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all",
                       contactType === "individual"
-                        ? "border-accent-blue"
-                        : "border-gray-300 dark:border-gray-500",
+                        ? "border-accent-blue bg-accent-blue/5 shadow-sm"
+                        : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
                     )}
                   >
-                    {contactType === "individual" && (
-                      <div className="w-2 h-2 rounded-full bg-accent-blue" />
-                    )}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[0.65em] font-semibold text-gray-900 dark:text-gray-100">
-                      Individual
-                    </span>
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                      A specific person
-                    </span>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setContactType("team_support")}
-                  className={cn(
-                    "flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all",
-                    contactType === "team_support"
-                      ? "border-accent-blue bg-accent-blue/5 shadow-sm"
-                      : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-                  )}
-                >
-                  <div
+                    <div
+                      className={cn(
+                        "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                        contactType === "individual"
+                          ? "border-accent-blue"
+                          : "border-gray-300 dark:border-gray-500",
+                      )}
+                    >
+                      {contactType === "individual" && (
+                        <div className="w-2 h-2 rounded-full bg-accent-blue" />
+                      )}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[0.65em] font-semibold text-gray-900 dark:text-gray-100">
+                        Individual
+                      </span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                        A specific person
+                      </span>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setContactType("team_support")}
                     className={cn(
-                      "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                      "flex items-center gap-2 p-3 rounded-lg border-2 text-left transition-all",
                       contactType === "team_support"
-                        ? "border-accent-blue"
-                        : "border-gray-300 dark:border-gray-500",
+                        ? "border-accent-blue bg-accent-blue/5 shadow-sm"
+                        : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
                     )}
                   >
-                    {contactType === "team_support" && (
-                      <div className="w-2 h-2 rounded-full bg-accent-blue" />
-                    )}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-[0.65em] font-semibold text-gray-900 dark:text-gray-100">
-                      Team / Support Line
-                    </span>
-                    <span className="text-[10px] text-gray-500 dark:text-gray-400">
-                      A department or group
-                    </span>
-                  </div>
-                </button>
-              </div>
-            </div>
-
-            {/* Primary Contact Toggle — hidden for Company / Plan Sponsor and TPA (Someone Else) since they are always primary */}
-            {category !== "Company / Plan Sponsor" && !isFromSomeoneElse && (
-              <div className="pb-2 border-b border-gray-100 dark:border-gray-700 mb-1">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="is-primary-contact"
-                    checked={isPrimary}
-                    onCheckedChange={(checked) => setIsPrimary(checked === true)}
-                  />
-                  <Label
-                    htmlFor="is-primary-contact"
-                    className="text-xs font-medium cursor-pointer dark:text-gray-300"
-                  >
-                    Mark as primary contact for{" "}
-                    <span className="font-semibold">{categoryLabel}</span>
-                  </Label>
+                    <div
+                      className={cn(
+                        "w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors",
+                        contactType === "team_support"
+                          ? "border-accent-blue"
+                          : "border-gray-300 dark:border-gray-500",
+                      )}
+                    >
+                      {contactType === "team_support" && (
+                        <div className="w-2 h-2 rounded-full bg-accent-blue" />
+                      )}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-[0.65em] font-semibold text-gray-900 dark:text-gray-100">
+                        Team / Support Line
+                      </span>
+                      <span className="text-[10px] text-gray-500 dark:text-gray-400">
+                        A department or group
+                      </span>
+                    </div>
+                  </button>
                 </div>
               </div>
-            )}
-            {/* Company / Organization — first input for TPA/Someone Else contacts */}
-            {isFromSomeoneElse && (
-              <div className="space-y-1">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Company / Organization <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  value={companyName}
-                  onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="e.g. Benefits Provider Inc."
-                  className="h-8 text-sm"
-                />
-              </div>
-            )}
 
-            {/* Custom Benefits — only shown for "Other Benefits" category */}
-            {category === "Other Benefits" && (
-              <div className="space-y-1.5 pb-2 border-b border-gray-100 dark:border-gray-700 mb-1" data-field="customBenefits">
-                <Label className="dark:text-gray-300 text-xs font-medium">
-                  Custom Benefits <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  ref={customBenefitsRef}
-                  value={customBenefits}
-                  onChange={(e) => setCustomBenefits(e.target.value)}
-                  placeholder="e.g. Disability, Dental, Vision, etc."
-                  className={cn("h-8 text-sm", hasError("customBenefits") && "border-red-500")}
-                />
-                {hasError("customBenefits") ? (
-                  <p className="text-[10px] text-red-500">Please describe what &ldquo;Other Benefits&rdquo; this contact handles.</p>
-                ) : (
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                    Describe what &ldquo;Other Benefits&rdquo; this contact handles.
-                  </p>
-                )}
-              </div>
-            )}
+              {/* Primary Contact Toggle — hidden for Company / Plan Sponsor and TPA (Someone Else) since they are always primary */}
+              {category !== "Company / Plan Sponsor" && !isFromSomeoneElse && (
+                <div className="pb-2 border-b border-gray-100 dark:border-gray-700 mb-1">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="is-primary-contact"
+                      checked={isPrimary}
+                      onCheckedChange={(checked) =>
+                        setIsPrimary(checked === true)
+                      }
+                    />
+                    <Label
+                      htmlFor="is-primary-contact"
+                      className="text-xs font-medium cursor-pointer dark:text-gray-300"
+                    >
+                      Mark as primary contact for{" "}
+                      <span className="font-semibold">{categoryLabel}</span>
+                    </Label>
+                  </div>
+                </div>
+              )}
 
-            {contactType === "individual" ? (
-              <>
-                {/* Company / Organization first, then the headshot and name. */}
-                {companyNameInput}
-                {/* Headshot (optional) — only for Individual contacts, placed
-                    before the name fields. */}
-                <div className="space-y-1" data-field="headshot">
+              {/* Contact Company Logo — first input for every benefit-category
+                contact (any category other than Company / Plan Sponsor).
+                Team/Support Line contacts render it first inside their branch
+                below, together with the Support Icon picker. */}
+              {contactType !== "team_support" && contactCompanyLogoInput}
+
+              {/* Company / Organization — first company input for TPA/Someone Else contacts */}
+              {isFromSomeoneElse && (
+                <div className="space-y-1">
                   <Label className="dark:text-gray-300 text-xs font-medium">
-                    Headshot (optional)
+                    Company / Organization{" "}
+                    <span className="text-red-500">*</span>
                   </Label>
-                  <div className="items-start">
-                    <div className="flex-1">
-                      <UniversalImageEditorModal
-                        value={headshot || ""}
-                        fileName={headshotFileName || ""}
-                        onChange={(value, fileName) => {
-                          setHeadshot(value);
-                          setHeadshotFileName(fileName || "");
-                        }}
-                        onRemove={() => {
-                          setHeadshot("");
-                          setHeadshotFileName("");
-                        }}
-                        placeholder="Upload Headshot"
-                        modalTitle="Headshot"
-                        modalDescription="Upload a clear, front-facing photo. Keep the face inside the circle guide for best results."
-                        saveButtonText="Save Headshot"
-                        type="headshot"
-                        autoSizeOnOpen={true}
-                        forceCircularGuidelines={true}
-                      />
+                  <Input
+                    value={companyName}
+                    onChange={(e) => setCompanyName(e.target.value)}
+                    placeholder="e.g. Benefits Provider Inc."
+                    className="h-8 text-sm"
+                  />
+                </div>
+              )}
+
+              {/* Custom Benefits — only shown for "Other Benefits" category */}
+              {category === "Other Benefits" && (
+                <div
+                  className="space-y-1.5 pb-2 border-b border-gray-100 dark:border-gray-700 mb-1"
+                  data-field="customBenefits"
+                >
+                  <Label className="dark:text-gray-300 text-xs font-medium">
+                    Custom Benefits <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    ref={customBenefitsRef}
+                    value={customBenefits}
+                    onChange={(e) => setCustomBenefits(e.target.value)}
+                    placeholder="e.g. Disability, Dental, Vision, etc."
+                    className={cn(
+                      "h-8 text-sm",
+                      hasError("customBenefits") && "border-red-500",
+                    )}
+                  />
+                  {hasError("customBenefits") ? (
+                    <p className="text-[10px] text-red-500">
+                      Please describe what &ldquo;Other Benefits&rdquo; this
+                      contact handles.
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                      Describe what &ldquo;Other Benefits&rdquo; this contact
+                      handles.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {contactType === "individual" ? (
+                <>
+                  {/* Company / Organization first, then the headshot and name. */}
+                  {companyNameInput}
+                  {/* Headshot (optional) — only for Individual contacts, placed
+                    before the name fields. */}
+                  <div className="space-y-1" data-field="headshot">
+                    <Label className="dark:text-gray-300 text-xs font-medium">
+                      Headshot (optional)
+                    </Label>
+                    <div className="items-start">
+                      <div className="flex-1">
+                        <UniversalImageEditorModal
+                          value={headshot || ""}
+                          fileName={headshotFileName || ""}
+                          onChange={(value, fileName) => {
+                            setHeadshot(value);
+                            setHeadshotFileName(fileName || "");
+                          }}
+                          onRemove={() => {
+                            setHeadshot("");
+                            setHeadshotFileName("");
+                          }}
+                          placeholder="Upload Headshot"
+                          modalTitle="Headshot"
+                          modalDescription="Upload a clear, front-facing photo. Keep the face inside the circle guide for best results."
+                          saveButtonText="Save Headshot"
+                          type="headshot"
+                          autoSizeOnOpen={true}
+                          forceCircularGuidelines={true}
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="space-y-1" data-field="firstName">
-                  <Label className="dark:text-gray-300 text-xs font-medium">
-                    First Name <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    ref={firstNameRef}
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="e.g. John"
-                    className={cn("h-8 text-sm", hasError("firstName") && "border-red-500")}
-                  />
-                  {hasError("firstName") && (
-                    <p className="text-[10px] text-red-500">First name is required</p>
-                  )}
-                </div>
-                <div className="space-y-1" data-field="lastName">
-                  <Label className="dark:text-gray-300 text-xs font-medium">
-                    Last Name <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    ref={lastNameRef}
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="e.g. Smith"
-                    className={cn("h-8 text-sm", hasError("lastName") && "border-red-500")}
-                  />
-                  {hasError("lastName") && (
-                    <p className="text-[10px] text-red-500">Last name is required</p>
-                  )}
-                </div>
-                <div className="space-y-1" data-field="title">
-                  <Label className="dark:text-gray-300 text-xs font-medium">
-                    Job Title <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    ref={titleRef}
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. HR Director"
-                    className={cn("h-8 text-sm", hasError("title") && "border-red-500")}
-                  />
-                  {hasError("title") && (
-                    <p className="text-[10px] text-red-500">Job title is required</p>
-                  )}
-                </div>
-                {/* Designations — the pill picker the advisor's own profile uses:
+                  <div className="space-y-1" data-field="firstName">
+                    <Label className="dark:text-gray-300 text-xs font-medium">
+                      First Name <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      ref={firstNameRef}
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="e.g. John"
+                      className={cn(
+                        "h-8 text-sm",
+                        hasError("firstName") && "border-red-500",
+                      )}
+                    />
+                    {hasError("firstName") && (
+                      <p className="text-[10px] text-red-500">
+                        First name is required
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-1" data-field="lastName">
+                    <Label className="dark:text-gray-300 text-xs font-medium">
+                      Last Name <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      ref={lastNameRef}
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="e.g. Smith"
+                      className={cn(
+                        "h-8 text-sm",
+                        hasError("lastName") && "border-red-500",
+                      )}
+                    />
+                    {hasError("lastName") && (
+                      <p className="text-[10px] text-red-500">
+                        Last name is required
+                      </p>
+                    )}
+                  </div>
+                  <div className="space-y-1" data-field="title">
+                    <Label className="dark:text-gray-300 text-xs font-medium">
+                      Job Title <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      ref={titleRef}
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="e.g. HR Director"
+                      className={cn(
+                        "h-8 text-sm",
+                        hasError("title") && "border-red-500",
+                      )}
+                    />
+                    {hasError("title") && (
+                      <p className="text-[10px] text-red-500">
+                        Job title is required
+                      </p>
+                    )}
+                  </div>
+                  {/* Designations — the pill picker the advisor's own profile uses:
                     a typeahead over the shared dictionary, chips you can drag to
                     reorder, and a custom entry for anything the dictionary does not
                     list. Pills show the ACRONYM (`chipLabel`), as Step 4's do; the
                     match list still offers acronym and full name together, so the
                     spelled-out credential stays visible while choosing. */}
-                <div className="space-y-1" data-field="designations">
-                  <Label className="dark:text-gray-300 text-xs font-medium">
-                    Designations (optional)
-                  </Label>
-                  <ChipTypeahead
-                    options={DESIGNATION_OPTIONS}
-                    selectedValues={designations}
-                    valueLabel={designationLabel}
-                    chipLabel={designationAcronym}
-                    onChange={handleDesignationsChange}
-                    placeholder="Type a designation, e.g. CFP®…"
-                    allowCustom
-                    customOptionLabel={(query) =>
-                      `Add as custom designation: “${query}”`
-                    }
-                    maxSelections={MAX_DESIGNATIONS}
-                    dataField="designations"
-                  />
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                    Up to {MAX_DESIGNATIONS}. They display in this order. Drag to
-                    reorder.
-                  </p>
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Upload Contact Company Logo first, then Company / Organization,
+                  <div className="space-y-1" data-field="designations">
+                    <Label className="dark:text-gray-300 text-xs font-medium">
+                      Designations (optional)
+                    </Label>
+                    <ChipTypeahead
+                      options={DESIGNATION_OPTIONS}
+                      selectedValues={designations}
+                      valueLabel={designationLabel}
+                      chipLabel={designationAcronym}
+                      onChange={handleDesignationsChange}
+                      placeholder="Type a designation, e.g. CFP®…"
+                      allowCustom
+                      customOptionLabel={(query) =>
+                        `Add as custom designation: “${query}”`
+                      }
+                      maxSelections={MAX_DESIGNATIONS}
+                      dataField="designations"
+                    />
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                      Up to {MAX_DESIGNATIONS}. They display in this order. Drag
+                      to reorder.
+                    </p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  {/* Upload Contact Company Logo first, then Company / Organization,
                     then the team name — the desired field order for Team/Support
                     Line contacts. */}
-                {contactCompanyLogoInput}
-                {supportIconPicker}
-                {companyNameInput}
-                <div className="space-y-1" data-field="displayName">
-                  <Label className="dark:text-gray-300 text-xs font-medium">
-                    Team / Department Name <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    ref={displayNameRef}
-                    value={displayName}
-                    onChange={(e) => setDisplayName(e.target.value)}
-                    placeholder="e.g. Benefits Support Team"
-                    className={cn("h-8 text-sm", hasError("displayName") && "border-red-500")}
-                  />
-                  {hasError("displayName") && (
-                    <p className="text-[10px] text-red-500">Team name is required</p>
-                  )}
-                </div>
-              </>
-            )}
-
-            <div className="space-y-1" data-field="phone">
-              {/* A phone or an email must exist on the contact itself — a CTA
-                  button alone is not a way to reach them. */}
-              <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                {CONTACT_METHOD_HELPER_TEXT}
-              </p>
-              <Label className="dark:text-gray-300 text-xs font-medium">
-                Phone
-              </Label>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Input
-                    ref={phoneRef}
-                    type="tel"
-                    value={phone ? formatPhoneNumber(phone) : ""}
-                    onChange={(e) => {
-                      const digits = e.target.value.replace(/\D/g, "");
-                      if (digits.length <= 10) {
-                        setPhone(digits);
-                        const store = useNewClientWizardStore.getState();
-                        // Persist the phone directly to the store on every
-                        // keystroke. This guarantees the wizard validation
-                        // always sees the latest phone value regardless of
-                        // React effect timing (useEffect runs after paint).
-                        const currentStep3b =
-                          (store.stepData as any)?.step3b || {};
-                        store.saveStepDataLocally("step3b", {
-                          ...currentStep3b,
-                          phone: digits,
-                        });
-                        // Clear phone validation error as soon as the user
-                        // starts typing, so the red border disappears immediately.
-                        if (digits.length > 0) {
-                          const filtered = store.errorFields.filter(
-                            (f) => f !== "phone" && !/_phone$/.test(f),
-                          );
-                          // A complete phone number also satisfies the
-                          // "at least one of Phone or Email" requirement,
-                          // so clear any email error too.
-                          if (digits.length >= 10) {
-                            const filteredEmail = filtered.filter(
-                              (f) => f !== "email",
-                            );
-                            if (
-                              filteredEmail.length !== store.errorFields.length
-                            ) {
-                              store.setErrorFields(filteredEmail);
-                            }
-                          } else if (
-                            filtered.length !== store.errorFields.length
-                          ) {
-                            store.setErrorFields(filtered);
-                          }
-                        }
-                      }
-                    }}
-                    placeholder="(555) 123-4567"
-                    className={cn(
-                      "h-8 text-sm",
-                      hasError("phone") && "border-red-500",
-                    )}
-                  />
-                </div>
-                <div className="w-20">
-                  <Input
-                    type="text"
-                    maxLength={5}
-                    value={phoneExtension}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/\D/g, "");
-                      if (val.length <= 8) setPhoneExtension(val);
-                    }}
-                    placeholder="Ext."
-                    className="h-8 text-sm text-center"
-                  />
-                </div>
-              </div>
-              {hasError("phone") && (
-                <p className="text-[10px] text-red-500">
-                  Enter a valid phone number
-                </p>
-              )}
-            </div>
-
-            <div className="space-y-1" data-field="email">
-              <Label className="dark:text-gray-300 text-xs font-medium">
-                Email
-              </Label>
-              <Input
-                ref={emailRef}
-                type="email"
-                value={email}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setEmail(value);
-                  // Clear the email error while typing. Once the email looks
-                  // valid it also satisfies the "at least one of Phone or
-                  // Email" requirement, so clear any phone error too — the red
-                  // border disappears as soon as a contact method is in place.
-                  const store = useNewClientWizardStore.getState();
-                  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-                  const filtered = store.errorFields.filter((f) => {
-                    if (f === "email") return false;
-                    if (
-                      emailRegex.test(value.trim()) &&
-                      (f === "phone" || /_phone$/.test(f))
-                    ) {
-                      return false;
-                    }
-                    return true;
-                  });
-                  if (filtered.length !== store.errorFields.length) {
-                    store.setErrorFields(filtered);
-                  }
-                }}
-                placeholder="e.g. john@company.com"
-                className={cn(
-                  "h-8 text-sm",
-                  (hasError("email") || emailConflict) && "border-red-500",
-                )}
-              />
-              {hasError("email") && (
-                <p className="text-[10px] text-red-500">Please enter a valid email address</p>
-              )}
-              <ContactEmailConflictNotice conflict={emailConflict} />
-            </div>
-
-            {/* Email / Phone Visibility Toggles — shown directly below the Email
-                input for both contact types */}
-            <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2 space-y-2">
-              <Label className="dark:text-gray-300 text-xs font-medium">
-                Show on contact card
-              </Label>
-              <p
-                className={cn(
-                  "text-[10px]",
-                  hasError(CONTACT_VISIBILITY_FIELD)
-                    ? "text-red-500"
-                    : "text-gray-400 dark:text-gray-500",
-                )}
-              >
-                {CONTACT_VISIBILITY_HELPER_TEXT}
-              </p>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="display-email"
-                  checked={displayEmail}
-                  onCheckedChange={(checked) => setDisplayEmail(checked === true)}
-                />
-                <Label
-                  htmlFor="display-email"
-                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
-                >
-                  Email
-                </Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="display-phone"
-                  checked={displayPhone}
-                  onCheckedChange={(checked) => setDisplayPhone(checked === true)}
-                />
-                <Label
-                  htmlFor="display-phone"
-                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
-                >
-                  Phone
-                </Label>
-              </div>
-            </div>
-
-            {/* Call-to-Action Button Section */}
-            <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2 space-y-2.5">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="enable-cta-button"
-                  checked={enableCtaButton}
-                  onCheckedChange={(checked) => setEnableCtaButton(checked === true)}
-                />
-                <Label
-                  htmlFor="enable-cta-button"
-                  className="text-xs font-medium cursor-pointer dark:text-gray-300"
-                >
-                  Add a call to action button
-                </Label>
-              </div>
-
-              {enableCtaButton && (
-                <>
-                  {/* CTA Type Radio Group */}
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {(
-                      [
-                        { value: "schedule", label: "Schedule Appt.", icon: Calendar },
-                        { value: "call", label: "Call", icon: Phone },
-                        { value: "email", label: "Email", icon: Mail },
-                        { value: "contact", label: "Contact Form", icon: Globe },
-                      ] as const
-                    ).map((opt) => {
-                      const isActive = ctaType === opt.value;
-                      const Icon = opt.icon;
-                      return (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => setCtaType(opt.value)}
-                          className={cn(
-                            "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-left transition-all",
-                            isActive
-                              ? "border-accent-blue bg-accent-blue/5 shadow-sm"
-                              : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-                          )}
-                        >
-                          <Icon
-                            className={cn(
-                              "w-3.5 h-3.5 flex-shrink-0",
-                              isActive
-                                ? "text-accent-blue"
-                                : "text-gray-400 dark:text-gray-500",
-                            )}
-                          />
-                          <span className="text-[11px] font-medium">
-                            {opt.label}
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Conditional input based on type */}
-                  {ctaType === "schedule" && (
-                    <div className="space-y-1" data-field="schedulingUrl">
-                      <Label className="dark:text-gray-300 text-xs font-medium">
-                        Scheduling URL <span className="text-red-500">*</span>
-                      </Label>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          ref={schedulingUrlRef}
-                          value={schedulingUrl}
-                          onChange={(e) => setSchedulingUrl(e.target.value)}
-                          placeholder="https://calendly.com/..."
-                          className={cn(
-                            "h-8 text-sm flex-1",
-                            hasError("schedulingUrl") && "border-red-500",
-                          )}
-                        />
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <button
-                              type="button"
-                              className="flex-shrink-0 w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                              aria-label="Info about CTA button types"
-                            >
-                              <Info className="w-3 h-3 text-gray-400" />
-                            </button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-72 p-3 text-xs" side="left" align="center">
-                            <p className="font-medium mb-1 text-gray-900 dark:text-gray-100">
-                              Schedule Appt (Appointment)
-                            </p>
-                            <p className="text-gray-500 dark:text-gray-400 mb-3">
-                              When an employee clicks this button, they can book a meeting
-                              directly using the scheduling link you provide (e.g., Calendly,
-                              Microsoft Bookings).
-                            </p>
-                            <p className="font-medium mb-1 text-gray-900 dark:text-gray-100">
-                              Contact Form
-                            </p>
-                            <p className="text-gray-500 dark:text-gray-400">
-                              This opens a contact form or external page where the employee
-                              can send a message or submit an inquiry.
-                            </p>
-                          </PopoverContent>
-                        </Popover>
-                      </div>
-                      {hasError("schedulingUrl") && (
-                        <p className="text-[10px] text-red-500">
-                          Scheduling URL is required when &ldquo;Schedule
-                          Appt.&rdquo; is enabled
-                        </p>
+                  {contactCompanyLogoInput}
+                  {supportIconPicker}
+                  {companyNameInput}
+                  <div className="space-y-1" data-field="displayName">
+                    <Label className="dark:text-gray-300 text-xs font-medium">
+                      Team / Department Name{" "}
+                      <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      ref={displayNameRef}
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      placeholder="e.g. Benefits Support Team"
+                      className={cn(
+                        "h-8 text-sm",
+                        hasError("displayName") && "border-red-500",
                       )}
-                    </div>
-                  )}
-
-                  {ctaType === "contact" && (
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <Label className="dark:text-gray-300 text-xs font-medium">
-                          Plantelligence Contact Form
-                        </Label>
-                        <button
-                          type="button"
-                          onClick={() => setContactPreviewOpen(true)}
-                          className="flex-shrink-0 w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                          aria-label="Preview the Contact Form page"
-                          title="Preview the Contact Form page"
-                        >
-                          <Info className="w-3 h-3 text-gray-400" />
-                        </button>
-                      </div>
-                      <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5 leading-relaxed">
-                        This CTA opens a Plantelligence-branded contact form on
-                        the /contact page. Submissions are delivered to this
-                        contact&rsquo;s email.
-                        {email
-                          ? ` Incoming messages will be sent to ${email}.`
-                          : " Enter this contact's email above to receive incoming messages."}
+                    />
+                    {hasError("displayName") && (
+                      <p className="text-[10px] text-red-500">
+                        Team name is required
                       </p>
-
-                      {/* Participant-facing "Topic of Interest" choices. The
-                          category's suggestions are pre-loaded; the advisor
-                          decides which ones participants actually see. */}
-                      <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-1">
-                        <ContactFormTopicBuilder
-                          category={category}
-                          customBenefitTitle={customBenefitTitle}
-                          topics={contactFormTopics}
-                          onChange={setContactFormTopics}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {ctaType === "call" && (
-                    <div className="space-y-1">
-                      <Label className="dark:text-gray-300 text-xs font-medium">
-                        Phone Number
-                      </Label>
-                      <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5">
-                        {phone
-                          ? formatPhoneWithExtension(phone, phoneExtension)
-                          : "Complete the Phone field above first"}
-                      </p>
-                    </div>
-                  )}
-
-                  {ctaType === "email" && (
-                    <div className="space-y-1">
-                      <Label className="dark:text-gray-300 text-xs font-medium">
-                        Email
-                      </Label>
-                      <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5">
-                        {email || "Complete the Email field above first"}
-                      </p>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </>
               )}
-            </div>
 
-            {/* Contact Company Logo — for Individual contacts. Team/Support Line
-                contacts render it earlier (above the Company / Organization
-                input); see the Team/Support branch above. */}
-            {contactType !== "team_support" && contactCompanyLogoInput}
+              <div className="space-y-1" data-field="phone">
+                {/* A phone or an email must exist on the contact itself — a CTA
+                  button alone is not a way to reach them. */}
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                  {CONTACT_METHOD_HELPER_TEXT}
+                </p>
+                <Label className="dark:text-gray-300 text-xs font-medium">
+                  Phone
+                </Label>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Input
+                      ref={phoneRef}
+                      type="tel"
+                      value={phone ? formatPhoneNumber(phone) : ""}
+                      onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, "");
+                        if (digits.length <= 10) {
+                          setPhone(digits);
+                          const store = useNewClientWizardStore.getState();
+                          // Persist the phone directly to the store on every
+                          // keystroke. This guarantees the wizard validation
+                          // always sees the latest phone value regardless of
+                          // React effect timing (useEffect runs after paint).
+                          const currentStep3b =
+                            (store.stepData as any)?.step3b || {};
+                          store.saveStepDataLocally("step3b", {
+                            ...currentStep3b,
+                            phone: digits,
+                          });
+                          // Clear phone validation error as soon as the user
+                          // starts typing, so the red border disappears immediately.
+                          if (digits.length > 0) {
+                            const filtered = store.errorFields.filter(
+                              (f) => f !== "phone" && !/_phone$/.test(f),
+                            );
+                            // A complete phone number also satisfies the
+                            // "at least one of Phone or Email" requirement,
+                            // so clear any email error too.
+                            if (digits.length >= 10) {
+                              const filteredEmail = filtered.filter(
+                                (f) => f !== "email",
+                              );
+                              if (
+                                filteredEmail.length !==
+                                store.errorFields.length
+                              ) {
+                                store.setErrorFields(filteredEmail);
+                              }
+                            } else if (
+                              filtered.length !== store.errorFields.length
+                            ) {
+                              store.setErrorFields(filtered);
+                            }
+                          }
+                        }
+                      }}
+                      placeholder="(555) 123-4567"
+                      className={cn(
+                        "h-8 text-sm",
+                        hasError("phone") && "border-red-500",
+                      )}
+                    />
+                  </div>
+                  <div className="w-20">
+                    <Input
+                      type="text"
+                      maxLength={5}
+                      value={phoneExtension}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, "");
+                        if (val.length <= 8) setPhoneExtension(val);
+                      }}
+                      placeholder="Ext."
+                      className="h-8 text-sm text-center"
+                    />
+                  </div>
+                </div>
+                {hasError("phone") && (
+                  <p className="text-[10px] text-red-500">
+                    Enter a valid phone number
+                  </p>
+                )}
+              </div>
 
-          </CardContent>
+              <div className="space-y-1" data-field="email">
+                <Label className="dark:text-gray-300 text-xs font-medium">
+                  Email
+                </Label>
+                <Input
+                  ref={emailRef}
+                  type="email"
+                  value={email}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setEmail(value);
+                    // Clear the email error while typing. Once the email looks
+                    // valid it also satisfies the "at least one of Phone or
+                    // Email" requirement, so clear any phone error too — the red
+                    // border disappears as soon as a contact method is in place.
+                    const store = useNewClientWizardStore.getState();
+                    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                    const filtered = store.errorFields.filter((f) => {
+                      if (f === "email") return false;
+                      if (
+                        emailRegex.test(value.trim()) &&
+                        (f === "phone" || /_phone$/.test(f))
+                      ) {
+                        return false;
+                      }
+                      return true;
+                    });
+                    if (filtered.length !== store.errorFields.length) {
+                      store.setErrorFields(filtered);
+                    }
+                  }}
+                  placeholder="e.g. john@company.com"
+                  className={cn(
+                    "h-8 text-sm",
+                    (hasError("email") || emailConflict) && "border-red-500",
+                  )}
+                />
+                {hasError("email") && (
+                  <p className="text-[10px] text-red-500">
+                    Please enter a valid email address
+                  </p>
+                )}
+                <ContactEmailConflictNotice conflict={emailConflict} />
+              </div>
+
+              {/* Email / Phone Visibility Toggles — shown directly below the Email
+                input for both contact types */}
+              <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2 space-y-2">
+                <Label className="dark:text-gray-300 text-xs font-medium">
+                  Show on contact card
+                </Label>
+                <p
+                  className={cn(
+                    "text-[10px]",
+                    hasError(CONTACT_VISIBILITY_FIELD)
+                      ? "text-red-500"
+                      : "text-gray-400 dark:text-gray-500",
+                  )}
+                >
+                  {CONTACT_VISIBILITY_HELPER_TEXT}
+                </p>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="display-email"
+                    checked={displayEmail}
+                    onCheckedChange={(checked) =>
+                      setDisplayEmail(checked === true)
+                    }
+                  />
+                  <Label
+                    htmlFor="display-email"
+                    className="text-xs font-medium cursor-pointer dark:text-gray-300"
+                  >
+                    Email
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="display-phone"
+                    checked={displayPhone}
+                    onCheckedChange={(checked) =>
+                      setDisplayPhone(checked === true)
+                    }
+                  />
+                  <Label
+                    htmlFor="display-phone"
+                    className="text-xs font-medium cursor-pointer dark:text-gray-300"
+                  >
+                    Phone
+                  </Label>
+                </div>
+              </div>
+
+              {/* Call-to-Action Button Section */}
+              <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-2 space-y-2.5">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="enable-cta-button"
+                    checked={enableCtaButton}
+                    onCheckedChange={(checked) =>
+                      setEnableCtaButton(checked === true)
+                    }
+                  />
+                  <Label
+                    htmlFor="enable-cta-button"
+                    className="text-xs font-medium cursor-pointer dark:text-gray-300"
+                  >
+                    Add a call to action button
+                  </Label>
+                </div>
+
+                {enableCtaButton && (
+                  <>
+                    {/* CTA Type Radio Group */}
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {(
+                        [
+                          {
+                            value: "schedule",
+                            label: "Schedule Appt.",
+                            icon: Calendar,
+                          },
+                          { value: "call", label: "Call", icon: Phone },
+                          { value: "email", label: "Email", icon: Mail },
+                          {
+                            value: "contact",
+                            label: "Contact Form",
+                            icon: Globe,
+                          },
+                        ] as const
+                      ).map((opt) => {
+                        const isActive = ctaType === opt.value;
+                        const Icon = opt.icon;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => setCtaType(opt.value)}
+                            className={cn(
+                              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-left transition-all",
+                              isActive
+                                ? "border-accent-blue bg-accent-blue/5 shadow-sm"
+                                : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
+                            )}
+                          >
+                            <Icon
+                              className={cn(
+                                "w-3.5 h-3.5 flex-shrink-0",
+                                isActive
+                                  ? "text-accent-blue"
+                                  : "text-gray-400 dark:text-gray-500",
+                              )}
+                            />
+                            <span className="text-[11px] font-medium">
+                              {opt.label}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Conditional input based on type */}
+                    {ctaType === "schedule" && (
+                      <div className="space-y-1" data-field="schedulingUrl">
+                        <Label className="dark:text-gray-300 text-xs font-medium">
+                          Scheduling URL <span className="text-red-500">*</span>
+                        </Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            ref={schedulingUrlRef}
+                            value={schedulingUrl}
+                            onChange={(e) => setSchedulingUrl(e.target.value)}
+                            placeholder="https://calendly.com/..."
+                            className={cn(
+                              "h-8 text-sm flex-1",
+                              hasError("schedulingUrl") && "border-red-500",
+                            )}
+                          />
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                type="button"
+                                className="flex-shrink-0 w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                                aria-label="Info about CTA button types"
+                              >
+                                <Info className="w-3 h-3 text-gray-400" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              className="w-72 p-3 text-xs"
+                              side="left"
+                              align="center"
+                            >
+                              <p className="font-medium mb-1 text-gray-900 dark:text-gray-100">
+                                Schedule Appt (Appointment)
+                              </p>
+                              <p className="text-gray-500 dark:text-gray-400 mb-3">
+                                When an employee clicks this button, they can
+                                book a meeting directly using the scheduling
+                                link you provide (e.g., Calendly, Microsoft
+                                Bookings).
+                              </p>
+                              <p className="font-medium mb-1 text-gray-900 dark:text-gray-100">
+                                Contact Form
+                              </p>
+                              <p className="text-gray-500 dark:text-gray-400">
+                                This opens a contact form or external page where
+                                the employee can send a message or submit an
+                                inquiry.
+                              </p>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        {hasError("schedulingUrl") && (
+                          <p className="text-[10px] text-red-500">
+                            Scheduling URL is required when &ldquo;Schedule
+                            Appt.&rdquo; is enabled
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {ctaType === "contact" && (
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <Label className="dark:text-gray-300 text-xs font-medium">
+                            Plantelligence Contact Form
+                          </Label>
+                          <button
+                            type="button"
+                            onClick={() => setContactPreviewOpen(true)}
+                            className="flex-shrink-0 w-5 h-5 rounded-full border border-gray-300 dark:border-gray-600 flex items-center justify-center hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                            aria-label="Preview the Contact Form page"
+                            title="Preview the Contact Form page"
+                          >
+                            <Info className="w-3 h-3 text-gray-400" />
+                          </button>
+                        </div>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5 leading-relaxed">
+                          This CTA opens a Plantelligence-branded contact form
+                          on the /contact page. Submissions are delivered to
+                          this contact&rsquo;s email.
+                          {email
+                            ? ` Incoming messages will be sent to ${email}.`
+                            : " Enter this contact's email above to receive incoming messages."}
+                        </p>
+
+                        {/* Participant-facing "Topic of Interest" choices. The
+                          category's suggestions are pre-loaded; the advisor
+                          decides which ones participants actually see. */}
+                        <div className="border-t border-gray-100 dark:border-gray-700 pt-3 mt-1">
+                          <ContactFormTopicBuilder
+                            category={category}
+                            customBenefitTitle={customBenefitTitle}
+                            topics={contactFormTopics}
+                            onChange={setContactFormTopics}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {ctaType === "call" && (
+                      <div className="space-y-1">
+                        <Label className="dark:text-gray-300 text-xs font-medium">
+                          Phone Number
+                        </Label>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5">
+                          {phone
+                            ? formatPhoneWithExtension(phone, phoneExtension)
+                            : "Complete the Phone field above first"}
+                        </p>
+                      </div>
+                    )}
+
+                    {ctaType === "email" && (
+                      <div className="space-y-1">
+                        <Label className="dark:text-gray-300 text-xs font-medium">
+                          Email
+                        </Label>
+                        <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5">
+                          {email || "Complete the Email field above first"}
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            </CardContent>
           </Card>
         </div>
 
@@ -2284,7 +2426,8 @@ export function ContactFormSlide({
                 contactType === "individual" && cardDesignations.length > 0
                   ? cardDesignations
                   : undefined,
-              displayName: contactType === "team_support" ? displayName : undefined,
+              displayName:
+                contactType === "team_support" ? displayName : undefined,
               email,
               phone,
               phoneExtension,
@@ -2295,14 +2438,14 @@ export function ContactFormSlide({
                 category !== "Company / Plan Sponsor" && externalAdminLogo
                   ? externalAdminLogo
                   : category === "Company / Plan Sponsor"
-                    ? defaultCompanyLogo
-                    : undefined,
+                  ? defaultCompanyLogo
+                  : undefined,
               benefitsCategory:
                 category === "Group Health"
                   ? "Health Insurance"
                   : category === "Group Life"
-                    ? "Life Insurance"
-                    : (category as any),
+                  ? "Life Insurance"
+                  : (category as any),
               benefitsCategoryOther: customBenefits,
               supportIcon,
               isPrimary,
@@ -2310,9 +2453,18 @@ export function ContactFormSlide({
               displayPhone,
               enableContactButton: enableCtaButton,
               contactButtonType: enableCtaButton
-                ? (ctaType === "schedule" ? "calendar" : ctaType === "call" ? "phone" : ctaType === "email" ? "email" : "url")
+                ? ctaType === "schedule"
+                  ? "calendar"
+                  : ctaType === "call"
+                  ? "phone"
+                  : ctaType === "email"
+                  ? "email"
+                  : "url"
                 : undefined,
-              schedulingUrl: enableCtaButton && ctaType === "schedule" ? schedulingUrl : undefined,
+              schedulingUrl:
+                enableCtaButton && ctaType === "schedule"
+                  ? schedulingUrl
+                  : undefined,
               // For the preview, derive the contact-form URL live from the form's
               // email so the Contact Form CTA button actually renders (the saved
               // websiteUrl is only written on save).
@@ -2394,7 +2546,6 @@ export function ContactFormSlide({
           </div>
         </DialogContent>
       </Dialog>
-
     </div>
   );
 }
