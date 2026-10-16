@@ -32,6 +32,23 @@ const LIST_GAP = 4;
 const LIST_MAX_PX = 256;
 const LIST_MIN_PX = 96;
 
+/** A chip's place on screen, with the value it stands for. */
+interface ChipMeasure {
+  value: string;
+  index: number;
+  rect: DOMRect;
+}
+
+/**
+ * Where a drop would land: `index` is the insertion GAP (`0..selectedValues.length`, where `length`
+ * means "after the last chip") and `side` is which of that gap's two edges to mark — `before` the
+ * chip at `index`, or `after` the chip at `index - 1`.
+ */
+interface DropMark {
+  index: number;
+  side: "before" | "after";
+}
+
 /**
  * Which insertion gap a pointer at `clientX` is aiming at, for the chip whose box is `rect`, and
  * which of that gap's two edges the pointer is nearer.
@@ -45,7 +62,7 @@ const dropMarkAt = (
   clientX: number,
   rect: DOMRect,
   index: number,
-): { index: number; side: "before" | "after" } =>
+): DropMark =>
   clientX > rect.left + rect.width / 2
     ? { index: index + 1, side: "after" }
     : { index, side: "before" };
@@ -55,6 +72,16 @@ const dropMarkAt = (
  * does not turn into a permanent error state for something that is not an error.
  */
 const LIMIT_NOTICE_MS = 2600;
+
+/**
+ * Whether a drag event came from a chip, or from anything inside one.
+ *
+ * Chips carry `data-chip` for this. A chip's own handler answers with the gap at its edges, while
+ * everything else in the component is the parent's box — the gaps between pills, the space past a
+ * row's last pill, the counter, the field — and all of those resolve through `markAtPointer`.
+ */
+const isChipEvent = (target: EventTarget | null) =>
+  target instanceof Element && target.closest("[data-chip]") !== null;
 
 /**
  * `useLayoutEffect` on the client, `useEffect` on the server.
@@ -164,10 +191,7 @@ export function ChipTypeahead({
    * then a drop could only move a chip to where another chip already sat — "land on C to take C's
    * place" — so "put it between C and D" was not expressible at all.
    */
-  const [dropMark, setDropMark] = useState<{
-    index: number;
-    side: "before" | "after";
-  } | null>(null);
+  const [dropMark, setDropMark] = useState<DropMark | null>(null);
   /**
    * Bumped every time an attempt is refused at the cap; `0` means there is nothing to say. The value
    * doubles as the notice's React `key`, so repeating the attempt replays its entrance instead of
@@ -187,69 +211,92 @@ export function ChipTypeahead({
   /** The cap notice's dismissal timer, so a second refusal restarts the countdown. */
   const limitNoticeTimerRef = useRef<number | null>(null);
 
+  /** Every chip's box as it is right now, in render order. The one place chips are measured. */
+  const measureChips = () => {
+    const chips: ChipMeasure[] = [];
+    for (let index = 0; index < selectedValues.length; index += 1) {
+      const el = chipRefs.current[index];
+      if (el) {
+        chips.push({
+          value: selectedValues[index],
+          index,
+          rect: el.getBoundingClientRect(),
+        });
+      }
+    }
+    return chips;
+  };
+
   /**
-   * Record where every chip is right now.
+   * Record where every chip is, immediately BEFORE a change that moves them.
    *
-   * Called immediately BEFORE a change that will move them — a drag pick-up, an add, a remove — which
-   * is the only moment the old positions are still readable. The drag case is the important one: the
-   * picked-up chip is scaled, so a snapshot taken while it is lifted would record an inflated box and
-   * send it gliding in from the wrong place on drop.
+   * That is the only moment the old positions are still readable. The drag case is the important one:
+   * the picked-up chip is scaled, so a snapshot taken while it is lifted would record an inflated box
+   * and send it gliding in from the wrong place on drop.
    */
   const snapshotChips = () => {
     const boxes = new Map<string, DOMRect>();
-    selectedValues.forEach((value, index) => {
-      const el = chipRefs.current[index];
-      if (el) boxes.set(value, el.getBoundingClientRect());
-    });
+    measureChips().forEach(({ value, rect }) => boxes.set(value, rect));
     chipBoxesRef.current = boxes;
   };
 
   /**
-   * The gap at the END of the row the pointer is on — what a user means by dropping into the empty
-   * space after the last pill of a line.
+   * The mark for a pointer that is over the container's own space rather than over a chip.
    *
-   * Before this, the container's own space always reported `length`. With the pills wrapped that
-   * made the end of an upper row unreachable: aiming at the space where you wanted to drop sent the
-   * chip to the very end of the whole list, and the only way to land it at the end of row 1 was to
-   * aim at the first pill of row 2. Each row's trailing space now resolves to the gap after that
-   * row's last chip.
+   * That space is not only the tail of a row: the 8px `gap-2` BETWEEN two pills belongs to the
+   * container as well, because a chip's box ends at its own border. So the instant the pointer
+   * reached the very gap the marker was pointing at, the event stopped coming from a chip, this
+   * handler took over, and the position collapsed to "end of the row" — which for a pill dragged in
+   * from further right was a no-op, so the marker vanished and nothing moved.
+   *
+   * The fix is to apply the same horizontal midpoint rule as `dropMarkAt`, but to the pills of the
+   * row the pointer is in: take the gap before the first pill whose midpoint is still to the right of
+   * the pointer, or the gap after the row's last pill when there is none. Every position along a row
+   * therefore reports the gap underneath it, whether the pointer is over a pill or between two.
    */
-  const endOfRowAt = (clientY: number) => {
-    const boxes: Array<DOMRect | undefined> = [];
-    for (let index = 0; index < selectedValues.length; index += 1) {
-      boxes.push(chipRefs.current[index]?.getBoundingClientRect());
-    }
+  const markAtPointer = (clientX: number, clientY: number): DropMark => {
+    const chips = measureChips();
+    if (chips.length === 0) return { index: 0, side: "before" };
 
     // The nearest row wins, and the distance is measured to a chip's BOX rather than to its centre,
     // so the strip of container space BETWEEN two wrapped rows still resolves to a row rather than
     // to nothing.
-    let rowTop: number | null = null;
     let nearest = Number.POSITIVE_INFINITY;
-    boxes.forEach((box) => {
-      if (!box) return;
+    let rowTop = chips[0].rect.top;
+    for (const chip of chips) {
+      const { rect } = chip;
       const distance =
-        clientY < box.top
-          ? box.top - clientY
-          : clientY > box.bottom
-            ? clientY - box.bottom
+        clientY < rect.top
+          ? rect.top - clientY
+          : clientY > rect.bottom
+            ? clientY - rect.bottom
             : 0;
       if (distance < nearest) {
         nearest = distance;
-        rowTop = box.top;
+        rowTop = rect.top;
       }
-    });
-    if (rowTop === null) return selectedValues.length;
+    }
 
-    // ...and the end of that row is after its last chip. Chips sharing a line share a `top`, so the
-    // comparison is exact in intent; the 1px slack just absorbs sub-pixel layout.
-    const target = rowTop;
-    let end = 0;
-    boxes.forEach((box, index) => {
-      if (box && Math.abs(box.top - target) <= 1 && index + 1 > end) {
-        end = index + 1;
+    // The pills of that row, left to right — chips are already in render order. The 1px slack
+    // absorbs sub-pixel layout; sharing a line means sharing a `top`.
+    const row = chips.filter((chip) => Math.abs(chip.rect.top - rowTop) <= 1);
+
+    for (let position = 0; position < row.length; position += 1) {
+      const chip = row[position];
+      const midpoint = chip.rect.left + chip.rect.width / 2;
+      if (clientX < midpoint) {
+        // The gap before this pill. Mark whichever of the gap's two bounding edges is nearer, so
+        // crossing the gap carries the marker with the pointer instead of flipping it behind.
+        const previous = position > 0 ? row[position - 1] : null;
+        const closerToPrevious =
+          previous !== null && clientX - previous.rect.right < chip.rect.left - clientX;
+        return { index: chip.index, side: closerToPrevious ? "after" : "before" };
       }
-    });
-    return end === 0 ? selectedValues.length : end;
+    }
+
+    // Right of every midpoint on this row: past its last chip, which is the end of a line — and, for
+    // the last row, the end of the list.
+    return { index: row[row.length - 1].index + 1, side: "after" };
   };
 
   /**
@@ -608,32 +655,50 @@ export function ChipTypeahead({
   );
 
   return (
-    <div ref={containerRef} className={cn("relative", className)}>
+    /**
+     * The WHOLE component is the drop zone, not just the row of pills.
+     *
+     * The row is only ~24px tall and the marker is drawn inside a gap on that row, so a pointer that
+     * drifted a few pixels above or below it — or onto the field underneath — was over an element with
+     * no drag handlers at all. The browser then refuses the drop entirely (`drop` only fires where the
+     * last `dragover` was cancelled), and because nothing updated `dropMark`, the marker from the last
+     * good position stayed on screen: the line was visible, and the pill did not move. That is the
+     * "only works when the pill is touching the line" report.
+     *
+     * Everything inside the component now resolves, except a chip, which still answers more precisely
+     * for the pointer being directly over it.
+     */
+    <div
+      ref={containerRef}
+      className={cn("relative", className)}
+      onDragOver={(e) => {
+        if (dragIndex === null || isChipEvent(e.target)) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        setDropMark(markAtPointer(e.clientX, e.clientY));
+      }}
+      onDrop={(e) => {
+        if (dragIndex === null || isChipEvent(e.target)) return;
+        e.preventDefault();
+        move(dragIndex, markAtPointer(e.clientX, e.clientY).index);
+        setDragIndex(null);
+        setDropMark(null);
+      }}
+      // Leaving the component takes the marker with it, so it can never sit there promising a drop the
+      // browser would refuse. `relatedTarget` keeps this to a real exit: `dragleave` also fires when
+      // the pointer crosses from one child to another.
+      onDragLeave={(e) => {
+        if (e.currentTarget.contains(e.relatedTarget as Node | null)) return;
+        setDropMark(null);
+      }}
+    >
       {/* Selected chips (display order) + counter */}
       {(selectedValues.length > 0 || typeof maxSelections === "number") && (
-        <div
-          className="mb-2 flex flex-wrap items-center gap-2"
-          // The container is a drop zone in its own right, for the empty space after the last chip of
-          // a row. `e.target !== e.currentTarget` limits this to the container's own gaps — anything
-          // bubbling out of a chip has already been handled, and more precisely, there.
-          onDragOver={(e) => {
-            if (dragIndex === null || e.target !== e.currentTarget) return;
-            e.preventDefault();
-            e.dataTransfer.dropEffect = "move";
-            // `after` the row's last chip, which is the edge the user is aiming at out here.
-            setDropMark({ index: endOfRowAt(e.clientY), side: "after" });
-          }}
-          onDrop={(e) => {
-            if (dragIndex === null || e.target !== e.currentTarget) return;
-            e.preventDefault();
-            move(dragIndex, endOfRowAt(e.clientY));
-            setDragIndex(null);
-            setDropMark(null);
-          }}
-        >
+        <div className="mb-2 flex flex-wrap items-center gap-2">
           {selectedValues.map((value, index) => (
             <span
               key={value}
+              data-chip=""
               ref={(el) => {
                 chipRefs.current[index] = el;
               }}
