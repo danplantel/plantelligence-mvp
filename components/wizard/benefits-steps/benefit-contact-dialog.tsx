@@ -37,6 +37,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { ContactFormFields } from "@/components/ui/contact-form-fields";
+import { ChipTypeahead } from "@/components/ui/chip-typeahead";
+import {
+  designationAcronym,
+  designationLabel,
+  getDesignationOptions,
+} from "@/config/onboarding/designations";
 import { ContactFormTopicBuilder } from "@/components/ui/contact-form-topic-builder";
 import { ContactEmailConflictNotice } from "@/components/ui/contact-email-conflict-notice";
 import { useContactEmailConflict } from "@/hooks/useContactEmailConflict";
@@ -66,6 +72,30 @@ import {
 import { normalizeExtension } from "@/lib/phone-utils";
 import { toast } from "sonner";
 import { BenefitsCategory, KeyContact } from "@/types/new-client-wizard";
+
+/** The most designations one contact may carry — the same cap the plan-side editor enforces. */
+const MAX_DESIGNATIONS = 5;
+
+/**
+ * The dictionary the picker offers — the same list, and the same acronym-first row
+ * labels, the contact form and the advisor's own profile use. Values are ids;
+ * `designationLabel` renders them and free text passes through untouched.
+ */
+const DESIGNATION_OPTIONS = getDesignationOptions().map((option) => ({
+  value: option.value,
+  label: `${option.acronym} – ${option.label}`,
+  keywords: [option.acronym, option.value, option.label],
+}));
+
+/**
+ * Trim, drop blanks and cap the list — the same cleaning the other contact editors
+ * apply, so no card can receive more entries (or longer ones) than they can show.
+ */
+const cleanDesignations = (values: string[]): string[] =>
+  values
+    .map((value) => value.trim().slice(0, 80))
+    .filter(Boolean)
+    .slice(0, MAX_DESIGNATIONS);
 
 export interface BenefitContactDialogProps {
   open: boolean;
@@ -111,6 +141,8 @@ interface ContactFormState {
   headshotFileName: string;
   teamImage: string;
   teamImageFileName: string;
+  /** Free-text designations, each rendered as an acronym pill on the card. */
+  designations: string[];
   companyName: string;
   companyLogo: string;
   companyLogoFileName: string;
@@ -137,6 +169,7 @@ const EMPTY_FORM: ContactFormState = {
   headshotFileName: "",
   teamImage: "",
   teamImageFileName: "",
+  designations: [],
   companyName: "",
   companyLogo: "",
   companyLogoFileName: "",
@@ -168,10 +201,7 @@ const EMPTY_FORM: ContactFormState = {
  * Company / Plan Sponsor contacts are skipped: their form has no Company field and
  * their card shows the plan's own company name.
  */
-function primaryOrgCompanyName(
-  profile: any,
-  category: string,
-): string {
+function primaryOrgCompanyName(profile: any, category: string): string {
   if (String(category) === "Company / Plan Sponsor") return "";
   const primaryCats: string[] = Array.isArray(profile?.primaryServiceCategories)
     ? profile.primaryServiceCategories
@@ -188,7 +218,11 @@ function primaryOrgCompanyName(
     );
   });
   if (!isPrimary) return "";
-  return (profile?.organizationName || profile?.user?.organizationName || "").trim();
+  return (
+    profile?.organizationName ||
+    profile?.user?.organizationName ||
+    ""
+  ).trim();
 }
 
 export function BenefitContactDialog({
@@ -341,10 +375,13 @@ export function BenefitContactDialog({
       setForm({
         ...EMPTY_FORM,
         contactType:
-          contact.contactType === "team_support" ? "team_support" : "individual",
+          contact.contactType === "team_support"
+            ? "team_support"
+            : "individual",
         firstName: contact.firstName || "",
         lastName: contact.lastName || "",
         title: contact.title || contact.customRole || "",
+        designations: cleanDesignations(contact.designations || []),
         displayName: contact.displayName || contact.name || "",
         email: contact.email || "",
         phone: contact.phone || "",
@@ -362,10 +399,10 @@ export function BenefitContactDialog({
           contact.contactButtonType === "phone"
             ? "call"
             : contact.contactButtonType === "email"
-              ? "email"
-              : contact.contactButtonType === "url"
-                ? "contact"
-                : "schedule",
+            ? "email"
+            : contact.contactButtonType === "url"
+            ? "contact"
+            : "schedule",
         schedulingUrl: contact.schedulingUrl || "",
         displayEmail: contact.displayEmail ?? false,
         displayPhone: contact.displayPhone ?? false,
@@ -465,11 +502,7 @@ export function BenefitContactDialog({
     ) {
       validationErrors.push("schedulingUrl");
     }
-    if (
-      form.enableContactButton &&
-      form.ctaType === "contact" &&
-      !emailValid
-    ) {
+    if (form.enableContactButton && form.ctaType === "contact" && !emailValid) {
       if (!validationErrors.includes("email")) validationErrors.push("email");
     }
 
@@ -488,10 +521,7 @@ export function BenefitContactDialog({
 
     if (validationErrors.length > 0) {
       setErrors(validationErrors);
-      const refMap: Record<
-        string,
-        React.RefObject<HTMLInputElement | null>
-      > = {
+      const refMap: Record<string, React.RefObject<HTMLInputElement | null>> = {
         firstName: firstNameRef,
         lastName: lastNameRef,
         title: titleRef,
@@ -505,10 +535,10 @@ export function BenefitContactDialog({
         validationErrors.includes(CONTACT_VISIBILITY_FIELD)
           ? CONTACT_VISIBILITY_HELPER_TEXT
           : form.enableContactButton &&
-              form.ctaType === "contact" &&
-              !emailValid
-            ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
-            : "Please fill out all required fields",
+            form.ctaType === "contact" &&
+            !emailValid
+          ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
+          : "Please fill out all required fields",
       );
       return;
     }
@@ -552,6 +582,12 @@ export function BenefitContactDialog({
       firstName: contactType === "individual" ? firstName : undefined,
       lastName: contactType === "individual" ? lastName : undefined,
       title: contactType === "individual" ? title : undefined,
+      // Designations are a person's credentials, so a Team / Support Line never
+      // carries them (their cards hide the row too).
+      designations:
+        contactType === "individual" && form.designations.length > 0
+          ? form.designations
+          : undefined,
       customRole:
         contactType === "individual" ? title : (contact as any)?.customRole,
       displayName: contactType === "team_support" ? displayName : undefined,
@@ -559,9 +595,7 @@ export function BenefitContactDialog({
       phone,
       phoneExtension: form.phoneExtension,
       headshot:
-        contactType === "individual"
-          ? form.headshot || undefined
-          : undefined,
+        contactType === "individual" ? form.headshot || undefined : undefined,
       headshotFileName:
         contactType === "individual"
           ? form.headshotFileName || undefined
@@ -594,9 +628,7 @@ export function BenefitContactDialog({
         : {}),
       displayEmail: form.displayEmail,
       displayPhone: form.displayPhone,
-      displayUrl: form.enableContactButton
-        ? form.ctaType === "contact"
-        : false,
+      displayUrl: form.enableContactButton ? form.ctaType === "contact" : false,
       displayScheduleAppointment: form.enableContactButton
         ? form.ctaType === "schedule"
         : false,
@@ -605,10 +637,10 @@ export function BenefitContactDialog({
         ? ((form.ctaType === "schedule"
             ? "calendar"
             : form.ctaType === "call"
-              ? "phone"
-              : form.ctaType === "email"
-                ? "email"
-                : "url") as "calendar" | "phone" | "email" | "url")
+            ? "phone"
+            : form.ctaType === "email"
+            ? "email"
+            : "url") as "calendar" | "phone" | "email" | "url")
         : undefined,
       schedulingUrl:
         form.enableContactButton && form.ctaType === "schedule"
@@ -643,7 +675,9 @@ export function BenefitContactDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{isEdit ? "Edit Contact" : "Create New Contact"}</DialogTitle>
+            <DialogTitle>
+              {isEdit ? "Edit Contact" : "Create New Contact"}
+            </DialogTitle>
             <DialogDescription>
               {isEdit
                 ? "Update this contact. Their details are saved to the plan straight away and show on every benefit they serve."
@@ -760,11 +794,44 @@ export function BenefitContactDialog({
                 errorFields={errors}
               />
 
+              {/* Designations — individual contacts only: a Team / Support Line's
+                  cards suppress the row, and the plan-side editor does not offer it
+                  for them either. Same dictionary, chips and 5-item cap as the
+                  contact form and the advisor's own profile. */}
+              {form.contactType === "individual" && (
+                <div className="space-y-1 pt-1 border-t border-gray-100 dark:border-gray-700">
+                  <Label className="dark:text-gray-300 text-xs font-medium">
+                    Designations (optional)
+                  </Label>
+                  <ChipTypeahead
+                    options={DESIGNATION_OPTIONS}
+                    selectedValues={form.designations}
+                    valueLabel={designationLabel}
+                    chipLabel={designationAcronym}
+                    onChange={(values) =>
+                      updateForm({ designations: cleanDesignations(values) })
+                    }
+                    placeholder="Type a designation, e.g. CFP®…"
+                    allowCustom
+                    customOptionLabel={(query) =>
+                      `Add as custom designation: “${query}”`
+                    }
+                    maxSelections={MAX_DESIGNATIONS}
+                    dataField="designations"
+                  />
+                  <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                    Up to {MAX_DESIGNATIONS}. They display in this order. Drag
+                    to reorder.
+                  </p>
+                </div>
+              )}
+
               {/* Company / Organization — required for non-Plan-Sponsor contacts */}
               {!isPlanSponsorContact && (
                 <div className="space-y-1.5">
                   <Label className="dark:text-gray-300 text-xs font-medium">
-                    Company / Organization <span className="text-red-500">*</span>
+                    Company / Organization{" "}
+                    <span className="text-red-500">*</span>
                   </Label>
                   <Input
                     ref={companyNameRef}
@@ -993,9 +1060,9 @@ export function BenefitContactDialog({
                           </button>
                         </div>
                         <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5 leading-relaxed">
-                          This CTA opens a Plantelligence-branded contact form on
-                          the /contact page. Submissions are delivered to this
-                          contact&rsquo;s email.
+                          This CTA opens a Plantelligence-branded contact form
+                          on the /contact page. Submissions are delivered to
+                          this contact&rsquo;s email.
                           {form.email
                             ? ` Incoming messages will be sent to ${form.email}.`
                             : " Enter this contact's email above to receive incoming messages."}
@@ -1103,6 +1170,12 @@ export function BenefitContactDialog({
                   lastName: form.lastName,
                   title:
                     form.contactType === "individual" ? form.title : undefined,
+                  // The pills the card shows, straight from the Designations field
+                  // above, so the preview matches what the save will store.
+                  designations:
+                    form.contactType === "individual"
+                      ? cleanDesignations(form.designations)
+                      : undefined,
                   displayName:
                     form.contactType === "team_support"
                       ? form.displayName
@@ -1129,8 +1202,8 @@ export function BenefitContactDialog({
                     category === "Group Health"
                       ? "Health Insurance"
                       : category === "Group Life"
-                        ? "Life Insurance"
-                        : (category as any),
+                      ? "Life Insurance"
+                      : (category as any),
                   isPrimary: isPlanSponsorContact || form.isPrimary,
                   displayEmail: form.displayEmail,
                   displayPhone: form.displayPhone,
@@ -1139,10 +1212,10 @@ export function BenefitContactDialog({
                     ? form.ctaType === "schedule"
                       ? "calendar"
                       : form.ctaType === "call"
-                        ? "phone"
-                        : form.ctaType === "email"
-                          ? "email"
-                          : "url"
+                      ? "phone"
+                      : form.ctaType === "email"
+                      ? "email"
+                      : "url"
                     : undefined,
                   schedulingUrl:
                     form.enableContactButton && form.ctaType === "schedule"
@@ -1191,8 +1264,8 @@ export function BenefitContactDialog({
                   ? "Saving..."
                   : "Creating..."
                 : isEdit
-                  ? "Save Contact"
-                  : "Create Contact"}
+                ? "Save Contact"
+                : "Create Contact"}
             </Button>
           </DialogFooter>
         </DialogContent>

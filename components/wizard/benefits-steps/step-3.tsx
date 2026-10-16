@@ -73,7 +73,11 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { FAQSection, DynamicFAQItem, FAQContact } from "@/components/faq-section";
+import {
+  FAQSection,
+  DynamicFAQItem,
+  FAQContact,
+} from "@/components/faq-section";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import {
   CollaboratorDetailDialog,
@@ -266,12 +270,13 @@ export function BenefitsStep3({
   const [isDeletingContact, setIsDeletingContact] = useState(false);
   // Edit contact (plan-level): the contact the shared editor is open for.
   const [editingContact, setEditingContact] = useState<KeyContact | null>(null);
+  // Add contact (plan-level): the SAME shared editor, in create mode.
+  const [isAddingContact, setIsAddingContact] = useState(false);
   // "Give Team Seat": the contact the seat confirm dialog is asking about. Deliberately
   // separate from `editingContact` — editing the person and giving them a paid seat are
   // different questions, and one dialog must never answer for the other.
-  const [contactPendingSeat, setContactPendingSeat] = useState<KeyContact | null>(
-    null,
-  );
+  const [contactPendingSeat, setContactPendingSeat] =
+    useState<KeyContact | null>(null);
   const step1Data = stepData.step1;
   const currentStep3Data = stepData.step3 || {
     faqs: [],
@@ -334,7 +339,9 @@ export function BenefitsStep3({
    * Held by id rather than as a boolean so only THAT card swaps its icon for a spinner — the
    * section lists several people and a shared flag would put every card in a loading state.
    */
-  const [resendingProfileId, setResendingProfileId] = useState<string | null>(null);
+  const [resendingProfileId, setResendingProfileId] = useState<string | null>(
+    null,
+  );
   /**
    * The Collaborator whose OWN account deletion is awaiting confirmation, and whether that
    * PATCH is in flight.
@@ -345,7 +352,8 @@ export function BenefitsStep3({
    */
   const [confirmingSelfDeletion, setConfirmingSelfDeletion] =
     useState<CollaboratorDetailPerson | null>(null);
-  const [isConfirmingSelfDeletion, setIsConfirmingSelfDeletion] = useState(false);
+  const [isConfirmingSelfDeletion, setIsConfirmingSelfDeletion] =
+    useState(false);
   // Owner/Admin only: whether the seat grant is offered at all. The API enforces it too.
   const { canManageTeam } = useViewerAccess();
   /**
@@ -412,7 +420,9 @@ export function BenefitsStep3({
     (async () => {
       try {
         const response = await fetch(
-          `/api/teammates/plan-assignments?planId=${encodeURIComponent(invitePlanId)}`,
+          `/api/teammates/plan-assignments?planId=${encodeURIComponent(
+            invitePlanId,
+          )}`,
           { cache: "no-store" },
         );
         if (!response.ok) {
@@ -571,14 +581,16 @@ export function BenefitsStep3({
     });
   }, [localContacts]);
 
-  if (process.env.NODE_ENV === 'development') {
+  if (process.env.NODE_ENV === "development") {
     // console.log("[Step 3] planContacts:", planContacts, "planId:", step1Data?.planId);
   }
 
   // Helper: get the latest faqsByCategory map directly from the Zustand store.
   // Reads the authoritative state to avoid stale closure issues.
   const readFaqsByCategory = (): Record<string, FAQItem[]> => {
-    return useBenefitsWizardStore.getState().stepData.step3?.faqsByCategory ?? {};
+    return (
+      useBenefitsWizardStore.getState().stepData.step3?.faqsByCategory ?? {}
+    );
   };
 
   // Derive the correct FAQ list for the current benefit category — computed on
@@ -588,7 +600,7 @@ export function BenefitsStep3({
     if (!cat) return [];
     const saved = readFaqsByCategory()[cat];
     let list: FAQItem[] =
-      saved && saved.length > 0 ? saved : (DEFAULT_FAQS[cat] ?? []);
+      saved && saved.length > 0 ? saved : DEFAULT_FAQS[cat] ?? [];
     // Merge any leftover "optional retirement adds" that an earlier build of
     // this wizard persisted separately, so no existing FAQ edits are lost now
     // that the split accordion has been reverted.
@@ -608,7 +620,11 @@ export function BenefitsStep3({
   const persistFaqs = (next: FAQItem[]) => {
     const cat = step1Data?.benefitCategory;
     if (!cat) return;
-    const latestStep3 = useBenefitsWizardStore.getState().stepData.step3 || { faqs: [], supportContacts: [], currentSubStep: "a" };
+    const latestStep3 = useBenefitsWizardStore.getState().stepData.step3 || {
+      faqs: [],
+      supportContacts: [],
+      currentSubStep: "a",
+    };
     const latestByCategory = latestStep3.faqsByCategory ?? {};
     saveStepData(3, {
       ...latestStep3,
@@ -660,9 +676,7 @@ export function BenefitsStep3({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (over && active.id !== over.id) {
-      const oldIndex = resolvedFaqs.findIndex(
-        (f) => f.id === active.id,
-      );
+      const oldIndex = resolvedFaqs.findIndex((f) => f.id === active.id);
       const newIndex = resolvedFaqs.findIndex((f) => f.id === over.id);
       const newFaqs = arrayMove(resolvedFaqs, oldIndex, newIndex);
       persistFaqs(newFaqs);
@@ -674,16 +688,19 @@ export function BenefitsStep3({
     const planId = step1Data?.planId;
     const benefitCategory = step1Data?.benefitCategory;
     if (!planId || !benefitCategory) {
-      toast.error("Missing plan or category data. Please complete Step 1 first.");
+      toast.error(
+        "Missing plan or category data. Please complete Step 1 first.",
+      );
       return;
     }
 
     setSavePending(true);
     try {
       // Normalize "Custom" → "Company / Plan Sponsor" for the API
-      const category = benefitCategory === "Custom"
-        ? "Company / Plan Sponsor"
-        : benefitCategory;
+      const category =
+        benefitCategory === "Custom"
+          ? "Company / Plan Sponsor"
+          : benefitCategory;
 
       const faqsToSave = resolvedFaqs;
 
@@ -700,7 +717,8 @@ export function BenefitsStep3({
       );
 
       const updateResult = await updateRes.json();
-      if (!updateResult.success) throw new Error(updateResult.error || "Failed to save FAQs");
+      if (!updateResult.success)
+        throw new Error(updateResult.error || "Failed to save FAQs");
 
       toast.success("FAQs saved successfully!");
     } catch (error: any) {
@@ -743,8 +761,8 @@ export function BenefitsStep3({
       // The cap is enforced here as well as in the row styling: two fast clicks must
       // not slip a fifth contact past a stale render.
       const liveCount =
-        useBenefitsWizardStore.getState().stepData.step3?.supportContacts.length ??
-        0;
+        useBenefitsWizardStore.getState().stepData.step3?.supportContacts
+          .length ?? 0;
       if (!canAddSupportContact(liveCount)) {
         toast.error(
           `Up to ${MAX_SUPPORT_CONTACTS_PER_BENEFIT} support contacts per benefit`,
@@ -785,16 +803,17 @@ export function BenefitsStep3({
   };
 
   // Map FAQs and contacts for preview
-  const previewFaqs: DynamicFAQItem[] = useMemo(() =>
-    resolvedFaqs
-      .filter(f => f.enabled && f.question && f.answer)
-      .map(f => ({
-        id: f.id,
-        question: f.question,
-        answer: f.answer,
-        linkLabel: f.linkLabel || undefined,
-        linkHref: f.linkHref && f.linkHref !== "#" ? f.linkHref : undefined,
-      })),
+  const previewFaqs: DynamicFAQItem[] = useMemo(
+    () =>
+      resolvedFaqs
+        .filter((f) => f.enabled && f.question && f.answer)
+        .map((f) => ({
+          id: f.id,
+          question: f.question,
+          answer: f.answer,
+          linkLabel: f.linkLabel || undefined,
+          linkHref: f.linkHref && f.linkHref !== "#" ? f.linkHref : undefined,
+        })),
     [resolvedFaqs],
   );
 
@@ -883,7 +902,9 @@ export function BenefitsStep3({
    * once, and the change is audited. `collaboratorsRefreshKey` re-reads the list — the
    * delete touches an assignment, not a contact, so `deleteContact` above is not it.
    */
-  const deleteCollaboratorFromPlan = async (person: CollaboratorDetailPerson) => {
+  const deleteCollaboratorFromPlan = async (
+    person: CollaboratorDetailPerson,
+  ) => {
     setIsDeletingCollaborator(true);
     try {
       const response = await fetch(
@@ -1064,15 +1085,91 @@ export function BenefitsStep3({
     toast.success("Contact updated");
   };
 
+  /**
+   * Persist a contact the shared editor CREATED, then select it for this benefit.
+   *
+   * Written to the plan first for the same reason `handleContactSubmitted` is: the
+   * contact list is the plan's, and `saveBenefit` merges `keyContacts` starting FROM
+   * the stored rows, so a person who only existed in local state would be dropped on
+   * the next save. Selecting them here is what makes the new card appear on this
+   * benefit — the section the advisor was looking at when they noticed the gap — and
+   * the per-benefit cap is respected rather than bypassed.
+   */
+  const handleContactCreated = async (created: KeyContact) => {
+    const planId = step1Data?.planId;
+    if (!planId) throw new Error("No plan selected");
+
+    const nextContacts = [...localContacts, created];
+
+    const res = await fetch(`/api/clients/${planId}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ keyContacts: nextContacts }),
+    });
+    const result = await res.json().catch(() => null);
+    if (!res.ok || !result?.success) {
+      throw new Error(
+        result?.error || `Failed to add the contact (${res.status})`,
+      );
+    }
+
+    // The plan row changed — the shared cache must not serve the old copy.
+    invalidateClientCache(planId);
+    setLocalContacts(nextContacts);
+
+    // Keep the store's copy of the plan in step, because `saveBenefit` merges FROM
+    // `selectedPlan.keyContacts`.
+    const latest = useBenefitsWizardStore.getState().stepData.step1;
+    if (latest && latest.planId === planId) {
+      const selectedPlan = latest.selectedPlan
+        ? { ...(latest.selectedPlan as any), keyContacts: nextContacts }
+        : latest.selectedPlan;
+      saveStepData(1, { ...latest, selectedPlan });
+    }
+
+    // Select them for this benefit when the cap allows it. Read the live store rather
+    // than the render's snapshot so two quick adds cannot slip past the limit.
+    const liveStep3 = useBenefitsWizardStore.getState().stepData.step3 ?? {
+      faqs: [],
+      supportContacts: [],
+      currentSubStep: "a",
+    };
+    const liveSupportContacts = liveStep3.supportContacts || [];
+    if (!canAddSupportContact(liveSupportContacts.length)) {
+      toast.success("Contact added to the plan", {
+        description: `This benefit already shows ${MAX_SUPPORT_CONTACTS_PER_BENEFIT} support contacts — deselect one to include them here.`,
+      });
+      return;
+    }
+
+    const newSupportContact: SupportContact = {
+      contactId: created.id,
+      title: created.title || "Support Contact",
+      description: "Contact for any questions regarding this benefit.",
+      enabled: true,
+    };
+    saveStepData(3, {
+      ...liveStep3,
+      ...supportContactsContext,
+      supportContacts: [...liveSupportContacts, newSupportContact],
+    });
+    toast.success("Contact added and selected for this benefit");
+  };
+
   const previewContacts: FAQContact[] | undefined = useMemo(() => {
-    const enabled = currentStep3Data.supportContacts.filter(sc => sc.enabled);
+    const enabled = currentStep3Data.supportContacts.filter((sc) => sc.enabled);
     if (enabled.length === 0) return undefined;
-    return enabled.map(sc => {
-      const matched = planContacts.find(c => c.id === sc.contactId);
+    return enabled.map((sc) => {
+      const matched = planContacts.find((c) => c.id === sc.contactId);
       return {
         id: sc.contactId,
-        title: sc.title || matched?.name || `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() || "Support Contact",
-        description: sc.description || matched?.customRole || matched?.title || "",
+        title:
+          sc.title ||
+          matched?.name ||
+          `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() ||
+          "Support Contact",
+        description:
+          sc.description || matched?.customRole || matched?.title || "",
         email: matched?.email || "",
         phone: matched?.phone || "",
         headshot: matched?.headshot || undefined,
@@ -1080,12 +1177,14 @@ export function BenefitsStep3({
     });
   }, [currentStep3Data.supportContacts, planContacts]);
 
-  const brandColor = step1Data?.selectedPlan?.brandColor
-    || step1Data?.selectedPlan?.brandColors?.primary
-    || "#1F3A60";
-  const secondaryColor = step1Data?.selectedPlan?.secondaryColor
-    || step1Data?.selectedPlan?.brandColors?.secondary
-    || "#6B7280";
+  const brandColor =
+    step1Data?.selectedPlan?.brandColor ||
+    step1Data?.selectedPlan?.brandColors?.primary ||
+    "#1F3A60";
+  const secondaryColor =
+    step1Data?.selectedPlan?.secondaryColor ||
+    step1Data?.selectedPlan?.brandColors?.secondary ||
+    "#6B7280";
 
   return (
     <>
@@ -1093,193 +1192,250 @@ export function BenefitsStep3({
         {/* Support Contacts + Collaborators — two accordion sections, so each set
             of people on this benefit is its own collapsible block. */}
         {(!section || section === "contacts") && (
-        <>
-        {/* Section header. The per-person actions belong to the sections that own the
+          <>
+            {/* Section header. The per-person actions belong to the sections that own the
             people: Support Contacts carries Preview, Collaborators carries the invite.
             "Add Benefit" and "Edit Benefit" both render this step, so one header serves
             both surfaces. */}
-        <div className="rounded-xl bg-card px-4 py-3">
-          <h2 className="text-lg font-bold text-foreground">Contacts & FAQs</h2>
-          <p className="text-xs text-muted-foreground">
-            Who employees reach out to, and who can help complete this section.
-          </p>
-        </div>
-        <Accordion
-          type="multiple"
-          value={openContactSections}
-          onValueChange={setOpenContactSections}
-          className="space-y-4"
-        >
-        <AccordionItem
-          value="support-contacts"
-          className="rounded-xl border bg-card shadow-md"
-        >
-          <AccordionTrigger className="px-4 py-3 hover:no-underline">
-            <span className="flex flex-1 flex-wrap items-center gap-2 text-left">
-              <Users className="w-5 h-5 shrink-0 text-accent-blue" />
-              <span className="text-lg font-bold text-foreground">
-                Support Contacts
-              </span>
-              <Badge variant="secondary" className="font-medium">
-                {selectedSupportCount} of {MAX_SUPPORT_CONTACTS_PER_BENEFIT}
-              </Badge>
-              {/* Preview the cards the advisor is choosing. Sits in the trigger (rather
+            <div className="rounded-xl bg-card px-4 py-3">
+              <h2 className="text-lg font-bold text-foreground">
+                Contacts & FAQs
+              </h2>
+              <p className="text-xs text-muted-foreground">
+                Who employees reach out to, and who can help complete this
+                section.
+              </p>
+            </div>
+            <Accordion
+              type="multiple"
+              value={openContactSections}
+              onValueChange={setOpenContactSections}
+              className="space-y-4"
+            >
+              <AccordionItem
+                value="support-contacts"
+                className="rounded-xl border bg-card shadow-md"
+              >
+                <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                  <span className="flex flex-1 flex-wrap items-center gap-2 text-left">
+                    <Users className="w-5 h-5 shrink-0 text-accent-blue" />
+                    <span className="text-lg font-bold text-foreground">
+                      Support Contacts
+                    </span>
+                    <Badge variant="secondary" className="font-medium">
+                      {selectedSupportCount} of{" "}
+                      {MAX_SUPPORT_CONTACTS_PER_BENEFIT}
+                    </Badge>
+                    {/* Preview the cards the advisor is choosing. Sits in the trigger (rather
                   than beside the accordion) so it reads as part of this section's header,
                   and every event is stopped so a click opens the preview instead of
                   collapsing the section it belongs to. */}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 shrink-0 gap-1.5 px-3 text-xs font-semibold"
-                aria-label="Preview support contacts"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setContactsPreviewOpen(true);
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-              >
-                <Eye className="h-4 w-4" />
-                Preview
-              </Button>
-              <span className="w-full text-xs font-normal text-muted-foreground">
-                Select the contacts users should reach out to — up to{" "}
-                {MAX_SUPPORT_CONTACTS_PER_BENEFIT} per benefit.
-              </span>
-            </span>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4 pt-0">
-          <CardContent className="p-3">
-            {/* The cap is a rule about the benefit page rather than a technical limit,
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 shrink-0 gap-1.5 px-3 text-xs font-semibold"
+                      aria-label="Preview support contacts"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setContactsPreviewOpen(true);
+                      }}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <Eye className="h-4 w-4" />
+                      Preview
+                    </Button>
+                    {/* Add a contact to the PLAN from here. The roster comes from Step 1,
+                  but that is a long way back for one missing person — and the section
+                  is where the gap is noticed. Disabled without a plan, because the
+                  save writes the plan's own contact list. */}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 shrink-0 gap-1.5 px-3 text-xs font-semibold"
+                      aria-label="Add a contact"
+                      title={
+                        step1Data?.planId
+                          ? "Add a contact to this plan"
+                          : "Save the plan first, then add a contact"
+                      }
+                      disabled={!step1Data?.planId}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsAddingContact(true);
+                      }}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Contact
+                    </Button>
+                    <span className="w-full text-xs font-normal text-muted-foreground">
+                      Select the contacts users should reach out to — up to{" "}
+                      {MAX_SUPPORT_CONTACTS_PER_BENEFIT} per benefit.
+                    </span>
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="px-4 pb-4 pt-0">
+                  <CardContent className="p-3">
+                    {/* The cap is a rule about the benefit page rather than a technical limit,
                 so it is stated here and enforced on the rows below. Dismissable because it
                 is an explanation, not a task — see `showCapNotice` for the one case where a
                 stored dismissal does not keep it hidden. */}
-            {showCapNotice ? (
-              <div
-                className={`mb-3 flex items-start gap-2 rounded-lg border px-3 py-2 ${
-                  overSupportContactLimit
-                    ? "border-amber-200 bg-amber-50/70 dark:border-amber-800 dark:bg-amber-950/20"
-                    : "border-blue-100 bg-blue-50/60 dark:border-blue-900/40 dark:bg-blue-950/20"
-                }`}
-              >
-                {overSupportContactLimit ? (
-                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
-                ) : (
-                  <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
-                )}
-                <p className="text-[11px] leading-relaxed text-foreground/80">
-                  A benefit shows{" "}
-                  <b>up to {MAX_SUPPORT_CONTACTS_PER_BENEFIT} support contacts</b> —
-                  these are the contact cards employees see on the benefit page.{" "}
-                  {overSupportContactLimit
-                    ? `This benefit has ${selectedSupportCount} selected; keep no more than ${MAX_SUPPORT_CONTACTS_PER_BENEFIT}.`
-                    : `${selectedSupportCount} of ${MAX_SUPPORT_CONTACTS_PER_BENEFIT} selected.`}
-                </p>
-                <button
-                  type="button"
-                  onClick={dismissCapNotice}
-                  aria-label="Dismiss this notice"
-                  title="Dismiss"
-                  className="ml-auto -mr-1 shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ) : null}
-            {/* One card per contact, laid out across the row instead of stacked, so the
+                    {showCapNotice ? (
+                      <div
+                        className={`mb-3 flex items-start gap-2 rounded-lg border px-3 py-2 ${
+                          overSupportContactLimit
+                            ? "border-amber-200 bg-amber-50/70 dark:border-amber-800 dark:bg-amber-950/20"
+                            : "border-blue-100 bg-blue-50/60 dark:border-blue-900/40 dark:bg-blue-950/20"
+                        }`}
+                      >
+                        {overSupportContactLimit ? (
+                          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+                        ) : (
+                          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-500" />
+                        )}
+                        <p className="text-[11px] leading-relaxed text-foreground/80">
+                          A benefit shows{" "}
+                          <b>
+                            up to {MAX_SUPPORT_CONTACTS_PER_BENEFIT} support
+                            contacts
+                          </b>{" "}
+                          — these are the contact cards employees see on the
+                          benefit page.{" "}
+                          {overSupportContactLimit
+                            ? `This benefit has ${selectedSupportCount} selected; keep no more than ${MAX_SUPPORT_CONTACTS_PER_BENEFIT}.`
+                            : `${selectedSupportCount} of ${MAX_SUPPORT_CONTACTS_PER_BENEFIT} selected.`}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={dismissCapNotice}
+                          aria-label="Dismiss this notice"
+                          title="Dismiss"
+                          className="ml-auto -mr-1 shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-black/5 hover:text-foreground dark:hover:bg-white/10"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    ) : null}
+                    {/* One card per contact, laid out across the row instead of stacked, so the
                 whole roster is scannable at once. */}
-            <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {/* Unknown first, empty second: the roster is only "none" once a read has said so. */}
-              {!contactsResolved ? (
-                <SupportContactCardsSkeleton />
-              ) : planContacts.length === 0 ? (
-                <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700 sm:col-span-2 lg:col-span-4">
-                  <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                  <p className="text-sm text-muted-foreground font-medium">No support contacts available.</p>
-                  <p className="text-xs text-muted-foreground mt-1">Please add contacts in Step 1 or check your connection.</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-4 h-8 text-xs"
-                    onClick={() => useBenefitsWizardStore.getState().goToStep(1)}
-                  >
-                    Go to Step 1 Selection
-                  </Button>
-                </div>
-              ) : planContacts.map((contact) => {
-                const isSelected = currentStep3Data.supportContacts.some(
-                  (sc) => sc.contactId === contact.id,
-                );
-                const supportConfig = currentStep3Data.supportContacts.find(
-                  (sc) => sc.contactId === contact.id,
-                );
-                // At the cap a contact that is not already selected cannot be added. Dim
-                // it so the rule is visible before the click — `toggleContact` still
-                // guards, and says why.
-                const isBlockedByLimit = !isSelected && atSupportContactLimit;
-                // `(555) 123-4567`, plus the extension when the contact has one. Key
-                // Contacts are stored as digits, so the raw value would read as an
-                // unformatted string on a card meant to preview the portal's own.
-                const formattedPhone = formatPhoneWithExtension(
-                  contact.phone,
-                  contact.phoneExtension,
-                );
-                // Email is the only key the plan's contact list and the assignment list
-                // share — a contact carries no profile id and a profile no contact id —
-                // so it is what connects this card to the person the server knows.
-                const contactEmail = (contact.email || "").trim().toLowerCase();
-                const teammate = contactEmail
-                  ? teammateByEmail.get(contactEmail)
-                  : undefined;
-                /**
-                 * What replaces the seat button, or `null` when the button is right.
-                 *
-                 * Only `invited` and `active` count as already handled. The T7 contact
-                 * mirror creates an assignment for EVERY plan contact, so an ordinary
-                 * mirrored contact is on this plan with `state: "contact"` — no seat, no
-                 * invitation — and offering them one is the point of the button.
-                 */
-                const seatStatus = !contactEmail
-                  ? null
-                  : ownerEmailSet.has(contactEmail)
-                    ? "owner"
-                    : teammate?.deactivatedAt
-                      ? "deactivated"
-                      : teammate?.state === "invited"
-                        ? "invited"
-                        : teammate?.state === "active"
-                          ? "active"
-                          : null;
-                const inviteDueDate = teammate?.inviteDueDate
-                  ? new Date(teammate.inviteDueDate).toLocaleDateString()
-                  : null;
+                    <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                      {/* Unknown first, empty second: the roster is only "none" once a read has said so. */}
+                      {!contactsResolved ? (
+                        <SupportContactCardsSkeleton />
+                      ) : planContacts.length === 0 ? (
+                        <div className="text-center py-8 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700 sm:col-span-2 lg:col-span-4">
+                          <Users className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
+                          <p className="text-sm text-muted-foreground font-medium">
+                            No support contacts available.
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Please add contacts in Step 1 or check your
+                            connection.
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-4 h-8 text-xs"
+                            onClick={() =>
+                              useBenefitsWizardStore.getState().goToStep(1)
+                            }
+                          >
+                            Go to Step 1 Selection
+                          </Button>
+                        </div>
+                      ) : (
+                        planContacts.map((contact) => {
+                          const isSelected =
+                            currentStep3Data.supportContacts.some(
+                              (sc) => sc.contactId === contact.id,
+                            );
+                          const supportConfig =
+                            currentStep3Data.supportContacts.find(
+                              (sc) => sc.contactId === contact.id,
+                            );
+                          // At the cap a contact that is not already selected cannot be added. Dim
+                          // it so the rule is visible before the click — `toggleContact` still
+                          // guards, and says why.
+                          const isBlockedByLimit =
+                            !isSelected && atSupportContactLimit;
+                          // `(555) 123-4567`, plus the extension when the contact has one. Key
+                          // Contacts are stored as digits, so the raw value would read as an
+                          // unformatted string on a card meant to preview the portal's own.
+                          const formattedPhone = formatPhoneWithExtension(
+                            contact.phone,
+                            contact.phoneExtension,
+                          );
+                          // Email is the only key the plan's contact list and the assignment list
+                          // share — a contact carries no profile id and a profile no contact id —
+                          // so it is what connects this card to the person the server knows.
+                          const contactEmail = (contact.email || "")
+                            .trim()
+                            .toLowerCase();
+                          const teammate = contactEmail
+                            ? teammateByEmail.get(contactEmail)
+                            : undefined;
+                          /**
+                           * What replaces the seat button, or `null` when the button is right.
+                           *
+                           * Only `invited` and `active` count as already handled. The T7 contact
+                           * mirror creates an assignment for EVERY plan contact, so an ordinary
+                           * mirrored contact is on this plan with `state: "contact"` — no seat, no
+                           * invitation — and offering them one is the point of the button.
+                           */
+                          const seatStatus = !contactEmail
+                            ? null
+                            : ownerEmailSet.has(contactEmail)
+                            ? "owner"
+                            : teammate?.deactivatedAt
+                            ? "deactivated"
+                            : teammate?.state === "invited"
+                            ? "invited"
+                            : teammate?.state === "active"
+                            ? "active"
+                            : null;
+                          const inviteDueDate = teammate?.inviteDueDate
+                            ? new Date(
+                                teammate.inviteDueDate,
+                              ).toLocaleDateString()
+                            : null;
 
-                return (
-                  <Card
-                    key={contact.id}
-                    className={`overflow-hidden transition-all ${isSelected
-                      ? "border-accent-blue shadow-sm ring-1 ring-accent-blue/20"
-                      : "border-gray-100 bg-white hover:border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600"
-                      } ${isBlockedByLimit ? "opacity-50" : ""}`}
-                  >
-                    <CardContent
-                      className={`space-y-2 p-3 ${isBlockedByLimit ? "cursor-not-allowed" : "cursor-pointer"}`}
-                      onClick={() => toggleContact(contact.id)}
-                    >
-                      {/* Photo and controls only, at opposite ends, so the selection control
+                          return (
+                            <Card
+                              key={contact.id}
+                              className={`overflow-hidden transition-all ${
+                                isSelected
+                                  ? "border-accent-blue shadow-sm ring-1 ring-accent-blue/20"
+                                  : "border-gray-100 bg-white hover:border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600"
+                              } ${isBlockedByLimit ? "opacity-50" : ""}`}
+                            >
+                              <CardContent
+                                className={`space-y-2 p-3 ${
+                                  isBlockedByLimit
+                                    ? "cursor-not-allowed"
+                                    : "cursor-pointer"
+                                }`}
+                                onClick={() => toggleContact(contact.id)}
+                              >
+                                {/* Photo and controls only, at opposite ends, so the selection control
                           reads as the card's top-left corner. The name deliberately is not
                           in this row — see below. */}
-                      <div className="flex items-center gap-2.5">
-                        <div
-                          className={`w-4 h-4 shrink-0 rounded-full border flex items-center justify-center transition-colors ${isSelected
-                            ? "bg-accent-blue border-accent-blue text-white"
-                            : "bg-white border-accent-blue dark:bg-gray-700"
-                            }`}
-                        >
-                          {isSelected && <Check className="w-3.5 w-3.5" />}
-                        </div>
-                        {/* The avatar slot is reserved whether or not there is a photo. It is
+                                <div className="flex items-center gap-2.5">
+                                  <div
+                                    className={`w-4 h-4 shrink-0 rounded-full border flex items-center justify-center transition-colors ${
+                                      isSelected
+                                        ? "bg-accent-blue border-accent-blue text-white"
+                                        : "bg-white border-accent-blue dark:bg-gray-700"
+                                    }`}
+                                  >
+                                    {isSelected && (
+                                      <Check className="w-3.5 w-3.5" />
+                                    )}
+                                  </div>
+                                  {/* The avatar slot is reserved whether or not there is a photo. It is
                             32px beside a 16px selection dot, so omitting it halved the top row's
                             height and made that whole card shorter than its neighbours — the same
                             raggedness the four-line detail block below is written to avoid. With
@@ -1287,75 +1443,77 @@ export function BenefitsStep3({
                             avatar rather than as a gap (and when there is no name either, the
                             slot simply stays empty — `Headshot` renders nothing rather than a
                             broken image). */}
-                        <div className="w-8 h-8 shrink-0 overflow-hidden rounded-full border border-gray-100 dark:border-gray-700">
-                          <Headshot
-                            src={contact.headshot}
-                            alt={contact.name ?? "Contact"}
-                            monogramName={
-                              contact.name ??
-                              `${contact.firstName ?? ""} ${
-                                contact.lastName ?? ""
-                              }`.trim()
-                            }
-                          />
-                        </div>
-                        <div className="ml-auto flex shrink-0 items-center">
-                          {/* Edit this contact's own details. `stopPropagation` keeps the
+                                  <div className="w-8 h-8 shrink-0 overflow-hidden rounded-full border border-gray-100 dark:border-gray-700">
+                                    <Headshot
+                                      src={contact.headshot}
+                                      alt={contact.name ?? "Contact"}
+                                      monogramName={
+                                        contact.name ??
+                                        `${contact.firstName ?? ""} ${
+                                          contact.lastName ?? ""
+                                        }`.trim()
+                                      }
+                                    />
+                                  </div>
+                                  <div className="ml-auto flex shrink-0 items-center">
+                                    {/* Edit this contact's own details. `stopPropagation` keeps the
                               card's toggle from firing as well — this is the person's data,
                               not this benefit's inclusion of them. */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Edit this contact"
-                            aria-label="Edit this contact"
-                            className="h-7 w-7 shrink-0 text-muted-foreground hover:bg-accent-blue/10 hover:text-accent-blue"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditingContact(contact);
-                            }}
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </Button>
-                          {/* Plan-level delete. `stopPropagation` is essential: the card
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      title="Edit this contact"
+                                      aria-label="Edit this contact"
+                                      className="h-7 w-7 shrink-0 text-muted-foreground hover:bg-accent-blue/10 hover:text-accent-blue"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingContact(contact);
+                                      }}
+                                    >
+                                      <Pencil className="h-3.5 w-3.5" />
+                                    </Button>
+                                    {/* Plan-level delete. `stopPropagation` is essential: the card
                               itself toggles this contact on/off for the benefit, which is
                               a different (non-destructive) action. */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Delete this contact from the plan"
-                            aria-label="Delete this contact from the plan"
-                            className="h-7 w-7 shrink-0 text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setContactPendingDelete(contact);
-                            }}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      title="Delete this contact from the plan"
+                                      aria-label="Delete this contact from the plan"
+                                      className="h-7 w-7 shrink-0 text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setContactPendingDelete(contact);
+                                      }}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
 
-                      {/* Name over title, then the ways to reach them, as one left-aligned
+                                {/* Name over title, then the ways to reach them, as one left-aligned
                           column at the card's full width. Reading the name BESIDE the
                           headshot left it a strip too narrow at four-up, where it is the one
                           thing on the card that has to stay legible. `title` carries the
                           untruncated value on hover. */}
-                      <div className="min-w-0 space-y-0.5">
-                        <p
-                          title={contact.name ||
-                            `${contact.firstName} ${contact.lastName}`}
-                          className="truncate text-sm font-semibold leading-tight text-foreground"
-                        >
-                          {contact.name ||
-                            `${contact.firstName} ${contact.lastName}`}
-                        </p>
-                        <p
-                          title={contact.title || "No Title"}
-                          className="truncate text-xs leading-tight text-muted-foreground"
-                        >
-                          {contact.title || "No Title"}
-                        </p>
-                        {/* Email and phone are drawn even when the contact has neither, and the
+                                <div className="min-w-0 space-y-0.5">
+                                  <p
+                                    title={
+                                      contact.name ||
+                                      `${contact.firstName} ${contact.lastName}`
+                                    }
+                                    className="truncate text-sm font-semibold leading-tight text-foreground"
+                                  >
+                                    {contact.name ||
+                                      `${contact.firstName} ${contact.lastName}`}
+                                  </p>
+                                  <p
+                                    title={contact.title || "No Title"}
+                                    className="truncate text-xs leading-tight text-muted-foreground"
+                                  >
+                                    {contact.title || "No Title"}
+                                  </p>
+                                  {/* Email and phone are drawn even when the contact has neither, and the
                             placeholder is the reason: this block is what sets the CARD's height.
                             An empty email was a collapsed `<p>` and a missing phone was no
                             element at all, so a contact captured with only a name, title and
@@ -1367,23 +1525,23 @@ export function BenefitsStep3({
                             The placeholders are not just alignment either: a support contact
                             employees cannot email or call is a gap worth seeing at the moment
                             they are being chosen. */}
-                        <p
-                          title={contact.email || "No email"}
-                          className="truncate text-xs leading-tight text-muted-foreground"
-                        >
-                          {contact.email || "No email"}
-                        </p>
-                        {/* Shown in the display format, not the stored digits: the card is a
+                                  <p
+                                    title={contact.email || "No email"}
+                                    className="truncate text-xs leading-tight text-muted-foreground"
+                                  >
+                                    {contact.email || "No email"}
+                                  </p>
+                                  {/* Shown in the display format, not the stored digits: the card is a
                             preview of what employees will read on the benefit page. */}
-                        <p
-                          title={formattedPhone || "No phone"}
-                          className="truncate text-xs leading-tight text-muted-foreground"
-                        >
-                          {formattedPhone || "No phone"}
-                        </p>
-                      </div>
+                                  <p
+                                    title={formattedPhone || "No phone"}
+                                    className="truncate text-xs leading-tight text-muted-foreground"
+                                  >
+                                    {formattedPhone || "No phone"}
+                                  </p>
+                                </div>
 
-                      {/* Promote this person into a paid Team Member seat — unless a seat
+                                {/* Promote this person into a paid Team Member seat — unless a seat
                           is not theirs to be given. The status stands in the button's place
                           rather than the button simply vanishing, so the card still says
                           why: the owner already has everything, and somebody who has been
@@ -1393,281 +1551,295 @@ export function BenefitsStep3({
                           read lands, and null is also the real answer for "no seat, no
                           invitation" — so rendering the ladder before that read made every
                           card offer a seat to people who already had one. */}
-                      {!seatStatusResolved ? (
-                        <div
-                          className={SEAT_STATUS_PENDING_CLASS}
-                          title="Checking whether this person already holds a seat…"
-                        >
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          Checking…
-                        </div>
-                      ) : seatStatus === "owner" ? (
-                        <div
-                          className={SEAT_STATUS_MUTED_CLASS}
-                          title="This is the organization owner. They already have full access to every plan and every category."
-                        >
-                          <BadgeCheck className="h-3.5 w-3.5" />
-                          Organization owner
-                        </div>
-                      ) : seatStatus === "invited" ? (
-                        <div
-                          className={SEAT_STATUS_DONE_CLASS}
-                          title={
-                            inviteDueDate
-                              ? `Invitation sent · expires ${inviteDueDate}`
-                              : "Invitation sent"
-                          }
-                        >
-                          <MailCheck className="h-3.5 w-3.5" />
-                          Invite sent
-                        </div>
-                      ) : seatStatus === "active" ? (
-                        <div
-                          className={SEAT_STATUS_DONE_CLASS}
-                          title="Already a Team Member of your organization."
-                        >
-                          <UserCheck className="h-3.5 w-3.5" />
-                          Team member
-                        </div>
-                      ) : seatStatus === "deactivated" ? (
-                        <div
-                          className={SEAT_STATUS_MUTED_CLASS}
-                          title="This person was deactivated. Reactivate them in Settings → People & Access rather than adding them again — the server refuses a re-add for a deactivated address."
-                        >
-                          <UserCheck className="h-3.5 w-3.5" />
-                          Deactivated
-                        </div>
-                      ) : (
-                        /* Nothing to describe: they hold no seat and no invitation, so the
+                                {!seatStatusResolved ? (
+                                  <div
+                                    className={SEAT_STATUS_PENDING_CLASS}
+                                    title="Checking whether this person already holds a seat…"
+                                  >
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                    Checking…
+                                  </div>
+                                ) : seatStatus === "owner" ? (
+                                  <div
+                                    className={SEAT_STATUS_MUTED_CLASS}
+                                    title="This is the organization owner. They already have full access to every plan and every category."
+                                  >
+                                    <BadgeCheck className="h-3.5 w-3.5" />
+                                    Organization owner
+                                  </div>
+                                ) : seatStatus === "invited" ? (
+                                  <div
+                                    className={SEAT_STATUS_DONE_CLASS}
+                                    title={
+                                      inviteDueDate
+                                        ? `Invitation sent · expires ${inviteDueDate}`
+                                        : "Invitation sent"
+                                    }
+                                  >
+                                    <MailCheck className="h-3.5 w-3.5" />
+                                    Invite sent
+                                  </div>
+                                ) : seatStatus === "active" ? (
+                                  <div
+                                    className={SEAT_STATUS_DONE_CLASS}
+                                    title="Already a Team Member of your organization."
+                                  >
+                                    <UserCheck className="h-3.5 w-3.5" />
+                                    Team member
+                                  </div>
+                                ) : seatStatus === "deactivated" ? (
+                                  <div
+                                    className={SEAT_STATUS_MUTED_CLASS}
+                                    title="This person was deactivated. Reactivate them in Settings → People & Access rather than adding them again — the server refuses a re-add for a deactivated address."
+                                  >
+                                    <UserCheck className="h-3.5 w-3.5" />
+                                    Deactivated
+                                  </div>
+                                ) : (
+                                  /* Nothing to describe: they hold no seat and no invitation, so the
                            action IS the content. It lives inside CardContent, which owns the
                            on/off toggle for this benefit, so every event is stopped —
                            otherwise pressing it would also deselect the contact. */
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          className="h-8 w-full gap-1.5 text-xs font-semibold"
-                          title={
-                            contact.email
-                              ? "Give this contact a Team Member seat"
-                              : "Add an email address for this contact first"
-                          }
-                          disabled={!contact.email}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setContactPendingSeat(contact);
-                          }}
-                          onPointerDown={(e) => e.stopPropagation()}
-                        >
-                          <Armchair className="h-3.5 w-3.5" />
-                          Give Team Seat
-                        </Button>
-                      )}
-                    </CardContent>
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    className="h-8 w-full gap-1.5 text-xs font-semibold"
+                                    title={
+                                      contact.email
+                                        ? "Give this contact a Team Member seat"
+                                        : "Add an email address for this contact first"
+                                    }
+                                    disabled={!contact.email}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setContactPendingSeat(contact);
+                                    }}
+                                    onPointerDown={(e) => e.stopPropagation()}
+                                  >
+                                    <Armchair className="h-3.5 w-3.5" />
+                                    Give Team Seat
+                                  </Button>
+                                )}
+                              </CardContent>
 
-                    {/* The display copy only exists once this contact is selected for the
+                              {/* The display copy only exists once this contact is selected for the
                         benefit, so it is the card's footer: the card grows with it instead
                         of a second block appearing beside a fixed-height row. It sits
                         outside CardContent, which owns the toggle, so typing in these
                         fields can never deselect the contact. */}
-                    {isSelected && supportConfig && (
-                      <div className="space-y-2.5 border-t border-gray-100 bg-gray-50 p-3 animate-in slide-in-from-top-1 duration-200 dark:border-gray-700 dark:bg-gray-800/50">
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Display Title
-                          </Label>
-                          <Input
-                            value={supportConfig.title}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (
-                                val.length <= MAX_SUPPORT_CONTACT_TITLE_LENGTH
-                              ) {
-                                updateSupportContact(contact.id, { title: val });
-                              }
-                            }}
-                            placeholder="e.g. Retirement Plan Advisor"
-                            maxLength={MAX_SUPPORT_CONTACT_TITLE_LENGTH}
-                            className="h-8 text-xs"
-                          />
-                          <div className="flex justify-end">
-                            <span
-                              className={`text-[10px] font-medium tabular-nums transition-colors duration-200 ${
-                                supportConfig.title.length >=
-                                MAX_SUPPORT_CONTACT_TITLE_LENGTH
-                                  ? "text-red-500"
-                                  : "text-muted-foreground"
-                              }`}
-                            >
-                              {supportConfig.title.length}
-                              <span className="text-muted-foreground/60">
-                                /{MAX_SUPPORT_CONTACT_TITLE_LENGTH}
-                              </span>
-                            </span>
-                          </div>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                            Display Description
-                          </Label>
-                          <Textarea
-                            rows={5}
-                            value={supportConfig.description}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (
-                                val.length <=
-                                MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH
-                              ) {
-                                updateSupportContact(contact.id, {
-                                  description: val,
-                                });
-                              }
-                            }}
-                            placeholder="Short description..."
-                            maxLength={MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH}
-                            className="min-h-[50px] text-xs py-1.5"
-                          />
-                          <div className="flex justify-end">
-                            <span
-                              className={`text-[10px] font-medium tabular-nums transition-colors duration-200 ${
-                                supportConfig.description.length >=
-                                MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH
-                                  ? "text-red-500"
-                                  : supportConfig.description.length >=
-                                      MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH * 0.9
-                                    ? "text-amber-500"
-                                    : "text-muted-foreground"
-                              }`}
-                            >
-                              {supportConfig.description.length}
-                              <span className="text-muted-foreground/60">
-                                /{MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH}
-                              </span>
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </Card>
-                );
-              })}
-            </div>
-          </CardContent>
-          </AccordionContent>
-        </AccordionItem>
+                              {isSelected && supportConfig && (
+                                <div className="space-y-2.5 border-t border-gray-100 bg-gray-50 p-3 animate-in slide-in-from-top-1 duration-200 dark:border-gray-700 dark:bg-gray-800/50">
+                                  <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                      Display Title
+                                    </Label>
+                                    <Input
+                                      value={supportConfig.title}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (
+                                          val.length <=
+                                          MAX_SUPPORT_CONTACT_TITLE_LENGTH
+                                        ) {
+                                          updateSupportContact(contact.id, {
+                                            title: val,
+                                          });
+                                        }
+                                      }}
+                                      placeholder="e.g. Retirement Plan Advisor"
+                                      maxLength={
+                                        MAX_SUPPORT_CONTACT_TITLE_LENGTH
+                                      }
+                                      className="h-8 text-xs"
+                                    />
+                                    <div className="flex justify-end">
+                                      <span
+                                        className={`text-[10px] font-medium tabular-nums transition-colors duration-200 ${
+                                          supportConfig.title.length >=
+                                          MAX_SUPPORT_CONTACT_TITLE_LENGTH
+                                            ? "text-red-500"
+                                            : "text-muted-foreground"
+                                        }`}
+                                      >
+                                        {supportConfig.title.length}
+                                        <span className="text-muted-foreground/60">
+                                          /{MAX_SUPPORT_CONTACT_TITLE_LENGTH}
+                                        </span>
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                                      Display Description
+                                    </Label>
+                                    <Textarea
+                                      rows={5}
+                                      value={supportConfig.description}
+                                      onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (
+                                          val.length <=
+                                          MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH
+                                        ) {
+                                          updateSupportContact(contact.id, {
+                                            description: val,
+                                          });
+                                        }
+                                      }}
+                                      placeholder="Short description..."
+                                      maxLength={
+                                        MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH
+                                      }
+                                      className="min-h-[50px] text-xs py-1.5"
+                                    />
+                                    <div className="flex justify-end">
+                                      <span
+                                        className={`text-[10px] font-medium tabular-nums transition-colors duration-200 ${
+                                          supportConfig.description.length >=
+                                          MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH
+                                            ? "text-red-500"
+                                            : supportConfig.description
+                                                .length >=
+                                              MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH *
+                                                0.9
+                                            ? "text-amber-500"
+                                            : "text-muted-foreground"
+                                        }`}
+                                      >
+                                        {supportConfig.description.length}
+                                        <span className="text-muted-foreground/60">
+                                          /
+                                          {
+                                            MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH
+                                          }
+                                        </span>
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </Card>
+                          );
+                        })
+                      )}
+                    </div>
+                  </CardContent>
+                </AccordionContent>
+              </AccordionItem>
 
-        {/* Collaborators — external people with scoped access and no seat.
+              {/* Collaborators — external people with scoped access and no seat.
             The invite action lives in THIS trigger so it is labelled by the section it
             adds to. Both sections start open (see openContactSections), so it is never
             hidden behind a click, and every event is stopped so pressing it opens the
             dialog instead of collapsing the section it belongs to. */}
-        <AccordionItem
-          value="collaborators"
-          className="rounded-xl border bg-card shadow-md"
-        >
-          <AccordionTrigger className="px-4 py-3 hover:no-underline">
-            <span className="flex flex-1 flex-wrap items-center gap-2 text-left">
-              <UserPlus className="w-5 h-5 shrink-0 text-accent-blue" />
-              <span className="text-lg font-bold text-foreground">
-                Collaborators
-              </span>
-              {/* A count is an answer, so it is only shown once there IS one. Until the first
+              <AccordionItem
+                value="collaborators"
+                className="rounded-xl border bg-card shadow-md"
+              >
+                <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                  <span className="flex flex-1 flex-wrap items-center gap-2 text-left">
+                    <UserPlus className="w-5 h-5 shrink-0 text-accent-blue" />
+                    <span className="text-lg font-bold text-foreground">
+                      Collaborators
+                    </span>
+                    {/* A count is an answer, so it is only shown once there IS one. Until the first
                   read lands the badge holds its own space with a placeholder rather than reporting
                   0, which is a number the advisor would act on. */}
-              {collaboratorsLoaded ? (
-                <Badge variant="secondary" className="font-medium">
-                  {planCollaborators.length}
-                </Badge>
-              ) : (
-                <Skeleton className="h-5 w-9 shrink-0 rounded-full" />
-              )}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 shrink-0 gap-1.5 px-3 text-xs font-semibold"
-                aria-label="Add a collaborator"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsInviteOpen(true);
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-                disabled={!invitePlanId || !inviteCategory}
-                title={
-                  invitePlanId && inviteCategory
-                    ? "Add a collaborator to complete this section"
-                    : "Save the plan first, then add a collaborator"
-                }
-              >
-                <UserPlus className="h-4 w-4" />
-                Add Collaborator
-              </Button>
-              <span className="w-full text-xs font-normal text-muted-foreground">
-                External people who help with this section. Free — no seat, and no
-                publish, invite, delete or organization settings.
-              </span>
-            </span>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4 pt-0">
-            <div className="space-y-3">
-              {/* Unknown before empty — the order the Support Contacts grid above already uses,
-                  and the reason `collaboratorsLoaded` exists rather than a length test. */}
-              {!collaboratorsLoaded ? (
-                <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  <CollaboratorCardsSkeleton />
-                </div>
-              ) : planCollaborators.length === 0 ? (
-                <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
-                  No collaborators yet. Invite a plan sponsor, an outside advisor or a
-                  provider rep to help fill in this section.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                  {planCollaborators.map((person) => (
-                    <CollaboratorCard
-                      key={person.assignmentId}
-                      person={person}
-                      onOpen={() => setSelectedCollaborator(person)}
-                      onEdit={() => setSelectedCollaborator(person)}
-                      onDelete={
-                        canManageTeam
-                          ? () => setCollaboratorPendingDelete(person)
-                          : undefined
+                    {collaboratorsLoaded ? (
+                      <Badge variant="secondary" className="font-medium">
+                        {planCollaborators.length}
+                      </Badge>
+                    ) : (
+                      <Skeleton className="h-5 w-9 shrink-0 rounded-full" />
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8 shrink-0 gap-1.5 px-3 text-xs font-semibold"
+                      aria-label="Add a collaborator"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsInviteOpen(true);
+                      }}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                      disabled={!invitePlanId || !inviteCategory}
+                      title={
+                        invitePlanId && inviteCategory
+                          ? "Add a collaborator to complete this section"
+                          : "Save the plan first, then add a collaborator"
                       }
-                      /* Offered only while the invitation is live and pending — the same gate the
+                    >
+                      <UserPlus className="h-4 w-4" />
+                      Add Collaborator
+                    </Button>
+                    <span className="w-full text-xs font-normal text-muted-foreground">
+                      External people who help with this section. Free — no
+                      seat, and no publish, invite, delete or organization
+                      settings.
+                    </span>
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="px-4 pb-4 pt-0">
+                  <div className="space-y-3">
+                    {/* Unknown before empty — the order the Support Contacts grid above already uses,
+                  and the reason `collaboratorsLoaded` exists rather than a length test. */}
+                    {!collaboratorsLoaded ? (
+                      <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        <CollaboratorCardsSkeleton />
+                      </div>
+                    ) : planCollaborators.length === 0 ? (
+                      <p className="rounded-lg border border-dashed p-4 text-center text-xs text-muted-foreground">
+                        No collaborators yet. Invite a plan sponsor, an outside
+                        advisor or a provider rep to help fill in this section.
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                        {planCollaborators.map((person) => (
+                          <CollaboratorCard
+                            key={person.assignmentId}
+                            person={person}
+                            onOpen={() => setSelectedCollaborator(person)}
+                            onEdit={() => setSelectedCollaborator(person)}
+                            onDelete={
+                              canManageTeam
+                                ? () => setCollaboratorPendingDelete(person)
+                                : undefined
+                            }
+                            /* Offered only while the invitation is live and pending — the same gate the
                          other two collaborator lists apply, so a card never shows a retry the
                          server would refuse (already accepted, or a contact with no hold). It is
                          also Owner/Admin-only, like the removal above it: the endpoint requires
                          `org_settings`. */
-                      onResendInvite={
-                        canManageTeam &&
-                        !person.deactivatedAt &&
-                        person.state === "invited"
-                          ? () => void resendCollaboratorInvite(person)
-                          : undefined
-                      }
-                      /* They deleted their own login: until an Owner or Admin accepts it the
+                            onResendInvite={
+                              canManageTeam &&
+                              !person.deactivatedAt &&
+                              person.state === "invited"
+                                ? () => void resendCollaboratorInvite(person)
+                                : undefined
+                            }
+                            /* They deleted their own login: until an Owner or Admin accepts it the
                          profile — and their access — is still here. Routed to a SEPARATE confirm
                          rather than the removal above, because they are asking to leave the
                          organization, not this one plan. Owner/Admin-only, like every other write
                          in this section. */
-                      onConfirmDeletion={
-                        person.selfDeletedAt && canManageTeam
-                          ? () => setConfirmingSelfDeletion(person)
-                          : undefined
-                      }
-                      resending={resendingProfileId === person.profileId}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-        </Accordion>
-        </>
+                            onConfirmDeletion={
+                              person.selfDeletedAt && canManageTeam
+                                ? () => setConfirmingSelfDeletion(person)
+                                : undefined
+                            }
+                            resending={resendingProfileId === person.profileId}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
+          </>
         )}
 
         {/* Edit contact — the SAME editor Step 1 uses to create one (see
@@ -1701,7 +1873,34 @@ export function BenefitsStep3({
           onSubmit={handleContactSubmitted}
         />
 
-
+        {/* Add contact — the SAME editor the Edit button above opens, in create mode,
+            so an advisor who spots a missing person does not have to leave for Step 1.
+            The new contact is written to the plan (see handleContactCreated) and then
+            selected for THIS benefit, so it appears on the card row straight away. */}
+        <BenefitContactDialog
+          open={isAddingContact}
+          onOpenChange={setIsAddingContact}
+          mode="create"
+          planId={step1Data?.planId || ""}
+          category={String(step1Data?.benefitCategory || "")}
+          existingContacts={localContacts}
+          planCompanyName={step1Data?.selectedPlan?.companyName || ""}
+          planLogoUrl={
+            (step1Data?.selectedPlan as any)?.companyLogo?.url ||
+            (typeof (step1Data?.selectedPlan as any)?.companyLogo === "string"
+              ? (step1Data?.selectedPlan as any)?.companyLogo
+              : "") ||
+            ""
+          }
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          appointmentLink={
+            (step1Data?.selectedPlan as any)?.appointmentLink || ""
+          }
+          benefitTitle={step1Data?.benefitTitle || ""}
+          categoryBenefitByApi={step1Data?.categoryBenefitByApi ?? null}
+          onSubmit={handleContactCreated}
+        />
 
         {/* T4: scoped to the plan and the category this step is editing. The same
             step renders in the Create (section undefined) and Edit
@@ -1753,7 +1952,8 @@ export function BenefitsStep3({
         <ConfirmDialog
           open={!!confirmingSelfDeletion}
           onOpenChange={(open) => {
-            if (!open && !isConfirmingSelfDeletion) setConfirmingSelfDeletion(null);
+            if (!open && !isConfirmingSelfDeletion)
+              setConfirmingSelfDeletion(null);
           }}
           onConfirm={async () => {
             if (confirmingSelfDeletion) {
@@ -1784,7 +1984,8 @@ export function BenefitsStep3({
         <ConfirmDialog
           open={!!collaboratorPendingDelete}
           onOpenChange={(open) => {
-            if (!open && !isDeletingCollaborator) setCollaboratorPendingDelete(null);
+            if (!open && !isDeletingCollaborator)
+              setCollaboratorPendingDelete(null);
           }}
           onConfirm={async () => {
             if (collaboratorPendingDelete) {
@@ -1837,113 +2038,112 @@ export function BenefitsStep3({
             driven by `expandedId`, not by this accordion), so opening the section reveals
             the list and opening a question reveals its fields. */}
         {(!section || section === "faqs") && (
-        <Accordion
-          type="multiple"
-          value={openFaqSection}
-          onValueChange={setOpenFaqSection}
-          className="space-y-4"
-        >
-          <AccordionItem
-            value="faqs"
-            className="rounded-xl border bg-card shadow-md"
+          <Accordion
+            type="multiple"
+            value={openFaqSection}
+            onValueChange={setOpenFaqSection}
+            className="space-y-4"
           >
-            <AccordionTrigger className="px-4 py-3 hover:no-underline">
-              <span className="flex flex-1 flex-wrap items-center gap-2 text-left">
-                <HelpCircle className="w-5 h-5 shrink-0 text-accent-blue" />
-                <span className="text-lg font-bold text-foreground">
-                  Popular Questions (FAQ)
-                </span>
-                <Badge variant="secondary" className="font-medium">
-                  {resolvedFaqs.length}
-                </Badge>
-                {/* The actions stay in the header, where they were. Their events are
+            <AccordionItem
+              value="faqs"
+              className="rounded-xl border bg-card shadow-md"
+            >
+              <AccordionTrigger className="px-4 py-3 hover:no-underline">
+                <span className="flex flex-1 flex-wrap items-center gap-2 text-left">
+                  <HelpCircle className="w-5 h-5 shrink-0 text-accent-blue" />
+                  <span className="text-lg font-bold text-foreground">
+                    Popular Questions (FAQ)
+                  </span>
+                  <Badge variant="secondary" className="font-medium">
+                    {resolvedFaqs.length}
+                  </Badge>
+                  {/* The actions stay in the header, where they were. Their events are
                     stopped at this wrapper rather than on each button: the header is the
                     accordion's trigger, so without it saving an FAQ would also collapse
                     the section being saved. */}
-                <span
-                  className="flex shrink-0 flex-wrap items-center gap-2"
-                  onClick={(e) => e.stopPropagation()}
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onKeyDown={(e) => e.stopPropagation()}
-                >
-                  <Button
-                    onClick={() => setPreviewOpen(true)}
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1.5 px-3 text-xs font-semibold"
+                  <span
+                    className="flex shrink-0 flex-wrap items-center gap-2"
+                    onClick={(e) => e.stopPropagation()}
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
                   >
-                    <Eye className="w-4 h-4" /> Preview
-                  </Button>
-                  <Button
-                    onClick={handleSaveFaqs}
-                    variant="default"
-                    size="sm"
-                    className="h-8 gap-1.5 px-3 text-xs font-semibold"
-                    disabled={savePending}
-                  >
-                    {savePending ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Save className="w-4 h-4" />
-                    )}
-                    {savePending ? "Saving..." : "Save"}
-                  </Button>
-                  <Button
-                    onClick={addFaq}
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1 px-3 text-xs font-semibold"
-                  >
-                    <Plus className="w-4 h-4" /> Add Question
-                  </Button>
+                    <Button
+                      onClick={() => setPreviewOpen(true)}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1.5 px-3 text-xs font-semibold"
+                    >
+                      <Eye className="w-4 h-4" /> Preview
+                    </Button>
+                    <Button
+                      onClick={handleSaveFaqs}
+                      variant="default"
+                      size="sm"
+                      className="h-8 gap-1.5 px-3 text-xs font-semibold"
+                      disabled={savePending}
+                    >
+                      {savePending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Save className="w-4 h-4" />
+                      )}
+                      {savePending ? "Saving..." : "Save"}
+                    </Button>
+                    <Button
+                      onClick={addFaq}
+                      variant="outline"
+                      size="sm"
+                      className="h-8 gap-1 px-3 text-xs font-semibold"
+                    >
+                      <Plus className="w-4 h-4" /> Add Question
+                    </Button>
+                  </span>
+                  <span className="w-full text-xs font-normal text-muted-foreground">
+                    Manage frequently asked questions for this benefit — drag
+                    the handle to reorder, and each question opens on its own.
+                  </span>
                 </span>
-                <span className="w-full text-xs font-normal text-muted-foreground">
-                  Manage frequently asked questions for this benefit — drag the handle to
-                  reorder, and each question opens on its own.
-                </span>
-              </span>
-            </AccordionTrigger>
-            <AccordionContent className="px-4 pb-4 pt-0">
-            <CardContent className="p-3">
-            {resolvedFaqs.length === 0 ? (
-              <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
-                <HelpCircle className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-1" />
-                <p className="text-xs text-muted-foreground">
-                  No questions added yet.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={closestCenter}
-                  onDragEnd={handleDragEnd}
-                >
-                  <SortableContext
-                    items={resolvedFaqs.map((f) => f.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {resolvedFaqs.map((faq, index) => (
-                      <SortableFaqItem
-                        key={faq.id}
-                        faq={faq}
-                        index={index}
-                        expandedId={expandedId}
-                        toggleExpand={toggleExpand}
-                        updateFaq={updateFaq}
-                        removeFaq={removeFaq}
-                      />
-                    ))}
-                  </SortableContext>
-                </DndContext>
-              </div>
-            )}
-            </CardContent>
-            </AccordionContent>
-          </AccordionItem>
-        </Accordion>
+              </AccordionTrigger>
+              <AccordionContent className="px-4 pb-4 pt-0">
+                <CardContent className="p-3">
+                  {resolvedFaqs.length === 0 ? (
+                    <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
+                      <HelpCircle className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-1" />
+                      <p className="text-xs text-muted-foreground">
+                        No questions added yet.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                      >
+                        <SortableContext
+                          items={resolvedFaqs.map((f) => f.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          {resolvedFaqs.map((faq, index) => (
+                            <SortableFaqItem
+                              key={faq.id}
+                              faq={faq}
+                              index={index}
+                              expandedId={expandedId}
+                              toggleExpand={toggleExpand}
+                              updateFaq={updateFaq}
+                              removeFaq={removeFaq}
+                            />
+                          ))}
+                        </SortableContext>
+                      </DndContext>
+                    </div>
+                  )}
+                </CardContent>
+              </AccordionContent>
+            </AccordionItem>
+          </Accordion>
         )}
-
       </div>
 
       {/* FAQ Preview Modal */}
@@ -1969,7 +2169,9 @@ export function BenefitsStep3({
               <div className="text-center py-12 text-muted-foreground">
                 <HelpCircle className="w-10 h-10 mx-auto mb-2 opacity-40" />
                 <p>No enabled FAQs to preview.</p>
-                <p className="text-xs mt-1">Add questions above and ensure they are enabled.</p>
+                <p className="text-xs mt-1">
+                  Add questions above and ensure they are enabled.
+                </p>
               </div>
             )}
           </div>
@@ -1984,8 +2186,8 @@ export function BenefitsStep3({
           <DialogHeader>
             <DialogTitle>Support Contacts Preview</DialogTitle>
             <DialogDescription>
-              The portal shows these cards in its Have Questions section, exactly as
-              the selections above define them.
+              The portal shows these cards in its Have Questions section,
+              exactly as the selections above define them.
             </DialogDescription>
           </DialogHeader>
           <div className="flex-1 overflow-y-auto bg-white">
@@ -2054,10 +2256,11 @@ function SortableFaqItem({
     >
       <div className="border rounded-lg bg-white overflow-hidden transition-all duration-200 shadow-sm dark:bg-gray-800 dark:border-gray-700">
         <div
-          className={`flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-700/40 transition-colors ${expandedId === faq.id
-            ? "bg-gray-50/50 border-b border-gray-100 dark:bg-gray-700/40 dark:border-gray-700"
-            : ""
-            }`}
+          className={`flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-700/40 transition-colors ${
+            expandedId === faq.id
+              ? "bg-gray-50/50 border-b border-gray-100 dark:bg-gray-700/40 dark:border-gray-700"
+              : ""
+          }`}
           onPointerDown={(e) => e.stopPropagation()}
           onPointerUp={() => toggleExpand(faq.id)}
         >
@@ -2074,10 +2277,11 @@ function SortableFaqItem({
               {index + 1}
             </div>
             <span
-              className={`text-sm truncate transition-colors ${expandedId === faq.id
-                ? "text-accent-blue font-semibold"
-                : "text-foreground"
-                }`}
+              className={`text-sm truncate transition-colors ${
+                expandedId === faq.id
+                  ? "text-accent-blue font-semibold"
+                  : "text-foreground"
+              }`}
             >
               {faq.question || `Question ${index + 1}`}
             </span>
@@ -2102,8 +2306,9 @@ function SortableFaqItem({
               <Trash2 className="w-4 h-4" />
             </Button>
             <ChevronDown
-              className={`w-4 h-4 text-neutral-400 dark:text-neutral-500 transition-transform duration-300 ${expandedId === faq.id ? "rotate-180" : ""
-                }`}
+              className={`w-4 h-4 text-neutral-400 dark:text-neutral-500 transition-transform duration-300 ${
+                expandedId === faq.id ? "rotate-180" : ""
+              }`}
             />
           </div>
         </div>
@@ -2152,8 +2357,8 @@ function SortableFaqItem({
                         faq.answer.length >= MAX_ANSWER_LENGTH
                           ? "text-red-500"
                           : faq.answer.length >= MAX_ANSWER_LENGTH * 0.9
-                            ? "text-amber-500"
-                            : "text-muted-foreground"
+                          ? "text-amber-500"
+                          : "text-muted-foreground"
                       }`}
                     >
                       {faq.answer.length.toLocaleString()}
