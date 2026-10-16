@@ -24,8 +24,6 @@ import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning
 import { ResumeOrNewPlanDialog } from "@/components/ui/resume-or-new-plan-dialog";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { getBenefitsHubOpenPortalUrl } from "@/lib/marketing/hub-url";
-import { withCommentsRail } from "@/lib/comments/portal-surface";
 import { consumePendingDraftSelection } from "@/lib/draft-utils";
 import { isDuplicatePlanNameError } from "@/lib/duplicate-plan-name-error";
 import {
@@ -48,12 +46,6 @@ export default function NewClientPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showSavingDialog, setShowSavingDialog] = useState(false);
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
-  const [successPortalUrl, setSuccessPortalUrl] = useState("");
-  // The just-created plan/client id, captured when the wizard completes so the
-  // success actions (e.g. "Create Benefit") can deep-link even if the store is
-  // reset/cleared after completion.
-  const [successPlanId, setSuccessPlanId] = useState("");
   // "Save Draft" in the wizard footer (does not advance a step).
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   // Signature (JSON) of `stepData` as of the last load/save. The leave guard compares
@@ -123,11 +115,10 @@ export default function NewClientPage() {
       setIsSavingDraft(false);
     }
   }, [saveAsDraft]);
-// ── Resume-or-new-plan dialog state ───────────────────────────────────
-const [showResumeDialog, setShowResumeDialog] = useState(false);
-const [resumePlanName, setResumePlanName] = useState("");
-const [resumeSavedAt, setResumeSavedAt] = useState("");
-
+  // ── Resume-or-new-plan dialog state ───────────────────────────────────
+  const [showResumeDialog, setShowResumeDialog] = useState(false);
+  const [resumePlanName, setResumePlanName] = useState("");
+  const [resumeSavedAt, setResumeSavedAt] = useState("");
 
   const handleDiscardLeaveCreatePlan = useCallback(async () => {
     const draftClientId = useNewClientWizardStore.getState().draftClientId;
@@ -140,7 +131,10 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
       });
       if (!res.ok && res.status !== 404) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
-        console.error("Failed to delete draft client:", data.error || res.statusText);
+        console.error(
+          "Failed to delete draft client:",
+          data.error || res.statusText,
+        );
       } else if (res.ok) {
         toast.success("Draft plan deleted");
       }
@@ -228,7 +222,8 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
             if (cancelled) return;
 
             const planName =
-              useNewClientWizardStore.getState().stepData.companyBasics?.companyName || "";
+              useNewClientWizardStore.getState().stepData.companyBasics
+                ?.companyName || "";
             setResumePlanName(planName);
             setResumeSavedAt(await fetchDraftSavedAt(pendingDraftId));
             setShowResumeDialog(true);
@@ -335,7 +330,8 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
     // from the server by company name when missing.
     const resumeState = useNewClientWizardStore.getState();
     if (!resumeState.draftClientId) {
-      const companyName = resumeState.stepData.companyBasics?.companyName?.trim();
+      const companyName =
+        resumeState.stepData.companyBasics?.companyName?.trim();
       if (companyName) {
         try {
           const clientsRes = await fetch(
@@ -349,7 +345,9 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
             const nameLower = companyName.toLowerCase();
             const match = clientsList.find(
               (c: any) =>
-                String(c?.companyName || "").trim().toLowerCase() === nameLower,
+                String(c?.companyName || "")
+                  .trim()
+                  .toLowerCase() === nameLower,
             );
             if (match?.id) {
               useNewClientWizardStore.setState({ draftClientId: match.id });
@@ -556,7 +554,9 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
             const currentDraftId =
               useNewClientWizardStore.getState().draftClientId;
             if (!currentDraftId || currentDraftId !== result.clientId) {
-              useNewClientWizardStore.setState({ draftClientId: result.clientId });
+              useNewClientWizardStore.setState({
+                draftClientId: result.clientId,
+              });
             }
             // The state just persisted is the new "saved" baseline — leaving without
             // further edits must not raise the "Leave this setup?" prompt.
@@ -603,21 +603,19 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
       completeStep(currentStep);
       await completeWizard();
 
-      // Capture the created plan/client id now (before any store reset) so the
-      // "Create Benefit" action can deep-link /benefits with the plan selected.
-      const createdPlanId = useNewClientWizardStore.getState().draftClientId;
-      if (createdPlanId) {
-        setSuccessPlanId(createdPlanId);
-      }
-
-      // completeWizard() stored the portal URL on the store. Show a dialog
-      // so the user can choose to view the portal or go to View Plans.
+      // ── Land on View Plans (All Plans) ──
+      // completeWizard() resets the store on success (step 1, empty data), so the wizard
+      // still mounted behind this click is already blank — a success dialog left the
+      // advisor staring at a blank Step 1 the moment they dismissed it, and "View Portal"
+      // (which opens a new tab) stranded them there outright. The published plan is listed
+      // under All Plans with its own row actions, so that is where the flow goes now.
       setShowSavingDialog(false);
-      const portalUrl = useNewClientWizardStore.getState().completedPortalUrl;
-      if (portalUrl) {
-        setSuccessPortalUrl(portalUrl);
-        setShowSuccessDialog(true);
-      }
+      // Fired before the navigation and survives it: sonner's Toaster lives in the root
+      // layout, so it is still on screen once /clients renders.
+      toast.success("Plan published", {
+        description: "It's listed under All Plans.",
+      });
+      router.push("/clients");
     } catch (error: any) {
       setShowSavingDialog(false);
       toast.error("Cannot complete wizard:", {
@@ -660,7 +658,8 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
     onDiscard: handleDiscardLeaveCreatePlan,
   });
 
-  const step5SubStep = stepData.employeePortalPreview?.step5SubStep || "disclaimers";
+  const step5SubStep =
+    stepData.employeePortalPreview?.step5SubStep || "disclaimers";
   const isLastStep =
     currentStep === totalSteps &&
     (step5SubStep === "benefits-team" ||
@@ -670,9 +669,7 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        return (
-          <NewClientStep1 errorFields={errorFields} />
-        );
+        return <NewClientStep1 errorFields={errorFields} />;
       case 2:
         return <NewClientStep2 errorFields={errorFields} />;
       case 3:
@@ -682,9 +679,7 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
       case 5:
         return <NewClientStep5 errorFields={errorFields} />;
       default:
-        return (
-          <NewClientStep1 errorFields={errorFields} />
-        );
+        return <NewClientStep1 errorFields={errorFields} />;
     }
   };
 
@@ -754,76 +749,6 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
               </div>
             </div>
           )}
-
-          {/* Plan Created — Success Dialog */}
-          {showSuccessDialog && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-sm w-full mx-4 p-8 flex flex-col items-center space-y-5">
-                <div className="text-center space-y-1">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                    Plan Created Successfully!
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Your client portal is ready. What would you like to do?
-                  </p>
-                </div>
-                <div className="flex flex-col gap-3 w-full">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const resolvedUrl = successPortalUrl.startsWith("/")
-                        ? getBenefitsHubOpenPortalUrl(
-                            successPortalUrl.replace(/^\//, ""),
-                          )
-                        : successPortalUrl;
-                      // With the Comments rail. The flag wraps whichever URL the two branches above
-                      // produced, so it works for the absolute one too.
-                      window.open(
-                        withCommentsRail(resolvedUrl),
-                        "_blank",
-                        "noopener,noreferrer",
-                      );
-                      setShowSuccessDialog(false);
-                      // window.location.href = "/clients";
-                    }}
-                    className="w-full py-3 px-4 rounded-xl bg-accent-blue text-white font-semibold hover:bg-accent-blue/90 transition-colors"
-                  >
-                    View Portal
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      // Jump straight into the Create Benefit wizard with this
-                      // plan already preselected so the advisor can create a
-                      // benefit.
-                      const planId =
-                        successPlanId ||
-                        useNewClientWizardStore.getState().draftClientId;
-                      setShowSuccessDialog(false);
-                      router.push(
-                        planId
-                          ? `/new-benefits?planId=${encodeURIComponent(planId)}`
-                          : "/new-benefits",
-                      );
-                    }}
-                    className="w-full py-3 px-4 rounded-xl border border-accent-blue text-accent-blue font-semibold hover:bg-accent-blue/10 transition-colors"
-                  >
-                    Create Benefit
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowSuccessDialog(false);
-                      router.push("/clients");
-                    }}
-                    className="w-full py-3 px-4 rounded-xl border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    Go to View Plans
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
         </>
       )}
     </>
@@ -840,9 +765,12 @@ const [resumeSavedAt, setResumeSavedAt] = useState("");
  */
 async function fetchDraftSavedAt(draftId: string): Promise<string> {
   try {
-    const response = await fetch(`/api/clients/${encodeURIComponent(draftId)}`, {
-      cache: "no-store",
-    });
+    const response = await fetch(
+      `/api/clients/${encodeURIComponent(draftId)}`,
+      {
+        cache: "no-store",
+      },
+    );
     if (!response.ok) return readLocalSavedAt();
     const json = (await response.json()) as {
       data?: { updatedAt?: string };
