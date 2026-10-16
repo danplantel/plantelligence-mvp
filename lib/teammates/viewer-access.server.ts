@@ -15,7 +15,10 @@
  */
 
 import prisma from "@/lib/prisma";
-import { resolveOrganizationId } from "@/lib/organization";
+import {
+  organizationDisplayName,
+  resolveOrganizationId,
+} from "@/lib/organization";
 import {
   BINARY_PERMISSION_FUNCTIONS,
   PERMISSION_FUNCTIONS,
@@ -49,6 +52,28 @@ export interface ViewerAccess {
    * so a surface can offer a seat grant without a second read. The API still enforces it.
    */
   canManageTeam: boolean;
+  /**
+   * For a Collaborator: where they DO have access.
+   *
+   * The chrome refuses a URL that carries no plan (`/dashboard`, `/clients`, `/documents`), so a
+   * refusal there had nothing to name — the notice could only say "you don't have access". This is
+   * the FIRST assignment, which is the same one the invitation email lands on (`landingUrlFor`):
+   * the plan they were given, its company name, the section when the grant is scoped to specific
+   * ones, and the firm that invited them so it can be messaged.
+   *
+   * `null` for everyone else — an Owner or Team Member is never refused by that gate — and for a
+   * Collaborator who holds no assignment yet.
+   */
+  primaryAssignment?: PrimaryAssignmentContext | null;
+}
+
+export interface PrimaryAssignmentContext {
+  planId: string;
+  planCompanyName: string | null;
+  /** The section labels the grant covers; empty for a grant that covers the whole plan. */
+  categories: string[];
+  organizationName: string | null;
+  ownerUserId: string | null;
 }
 
 /** A grid with every row at its denied value. A missing row is denied, never implied. */
@@ -124,7 +149,17 @@ export async function getViewerAccess(userId: string): Promise<ViewerAccess> {
 
   const assignments = await prisma.planAssignment.findMany({
     where: { profileId: { in: profiles.map((profile) => profile.id) } },
-    select: { profileId: true, permissionSet: true },
+    select: {
+      profileId: true,
+      permissionSet: true,
+      // Only read to build `primaryAssignment` below — the permission union does not use them.
+      organizationId: true,
+      clientId: true,
+      categoryScope: true,
+      categories: true,
+    },
+    // Earliest first, so "the plan they were given" is stable and matches the invitation.
+    orderBy: { createdAt: "asc" },
   });
 
   const typeById = new Map<string, TeammatePersonType>(
@@ -142,5 +177,39 @@ export async function getViewerAccess(userId: string): Promise<ViewerAccess> {
     }
   }
 
-  return { isCollaborator: true, functions: union, canManageTeam };
+  // ── Where they DO have access ──
+  // See `primaryAssignment`. One extra read per request for a Collaborator, and none for anyone
+  // else — the notice is the only consumer, and without it the refusal cannot name anything.
+  const firstAssignment = assignments[0];
+  let primaryAssignment: PrimaryAssignmentContext | null = null;
+  if (firstAssignment) {
+    const [plan, organizationName, organization] = await Promise.all([
+      prisma.client.findUnique({
+        where: { id: firstAssignment.clientId },
+        select: { companyName: true },
+      }),
+      organizationDisplayName(firstAssignment.organizationId),
+      prisma.organization.findUnique({
+        where: { id: firstAssignment.organizationId },
+        select: { ownerUserId: true },
+      }),
+    ]);
+    primaryAssignment = {
+      planId: firstAssignment.clientId,
+      planCompanyName: (plan?.companyName ?? "").trim() || null,
+      categories:
+        firstAssignment.categoryScope === "selected"
+          ? ((firstAssignment.categories ?? []) as string[])
+          : [],
+      organizationName: (organizationName ?? "").trim() || null,
+      ownerUserId: organization?.ownerUserId ?? null,
+    };
+  }
+
+  return {
+    isCollaborator: true,
+    functions: union,
+    canManageTeam,
+    primaryAssignment,
+  };
 }

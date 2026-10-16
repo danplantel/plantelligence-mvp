@@ -22,12 +22,30 @@ import type {
  */
 export const VIEWER_ACCESS_KEY = "/api/teammates/viewer-access";
 
+/**
+ * Where a Collaborator DOES have access — the first plan they were given.
+ *
+ * Carried by the access summary because the chrome refuses URLs that name no plan
+ * (`/dashboard`, `/clients`, …): without it the restricted notice has nothing to say beyond
+ * "you don't have access". Mirrors the server's `PrimaryAssignmentContext`.
+ */
+export interface PrimaryAssignmentContext {
+  planId: string;
+  planCompanyName: string | null;
+  /** The section labels the grant covers; empty for a grant that covers the whole plan. */
+  categories: string[];
+  organizationName: string | null;
+  ownerUserId: string | null;
+}
+
 /** The shape `GET /api/teammates/viewer-access` returns, and the layout seeds. */
 export interface ViewerAccessData {
   isCollaborator: boolean;
   functions: TeammatePermissionSet | null;
   /** Owner or Admin — may add a Team Member, invite, or grant a seat. */
   canManageTeam: boolean;
+  /** See `PrimaryAssignmentContext`. Absent for everyone who is never refused by the gate. */
+  primaryAssignment?: PrimaryAssignmentContext | null;
 }
 
 /**
@@ -48,6 +66,8 @@ export interface ViewerAccessData {
 export function useViewerAccess(initialData?: ViewerAccessData | null): {
   isCollaborator: boolean;
   canManageTeam: boolean;
+  /** Where a Collaborator DOES have access — see `PrimaryAssignmentContext`. */
+  primaryAssignment: PrimaryAssignmentContext | null;
   can: (fn: PermissionFunction, level?: RequiredLevel) => boolean;
 } {
   const { data } = useSWR<ViewerAccessData>(
@@ -69,5 +89,10 @@ export function useViewerAccess(initialData?: ViewerAccessData | null): {
     [data?.functions],
   );
 
-  return { isCollaborator, canManageTeam, can };
+  return {
+    isCollaborator,
+    canManageTeam,
+    primaryAssignment: data?.primaryAssignment ?? null,
+    can,
+  };
 }

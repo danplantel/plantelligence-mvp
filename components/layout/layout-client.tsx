@@ -38,7 +38,8 @@ export function NewLayoutClient({
   // Chrome-level access for the guard below. This hook runs OUTSIDE the SWRConfig this
   // component renders, so it takes the server value directly; everything deeper in the
   // tree (the sidebar, Settings) reads the same value from that provider's `fallback`.
-  const { isCollaborator, can } = useViewerAccess(viewerAccess);
+  const { isCollaborator, can, primaryAssignment } =
+    useViewerAccess(viewerAccess);
 
   // If it's onboarding page, render without header/sidebar (the onboarding
   // gate is handled server-side by middleware, not by a client guard).
@@ -109,51 +110,61 @@ export function NewLayoutClient({
   return (
     <DesktopOnlyGate variant="dashboard">
       <SWRConfig value={{ fallback: { [VIEWER_ACCESS_KEY]: viewerAccess } }}>
-      <CommentModeProvider>
-        <MessagesModeProvider>
-        <Header
-          stepper={stepperElement}
-          stepTitle={stepTitle}
-        />
-        <div className="flex bg-background">
-          <Sidebar />
-          <main
-            className={`flex-1 ${isWizardPage ? "pt-[72px]" : "pt-16"} overflow-y-auto duration-200 ease-in-out bg-background`}
-            style={{
-              // Clears the sidebar *and* any Preview inline Editing Panel
-              // (`--editor-inset` is only set by the Preview pages).
-              marginLeft:
-                "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
-              // Reserves the right-hand rail's column while EITHER rail is open. `max` rather
-              // than a sum, because the arbiter in lib/right-panel.ts guarantees the two are
-              // never open together — so the variables are never both set, and if a future
-              // refactor ever allowed it this degrades to one rail's width instead of silently
-              // reserving two. Pages with their own fixed bars subtract the same variable
-              // themselves (see plans/plan-benefit-comments.md).
-              paddingRight:
-                "max(var(--comments-inset, 0px), var(--messages-inset, 0px))",
-            }}
-          >
-            {canUseThisPage ? (
-              children
-            ) : (
-              // `NoAccessNotice` positions itself absolutely, so it needs a positioned box
-              // to centre inside rather than the raw <main>.
-              <div className="relative min-h-[60vh]">
-                <NoAccessNotice
-                  message="You don't have access to this page"
-                  reason="page_restricted_for_collaborator"
-                  backHref="/benefits"
-                  backLabel="Back to Benefits"
-                />
-              </div>
-            )}
-          </main>
-        </div>
-        <CommentsRail />
-        <MessagesRail />
-        </MessagesModeProvider>
-      </CommentModeProvider>
+        <CommentModeProvider>
+          <MessagesModeProvider>
+            <Header stepper={stepperElement} stepTitle={stepTitle} />
+            <div className="flex bg-background">
+              <Sidebar />
+              <main
+                className={`flex-1 ${
+                  isWizardPage ? "pt-[72px]" : "pt-16"
+                } overflow-y-auto duration-200 ease-in-out bg-background`}
+                style={{
+                  // Clears the sidebar *and* any Preview inline Editing Panel
+                  // (`--editor-inset` is only set by the Preview pages).
+                  marginLeft:
+                    "calc(var(--sidebar-width, 16rem) + var(--editor-inset, 0px))",
+                  // Reserves the right-hand rail's column while EITHER rail is open. `max` rather
+                  // than a sum, because the arbiter in lib/right-panel.ts guarantees the two are
+                  // never open together — so the variables are never both set, and if a future
+                  // refactor ever allowed it this degrades to one rail's width instead of silently
+                  // reserving two. Pages with their own fixed bars subtract the same variable
+                  // themselves (see plans/plan-benefit-comments.md).
+                  paddingRight:
+                    "max(var(--comments-inset, 0px), var(--messages-inset, 0px))",
+                }}
+              >
+                {canUseThisPage ? (
+                  children
+                ) : (
+                  // `NoAccessNotice` positions itself absolutely, so it needs a positioned box
+                  // to centre inside rather than the raw <main>.
+                  <div className="relative min-h-[60vh]">
+                    <NoAccessNotice
+                      // Same heading as the plan/section refusal, so "no access" reads the same
+                      // wherever it is met. The URL being refused names no plan, so the sentence
+                      // is built from the plan the viewer DOES have (`primaryAssignment`): who
+                      // invited them, which plan, and — when the grant is scoped — which section,
+                      // with "Go to <section>" instead of a bare way back. The generic body stays
+                      // for a collaborator who holds no assignment yet.
+                      message="This area isn’t part of your access"
+                      reason="page_restricted_for_collaborator"
+                      backHref="/benefits"
+                      backLabel="Back to Benefits"
+                      planId={primaryAssignment?.planId}
+                      organizationName={primaryAssignment?.organizationName}
+                      planCompanyName={primaryAssignment?.planCompanyName}
+                      assignedCategories={primaryAssignment?.categories ?? []}
+                      ownerUserId={primaryAssignment?.ownerUserId}
+                    />
+                  </div>
+                )}
+              </main>
+            </div>
+            <CommentsRail />
+            <MessagesRail />
+          </MessagesModeProvider>
+        </CommentModeProvider>
       </SWRConfig>
     </DesktopOnlyGate>
   );

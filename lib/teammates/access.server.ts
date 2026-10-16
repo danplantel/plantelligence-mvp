@@ -39,13 +39,11 @@
  */
 
 import prisma from "@/lib/prisma";
+import { organizationDisplayName } from "@/lib/organization";
 import { planIdOrSlug } from "@/lib/plan-lookup";
 import { TeammateDataError } from "./errors";
 import { applyHardBlocks } from "./permissions";
-import {
-  permissionAllows,
-  type RequiredLevel,
-} from "./permission-levels";
+import { permissionAllows, type RequiredLevel } from "./permission-levels";
 // Re-exported so existing importers (e.g. the benefits route) keep working, and
 // so `RequiredLevel` has one definition. `permissionAllows` lives in the pure
 // module because client components need it too.
@@ -63,7 +61,6 @@ import {
  * "You don't have access to this plan/section" with a link back to the dashboard.
  */
 export const NO_ACCESS_MESSAGE = "You don't have access to this plan/section";
-
 
 /* ───────────────────────────── Results ───────────────────────────── */
 
@@ -101,7 +98,28 @@ export interface TeammatePlanGrant {
 
 export type PlanAccessGrant = OwnerPlanGrant | TeammatePlanGrant;
 
-export interface PlanAccessDenial {
+/**
+ * What a refusal needs in order to explain itself.
+ *
+ * The restricted page reads "<organization> invited you to collaborate on <company> →
+ * <category>" and offers the categories the person DOES have, so the teammate denials below
+ * carry those facts. They are supplied only on the denial path — an owner cannot be refused,
+ * and an allowed request must not pay for a lookup it will not use.
+ */
+export interface PlanAccessDenialContext {
+  /** The inviting firm's display name, as the invitation email names it. */
+  organizationName?: string | null;
+  /** The plan's own company name. */
+  planCompanyName?: string | null;
+  /** The category the request targeted, as the caller spelled it. */
+  requestedCategory?: string | null;
+  /** The category labels the caller's assignment DOES cover on this plan. */
+  assignedCategories?: string[];
+  /** The organization owner's userId — the person the invitee can message about access. */
+  ownerUserId?: string | null;
+}
+
+export interface PlanAccessDenial extends PlanAccessDenialContext {
   allowed: false;
   reason: PlanAccessDenialReason;
   /** Always the spec's copy, so no caller can drift from it. */
@@ -220,6 +238,8 @@ export interface PlanRow {
   slug: string | null;
   userId: string;
   organizationId: string | null;
+  /** Named in a refusal ("… invited you to collaborate on <company>"). */
+  companyName?: string | null;
 }
 
 /**
@@ -237,9 +257,48 @@ export async function loadPlanRow(
   return (
     (await prisma.client.findFirst({
       where: planIdOrSlug(clientIdOrSlug),
-      select: { id: true, slug: true, userId: true, organizationId: true },
+      select: {
+        id: true,
+        slug: true,
+        userId: true,
+        organizationId: true,
+        // Carried so a refusal can name the plan it is refusing — see
+        // `PlanAccessDenialContext`. Same query, one more column.
+        companyName: true,
+      },
     })) ?? null
   );
+}
+
+/**
+ * The context a teammate denial carries — see `PlanAccessDenialContext`.
+ *
+ * `assignedCategories` is passed in rather than read here: by the time the category and
+ * permission checks deny, the assignment is already loaded, and reading it twice would be a
+ * second round trip for information in hand.
+ */
+async function denialContext(
+  plan: PlanRow,
+  organizationId: string,
+  requestedCategory: string | null | undefined,
+  assignedCategories: string[],
+): Promise<PlanAccessDenialContext> {
+  const organization = await prisma.organization.findUnique({
+    where: { id: organizationId },
+    select: { ownerUserId: true },
+  });
+  // The firm's display name resolves exactly as the invitation email resolves it, so the
+  // notice and the email cannot name the organization differently.
+  const organizationName = (
+    (await organizationDisplayName(organizationId)) ?? ""
+  ).trim();
+  return {
+    organizationName: organizationName || null,
+    planCompanyName: (plan.companyName ?? "").trim() || null,
+    requestedCategory: (requestedCategory ?? "").trim() || null,
+    assignedCategories,
+    ownerUserId: organization?.ownerUserId ?? null,
+  };
 }
 
 export interface ResolvePlanAccessInput {
@@ -311,56 +370,44 @@ export async function resolvePlanAccessForPlan(
     };
   }
 
+  /**
+   * Build a refusal WITH its context, so every teammate denial can explain itself without
+   * repeating the lookup. `assigned` is only known once the assignment is loaded, which is why
+   * it is a parameter.
+   */
+  const deny = async (
+    reason: PlanAccessDenialReason,
+    assigned: string[] = [],
+  ): Promise<PlanAccessDenial> => ({
+    allowed: false,
+    reason,
+    message: NO_ACCESS_MESSAGE,
+    clientId: plan.id,
+    ...(await denialContext(plan, organizationId, input.category, assigned)),
+  });
+
   const profile = await prisma.teammateProfile.findFirst({
     where: { organizationId, loginUserId: input.userId },
     orderBy: { createdAt: "asc" },
   });
-  if (!profile) {
-    return {
-      allowed: false,
-      reason: "not_assigned",
-      message: NO_ACCESS_MESSAGE,
-      clientId: plan.id,
-    };
-  }
-  if (!isLive(profile)) {
-    return {
-      allowed: false,
-      reason: "profile_deactivated",
-      message: NO_ACCESS_MESSAGE,
-      clientId: plan.id,
-    };
-  }
+  if (!profile) return deny("not_assigned");
+  if (!isLive(profile)) return deny("profile_deactivated");
 
   const assignment = await prisma.planAssignment.findFirst({
     where: { profileId: profile.id, clientId: plan.id, organizationId },
   });
-  if (!assignment) {
-    return {
-      allowed: false,
-      reason: "not_assigned",
-      message: NO_ACCESS_MESSAGE,
-      clientId: plan.id,
-    };
-  }
+  if (!assignment) return deny("not_assigned");
 
   // 3. Category scope.
   const categories: "all" | string[] =
     assignment.categoryScope === "selected"
-      ? (assignment.categories ?? [])
+      ? assignment.categories ?? []
       : "all";
 
   if (input.category && categories !== "all") {
     const wanted = normalizeCategory(input.category);
     const covered = categories.some((c) => normalizeCategory(c) === wanted);
-    if (!covered) {
-      return {
-        allowed: false,
-        reason: "category_not_assigned",
-        message: NO_ACCESS_MESSAGE,
-        clientId: plan.id,
-      };
-    }
+    if (!covered) return deny("category_not_assigned", categories);
   }
 
   // 4. Function-level permission. Hard blocks are re-applied on top of the
@@ -374,12 +421,7 @@ export async function resolvePlanAccessForPlan(
   if (input.permission) {
     const level: RequiredLevel = input.level ?? "view";
     if (!permissionAllows(permissionSet, input.permission, level)) {
-      return {
-        allowed: false,
-        reason: "permission_denied",
-        message: NO_ACCESS_MESSAGE,
-        clientId: plan.id,
-      };
+      return deny("permission_denied", categories === "all" ? [] : categories);
     }
   }
 
@@ -501,7 +543,12 @@ export async function listAccessiblePlanIds(userId: string): Promise<string[]> {
       // No relation filters here: the teammate models carry no relations, and
       // deactivation is evaluated in JS (see the module header).
       where: { loginUserId: userId },
-      select: { id: true, organizationId: true, allPlans: true, deactivatedAt: true },
+      select: {
+        id: true,
+        organizationId: true,
+        allPlans: true,
+        deactivatedAt: true,
+      },
     }),
   ]);
 
@@ -560,7 +607,9 @@ export function categoryWithinScope(
   category: string,
 ): boolean {
   const wanted = normalizeCategory(category);
-  return categories.some((candidate) => normalizeCategory(candidate) === wanted);
+  return categories.some(
+    (candidate) => normalizeCategory(candidate) === wanted,
+  );
 }
 
 /**

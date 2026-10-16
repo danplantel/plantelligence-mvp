@@ -12,7 +12,7 @@ import type {
 } from "@/types/teammate";
 
 /** Shape returned by GET /api/teammates/plan-access. */
-export interface PlanAccessResponse {
+export interface PlanAccessResponse extends PlanAccessDenialContext {
   allowed: boolean;
   kind?: "owner" | "teammate";
   role?: string;
@@ -21,6 +21,20 @@ export interface PlanAccessResponse {
   showOnBenefitsHub?: boolean;
   reason?: string;
   message?: string;
+}
+
+/** The facts a refusal carries — see the server's `PlanAccessDenialContext`. */
+export interface PlanAccessDenialContext {
+  /** The inviting firm's display name. */
+  organizationName?: string | null;
+  /** The plan's own company name. */
+  planCompanyName?: string | null;
+  /** The category the request targeted. */
+  requestedCategory?: string | null;
+  /** The category labels the caller DOES cover on this plan. */
+  assignedCategories?: string[];
+  /** The organization owner's userId — who to message about access. */
+  ownerUserId?: string | null;
 }
 
 export interface UsePlanAccessInput {
@@ -37,6 +51,11 @@ export interface PlanAccessState {
   access?: PlanAccessResponse;
   message?: string;
   reason?: string;
+  /**
+   * Present on a denial: who invited them, which plan and section was refused, what they
+   * cover instead, and who to message. A denial without it renders the generic notice.
+   */
+  denial?: PlanAccessDenialContext;
   /**
    * Does the caller hold this function at this level?
    * Fail-closed: while loading, and whenever access is denied, this returns
@@ -169,6 +188,15 @@ export function usePlanAccess(input: UsePlanAccessInput): PlanAccessState {
       // A body with no `reason` is not an access decision (a 400/malformed response
       // from the lookup), so name it for what it is. "unknown" told support nothing.
       reason: state.reason ?? "lookup_incomplete",
+      // The context travels on the same body, so a refusal can name the organization, the
+      // plan and the section — and offer the categories the person does cover.
+      denial: {
+        organizationName: state.organizationName ?? null,
+        planCompanyName: state.planCompanyName ?? null,
+        requestedCategory: state.requestedCategory ?? null,
+        assignedCategories: state.assignedCategories ?? [],
+        ownerUserId: state.ownerUserId ?? null,
+      },
       can: guardedCan,
     };
   }

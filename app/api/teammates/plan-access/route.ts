@@ -79,8 +79,20 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // The refusal travels with the facts the restricted page renders: who invited them, which
+  // plan and section was refused, what they DO cover, and who to message about it (see
+  // `PlanAccessDenialContext`). Absent keys are sent as null/[] so the client has one shape.
   return NextResponse.json(
-    { allowed: false, reason: access.reason, message: access.message },
+    {
+      allowed: false,
+      reason: access.reason,
+      message: access.message,
+      organizationName: access.organizationName ?? null,
+      planCompanyName: access.planCompanyName ?? null,
+      requestedCategory: access.requestedCategory ?? null,
+      assignedCategories: access.assignedCategories ?? [],
+      ownerUserId: access.ownerUserId ?? null,
+    },
     { status: access.reason === "plan_not_found" ? 404 : 403 },
   );
 }

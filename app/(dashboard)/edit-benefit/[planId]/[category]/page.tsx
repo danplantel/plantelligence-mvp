@@ -28,7 +28,22 @@ export default function EditBenefitRoute() {
   });
 
   if (access.status === "denied") {
-    return <NoAccessNotice message={access.message} reason={access.reason} />;
+    // The refusal carries who invited them, which plan and section was refused, the section
+    // they DO cover and who to message — see `PlanAccessDenialContext`. Without it the notice
+    // falls back to its generic copy.
+    return (
+      <NoAccessNotice
+        message={access.message}
+        reason={access.reason}
+        planId={planId}
+        organizationName={access.denial?.organizationName}
+        planCompanyName={access.denial?.planCompanyName}
+        // The section the page asked for, which is the one being refused.
+        category={access.denial?.requestedCategory ?? category}
+        assignedCategories={access.denial?.assignedCategories ?? []}
+        ownerUserId={access.denial?.ownerUserId}
+      />
+    );
   }
 
   if (access.status === "loading") {
