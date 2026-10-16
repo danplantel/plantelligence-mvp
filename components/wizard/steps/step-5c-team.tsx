@@ -42,9 +42,10 @@ import type { TeamInvite } from "@/types/wizard";
  * upgrade path to a bigger allowance stays in Settings › People & Access, where
  * T3's over-limit upgrade confirm lives.
  *
- * Rows are added deliberately with the "+ Add Member" button rather than appearing on
- * their own; a row is only an invite once it carries input, and must have both a Name
- * and a valid, unique Email that is not the advisor's own address.
+ * Rows are added deliberately rather than appearing on their own — with the "+ Add Member"
+ * button, or by clicking an empty seat avatar in the strip above. A row is only an invite
+ * once it carries input, and must have both a Name and a valid, unique Email that is not
+ * the advisor's own address.
  */
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -195,11 +196,12 @@ export function Step5cTeam({
     [rows],
   );
 
-  // Rows are added on demand — the list no longer grows itself. The "+ Add Member"
-  // button appends a blank row, and only one blank is ever present so repeated clicks
-  // cannot stack empty rows.
+  // Rows are added on demand — the list never grows itself. The guard is the seat
+  // allowance rather than "a blank row is already waiting", so clicking several empty
+  // seat avatars in turn (or the button several times) adds that many rows, while the
+  // list still cannot hold more rows than the organization has seats.
   const addRow = () => {
-    if (rows.some(isBlankInvite)) return;
+    if (rows.length >= openSeats) return;
     setTeamInvites([...rows, blankInvite()]);
   };
 
@@ -239,7 +241,35 @@ export function Step5cTeam({
     emailError(row, rows, selfEmail) !== null &&
     (touched[`${row.id}:email`] || forceErrors);
 
-  const atCap = openSeats > 0 && filledCount >= openSeats;
+  // Every seat the organization has is accounted for by a row, filled in or not.
+  // This is what caps the list now that a blank row no longer blocks adding another
+  // — which is what keeps the empty seat avatars clickable more than once.
+  const atCap = openSeats > 0 && rows.length >= openSeats;
+
+  /**
+   * Whether another invite row can be added — the single answer behind both the
+   * "+ Add Member" button and the clickable open-seat avatars. Only the seat
+   * allowance caps it: every row holds a seat whether or not it has been filled in
+   * yet, so several may sit waiting at once, and neither entry point can push the
+   * list past the allowance.
+   */
+  const canAddRow = openSeats > 0 && rows.length < openSeats;
+
+  /**
+   * The note under the rows. Three separate situations, because "you can invite N
+   * more" stops being true once every seat is taken, and "all your seats are filled"
+   * is not true yet while some of those rows are still blank.
+   */
+  const seatNote =
+    openSeats === 0
+      ? "No seats are open right now. You can add Team Members in Settings > People & Access and assign their roles there."
+      : atCap
+        ? filledCount >= openSeats
+          ? `All ${openSeats} of your open seats are filled. You can add or change Team Members in Settings > People & Access and assign their roles there.`
+          : `All ${openSeats} of your open seats are taken — finish each person below to send their invite, or remove a row to free a seat.`
+        : `You can invite up to ${openSeats} ${
+            openSeats === 1 ? "teammate" : "teammates"
+          } now. We’ll email each of them an invite link when you finish. Pick a role for each person — you can change it anytime in Settings > People & Access.`;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6" data-field="teamInvites">
@@ -315,15 +345,23 @@ export function Step5cTeam({
             </span>
           ))}
 
-          {/* Still-open seats — the invites this step can still send. */}
+          {/* Still-open seats — the invites this step can still send. Each empty seat is
+              the same action as "+ Add Member" below, so an advisor can click the seat they
+              are already looking at rather than hunting for the button. Disabled (and
+              dimmed) exactly where that button is, so the two can never disagree, and a
+              real <button> so it is reachable by keyboard. */}
           {Array.from({ length: remainingOpenSeats }).map((_, index) => (
-            <span
+            <button
               key={`open-${index}`}
-              title="Open seat"
-              className="flex size-10 items-center justify-center rounded-full border border-dashed text-muted-foreground"
+              type="button"
+              onClick={addRow}
+              disabled={!canAddRow}
+              title={canAddRow ? "Add a team member" : "Open seat"}
+              aria-label={canAddRow ? "Add a team member" : "Open seat"}
+              className="flex size-10 items-center justify-center rounded-full border border-dashed text-muted-foreground transition-colors enabled:cursor-pointer enabled:hover:border-accent-blue enabled:hover:text-accent-blue focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Plus className="h-4 w-4" />
-            </span>
+            </button>
           ))}
         </div>
       </div>
@@ -418,39 +456,21 @@ export function Step5cTeam({
           );
         })}
 
-        {/* Rows are added deliberately — no blank row appears on its own. Disabled at the
-            seat cap, with no open seats at all, or while a blank row is still unfilled, so
-            the list can never grow past the allowance or stack empty rows. */}
+        {/* Rows are added deliberately — no blank row appears on its own. Disabled wherever
+            the open-seat avatars are, so both entry points share one rule: the seat allowance
+            is the only thing that stops either of them. */}
         <Button
           type="button"
           variant="outline"
           onClick={addRow}
-          disabled={
-            openSeats === 0 ||
-            filledCount >= openSeats ||
-            rows.some(isBlankInvite)
-          }
+          disabled={!canAddRow}
           className="w-full"
         >
           <Plus className="mr-2 h-4 w-4" />
           Add Member
         </Button>
 
-        {openSeats === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            {"No seats are open right now. You can add Team Members in Settings > People & Access and assign their roles there."}
-          </p>
-        ) : atCap ? (
-          <p className="text-xs text-muted-foreground">
-            {`All ${openSeats} of your open seats are filled. You can add or change Team Members in Settings > People & Access and assign their roles there.`}
-          </p>
-        ) : (
-          <p className="text-xs text-muted-foreground">
-            {`You can invite up to ${openSeats} ${
-              openSeats === 1 ? "teammate" : "teammates"
-            } now. We’ll email each of them an invite link when you finish. Pick a role for each person — you can change it anytime in Settings > People & Access.`}
-          </p>
-        )}
+        <p className="text-xs text-muted-foreground">{seatNote}</p>
       </div>
     </div>
   );
