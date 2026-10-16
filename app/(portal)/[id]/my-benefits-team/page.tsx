@@ -342,10 +342,22 @@ export default function MyBenefitsTeamPage() {
         }
       }
 
-      // The viewer's own card shows their CURRENT designations (see above). The
-      // stored row was seeded from the profile before designations were copied
-      // onto it, so without this the owner's own card was the one card with none.
-      if (isOwnContact && currentUserDesignations.length > 0) {
+      // The viewer's own card falls back to their CURRENT designations (see above)
+      // only when the stored row carries none — it was seeded from the profile
+      // before designations were copied onto it. A row that already has them keeps
+      // them, so clearing the pills in the wizard's Edit Panel is not silently
+      // undone here.
+      const storedDesignations = Array.isArray(normalized.designations)
+        ? normalized.designations.filter(
+            (value: unknown): value is string =>
+              typeof value === "string" && value.trim().length > 0,
+          )
+        : [];
+      if (
+        isOwnContact &&
+        currentUserDesignations.length > 0 &&
+        storedDesignations.length === 0
+      ) {
         normalized.designations = currentUserDesignations;
       }
 

@@ -11,6 +11,12 @@ import { RotateCcw, ChevronDown, ChevronUp, Globe, Calendar, Mail, Phone, Buildi
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { cn } from "@/lib/utils";
 import { ContactFormFields } from "@/components/ui/contact-form-fields";
+import { ChipTypeahead } from "@/components/ui/chip-typeahead";
+import {
+  designationAcronym,
+  designationLabel,
+  getDesignationOptions,
+} from "@/config/onboarding/designations";
 import { ContactEmailConflictHint } from "@/components/ui/contact-email-conflict-notice";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { useEffect, useRef, useMemo } from "react";
@@ -26,6 +32,30 @@ const CTA_TYPES = [
   { value: "email", label: "Email", icon: Mail },
   { value: "contact", label: "Contact Form", icon: Globe },
 ] as const;
+
+/** The most designations one contact may carry — the same cap the contact form enforces. */
+const MAX_DESIGNATIONS = 5;
+
+/**
+ * The dictionary the picker offers — the same list, and the same acronym-first row
+ * labels, the contact form and the advisor's own profile use. Values are ids;
+ * `designationLabel` renders them and free text passes through untouched.
+ */
+const DESIGNATION_OPTIONS = getDesignationOptions().map((option) => ({
+  value: option.value,
+  label: `${option.acronym} – ${option.label}`,
+  keywords: [option.acronym, option.value, option.label],
+}));
+
+/**
+ * Trim, drop blanks and cap the list — the same cleaning the contact form applies,
+ * so the editor can never store more entries (or longer ones) than the form can.
+ */
+const cleanDesignations = (values: string[]): string[] =>
+  values
+    .map((value) => value.trim().slice(0, 80))
+    .filter(Boolean)
+    .slice(0, MAX_DESIGNATIONS);
 
 export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFields = [] }: ContactSectionEditorProps) {
     const { styles, updateStyle } = useContactStyles();
@@ -296,6 +326,48 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                             headshotFileName={contact.headshotFileName || ""}
                                             hideHeadshotPreview
                                         />
+
+                                        {/* Designations — the pill picker the contact form
+                                            and the advisor's own profile use: a typeahead over
+                                            the shared dictionary, chips you can drag to reorder,
+                                            and a custom entry for anything the dictionary does
+                                            not list. Individual contacts only, because a Team /
+                                            Support Line's cards suppress the row and the contact
+                                            form does not offer it for them either. */}
+                                        {contact.contactType !== "team_support" && (
+                                            <div className="space-y-1.5 pt-2 border-t dark:border-gray-700">
+                                                <Label className="text-xs font-medium">
+                                                    Designations (optional)
+                                                </Label>
+                                                <ChipTypeahead
+                                                    options={DESIGNATION_OPTIONS}
+                                                    selectedValues={
+                                                        Array.isArray(contact.designations)
+                                                            ? contact.designations
+                                                            : []
+                                                    }
+                                                    valueLabel={designationLabel}
+                                                    chipLabel={designationAcronym}
+                                                    onChange={(values) =>
+                                                        handleUpdateContactField(
+                                                            contact.id,
+                                                            "designations",
+                                                            cleanDesignations(values),
+                                                        )
+                                                    }
+                                                    placeholder="Type a designation, e.g. CFP®…"
+                                                    allowCustom
+                                                    customOptionLabel={(query) =>
+                                                        `Add as custom designation: “${query}”`
+                                                    }
+                                                    maxSelections={MAX_DESIGNATIONS}
+                                                    dataField={`designations-${contact.id}`}
+                                                />
+                                                <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                                                    Up to {MAX_DESIGNATIONS}. They display in this order. Drag to reorder.
+                                                </p>
+                                            </div>
+                                        )}
 
                                         {/* Company / Organization — for non-Plan-Sponsor */}
                                         {!isPlanSponsor && (

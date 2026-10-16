@@ -846,14 +846,22 @@ export function NewClientStep3d({
         lastName: contact.lastName,
         title: contact.title,
         // Designations ride along so every card variant (primary / large / small)
-        // renders the acronym pills the advisor chose in the contact form. For the
-        // logged-in user's own row the profile's current designations win, so their
-        // card is never the one card missing the pills.
-        designations:
-          isLoggedInUserContact(contact, currentUserEmails) &&
-          currentUserDesignations.length > 0
+        // renders the acronym pills the advisor chose — in the contact form or in
+        // the Edit Panel. The logged-in user's own row falls back to the live
+        // profile's list only when the row itself carries none (a seeded row written
+        // before the seeding copied them), so a panel edit is never overridden.
+        designations: (() => {
+          const stored = Array.isArray(contact.designations)
+            ? contact.designations.filter(
+                (value): value is string =>
+                  typeof value === "string" && value.trim().length > 0,
+              )
+            : [];
+          if (stored.length > 0) return stored;
+          return isLoggedInUserContact(contact, currentUserEmails)
             ? currentUserDesignations
-            : contact.designations,
+            : [];
+        })(),
         customRole: contact.customRole || contact.role,
         email: contact.email,
         phone: contact.phone,
