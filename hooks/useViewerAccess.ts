@@ -68,9 +68,18 @@ export function useViewerAccess(initialData?: ViewerAccessData | null): {
   canManageTeam: boolean;
   /** Where a Collaborator DOES have access — see `PrimaryAssignmentContext`. */
   primaryAssignment: PrimaryAssignmentContext | null;
+  /**
+   * The summary has not answered yet — a request is in flight and nothing is cached.
+   *
+   * False on every seeded read (the dashboard layout hands the server's answer to SWR as
+   * `fallbackData`), which is why a caller can safely key a PLACEHOLDER on it: while this is
+   * true, `isCollaborator` and `can` are the fail-open defaults rather than an answer, and
+   * anything derived from them — the sidebar's link list, for instance — would be a guess.
+   */
+  isLoading: boolean;
   can: (fn: PermissionFunction, level?: RequiredLevel) => boolean;
 } {
-  const { data } = useSWR<ViewerAccessData>(
+  const { data, isLoading } = useSWR<ViewerAccessData>(
     VIEWER_ACCESS_KEY,
     (url: string) => fetch(url).then((response) => response.json()),
     {
@@ -93,6 +102,7 @@ export function useViewerAccess(initialData?: ViewerAccessData | null): {
     isCollaborator,
     canManageTeam,
     primaryAssignment: data?.primaryAssignment ?? null,
+    isLoading,
     can,
   };
 }

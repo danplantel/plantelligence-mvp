@@ -12,9 +12,33 @@ import { usePathname } from "next/navigation";
 import { PREVIEW_EDITOR_LAYOUT_EVENT } from "@/lib/preview-editor-layout";
 import { useViewerAccess } from "@/hooks/useViewerAccess";
 import { mayUsePath } from "@/lib/teammates/nav-access";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { NavItem } from "@/types";
 
 const SIDEBAR_STATE_KEY = "sidebar-is-open";
+
+/**
+ * The nav's placeholder while the access summary is still being read.
+ *
+ * Which links this viewer gets is decided by their role and permission grid, so until that answer
+ * lands there is nothing honest to draw. The summary fails OPEN, so the previous behaviour was to
+ * render the full nav and then remove the entries a Collaborator may not use — a flash of links
+ * that lead to a refusal. The rows mirror `NavItemComponent`'s own geometry (a 24px icon beside a
+ * one-line label, inside the container's `px-4`), so the reveal is a fade rather than a relayout,
+ * and the icon-only column is kept when the rail is collapsed.
+ */
+function NavSkeleton({ isOpen }: { isOpen: boolean }) {
+  return (
+    <nav className="space-y-2" aria-hidden="true">
+      {navItems.map((item, index) => (
+        <div key={item.title ?? index} className="flex items-center px-4 py-3">
+          <Skeleton className="mr-3 size-6 shrink-0 rounded-md" />
+          {isOpen ? <Skeleton className="h-4 w-24" /> : null}
+        </div>
+      ))}
+    </nav>
+  );
+}
 
 // The restricted destinations live in `lib/teammates/nav-access.ts`, shared with the
 // layout guard so a hidden link and a typed URL are decided by one rule.
@@ -23,7 +47,7 @@ const Sidebar = memo(function Sidebar() {
   const pathname = usePathname();
   // Chrome-level access: whether this viewer is a Collaborator, and the union of the
   // grids they hold. Seeded from the server through SWR's cache, so the nav never flashes.
-  const { isCollaborator, can } = useViewerAccess();
+  const { isCollaborator, can, isLoading: isAccessLoading } = useViewerAccess();
   // Get currentStep from wizard store (only if on wizard page)
   const currentStep = useNewClientWizardStore((state) => {
     // Only get currentStep if we're on the new client wizard page
@@ -129,20 +153,26 @@ const Sidebar = memo(function Sidebar() {
 
     // One shared rule with the layout guard, so a link the nav hides and a URL typed
     // directly are decided in exactly the same place (`lib/teammates/nav-access.ts`).
-    const mayReach = (href?: string) => mayUsePath(href, { isCollaborator, can });
+    const mayReach = (href?: string) =>
+      mayUsePath(href, { isCollaborator, can });
 
-    return navItems
-      .map((item) => {
-        // An item's OWN destination can be off-limits too (Dashboard, for instance) —
-        // filtering only the children would leave those top-level links in place.
-        if (!mayReach(item.href)) return null;
-        return item.items
-          ? { ...item, items: item.items.filter((child) => mayReach(child.href)) }
-          : item;
-      })
-      .filter((item): item is NavItem => item !== null)
-      // A group whose every child was filtered out has nothing left to lead to.
-      .filter((item) => !item.items || item.items.length > 0);
+    return (
+      navItems
+        .map((item) => {
+          // An item's OWN destination can be off-limits too (Dashboard, for instance) —
+          // filtering only the children would leave those top-level links in place.
+          if (!mayReach(item.href)) return null;
+          return item.items
+            ? {
+                ...item,
+                items: item.items.filter((child) => mayReach(child.href)),
+              }
+            : item;
+        })
+        .filter((item): item is NavItem => item !== null)
+        // A group whose every child was filtered out has nothing left to lead to.
+        .filter((item) => !item.items || item.items.length > 0)
+    );
   }, [isCollaborator, can]);
 
   const srcImage =
@@ -209,9 +239,14 @@ const Sidebar = memo(function Sidebar() {
         </Link>
       </div>
 
-      {/* Navigation */}
+      {/* Navigation — a placeholder while the access summary decides the list, so the nav never
+          flashes links this viewer cannot use (see `NavSkeleton`). */}
       <div className="px-4 mt-6 flex-1 overflow-y-auto">
-        <DashboardNav items={visibleNavItems} isOpen={effectiveOpen} />
+        {isAccessLoading ? (
+          <NavSkeleton isOpen={effectiveOpen} />
+        ) : (
+          <DashboardNav items={visibleNavItems} isOpen={effectiveOpen} />
+        )}
       </div>
     </nav>
   );

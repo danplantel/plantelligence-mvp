@@ -49,7 +49,11 @@ export default function GoogleSignInButton() {
         variant="outline"
         type="button"
         onClick={() =>
-          signIn("google", { callbackUrl: callbackUrl ?? "/dashboard" })
+          // The role decides where a plain sign-in lands (see
+          // `app/api/teammates/landing/route.ts`); a deep link from middleware still wins.
+          signIn("google", {
+            callbackUrl: callbackUrl ?? "/api/teammates/landing",
+          })
         }
         style={{
           transition: "all 0.2s ease",

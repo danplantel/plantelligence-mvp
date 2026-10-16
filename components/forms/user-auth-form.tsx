@@ -27,6 +27,16 @@ interface SignInResult {
   error?: string;
 }
 
+/**
+ * Where a sign-in lands when the user asked for no particular page.
+ *
+ * A route rather than a page: it resolves the viewer's role server-side and redirects to the
+ * right place (the Dashboard, or the Benefits page for a Collaborator) — see
+ * `app/api/teammates/landing/route.ts`. Defined once so the credentials form and the Google
+ * button cannot disagree.
+ */
+const DEFAULT_LANDING_PATH = "/api/teammates/landing";
+
 export default function UserAuthForm() {
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl");
@@ -51,8 +61,13 @@ export default function UserAuthForm() {
         redirect: false,
         email: data.email,
         password: data.password,
+        // A deep link (middleware put the requested page here) wins; otherwise the ROLE decides
+        // where they land — see `app/api/teammates/landing/route.ts`, which sends a Collaborator
+        // to the Benefits page instead of a Dashboard their chrome refuses.
         callbackUrl:
-          callbackUrl && callbackUrl !== null ? callbackUrl : "/dashboard",
+          callbackUrl && callbackUrl !== null
+            ? callbackUrl
+            : DEFAULT_LANDING_PATH,
       });
 
       if (result?.error) {
@@ -61,20 +76,22 @@ export default function UserAuthForm() {
           CredentialsSignin: "Invalid email or password. Please try again.",
           OAuthSignin: "There was a problem signing in with Google.",
           OAuthCallback: "There was a problem signing in with Google.",
-          OAuthCreateAccount: "There was a problem creating your account with Google.",
+          OAuthCreateAccount:
+            "There was a problem creating your account with Google.",
           EmailCreateAccount: "There was a problem creating your account.",
           Callback: "There was a problem signing in.",
-          OAuthAccountNotLinked: "This email is already associated with another sign-in method.",
+          OAuthAccountNotLinked:
+            "This email is already associated with another sign-in method.",
           EmailSignin: "There was a problem sending the sign-in email.",
           SessionRequired: "You must be signed in to access this page.",
           default: "An unexpected error occurred. Please try again.",
         };
         setError(errorMessages[result.error] || errorMessages.default);
       } else {
-        // Prefer NextAuth's resolved URL, then the callback from the query.
-        // Never navigate back to /signin — for a user resuming onboarding that
-        // reads as a broken loop.
-        const target = result?.url || callbackUrl || "/dashboard";
+        // Prefer NextAuth's resolved URL, then the callback from the query, then the
+        // role-aware landing. Never navigate back to /signin — for a user resuming
+        // onboarding that reads as a broken loop.
+        const target = result?.url || callbackUrl || DEFAULT_LANDING_PATH;
         window.location.href = target.startsWith("/signin")
           ? "/onboarding"
           : target;
