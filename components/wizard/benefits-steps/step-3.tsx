@@ -1173,6 +1173,9 @@ export function BenefitsStep3({
         email: matched?.email || "",
         phone: matched?.phone || "",
         headshot: matched?.headshot || undefined,
+        // The pills the advisor gave this contact, so the "Have Questions?" preview
+        // shows the same card the portal will.
+        designations: matched?.designations,
       } as FAQContact;
     });
   }, [currentStep3Data.supportContacts, planContacts]);

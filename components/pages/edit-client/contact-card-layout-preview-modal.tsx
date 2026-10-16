@@ -101,7 +101,12 @@ function RenderCardBySlot({
     case "primary":
       return (
         <PrimaryContactCard
-          contact={contactWithProps}
+          // The MAIN contact's card is the near-white one on the portal — My
+          // Benefits Team's DefaultLayout passes exactly this value, and step-3d's
+          // preview passes a white baseline. Without it the card fell back to the
+          // plan's secondary colour, so the preview showed a coloured main card the
+          // portal never renders.
+          contact={{ ...contactWithProps, cardBackgroundColor: "#ffffffea" }}
           brandColor={brandColor}
           secondaryColor={resolvedSecondaryColor}
           appointmentLink=""
@@ -147,6 +152,7 @@ function transformContactToPreview(
   companyName: string,
   currentUserEmail?: string | null,
   currentUserOrgName?: string | null,
+  planLogoUrl?: string | null,
 ): any {
   const displayName =
     contact.name ||
@@ -187,7 +193,13 @@ function transformContactToPreview(
     email: contact.email,
     phone: contact.phone,
     headshot: contact.headshot,
-    companyLogo: "",
+    // ── Logos ──
+    // The same rule My Benefits Team applies: the contact's own company logo, with
+    // the PLAN's logo as the fallback. This was hard-coded to "" here, which is why
+    // no card in this preview ever showed a logo. `logo` carries the same value
+    // because the card variants read whichever of the two their layout uses.
+    companyLogo: contact.companyLogo || planLogoUrl || "",
+    logo: contact.companyLogo || planLogoUrl || "",
     // Show the company name under the title on the card. If this contact is the
     // logged-in user, use their Organization Name (same behavior as step-3d and
     // the My Benefits Team page); otherwise prefer the contact's own companyName
@@ -362,6 +374,8 @@ export interface ContactCardLayoutPreviewModalProps {
   currentUserEmail?: string | null;
   /** Logged-in user's Organization Name — shown on the user's own card */
   currentUserOrgName?: string | null;
+  /** The plan's company logo — the fallback for a card that has no logo of its own. */
+  planLogoUrl?: string;
 }
 
 // ── Component ──
@@ -378,6 +392,7 @@ export function ContactCardLayoutPreviewModal({
   companyName,
   currentUserEmail,
   currentUserOrgName,
+  planLogoUrl,
 }: ContactCardLayoutPreviewModalProps) {
   // Convert persisted displayStyle (0 = default) to layout index (1 = default in step-3d)
   const initialDesktopLayout =
@@ -429,9 +444,16 @@ export function ContactCardLayoutPreviewModal({
         companyName || "",
         currentUserEmail,
         currentUserOrgName,
+        planLogoUrl || "",
       ),
     );
-  }, [contacts, companyName, currentUserEmail, currentUserOrgName]);
+  }, [
+    contacts,
+    companyName,
+    currentUserEmail,
+    currentUserOrgName,
+    planLogoUrl,
+  ]);
 
   const currentDisplayStyleValue =
     selectedDesktopLayout === 1 ? 0 : selectedDesktopLayout;

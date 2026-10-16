@@ -100,6 +100,12 @@ import {
 import { normalizeSupportIconId } from "@/lib/support-icons";
 import type { SupportIconId } from "@/lib/support-icons";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
+import { ChipTypeahead } from "@/components/ui/chip-typeahead";
+import {
+  designationAcronym,
+  designationLabel,
+  getDesignationOptions,
+} from "@/config/onboarding/designations";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { ComplianceDocumentsUpload } from "@/components/pages/documents/components/compliance-documents-upload";
 import { DocumentPreviewTab } from "@/components/pages/documents/tabs/document-preview-tab";
@@ -211,6 +217,30 @@ const CATEGORY_ACCORDIONS: {
     icon: <Gift className="w-5 h-5 text-accent-blue" />,
   },
 ];
+
+/** The most designations one contact may carry — the same cap every other editor applies. */
+const MAX_DESIGNATIONS = 5;
+
+/**
+ * The dictionary the picker offers — the same list, and the same acronym-first row
+ * labels, the wizard's contact forms and the advisor's own profile use. Values are
+ * ids; `designationLabel` renders them and free text passes through untouched.
+ */
+const DESIGNATION_OPTIONS = getDesignationOptions().map((option) => ({
+  value: option.value,
+  label: `${option.acronym} – ${option.label}`,
+  keywords: [option.acronym, option.value, option.label],
+}));
+
+/**
+ * Trim, drop blanks and cap the list — the same cleaning the other contact editors
+ * apply, so no card can receive more entries (or longer ones) than they can show.
+ */
+const cleanDesignations = (values: string[]): string[] =>
+  values
+    .map((value) => value.trim().slice(0, 80))
+    .filter(Boolean)
+    .slice(0, MAX_DESIGNATIONS);
 
 // Category options offered when creating a brand-new contact.
 const ADD_CONTACT_CATEGORY_OPTIONS: { id: BenefitsCategory; label: string }[] = [
@@ -474,6 +504,8 @@ function EditContactDialog({
     contactFormTopics: ContactFormTopic[];
     /** Badge icon for Team / Support Line cards. */
     supportIcon: SupportIconId;
+    /** Free-text designations, each rendered as an acronym pill on the card. */
+    designations: string[];
   }>({
     contactType: "individual",
     benefitsCategory: null,
@@ -502,6 +534,7 @@ function EditContactDialog({
     displayPhone: false,
     contactFormTopics: [],
     supportIcon: normalizeSupportIconId(undefined),
+    designations: [],
   });
   const [errors, setErrors] = useState<string[]>([]);
   // Whether the live Plantelligence /contact page preview modal is open.
@@ -614,6 +647,8 @@ function EditContactDialog({
         // Pre-load the suggested topics for the preset category.
         contactFormTopics: resolveContactFormTopics(addCategory, undefined),
         supportIcon: normalizeSupportIconId(undefined),
+        // A new contact has no designations yet; the picker below adds them.
+        designations: [],
       });
       setErrors([]);
       return;
@@ -661,6 +696,7 @@ function EditContactDialog({
         (contact as any).contactFormTopics,
       ),
       supportIcon: normalizeSupportIconId((contact as any).supportIcon),
+      designations: cleanDesignations(contact.designations || []),
     });
     setErrors([]);
   }, [
@@ -898,6 +934,12 @@ function EditContactDialog({
       contactFormTopics: form.contactFormTopics,
       supportIcon:
         form.contactType === "team_support" ? form.supportIcon : undefined,
+      // Designations are a person's credentials, so a Team / Support Line never
+      // carries them (their cards hide the row too).
+      designations:
+        form.contactType === "individual" && form.designations.length > 0
+          ? cleanDesignations(form.designations)
+          : undefined,
     };
 
     onSave(updated);
@@ -976,6 +1018,11 @@ function EditContactDialog({
     planId,
     // Badge icon for Team / Support Line cards.
     supportIcon: form.supportIcon,
+    // The pills the preview card shows, straight from the field above.
+    designations:
+      form.contactType === "individual"
+        ? cleanDesignations(form.designations)
+        : undefined,
   };
 
   // Upload Contact Company Logo — non-Plan-Sponsor only. Hoisted into a variable
@@ -1176,6 +1223,38 @@ function EditContactDialog({
               titleRef={titleRef}
               errorFields={errors}
             />
+
+            {/* Designations — individual contacts only: a Team / Support Line's
+                cards suppress the row, the same way the other editors hide the
+                field for them. Same dictionary, chips and 5-item cap as Step 4's
+                profile picker and the wizard's contact forms. */}
+            {form.contactType === "individual" && (
+              <div className="space-y-1 pt-1 border-t border-gray-100 dark:border-gray-700">
+                <Label className="dark:text-gray-300 text-xs font-medium">
+                  Designations (optional)
+                </Label>
+                <ChipTypeahead
+                  options={DESIGNATION_OPTIONS}
+                  selectedValues={form.designations}
+                  valueLabel={designationLabel}
+                  chipLabel={designationAcronym}
+                  onChange={(values) =>
+                    updateForm({ designations: cleanDesignations(values) })
+                  }
+                  placeholder="Type a designation, e.g. CFP®…"
+                  allowCustom
+                  customOptionLabel={(query) =>
+                    `Add as custom designation: “${query}”`
+                  }
+                  maxSelections={MAX_DESIGNATIONS}
+                  dataField="designations"
+                />
+                <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                  Up to {MAX_DESIGNATIONS}. They display in this order. Drag to
+                  reorder.
+                </p>
+              </div>
+            )}
 
             {/* Upload Contact Company Logo first for Team/Support Line contacts,
                 above the Company / Organization input. */}
@@ -5531,6 +5610,9 @@ export default function EditClientPage() {
           companyName={companyData.companyName}
           currentUserEmail={userEmail || null}
           currentUserOrgName={userOrgName || null}
+          // The plan's logo, so a card with no company logo of its own still shows
+          // one — the same fallback My Benefits Team renders.
+          planLogoUrl={companyData.companyLogo?.url || ""}
         />
 
         {/* Disclaimer Update Confirmation Dialog */}
