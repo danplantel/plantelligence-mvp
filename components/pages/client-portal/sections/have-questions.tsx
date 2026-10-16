@@ -29,7 +29,8 @@ export function HaveQuestions({
             Have Questions?
           </h2>
           <p className="text-[16px] max-w-[505px] font-red-hat mx-auto">
-            Our team is here to help you navigate your benefits and answer any questions you may have.
+            Our team is here to help you navigate your benefits and answer any
+            questions you may have.
           </p>
         </div>
         <div className="flex flex-wrap gap-8 justify-center">
@@ -65,23 +66,26 @@ export function HaveQuestions({
                     {contact.description}
                   </p>
                   {/* Designations — acronyms only (CFP®, AIF®), under the role line
-                      and held to a SINGLE row: the container does not wrap, and a chip
-                      that would not fit shrinks and wraps its own text instead of
-                      pushing the row onto a second line. */}
+                      and held to a SINGLE row. A chip never shrinks and its text never
+                      wraps — a chip squeezed into a narrow column read as VERTICAL
+                      text — so a row that does not fit scrolls sideways instead (and
+                      stays centred while it fits). */}
                   {(contact.designations || []).some(
                     (value) => value && value.trim(),
                   ) && (
-                    <div className="mt-1 flex w-full flex-nowrap items-center justify-center gap-1 overflow-hidden">
-                      {(contact.designations || [])
-                        .filter((value) => value && value.trim())
-                        .map((value, index) => (
-                          <span
-                            key={index}
-                            className="inline-block min-w-0 max-w-full break-words rounded-full bg-gray-100 px-2 py-0.5 text-center text-[12px] font-red-hat leading-tight text-gray-600"
-                          >
-                            {designationAcronym(value)}
-                          </span>
-                        ))}
+                    <div className="mt-1 w-full min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                      <div className="mx-auto flex w-max items-center gap-px">
+                        {(contact.designations || [])
+                          .filter((value) => value && value.trim())
+                          .map((value, index) => (
+                            <span
+                              key={index}
+                              className="inline-block shrink-0 whitespace-nowrap rounded-full bg-gray-100 px-1 py-px text-center text-[8px] font-red-hat leading-none tracking-tight text-gray-600"
+                            >
+                              {designationAcronym(value)}
+                            </span>
+                          ))}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -92,8 +96,12 @@ export function HaveQuestions({
                     href={`mailto:${contact.email}`}
                     className="flex items-center justify-center text-[12px] font-red-hat transition-colors"
                     style={{ color: secondaryColor }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = brandColor)}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = secondaryColor)}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.color = brandColor)
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.color = secondaryColor)
+                    }
                   >
                     <Mail className="h-4 w-4 mr-2" />
                     {contact.email}
@@ -104,8 +112,12 @@ export function HaveQuestions({
                     href={`tel:${contact.phone.replace(/[^0-9]/g, "")}`}
                     className="flex items-center justify-center text-[12px] font-red-hat transition-colors"
                     style={{ color: secondaryColor }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = brandColor)}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = secondaryColor)}
+                    onMouseEnter={(e) =>
+                      (e.currentTarget.style.color = brandColor)
+                    }
+                    onMouseLeave={(e) =>
+                      (e.currentTarget.style.color = secondaryColor)
+                    }
                   >
                     {/* The contact's own photo stands in for the generic phone glyph when
                         there is one — the same picture as the card's avatar, so the row

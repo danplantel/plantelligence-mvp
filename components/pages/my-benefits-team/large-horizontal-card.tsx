@@ -4,12 +4,16 @@ import { Button } from "@/components/ui/button";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { Mail, Phone, Clock } from "lucide-react";
 import { getSupportIcon } from "@/lib/support-icons";
+import { designationAcronym } from "@/config/onboarding/designations";
 import { motion } from "framer-motion";
 import { readableColor, mix } from "polished";
 import { ContactAvatar } from "@/components/pages/my-benefits-team/contact-avatar";
 import { formatPhone } from "@/components/pages/my-benefits-team/utils";
 import { cn } from "@/lib/utils";
-import { formatPhoneWithExtension, getBasePhoneForDialing } from "@/lib/phone-utils";
+import {
+  formatPhoneWithExtension,
+  getBasePhoneForDialing,
+} from "@/lib/phone-utils";
 import { withContactFormAvatar } from "@/lib/url-utils";
 import { resolveContactFormUrl } from "@/lib/contact-form-link";
 
@@ -19,6 +23,8 @@ interface Contact {
   firstName?: string;
   lastName?: string;
   title?: string;
+  /** Free-text designations, each rendered as an acronym pill under the name. */
+  designations?: string[];
   customRole?: string;
   email?: string;
   phone?: string;
@@ -28,11 +34,11 @@ interface Contact {
   companyName?: string;
   companyLogo?: string;
   benefitsCategory?:
-  | "Retirement"
-  | "Health Insurance"
-  | "Life Insurance"
-  | "Company / Plan Sponsor"
-  | "Other";
+    | "Retirement"
+    | "Health Insurance"
+    | "Life Insurance"
+    | "Company / Plan Sponsor"
+    | "Other";
   benefitsCategoryOther?: string;
   isPrimary?: boolean;
   displayEmail?: boolean;
@@ -82,10 +88,15 @@ export function LargeHorizontalCard({
   const isPrimary = contact.isPrimary || false;
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
   const effectiveSecondaryColor = contact.cardSecondaryColor || secondaryColor;
-  const backgroundColor = contact.cardBackgroundColor || baselineBackgroundColor || "#ffffff";
-  const textColor = isPrimary || (backgroundColor && backgroundColor !== "#ffffff" && backgroundColor !== "white")
-    ? readableColor(backgroundColor)
-    : undefined;
+  const backgroundColor =
+    contact.cardBackgroundColor || baselineBackgroundColor || "#ffffff";
+  const textColor =
+    isPrimary ||
+    (backgroundColor &&
+      backgroundColor !== "#ffffff" &&
+      backgroundColor !== "white")
+      ? readableColor(backgroundColor)
+      : undefined;
 
   // Determine which buttons to show and which is primary (first checked button becomes primary)
   // Use saved orders from contact or default orders
@@ -132,7 +143,9 @@ export function LargeHorizontalCard({
       buttons.push({
         type: "call",
         label: "Call Now",
-        url: contact.phone ? `tel:${getBasePhoneForDialing(contact.phone)}` : "",
+        url: contact.phone
+          ? `tel:${getBasePhoneForDialing(contact.phone)}`
+          : "",
       });
     } else if (ctaBtnType === "email") {
       if (primaryIndex === -1) primaryIndex = buttons.length;
@@ -190,8 +203,7 @@ export function LargeHorizontalCard({
     primaryIndex = 0;
   }
 
-  const logoScaleEffective =
-    contact.logoScale ?? baselineLogoScale ?? 1;
+  const logoScaleEffective = contact.logoScale ?? baselineLogoScale ?? 1;
   /** Taller base than 80px so "2×" reads visually on wide cards (avatar column is up to ~200px tall) */
   const logoSlotHeightPx = Math.round(120 * logoScaleEffective);
 
@@ -239,6 +251,39 @@ export function LargeHorizontalCard({
             ? contact.displayName || contact.name
             : contact.name}
         </h3>
+
+        {/* DESIGNATIONS — the row directly under the name, so the card reads
+            name → designations → title → company, matching SmallVerticalCard and
+            PrimaryContactCard. Acronyms only (CFP®, AIF®), held to a SINGLE row. A
+            chip never shrinks and its text never wraps — a chip squeezed into a
+            narrow column read as VERTICAL text — so a row that does not fit scrolls
+            sideways instead. Hidden for Team/Support Line contacts, whose role line
+            is suppressed too. */}
+        {!isTeamSupport &&
+          (contact.designations || []).some(
+            (value) => value && value.trim(),
+          ) && (
+            <div className="w-full min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="flex w-max items-center gap-px">
+                {(contact.designations || [])
+                  .filter((value) => value && value.trim())
+                  .map((value, index) => (
+                    <span
+                      key={index}
+                      className="inline-block shrink-0 whitespace-nowrap rounded-full px-1 py-px text-center text-[8px] leading-none tracking-tight"
+                      style={{
+                        color: textColor || "#4B5563",
+                        backgroundColor: textColor
+                          ? "rgba(255,255,255,0.16)"
+                          : "#F3F4F6",
+                      }}
+                    >
+                      {designationAcronym(value)}
+                    </span>
+                  ))}
+              </div>
+            </div>
+          )}
 
         {/* TITLE / DEPARTMENT LABEL — hidden for Team/Support Line contacts
             because the team name above already conveys it. */}
@@ -328,7 +373,10 @@ export function LargeHorizontalCard({
                       e.currentTarget.style.opacity = "1";
                     }}
                   >
-                    {formatPhoneWithExtension(contact.phone, contact.phoneExtension)}
+                    {formatPhoneWithExtension(
+                      contact.phone,
+                      contact.phoneExtension,
+                    )}
                   </a>
                 </p>
               );
@@ -365,9 +413,11 @@ export function LargeHorizontalCard({
               const buttonBg = isPrimaryButton
                 ? effectiveSecondaryColor
                 : isPrimary
-                  ? mix(0.2, "#ffffff", effectiveBrandColor)
-                  : "#F3F4F6";
-              const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
+                ? mix(0.2, "#ffffff", effectiveBrandColor)
+                : "#F3F4F6";
+              const buttonColor = isPrimaryButton
+                ? "#ffffff"
+                : readableColor(buttonBg);
 
               return (
                 <Button
@@ -382,8 +432,8 @@ export function LargeHorizontalCard({
                     border: isPrimaryButton
                       ? "none"
                       : isPrimary
-                        ? "1px solid #E5E7EB"
-                        : "1px solid #E5E7EB",
+                      ? "1px solid #E5E7EB"
+                      : "1px solid #E5E7EB",
                   }}
                   onClick={async () => {
                     if (

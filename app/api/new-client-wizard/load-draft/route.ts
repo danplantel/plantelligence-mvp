@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         success: true,
         data: null,
-        message: "No draft found"
+        message: "No draft found",
       });
     }
 
@@ -84,7 +84,6 @@ export async function GET(request: NextRequest) {
           };
         }
       }
-
     }
 
     if (wizardSession.welcomeStatement) {
@@ -114,7 +113,8 @@ export async function GET(request: NextRequest) {
     }
 
     if (wizardSession.employeePortalPreview) {
-      const previewData = wizardSession.employeePortalPreview.previewData as any;
+      const previewData = wizardSession.employeePortalPreview
+        .previewData as any;
       // Flatten so step5SubStep, categoryPortalVisibility, etc. are at top level (same as loadStepData)
       stepData.employeePortalPreview = previewData
         ? { ...previewData }
@@ -135,6 +135,7 @@ export async function GET(request: NextRequest) {
         phone: true,
         phoneExtension: true,
         title: true,
+        designations: true,
         organizationType: true,
         organizationName: true,
         advisorLogo: true,
@@ -149,7 +150,9 @@ export async function GET(request: NextRequest) {
       session.user.id,
     );
 
-    const normalizeKeyContacts = (k: any): { blob: Record<string, unknown>; list: any[] } => {
+    const normalizeKeyContacts = (
+      k: any,
+    ): { blob: Record<string, unknown>; list: any[] } => {
       if (!k || typeof k !== "object") {
         return { blob: { contacts: [] }, list: [] };
       }
@@ -171,8 +174,12 @@ export async function GET(request: NextRequest) {
         organizationEmail: user?.organizationEmail ?? null,
         phone: userSetup?.phone || user?.phone || "",
         phoneExtension:
-          (userSetup?.phoneExtension ?? user?.phoneExtension) ?? undefined,
-        title: (userSetup?.title ?? user?.title) ?? undefined,
+          userSetup?.phoneExtension ?? user?.phoneExtension ?? undefined,
+        title: userSetup?.title ?? user?.title ?? undefined,
+        // Their credentials, so the seeded advisor row (the logged-in user's own
+        // card) carries the designations their profile holds.
+        designations:
+          userSetup?.designations ?? user?.designations ?? undefined,
         headshot: userSetup?.headshot ?? undefined,
         organizationType: user?.organizationType ?? undefined,
         // Advisor's organization name — shown as the Company / Organization on
@@ -203,10 +210,12 @@ export async function GET(request: NextRequest) {
       onboardingAdvisorBg &&
       userPrimaryServicesMapToBenefitsCategory(primaryCats)
     ) {
-      const existingPrev = await prisma.newClientEmployeePortalPreview.findUnique({
-        where: { sessionId: wizardSession.id },
-      });
-      const fromDb = (existingPrev?.previewData as Record<string, unknown>) || {};
+      const existingPrev =
+        await prisma.newClientEmployeePortalPreview.findUnique({
+          where: { sessionId: wizardSession.id },
+        });
+      const fromDb =
+        (existingPrev?.previewData as Record<string, unknown>) || {};
       const fromStep =
         stepData.employeePortalPreview &&
         typeof stepData.employeePortalPreview === "object"
@@ -222,7 +231,10 @@ export async function GET(request: NextRequest) {
         await prisma.newClientEmployeePortalPreview.upsert({
           where: { sessionId: wizardSession.id },
           update: { previewData: basePreview as any },
-          create: { sessionId: wizardSession.id, previewData: basePreview as any },
+          create: {
+            sessionId: wizardSession.id,
+            previewData: basePreview as any,
+          },
         });
       }
     }
@@ -236,11 +248,13 @@ export async function GET(request: NextRequest) {
         createdAt: wizardSession.createdAt,
         updatedAt: wizardSession.updatedAt,
       },
-      message: "Draft loaded successfully"
+      message: "Draft loaded successfully",
     });
-
   } catch (error) {
     console.error("Error loading draft:", error);
-    return NextResponse.json({ error: "Failed to load draft" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to load draft" },
+      { status: 500 },
+    );
   }
 }

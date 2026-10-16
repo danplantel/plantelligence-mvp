@@ -179,6 +179,10 @@ function transformContactToPreview(
     firstName: contact.firstName,
     lastName: contact.lastName,
     title: contact.title,
+    // Designations must survive this mapping too: every card variant reads
+    // `contact.designations` for the acronym pills under the name, and this
+    // transform is what feeds the layout previews.
+    designations: contact.designations,
     customRole: contact.customRole || contact.role,
     email: contact.email,
     phone: contact.phone,
@@ -190,8 +194,11 @@ function transformContactToPreview(
     // (e.g. advisor firm / recordkeeper), else fall back to the plan/company name
     // passed into the preview modal.
     companyName:
-      resolveContactCompanyName(contact, currentUserEmail, currentUserOrgName) ||
-      companyName,
+      resolveContactCompanyName(
+        contact,
+        currentUserEmail,
+        currentUserOrgName,
+      ) || companyName,
     showOnPortal: contact.showOnPortal !== false,
     benefitsCategory: rawBenefitsCategory,
     categoryLabel,
@@ -236,7 +243,10 @@ const DESKTOP_LAYOUT_THUMBS: LayoutThumbDef[] = [
         <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded" />
         <div className="grid grid-cols-4 gap-2">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded" />
+            <div
+              key={i}
+              className="h-16 bg-gray-200 dark:bg-gray-700 rounded"
+            />
           ))}
         </div>
       </div>
@@ -371,7 +381,9 @@ export function ContactCardLayoutPreviewModal({
 }: ContactCardLayoutPreviewModalProps) {
   // Convert persisted displayStyle (0 = default) to layout index (1 = default in step-3d)
   const initialDesktopLayout =
-    currentDisplayStyle === null || currentDisplayStyle === 0 ? 1 : currentDisplayStyle;
+    currentDisplayStyle === null || currentDisplayStyle === 0
+      ? 1
+      : currentDisplayStyle;
 
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">(
     "desktop",
@@ -388,7 +400,9 @@ export function ContactCardLayoutPreviewModal({
   useEffect(() => {
     if (isOpen) {
       const resetLayout =
-        currentDisplayStyle === null || currentDisplayStyle === 0 ? 1 : currentDisplayStyle;
+        currentDisplayStyle === null || currentDisplayStyle === 0
+          ? 1
+          : currentDisplayStyle;
       setSelectedDesktopLayout(resetLayout);
       setSelectedMobileLayout(mobileDisplayStyle ?? 0);
       setPreviewMode("desktop");
@@ -400,7 +414,8 @@ export function ContactCardLayoutPreviewModal({
 
   const handleConfirm = () => {
     // Convert layout style back to displayStyle (1 → 0)
-    const displayStyleValue = selectedDesktopLayout === 1 ? 0 : selectedDesktopLayout;
+    const displayStyleValue =
+      selectedDesktopLayout === 1 ? 0 : selectedDesktopLayout;
     onConfirm(displayStyleValue, selectedMobileLayout);
     onClose();
   };
@@ -438,9 +453,7 @@ export function ContactCardLayoutPreviewModal({
 
         // Mobile: all cards render as "small" type
         const mobileSlot =
-          previewMode === "mobile"
-            ? ({ ...slot, type: "small" as const })
-            : slot;
+          previewMode === "mobile" ? { ...slot, type: "small" as const } : slot;
 
         // Desktop Layout 2 & 4: render large cards as compact small
         const largeAsCompact =
@@ -449,7 +462,7 @@ export function ContactCardLayoutPreviewModal({
           slot.type === "large";
 
         const effectiveSlot = largeAsCompact
-          ? ({ ...slot, type: "small" as const })
+          ? { ...slot, type: "small" as const }
           : mobileSlot;
 
         const isCompact = previewMode === "mobile" || largeAsCompact;
@@ -561,9 +574,8 @@ export function ContactCardLayoutPreviewModal({
     selectedMobileLayout,
   ]);
 
-  const currentThumbs = previewMode === "desktop"
-    ? DESKTOP_LAYOUT_THUMBS
-    : MOBILE_LAYOUT_THUMBS;
+  const currentThumbs =
+    previewMode === "desktop" ? DESKTOP_LAYOUT_THUMBS : MOBILE_LAYOUT_THUMBS;
 
   const currentSelected =
     previewMode === "desktop" ? selectedDesktopLayout : selectedMobileLayout;
@@ -585,7 +597,9 @@ export function ContactCardLayoutPreviewModal({
           {/* ── Controls bar ── */}
           <div className="flex items-center justify-between gap-4">
             <div className="my-4">
-              <DialogTitle className="text-lg m-0 dark:text-gray-100">Contact Card Layout Preview</DialogTitle>
+              <DialogTitle className="text-lg m-0 dark:text-gray-100">
+                Contact Card Layout Preview
+              </DialogTitle>
               <DialogDescription className="mt-0.5 dark:text-gray-400">
                 Choose how contact cards appear on the employee portal. Switch
                 between Desktop and Mobile to see both views.
@@ -668,9 +682,7 @@ export function ContactCardLayoutPreviewModal({
                         isSelected
                           ? "ring-2 ring-accent-blue border-accent-blue shadow-sm"
                           : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
-                        previewMode === "desktop"
-                          ? "h-[120px]"
-                          : "h-[110px]",
+                        previewMode === "desktop" ? "h-[120px]" : "h-[110px]",
                       )}
                       onClick={() => handleLayoutClick(layout.id)}
                     >
@@ -701,7 +713,6 @@ export function ContactCardLayoutPreviewModal({
         <div className="flex-1 overflow-y-auto px-6 pb-4">
           {hasContacts ? (
             <>
-
               {/* Preview Content — matches step-3d.tsx exactly */}
               <div className="py-4">
                 <div className="bg-[#F8F8F3] rounded-lg p-8 border border-gray-200">

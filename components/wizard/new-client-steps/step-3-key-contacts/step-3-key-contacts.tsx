@@ -3,7 +3,10 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { SlideContainer, SlideDirection } from "./slides/slide-container";
-import { FirstContactPrompt, SomeoneElseOption } from "./slides/first-contact-prompt";
+import {
+  FirstContactPrompt,
+  SomeoneElseOption,
+} from "./slides/first-contact-prompt";
 // Shared with Edit Client and Settings → Team Members — one dialog, four entry points.
 import { InviteCollaboratorDialog } from "@/components/teammates/invite-collaborator-dialog";
 import { ContactFormSlide } from "./slides/contact-form-slide";
@@ -21,10 +24,10 @@ interface NewClientStep3Props {
 }
 
 type SlideId =
-  | "first-contact-prompt"     // 0
-  | "contact-form"             // 1
-  | "category-explorer"        // 2
-  | "preview-layout";          // 3
+  | "first-contact-prompt" // 0
+  | "contact-form" // 1
+  | "category-explorer" // 2
+  | "preview-layout"; // 3
 
 interface SlideDef {
   id: SlideId;
@@ -45,8 +48,12 @@ function computeInitialSlide(contacts: any[]): number {
 
   // Accept either Plan Sponsor or Third Party Contact as a valid main contact
   const hasMainContact = contacts.some((c) => {
-    const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
-    return cats.includes("Company / Plan Sponsor") || cats.includes("Third Party Contact");
+    const cats =
+      c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
+    return (
+      cats.includes("Company / Plan Sponsor") ||
+      cats.includes("Third Party Contact")
+    );
   });
 
   if (!hasMainContact) return 0;
@@ -92,29 +99,26 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     return useNewClientWizardStore.getState().draftClientId ?? null;
   }, [saveAsDraft]);
 
-  const openInvite = useCallback(
-    (contact?: any) => {
-      const categories = Array.isArray(contact?.benefitsCategories)
-        ? contact.benefitsCategories
-        : contact?.benefitsCategory
-          ? [contact.benefitsCategory]
-          : [];
-      setInvitePrefill(
-        contact
-          ? {
-              name:
-                contact.displayName ||
-                [contact.firstName, contact.lastName].filter(Boolean).join(" ") ||
-                null,
-              email: contact.email ?? null,
-              categories,
-            }
-          : null,
-      );
-      setIsInviteOpen(true);
-    },
-    [],
-  );
+  const openInvite = useCallback((contact?: any) => {
+    const categories = Array.isArray(contact?.benefitsCategories)
+      ? contact.benefitsCategories
+      : contact?.benefitsCategory
+      ? [contact.benefitsCategory]
+      : [];
+    setInvitePrefill(
+      contact
+        ? {
+            name:
+              contact.displayName ||
+              [contact.firstName, contact.lastName].filter(Boolean).join(" ") ||
+              null,
+            email: contact.email ?? null,
+            categories,
+          }
+        : null,
+    );
+    setIsInviteOpen(true);
+  }, []);
 
   // Get contacts
   const keyContactsData = stepData.keyContacts || { contacts: [] };
@@ -140,7 +144,11 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     if (contacts.length === 0) {
       // Brand new plan — force slide 0, clear any stale store index
       targetSlide = 0;
-    } else if (typeof step3SlideIndex === "number" && step3SlideIndex >= 0 && step3SlideIndex <= 3) {
+    } else if (
+      typeof step3SlideIndex === "number" &&
+      step3SlideIndex >= 0 &&
+      step3SlideIndex <= 3
+    ) {
       targetSlide = step3SlideIndex;
     } else {
       targetSlide = computeInitialSlide(contacts);
@@ -255,10 +263,10 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
         // Grab the latest contacts from the store (includes the user's just-saved
         // main contact) so mergeOnboardingAdvisorContactsIntoKeyContacts can
         // skip categories that already have a complete contact.
-        const currentKc =
-          useNewClientWizardStore.getState().stepData.keyContacts || {
-            contacts: [],
-          };
+        const currentKc = useNewClientWizardStore.getState().stepData
+          .keyContacts || {
+          contacts: [],
+        };
         const currentContacts = currentKc.contacts || [];
 
         const next = mergeOnboardingAdvisorContactsIntoKeyContacts(
@@ -271,6 +279,10 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             phone: profile.phone,
             phoneExtension: profile.phoneExtension,
             title: profile.title,
+            // Their credentials — the seeded row is otherwise built from the title,
+            // phone and headshot only, leaving the user's own card without
+            // designations (see the builder in lib/seed-onboarding-advisor-contacts).
+            designations: (profile as any).designations,
             headshot: profile.headshot,
             organizationType: profile.organizationType,
             // The advisor's Company / Organization on their own contact card is
@@ -322,7 +334,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
     // went Back → Back → forward again), pre-populate the form with its
     // data so they can edit instead of starting from scratch.
     const existing = contacts.find((c: any) => {
-      const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
+      const cats =
+        c.benefitsCategories ||
+        (c.benefitsCategory ? [c.benefitsCategory] : []);
       return cats.includes("Company / Plan Sponsor");
     });
 
@@ -347,16 +361,27 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
         // `isPrimary` flag while newer contacts use `isPrimaryOverall`.
         isPrimaryOverall:
           existing.isPrimaryOverall ?? existing.isPrimary ?? true,
-        enableContactButton: existing.enableContactButton ?? existing.displayScheduleAppointment === true,
-        ctaType: existing.contactButtonType === "calendar" ? "schedule" as const
-          : existing.contactButtonType === "phone" ? "call" as const
-          : existing.contactButtonType === "email" ? "email" as const
-          : existing.contactButtonType === "url" ? "contact" as const
-          : (existing.displayScheduleAppointment ? "schedule" as const
-            : existing.displayPhone && !existing.displayEmail ? "call" as const
-            : existing.displayEmail && !existing.displayPhone ? "email" as const
-            : existing.displayUrl ? "contact" as const
-            : "schedule" as const),
+        enableContactButton:
+          existing.enableContactButton ??
+          existing.displayScheduleAppointment === true,
+        ctaType:
+          existing.contactButtonType === "calendar"
+            ? ("schedule" as const)
+            : existing.contactButtonType === "phone"
+            ? ("call" as const)
+            : existing.contactButtonType === "email"
+            ? ("email" as const)
+            : existing.contactButtonType === "url"
+            ? ("contact" as const)
+            : existing.displayScheduleAppointment
+            ? ("schedule" as const)
+            : existing.displayPhone && !existing.displayEmail
+            ? ("call" as const)
+            : existing.displayEmail && !existing.displayPhone
+            ? ("email" as const)
+            : existing.displayUrl
+            ? ("contact" as const)
+            : ("schedule" as const),
         schedulingUrl: existing.schedulingUrl || "",
         websiteUrl: existing.websiteUrl || "",
         displayEmail: existing.displayEmail,
@@ -383,7 +408,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
       // If a Third Party Contact already exists, pre-populate the form
       // so the user can edit instead of starting from scratch.
       const existing = contacts.find((c: any) => {
-        const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
+        const cats =
+          c.benefitsCategories ||
+          (c.benefitsCategory ? [c.benefitsCategory] : []);
         return cats.includes("Third Party Contact");
       });
 
@@ -409,16 +436,27 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
           // Honor both primary flags (see handleFirstContactContinue).
           isPrimaryOverall:
             existing.isPrimaryOverall ?? existing.isPrimary ?? true,
-          enableContactButton: existing.enableContactButton ?? existing.displayScheduleAppointment === true,
-          ctaType: existing.contactButtonType === "calendar" ? "schedule" as const
-            : existing.contactButtonType === "phone" ? "call" as const
-            : existing.contactButtonType === "email" ? "email" as const
-            : existing.contactButtonType === "url" ? "contact" as const
-            : (existing.displayScheduleAppointment ? "schedule" as const
-              : existing.displayPhone && !existing.displayEmail ? "call" as const
-              : existing.displayEmail && !existing.displayPhone ? "email" as const
-              : existing.displayUrl ? "contact" as const
-              : "schedule" as const),
+          enableContactButton:
+            existing.enableContactButton ??
+            existing.displayScheduleAppointment === true,
+          ctaType:
+            existing.contactButtonType === "calendar"
+              ? ("schedule" as const)
+              : existing.contactButtonType === "phone"
+              ? ("call" as const)
+              : existing.contactButtonType === "email"
+              ? ("email" as const)
+              : existing.contactButtonType === "url"
+              ? ("contact" as const)
+              : existing.displayScheduleAppointment
+              ? ("schedule" as const)
+              : existing.displayPhone && !existing.displayEmail
+              ? ("call" as const)
+              : existing.displayEmail && !existing.displayPhone
+              ? ("email" as const)
+              : existing.displayUrl
+              ? ("contact" as const)
+              : ("schedule" as const),
           schedulingUrl: existing.schedulingUrl || "",
           websiteUrl: existing.websiteUrl || "",
           displayEmail: existing.displayEmail,
@@ -476,7 +514,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
   // Slide 2 → Back: skip Slide 0 (creation prompt) if main contact exists, go to edit mode instead
   const handleCategoryBack = useCallback(() => {
     const existingMainContact = contacts.find((c: any) => {
-      const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
+      const cats =
+        c.benefitsCategories ||
+        (c.benefitsCategory ? [c.benefitsCategory] : []);
       return cats.includes("Company / Plan Sponsor");
     });
     if (existingMainContact) {
@@ -498,22 +538,36 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
         headshotFileName: existingMainContact.headshotFileName || "",
         companyName: existingMainContact.companyName || "",
         isPrimaryOverall: existingMainContact.isPrimaryOverall ?? true,
-        enableContactButton: existingMainContact.enableContactButton ?? existingMainContact.displayScheduleAppointment === true,
-        ctaType: existingMainContact.contactButtonType === "calendar" ? "schedule" as const
-          : existingMainContact.contactButtonType === "phone" ? "call" as const
-          : existingMainContact.contactButtonType === "email" ? "email" as const
-          : existingMainContact.contactButtonType === "url" ? "contact" as const
-          : (existingMainContact.displayScheduleAppointment ? "schedule" as const
-            : existingMainContact.displayPhone && !existingMainContact.displayEmail ? "call" as const
-            : existingMainContact.displayEmail && !existingMainContact.displayPhone ? "email" as const
-            : existingMainContact.displayUrl ? "contact" as const
-            : "schedule" as const),
+        enableContactButton:
+          existingMainContact.enableContactButton ??
+          existingMainContact.displayScheduleAppointment === true,
+        ctaType:
+          existingMainContact.contactButtonType === "calendar"
+            ? ("schedule" as const)
+            : existingMainContact.contactButtonType === "phone"
+            ? ("call" as const)
+            : existingMainContact.contactButtonType === "email"
+            ? ("email" as const)
+            : existingMainContact.contactButtonType === "url"
+            ? ("contact" as const)
+            : existingMainContact.displayScheduleAppointment
+            ? ("schedule" as const)
+            : existingMainContact.displayPhone &&
+              !existingMainContact.displayEmail
+            ? ("call" as const)
+            : existingMainContact.displayEmail &&
+              !existingMainContact.displayPhone
+            ? ("email" as const)
+            : existingMainContact.displayUrl
+            ? ("contact" as const)
+            : ("schedule" as const),
         schedulingUrl: existingMainContact.schedulingUrl || "",
         websiteUrl: existingMainContact.websiteUrl || "",
         displayEmail: existingMainContact.displayEmail,
         displayPhone: existingMainContact.displayPhone,
         displayUrl: existingMainContact.displayUrl,
-        displayScheduleAppointment: existingMainContact.displayScheduleAppointment,
+        displayScheduleAppointment:
+          existingMainContact.displayScheduleAppointment,
       });
       setContactFormCategory("Company / Plan Sponsor");
       setIsGuidedForm(false);
@@ -545,7 +599,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
       case 1:
         return (
           <ContactFormSlide
-            key={`form-${contactFormCategory}-${isGuidedForm ? "guided" : "free"}-${isFromSomeoneElse ? "someone-else" : "standard"}`}
+            key={`form-${contactFormCategory}-${
+              isGuidedForm ? "guided" : "free"
+            }-${isFromSomeoneElse ? "someone-else" : "standard"}`}
             category={contactFormCategory}
             defaultCompanyName={defaultCompanyName}
             defaultCompanyLogo={defaultCompanyLogo}
@@ -569,9 +625,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             // T5 Part A item 4: hand an existing contact to the person it describes,
             // with their saved details pre-filled.
             onInviteContact={(category, contact) =>
-              openInvite(
-                contact ?? { benefitsCategories: [String(category)] },
-              )
+              openInvite(contact ?? { benefitsCategories: [String(category)] })
             }
             // T5 Part A item 1, relocated out of the first prompt: a collaborator
             // is not a contact type, so the invite lives in the explorer's own
@@ -612,16 +666,27 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
                 isPrimaryOverall: contact
                   ? Boolean(contact.isPrimaryOverall || contact.isPrimary)
                   : false,
-                enableContactButton: contact?.enableContactButton ?? contact?.displayScheduleAppointment === true,
-                ctaType: contact?.contactButtonType === "calendar" ? "schedule" as const
-                  : contact?.contactButtonType === "phone" ? "call" as const
-                  : contact?.contactButtonType === "email" ? "email" as const
-                  : contact?.contactButtonType === "url" ? "contact" as const
-                  : (contact?.displayScheduleAppointment ? "schedule" as const
-                    : contact?.displayPhone && !contact?.displayEmail ? "call" as const
-                    : contact?.displayEmail && !contact?.displayPhone ? "email" as const
-                    : contact?.displayUrl ? "contact" as const
-                    : "schedule" as const),
+                enableContactButton:
+                  contact?.enableContactButton ??
+                  contact?.displayScheduleAppointment === true,
+                ctaType:
+                  contact?.contactButtonType === "calendar"
+                    ? ("schedule" as const)
+                    : contact?.contactButtonType === "phone"
+                    ? ("call" as const)
+                    : contact?.contactButtonType === "email"
+                    ? ("email" as const)
+                    : contact?.contactButtonType === "url"
+                    ? ("contact" as const)
+                    : contact?.displayScheduleAppointment
+                    ? ("schedule" as const)
+                    : contact?.displayPhone && !contact?.displayEmail
+                    ? ("call" as const)
+                    : contact?.displayEmail && !contact?.displayPhone
+                    ? ("email" as const)
+                    : contact?.displayUrl
+                    ? ("contact" as const)
+                    : ("schedule" as const),
                 schedulingUrl: contact?.schedulingUrl || "",
                 websiteUrl: contact?.websiteUrl || "",
                 displayEmail: contact?.displayEmail,
@@ -636,7 +701,9 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             }}
             onEditMainContact={() => {
               const existingMainContact = contacts.find((c: any) => {
-                const cats = c.benefitsCategories || (c.benefitsCategory ? [c.benefitsCategory] : []);
+                const cats =
+                  c.benefitsCategories ||
+                  (c.benefitsCategory ? [c.benefitsCategory] : []);
                 return cats.includes("Company / Plan Sponsor");
               });
               saveStepDataLocally("step3b", {
@@ -657,26 +724,40 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
                 companyName: existingMainContact?.companyName || "",
                 // Main contact defaults to primary; honor either saved flag.
                 isPrimaryOverall: existingMainContact
-                  ? (existingMainContact.isPrimaryOverall ??
+                  ? existingMainContact.isPrimaryOverall ??
                     existingMainContact.isPrimary ??
-                    true)
+                    true
                   : true,
-                enableContactButton: existingMainContact?.enableContactButton ?? existingMainContact?.displayScheduleAppointment === true,
-                ctaType: existingMainContact?.contactButtonType === "calendar" ? "schedule" as const
-                  : existingMainContact?.contactButtonType === "phone" ? "call" as const
-                  : existingMainContact?.contactButtonType === "email" ? "email" as const
-                  : existingMainContact?.contactButtonType === "url" ? "contact" as const
-                  : (existingMainContact?.displayScheduleAppointment ? "schedule" as const
-                    : existingMainContact?.displayPhone && !existingMainContact?.displayEmail ? "call" as const
-                    : existingMainContact?.displayEmail && !existingMainContact?.displayPhone ? "email" as const
-                    : existingMainContact?.displayUrl ? "contact" as const
-                    : "schedule" as const),
+                enableContactButton:
+                  existingMainContact?.enableContactButton ??
+                  existingMainContact?.displayScheduleAppointment === true,
+                ctaType:
+                  existingMainContact?.contactButtonType === "calendar"
+                    ? ("schedule" as const)
+                    : existingMainContact?.contactButtonType === "phone"
+                    ? ("call" as const)
+                    : existingMainContact?.contactButtonType === "email"
+                    ? ("email" as const)
+                    : existingMainContact?.contactButtonType === "url"
+                    ? ("contact" as const)
+                    : existingMainContact?.displayScheduleAppointment
+                    ? ("schedule" as const)
+                    : existingMainContact?.displayPhone &&
+                      !existingMainContact?.displayEmail
+                    ? ("call" as const)
+                    : existingMainContact?.displayEmail &&
+                      !existingMainContact?.displayPhone
+                    ? ("email" as const)
+                    : existingMainContact?.displayUrl
+                    ? ("contact" as const)
+                    : ("schedule" as const),
                 schedulingUrl: existingMainContact?.schedulingUrl || "",
                 websiteUrl: existingMainContact?.websiteUrl || "",
                 displayEmail: existingMainContact?.displayEmail,
                 displayPhone: existingMainContact?.displayPhone,
                 displayUrl: existingMainContact?.displayUrl,
-                displayScheduleAppointment: existingMainContact?.displayScheduleAppointment,
+                displayScheduleAppointment:
+                  existingMainContact?.displayScheduleAppointment,
               });
               setContactFormCategory("Company / Plan Sponsor");
               setIsGuidedForm(false);
@@ -685,7 +766,12 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
           />
         );
       case 3:
-        return <NewClientStep3d errorFields={errorFields} onBack={() => goToSlide(2)} />;
+        return (
+          <NewClientStep3d
+            errorFields={errorFields}
+            onBack={() => goToSlide(2)}
+          />
+        );
       default:
         return null;
     }
@@ -713,7 +799,6 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
         slideIndex === 3 ? "max-w-6xl" : "max-w-4xl",
       )}
     >
-
       <SlideContainer
         currentIndex={slideIndex}
         totalSlides={4}

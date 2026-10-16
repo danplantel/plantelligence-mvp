@@ -45,6 +45,9 @@ export interface HubContactCard {
   firstName: string | null;
   lastName: string | null;
   title: string | null;
+  /** The person's designations, as the cards read them (one acronym pill each). */
+  designations: string[];
+  /** Legacy one-string form ("CFP®, AIF®"); kept for readers that predate `designations`. */
   designation: string | null;
   email: string;
   phone: string | null;
@@ -139,11 +142,16 @@ export async function buildHubContacts(
   const companies =
     companyIds.length > 0
       ? await prisma.teammateCompany.findMany({
-          where: { organizationId: input.organizationId, id: { in: companyIds } },
+          where: {
+            organizationId: input.organizationId,
+            id: { in: companyIds },
+          },
           select: { id: true, name: true, logo: true },
         })
       : [];
-  const companyById = new Map(companies.map((company) => [company.id, company]));
+  const companyById = new Map(
+    companies.map((company) => [company.id, company]),
+  );
 
   const cards: HubContactCard[] = [];
 
@@ -162,8 +170,8 @@ export async function buildHubContacts(
       assignment.categoryScope === "all"
         ? [...BENEFIT_CONTACT_CATEGORIES]
         : Array.isArray(assignment.categories)
-          ? (assignment.categories as string[])
-          : [];
+        ? (assignment.categories as string[])
+        : [];
 
     const name =
       [profile.firstName, profile.lastName].filter(Boolean).join(" ").trim() ||
@@ -179,6 +187,15 @@ export async function buildHubContacts(
       firstName: profile.firstName ?? null,
       lastName: profile.lastName ?? null,
       title: profile.jobTitle ?? null,
+      // `designations` is the ARRAY the portal cards read — each value renders as
+      // an acronym pill under the name. Without it every portal card lost the
+      // credentials, because the profile stores them on the seat and the stored
+      // `keyContacts` blob is no longer what the hub renders.
+      designations: Array.isArray(profile.designations)
+        ? (profile.designations as string[])
+        : [],
+      // `designation` (singular, comma-joined) is the legacy one-string form, kept
+      // for readers that predate `designations`.
       designation:
         Array.isArray(profile.designations) && profile.designations.length > 0
           ? designationLabels(profile.designations as string[]).join(", ")
@@ -200,8 +217,8 @@ export async function buildHubContacts(
         profile.cardContactType === "team_support"
           ? (profile.cardContactType as "individual" | "team_support")
           : profile.type === "team_member"
-            ? "team_support"
-            : "individual",
+          ? "team_support"
+          : "individual",
       role: assignment.role,
       personType: profile.type as "team_member" | "collaborator",
       hasAccess: profile.state !== "contact" && Boolean(profile.loginUserId),
@@ -253,7 +270,9 @@ export async function buildPortalKeyContacts(input: {
   // shape. A bare array carries contacts and nothing else, so it has no settings to
   // preserve — but its contacts must still be read.
   const presentation =
-    input.presentation && typeof input.presentation === "object" && !Array.isArray(input.presentation)
+    input.presentation &&
+    typeof input.presentation === "object" &&
+    !Array.isArray(input.presentation)
       ? (input.presentation as Record<string, unknown>)
       : null;
 

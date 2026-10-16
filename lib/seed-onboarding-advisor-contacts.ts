@@ -68,6 +68,8 @@ export function buildOnboardingAdvisorContactsForCategories(
     phone?: string;
     phoneExtension?: string | null;
     title?: string;
+    /** The advisor's professional designations (`User.designations`). */
+    designations?: string[] | null;
     headshot?: string | null;
     organizationType?: string;
     /** User.organizationName — the advisor's organization, shown on their card. */
@@ -106,6 +108,15 @@ export function buildOnboardingAdvisorContactsForCategories(
       firstName,
       lastName,
       title: profile.title || "",
+      // The advisor's own credentials, taken from their profile (User.designations).
+      // The builder previously copied their title, phone, headshot and company but
+      // never their designations, so the logged-in user's own card was the one card
+      // on every surface with no designations row.
+      designations: Array.isArray(profile.designations)
+        ? profile.designations.filter(
+            (value) => typeof value === "string" && value.trim().length > 0,
+          )
+        : [],
       headshot: profile.headshot || undefined,
       name: fullName || `${firstName} ${lastName}`.trim(),
       // The advisor's own contact card shows their Organization Name

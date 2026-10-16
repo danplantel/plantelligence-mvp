@@ -10,7 +10,10 @@ import { ContactAvatar } from "@/components/pages/my-benefits-team/contact-avata
 import { formatPhone } from "@/components/pages/my-benefits-team/utils";
 import { cn } from "@/lib/utils";
 import { readableColor, mix } from "polished";
-import { formatPhoneWithExtension, getBasePhoneForDialing } from "@/lib/phone-utils";
+import {
+  formatPhoneWithExtension,
+  getBasePhoneForDialing,
+} from "@/lib/phone-utils";
 import { withContactFormAvatar } from "@/lib/url-utils";
 import { resolveContactFormUrl } from "@/lib/contact-form-link";
 
@@ -31,11 +34,11 @@ interface Contact {
   companyName?: string;
   companyLogo?: string;
   benefitsCategory?:
-  | "Retirement"
-  | "Health Insurance"
-  | "Life Insurance"
-  | "Company / Plan Sponsor"
-  | "Other";
+    | "Retirement"
+    | "Health Insurance"
+    | "Life Insurance"
+    | "Company / Plan Sponsor"
+    | "Other";
   benefitsCategoryOther?: string;
   isPrimary?: boolean;
   displayEmail?: boolean;
@@ -116,10 +119,15 @@ export function SmallVerticalCard({
   const isPrimary = contact.isPrimary || false;
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
   const effectiveSecondaryColor = contact.cardSecondaryColor || secondaryColor;
-  const backgroundColor = contact.cardBackgroundColor || baselineBackgroundColor || "#ffffff";
-  const textColor = isPrimary || (backgroundColor && backgroundColor !== "#ffffff" && backgroundColor !== "white")
-    ? readableColor(backgroundColor)
-    : undefined;
+  const backgroundColor =
+    contact.cardBackgroundColor || baselineBackgroundColor || "#ffffff";
+  const textColor =
+    isPrimary ||
+    (backgroundColor &&
+      backgroundColor !== "#ffffff" &&
+      backgroundColor !== "white")
+      ? readableColor(backgroundColor)
+      : undefined;
   const cardWidth = width || "w-full";
 
   // Determine which buttons to show and which is primary (first checked button becomes primary)
@@ -174,11 +182,7 @@ export function SmallVerticalCard({
     : contact.title || contact.customRole;
   const displayTitleText =
     resolvedCardTitle ||
-    (showPlaceholders
-      ? isTeamSupport
-        ? "[Department]"
-        : "[Job Title]"
-      : "");
+    (showPlaceholders ? (isTeamSupport ? "[Department]" : "[Job Title]") : "");
 
   const resolvedCardCompany = contact.companyName || companyName;
   const displayCompanyText =
@@ -213,7 +217,9 @@ export function SmallVerticalCard({
       buttons.push({
         type: "call",
         label: "Call Now",
-        url: contact.phone ? `tel:${getBasePhoneForDialing(contact.phone)}` : "",
+        url: contact.phone
+          ? `tel:${getBasePhoneForDialing(contact.phone)}`
+          : "",
       });
     } else if (ctaBtnType === "email") {
       if (primaryIndex === -1) primaryIndex = buttons.length;
@@ -249,9 +255,9 @@ export function SmallVerticalCard({
       ) {
         if (primaryIndex === -1) primaryIndex = buttons.length;
         buttons.push({
-            type: "schedule",
-            label: "Schedule Appt.",
-            url: contact.schedulingUrl || appointmentLink,
+          type: "schedule",
+          label: "Schedule Appt.",
+          url: contact.schedulingUrl || appointmentLink,
         });
       } else if (
         buttonType === "website" &&
@@ -285,17 +291,17 @@ export function SmallVerticalCard({
     const cardPadding = compact
       ? "px-2 py-3 sm:px-3 sm:py-4"
       : "px-4 py-6 sm:px-8 sm:py-10";
-    const avatarSize = compact
-      ? "h-[60px] w-[60px]"
-      : "h-[90px] w-[90px]";
-    const nameSize = compact
-      ? "text-xs sm:text-sm"
-      : "text-base sm:text-lg";
+    const avatarSize = compact ? "h-[60px] w-[60px]" : "h-[90px] w-[90px]";
+    const nameSize = compact ? "text-xs sm:text-sm" : "text-base sm:text-lg";
     const subtitleSize = compact ? "text-xs" : "text-sm";
     const gapLogo = compact ? "mb-3" : "mb-6";
     const gapAvatar = compact ? "mb-3" : "mb-6";
     const gapName = compact ? "mb-1" : "mb-2";
     const gapTitle = compact ? "mb-1" : "mb-2";
+    // Designation pills are deliberately small, and smaller again on the compact
+    // card: up to MAX_DESIGNATIONS (5) acronyms must fit on ONE row, and a pill
+    // that overflows is clipped by the row rather than seen.
+    const desigChip = compact ? "text-[7px] px-1" : "text-[8px] px-1";
     const gapCompany = compact ? "mb-2" : "mb-4";
     const contactInfoGap = compact ? "space-y-1" : "space-y-1.5";
     const buttonGap = compact ? "space-y-1" : "space-y-2";
@@ -323,7 +329,14 @@ export function SmallVerticalCard({
           {/* COMPANY LOGO BAR — Team/Support Line contacts show their Company
               Logo here, with the support-line icon in the circular avatar slot
               below (positions swapped). */}
-          <div className={`flex flex-col items-center justify-center gap-2 ${gapLogo} flex-shrink-0`} style={{ height: `${logoHeight * (contact.logoScale || baselineLogoScale || 1)}px` }}>
+          <div
+            className={`flex flex-col items-center justify-center gap-2 ${gapLogo} flex-shrink-0`}
+            style={{
+              height: `${
+                logoHeight * (contact.logoScale || baselineLogoScale || 1)
+              }px`,
+            }}
+          >
             {(contact.companyLogo || contact.logo) && (
               <BrandingImage
                 src={contact.companyLogo || contact.logo || ""}
@@ -385,31 +398,36 @@ export function SmallVerticalCard({
 
           {/* DESIGNATIONS — the row directly under the name, so the card reads
               name → designations → title → company. Acronyms only (CFP®, AIF®), held
-              to a SINGLE row: the container does not wrap, and a chip that would not
-              fit shrinks and wraps its own text instead of pushing the row onto a
-              second line. Hidden for Team/Support Line contacts, whose role line is
-              suppressed too. */}
+              to a SINGLE row. A chip never shrinks and its text never wraps: a chip
+              squeezed into a narrow column read as VERTICAL text, so a row that does
+              not fit scrolls sideways instead (and stays centred while it fits).
+              Hidden for Team/Support Line contacts, whose role line is suppressed
+              too. */}
           {!isTeamSupport &&
-            (contact.designations || []).some((value) => value && value.trim()) && (
+            (contact.designations || []).some(
+              (value) => value && value.trim(),
+            ) && (
               <div
-                className={`${gapTitle} flex w-full flex-shrink-0 flex-nowrap items-center justify-center gap-1 overflow-hidden`}
+                className={`${gapTitle} w-full min-w-0 flex-shrink-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
               >
-                {(contact.designations || [])
-                  .filter((value) => value && value.trim())
-                  .map((value, index) => (
-                    <span
-                      key={index}
-                      className="inline-block min-w-0 max-w-full break-words rounded-full px-2 py-0.5 text-center text-[11px] leading-tight"
-                      style={{
-                        color: textColor || "#4B5563",
-                        backgroundColor: textColor
-                          ? "rgba(255,255,255,0.16)"
-                          : "#F3F4F6",
-                      }}
-                    >
-                      {designationAcronym(value)}
-                    </span>
-                  ))}
+                <div className="mx-auto flex w-max items-center gap-px">
+                  {(contact.designations || [])
+                    .filter((value) => value && value.trim())
+                    .map((value, index) => (
+                      <span
+                        key={index}
+                        className={`inline-block shrink-0 whitespace-nowrap rounded-full py-px text-center leading-none tracking-tight ${desigChip}`}
+                        style={{
+                          color: textColor || "#4B5563",
+                          backgroundColor: textColor
+                            ? "rgba(255,255,255,0.16)"
+                            : "#F3F4F6",
+                        }}
+                      >
+                        {designationAcronym(value)}
+                      </span>
+                    ))}
+                </div>
               </div>
             )}
 
@@ -534,7 +552,10 @@ export function SmallVerticalCard({
                       }}
                       href={getBasePhoneForDialing(contact.phone)}
                     >
-                      {formatPhoneWithExtension(contact.phone, contact.phoneExtension)}
+                      {formatPhoneWithExtension(
+                        contact.phone,
+                        contact.phoneExtension,
+                      )}
                     </a>
                   ) : (
                     <span className="text-center italic text-gray-400">
@@ -562,70 +583,73 @@ export function SmallVerticalCard({
 
           {/* ACTION BUTTONS */}
           <div className={`w-full ${buttonGap} flex-shrink-0 pt-2 mt-auto`}>
-            {hasAnyButton && buttons.map((button, idx) => {
-              const isPrimaryButton = idx === primaryIndex;
-              const buttonBg = isPrimaryButton
-                ? effectiveSecondaryColor
-                : isPrimary
+            {hasAnyButton &&
+              buttons.map((button, idx) => {
+                const isPrimaryButton = idx === primaryIndex;
+                const buttonBg = isPrimaryButton
+                  ? effectiveSecondaryColor
+                  : isPrimary
                   ? mix(0.2, "#ffffff", effectiveBrandColor)
                   : "#F3F4F6";
-              const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
-              // See the compact path above: the Contact Form CTA is drawn but inert in
-              // a preview, so an advisor cannot navigate out of the wizard mid-edit.
-              const contactFormInert =
-                disableContactFormButton && button.isContactForm === true;
-              const actionClassName = cn(
-                "inline-flex items-center justify-center rounded-lg text-sm transition-colors",
-                "w-full rounded-lg px-4 font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat",
-                subtitleSize,
-                isPrimaryButton ? buttonSize : "py-1.5",
-              );
-              const actionStyle = {
-                backgroundColor: buttonBg,
-                color: buttonColor,
-                border: isPrimaryButton
-                  ? "none"
-                  : isPrimary
+                const buttonColor = isPrimaryButton
+                  ? "#ffffff"
+                  : readableColor(buttonBg);
+                // See the compact path above: the Contact Form CTA is drawn but inert in
+                // a preview, so an advisor cannot navigate out of the wizard mid-edit.
+                const contactFormInert =
+                  disableContactFormButton && button.isContactForm === true;
+                const actionClassName = cn(
+                  "inline-flex items-center justify-center rounded-lg text-sm transition-colors",
+                  "w-full rounded-lg px-4 font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat",
+                  subtitleSize,
+                  isPrimaryButton ? buttonSize : "py-1.5",
+                );
+                const actionStyle = {
+                  backgroundColor: buttonBg,
+                  color: buttonColor,
+                  border: isPrimaryButton
+                    ? "none"
+                    : isPrimary
                     ? "1px solid #E5E7EB"
                     : "1px solid #E5E7EB",
-              };
+                };
 
-              if (contactFormInert) {
+                if (contactFormInert) {
+                  return (
+                    <span
+                      key={idx}
+                      className={cn(actionClassName, "cursor-default")}
+                      style={actionStyle}
+                    >
+                      {button.label}
+                    </span>
+                  );
+                }
+
                 return (
-                  <span
+                  <Button
                     key={idx}
-                    className={cn(actionClassName, "cursor-default")}
+                    className={actionClassName}
                     style={actionStyle}
+                    onClick={async () => {
+                      if (
+                        button.type === "schedule" ||
+                        button.type === "website" ||
+                        button.type === "call" ||
+                        button.type === "email"
+                      ) {
+                        const target =
+                          button.type === "website"
+                            ? await resolveContactFormUrl(button.url, contact)
+                            : button.url;
+                        window.open(target, "_blank");
+                      }
+                    }}
                   >
                     {button.label}
-                  </span>
+                  </Button>
                 );
-              }
-
-              return (
-                <Button
-                  key={idx}
-                  className={actionClassName}
-                  style={actionStyle}
-                  onClick={async () => {
-                    if (
-                      button.type === "schedule" ||
-                      button.type === "website" ||
-                      button.type === "call" ||
-                      button.type === "email"
-                    ) {
-                      const target =
-                        button.type === "website"
-                          ? await resolveContactFormUrl(button.url, contact)
-                          : button.url;
-                      window.open(target, "_blank");
-                    }
-                  }}
-                >
-                  {button.label}
-                </Button>
-              );
-            })}
+              })}
           </div>
         </div>
       </div>
@@ -663,7 +687,11 @@ export function SmallVerticalCard({
               src={contact.companyLogo || contact.logo || ""}
               alt="Logo"
               className="h-[40px] sm:h-[60px] w-auto object-contain transition-transform duration-200"
-              style={{ transform: `scale(${contact.logoScale || baselineLogoScale || 1})` }}
+              style={{
+                transform: `scale(${
+                  contact.logoScale || baselineLogoScale || 1
+                })`,
+              }}
             />
           )}
         </div>
@@ -828,7 +856,10 @@ export function SmallVerticalCard({
                     }}
                     href={getBasePhoneForDialing(contact.phone)}
                   >
-                    {formatPhoneWithExtension(contact.phone, contact.phoneExtension)}
+                    {formatPhoneWithExtension(
+                      contact.phone,
+                      contact.phoneExtension,
+                    )}
                   </a>
                 ) : (
                   <span className="text-center italic text-gray-400">
@@ -862,9 +893,11 @@ export function SmallVerticalCard({
               const buttonBg = isPrimaryButton
                 ? effectiveSecondaryColor
                 : isPrimary
-                  ? mix(0.2, "#ffffff", effectiveBrandColor)
-                  : "#F3F4F6";
-              const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
+                ? mix(0.2, "#ffffff", effectiveBrandColor)
+                : "#F3F4F6";
+              const buttonColor = isPrimaryButton
+                ? "#ffffff"
+                : readableColor(buttonBg);
               // A preview draws the Contact Form CTA but does not act on it (see the
               // prop's doc): identical size, colour and label to the published card,
               // minus the navigation to the live `/contact` page.
@@ -881,8 +914,8 @@ export function SmallVerticalCard({
                 border: isPrimaryButton
                   ? "none"
                   : isPrimary
-                    ? "1px solid #E5E7EB"
-                    : "1px solid #E5E7EB",
+                  ? "1px solid #E5E7EB"
+                  : "1px solid #E5E7EB",
               };
 
               if (contactFormInert) {

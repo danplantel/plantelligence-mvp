@@ -19,11 +19,11 @@ import {
 /** True if contact should be hidden by Category Display (Show/Hide). Use: fetch → filter by !isHidden → render. */
 function isContactHiddenByCategory(
   contact: Record<string, unknown>,
-  visibility: CategoryPortalVisibility
+  visibility: CategoryPortalVisibility,
 ): boolean {
   return !isContactVisibleInPortal(
     getContactCategoriesFromLib(contact),
-    visibility
+    visibility,
   );
 }
 
@@ -69,11 +69,11 @@ interface Contact {
   logo?: string;
   showOnPortal?: boolean;
   benefitsCategory?:
-  | "Retirement"
-  | "Health Insurance"
-  | "Life Insurance"
-  | "Company / Plan Sponsor"
-  | "Other";
+    | "Retirement"
+    | "Health Insurance"
+    | "Life Insurance"
+    | "Company / Plan Sponsor"
+    | "Other";
   benefitsCategoryOther?: string;
   companyName?: string;
   companyLogo?: string;
@@ -88,8 +88,12 @@ interface Contact {
  *       3) Render only those contacts; layouts also filter again before render (defensive).
  */
 export default function MyBenefitsTeamPage() {
-  const { clientData, profile: advisorProfile, loading, refetch } =
-    useClientPortal();
+  const {
+    clientData,
+    profile: advisorProfile,
+    loading,
+    refetch,
+  } = useClientPortal();
 
   // Currently logged-in user — used to show the user's Organization Name on
   // their own contact card instead of the plan/contact company name.
@@ -128,10 +132,16 @@ export default function MyBenefitsTeamPage() {
    * in, and only applied to their own card below.
    */
   const [currentUserLogo, setCurrentUserLogo] = useState<string | null>(null);
+  /** The viewer's CURRENT designations from /api/profile — applied to their own card
+   *  below for the same reason as the logo: the stored contact row is a copy, and it
+   *  was seeded without the designations, so the owner's own card showed none. */
+  const [currentUserDesignations, setCurrentUserDesignations] = useState<
+    string[]
+  >([]);
   /** CURRENT Organization Name from /api/profile — see the comment in the effect below. */
-  const [currentUserOrgNameLive, setCurrentUserOrgNameLive] = useState<string | null>(
-    null,
-  );
+  const [currentUserOrgNameLive, setCurrentUserOrgNameLive] = useState<
+    string | null
+  >(null);
   /** The login + organization email from /api/profile, used to match the advisor's
    *  own contact row even when the stored copy still holds a previous address. */
   const [profileEmails, setProfileEmails] = useState<string[]>([]);
@@ -164,6 +174,17 @@ export default function MyBenefitsTeamPage() {
           .filter((value: unknown) => typeof value === "string" && value.trim())
           .map((value: string) => value.trim()),
       );
+
+      // Their designations, so their own card shows the credentials Settings →
+      // Profile holds even when the stored contact row predates them.
+      setCurrentUserDesignations(
+        Array.isArray(profile.designations)
+          ? profile.designations.filter(
+              (value: unknown): value is string =>
+                typeof value === "string" && value.trim().length > 0,
+            )
+          : [],
+      );
     })().catch(() => {});
 
     return () => {
@@ -194,14 +215,17 @@ export default function MyBenefitsTeamPage() {
       contacts = keyContactsData.filter(
         (c: Contact) => c.showOnPortal !== false,
       );
-    } else if (typeof keyContactsData === "object" && keyContactsData !== null) {
+    } else if (
+      typeof keyContactsData === "object" &&
+      keyContactsData !== null
+    ) {
       // New format: { contacts: [...], displayStyle: ..., mobileDisplayStyle: ... }
       // Accept both `contacts` and legacy `Contacts` keys.
       const contactsArray = Array.isArray(keyContactsData.contacts)
         ? keyContactsData.contacts
         : Array.isArray(keyContactsData.Contacts)
-          ? keyContactsData.Contacts
-          : [];
+        ? keyContactsData.Contacts
+        : [];
       contacts = contactsArray.filter((c: Contact) => c.showOnPortal !== false);
       displayStyle = normalizeDisplayStyle(keyContactsData.displayStyle);
       mobileDisplayStyle = normalizeMobileDisplayStyle(
@@ -249,7 +273,7 @@ export default function MyBenefitsTeamPage() {
   // 2) Only contacts that are NOT hidden by category — fetch → check isHidden → then we only render these
   const visibleContacts: Contact[] = useMemo(() => {
     const filtered = contacts.filter(
-      (c: any) => !isContactHiddenByCategory(c, visibility)
+      (c: any) => !isContactHiddenByCategory(c, visibility),
     );
     return filtered.map((contact: any) => {
       const normalized: Contact = { ...contact };
@@ -260,7 +284,9 @@ export default function MyBenefitsTeamPage() {
         (normalized as any).planId = clientData.id;
       }
       if (!normalized.name && (normalized.firstName || normalized.lastName)) {
-        normalized.name = `${normalized.firstName || ""} ${normalized.lastName || ""}`.trim();
+        normalized.name = `${normalized.firstName || ""} ${
+          normalized.lastName || ""
+        }`.trim();
       }
 
       const categories = getContactCategoriesFromLib(contact);
@@ -286,8 +312,10 @@ export default function MyBenefitsTeamPage() {
         // matching the Main Contact card — even when the row happens to belong to the
         // advisor. A Company / Plan Sponsor card represents the plan sponsor, so it
         // must never be relabelled with the advisor's organization.
-        normalized.companyName = planCompanyName || normalized.companyName || "";
-        normalized.companyLogo = contact.companyLogo || planCompanyLogo || undefined;
+        normalized.companyName =
+          planCompanyName || normalized.companyName || "";
+        normalized.companyLogo =
+          contact.companyLogo || planCompanyLogo || undefined;
         normalized.logo = normalized.companyLogo;
       } else {
         if (normalized.companyLogo && !normalized.logo) {
@@ -314,9 +342,15 @@ export default function MyBenefitsTeamPage() {
         }
       }
 
+      // The viewer's own card shows their CURRENT designations (see above). The
+      // stored row was seeded from the profile before designations were copied
+      // onto it, so without this the owner's own card was the one card with none.
+      if (isOwnContact && currentUserDesignations.length > 0) {
+        normalized.designations = currentUserDesignations;
+      }
+
       normalized.cardBackgroundColor = contact.cardBackgroundColor;
-      normalized.logoScale =
-        contact.logoScale ?? globalLogoScale ?? 1;
+      normalized.logoScale = contact.logoScale ?? globalLogoScale ?? 1;
       return normalized;
     });
   }, [
@@ -329,6 +363,7 @@ export default function MyBenefitsTeamPage() {
     currentUserOrgName,
     currentUserOrgNameLive,
     currentUserLogo,
+    currentUserDesignations,
     advisorOrgName,
     advisorEmail,
     profileEmails,
@@ -480,9 +515,13 @@ function Layout4({
   companyName: string;
   baselineBackgroundColor?: string;
 }) {
-  const restVisible = rest.filter((c) => !isContactHiddenByCategory(c as any, visibility));
+  const restVisible = rest.filter(
+    (c) => !isContactHiddenByCategory(c as any, visibility),
+  );
   const [first, ...smallCards] = restVisible;
-  const showPrimary = primaryContact && !isContactHiddenByCategory(primaryContact as any, visibility);
+  const showPrimary =
+    primaryContact &&
+    !isContactHiddenByCategory(primaryContact as any, visibility);
 
   return (
     <div className="space-y-4">
@@ -565,7 +604,9 @@ function Layout2({
   companyName: string;
   baselineBackgroundColor?: string;
 }) {
-  const toRender = contacts.filter((c) => !isContactHiddenByCategory(c as any, visibility));
+  const toRender = contacts.filter(
+    (c) => !isContactHiddenByCategory(c as any, visibility),
+  );
   const contactsWithPrimary = toRender.map((contact, index) => ({
     ...contact,
     isPrimary: index === 0,
@@ -609,7 +650,9 @@ function Layout3({
   companyName: string;
   baselineBackgroundColor?: string;
 }) {
-  const toRender = contacts.filter((c) => !isContactHiddenByCategory(c as any, visibility));
+  const toRender = contacts.filter(
+    (c) => !isContactHiddenByCategory(c as any, visibility),
+  );
   const contactsWithPrimary = toRender.map((contact, index) => ({
     ...contact,
     isPrimary: index === 0,
@@ -655,8 +698,12 @@ function DefaultLayout({
   companyName: string;
   baselineBackgroundColor?: string;
 }) {
-  const showPrimary = primaryContact && !isContactHiddenByCategory(primaryContact as any, visibility);
-  const restVisible = rest.filter((c) => !isContactHiddenByCategory(c as any, visibility));
+  const showPrimary =
+    primaryContact &&
+    !isContactHiddenByCategory(primaryContact as any, visibility);
+  const restVisible = rest.filter(
+    (c) => !isContactHiddenByCategory(c as any, visibility),
+  );
 
   return (
     <div className="space-y-4">
@@ -765,11 +812,7 @@ function MobileLayout({
   }
 
   // 0 (default): Stacked — all cards in a single column
-  return (
-    <div className="w-full min-w-0 max-w-none space-y-2">
-      {cards}
-    </div>
-  );
+  return <div className="w-full min-w-0 max-w-none space-y-2">{cards}</div>;
 }
 
 /* ---------- Skeleton shown while clientData is loading ---------- */

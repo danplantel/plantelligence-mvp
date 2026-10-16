@@ -33,11 +33,11 @@ interface Contact {
   companyName?: string;
   companyLogo?: string;
   benefitsCategory?:
-  | "Retirement"
-  | "Health Insurance"
-  | "Life Insurance"
-  | "Company / Plan Sponsor"
-  | "Other";
+    | "Retirement"
+    | "Health Insurance"
+    | "Life Insurance"
+    | "Company / Plan Sponsor"
+    | "Other";
   benefitsCategoryOther?: string;
   displayEmail?: boolean;
   displayPhone?: boolean;
@@ -91,7 +91,10 @@ export function PrimaryContactCard({
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
   const effectiveSecondaryColor = contact.cardSecondaryColor || secondaryColor;
   // Card background defaults to the plan's secondary color; the primary color is used as the card's accent.
-  const backgroundColor = contact.cardBackgroundColor || baselineBackgroundColor || effectiveSecondaryColor;
+  const backgroundColor =
+    contact.cardBackgroundColor ||
+    baselineBackgroundColor ||
+    effectiveSecondaryColor;
   const textColor = readableColor(backgroundColor);
   // Icon chip background: translucent white on dark backgrounds, translucent black on light.
   const iconChipBg = textColor === "#ffffff" ? "bg-black" : "bg-white";
@@ -140,7 +143,9 @@ export function PrimaryContactCard({
       buttons.push({
         type: "call",
         label: "Call Now",
-        url: contact.phone ? `tel:${getBasePhoneForDialing(contact.phone)}` : "",
+        url: contact.phone
+          ? `tel:${getBasePhoneForDialing(contact.phone)}`
+          : "",
       });
     } else if (ctaBtnType === "email") {
       if (primaryIndex === -1) primaryIndex = buttons.length;
@@ -206,9 +211,7 @@ export function PrimaryContactCard({
     ? "flex flex-col justify-center font-red-hat"
     : "flex flex-col justify-between font-red-hat";
   const contactInfoSpacing = compact ? "space-y-1" : "space-y-3";
-  const headingSize = compact
-    ? "text-xl sm:text-2xl"
-    : "text-2xl sm:text-3xl";
+  const headingSize = compact ? "text-xl sm:text-2xl" : "text-2xl sm:text-3xl";
 
   return (
     <motion.section
@@ -230,7 +233,10 @@ export function PrimaryContactCard({
         </div>
 
         {/* RIGHT: CONTENT — vertically centered to align with the left headshot */}
-        <div className="flex flex-col font-red-hat gap-1 justify-center h-full min-w-0" style={{ color: textColor }}>
+        <div
+          className="flex flex-col font-red-hat gap-1 justify-center h-full min-w-0"
+          style={{ color: textColor }}
+        >
           {/* BENEFIT CATEGORY TAG — the top of the card, above the logo/icon. The
               chip carries its own background/text colour so it stays legible on
               whatever card colour the advisor chose. */}
@@ -284,34 +290,42 @@ export function PrimaryContactCard({
 
           {/* DESIGNATIONS — the row directly under the name, so the card reads
               name → designations → title → company, matching SmallVerticalCard.
-              Acronyms only (CFP®, AIF®), held to a SINGLE row: the container does not
-              wrap, and a chip that would not fit shrinks and wraps its own text
-              instead of pushing the row onto a second line. Hidden for Team/Support
-              Line contacts, whose role line is suppressed too. */}
+              Acronyms only (CFP®, AIF®), held to a SINGLE row. A chip never shrinks
+              and its text never wraps — a chip squeezed into a narrow column read as
+              VERTICAL text — so a row that does not fit scrolls sideways instead.
+              Hidden for Team/Support Line contacts, whose role line is suppressed
+              too. */}
           {!isTeamSupport &&
-            (contact.designations || []).some((value) => value && value.trim()) && (
-              <div className="flex w-full flex-nowrap items-center gap-1 overflow-hidden">
-                {(contact.designations || [])
-                  .filter((value) => value && value.trim())
-                  .map((value, index) => (
-                    <span
-                      key={index}
-                      className="inline-block min-w-0 max-w-full break-words rounded-full px-2 py-0.5 text-center text-[12px] leading-tight"
-                      style={{
-                        color: textColor,
-                        backgroundColor: "rgba(255,255,255,0.16)",
-                      }}
-                    >
-                      {designationAcronym(value)}
-                    </span>
-                  ))}
+            (contact.designations || []).some(
+              (value) => value && value.trim(),
+            ) && (
+              <div className="w-full min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                <div className="flex w-max items-center gap-px">
+                  {(contact.designations || [])
+                    .filter((value) => value && value.trim())
+                    .map((value, index) => (
+                      <span
+                        key={index}
+                        className="inline-block shrink-0 whitespace-nowrap rounded-full px-1 py-px text-center text-[8px] leading-none tracking-tight"
+                        style={{
+                          color: textColor,
+                          backgroundColor: "rgba(255,255,255,0.16)",
+                        }}
+                      >
+                        {designationAcronym(value)}
+                      </span>
+                    ))}
+                </div>
               </div>
             )}
 
           {/* TITLE — hidden for Team/Support Line contacts because the team
               name above already conveys it. */}
           {!isTeamSupport && (
-            <p className="text-base sm:text-lg font-medium font-red-hat" style={{ color: textColor }}>
+            <p
+              className="text-base sm:text-lg font-medium font-red-hat"
+              style={{ color: textColor }}
+            >
               {contact.title || contact.customRole}
             </p>
           )}
@@ -319,7 +333,10 @@ export function PrimaryContactCard({
           {/* COMPANY NAME — below the title, so the card reads name → designations
               → title → company. Brand (primary) color, same as the name above. */}
           {(contact.companyName || companyName) && (
-            <p className="text-sm sm:text-base font-bold" style={{ color: effectiveBrandColor }}>
+            <p
+              className="text-sm sm:text-base font-bold"
+              style={{ color: effectiveBrandColor }}
+            >
               {contact.companyName || companyName}
             </p>
           )}
@@ -331,8 +348,15 @@ export function PrimaryContactCard({
               className="flex items-center gap-2.5 text-sm sm:text-base font-red-hat hover:opacity-80 transition-opacity group"
               style={{ color: textColor }}
             >
-              <span className={`flex items-center justify-center w-8 h-8 rounded-full ${iconChipBg} shrink-0 group-hover:scale-110 transition-transform`}>
-                <Mail size={18} strokeWidth={1.5} className="w-[18px] h-[18px] shrink-0" style={{ color: effectiveBrandColor }} />
+              <span
+                className={`flex items-center justify-center w-8 h-8 rounded-full ${iconChipBg} shrink-0 group-hover:scale-110 transition-transform`}
+              >
+                <Mail
+                  size={18}
+                  strokeWidth={1.5}
+                  className="w-[18px] h-[18px] shrink-0"
+                  style={{ color: effectiveBrandColor }}
+                />
               </span>
               {contact.email}
             </a>
@@ -345,8 +369,15 @@ export function PrimaryContactCard({
               className="flex items-center gap-2.5 text-sm sm:text-base font-red-hat hover:opacity-80 transition-opacity group"
               style={{ color: textColor }}
             >
-              <span className={`flex items-center justify-center w-8 h-8 rounded-full ${iconChipBg} shrink-0 group-hover:scale-110 transition-transform`}>
-                <Phone size={18} strokeWidth={1.5} className="w-[18px] h-[18px] shrink-0" style={{ color: effectiveBrandColor }} />
+              <span
+                className={`flex items-center justify-center w-8 h-8 rounded-full ${iconChipBg} shrink-0 group-hover:scale-110 transition-transform`}
+              >
+                <Phone
+                  size={18}
+                  strokeWidth={1.5}
+                  className="w-[18px] h-[18px] shrink-0"
+                  style={{ color: effectiveBrandColor }}
+                />
               </span>
               {formatPhoneWithExtension(contact.phone, contact.phoneExtension)}
             </a>
@@ -354,7 +385,10 @@ export function PrimaryContactCard({
 
           {/* SUPPORT HOURS */}
           {contact.contactType === "team_support" && contact.supportHours && (
-            <p className="text-sm font-red-hat mt-1" style={{ color: textColor }}>
+            <p
+              className="text-sm font-red-hat mt-1"
+              style={{ color: textColor }}
+            >
               Support Hours: {contact.supportHours}
             </p>
           )}
@@ -370,7 +404,9 @@ export function PrimaryContactCard({
                 const buttonBg = isPrimaryButton
                   ? effectiveSecondaryColor
                   : "#F3F4F6";
-                const buttonColor = isPrimaryButton ? "#ffffff" : readableColor(buttonBg);
+                const buttonColor = isPrimaryButton
+                  ? "#ffffff"
+                  : readableColor(buttonBg);
 
                 return (
                   <Button

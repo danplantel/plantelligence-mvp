@@ -3,7 +3,10 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
-import { resolveContactCompanyName } from "@/lib/resolve-contact-company-name";
+import {
+  resolveContactCompanyName,
+  isLoggedInUserContact,
+} from "@/lib/resolve-contact-company-name";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -191,7 +194,8 @@ function SortablePreviewCard({
         "cursor-grab active:cursor-grabbing",
         "bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 rounded-md p-1.5 transition-all shadow-sm",
         "opacity-70 group-hover:opacity-100",
-        (isDragging || externalIsDragging) && "opacity-100 bg-gray-300 dark:bg-gray-600",
+        (isDragging || externalIsDragging) &&
+          "opacity-100 bg-gray-300 dark:bg-gray-600",
       )}
       style={{
         touchAction: "none",
@@ -206,7 +210,10 @@ function SortablePreviewCard({
   const editButton = onEdit ? (
     <button
       type="button"
-      onClick={(e) => { e.stopPropagation(); onEdit(); }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onEdit();
+      }}
       className="bg-white border border-gray-300 rounded-md px-2 py-1 text-xs font-medium text-gray-600 hover:bg-gray-100 hover:text-accent-blue shadow-sm"
       title="Edit this contact"
     >
@@ -292,16 +299,17 @@ function RenderCardBySlot({
   };
 
   // Category badge for the card (suppressed in header mode to avoid overlapping card content)
-  const categoryBadge = !hideCategoryBadge && contact.categoryLabel ? (
-    <div className="absolute top-2 right-2 z-10">
-      <Badge
-        variant="secondary"
-        className="text-[10px] px-2 py-0.5 font-medium bg-white/90 dark:bg-gray-800/90 border-gray-200 dark:border-gray-600 shadow-sm"
-      >
-        {contact.categoryLabel}
-      </Badge>
-    </div>
-  ) : null;
+  const categoryBadge =
+    !hideCategoryBadge && contact.categoryLabel ? (
+      <div className="absolute top-2 right-2 z-10">
+        <Badge
+          variant="secondary"
+          className="text-[10px] px-2 py-0.5 font-medium bg-white/90 dark:bg-gray-800/90 border-gray-200 dark:border-gray-600 shadow-sm"
+        >
+          {contact.categoryLabel}
+        </Badge>
+      </div>
+    ) : null;
 
   switch (slot.type) {
     case "primary":
@@ -400,6 +408,22 @@ export function NewClientStep3d({
     Boolean,
   ) as string[];
 
+  // The logged-in user's OWN designations (User.designations, via the profile).
+  // Their seeded contact row was built without them, and a draft seeded before
+  // that was fixed still holds the old row — so their own card reads the live
+  // values instead of the stored copy, exactly as its org name and logo do.
+  const currentUserDesignations = useMemo(() => {
+    const raw =
+      (advisorProfile as any)?.designations ??
+      (advisorProfile as any)?.user?.designations;
+    return Array.isArray(raw)
+      ? raw.filter(
+          (value: unknown): value is string =>
+            typeof value === "string" && value.trim().length > 0,
+        )
+      : [];
+  }, [advisorProfile]);
+
   // Show skeleton when this step becomes active (step3SubStep === "step3d")
   const step3SubStep = (stepData as any)?.step3SubStep?.step3SubStep;
   const isStep3dActive = step3SubStep === "step3d";
@@ -424,7 +448,9 @@ export function NewClientStep3d({
   const previewContentRef = useRef<HTMLDivElement>(null);
   const scrollableRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
-  const [scaledHeight, setScaledHeight] = useState<number | undefined>(undefined);
+  const [scaledHeight, setScaledHeight] = useState<number | undefined>(
+    undefined,
+  );
 
   // Toolbar height measurement
   const barRef = useRef<HTMLDivElement>(null);
@@ -459,7 +485,10 @@ export function NewClientStep3d({
         originalSidebarWidthRef.current =
           document.documentElement.style.getPropertyValue("--sidebar-width");
       }
-      document.documentElement.style.setProperty("--sidebar-width", sidebarWidth);
+      document.documentElement.style.setProperty(
+        "--sidebar-width",
+        sidebarWidth,
+      );
     } else {
       if (originalSidebarWidthRef.current !== null) {
         if (originalSidebarWidthRef.current) {
@@ -703,7 +732,10 @@ export function NewClientStep3d({
     if (mainContactId != null) {
       const idx = baseOrder.indexOf(mainContactId);
       if (idx > 0) {
-        newOrder = [mainContactId, ...baseOrder.filter((id) => id !== mainContactId)];
+        newOrder = [
+          mainContactId,
+          ...baseOrder.filter((id) => id !== mainContactId),
+        ];
       }
     }
     const newOrderKey = JSON.stringify(newOrder);
@@ -792,19 +824,20 @@ export function NewClientStep3d({
         contact.benefitsCategories?.[0] || contact.benefitsCategory || "Other";
 
       // Display-friendly label for the category badge
-      const categoryLabel = rawBenefitsCategory === "Group Health"
-        ? "Group Health"
-        : rawBenefitsCategory === "Group Life"
-        ? "Group Life"
-        : rawBenefitsCategory === "Retirement"
-        ? "Retirement"
-        : rawBenefitsCategory === "Other Benefits"
-        ? "Other Benefits"
-        : rawBenefitsCategory === "Company / Plan Sponsor"
-        ? "Company / Plan Sponsor"
-        : rawBenefitsCategory === "Third Party Contact"
-        ? "External HR / Administrator"
-        : rawBenefitsCategory || "Other";
+      const categoryLabel =
+        rawBenefitsCategory === "Group Health"
+          ? "Group Health"
+          : rawBenefitsCategory === "Group Life"
+          ? "Group Life"
+          : rawBenefitsCategory === "Retirement"
+          ? "Retirement"
+          : rawBenefitsCategory === "Other Benefits"
+          ? "Other Benefits"
+          : rawBenefitsCategory === "Company / Plan Sponsor"
+          ? "Company / Plan Sponsor"
+          : rawBenefitsCategory === "Third Party Contact"
+          ? "External HR / Administrator"
+          : rawBenefitsCategory || "Other";
 
       return {
         id: contact.id,
@@ -812,6 +845,15 @@ export function NewClientStep3d({
         firstName: contact.firstName,
         lastName: contact.lastName,
         title: contact.title,
+        // Designations ride along so every card variant (primary / large / small)
+        // renders the acronym pills the advisor chose in the contact form. For the
+        // logged-in user's own row the profile's current designations win, so their
+        // card is never the one card missing the pills.
+        designations:
+          isLoggedInUserContact(contact, currentUserEmails) &&
+          currentUserDesignations.length > 0
+            ? currentUserDesignations
+            : contact.designations,
         customRole: contact.customRole || contact.role,
         email: contact.email,
         phone: contact.phone,
@@ -859,6 +901,7 @@ export function NewClientStep3d({
     currentUserEmail,
     currentUserOrgEmail,
     currentUserOrgName,
+    currentUserDesignations,
   ]);
 
   const sensors = useSensors(
@@ -987,9 +1030,7 @@ export function NewClientStep3d({
 
       if (oldIndex === -1 || newIndex === -1) return items;
       const nextPool = arrayMove(pool, oldIndex, newIndex);
-      return mainContactId != null
-        ? [mainContactId, ...nextPool]
-        : nextPool;
+      return mainContactId != null ? [mainContactId, ...nextPool] : nextPool;
     });
 
     setActivePreviewId(over.id);
@@ -1018,9 +1059,7 @@ export function NewClientStep3d({
 
       if (oldIndex === -1 || newIndex === -1) return previewOrder;
       const nextPool = arrayMove(pool, oldIndex, newIndex);
-      return mainContactId != null
-        ? [mainContactId, ...nextPool]
-        : nextPool;
+      return mainContactId != null ? [mainContactId, ...nextPool] : nextPool;
     })();
 
     // Update previewOrder to ensure it's in sync
@@ -1122,10 +1161,7 @@ export function NewClientStep3d({
   // this effect → comparing → returning early → but still counting as a
   // re-render cycle, which can cascade into the Radix Checkbox setRef loop.
   const keyContactsFingerprint = useMemo(
-    () =>
-      stepData.keyContacts
-        ? JSON.stringify(stepData.keyContacts)
-        : null,
+    () => (stepData.keyContacts ? JSON.stringify(stepData.keyContacts) : null),
     [stepData.keyContacts],
   );
 
@@ -1188,7 +1224,10 @@ export function NewClientStep3d({
           <div className="h-20 bg-gray-200 dark:bg-gray-700 rounded" />
           <div className="grid grid-cols-4 gap-2">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded" />
+              <div
+                key={i}
+                className="h-16 bg-gray-200 dark:bg-gray-700 rounded"
+              />
             ))}
           </div>
         </div>
@@ -1214,7 +1253,10 @@ export function NewClientStep3d({
       preview: (
         <div className="grid grid-cols-4 gap-2">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-12 bg-gray-200 dark:bg-gray-700 rounded" />
+            <div
+              key={i}
+              className="h-12 bg-gray-200 dark:bg-gray-700 rounded"
+            />
           ))}
         </div>
       ),
@@ -1272,7 +1314,10 @@ export function NewClientStep3d({
           <div className="h-10 bg-gray-200 dark:bg-gray-700 rounded" />
           <div className="grid grid-cols-2 gap-1.5">
             {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-6 bg-gray-200 dark:bg-gray-700 rounded" />
+              <div
+                key={i}
+                className="h-6 bg-gray-200 dark:bg-gray-700 rounded"
+              />
             ))}
           </div>
         </div>
@@ -1298,9 +1343,7 @@ export function NewClientStep3d({
     // Pin the Main Contact to the leading slot (order is normally already
     // normalized, but this guards against a legacy saved order).
     if (mainContactId != null) {
-      const mainIdx = orderedContacts.findIndex(
-        (c) => c.id === mainContactId,
-      );
+      const mainIdx = orderedContacts.findIndex((c) => c.id === mainContactId);
       if (mainIdx > 0) {
         const [main] = orderedContacts.splice(mainIdx, 1);
         orderedContacts = [main, ...orderedContacts];
@@ -1318,9 +1361,7 @@ export function NewClientStep3d({
         // contact renders with a vertical layout (headshot above info) matching
         // the other cards, instead of the desktop horizontal PrimaryContactCard.
         const mobileSlot =
-          previewMode === "mobile"
-            ? ({ ...slot, type: "small" as const })
-            : slot;
+          previewMode === "mobile" ? { ...slot, type: "small" as const } : slot;
 
         // For desktop Layout 2 & 4, render "large" horizontal cards as compact
         // SmallVerticalCard to match the mobile hero card appearance (vertical layout,
@@ -1331,7 +1372,7 @@ export function NewClientStep3d({
           slot.type === "large";
 
         const effectiveSlot = largeAsCompact
-          ? ({ ...slot, type: "small" as const })
+          ? { ...slot, type: "small" as const }
           : mobileSlot;
 
         // Use compact sizing for all mobile layouts so stacked cards have the same
@@ -1586,7 +1627,11 @@ export function NewClientStep3d({
           className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-300 dark:bg-gray-950 flex flex-col items-center"
         >
           {!showPreviewSkeleton ? (
-            <div style={{ height: scaledHeight != null ? `${scaledHeight}px` : "100%" }}>
+            <div
+              style={{
+                height: scaledHeight != null ? `${scaledHeight}px` : "100%",
+              }}
+            >
               <div
                 ref={previewContentRef}
                 style={{
@@ -1606,8 +1651,8 @@ export function NewClientStep3d({
                           Preview
                         </h2>
                         <p className="text-sm max-w-[500px] text-muted-foreground">
-                          Choose a layout style for your contact cards. Drag and drop to
-                          reorder contacts directly in the preview.
+                          Choose a layout style for your contact cards. Drag and
+                          drop to reorder contacts directly in the preview.
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -1642,7 +1687,9 @@ export function NewClientStep3d({
                         {/* Collapsible Layout Button */}
                         <button
                           onClick={() =>
-                            setIsLayoutSectionCollapsed(!isLayoutSectionCollapsed)
+                            setIsLayoutSectionCollapsed(
+                              !isLayoutSectionCollapsed,
+                            )
                           }
                           className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all cursor-pointer text-sm dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-700"
                         >
@@ -1687,7 +1734,9 @@ export function NewClientStep3d({
                                         ? "border-2 border-accent-blue shadow-sm"
                                         : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
                                     )}
-                                    onClick={() => handleLayoutChange(layout.id)}
+                                    onClick={() =>
+                                      handleLayoutChange(layout.id)
+                                    }
                                   >
                                     <CardContent className="p-1 h-full flex flex-col">
                                       <div className="flex items-center justify-between mb-0.5">
@@ -1714,7 +1763,8 @@ export function NewClientStep3d({
                           {previewMode === "mobile" && (
                             <div className="grid grid-cols-3 gap-2">
                               {mobileLayoutOptions.map((layout) => {
-                                const isSelected = mobileLayoutStyle === layout.id;
+                                const isSelected =
+                                  mobileLayoutStyle === layout.id;
                                 return (
                                   <Card
                                     key={layout.id}
@@ -1724,7 +1774,9 @@ export function NewClientStep3d({
                                         ? "border-2 border-accent-blue shadow-sm"
                                         : "border border-gray-200 hover:border-gray-300 dark:border-gray-600 dark:hover:border-gray-500",
                                     )}
-                                    onClick={() => handleMobileLayoutChange(layout.id)}
+                                    onClick={() =>
+                                      handleMobileLayoutChange(layout.id)
+                                    }
                                   >
                                     <CardContent className="p-1 h-full flex flex-col">
                                       <div className="flex items-center justify-between mb-0.5">
@@ -1810,7 +1862,9 @@ export function NewClientStep3d({
                               items={previewOrder}
                               strategy={rectSortingStrategy}
                             >
-                              <div className="w-full min-w-0 max-w-none">{previewContent}</div>
+                              <div className="w-full min-w-0 max-w-none">
+                                {previewContent}
+                              </div>
                             </SortableContext>
                           </DndContext>
                         </div>
@@ -1832,7 +1886,6 @@ export function NewClientStep3d({
                     </Button>
                   </div>
                 )}
-
               </div>
             </div>
           ) : (
@@ -1855,7 +1908,10 @@ export function NewClientStep3d({
                   {/* Skeleton: default layout — 1 primary + 4 small */}
                   <div className="bg-[#F8F8F3] rounded-lg p-8 border border-gray-200">
                     <div className="text-center mb-16">
-                      <Skeleton className="h-10 w-64 mx-auto" style={{ fontFamily: "var(--font-headline)" }} />
+                      <Skeleton
+                        className="h-10 w-64 mx-auto"
+                        style={{ fontFamily: "var(--font-headline)" }}
+                      />
                     </div>
                     <div className="space-y-4">
                       <Skeleton className="h-44 w-full rounded-xl" />
