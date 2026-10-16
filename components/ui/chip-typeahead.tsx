@@ -51,6 +51,12 @@ const dropMarkAt = (
     : { index, side: "before" };
 
 /**
+ * How long the "you are at the cap" notice stays up. Long enough to read once, short enough that it
+ * does not turn into a permanent error state for something that is not an error.
+ */
+const LIMIT_NOTICE_MS = 2600;
+
+/**
  * `useLayoutEffect` on the client, `useEffect` on the server.
  *
  * The reorder glide has to start BEFORE the browser paints the chips in their new places. Under
@@ -119,6 +125,10 @@ export interface ChipTypeaheadProps {
  * dragged to reorder — a chip drops into the GAP the pointer is over, so it can
  * be placed between two others — and render through `valueLabel` so the UI never
  * shows a bare id. When `maxSelections` is set, an "x of N" counter is shown.
+ *
+ * At that cap the picker stops opening and says so briefly, because every
+ * remaining row would be refused on pick anyway. Removing a chip — its X, or
+ * Backspace on the empty field — frees the slot and the list comes back.
  */
 export function ChipTypeahead({
   options,
@@ -158,6 +168,12 @@ export function ChipTypeahead({
     index: number;
     side: "before" | "after";
   } | null>(null);
+  /**
+   * Bumped every time an attempt is refused at the cap; `0` means there is nothing to say. The value
+   * doubles as the notice's React `key`, so repeating the attempt replays its entrance instead of
+   * leaving up a static message that reads as though the click was ignored.
+   */
+  const [limitNotice, setLimitNotice] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   /** The list is portalled (see the render), so "is this click inside?" has two answers. */
@@ -168,6 +184,8 @@ export function ChipTypeahead({
   const chipBoxesRef = useRef<Map<string, DOMRect>>(new Map());
   /** In-flight glide animations, so a fast second reorder cancels rather than compounds them. */
   const glideAnimationsRef = useRef<Animation[]>([]);
+  /** The cap notice's dismissal timer, so a second refusal restarts the countdown. */
+  const limitNoticeTimerRef = useRef<number | null>(null);
 
   /**
    * Record where every chip is right now.
@@ -340,6 +358,32 @@ export function ChipTypeahead({
   const atMax =
     typeof maxSelections === "number" && selectedValues.length >= maxSelections;
 
+  /** Say why the picker will not open, then take the message away again. */
+  const showLimitNotice = () => {
+    setLimitNotice((n) => n + 1);
+    if (limitNoticeTimerRef.current !== null) {
+      window.clearTimeout(limitNoticeTimerRef.current);
+    }
+    limitNoticeTimerRef.current = window.setTimeout(() => {
+      limitNoticeTimerRef.current = null;
+      setLimitNotice(0);
+    }, LIMIT_NOTICE_MS);
+  };
+
+  /**
+   * Open the list — or, at the cap, refuse and say why.
+   *
+   * Every way in goes through here: click, focus, typing and ArrowDown. One gate, so no path can
+   * quietly reopen a list whose every row `commit` would then turn down.
+   */
+  const requestListOpen = () => {
+    if (atMax) {
+      showLimitNotice();
+      return;
+    }
+    openList();
+  };
+
   // Moving the highlight to the first row whenever the row set changes keeps
   // Enter predictable (Enter adds the highlighted row).
   useEffect(() => {
@@ -458,9 +502,15 @@ export function ChipTypeahead({
     ];
   }, [selectedValues, dragIndex]);
 
-  // An unmount mid-glide would otherwise leave animations running against a detached node.
+  // Nothing here may outlive the component: glides running against detached nodes, and the cap
+  // notice's timer, which would otherwise fire into a component that is no longer mounted.
   useEffect(
-    () => () => glideAnimationsRef.current.forEach((a) => a.cancel()),
+    () => () => {
+      glideAnimationsRef.current.forEach((animation) => animation.cancel());
+      if (limitNoticeTimerRef.current !== null) {
+        window.clearTimeout(limitNoticeTimerRef.current);
+      }
+    },
     [],
   );
 
@@ -514,7 +564,7 @@ export function ChipTypeahead({
   const onKeyDown = (e: ReactKeyboardEvent<HTMLInputElement>) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      openList();
+      requestListOpen();
       setHighlighted((i) => Math.min(i + 1, Math.max(rows.length - 1, 0)));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
@@ -721,10 +771,18 @@ export function ChipTypeahead({
         placeholder={atMax ? "Maximum reached" : placeholder}
         ref={inputRef}
         onChange={(e) => {
+          // At the cap the character is not accepted either — a field that swallowed text and then
+          // showed no list would read as broken rather than as capped. The re-render this triggers is
+          // also what pushes the DOM back to the empty `query`, which is what actually keeps the text
+          // out; a controlled input with no state change would drift out of sync.
+          if (atMax) {
+            showLimitNotice();
+            return;
+          }
           setQuery(e.target.value);
           openList();
         }}
-        onFocus={openList}
+        onFocus={requestListOpen}
         /**
          * Clicking the field reopens the list, and this is NOT redundant with `onFocus`.
          *
@@ -735,7 +793,7 @@ export function ChipTypeahead({
          * genuinely blurring the field first — click somewhere else, then back — which is the
          * "I pick a designation, click the box again, and nothing appears for ages" report.
          */
-        onClick={openList}
+        onClick={requestListOpen}
         onKeyDown={onKeyDown}
         className={cn(
           "flex h-9 w-full rounded-lg border bg-white px-3 py-1 text-sm shadow-sm outline-none transition-colors placeholder:text-muted-foreground focus:border-accent-blue focus:ring-1 focus:ring-accent-blue/20 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-gray-800",
@@ -746,11 +804,28 @@ export function ChipTypeahead({
       />
 
       {/*
+        The cap notice. In the flow rather than floating: it is a line of explanation and the field
+        already sits in a stack of hints, so pushing the next line down by one is better than
+        overlapping it. `role="status"` announces it without stealing focus, and the `key` restarts
+        its entrance on every refused attempt.
+      */}
+      {limitNotice > 0 && (
+        <p
+          key={limitNotice}
+          role="status"
+          className="mt-1.5 text-xs font-medium text-destructive animate-in fade-in slide-in-from-top-1 duration-200"
+        >
+          Maximum of {maxSelections} reached. Remove one to change your selection.
+        </p>
+      )}
+
+      {/*
         Portalled to <body> and pinned with fixed coordinates. Inline, the list added its own height
         to the page's scrollable area the moment the field was focused; outside the form entirely, it
         cannot. See `listRect`.
       */}
       {open &&
+        !atMax &&
         !disabled &&
         listRect &&
         (rows.length > 0 || query.trim().length > 0) &&
