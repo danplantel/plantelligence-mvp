@@ -84,7 +84,7 @@ function buildSections(stored: Disclaimer[] | undefined): Record<string, Section
     const existing = list.find((d) => (d.locations || []).includes(cfg.location));
     if (existing) {
       // Split the stored text; if "your" equals the recommended copy, treat it
-      // as "Use Recommended" so the radios reflect how it was saved.
+      // as "Use Default" so the radios reflect how it was saved.
       const { your } = splitDisclosureText(existing.text, cfg.platformText);
       const isRecommended = your.trim() === cfg.recommendedText.trim();
       result[cfg.key] = {
@@ -227,7 +227,7 @@ export function Step5bDisclosures({
   };
 
   // Initial load + seed: pull any saved disclaimers, then make sure BOTH
-  // sections exist (defaulting to "Use Recommended") so completing onboarding
+  // sections exist (defaulting to "Use Default") so completing onboarding
   // always carries the platform + recommended language for each surface.
   useEffect(() => {
     if (typeof loadStepData !== "function") return;
@@ -441,7 +441,7 @@ export function Step5bDisclosures({
                       htmlFor={`${cfg.key}-recommended`}
                       className="text-sm font-normal cursor-pointer dark:text-gray-300"
                     >
-                      Use Recommended
+                      Use Default
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2">
