@@ -20,7 +20,9 @@ export function HaveQuestions({
 
   return (
     <section className="px-4 sm:px-6 lg:px-8 py-20 bg-white">
-      <div className="max-w-3xl mx-auto">
+      {/* Wide enough for the four support cards side by side (`lg` and up); the
+          heading below keeps its own narrower measure. */}
+      <div className="max-w-6xl mx-auto">
         <div className="text-center mb-12">
           <h2
             className="font-dm-serif text-3xl leading-tight mb-2 sm:text-4xl lg:text-[40px]"
@@ -33,11 +35,16 @@ export function HaveQuestions({
             questions you may have.
           </p>
         </div>
-        <div className="flex flex-wrap gap-8 justify-center">
+        {/* One row of four on `lg` and up (`5xl`/`2xl` calc = four columns after
+            the three 24px gaps). Below `lg` the cards keep their previous
+            comfortable width and wrap — two across on tablets, stacked on
+            phones — because four columns at 640–1023px would be too narrow for
+            the email and phone lines. Fewer than four contacts stay centred. */}
+        <div className="flex flex-wrap justify-center gap-4 sm:gap-6 lg:flex-nowrap">
           {contacts.map((contact) => (
             <div
               key={contact.id}
-              className="text-center h-[327px] p-6 border flex flex-col justify-between border-gray-200 rounded-lg hover:shadow-lg transition-shadow w-full sm:w-auto sm:flex-1 sm:min-w-[240px] sm:max-w-[340px]"
+              className="text-center h-[327px] p-6 border flex flex-col justify-between border-gray-200 rounded-lg hover:shadow-lg transition-shadow w-full sm:w-auto sm:flex-1 sm:min-w-[240px] sm:max-w-[340px] lg:w-[calc((100%-4.5rem)/4)] lg:flex-none"
             >
               <div>
                 <div
