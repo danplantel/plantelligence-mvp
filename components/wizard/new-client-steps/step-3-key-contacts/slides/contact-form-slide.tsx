@@ -39,7 +39,11 @@ import {
 import { BrandingImage } from "@/components/ui/branding-image";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { Headshot } from "@/components/ui/headshot";
-import { BenefitsCategory, ContactType } from "@/types/new-client-wizard";
+import {
+  BenefitsCategory,
+  ContactType,
+  KeyContact,
+} from "@/types/new-client-wizard";
 import { cn } from "@/lib/utils";
 import { formatPhoneWithExtension } from "@/lib/phone-utils";
 import { toast } from "sonner";
@@ -72,6 +76,7 @@ import { normalizeSupportIconId } from "@/lib/support-icons";
 import type { SupportIconId } from "@/lib/support-icons";
 import { ContactEmailConflictNotice } from "@/components/ui/contact-email-conflict-notice";
 import { useContactEmailConflict } from "@/hooks/useContactEmailConflict";
+import { mergeContactCategoryLists } from "@/lib/benefit-contacts";
 
 // ==================== Types ====================
 
@@ -1159,11 +1164,13 @@ export function ContactFormSlide({
   // Build contact object and save to keyContacts
   // Supports both creating new contacts and editing existing ones
   const saveContact = useCallback((): string => {
-    // A reused email would make this contact read as the owner / a Team Member (the
-    // seat ladder matches by email), so refuse to persist it — the same rule the
-    // Client and Benefits editors enforce. Returning "" marks the save failed for
-    // the bottom-bar Next button.
-    if (emailConflict) {
+    // A reused OWNER / TEAM MEMBER address would make this contact read as that person
+    // (the seat ladder matches by email), so it is refused — the same rule the Client and
+    // Benefits editors enforce. A plain duplicate CONTACT is different: that is the same
+    // person being added under another category, and their existing row is extended below
+    // rather than a second card being created. Returning "" marks the save failed for the
+    // bottom-bar Next button.
+    if (emailConflict && emailConflict.kind !== "contact") {
       toast.error(emailConflict.message);
       return "";
     }
@@ -1184,17 +1191,41 @@ export function ContactFormSlide({
       | string
       | undefined
       | null;
-    const existingContact = editingContactId
+    const explicitEdit = editingContactId
       ? savedContacts.find((c: any) => c.id === editingContactId)
       : null;
 
+    // The same person may already be on this plan under another category — the form stores
+    // one category per row, so saving them again would otherwise duplicate their card. Fold
+    // the new category into their existing row (and take the details just typed).
+    const normalizedEmail = email.trim().toLowerCase();
+    const samePersonRow =
+      !explicitEdit && normalizedEmail
+        ? savedContacts.find(
+            (c: any) =>
+              String(c?.email || "").trim().toLowerCase() === normalizedEmail,
+          ) ?? null
+        : null;
+    const existingContact = explicitEdit ?? samePersonRow ?? null;
+    const isCategoryMerge = !explicitEdit && !!samePersonRow;
+
     if (existingContact) {
-      // Update the existing contact in-place, resetting its category to the current one
+      // Update the existing contact in-place. Its categories are UNIONED with the form's
+      // category: an edit from one category's card must not silently drop the others.
+      const mergedCategories = mergeContactCategoryLists(
+        existingContact.benefitsCategories?.length
+          ? existingContact.benefitsCategories
+          : existingContact.benefitsCategory
+          ? [existingContact.benefitsCategory]
+          : [],
+        [category],
+      );
       const updatedContact = {
         ...existingContact,
         contactType,
-        benefitsCategories: [category],
-        benefitsCategory: category,
+        benefitsCategories: mergedCategories as KeyContact["benefitsCategories"],
+        benefitsCategory:
+          (mergedCategories[0] as KeyContact["benefitsCategory"]) ?? category,
         firstName: contactType === "individual" ? firstName : undefined,
         lastName: contactType === "individual" ? lastName : undefined,
         title: contactType === "individual" ? title : undefined,
@@ -1221,8 +1252,23 @@ export function ContactFormSlide({
           contactType === "individual"
             ? `${firstName} ${lastName}`.trim()
             : displayName,
-        isPrimary: shouldBePrimary,
-        isPrimaryOverall: shouldBePrimary,
+        // A category merge must not demote a person who is primary for a category they
+        // already cover; an explicit edit still writes the checkbox state.
+        isPrimary: shouldBePrimary || (isCategoryMerge && !!existingContact.isPrimary),
+        isPrimaryOverall:
+          shouldBePrimary ||
+          (isCategoryMerge && !!existingContact.isPrimaryOverall),
+        ...(shouldBePrimary
+          ? {
+              isPrimaryByCategory: {
+                ...((existingContact.isPrimaryByCategory || {}) as Record<
+                  string,
+                  boolean
+                >),
+                [category]: true,
+              } as KeyContact["isPrimaryByCategory"],
+            }
+          : {}),
         displayEmail,
         displayPhone,
         displayUrl: enableCtaButton ? ctaType === "contact" : false,
@@ -1552,10 +1598,11 @@ export function ContactFormSlide({
       errors.push(CONTACT_VISIBILITY_FIELD);
     }
 
-    // A reused address would make this contact read as the organization owner or as an
-    // existing Team Member (the seat ladder matches by email), so it is a blocking
-    // error at the field — the same rule the Client and Benefits editors enforce.
-    if (emailConflict) {
+    // A reused OWNER / TEAM MEMBER address would make this contact read as that person
+    // (the seat ladder matches by email), so it is a blocking error at the field — the
+    // same rule the Client and Benefits editors enforce. A duplicate CONTACT is not an
+    // error: the categories are merged into that person's row on save.
+    if (emailConflict && emailConflict.kind !== "contact") {
       if (!errors.includes("email")) errors.push("email");
     }
 
@@ -1588,7 +1635,7 @@ export function ContactFormSlide({
         targetRef.current.focus();
       }
       toast.error(
-        emailConflict
+        emailConflict && emailConflict.kind !== "contact"
           ? emailConflict.message
           : errors.includes(CONTACT_VISIBILITY_FIELD)
           ? CONTACT_VISIBILITY_HELPER_TEXT
@@ -2208,7 +2255,9 @@ export function ContactFormSlide({
                   placeholder="e.g. john@company.com"
                   className={cn(
                     "h-8 text-sm",
-                    (hasError("email") || emailConflict) && "border-red-500",
+                    (hasError("email") ||
+                      (emailConflict && emailConflict.kind !== "contact")) &&
+                      "border-red-500",
                   )}
                 />
                 {hasError("email") && (
@@ -2216,7 +2265,9 @@ export function ContactFormSlide({
                     Please enter a valid email address
                   </p>
                 )}
-                <ContactEmailConflictNotice conflict={emailConflict} />
+                {emailConflict && emailConflict.kind !== "contact" ? (
+                  <ContactEmailConflictNotice conflict={emailConflict} />
+                ) : null}
               </div>
 
               {/* Email / Phone Visibility Toggles — shown directly below the Email

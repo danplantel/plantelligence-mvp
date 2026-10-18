@@ -835,8 +835,13 @@ export function NewClientStep3d({
       // shown, joined by a middle dot ("Retirement · Group Health · Group Life"): one
       // contact row can cover several categories (see `coalesceKeyContactsByPerson`), and
       // this badge is the only place the preview says which hub(s) they speak for.
-      const displayCategory = (value: string): string =>
-        value === "Third Party Contact" ? "External HR / Administrator" : value;
+      const displayCategory = (value: string): string => {
+        if (value === "Third Party Contact") return "External HR / Administrator";
+        // Legacy spellings, folded to the labels the rest of the app shows.
+        if (value === "Health Insurance") return "Group Health";
+        if (value === "Life Insurance") return "Group Life";
+        return value;
+      };
       const categoryLabel =
         Array.from(
           new Set(contactCategoryList.map(displayCategory).filter(Boolean)),

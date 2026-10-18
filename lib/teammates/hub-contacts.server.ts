@@ -27,9 +27,31 @@
  */
 
 import prisma from "@/lib/prisma";
-import { BENEFIT_CONTACT_CATEGORIES } from "@/lib/benefit-contacts";
+import {
+  BENEFIT_CONTACT_CATEGORIES,
+  mergeContactCategoryLists,
+} from "@/lib/benefit-contacts";
 import { readPlanContacts } from "./contact-mirror.server";
 import { designationLabels } from "@/config/onboarding/designations";
+
+/** Case-insensitive address used to match a stored row to its derived card. */
+function normalizeEmail(value: unknown): string {
+  return typeof value === "string" ? value.trim().toLowerCase() : "";
+}
+
+/** The categories a stored (blob) contact row declares, in either historical shape. */
+function storedContactCategories(
+  contact: Record<string, unknown>,
+): string[] {
+  const many = contact.benefitsCategories;
+  if (Array.isArray(many)) {
+    return many
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .filter(Boolean);
+  }
+  const one = contact.benefitsCategory;
+  return typeof one === "string" && one.trim() ? [one.trim()] : [];
+}
 
 /**
  * A hub card. Deliberately shaped like the historical `KeyContact` row, because the
@@ -293,16 +315,45 @@ export async function buildPortalKeyContacts(input: {
    * dropped every unmirrored contact from array-shaped plans.
    */
   const derivedIds = new Set(contacts.map((card) => String(card.id)));
-  const residue = readPlanContacts(input.presentation).filter((contact) => {
-    const id = contact?.id;
-    if (id === undefined || id === null || String(id).trim() === "") {
-      // No id to match on, so it cannot be proven mirrored — keep it visible.
-      return true;
-    }
-    return !derivedIds.has(String(id));
-  });
 
-  const merged = [...contacts, ...residue];
+  // A stored row the derived cards did not claim is usually a DUPLICATE of a card we do
+  // have: an older draft stored one row per category, and the mirror folded them onto one
+  // profile/assignment (keeping the first row's id). Folding those rows into that card —
+  // unioning their categories — is what stops the person appearing two or three times on
+  // the portal. Only a row that matches nobody (no email, so it cannot be mirrored) is
+  // appended as its own card.
+  const foldedCards: HubContactCard[] = contacts.map((card) => ({
+    ...card,
+    benefitsCategories: [...card.benefitsCategories],
+  }));
+  const residue: Record<string, unknown>[] = [];
+
+  for (const contact of readPlanContacts(input.presentation)) {
+    const id = contact?.id;
+    const idString =
+      id === undefined || id === null ? "" : String(id).trim();
+    if (idString && derivedIds.has(idString)) continue; // already represented
+
+    const email = normalizeEmail(contact.email);
+    const match = email
+      ? foldedCards.find((card) => normalizeEmail(card.email) === email)
+      : undefined;
+    if (match) {
+      const categories = mergeContactCategoryLists(
+        match.benefitsCategories,
+        storedContactCategories(contact),
+      );
+      match.benefitsCategories = categories;
+      match.benefitsCategory = categories[0] ?? match.benefitsCategory;
+      continue;
+    }
+
+    // No id to match on (or an address nothing else shares): it cannot be proven
+    // mirrored, so keep it visible rather than silently dropping a person.
+    residue.push(contact);
+  }
+
+  const merged = [...foldedCards, ...residue];
 
   // Array shape in, array shape out — the portal's readers accept either, and the
   // historical shape carried no settings to lose.

@@ -1,6 +1,21 @@
 import type { BenefitsCategory, KeyContact } from "@/types/new-client-wizard";
+import {
+  contactCategories,
+  mergeContactCategoryLists,
+} from "@/lib/benefit-contacts";
 
 const STABLE_ID_PREFIX = "onboarding-primary-advisor";
+
+/**
+ * The seeded advisor contact's id.
+ *
+ * ONE row carries every primary service category. It used to be one row per category
+ * (`onboarding-primary-advisor-Retirement`, `…-Group-Health`, …), which made the advisor's
+ * own card appear once per category in the Step 3 preview and on My Benefits Team. The
+ * suffixed form is still recognised below, so drafts saved before this change are treated
+ * as the same person and folded into the single row.
+ */
+const STABLE_ID = STABLE_ID_PREFIX;
 
 /**
  * Advisor profile visuals (logo, headshot, etc.) on rows below belong to **per-category
@@ -26,13 +41,11 @@ export function primaryServiceLabelToBenefitsCategory(
   }
 }
 
-function stableIdForCategory(category: BenefitsCategory): string {
-  const slug = category.replace(/\s+/g, "-");
-  return `${STABLE_ID_PREFIX}-${slug}`;
-}
-
 export function isOnboardingAdvisorContactId(id: string | undefined): boolean {
-  return typeof id === "string" && id.startsWith(`${STABLE_ID_PREFIX}-`);
+  return (
+    typeof id === "string" &&
+    (id === STABLE_ID || id.startsWith(`${STABLE_ID_PREFIX}-`))
+  );
 }
 
 function isCompleteContactForCategory(
@@ -58,7 +71,13 @@ export function hasCompleteContactForCategory(
   return contacts.some((c) => isCompleteContactForCategory(c, category));
 }
 
-/** Build one advisor row per selected primary service category (for keyContacts persistence). */
+/**
+ * Build the advisor's own Key Contact row for the selected primary service categories.
+ *
+ * ONE row, carrying all of them (see `STABLE_ID`). Rows returned here are appended to the
+ * plan's contacts, so anything that expects one row per category would bring the duplicate
+ * card back.
+ */
 export function buildOnboardingAdvisorContactsForCategories(
   categories: BenefitsCategory[],
   profile: {
@@ -79,26 +98,34 @@ export function buildOnboardingAdvisorContactsForCategories(
     advisorLink?: string;
   },
 ): KeyContact[] {
+  const unique = Array.from(
+    new Set(
+      (categories || []).filter(
+        (category): category is BenefitsCategory => !!category,
+      ),
+    ),
+  );
+  if (unique.length === 0) return [];
+
   const fullName = (profile.name || "").trim();
   const parts = fullName.split(/\s+/).filter(Boolean);
   const firstName = parts[0] || "Advisor";
   const lastName = parts.slice(1).join(" ") || "Contact";
 
-  const out: KeyContact[] = [];
-  const seen = new Set<BenefitsCategory>();
+  const isPrimaryByCategory = unique.reduce<Record<string, boolean>>(
+    (acc, category) => {
+      acc[category] = true;
+      return acc;
+    },
+    {},
+  ) as Record<BenefitsCategory, boolean>;
 
-  for (const bc of categories) {
-    if (!bc || seen.has(bc)) continue;
-    seen.add(bc);
-    const isPrimaryByCategory = {
-      [bc]: true,
-    } as Record<BenefitsCategory, boolean>;
-
-    out.push({
-      id: stableIdForCategory(bc),
+  return [
+    {
+      id: STABLE_ID,
       contactType: "individual",
-      benefitsCategories: [bc],
-      benefitsCategory: bc,
+      benefitsCategories: unique,
+      benefitsCategory: unique[0],
       role: "Advisor / Specialist",
       // Prefer the advisor's Organization Email on contact cards; fall back to
       // the login email when none is set ("can be the same if the user wants").
@@ -133,14 +160,16 @@ export function buildOnboardingAdvisorContactsForCategories(
       isPrimary: true,
       displayEmail: true,
       displayPhone: true,
-    });
-  }
-  return out;
+    },
+  ];
 }
 
 /**
- * Append advisor contacts for onboarding primary categories when those categories
- * still have no complete contact (idempotent per stable id).
+ * Make sure the advisor's own contact covers every onboarding primary category.
+ *
+ * Idempotent: the seeded row is extended in place with the categories that still lack a
+ * complete contact, and any extra seeded rows from a draft saved before the single-row
+ * change are folded into it. One person, one row, one card.
  */
 export function mergeOnboardingAdvisorContactsIntoKeyContacts(
   existing: KeyContact[],
@@ -156,16 +185,47 @@ export function mergeOnboardingAdvisorContactsIntoKeyContacts(
 
   if (benefitCategories.length === 0) return existing;
 
-  const toAdd: KeyContact[] = [];
-  for (const bc of benefitCategories) {
-    if (hasCompleteContactForCategory(existing, bc)) continue;
-    const seeded = buildOnboardingAdvisorContactsForCategories([bc], profile);
-    const row = seeded[0];
-    if (!row) continue;
-    const already = existing.some((c) => c.id === row.id);
-    if (!already) toAdd.push(row);
+  const missing = benefitCategories.filter(
+    (bc) => !hasCompleteContactForCategory(existing, bc),
+  );
+  if (missing.length === 0) return existing;
+
+  const seededRows = existing.filter((contact) =>
+    isOnboardingAdvisorContactId(contact.id as string | undefined),
+  );
+
+  // Nothing seeded yet: add the single row carrying every missing category.
+  if (seededRows.length === 0) {
+    const [row] = buildOnboardingAdvisorContactsForCategories(missing, profile);
+    return row ? [...existing, row] : existing;
   }
 
-  if (toAdd.length === 0) return existing;
-  return [...existing, ...toAdd];
+  // Keep the first seeded row, add the missing categories, and drop the other seeded
+  // rows (a draft saved one-per-category). Position is preserved.
+  const survivor = seededRows[0];
+  const survivorId = String(survivor.id);
+  const categories = mergeContactCategoryLists(
+    seededRows.flatMap((contact) => contactCategories(contact)),
+    missing,
+  );
+
+  const merged: KeyContact = {
+    ...survivor,
+    benefitsCategories: categories as KeyContact["benefitsCategories"],
+    benefitsCategory: categories[0] as KeyContact["benefitsCategory"],
+    isPrimaryByCategory: {
+      ...((survivor.isPrimaryByCategory || {}) as Record<string, boolean>),
+      ...missing.reduce<Record<string, boolean>>((acc, category) => {
+        acc[category] = true;
+        return acc;
+      }, {}),
+    } as KeyContact["isPrimaryByCategory"],
+  };
+
+  return existing.flatMap((contact) => {
+    if (!isOnboardingAdvisorContactId(contact.id as string | undefined)) {
+      return [contact];
+    }
+    return String(contact.id) === survivorId ? [merged] : [];
+  });
 }

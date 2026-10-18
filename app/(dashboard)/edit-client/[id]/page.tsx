@@ -138,6 +138,14 @@ import {
 } from "@/lib/header-tabs";
 import { isLoggedInUserContact } from "@/lib/resolve-contact-company-name";
 import { isOnboardingAdvisorContactId } from "@/lib/seed-onboarding-advisor-contacts";
+import {
+  contactCategories as contactCategoriesOf,
+  mergeContactCategoryLists,
+} from "@/lib/benefit-contacts";
+
+/** Case-insensitive address used to match a contact row to a person. */
+const contactEmailKey = (value: string | null | undefined): string =>
+  (value || "").trim().toLowerCase();
 import { ContactCardLayoutPreviewModal } from "@/components/pages/edit-client/contact-card-layout-preview-modal";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -809,9 +817,11 @@ function EditContactDialog({
       return;
     }
 
-    // A reused address would make this contact read as the owner / a Team Member (the
-    // seat ladder matches by email), so it is a blocking error, reported at the field.
-    if (emailConflict) {
+    // A reused OWNER / TEAM MEMBER address would make this contact read as that person
+    // (the seat ladder matches by email), so it is a blocking error, reported at the
+    // field. A duplicate CONTACT is not: that is the same person being added under another
+    // category, and `handleSaveContact` folds the category into their existing row.
+    if (emailConflict && emailConflict.kind !== "contact") {
       setErrors(["email"]);
       emailRef.current?.focus();
       toast.error(emailConflict.message);
@@ -846,14 +856,18 @@ function EditContactDialog({
         name: "",
       } as KeyContact);
 
+    // Keep every category the contact already served: the dialog edits ONE category, and
+    // replacing the list would silently drop the others (they used to live in separate
+    // rows, so each edit only ever saw its own).
+    const updatedCategories = form.benefitsCategory
+      ? mergeContactCategoryLists(contactCategories, [form.benefitsCategory])
+      : base.benefitsCategories;
     const updated: KeyContact = {
       ...base,
       ...(isAddMode && addDefaults ? addDefaults : {}),
       contactType: form.contactType,
-      benefitsCategories: form.benefitsCategory
-        ? [form.benefitsCategory]
-        : base.benefitsCategories,
-      benefitsCategory: (form.benefitsCategory ?? base.benefitsCategory) as any,
+      benefitsCategories: updatedCategories as BenefitsCategory[],
+      benefitsCategory: (updatedCategories[0] ?? form.benefitsCategory ?? base.benefitsCategory) as any,
       role: addExternal ? "Other" : base.role,
       roleOther: addExternal ? "External HR / Administrator" : base.roleOther,
       firstName:
@@ -1365,7 +1379,8 @@ function EditContactDialog({
                   placeholder="e.g. john@company.com"
                   className={cn(
                     "h-8 text-sm",
-                    (errors.includes("email") || emailConflict) &&
+                    (errors.includes("email") ||
+                      (emailConflict && emailConflict.kind !== "contact")) &&
                       "border-red-500",
                   )}
                 />
@@ -1374,7 +1389,9 @@ function EditContactDialog({
                     Please enter a valid email address (or provide a phone)
                   </p>
                 )}
-                <ContactEmailConflictNotice conflict={emailConflict} />
+                {emailConflict && emailConflict.kind !== "contact" ? (
+                  <ContactEmailConflictNotice conflict={emailConflict} />
+                ) : null}
               </div>
             </div>
 
@@ -1933,6 +1950,34 @@ function EditKeyContactsSection({
   };
 
   const handleSaveContact = (updated: KeyContact) => {
+    // A NEW row whose address already belongs to a contact is the same PERSON being added
+    // under another category: fold the category into that row instead of appending a
+    // second card for them.
+    const samePerson = contacts.find(
+      (c) =>
+        c.id !== updated.id &&
+        contactEmailKey(updated.email) !== "" &&
+        contactEmailKey(c.email) === contactEmailKey(updated.email),
+    );
+    if (samePerson && !contacts.some((c) => c.id === updated.id)) {
+      const mergedCategories = mergeContactCategoryLists(
+        contactCategoriesOf(samePerson),
+        contactCategoriesOf(updated),
+      );
+      onContactsChange(
+        contacts.map((c) =>
+          c.id === samePerson.id
+            ? {
+                ...samePerson,
+                benefitsCategories: mergedCategories as BenefitsCategory[],
+                benefitsCategory: (mergedCategories[0] ??
+                  samePerson.benefitsCategory) as BenefitsCategory,
+              }
+            : c,
+        ),
+      );
+      return;
+    }
     onContactsChange(
       contacts.map((c) => (c.id === updated.id ? updated : c))
     );

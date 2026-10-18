@@ -228,7 +228,33 @@ export async function mirrorPlanContacts(
   });
   if (!plan) return result;
 
-  const contacts = readPlanContacts(input.keyContacts);
+  const storedContacts = readPlanContacts(input.keyContacts);
+  /**
+   * One entry per PERSON, with every row that describes them grouped by email.
+   *
+   * The contact form stores one category per row, so an older draft can hold the same
+   * person three times. The assignment is one row per person, so processing those rows
+   * separately left the LAST one's category on it. Grouping first lets each person's
+   * categories be unioned once, instead of overwriting — and keeps the derivation
+   * deterministic rather than order-dependent.
+   */
+  const rowsByEmail = new Map<string, Record<string, unknown>[]>();
+  const contacts: Record<string, unknown>[] = [];
+  for (const contact of storedContacts) {
+    const email = emailOf(contact);
+    if (!email) {
+      contacts.push(contact);
+      continue;
+    }
+    const existingGroup = rowsByEmail.get(email);
+    if (existingGroup) {
+      existingGroup.push(contact);
+      continue;
+    }
+    rowsByEmail.set(email, [contact]);
+    contacts.push(contact);
+  }
+
   const planCompanyName = str(plan.companyName).toLowerCase();
   const ownerEmails = await organizationOwnerEmails(input.organizationId);
 
@@ -262,10 +288,15 @@ export async function mirrorPlanContacts(
       continue;
     }
 
-    // What the contact declares, then what an assignment may grant from it. The scope answers
-    // "did the contact name any section at all", so it is decided by the declaration — a
-    // plan-sponsor contact declares one even though that category grants no benefit page.
-    const contactCategories = categoriesOf(contact);
+    // What the contact declares, then what an assignment may grant from it. Every row for
+    // this person contributes: the rows were written one-per-category, so the union is
+    // what the single assignment must carry. The scope answers "did the contact name any
+    // section at all", so it is decided by the declaration — a plan-sponsor contact
+    // declares one even though that category grants no benefit page.
+    const personRows = rowsByEmail.get(email) ?? [contact];
+    const contactCategories = Array.from(
+      new Set(personRows.flatMap((row) => categoriesOf(row))),
+    );
     const categories = grantableCategoriesOf(contactCategories);
     const categoryScope: "all" | "selected" =
       contactCategories.length > 0 ? "selected" : "all";
