@@ -39,8 +39,8 @@ import { useViewerAccess } from "@/hooks/useViewerAccess";
 import {
   AlertCircle,
   ExternalLink,
+  Eye,
   Loader2,
-  Pencil,
   Plus,
   RefreshCw,
 } from "lucide-react";
@@ -923,7 +923,7 @@ export function BenefitsListPage({
 
                     {row.exists ? (
                       <div className="flex shrink-0 items-center gap-2">
-                        {/* A row's only action is editing the benefit. Inviting a
+                        {/* A row's primary action opens the benefit page. Inviting a
                             collaborator belongs to the benefit itself (Create/Edit
                             Benefit → Contacts → Add Collaborator), where the scope they
                             are being given is on screen next to the section it applies
@@ -940,12 +940,12 @@ export function BenefitsListPage({
                             )
                           }
                         >
-                          <Pencil className="h-3.5 w-3.5" />
-                          {/* A read-only Collaborator (Viewer / Reviewer) may not save, but
-                              `/edit-benefit/…` is open to them and gates saving on the grid —
-                              so the label says which of the two this is rather than hiding a
-                              destination they can still reach and read. */}
-                          {mayEditBenefits ? "Edit" : "View"}
+                          <Eye className="h-3.5 w-3.5" />
+                          {/* One label for everyone: the action opens the benefit page
+                              for viewing. `/edit-benefit/…` itself gates saving on the
+                              grid, so a read-only Collaborator (Viewer / Reviewer) still
+                              reaches the same destination and simply cannot write. */}
+                          View
                         </Button>
                         {/* A Collaborator is editing a page they would otherwise never see as a
                             participant does, and the plan-level "Open Portal" button belongs to
