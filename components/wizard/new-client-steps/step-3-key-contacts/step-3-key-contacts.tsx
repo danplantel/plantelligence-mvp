@@ -16,6 +16,10 @@ import { cn } from "@/lib/utils";
 import { BenefitsCategory } from "@/types/new-client-wizard";
 import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboarding-advisor-contacts";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
+import {
+  coalesceKeyContactsByPerson,
+  resolveMergedContactId,
+} from "@/lib/benefit-contacts";
 
 // ==================== Types ====================
 
@@ -68,6 +72,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
   const {
     stepData,
     saveStepDataLocally,
+    saveStepDataToServer,
     saveAsDraft,
     clearErrorFields,
     setSelectedCategoryStep3a,
@@ -123,6 +128,79 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
   // Get contacts
   const keyContactsData = stepData.keyContacts || { contacts: [] };
   const contacts = keyContactsData.contacts || [];
+
+  /**
+   * Heal duplicate person rows on load.
+   *
+   * The contact form stores ONE category per row, so adding the same person under three
+   * categories used to leave three rows — three cards in the preview and on My Benefits
+   * Team. Fold them the first time this step sees the draft, keeping the earliest row and
+   * unioning its categories, then persist so the preview, the explorer and the draft all
+   * see one person. Runs once per distinct row-id set, so it cannot loop.
+   */
+  const coalescedFingerprintRef = useRef<string | null>(null);
+  useEffect(() => {
+    const raw = (stepData as any)?.keyContacts;
+    const list: any[] = Array.isArray(raw?.contacts) ? raw.contacts : [];
+    if (list.length === 0) return;
+
+    const fingerprint = JSON.stringify(list.map((contact) => contact?.id ?? null));
+    if (coalescedFingerprintRef.current === fingerprint) return;
+    coalescedFingerprintRef.current = fingerprint;
+
+    const { contacts: merged, idMap, mergedCount } =
+      coalesceKeyContactsByPerson(list);
+    if (mergedCount === 0) return;
+
+    // Keep the advisor's saved drag order: translate each stored id to its survivor,
+    // drop the duplicates, then append any survivor the old order did not mention.
+    const mergedIds = new Set(merged.map((contact) => String(contact.id)));
+    const previousOrder: string[] = Array.isArray(raw?.contactDisplayOrder)
+      ? raw.contactDisplayOrder.map((id: unknown) => String(id))
+      : [];
+    const contactDisplayOrder: string[] = [];
+    for (const id of previousOrder) {
+      const survivorId = resolveMergedContactId(id, idMap);
+      if (survivorId && mergedIds.has(survivorId) && !contactDisplayOrder.includes(survivorId)) {
+        contactDisplayOrder.push(survivorId);
+      }
+    }
+    for (const contact of merged) {
+      const id = String(contact.id);
+      if (!contactDisplayOrder.includes(id)) contactDisplayOrder.push(id);
+    }
+
+    const updatedKeyContacts = {
+      ...raw,
+      contacts: merged,
+      contactDisplayOrder,
+    };
+    void saveStepDataLocally("keyContacts", updatedKeyContacts);
+
+    // The form may have been open on one of the folded rows.
+    const editingId = (stepData as any)?.step3b?.editingContactId;
+    if (editingId) {
+      const survivorId = resolveMergedContactId(String(editingId), idMap);
+      if (survivorId && survivorId !== String(editingId)) {
+        void saveStepDataLocally("step3b", {
+          ...(stepData as any).step3b,
+          editingContactId: survivorId,
+        });
+      }
+    }
+
+    void saveStepDataToServer("keyContacts", updatedKeyContacts)
+      .then((saved) => (saved ? saveAsDraft() : undefined))
+      .catch(() => {
+        // Best-effort: the local merge already keeps this wizard consistent, and the
+        // next ordinary save of this step writes the merged rows to the server.
+      });
+  }, [
+    stepData,
+    saveStepDataLocally,
+    saveStepDataToServer,
+    saveAsDraft,
+  ]);
 
   // Track whether the initial advisor seed has been attempted (prevents re-seeding after manual deletion)
   const hasSeededAdvisorContacts = useRef(false);

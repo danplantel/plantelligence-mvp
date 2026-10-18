@@ -317,6 +317,236 @@ export const BENEFIT_CONTACT_CATEGORIES: BenefitsCategory[] = [
 ];
 
 /**
+ * Canonical order of the contact categories — the order the card badge and the merged
+ * `benefitsCategories` list use, so two rows for the same person always produce the same
+ * label ("Retirement · Group Health · Group Life") regardless of the order they were added.
+ */
+const CONTACT_CATEGORY_ORDER = [
+  "Retirement",
+  "Group Health",
+  "Group Life",
+  "Other Benefits",
+  "Company / Plan Sponsor",
+  "Third Party Contact",
+] as const;
+
+/** Fold a stored category spelling onto its canonical contact label. */
+export function canonicalContactCategory(
+  value: string | null | undefined,
+): string {
+  const raw = (value || "").trim();
+  if (!raw) return "";
+  switch (normalizeContactCategory(raw)) {
+    case "retirement":
+      return "Retirement";
+    case "group health":
+      return "Group Health";
+    case "group life":
+      return "Group Life";
+    case "other":
+    case "other benefits":
+      return "Other Benefits";
+    case "company / plan sponsor":
+      return "Company / Plan Sponsor";
+    case "third party contact":
+      return "Third Party Contact";
+    default:
+      return raw;
+  }
+}
+
+function categoryRank(category: string): number {
+  const index = CONTACT_CATEGORY_ORDER.indexOf(
+    category as (typeof CONTACT_CATEGORY_ORDER)[number],
+  );
+  return index === -1 ? CONTACT_CATEGORY_ORDER.length : index;
+}
+
+/** Union two category lists into canonical order, de-duplicated. */
+export function mergeContactCategoryLists(
+  a: readonly string[],
+  b: readonly string[],
+): string[] {
+  const seen = new Set<string>();
+  const merged: string[] = [];
+  for (const value of [...a, ...b]) {
+    const canonical = canonicalContactCategory(value);
+    if (!canonical) continue;
+    const key = canonical.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(canonical);
+  }
+  // Stable sort: unknown labels keep their relative order after the known ones.
+  return merged
+    .map((category, index) => ({ category, index }))
+    .sort((x, y) => categoryRank(x.category) - categoryRank(y.category) || x.index - y.index)
+    .map((entry) => entry.category);
+}
+
+/**
+ * The identity two Key Contact rows must share to be the SAME person.
+ *
+ * Email is the only reliable key (it is what the teammate mirror matches on, so two rows
+ * with one email already collapse into one profile). Rows without an email fall back to
+ * the contact type + name + phone digits; when that is not distinctive they are left
+ * alone rather than guessed at.
+ */
+function contactPersonKey(contact: KeyContact | null | undefined): string | null {
+  if (!contact) return null;
+  const email = (contact.email || "").trim().toLowerCase();
+  if (email && email.includes("@")) return `email:${email}`;
+
+  const name = (
+    contact.name ||
+    contact.displayName ||
+    `${contact.firstName || ""} ${contact.lastName || ""}`
+  )
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+  const phone = (contact.phone || "").replace(/\D/g, "");
+  if (!name || !phone) return null;
+  return `person:${contact.contactType || "individual"}|${name}|${phone}`;
+}
+
+/** Copy a value from `source` only where `target` has nothing usable. */
+function fillBlanks<T extends Record<string, any>>(target: T, source: T): T {
+  const out: Record<string, any> = { ...target };
+  for (const [key, value] of Object.entries(source || {})) {
+    if (value === undefined || value === null) continue;
+    const current = out[key];
+    const currentBlank =
+      current === undefined ||
+      current === null ||
+      (typeof current === "string" && current.trim() === "") ||
+      (Array.isArray(current) && current.length === 0);
+    if (currentBlank) out[key] = value;
+  }
+  return out as T;
+}
+
+function mergePrimaryByCategory(
+  a: KeyContact["isPrimaryByCategory"],
+  b: KeyContact["isPrimaryByCategory"],
+): KeyContact["isPrimaryByCategory"] {
+  if (!a && !b) return a;
+  const merged: Record<string, boolean> = { ...(a as Record<string, boolean>) };
+  for (const [category, isPrimary] of Object.entries(
+    (b || {}) as Record<string, boolean>,
+  )) {
+    if (isPrimary === true) merged[category] = true;
+  }
+  return merged as KeyContact["isPrimaryByCategory"];
+}
+
+/** Fold a duplicate person row into the surviving row. */
+function mergeContactRows(survivor: KeyContact, duplicate: KeyContact): KeyContact {
+  const categories = mergeContactCategoryLists(
+    contactCategories(survivor),
+    contactCategories(duplicate),
+  );
+  return fillBlanks(
+    {
+      ...survivor,
+      benefitsCategories: categories as KeyContact["benefitsCategories"],
+      // Legacy single field: the first category in canonical order.
+      benefitsCategory: (categories[0] as KeyContact["benefitsCategory"]) ?? survivor.benefitsCategory,
+      isPrimary: Boolean(survivor.isPrimary || duplicate.isPrimary),
+      isPrimaryOverall: Boolean(
+        survivor.isPrimaryOverall || duplicate.isPrimaryOverall,
+      ),
+      isPrimaryForCategory: Boolean(
+        survivor.isPrimaryForCategory || duplicate.isPrimaryForCategory,
+      ),
+      isPrimaryByCategory: mergePrimaryByCategory(
+        survivor.isPrimaryByCategory,
+        duplicate.isPrimaryByCategory,
+      ),
+    },
+    duplicate,
+  );
+}
+
+export interface CoalescedKeyContacts {
+  /** One row per person, in their original order. */
+  contacts: KeyContact[];
+  /** Dropped row id → surviving row id, for references that must be re-pointed. */
+  idMap: Record<string, string>;
+  /** How many duplicate rows were folded away. */
+  mergedCount: number;
+}
+
+/**
+ * Collapse duplicate Key Contact rows for the same person into ONE row.
+ *
+ * The Create Client form writes a single category per row, so adding the same person under
+ * three categories used to store three rows — three cards on the preview and on My Benefits
+ * Team. This keeps the earliest row (so a saved drag order still means something), unions
+ * the categories in canonical order, ORs the primary flags, and fills the survivor's blanks
+ * from the duplicates.
+ *
+ * `idMap` is the other half of the job: rows are dropped, and the draft / Benefit rows still
+ * reference their ids. Callers must remap those references — see `resolveMergedContactId`.
+ */
+export function coalesceKeyContactsByPerson(
+  contacts: KeyContact[] | null | undefined,
+): CoalescedKeyContacts {
+  const list = Array.isArray(contacts) ? contacts : [];
+  const out: KeyContact[] = [];
+  const indexByKey = new Map<string, number>();
+  const idMap: Record<string, string> = {};
+
+  for (const contact of list) {
+    if (!contact || contact.id === undefined || contact.id === null) {
+      out.push(contact);
+      continue;
+    }
+    const key = contactPersonKey(contact);
+    if (!key) {
+      out.push(contact);
+      continue;
+    }
+
+    const existingIndex = indexByKey.get(key);
+    if (existingIndex === undefined) {
+      indexByKey.set(key, out.length);
+      out.push(contact);
+      continue;
+    }
+
+    const survivor = out[existingIndex];
+    out[existingIndex] = mergeContactRows(survivor, contact);
+    const survivorId = String(survivor.id);
+    const droppedId = String(contact.id);
+    if (droppedId !== survivorId) {
+      idMap[droppedId] = survivorId;
+      // Any row that already mapped to this dropped id now points at the survivor.
+      for (const [oldId, target] of Object.entries(idMap)) {
+        if (target === droppedId) idMap[oldId] = survivorId;
+      }
+    }
+  }
+
+  return { contacts: out, idMap, mergedCount: Object.keys(idMap).length };
+}
+
+/** Follow an id through a coalescer map. Returns the id unchanged when it is not mapped. */
+export function resolveMergedContactId(
+  id: string | null | undefined,
+  idMap: Record<string, string>,
+): string | null {
+  if (!id) return null;
+  let current = String(id);
+  const seen = new Set<string>();
+  while (idMap[current] && !seen.has(current)) {
+    seen.add(current);
+    current = idMap[current];
+  }
+  return current;
+}
+
+/**
  * `Client.keyContacts` is stored either as the contact array or as `{ contacts: [...] }`
  * depending on which save path wrote it, so every reader has to normalize first.
  */

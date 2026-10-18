@@ -15,6 +15,7 @@ import {
 } from "@/lib/phone-utils";
 import { withContactFormAvatar } from "@/lib/url-utils";
 import { resolveContactFormUrl } from "@/lib/contact-form-link";
+import { ContactCategoryBadge } from "@/components/ui/contact-category-badge";
 
 interface Contact {
   id?: string | number;
@@ -76,6 +77,12 @@ interface PrimaryContactCardProps {
    * on the benefit category pages and in the wizard previews.
    */
   categoryLabel?: string;
+  /**
+   * Every category the contact serves. Several collapse to "Multiple Categories" with
+   * the list on hover, so a multi-benefit contact does not stretch the card.
+   * `categoryLabel` remains supported for callers that only hold the joined string.
+   */
+  categoryList?: string[];
 }
 
 export function PrimaryContactCard({
@@ -87,7 +94,14 @@ export function PrimaryContactCard({
   baselineBackgroundColor,
   compact = false,
   categoryLabel,
+  categoryList,
 }: PrimaryContactCardProps) {
+  const categoryListValues =
+    categoryList && categoryList.length > 0
+      ? categoryList
+      : categoryLabel
+      ? [categoryLabel]
+      : [];
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
   const effectiveSecondaryColor = contact.cardSecondaryColor || secondaryColor;
   // Card background defaults to the plan's secondary color; the primary color is used as the card's accent.
@@ -239,15 +253,12 @@ export function PrimaryContactCard({
         >
           {/* BENEFIT CATEGORY TAG — the top of the card, above the logo/icon. The
               chip carries its own background/text colour so it stays legible on
-              whatever card colour the advisor chose. */}
-          {categoryLabel && (
-            <span
-              className="mb-1 inline-flex max-w-full items-center self-start truncate rounded-full border border-black/5 bg-white/90 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600 shadow-sm"
-              title={categoryLabel}
-            >
-              {categoryLabel}
-            </span>
-          )}
+              whatever card colour the advisor chose; several categories collapse to
+              "Multiple Categories" with the list on hover. */}
+          <ContactCategoryBadge
+            categories={categoryListValues}
+            className="mb-1 self-start"
+          />
           {/* SUPPORT-LINE ICON OR COMPANY LOGO — Team/Support Line contacts show a
               support icon here because their company logo moves into the large
               circular slot on the left. */}

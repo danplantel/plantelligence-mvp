@@ -47,6 +47,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { LargeHorizontalCard } from "@/components/pages/my-benefits-team/large-horizontal-card";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { PrimaryContactCard } from "@/components/pages/my-benefits-team/primary-contact-card";
+import { ContactCategoryBadge } from "@/components/ui/contact-category-badge";
 
 interface NewClientStep3dProps {
   errorFields?: string[];
@@ -298,16 +299,16 @@ function RenderCardBySlot({
     isPrimary: isPrimaryContact,
   };
 
-  // Category badge for the card (suppressed in header mode to avoid overlapping card content)
+  // Category badge for the card (suppressed in header mode to avoid overlapping card content).
+  // One category is named; several collapse to "Multiple Categories" with the full list on
+  // hover — see `ContactCategoryBadge`.
   const categoryBadge =
     !hideCategoryBadge && contact.categoryLabel ? (
       <div className="absolute top-2 right-2 z-10">
-        <Badge
-          variant="secondary"
-          className="text-[10px] px-2 py-0.5 font-medium bg-white/90 dark:bg-gray-800/90 border-gray-200 dark:border-gray-600 shadow-sm"
-        >
-          {contact.categoryLabel}
-        </Badge>
+        <ContactCategoryBadge
+          categories={contact.categoryList ?? [contact.categoryLabel]}
+          className="text-[10px] px-2 py-0.5 font-medium bg-white/90 dark:bg-gray-800/90 border-gray-200 dark:border-gray-600"
+        />
       </div>
     ) : null;
 
@@ -820,24 +821,26 @@ export function NewClientStep3d({
         return "Other";
       };
 
-      const rawBenefitsCategory =
-        contact.benefitsCategories?.[0] || contact.benefitsCategory || "Other";
+      const contactCategoryList: string[] =
+        Array.isArray(contact.benefitsCategories) &&
+        contact.benefitsCategories.length > 0
+          ? contact.benefitsCategories
+          : contact.benefitsCategory
+          ? [contact.benefitsCategory]
+          : [];
 
-      // Display-friendly label for the category badge
+      const rawBenefitsCategory = contactCategoryList[0] || "Other";
+
+      // Display-friendly label for the category badge. EVERY category the person serves is
+      // shown, joined by a middle dot ("Retirement · Group Health · Group Life"): one
+      // contact row can cover several categories (see `coalesceKeyContactsByPerson`), and
+      // this badge is the only place the preview says which hub(s) they speak for.
+      const displayCategory = (value: string): string =>
+        value === "Third Party Contact" ? "External HR / Administrator" : value;
       const categoryLabel =
-        rawBenefitsCategory === "Group Health"
-          ? "Group Health"
-          : rawBenefitsCategory === "Group Life"
-          ? "Group Life"
-          : rawBenefitsCategory === "Retirement"
-          ? "Retirement"
-          : rawBenefitsCategory === "Other Benefits"
-          ? "Other Benefits"
-          : rawBenefitsCategory === "Company / Plan Sponsor"
-          ? "Company / Plan Sponsor"
-          : rawBenefitsCategory === "Third Party Contact"
-          ? "External HR / Administrator"
-          : rawBenefitsCategory || "Other";
+        Array.from(
+          new Set(contactCategoryList.map(displayCategory).filter(Boolean)),
+        ).join(" · ") || "Other";
 
       return {
         id: contact.id,
@@ -872,6 +875,11 @@ export function NewClientStep3d({
         benefitsCategory: mapBenefitsCategory(rawBenefitsCategory),
         benefitsCategoryOther: contact.benefitsCategoryOther,
         categoryLabel,
+        // The badge collapses several categories to "Multiple Categories" and lists them
+        // on hover, so the card needs the list, not just the joined string.
+        categoryList: Array.from(
+          new Set(contactCategoryList.map(displayCategory).filter(Boolean)),
+        ),
         companyName:
           rawBenefitsCategory === "Company / Plan Sponsor"
             ? contact.companyName || companyName
@@ -1398,12 +1406,10 @@ export function NewClientStep3d({
             headerMode={previewMode === "mobile"}
             header={
               previewMode === "mobile" && contact.categoryLabel ? (
-                <Badge
-                  variant="secondary"
-                  className="text-[10px] px-2 py-0.5 font-medium bg-white/90 dark:bg-gray-800/90 border-gray-200 dark:border-gray-600 shadow-sm"
-                >
-                  {contact.categoryLabel}
-                </Badge>
+                <ContactCategoryBadge
+                  categories={contact.categoryList ?? [contact.categoryLabel]}
+                  className="text-[10px] px-2 py-0.5 font-medium bg-white/90 dark:bg-gray-800/90 border-gray-200 dark:border-gray-600"
+                />
               ) : undefined
             }
           >

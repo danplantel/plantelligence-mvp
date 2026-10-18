@@ -3,6 +3,7 @@
 import { PrimaryContactCard } from "@/components/pages/my-benefits-team/primary-contact-card";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { getContactCategories } from "@/lib/portal-category-visibility";
+import { canonicalContactCategory } from "@/lib/benefit-contacts";
 
 /**
  * Where the card is being rendered. The client wants the same contact to appear
@@ -36,17 +37,24 @@ export interface BenefitContactCardProps {
 }
 
 /**
- * The benefit category (or categories) a contact serves, as a card label — e.g.
- * "Retirement", "Group Health · Group Life", "Company / Plan Sponsor".
+ * The benefit categories a contact serves, as card labels — e.g. ["Retirement"] or
+ * ["Retirement", "Group Health", "Group Life"].
  *
  * `getContactCategories` is the same resolver the portal's visibility filter and the
  * benefit hubs use, so it already folds the stored spellings onto the canonical hub
- * names ("Health Insurance" → "Group Health"); the tag therefore names the hub the
- * employee actually sees that contact under. Empty for a contact with no category
- * (e.g. a plan-wide / External HR row), which is what makes the tag optional.
+ * names ("Health Insurance" → "Group Health"); `canonicalContactCategory` then turns the
+ * visibility key "Other" back into the contact-facing "Other Benefits". Empty for a
+ * contact with no category (e.g. a plan-wide / External HR row), which is what makes the
+ * tag optional.
  */
-function benefitCategoryLabel(contact: Record<string, any>): string {
-  return getContactCategories(contact).filter(Boolean).join(" · ");
+function benefitCategoryList(contact: Record<string, any>): string[] {
+  return Array.from(
+    new Set(
+      getContactCategories(contact)
+        .map((category) => canonicalContactCategory(String(category)))
+        .filter(Boolean),
+    ),
+  );
 }
 
 /**
@@ -76,7 +84,10 @@ export function BenefitContactCard({
   // My Benefits Team mixes contacts from every benefit on one page, so each card is
   // tagged with the benefit its contact speaks for. The category pages ARE one
   // benefit, so the tag would only repeat the page it sits on and is skipped there.
-  const categoryLabel = placement === "team" ? benefitCategoryLabel(contact) : "";
+  // The list (not just the joined string) travels with the card so several categories
+  // can collapse to "Multiple Categories" with the full list on hover.
+  const categoryList = placement === "team" ? benefitCategoryList(contact) : [];
+  const categoryLabel = categoryList.join(" · ");
 
   if (asPrimary) {
     return (
@@ -89,6 +100,7 @@ export function BenefitContactCard({
         baselineBackgroundColor={baselineBackgroundColor}
         compact={isCompact}
         categoryLabel={categoryLabel}
+        categoryList={categoryList}
       />
     );
   }
@@ -105,6 +117,7 @@ export function BenefitContactCard({
       baselineBackgroundColor={baselineBackgroundColor}
       compact={isCompact}
       categoryLabel={categoryLabel}
+      categoryList={categoryList}
     />
   );
 }

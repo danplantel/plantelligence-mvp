@@ -16,6 +16,7 @@ import {
 } from "@/lib/phone-utils";
 import { withContactFormAvatar } from "@/lib/url-utils";
 import { resolveContactFormUrl } from "@/lib/contact-form-link";
+import { ContactCategoryBadge } from "@/components/ui/contact-category-badge";
 
 interface Contact {
   id?: string | number;
@@ -98,6 +99,13 @@ interface SmallVerticalCardProps {
    * page already names the benefit.
    */
   categoryLabel?: string;
+  /**
+   * Every category the contact serves. When more than one is supplied the tag reads
+   * "Multiple Categories" and lists them on hover, rather than stretching the card to
+   * fit every name. `categoryLabel` is still honoured for callers that only have the
+   * joined string.
+   */
+  categoryList?: string[];
 }
 
 export function SmallVerticalCard({
@@ -115,7 +123,14 @@ export function SmallVerticalCard({
   previewPlaceholders = false,
   disableContactFormButton = false,
   categoryLabel,
+  categoryList,
 }: SmallVerticalCardProps) {
+  const categoryListValues =
+    categoryList && categoryList.length > 0
+      ? categoryList
+      : categoryLabel
+      ? [categoryLabel]
+      : [];
   const isPrimary = contact.isPrimary || false;
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
   const effectiveSecondaryColor = contact.cardSecondaryColor || secondaryColor;
@@ -317,15 +332,12 @@ export function SmallVerticalCard({
       >
         <div className="flex flex-col items-center flex-1 w-full">
           {/* BENEFIT CATEGORY TAG — sits above the logo bar so it reads as the top
-              of the card. Rendered only when the caller supplies a label. */}
-          {categoryLabel && (
-            <span
-              className="mb-2 inline-flex max-w-full items-center truncate rounded-full border border-black/5 bg-white/90 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600 shadow-sm"
-              title={categoryLabel}
-            >
-              {categoryLabel}
-            </span>
-          )}
+              of the card. One category is named; several collapse to "Multiple
+              Categories" with the list on hover. */}
+          <ContactCategoryBadge
+            categories={categoryListValues}
+            className="mb-2"
+          />
           {/* COMPANY LOGO BAR — Team/Support Line contacts show their Company
               Logo here, with the support-line icon in the circular avatar slot
               below (positions swapped). */}
@@ -670,14 +682,7 @@ export function SmallVerticalCard({
     >
       <div className="flex flex-col items-center flex-1 w-full">
         {/* BENEFIT CATEGORY TAG — see the comment on the non-animated variant above. */}
-        {categoryLabel && (
-          <span
-            className="mb-2 inline-flex max-w-full items-center truncate rounded-full border border-black/5 bg-white/90 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600 shadow-sm"
-            title={categoryLabel}
-          >
-            {categoryLabel}
-          </span>
-        )}
+        <ContactCategoryBadge categories={categoryListValues} className="mb-2" />
         {/* COMPANY LOGO BAR — Team/Support Line contacts show their Company Logo
             here, with the support-line icon in the circular avatar slot below
             (positions swapped). */}
