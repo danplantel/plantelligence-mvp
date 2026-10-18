@@ -9,8 +9,8 @@
  *    is captured early by [`lib/pwa/install-prompt`](../../../lib/pwa/install-prompt.ts) and calling
  *    `prompt()` hands the user straight into the native install dialog.
  *  - **iOS** — there is no install API. Tapping Download opens a modal with the Safari
- *    Share → Add to Home Screen steps (and says so when the reader is in Chrome/Firefox/Edge on
- *    iOS, where adding to the home screen is impossible).
+ *    Share → View More → Add to Home Screen steps (and says so when the reader is in
+ *    Chrome/Firefox/Edge on iOS, where adding to the home screen is impossible).
  *  - **Anything else without a prompt** — a modal with the browser-menu steps, so the button never
  *    silently does nothing.
  *
@@ -21,12 +21,19 @@
  * Dismissal is remembered per plan in localStorage, the prompt hides itself once the app is running
  * standalone, and it is rendered OUTSIDE `PortalCommentsZoom` so the Comments preview cannot scale
  * or scroll it away.
+ *
+ * On iOS and Android its distance from the bottom edge is not constant: both browsers retract their
+ * bottom toolbar while the reader scrolls down, at which point the layout viewport reaches into the
+ * home-indicator strip and the pill's rounded corners would sit outside the safe zone. It lifts by
+ * 1rem for the duration of a downward scroll and settles back when the reader scrolls up, which is
+ * when the toolbar is on screen again.
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, usePathname } from "next/navigation";
 import {
   CheckCircle2,
+  ChevronDown,
   Download,
   Loader2,
   MoreVertical,
@@ -60,6 +67,7 @@ const MANIFEST_PATH = "/api/pwa/manifest";
 
 export function PortalInstallApp() {
   const params = useParams<{ id?: string }>();
+  const pathname = usePathname();
   const slug = typeof params?.id === "string" ? params.id : "";
   const { clientData } = useClientPortal();
   const appName = (clientData?.companyName || "").trim() || "PlanTelligence";
@@ -75,6 +83,11 @@ export function PortalInstallApp() {
   );
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Safari (and Chrome on Android) collapse their bottom toolbar while the reader scrolls DOWN,
+  // which hands the layout viewport the home-indicator strip. The pill's rounded corners then sit
+  // partly outside the safe zone. Scroll UP brings the toolbar back and the same offset is correct
+  // again, so the lift follows the scroll direction rather than being permanently larger.
+  const [liftedForBrowserChrome, setLiftedForBrowserChrome] = useState(false);
 
   // Point the manifest at THIS plan. The root layout links the manifest route so the browser always
   // has one; the slug and name make the installed app start at this portal and carry its name.
@@ -152,6 +165,41 @@ export function PortalInstallApp() {
     return () => window.removeEventListener("appinstalled", onInstalled);
   }, []);
 
+  // Follow the scroll direction on the platforms whose bottom chrome retracts. Desktop browsers
+  // have no retracting toolbar, so the pill keeps a constant offset there and never bobs.
+  useEffect(() => {
+    // A new page starts at the top with the toolbar visible, so start settled.
+    setLiftedForBrowserChrome(false);
+
+    const mobileBrowser =
+      Boolean(environment?.isIOS) || Boolean(environment?.isAndroid);
+    if (!mobileBrowser) return;
+
+    let lastY = window.scrollY;
+    let frame = 0;
+
+    const update = () => {
+      frame = 0;
+      const y = window.scrollY;
+      const delta = y - lastY;
+      // Ignore sub-pixel jitter and the rubber-band bounce at the top of the document.
+      if (Math.abs(delta) < 4) return;
+      lastY = y;
+      setLiftedForBrowserChrome(delta > 0 && y > 24);
+    };
+
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(update);
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, [environment, pathname]);
+
   const dismiss = useCallback(() => {
     setDismissed(true);
     if (!slug) return;
@@ -192,23 +240,27 @@ export function PortalInstallApp() {
       {visible && (
         <div
           // `right` rather than `inset-x-0`: while the Comments rail is open, the prompt centres in
-          // the space that is left instead of sliding under the panel.
-          className="pointer-events-none fixed bottom-3 left-0 z-40 flex justify-center px-3 print:hidden"
-          style={{ right: "var(--comments-inset, 0px)" }}
+          // the space that is left instead of sliding under the panel. `bottom` is inline because
+          // it lifts by 1rem while a mobile browser's bottom toolbar is retracted.
+          className="pointer-events-none fixed left-0 z-40 flex justify-center px-3 print:hidden"
+          style={{
+            right: "var(--comments-inset, 0px)",
+            bottom: liftedForBrowserChrome
+              ? "calc(0.75rem + 1rem)"
+              : "0.75rem",
+            transition: "bottom 180ms ease-out",
+          }}
         >
-          <div className="pointer-events-auto flex w-full max-w-md items-center gap-2 rounded-2xl border border-black/5 bg-white/95 p-2 pl-3 shadow-[0_10px_35px_rgba(15,23,42,0.18)] backdrop-blur sm:w-auto sm:rounded-full">
+          <div className="pointer-events-auto flex w-full max-w-lg items-center gap-2 rounded-2xl border border-black/5 bg-white/95 p-2 pl-3 shadow-[0_10px_35px_rgba(15,23,42,0.18)] backdrop-blur sm:w-auto sm:rounded-full">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1F3A60]/10">
               <Smartphone className="h-4 w-4 text-[#1F3A60]" aria-hidden="true" />
             </span>
 
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-gray-900">
-                {`Get the ${appName} app`}
-              </p>
-              <p className="truncate text-[11px] text-gray-500">
-                Add your benefits portal to your home screen.
-              </p>
-            </div>
+            {/* One title, allowed to wrap onto a second line. No truncate/line-clamp: a clipped
+                call-to-action ("Get the Ayres Hot…") is worse than a taller pill. */}
+            <p className="min-w-0 flex-1 text-sm font-semibold leading-snug text-gray-900">
+              {`Get the ${appName} app — your benefits portal, one tap away.`}
+            </p>
 
             <Button
               type="button"
@@ -259,19 +311,26 @@ export function PortalInstallApp() {
               <ol className="space-y-4">
                 <InstructionStep
                   index={1}
+                  icon={ChevronDown}
+                  title="Tap View More"
+                >
+                  {"Tap the “View More” button — the downward arrow — to show every option in the Share Sheet."}
+                </InstructionStep>
+                <InstructionStep
+                  index={2}
                   icon={Share}
                   title="Tap the Share button"
                 >
                   {"In Safari’s toolbar, tap the Share icon — the square with an arrow pointing up."}
                 </InstructionStep>
                 <InstructionStep
-                  index={2}
+                  index={3}
                   icon={SquarePlus}
                   title="Add to Home Screen"
                 >
-                  {"Scroll the share sheet and tap “Add to Home Screen”."}
+                  {"In the Share Sheet, tap “Add to Home Screen”."}
                 </InstructionStep>
-                <InstructionStep index={3} icon={CheckCircle2} title="Tap Add">
+                <InstructionStep index={4} icon={CheckCircle2} title="Tap Add">
                   {"The portal appears on your home screen and opens full screen, just like an app."}
                 </InstructionStep>
               </ol>
