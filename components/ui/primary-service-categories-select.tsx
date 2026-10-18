@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, useCallback, useState } from "react";
+import { useCallback, useState } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { PRIMARY_SERVICE_CATEGORY_OPTIONS } from "@/lib/service-categories";
 
@@ -21,8 +21,9 @@ interface PrimaryServiceCategoriesSelectProps {
   /** Paint a red validation outline around the group. */
   destructive?: boolean;
   /**
-   * An extra control that selects or clears several options at once, rendered immediately after
-   * the LAST value it covers.
+   * An extra control that selects or clears several options at once, rendered FIRST — above the
+   * option list — so it reads as one answer to "which categories do you offer" rather than a
+   * footnote under the list.
    *
    * It is deliberately NOT a category: it stores nothing of its own, and its own tick is derived
    * from the values it covers. Two reasons that matters:
@@ -34,11 +35,12 @@ interface PrimaryServiceCategoriesSelectProps {
    *    must never see it.
    *
    * Callers name the values, so the control cannot claim to cover something it does not — and
-   * `values` is expected to exclude anything the caller wants left alone.
+   * `values` is expected to exclude anything the caller wants left alone (typically "Other",
+   * whose text field must not be silently required by a blanket selection).
    */
   selectAll?: {
     label: string;
-    /** The option values it sets and clears. It renders after the last of them. */
+    /** The option values it sets and clears. */
     values: string[];
   };
 }
@@ -100,8 +102,6 @@ export function PrimaryServiceCategoriesSelect({
     onSelectionChange([...next]);
   };
 
-  const lastSelectAllValue = selectAllValues[selectAllValues.length - 1];
-
   const handleCheckboxChange = useCallback((option: string, checked: boolean | "indeterminate") => {
     // Handle indeterminate state as unchecked
     const isChecked = checked === true;
@@ -130,53 +130,50 @@ export function PrimaryServiceCategoriesSelect({
         <label className="block font-medium text-sm">{label}</label>
       )}
       <div className="space-y-2">
+        {/* First, so the convenience answer reads before the categories it covers. It sets and
+            clears only the values the caller named, which is how "Other" stays out of a blanket
+            selection without anyone having to remember to exclude it. */}
+        {selectAll != null ? (
+          <div className="flex items-center space-x-2">
+            <Checkbox
+              id="category-select-all"
+              checked={selectAllChecked}
+              onCheckedChange={handleSelectAllChange}
+              disabled={disabled}
+            />
+            <label
+              htmlFor="category-select-all"
+              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+            >
+              {selectAll.label}{" "}
+              <span className="font-normal text-muted-foreground">
+                {'(Manages all benefits)'}
+              </span>
+            </label>
+          </div>
+        ) : null}
         {options.map((option) => {
           const isSelected = selectedValues.includes(option);
           const isAtMaxAndNotSelected =
             selectedValues.length >= maxSelections && !isSelected;
 
           return (
-            <Fragment key={option}>
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id={`category-${option}`}
-                  checked={isSelected}
-                  onCheckedChange={(checked) =>
-                    handleCheckboxChange(option, checked)
-                  }
-                  disabled={disabled || isAtMaxAndNotSelected}
-                />
-                <label
-                  htmlFor={`category-${option}`}
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                >
-                  {option}
-                </label>
-              </div>
-
-              {/* Rendered after the last value it covers, so what it selects is always the set of
-                  options directly above it — and never a later one, which is how "Other" stays out
-                  of a blanket selection without anyone having to remember to exclude it. */}
-              {selectAll != null && option === lastSelectAllValue ? (
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="category-select-all"
-                    checked={selectAllChecked}
-                    onCheckedChange={handleSelectAllChange}
-                    disabled={disabled}
-                  />
-                  <label
-                    htmlFor="category-select-all"
-                    className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
-                  >
-                    {selectAll.label}{" "}
-                    <span className="font-normal text-muted-foreground">
-                      (selects the categories above)
-                    </span>
-                  </label>
-                </div>
-              ) : null}
-            </Fragment>
+            <div key={option} className="flex items-center space-x-2">
+              <Checkbox
+                id={`category-${option}`}
+                checked={isSelected}
+                onCheckedChange={(checked) =>
+                  handleCheckboxChange(option, checked)
+                }
+                disabled={disabled || isAtMaxAndNotSelected}
+              />
+              <label
+                htmlFor={`category-${option}`}
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                {option}
+              </label>
+            </div>
           );
         })}
       </div>
