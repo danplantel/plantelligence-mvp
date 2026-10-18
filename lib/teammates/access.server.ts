@@ -138,7 +138,7 @@ export type PlanAccessResult = PlanAccessGrant | PlanAccessDenial;
  * map onto the canonical categories. Without this, an assignment scoped to
  * "Company / Plan Sponsor" would wrongly deny a request for "Custom".
  */
-function normalizeCategory(category: string): string {
+export function normalizeCategory(category: string): string {
   const value = (category ?? "").trim().toLowerCase().replace(/\s+/g, " ");
   if (value === "custom") return "company / plan sponsor";
   if (value === "health insurance") return "group health";

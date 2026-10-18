@@ -204,6 +204,28 @@ export interface AssignableUser {
 }
 
 /**
+ * One person on a comments surface's TEAM roster (`/comments/team`).
+ *
+ * Unlike `AssignableUser` this is a read of the surface's MEMBERSHIP rather than of who may
+ * receive work. It therefore includes people whose invitation has not been accepted yet
+ * (`state: "invited"`, `userId: null`) and carries the assignment's category scope — the rail's
+ * Team dialog answers "who works on this benefit?", which is a wider question than the assign
+ * dialog's "who can I hand this to?".
+ */
+export interface SurfaceTeamMember {
+  /** The person's login. Null for a pending invite or a stored contact — no profile to open. */
+  userId: string | null;
+  name: string;
+  email: string;
+  headshot: string | null;
+  kind: AssignableStanding;
+  /** `TeammateProfile.state`: "active" | "invited" | "contact". */
+  state: string;
+  /** `"all"`, or the category labels this person's assignment covers. */
+  categories: "all" | string[];
+}
+
+/**
  * A task's live state, as a comment card shows it.
  *
  * Deliberately a projection of `Task` rather than the row: the card needs to name the work, who

@@ -15,9 +15,11 @@ import prisma from "@/lib/prisma";
 import {
   isOwnerOrAdminOfOrganization,
   listAccessiblePlanIds,
+  normalizeCategory,
   parseR2Key,
   resolvePlanAccess,
 } from "@/lib/teammates/access.server";
+import { listPlanAssignments } from "@/lib/teammates/invites.server";
 import { listManualTasks } from "@/lib/dashboard-tasks.server";
 import {
   issueDestination,
@@ -52,6 +54,7 @@ import {
   type CommentTypingByThread,
   type CommentTypingPerson,
   type MentionableUser,
+  type SurfaceTeamMember,
 } from "./types";
 
 const NO_ACCESS = "You don't have access to this plan.";
@@ -625,6 +628,140 @@ export async function listAssignableUsers(input: {
     });
   }
   return assignable;
+}
+
+/**
+ * The TEAM behind a comments surface — everyone who works on this plan, or on this benefit.
+ *
+ * This is a wider read than `listAssignableUsers` on purpose: the rail's Team dialog answers
+ * "who is on this benefit?", not "who may I hand work to?". It merges two sources:
+ *
+ *  1. `listMentionableUsers` — the owner plus the organization's ACTIVE team members and
+ *     collaborators who can open this plan (and this category, for a benefit). That is the same
+ *     access-filtered list the @mention picker uses, so a person shown here can genuinely open the
+ *     surface.
+ *  2. `listPlanAssignments` — EVERY assignment on the plan, including invitations that have not
+ *     been accepted yet. Those people are deliberately absent from the mentionable list (it needs a
+ *     login), but they are exactly the collaborators an advisor sees on the benefit's Contacts tab —
+ *     which is why the roster looked empty while a pending collaborator was plainly listed there.
+ *
+ * The two are merged by email (a person can appear in both) and labelled with the assignment's
+ * category scope, so the dialog can distinguish a pending invite from an active member. The caller's
+ * own view access is checked first, through the same `resolveCommentAccess` every comment read uses.
+ */
+export async function listSurfaceTeam(input: {
+  organizationId: string;
+  userId: string;
+  clientIdOrSlug: string;
+  targetType: CommentTargetType;
+  /** Real category, for a benefit surface. */
+  category?: string | null;
+}): Promise<SurfaceTeamMember[]> {
+  const category =
+    input.targetType === "benefit" ? (input.category ?? null) : null;
+  const access = await resolveCommentAccess({
+    userId: input.userId,
+    clientIdOrSlug: input.clientIdOrSlug,
+    category,
+  });
+
+  const [mentionable, assignments] = await Promise.all([
+    listMentionableUsers({
+      organizationId: input.organizationId,
+      clientIdOrSlug: access.clientId,
+      category,
+    }),
+    listPlanAssignments({
+      organizationId: input.organizationId,
+      clientId: access.clientId,
+    }),
+  ]);
+
+  // The assignment that puts each person on this surface, keyed by email so a mentionable person
+  // (who has a login) inherits the scope of the very assignment that gave them access.
+  const wanted = category ? normalizeCategory(category) : null;
+  const matchesSurface = (row: {
+    categoryScope: string;
+    categories: string[];
+  }) =>
+    !wanted ||
+    row.categoryScope === "all" ||
+    row.categories.some((value) => normalizeCategory(value) === wanted);
+
+  const assignmentByEmail = new Map(
+    assignments
+      .filter((row) => !row.deactivatedAt && matchesSurface(row))
+      .map((row) => [row.email.trim().toLowerCase(), row]),
+  );
+
+  const identities = await loadPersonIdentities({
+    organizationId: input.organizationId,
+    userIds: mentionable.map((person) => person.userId),
+  });
+
+  const seen = new Set<string>();
+  const team: SurfaceTeamMember[] = [];
+  const add = (member: SurfaceTeamMember) => {
+    const key = member.email.trim().toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    team.push(member);
+  };
+
+  // 1. Everyone the access-filtered list offers. Standing comes from the shared identity resolver,
+  //    exactly as it does for the assign picker.
+  for (const person of mentionable) {
+    const identity = identities.get(person.userId);
+    const assignment = assignmentByEmail.get(
+      person.email.trim().toLowerCase(),
+    );
+    add({
+      userId: person.userId,
+      name: person.name,
+      email: person.email,
+      headshot: person.headshot,
+      kind: identity?.isOrganizationOwner
+        ? "owner"
+        : identity?.seatType === "team_member"
+          ? "team_member"
+          : "collaborator",
+      state: "active",
+      categories:
+        assignment?.categoryScope === "all"
+          ? "all"
+          : (assignment?.categories ?? []),
+    });
+  }
+
+  // 2. Assignment rows with no login yet — pending invitations, and stored contacts that were
+  //    given a plan scope. They belong on the roster; they simply cannot be opened as profiles.
+  for (const assignment of assignments) {
+    if (assignment.deactivatedAt || !matchesSurface(assignment)) continue;
+    add({
+      userId: assignment.loginUserId,
+      name: assignment.name,
+      email: assignment.email,
+      headshot: assignment.headshot,
+      kind:
+        assignment.personType === "team_member"
+          ? "team_member"
+          : "collaborator",
+      state: assignment.state,
+      categories:
+        assignment.categoryScope === "all" ? "all" : assignment.categories,
+    });
+  }
+
+  // Owner first, then team members, then collaborators; alphabetical inside each group.
+  const rank: Record<AssignableStanding, number> = {
+    owner: 0,
+    team_member: 1,
+    collaborator: 2,
+  };
+  team.sort(
+    (a, b) => rank[a.kind] - rank[b.kind] || a.name.localeCompare(b.name),
+  );
+  return team;
 }
 
 /**

@@ -14,6 +14,7 @@ import {
   Paperclip,
   RotateCcw,
   Trash2,
+  Users,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -52,6 +53,7 @@ import { CommentAttachmentModal } from "./comment-attachment-modal";
 import { CommentComposer } from "./comment-composer";
 import { CommentTaskCard } from "./comment-task-card";
 import { AssignTaskDialog } from "./assign-task-dialog";
+import { TeamMembersDialog } from "./team-members-dialog";
 import { UserProfileProvider, useUserProfile } from "./user-profile-context";
 import { AttachmentThumbnail } from "./attachment-thumbnail";
 
@@ -820,6 +822,8 @@ function CommentsPanel() {
   const [scrollSignal, setScrollSignal] = useState(0);
   /** The assign dialog, mounted only once a moderator actually asks for it. */
   const [assignOpen, setAssignOpen] = useState(false);
+  /** The surface's roster (team members + collaborators), opened on demand. */
+  const [teamOpen, setTeamOpen] = useState(false);
 
   /**
    * The typing signals that SURVIVED their own authors' messages.
@@ -1004,24 +1008,50 @@ function CommentsPanel() {
         </div>
       ) : null}
 
-      {/* Assign, on the MAIN panel rather than inside a thread. What is being handed over is the
-          WORK, not a conversation — so the reader can ask for it before any thread exists, and the
-          assignment creates the thread it lands in. Owner/Admin only, the same `canModerate` the
-          server refuses on, and rendered in both views so it never disappears mid-task. */}
-      {canModerate ? (
-        <div className="flex shrink-0 items-center justify-end border-b border-border px-3 py-1.5">
+      {/* Panel actions, in one row: the surface's roster on the LEFT, assignment on the RIGHT.
+          The roster is available to every reader who can open the rail (the mentionable read is
+          the same one the @mention picker uses), while assignment stays Owner/Admin only — the
+          same `canModerate` the server refuses on — and is rendered in both views so it never
+          disappears mid-task. What is being handed over is the WORK, not a conversation, so the
+          reader can ask for it before any thread exists; the assignment creates the thread it
+          lands in. */}
+      <div className="flex shrink-0 items-center justify-start gap-2 border-b border-border px-3 py-1.5">
+        {/* Outline buttons rather than bare text: the row is a pair of actions, and the border +
+            surface make that legible at a glance. Both share the accent-blue hover wash and border
+            so they read as one control group — and sit side by side at the start of the row. */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 rounded-full px-3 text-xs font-medium text-foreground hover:bg-accent-blue/5 hover:text-accent-blue"
+          onClick={() => setTeamOpen(true)}
+          title="See the team members and collaborators who work on this surface"
+        >
+          <Users className="h-3.5 w-3.5" />
+          Team
+        </Button>
+        {canModerate ? (
           <Button
-            variant="ghost"
+            variant="outline"
             size="sm"
-            className="h-7 gap-1.5 rounded-full px-2.5 text-xs text-muted-foreground"
+            className="h-8 gap-1.5 rounded-full px-3 text-xs font-medium text-foreground hover:bg-accent-blue/5 hover:text-accent-blue"
             onClick={() => setAssignOpen(true)}
             title="Assign a task from this panel"
           >
             <ClipboardList className="h-3.5 w-3.5" />
             Assign Task
           </Button>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
+
+      {/* The surface's roster — the same team members and collaborators the @mention picker
+          offers, narrowed to this plan or benefit. */}
+      <TeamMembersDialog
+        open={teamOpen}
+        onOpenChange={setTeamOpen}
+        clientId={target?.clientId ?? ""}
+        targetType={target?.targetType ?? "plan"}
+        category={target?.category ?? null}
+      />
 
       {/* Drawn only when asked for, so a reader who cannot assign issues no request at all. */}
       <AssignTaskDialog

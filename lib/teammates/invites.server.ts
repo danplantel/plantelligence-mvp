@@ -674,6 +674,12 @@ export async function inviteCollaboratorToPlan(
 export interface PlanAssignmentRow {
   assignmentId: string;
   profileId: string;
+  /**
+   * The person's LOGIN, once they have accepted. Null while the invitation is still pending
+   * (or for a stored contact), which is what lets a roster show the person without pretending
+   * there is an account to open yet.
+   */
+  loginUserId: string | null;
   name: string;
   email: string;
   headshot: string | null;
@@ -761,6 +767,7 @@ export async function listPlanAssignments({
       {
         assignmentId: assignment.id,
         profileId: profile.id,
+        loginUserId: profile.loginUserId ?? null,
         name:
           [profile.firstName, profile.lastName].filter(Boolean).join(" ") ||
           profile.email,
