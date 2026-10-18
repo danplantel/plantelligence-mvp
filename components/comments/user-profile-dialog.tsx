@@ -5,9 +5,11 @@
  *
  * A reader clicks a colleague's name and gets the person: their picture and standing from the one
  * identity resolver every other surface uses, then the same facts Settings → Profile shows — title,
- * role, their email, the organization's shared email, phone and extension, and their designations.
- * A labelled grid rather than a paragraph, because a row with no label cannot say whether an address
- * belongs to the person or to the firm they work for.
+ * role, the organization's shared email, phone and extension, and their designations. The person's
+ * own login email is deliberately not listed: this card is the view the comments rail shows to
+ * teammates, and the address that belongs to the firm is the one that informs without exposing a
+ * private account. A labelled grid rather than a paragraph, because a row with no label cannot say
+ * whether an address belongs to the person or to the firm they work for.
  *
  * TWO RULES SHAPE THIS COMPONENT:
  *
@@ -134,7 +136,8 @@ export function UserProfileDialog({
     if (showRole && person.roleLabel) {
       details.push({ label: "Role", value: person.roleLabel });
     }
-    details.push({ label: "Email", value: person.email });
+    // The personal login address is intentionally omitted; only the organization's
+    // shared email is shown below.
     if (person.organizationEmail) {
       details.push({
         label: "Organization email",
