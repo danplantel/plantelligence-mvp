@@ -27,6 +27,10 @@
  * dashboard would, reads and writes the same routes, and is refused by the same
  * `resolveCommentAccess`. No permission rule is re-implemented here, which is the point.
  *
+ * The chrome is the only thing this file adds beyond the gates: the portal is scaled down to the
+ * space the rail leaves (`PortalCommentsZoom`, header included) so the advisor reads the
+ * participant's actual screen instead of a page reflowed into a column it was never designed for.
+ *
  * The flag is read in an EFFECT rather than during render: the server cannot know it, and reading
  * `window.location` while rendering would make the client's first paint disagree with the server's
  * markup — a hydration mismatch for a panel that is a nicety.

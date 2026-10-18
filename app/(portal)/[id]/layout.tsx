@@ -14,6 +14,7 @@ import {
   type CommentSurfaceInput,
 } from "@/components/comments/comment-mode-provider";
 import { PortalCommentsRail } from "@/components/comments/portal-comments-rail";
+import { PortalCommentsZoom } from "@/components/comments/portal-comments-zoom";
 import { portalCommentsSurface } from "@/lib/comments/portal-surface";
 import { Button } from "@/components/ui/button";
 import { PortalPopUpOverlay } from "@/components/pages/client-portal/sections/portal-popup-overlay";
@@ -457,6 +458,8 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
         // portal-comments-rail.tsx). It sits on the ROOT so one declaration covers the page content
         // and the footer. Absent — the common case — this resolves to 0px and the portal is exactly
         // as it was. The FIXED header cannot inherit it and clears the column itself, below.
+        // While the rail is open this resolves to 0px too: `PortalCommentsZoom` scales the whole
+        // portal instead and overrides the variable inside its subtree (portal-comments-zoom.tsx).
         paddingRight: "var(--comments-inset, 0px)",
       }}
     >
@@ -610,9 +613,14 @@ export default function ClientViewLayout({
     <ClientPortalProvider>
       {/* Arm the Comments rail. The provider renders its children untouched unless the link asked
           for the rail AND the visitor is a signed-in advisor on a desktop — so a participant, and
-          anyone opening a plain portal link, gets exactly the portal that existed before this. */}
+          anyone opening a plain portal link, gets exactly the portal that existed before this.
+          Inside it, `PortalCommentsZoom` scales the portal (header included) down while the rail is
+          open, so the page reads as the participant's screen rather than reflowing into the
+          remaining column. Both are no-ops when the rail is not armed. */}
       <PortalCommentsRail>
-        <ClientViewLayoutContent>{children}</ClientViewLayoutContent>
+        <PortalCommentsZoom>
+          <ClientViewLayoutContent>{children}</ClientViewLayoutContent>
+        </PortalCommentsZoom>
       </PortalCommentsRail>
     </ClientPortalProvider>
   );
