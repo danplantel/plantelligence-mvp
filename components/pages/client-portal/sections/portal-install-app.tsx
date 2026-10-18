@@ -240,26 +240,32 @@ export function PortalInstallApp() {
       {visible && (
         <div
           // `right` rather than `inset-x-0`: while the Comments rail is open, the prompt centres in
-          // the space that is left instead of sliding under the panel. `bottom` is inline because
-          // it lifts by 1rem while a mobile browser's bottom toolbar is retracted.
-          className="pointer-events-none fixed left-0 z-40 flex justify-center px-3 print:hidden"
-          style={{
-            right: "var(--comments-inset, 0px)",
-            bottom: liftedForBrowserChrome
-              ? "calc(0.75rem + 1rem)"
-              : "0.75rem",
-            transition: "bottom 180ms ease-out",
-          }}
+          // the space that is left instead of sliding under the panel.
+          //
+          // The wrapper is anchored at `bottom-0` with its own `pb-3`, and the lift is a
+          // TRANSFORM on the pill rather than a change to `bottom`. That keeps every box inside the
+          // viewport: nothing about this element is ever positioned outside the bottom edge, which
+          // is the shape iOS Safari needs to avoid folding the fixed element into the page's
+          // scrollable area and leaving blank space below the footer.
+          className="pointer-events-none fixed bottom-0 left-0 z-40 flex justify-center px-3 pb-3 print:hidden"
+          style={{ right: "var(--comments-inset, 0px)" }}
         >
-          <div className="pointer-events-auto flex w-full max-w-lg items-center gap-2 rounded-2xl border border-black/5 bg-white/95 p-2 pl-3 shadow-[0_10px_35px_rgba(15,23,42,0.18)] backdrop-blur sm:w-auto sm:rounded-full">
+          <div
+            className="pointer-events-auto flex w-full max-w-lg items-center gap-2 rounded-2xl border border-black/5 bg-white p-2 pl-3 shadow-[0_10px_35px_rgba(15,23,42,0.18)] transition-transform duration-200 ease-out sm:w-auto sm:rounded-full"
+            style={{
+              transform: liftedForBrowserChrome
+                ? "translateY(-1rem)"
+                : "translateY(0)",
+            }}
+          >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1F3A60]/10">
               <Smartphone className="h-4 w-4 text-[#1F3A60]" aria-hidden="true" />
             </span>
 
-            {/* One title, allowed to wrap onto a second line. No truncate/line-clamp: a clipped
-                call-to-action ("Get the Ayres Hot…") is worse than a taller pill. */}
-            <p className="min-w-0 flex-1 text-sm font-semibold leading-snug text-gray-900">
-              {`Get the ${appName} app — your benefits portal, one tap away.`}
+            {/* One title capped at two lines. Kept short so it reads in full even beside the
+                button on a phone; `line-clamp-2` only bites on an unusually long company name. */}
+            <p className="line-clamp-2 min-w-0 flex-1 text-sm font-semibold leading-snug text-gray-900">
+              {`Get the ${appName} app`}
             </p>
 
             <Button
@@ -311,27 +317,24 @@ export function PortalInstallApp() {
               <ol className="space-y-4">
                 <InstructionStep
                   index={1}
-                  icon={ChevronDown}
-                  title="Tap View More"
-                >
-                  {"Tap the “View More” button — the downward arrow — to show every option in the Share Sheet."}
-                </InstructionStep>
-                <InstructionStep
-                  index={2}
                   icon={Share}
                   title="Tap the Share button"
                 >
                   {"In Safari’s toolbar, tap the Share icon — the square with an arrow pointing up."}
                 </InstructionStep>
                 <InstructionStep
+                  index={2}
+                  icon={ChevronDown}
+                  title="Tap View More"
+                >
+                  {"Tap the “View More” button — the downward arrow — to show every option in the Share Sheet."}
+                </InstructionStep>
+                <InstructionStep
                   index={3}
                   icon={SquarePlus}
                   title="Add to Home Screen"
                 >
-                  {"In the Share Sheet, tap “Add to Home Screen”."}
-                </InstructionStep>
-                <InstructionStep index={4} icon={CheckCircle2} title="Tap Add">
-                  {"The portal appears on your home screen and opens full screen, just like an app."}
+                  {"In the Share Sheet, tap “Add to Home Screen”, then tap “Add” to finish."}
                 </InstructionStep>
               </ol>
             </>

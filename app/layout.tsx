@@ -4,7 +4,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { PageTitleProvider } from "@/hooks/usePageTitleContext";
 import { LoadingProvider } from "@/contexts/loading-context";
 import "@uploadthing/react/styles.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope, Playfair_Display, Sora, Lora, Outfit } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -67,7 +67,6 @@ export const metadata: Metadata = {
   title: "PlanTelligence",
   description: "PlanTelligence - Your AI-Powered Financial Planning Assistant",
   applicationName: "PlanTelligence",
-  themeColor: "#1F3A60",
   /**
    * The web app manifest is served by a route handler so it can be resolved PER PLAN: on a portal
    * page it returns the plan's own name and `start_url` (derived from the portal's slug), which is
@@ -92,6 +91,14 @@ export const metadata: Metadata = {
       { url: "/pwa/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
     ],
   },
+};
+
+/**
+ * `themeColor` belongs to the viewport export (Next 14 warns when it is declared in `metadata`).
+ * It colours the browser/PWA chrome around the page rather than describing the document.
+ */
+export const viewport: Viewport = {
+  themeColor: "#1F3A60",
 };
 
 export default async function RootLayout({
