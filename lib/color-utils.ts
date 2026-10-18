@@ -389,3 +389,26 @@ export function luminance(hex: string): number {
 export function bestTextColor(background: string): "#FFFFFF" | "#000000" {
   return luminance(background) > 0.5 ? "#000000" : "#FFFFFF";
 }
+
+/**
+ * Text colour for a colour-painted surface the advisor can choose (the Disclosures footer
+ * preview).
+ *
+ * The rule is the one the editor states out loud: a LIGHT background takes dark text, and
+ * every dark or COLOURED background keeps white. That is deliberately not `bestTextColor`
+ * — that maximizes contrast, so a vivid yellow/amber brand colour would get black text
+ * even though the advisor picked it as a colour, not as a light surface.
+ *
+ * HSL lightness separates the two: near-white (white, off-white, pale grey) is light, while
+ * a saturated mid-tone is a colour. A very bright pastel still counts as a colour unless it
+ * is also close to neutral.
+ */
+export function lightSurfaceTextColor(background: string): "#FFFFFF" | "#000000" {
+  const color = safeChroma(background);
+  if (!color) return "#FFFFFF";
+  const lightness = color.get("hsl.l"); // 0..1
+  const saturation = color.get("hsl.s"); // 0..1
+  const isLight =
+    lightness >= 0.9 || (lightness >= 0.8 && saturation <= 0.25);
+  return isLight ? "#000000" : "#FFFFFF";
+}

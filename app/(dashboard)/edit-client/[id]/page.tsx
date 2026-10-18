@@ -180,7 +180,7 @@ import { BrandColorsSection } from "@/components/wizard/new-client-steps/section
 import { CardSelectionModal } from "@/components/ui/card-selection-modal";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
 import { uploadBrandingToR2 } from "@/lib/branding-r2";
-import { bestTextColor } from "@/lib/color-utils";
+import { lightSurfaceTextColor } from "@/lib/color-utils";
 import {
   getR2ObjectProxyUrl,
   toR2BrandingKey,
@@ -3553,11 +3553,12 @@ export default function EditClientPage() {
       : footerBgMode === "custom" && footerBgCustomColor.trim()
         ? footerBgCustomColor.trim()
         : companyData.primaryColor;
-  // The disclosure editor now sits INSIDE the footer, so its text has to stay readable on
-  // whatever background the colour controls above select. `bestTextColor` is the same
-  // luminance rule the marketing cards use; it falls back safely while a custom hex is
-  // still being typed.
-  const footerTextColor = bestTextColor(resolvedFooterBgColor);
+  // The disclosure editor now sits INSIDE the footer, so every line of it has to stay
+  // readable on whatever background the colour controls above select: a light background
+  // (white, off-white) takes dark text, while dark and coloured backgrounds keep white.
+  // `lightSurfaceTextColor` encodes exactly that rule and falls back safely while a custom
+  // hex is still being typed.
+  const footerTextColor = lightSurfaceTextColor(resolvedFooterBgColor);
 
   const persistFooterBg = useCallback(
     (mode: string, customColor: string) => {
@@ -5434,6 +5435,9 @@ export default function EditClientPage() {
                         brandColor: resolvedFooterBgColor,
                       }}
                       brandColor={resolvedFooterBgColor}
+                      // Light background → dark copy; dark/coloured → white. Every line of
+                      // the footer follows the colour controls above, not just the editor.
+                      textColor={footerTextColor}
                       disclosureNode={
                         <div className="space-y-2">
                           <Label

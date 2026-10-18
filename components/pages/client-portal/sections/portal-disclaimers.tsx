@@ -2,6 +2,7 @@
 
 import { Fragment, type ReactNode } from "react";
 import { appendDisclaimerCopyright } from "@/lib/disclaimer-constants";
+import { lightSurfaceTextColor } from "@/lib/color-utils";
 
 interface PortalDisclaimersProps {
   companyData?: {
@@ -10,6 +11,14 @@ interface PortalDisclaimersProps {
     brandColor?: string;
   };
   brandColor?: string;
+  /**
+   * Text colour for the footer's own copy.
+   *
+   * Defaults to `bestTextColor(brandColor)`: dark text on a light background, white on a
+   * dark or coloured one. The Edit Plan preview passes the live value so the footer reads
+   * correctly while the colour controls are being changed.
+   */
+  textColor?: string;
   onEdit?: () => void;
   /**
    * Render this INSTEAD of the resolved disclaimer paragraphs.
@@ -24,13 +33,18 @@ interface PortalDisclaimersProps {
 export function PortalDisclaimers({
   companyData,
   brandColor,
+  textColor,
   onEdit,
   disclosureNode,
 }: PortalDisclaimersProps) {
+  // Light background → dark text; dark or coloured background → white. The same rule the
+  // colour controls use, so every line of the footer adjusts together.
+  const resolvedTextColor =
+    textColor || lightSurfaceTextColor(brandColor || "#0D315F");
   return (
     <section
-      className="px-6 py-12 text-white relative"
-      style={{ background: brandColor }}
+      className="px-6 py-12 relative"
+      style={{ background: brandColor, color: resolvedTextColor }}
     >
       <div className="mx-auto max-w-[1400px] w-full px-4 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-3 gap-8 mb-8">
@@ -38,7 +52,10 @@ export function PortalDisclaimers({
             <h3 className="font-dm-serif text-xl font-bold mb-4">
               Benefits Hub
             </h3>
-            <p className="text-gray-300 text-sm leading-relaxed">
+            <p
+              className="text-sm leading-relaxed opacity-80"
+              style={{ color: resolvedTextColor }}
+            >
               Your trusted partner in navigating employee benefits, retirement
               planning, and financial wellness.
             </p>
@@ -47,38 +64,22 @@ export function PortalDisclaimers({
           <div>
             <h4 className="font-dm-serif font-semibold mb-4">Quick Links</h4>
             <ul className="space-y-2 text-sm">
-              <li>
-                <a
-                  href="#"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Benefits Overview
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Plan Materials
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Schedule Appointment
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Contact Support
-                </a>
-              </li>
+              {[
+                "Benefits Overview",
+                "Plan Materials",
+                "Schedule Appointment",
+                "Contact Support",
+              ].map((label) => (
+                <li key={label}>
+                  <a
+                    href="#"
+                    className="opacity-80 transition-opacity hover:opacity-100"
+                    style={{ color: resolvedTextColor }}
+                  >
+                    {label}
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -86,7 +87,10 @@ export function PortalDisclaimers({
             <h4 className="font-dm-serif font-semibold mb-4">
               Contact Information
             </h4>
-            <div className="text-sm text-gray-300 space-y-2">
+            <div
+              className="text-sm opacity-80 space-y-2"
+              style={{ color: resolvedTextColor }}
+            >
               <p>Phone: (305) 555-1122</p>
               <p>Email: support@benefitshub.com</p>
               <p>Hours: Mon-Fri 8AM-6PM EST</p>
@@ -95,7 +99,8 @@ export function PortalDisclaimers({
         </div>
 
         <div
-          className={`border-t border-white/20 pt-8 relative group ${onEdit ? "cursor-pointer" : ""}`}
+          className={`border-t pt-8 relative group ${onEdit ? "cursor-pointer" : ""}`}
+          style={{ borderColor: `${resolvedTextColor}33` }}
           onClick={onEdit}
         >
           {onEdit && (
@@ -123,11 +128,17 @@ export function PortalDisclaimers({
             {/* Dynamic Disclaimers Content — or the host's own editor, rendered in its
                 place so a page can embed an editable disclosure inside the real footer. */}
             {disclosureNode ? (
-              <div className="text-white text-xs leading-relaxed">
+              <div
+                className="text-xs leading-relaxed"
+                style={{ color: resolvedTextColor }}
+              >
                 {disclosureNode}
               </div>
             ) : (
-              <div className="space-y-4 text-white text-xs leading-relaxed">
+              <div
+                className="space-y-4 text-xs leading-relaxed"
+                style={{ color: resolvedTextColor }}
+              >
                 <strong>Disclosures:</strong>
 
                 {companyData?.disclaimers ? (
@@ -198,15 +209,18 @@ export function PortalDisclaimers({
 
             {/* Copyright */}
             <div className="text-center">
-              <p className="text-xs text-gray-400">
+              <p
+                className="text-xs opacity-70"
+                style={{ color: resolvedTextColor }}
+              >
                 © 2024{" "}
                 {companyData?.companyName || "Lighthouse Financial Advisors"}.
                 All rights reserved. |
-                <a href="#" className="hover:text-white ml-1">
+                <a href="#" className="ml-1 hover:opacity-100">
                   Privacy Policy
                 </a>{" "}
                 |
-                <a href="#" className="hover:text-white ml-1">
+                <a href="#" className="ml-1 hover:opacity-100">
                   Terms of Service
                 </a>{" "}
                 | Powered by PlanTelligence™
