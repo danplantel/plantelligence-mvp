@@ -503,7 +503,17 @@ export function BenefitsStep3({
    * contact already hold a seat or an invitation", which is exactly the rows removed here.
    */
   const planCollaborators = useMemo(
-    () => collaborators.filter((person) => person.personType !== "team_member"),
+    () =>
+      collaborators.filter(
+        (person) =>
+          person.personType !== "team_member" &&
+          // A Key Contact is NOT a Collaborator. The T7 contact mirror creates a
+          // `contact`-state profile (no login, no seat) and a Viewer assignment for the
+          // Benefits Hub to render from. `personType` alone would list that mirrored row
+          // here — which is why creating a Key Contact made them appear in this section.
+          // Invited/active collaborators still have `state: "invited" | "active"`.
+          person.state !== "contact",
+      ),
     [collaborators],
   );
 

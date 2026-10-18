@@ -55,6 +55,12 @@ interface BenefitRow {
   visibilityKey: string;
   title: string;
   partnerLogo: string | null;
+  /**
+   * The plan's Key Contact for this category, resolved by `/api/benefits` from the
+   * plan's authored `keyContacts`. Present even when `exists` is false, so a section
+   * can name the person who owns it before its benefit page is built.
+   */
+  keyContact?: { id: string; name: string; headshot: string | null } | null;
   isEnabled: boolean;
   exists: boolean;
   planVisibility: Record<string, boolean>;
@@ -78,6 +84,8 @@ interface PlanAssignmentRow {
   role: string;
   categoryScope: "all" | "selected";
   categories: string[];
+  /** `contact` for a Key Contact mirrored onto the plan; `invited`/`active` otherwise. */
+  state?: string;
 }
 
 /**
@@ -465,7 +473,14 @@ export function BenefitsListPage({
    * show everyone. De-duplicated by assignment id so the two passes can never double-list a row.
    */
   const assigneesByCategory = useMemo(() => {
-    const assignments: PlanAssignmentRow[] = assignmentData?.assignments ?? [];
+    // Collaborators only (invited or active). A mirrored Key Contact holds an assignment so
+    // the Benefits Hub can render their card, but they are not somebody the BENEFIT is
+    // assigned to — naming them here read as plan access. Key Contacts are surfaced from
+    // the plan's authored contact list instead (`row.keyContact`), which also covers a
+    // category with no Benefit row yet.
+    const assignments: PlanAssignmentRow[] = (
+      (assignmentData?.assignments ?? []) as PlanAssignmentRow[]
+    ).filter((person) => person.state !== "contact");
     const normalize = (value: string) =>
       value.trim().toLowerCase().replace(/\s+/g, " ");
     const map = new Map<string, PlanAssignmentRow[]>();
@@ -672,6 +687,14 @@ export function BenefitsListPage({
                   assigneesByCategory.get(
                     row.category.trim().toLowerCase().replace(/\s+/g, " "),
                   ) ?? [];
+                // The plan's Key Contact for this category — authored in Create Client,
+                // so it is named even while the benefit is still "Not created". The Custom
+                // hub never carries one (`/api/benefits` resolves none for it).
+                const keyContact = row.keyContact ?? null;
+                const assigneeLabels = [
+                  ...assignees.map((a) => a.name),
+                  ...(keyContact ? [keyContact.name] : []),
+                ];
                 const assignmentMissingFields =
                   assignees.length > 0 && row.exists && !row.isComplete
                     ? row.missingInfo.length
@@ -758,7 +781,7 @@ export function BenefitsListPage({
                       {/* T4 Part A item 6: who is already on this section. The
                           missing-field count is the same `missingInfo` the chips
                           above render, so the two cannot disagree. */}
-                      {assignees.length > 0 ? (
+                      {assigneeLabels.length > 0 ? (
                         <div className="mt-1 flex items-center gap-1.5">
                           {/* Overlapping headshots — the row is the whole team on this section, not
                               one person. Beyond three, a "+N" keeps the line from running away. */}
@@ -776,6 +799,19 @@ export function BenefitsListPage({
                                 />
                               </span>
                             ))}
+                            {keyContact ? (
+                              <span
+                                key={`key-contact-${keyContact.id}`}
+                                className="block h-5 w-5 shrink-0 overflow-hidden rounded-full bg-muted ring-1 ring-background"
+                              >
+                                <Headshot
+                                  src={keyContact.headshot}
+                                  alt={keyContact.name}
+                                  monogramName={keyContact.name}
+                                  wrapperClassName="rounded-full"
+                                />
+                              </span>
+                            ) : null}
                             {assignees.length > 3 && (
                               <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-muted text-[9px] font-semibold text-muted-foreground ring-1 ring-background">
                                 +{assignees.length - 3}
@@ -783,7 +819,7 @@ export function BenefitsListPage({
                             )}
                           </span>
                           <span className="truncate text-[11px] text-muted-foreground">
-                            Assigned to {assignees.map((a) => a.name).join(", ")}
+                            Assigned to {assigneeLabels.join(", ")}
                             {assignmentMissingFields > 0
                               ? ` · ${assignmentMissingFields} field${
                                   assignmentMissingFields === 1 ? "" : "s"

@@ -315,3 +315,120 @@ export const BENEFIT_CONTACT_CATEGORIES: BenefitsCategory[] = [
   "Group Life",
   "Company / Plan Sponsor",
 ];
+
+/**
+ * `Client.keyContacts` is stored either as the contact array or as `{ contacts: [...] }`
+ * depending on which save path wrote it, so every reader has to normalize first.
+ */
+function asContactList(
+  keyContacts: KeyContact[] | { contacts?: KeyContact[] } | null | undefined,
+): KeyContact[] {
+  if (Array.isArray(keyContacts)) return keyContacts;
+  const list = (keyContacts as { contacts?: unknown } | null | undefined)
+    ?.contacts;
+  return Array.isArray(list) ? (list as KeyContact[]) : [];
+}
+
+/** Display name for a Key Contact: personal name first, then the team/display name. */
+export function contactDisplayName(
+  contact: KeyContact | null | undefined,
+): string {
+  if (!contact) return "";
+  const full = [contact.firstName, contact.lastName]
+    .map((part) => (typeof part === "string" ? part.trim() : ""))
+    .filter(Boolean)
+    .join(" ");
+  if (full) return full;
+  const display = (contact.displayName || contact.name || "").trim();
+  if (display) return display;
+  return (contact.email || "").trim();
+}
+
+/**
+ * The Key Contact that represents `category` on this plan.
+ *
+ * This reads the plan's AUTHORED contact list (`Client.keyContacts`) rather than the
+ * teammate mirror, so a category can name its contact immediately after Create Client
+ * saves — before any benefit row exists and regardless of whether the mirror has run.
+ * The explicitly selected primary wins, then the category's primary flag, then any
+ * contact attached to the category.
+ */
+export function keyContactForCategory(
+  keyContacts:
+    | KeyContact[]
+    | { contacts?: KeyContact[] }
+    | null
+    | undefined,
+  category: string | null | undefined,
+  options?: { primaryContactId?: string | null },
+): KeyContact | null {
+  const target = normalizeContactCategory(category);
+  if (!target) return null;
+
+  // The Custom hub ("Company / Plan Sponsor") has no Key Contact. Its own storage key is
+  // also the contact category for the plan sponsor, so a Main Contact tagged for the plan
+  // sponsor resolved here and read as the owner of the advisor's custom benefit. The
+  // Custom benefit is named by the advisor and never assumes a contact — the same rule
+  // the wizard's own contact prefill applies.
+  if (target === "company / plan sponsor") return null;
+
+  const candidates = asContactList(keyContacts).filter(
+    (contact) => !!contact && contactServesCategory(contact, target),
+  );
+  if (candidates.length === 0) return null;
+
+  const selected = options?.primaryContactId
+    ? candidates.find((contact) => contact.id === options.primaryContactId)
+    : undefined;
+  return (
+    selected ??
+    candidates.find((contact) => isCategoryPrimaryContact(contact, target)) ??
+    candidates[0]
+  );
+}
+
+/**
+ * The company logo configured on the plan's Key Contact that serves `category`.
+ *
+ * Key Contacts are created in Create Client and each can carry its own company logo
+ * (the plan sponsor / carrier / recordkeeper the advisor works with). A benefit for
+ * that category should start from that partner's logo rather than the advisor's own
+ * organization logo or a static hub default, so this resolver mirrors
+ * `resolveCategoryContacts`: the explicitly selected primary wins, then the
+ * category's primary flag, then any contact attached to the category.
+ *
+ * Returns "" when no contact for the category has a usable logo. Placeholder assets
+ * are ignored so they never get stamped onto a benefit.
+ */
+export function contactCompanyLogoForCategory(
+  keyContacts:
+    | KeyContact[]
+    | { contacts?: KeyContact[] }
+    | null
+    | undefined,
+  category: string | null | undefined,
+  options?: { primaryContactId?: string | null },
+): string {
+  const target = normalizeContactCategory(category);
+  if (!target) return "";
+
+  const logoOf = (contact: KeyContact | null | undefined): string => {
+    if (!contact) return "";
+    const raw =
+      typeof contact.companyLogo === "string" ? contact.companyLogo.trim() : "";
+    if (!raw) return "";
+    if (raw.includes("placeholder")) return "";
+    return raw;
+  };
+
+  const candidates = asContactList(keyContacts).filter(
+    (c) => !!c && contactServesCategory(c, target) && !!logoOf(c),
+  );
+  if (candidates.length === 0) return "";
+
+  const selected = options?.primaryContactId
+    ? candidates.find((c) => c.id === options.primaryContactId)
+    : undefined;
+  const primary = candidates.find((c) => isCategoryPrimaryContact(c, target));
+  return logoOf(selected ?? primary ?? candidates[0]);
+}

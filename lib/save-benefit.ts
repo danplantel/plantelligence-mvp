@@ -1,4 +1,5 @@
 import { mergeUserBenefitWithHubDefaults } from "@/lib/hub-benefit-defaults";
+import { contactCompanyLogoForCategory } from "@/lib/benefit-contacts";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
 import {
   fetchClientOnce,
@@ -82,6 +83,27 @@ export async function saveBenefit(
     const client = await fetchClientOnce(planId);
     if (!client) throw new Error("Failed to fetch client data");
 
+    // Benefit logo fallback: the Key Contact the advisor built for this category carries
+    // the partner's company logo (Create Client → Key Contacts). When Branding never
+    // resolved one — a draft that skipped it, a publish from a later step — that logo is
+    // still the right default, and it must beat the static hub default. A logo the advisor
+    // uploaded or explicitly cleared for this category stays untouched.
+    const logoEditedForCategory = (
+      step1Data?.benefitLogoEditedCategories ?? []
+    ).includes(step1Data?.benefitCategory || "");
+    const categoryContactLogo =
+      !step1Data?.companyLogo?.url && !logoEditedForCategory
+        ? contactCompanyLogoForCategory(
+            Array.isArray(client.keyContacts)
+              ? client.keyContacts
+              : client.keyContacts?.contacts || [],
+            step1Data?.benefitCategory,
+            { primaryContactId: step1Data?.contactId },
+          )
+        : "";
+    const partnerLogoUrl =
+      step1Data?.companyLogo?.url || categoryContactLogo;
+
     // 2. Edited category row: merge with hub defaults so image / copy / CTA match other cards
     // (saving only partial data was leaving the portal with empty description, image, and button text).
     const newBenefit = mergeUserBenefitWithHubDefaults(
@@ -90,7 +112,7 @@ export async function saveBenefit(
         title: step1Data?.benefitTitle,
         shortDescription: step1Data?.shortDescription,
         image: step1Data?.brandImages?.header?.url,
-        partnerLogo: step1Data?.companyLogo?.url,
+        partnerLogo: partnerLogoUrl,
         innerHeaderImage: step1Data?.innerHeaderImage?.url,
         contactId: step1Data?.contactId,
         category: step1Data?.benefitCategory,
@@ -460,7 +482,7 @@ export async function saveBenefit(
           body: JSON.stringify({
             title: step1Data?.benefitTitle || benefitCategory,
             shortDescription: step1Data?.shortDescription || null,
-            partnerLogo: step1Data?.companyLogo?.url || null,
+            partnerLogo: partnerLogoUrl || null,
             backgroundImage: step1Data?.brandImages?.header?.url || null,
             innerHeaderImage: step1Data?.innerHeaderImage?.url || null,
             planVideo: step1Data?.planVideo || null,

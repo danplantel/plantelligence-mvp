@@ -4,6 +4,10 @@ import { authOptions } from "@/lib/auth-options";
 import prisma from "@/lib/prisma";
 import { getBenefitCompleteness } from "@/lib/benefit-completeness";
 import {
+  contactDisplayName,
+  keyContactForCategory,
+} from "@/lib/benefit-contacts";
+import {
   categoryWithinScope,
   listAccessiblePlanIds,
   listOwnCategoryScopedPlans,
@@ -55,6 +59,13 @@ export interface BenefitListRow {
   isComplete: boolean;
   /** What is still missing when `isComplete` is false. */
   missingInfo: string[];
+  /**
+   * The plan's Key Contact for this category — authored in Create Client → Key
+   * Contacts, so it is available before a Benefit row exists. Lets the list name the
+   * person who owns the section even while the benefit is still "Not created".
+   * `null` when no contact on the plan declares this category.
+   */
+  keyContact: { id: string; name: string; headshot: string | null } | null;
 }
 
 /**
@@ -187,6 +198,18 @@ export async function GET() {
         if (scope && !categoryWithinScope(scope, cat.category)) continue;
 
         const row = byPlanCategory.get(`${client.id}::${normalize(cat.category)}`);
+        // The authored Key Contact for this section (Create Client → Key Contacts).
+        // `contactDisplayName` handles personal, team/display and email-only rows.
+        const categoryContact = keyContactForCategory(
+          (client.keyContacts as any) ?? null,
+          cat.category,
+        );
+        const keyContactHeadshot = (() => {
+          const candidate = categoryContact?.headshot || categoryContact?.teamImage;
+          return typeof candidate === "string" && candidate.trim()
+            ? candidate.trim()
+            : null;
+        })();
         // Published requires an actual benefit: no row ⇒ not published, at any
         // visibility value. Visibility then lives on the client (explicit `false`
         // hides), combined with the benefit's own flag. An ABSENT key still reads as
@@ -227,6 +250,13 @@ export async function GET() {
           planVisibility: visibility,
           isComplete: completeness.isComplete,
           missingInfo: completeness.missingInfo,
+          keyContact: categoryContact
+            ? {
+                id: categoryContact.id,
+                name: contactDisplayName(categoryContact),
+                headshot: keyContactHeadshot,
+              }
+            : null,
         });
       }
     }

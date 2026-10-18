@@ -285,11 +285,23 @@ export function CategoryExplorer({
     return "";
   }, [contacts]);
 
-  /** The plan's collaborators — everyone assigned to it who holds no seat. */
+  /**
+   * The plan's collaborators — everyone assigned to it who holds no seat.
+   *
+   * `state: "contact"` rows are EXCLUDED: the T7 contact mirror gives every Key Contact a
+   * contact-state profile and a Viewer assignment so the Benefits Hub can render from it,
+   * and those are not collaborators — they are the Key Contacts listed above. Keeping them
+   * here is what made creating a Key Contact also add them to this Collaborators section.
+   * Invited (`invited`) and accepted (`active`) people remain.
+   */
   const planCollaborators = useMemo<CollaboratorDetailPerson[]>(
     () =>
       seatCollaborators
-        .filter((person) => person.personType !== "team_member")
+        .filter(
+          (person) =>
+            person.personType !== "team_member" &&
+            person.state !== "contact",
+        )
         .map((person) => ({
           assignmentId: person.assignmentId,
           profileId: person.profileId,

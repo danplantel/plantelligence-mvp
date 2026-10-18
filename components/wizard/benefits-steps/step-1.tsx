@@ -106,6 +106,7 @@ import {
 import { categoryToSlug } from "@/lib/benefit-category-slug";
 import { convertToDocumentFormat } from "@/lib/compliance-document-utils";
 import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboarding-advisor-contacts";
+import { contactCompanyLogoForCategory } from "@/lib/benefit-contacts";
 import { BenefitsDocumentsSection } from "./benefits-documents-section";
 import {
   BENEFIT_CATEGORY_GALLERY,
@@ -1360,7 +1361,6 @@ export function BenefitsStep1({
     const draftHasHeader = !!currentStepData.brandImages?.header?.url;
     const healingRowAssets =
       (!draftHasLogo && !!rowLogo) || (!draftHasHeader && !!rowHeader);
-    if (loadedCats.includes(cat) && !healingRowAssets) return;
 
     // User-profile defaults for the advisor's primary service categories.
     const profile = (profileData as any) || {};
@@ -1403,9 +1403,42 @@ export function BenefitsStep1({
       !!userLogo &&
       userLogo.trim() !== (currentStepData.orgLogoSnapshot ?? "").trim();
     const applyOrgLogo = orgLogoChanged;
-    // Benefit-table row wins; the User profile is the fallback for logo/header only —
-    // except when the org logo just changed, where it takes precedence.
-    const savedLogo = orgLogoChanged ? userLogo : benefit?.partnerLogo || userLogo;
+
+    // Key Contact branding. Each Key Contact created in Create Client carries the company
+    // logo the advisor uploaded for that partner (carrier, recordkeeper, plan sponsor), so a
+    // brand-new benefit in that category should start from ITS provider's logo instead of
+    // the advisor's own organization logo (or the static hub default). Custom benefits keep
+    // the "never assume a Key Contact" rule and are skipped.
+    const contactLogo = isCustomHubCategory(cat)
+      ? ""
+      : contactCompanyLogoForCategory(selectedPlanContacts, cat, {
+          primaryContactId: currentStepData.contactId,
+        });
+    const logoEditedForCategory = (
+      currentStepData.benefitLogoEditedCategories ?? []
+    ).includes(cat);
+    const draftLogoUrl = currentStepData.companyLogo?.url || "";
+    // A logo that merely mirrors the organization logo was auto-filled by an earlier pass
+    // (possibly before the plan's contacts arrived); the contact's logo may replace it.
+    // A logo the advisor uploaded or cleared for this category is never touched.
+    const draftLogoIsAutoOrgLogo = !!userLogo && draftLogoUrl === userLogo;
+    const contactLogoApplies =
+      !!contactLogo &&
+      !benefit?.partnerLogo &&
+      !orgLogoChanged &&
+      !logoEditedForCategory &&
+      (!draftLogoUrl || draftLogoIsAutoOrgLogo);
+    const healingContactLogo = contactLogoApplies && draftLogoUrl !== contactLogo;
+
+    if (loadedCats.includes(cat) && !healingRowAssets && !healingContactLogo) {
+      return;
+    }
+    // Benefit-table row wins; the category's Key Contact logo comes next (the partner the
+    // advisor configured for this benefit), then the User profile — except when the org
+    // logo just changed, where it takes precedence.
+    const savedLogo = orgLogoChanged
+      ? userLogo
+      : benefit?.partnerLogo || contactLogo || userLogo;
     const savedDescription = benefit?.shortDescription || "";
     const savedHeaderImage =
       (benefit?.backgroundImage || benefit?.image) || userHeader;
@@ -1523,7 +1556,14 @@ export function BenefitsStep1({
     next.providerContact = benefit?.providerContact ?? null;
 
     saveStepData(1, next);
-  }, [currentStepData.benefitCategory, currentStepData.categoryBenefitByApi, profileData, saveStepData]);
+  }, [
+    currentStepData.benefitCategory,
+    currentStepData.categoryBenefitByApi,
+    currentStepData.contactId,
+    profileData,
+    selectedPlanContacts,
+    saveStepData,
+  ]);
 
   // Conversion helpers
   const convertBrandImageToLogo = (
