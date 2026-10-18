@@ -130,9 +130,18 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
           {stepper}
         </div>
       )}
+      {/* Responsive scale. The dashboard only renders from 1024px up
+          (`DESKTOP_ONLY_MIN_WIDTH_PX`), so `lg` is the floor and the base classes
+          below are the compact 1024–1279px look; `xl:` (1280px) restores the
+          full-size header. Before this, the fixed 40px side padding, the 8px gaps,
+          the `text-sm`/`text-xl` type and the named UserNav all kept their size
+          while the row shrank, so the title, the stepper and the action cluster
+          ended up competing for the same space. Only paddings, gaps, type and icon
+          sizes scale — the header's HEIGHT stays put, because the sidebar's
+          collapse toggle is pinned to `top-[76px]` against it. */}
       <nav
         className={cn(
-          "flex items-center px-10 transition-all duration-200",
+          "flex items-center px-3 transition-all duration-200 xl:px-10",
           stepper ? "h-[72px]" : "h-16",
           scrolled
             ? "bg-background/80 backdrop-blur-md shadow-sm"
@@ -147,28 +156,32 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
         {/* Left: Title + Company Name + Step Title (hidden while the Editing Panel is open) */}
         <div
           className={cn(
-            "flex items-center gap-2 min-w-0",
+            "flex items-center gap-1 min-w-0 xl:gap-1.5 2xl:gap-2",
             editorOpen && portalHasContent
               ? "flex-none"
-              : // A page that portals its tab bar into the header (Edit Plan / Edit
-                // Benefit) has to be able to show this text in full. `flex-[1]` alone
-                // pins the column to a fifth of the row — roughly 215px at 1440px
-                // wide — so "Edit Benefit / Quick Actions LLC - Retirement" (~340px)
-                // was ellipsised to "Edit Ben… / Quick Actions LLC - Retire…" even
-                // while the tab strip beside it sat in slack.
+              : // A page with a portalled tab strip (Edit Plan / Edit Benefit /
+                // Settings) or a wizard stepper gives this column its CONTENT width
+                // (`flex-none`). The title and the subtitle stay on ONE line and are
+                // never ellipsised — the type steps down instead (see below) — so
+                // neither piece of chrome beside them has to fight the title for
+                // space. `min-w-fit`/`min-w-0` here used to make the title compete
+                // with the strip, leaving the six-tab Edit Benefit strip roughly
+                // 190–200px; it also let a nowrap title overflow its share on the
+                // wizard pages.
                 //
-                // `min-w-fit` keeps the symmetric flex-[1] share whenever the content
-                // fits it (so nothing shifts on pages with a short title, e.g. Edit
-                // Plan) and raises the floor to the content's own width when it does
-                // not. The centre column gives that space up: a portalled tab strip
-                // scrolls, and the pages centre it with safe auto-margins so an
-                // overflow can never hide its first tabs.
-                "flex-[1] min-w-fit",
+                // Pages with neither keep the previous behaviour: the symmetric
+                // `flex-[1]` share while the content fits, raised to the content's
+                // own width at `xl` where the room exists.
+                portalHasContent || stepper
+                ? "flex-none"
+                : "flex-[1] min-w-0 xl:min-w-fit",
           )}
         >
           {!editorOpen && title && (
             <h1
-              className="text-sm font-semibold dark:text-white truncate"
+              // No `truncate`/wrapping: the full value is always shown on one
+              // line; the responsive type ramp is what makes it fit.
+              className="whitespace-nowrap text-[11px] font-semibold leading-none dark:text-white xl:text-xs 2xl:text-sm"
               title={title}
             >
               {titleMain}
@@ -182,9 +195,9 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
           )}
           {!editorOpen && subtitle && (
             <>
-              <span className="text-sm text-muted-foreground/40 dark:text-gray-600">/</span>
+              <span className="text-[10px] leading-none text-muted-foreground/40 dark:text-gray-600 xl:text-[11px] 2xl:text-sm">/</span>
               <span
-                className="text-sm font-semibold text-accent-blue truncate min-w-0"
+                className="whitespace-nowrap text-[10px] font-semibold leading-none text-accent-blue xl:text-[11px] 2xl:text-sm"
                 title={subtitle}
               >
                 {subtitle}
@@ -193,8 +206,10 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
           )}
           {!editorOpen && stepTitle && (
             <>
-              <span className="text-xl text-muted-foreground/40 dark:text-gray-600">/</span>
-              <span className="text-sm font-medium text-muted-foreground truncate min-w-0">{stepTitle}</span>
+              <span className="text-[10px] leading-none text-muted-foreground/40 dark:text-gray-600 xl:text-[11px] 2xl:text-base">/</span>
+              <span className="whitespace-nowrap text-[10px] font-medium leading-none text-muted-foreground xl:text-[11px] 2xl:text-sm">
+                {stepTitle}
+              </span>
             </>
           )}
         </div>
@@ -202,9 +217,10 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
         {/* Center: Stepper (when provided) or portal target for page-level tabs
             (e.g. Edit Plan tabs). Pages portal their TabsList here via createPortal
             so it stays inside the <Tabs> React context while rendering in the header.
-            A stepper is kept at its natural (compact) width so the left title area
-            gets the leftover space; flex-[3] is only used for the tabs portal so
-            tabs stay on one line.
+            A stepper is kept at its natural (compact) width so the title column and
+            the action cluster split the leftover space evenly around it. The tab
+            portal instead takes ALL the leftover space (`flex-1`) — the title
+            column is `flex-none` there, so this is the one flexible column.
 
             When the editing panel is open the stepper is rendered in the
             absolutely-positioned overlay above, so this column holds nothing and
@@ -219,7 +235,10 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
                 : portalHasContent
                   ? editorOpen
                     ? "flex-1 justify-start"
-                    : "flex-[3] justify-center"
+                    : // The title column is `flex-none`, so every pixel left over
+                      // belongs to the tab strip — it gets the whole remainder and
+                      // scrolls internally if its tabs are wider than that.
+                      "flex-1 justify-center"
                   : "justify-center flex-shrink-0",
           )}
         >
@@ -230,6 +249,29 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
               id="header-tabs-portal"
               className={cn(
                 "w-full",
+                // ── The tab strips are scaled from HERE ──
+                // Settings, Edit Plan, Edit Benefit and Edit Client each define their own
+                // TabsList and portal it in. The canonical sizes live in
+                // `lib/header-tabs.ts` and are applied by those pages; the rules here
+                // repeat the SAME ramp as a fallback for any tab list portalled in
+                // without adopting that module. Radix renders a trigger as
+                // `<button role="tab">`, so these selectors need no cooperation from
+                // the pages. Three steps, driven by the width the centre column
+                // actually has (see `HEADER_TAB_TRIGGER_CLASS`):
+                //
+                //   1024–1279px  base   11px labels, tight padding
+                //   1280–1535px  `xl`   12px labels, slightly looser
+                //   1536px+      `2xl`  13px labels, looser again
+                //
+                // The header's other controls return to full size at `xl`; the tabs
+                // step up more gently because the title column now keeps its full
+                // (un-ellipsised) width and a six-tab strip still has to share the
+                // row with the action cluster. The strip stays one line and scrolls
+                // horizontally, so a narrower tab just means more of them fit.
+                "[&_[role=tab]]:gap-1 [&_[role=tab]]:px-1 [&_[role=tab]]:py-1.5 [&_[role=tab]]:text-[11px]",
+                "xl:[&_[role=tab]]:gap-1.5 xl:[&_[role=tab]]:px-1.5 xl:[&_[role=tab]]:text-xs",
+                "2xl:[&_[role=tab]]:gap-1.5 2xl:[&_[role=tab]]:px-2 2xl:[&_[role=tab]]:py-2.5 2xl:[&_[role=tab]]:text-[13px]",
+                "[&_[role=tab]_svg]:size-3.5 xl:[&_[role=tab]_svg]:size-4",
                 // With the Editing Panel open the page title is hidden and this
                 // column starts immediately right of the panel, so the portalled
                 // tabs must align to that edge instead of centring across the
@@ -253,11 +295,19 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
             UserNav over the stepper. */}
         <div
           className={cn(
-            "flex items-center justify-end gap-2 min-w-0",
+            // The gap tightens with the viewport. On a tab page the group is
+            // `flex-none`: its controls have their own compact `xl` ramp (see
+            // `UserNav`, `CommentsToggle`, …) and must never be squeezed into
+            // each other, but it also has nothing to gain from a growable share —
+            // `flex-[1]` here only took space away from the title and the
+            // portalled tab strip. When the centre column is a STEPPER (not tabs)
+            // the previous symmetric split is kept, so the stepper stays visually
+            // between the title and the actions.
+            "flex min-w-0 items-center justify-end gap-1 xl:gap-2",
             centerOwnsSpace
-              ? editorOpen && portalHasContent
-                ? "flex-none"
-                : "flex-[1] min-w-fit"
+              ? stepper
+                ? "flex-[1] min-w-fit"
+                : "flex-none"
               : "flex-none ml-auto shrink-0",
           )}
         >
@@ -272,19 +322,25 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
               size="icon"
               onClick={toggleTheme}
               aria-label="Toggle light/dark mode"
-              className="rounded-full shrink-0"
+              className="h-7 w-7 shrink-0 rounded-full xl:h-8 xl:w-8"
             >
               {resolvedTheme === "dark" ? (
-                <Sun className="h-5 w-5 text-yellow-400" />
+                <Sun className="h-4 w-4 text-yellow-400 xl:h-5 xl:w-5" />
               ) : (
-                <Moon className="h-5 w-5 text-gray-600" />
+                <Moon className="h-4 w-4 text-gray-600 xl:h-5 xl:w-5" />
               )}
             </Button>
           )}
           {/* Collapse the user menu to just the avatar while the Editing Panel is
-              open so its name can never overlap the Light/Dark toggle. */}
+              open so its name can never overlap the Light/Dark toggle. When a page
+              portals its tabs here, the name block stays collapsed until `2xl`:
+              that width is what lets the full title stay on one line AND leaves
+              the tab strip enough room to show every tab. */}
           <div className="min-w-0">
-            <UserNav compact={editorOpen} />
+            <UserNav
+              compact={editorOpen}
+              detailsFrom={portalHasContent ? "2xl" : "xl"}
+            />
           </div>
         </div>
       </nav>

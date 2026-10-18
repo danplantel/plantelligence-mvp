@@ -211,17 +211,19 @@ export function NotificationsMenu() {
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
+        {/* Scales down with the viewport (see the header's responsive note): 28px and a
+            16px glyph below `xl`, full size at `xl` and up. */}
         <Button
           variant="ghost"
           size="icon"
           aria-label="Notifications"
-          className="relative h-10 w-10 transition-colors hover:bg-gray-100 dark:hover:bg-white/10 dark:focus-visible:bg-white/10"
+          className="relative h-7 w-7 transition-colors hover:bg-gray-100 dark:hover:bg-white/10 dark:focus-visible:bg-white/10 xl:h-10 xl:w-10"
         >
-          <Bell className="h-5 w-5 text-gray-700 dark:text-gray-200 dark:hover:text-white" />
+          <Bell className="h-4 w-4 text-gray-700 dark:text-gray-200 dark:hover:text-white xl:h-5 xl:w-5" />
           {totalCount > 0 && (
             <Badge
               variant="destructive"
-              className="absolute -top-1 -right-1 h-5 w-5 flex items-center justify-center p-0 text-xs font-semibold"
+              className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center p-0 text-[10px] font-semibold xl:-right-1 xl:-top-1 xl:h-5 xl:w-5 xl:text-xs"
             >
               {totalCount > 9 ? "9+" : totalCount}
             </Badge>

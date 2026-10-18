@@ -226,7 +226,10 @@ export function WizardStepper({
               className="relative flex items-center h-full"
             >
               <div
-                className={`size-5 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 ${isCurrent
+                // The stepper sits in the header's centre column and is `flex-shrink-0`,
+                // so every pixel it gives back is a pixel the page title keeps. Compact
+                // below `xl`, full size at `xl` and up.
+                className={`flex size-4 flex-shrink-0 items-center justify-center rounded-full text-[10px] font-semibold xl:size-5 xl:text-xs ${isCurrent
                   ? "bg-[#2ba8b5] text-white transition-none"
                   : isPast
                     ? "bg-accent-blue text-white transition-all duration-200"
@@ -244,7 +247,7 @@ export function WizardStepper({
               >
                 {isPast ? <Check className="w-2 h-2" /> : (
                   <p
-                    className="text-xs"
+                    className="text-[10px] xl:text-xs"
                     style={isCurrent ? {
                       animationName: "wizard-text-pulse",
                       animationDuration: "5s",
@@ -259,7 +262,7 @@ export function WizardStepper({
 
               {!isLastVisible && (
                 <div
-                  className="h-0.5 w-12 mx-1 transition-all duration-200"
+                  className="mx-0.5 h-0.5 w-6 transition-all duration-200 xl:mx-1 xl:w-12"
                   style={{
                     backgroundColor: step.id < currentStep ? "#17A2B8" : (theme === "dark" ? "#4B5563" : "#D1D5DB")
                   }}

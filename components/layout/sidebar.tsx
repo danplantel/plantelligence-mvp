@@ -10,6 +10,7 @@ import { useTheme } from "next-themes";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { usePathname } from "next/navigation";
 import { PREVIEW_EDITOR_LAYOUT_EVENT } from "@/lib/preview-editor-layout";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useViewerAccess } from "@/hooks/useViewerAccess";
 import { mayUsePath } from "@/lib/teammates/nav-access";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,9 +32,12 @@ function NavSkeleton({ isOpen }: { isOpen: boolean }) {
   return (
     <nav className="space-y-2" aria-hidden="true">
       {navItems.map((item, index) => (
-        <div key={item.title ?? index} className="flex items-center px-4 py-3">
-          <Skeleton className="mr-3 size-6 shrink-0 rounded-md" />
-          {isOpen ? <Skeleton className="h-4 w-24" /> : null}
+        <div
+          key={item.title ?? index}
+          className="flex items-center px-2 py-2 xl:px-4 xl:py-3"
+        >
+          <Skeleton className="mr-2 size-5 shrink-0 rounded-md xl:mr-3 xl:size-6" />
+          {isOpen ? <Skeleton className="h-3.5 w-20 xl:h-4 xl:w-24" /> : null}
         </div>
       ))}
     </nav>
@@ -48,6 +52,15 @@ const Sidebar = memo(function Sidebar() {
   // Chrome-level access: whether this viewer is a Collaborator, and the union of the
   // grids they hold. Seeded from the server through SWR's cache, so the nav never flashes.
   const { isCollaborator, can, isLoading: isAccessLoading } = useViewerAccess();
+  // ── Responsive rail width ──
+  // The dashboard only renders from 1024px up (`DESKTOP_ONLY_MIN_WIDTH_PX`), so the rail
+  // is scaled down between 1024 and 1280 (13rem) and full-size at `xl` and up (16rem).
+  // The width it gives back is width the header's title, stepper and action cluster keep.
+  // `--sidebar-width` is the single source every other surface offsets by, so the width
+  // rendered below and the value written in the effects are BOTH derived from
+  // `railWidth` — the nav and the surfaces that clear it cannot drift apart.
+  const isRoomy = useMediaQuery("(min-width: 1280px)");
+  const openRailWidth = isRoomy ? "16rem" : "13rem";
   // Get currentStep from wizard store (only if on wizard page)
   const currentStep = useNewClientWizardStore((state) => {
     // Only get currentStep if we're on the new client wizard page
@@ -89,6 +102,8 @@ const Sidebar = memo(function Sidebar() {
   }, []);
 
   const effectiveOpen = isOpen && !forcedCollapsed;
+  /** The rail's real width, and the value written to `--sidebar-width`. */
+  const railWidth = effectiveOpen ? openRailWidth : "4rem";
 
   useEffect(() => {
     setThemeMode(theme);
@@ -116,11 +131,8 @@ const Sidebar = memo(function Sidebar() {
   // by (header, main, previews). It follows the *effective* state so the editor's
   // rail-collapse is reflected everywhere at once.
   useEffect(() => {
-    document.documentElement.style.setProperty(
-      "--sidebar-width",
-      effectiveOpen ? "16rem" : "4rem",
-    );
-  }, [effectiveOpen]);
+    document.documentElement.style.setProperty("--sidebar-width", railWidth);
+  }, [railWidth]);
 
   // Restore sidebar width if not on step 2 (step 2 sets it to 36rem for modal)
   useEffect(() => {
@@ -134,13 +146,10 @@ const Sidebar = memo(function Sidebar() {
       // If sidebar-width is set to 36rem (step 2 modal width), restore it
       if (currentWidth === "36rem") {
         // Restore to correct sidebar width based on the effective state
-        document.documentElement.style.setProperty(
-          "--sidebar-width",
-          effectiveOpen ? "16rem" : "4rem",
-        );
+        document.documentElement.style.setProperty("--sidebar-width", railWidth);
       }
     }
-  }, [currentStep, effectiveOpen, pathname]);
+  }, [currentStep, railWidth, pathname]);
 
   /**
    * The nav items this viewer may see.
@@ -189,8 +198,10 @@ const Sidebar = memo(function Sidebar() {
     <nav
       className={cn(
         `fixed left-0 top-0 h-screen z-50 bg-[#FDFDFD] dark:bg-background border-r border-[#efefef] dark:border-[#1c1c1c] transition-all duration-200 ease-in-out flex flex-col`,
-        effectiveOpen ? "w-64" : "w-16",
       )}
+      // Width comes from the same value written to `--sidebar-width`, so the rail can
+      // never disagree with the header/main offset that clears it.
+      style={{ width: railWidth }}
     >
       {/* Toggle Button to Collapse/Expand Sidebar. Hidden while the Preview
           editing panel forces the rail, so it cannot overlap the panel's edge. */}
@@ -212,7 +223,7 @@ const Sidebar = memo(function Sidebar() {
       )}
 
       {/* Logo */}
-      <div className="flex items-center p-4 flex-shrink-0 overflow-hidden">
+      <div className="flex flex-shrink-0 items-center overflow-hidden p-3 xl:p-4">
         <Link href={"#"} target="_blank" className="block w-full h-8 relative">
           {/* Full logo — fades out as sidebar collapses */}
           <img
@@ -221,7 +232,7 @@ const Sidebar = memo(function Sidebar() {
             className={cn(
               "absolute left-0 top-0 transition-all duration-200 ease-in-out",
               effectiveOpen
-                ? "w-[200px] opacity-100"
+                ? "w-[152px] opacity-100 xl:w-[200px]"
                 : "w-0 opacity-0 pointer-events-none",
             )}
           />
@@ -241,7 +252,7 @@ const Sidebar = memo(function Sidebar() {
 
       {/* Navigation — a placeholder while the access summary decides the list, so the nav never
           flashes links this viewer cannot use (see `NavSkeleton`). */}
-      <div className="px-4 mt-6 flex-1 overflow-y-auto">
+      <div className="mt-4 flex-1 overflow-y-auto px-3 xl:mt-6 xl:px-4">
         {isAccessLoading ? (
           <NavSkeleton isOpen={effectiveOpen} />
         ) : (

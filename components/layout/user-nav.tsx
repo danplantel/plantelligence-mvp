@@ -33,7 +33,21 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
-export function UserNav({ compact = false }: { compact?: boolean }) {
+/**
+ * `detailsFrom` controls when the name/title/role block appears beside the
+ * avatar. It is `xl` everywhere by default; the header lowers it to `2xl` on
+ * pages that portal a tab strip into the centre column, because that column
+ * needs the ~160px the name block would otherwise take and the strip would
+ * scroll its last tabs out of view. `compact` still forces avatar-only at
+ * every width (the inline Editing Panel case).
+ */
+export function UserNav({
+  compact = false,
+  detailsFrom = "xl",
+}: {
+  compact?: boolean;
+  detailsFrom?: "xl" | "2xl";
+}) {
   const { data: session } = useSession();
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -111,9 +125,17 @@ export function UserNav({ compact = false }: { compact?: boolean }) {
     // Show skeleton while loading
     if (isLoading) {
       return (
-        <div className="relative flex items-center gap-3 h-12 px-3">
-          <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse" />
-          <div className="flex flex-col items-start gap-1">
+        // Same responsive shape as the real control below, so the header does not
+        // resize when the payload lands — including the name block, which is
+        // avatar-only below `detailsFrom` in both states.
+        <div className="relative flex h-10 items-center gap-2 px-2 xl:h-12 xl:gap-3">
+          <div className="h-9 w-9 rounded-full bg-gray-200 animate-pulse xl:h-10 xl:w-10" />
+          <div
+            className={cn(
+              "hidden flex-col items-start gap-1",
+              detailsFrom === "2xl" ? "2xl:flex" : "xl:flex",
+            )}
+          >
             {/* Three rows, matching the real control, so the header does not grow when the
                 payload lands — the role badge is why there is a third one. */}
             <div className="h-3 w-16 rounded-full bg-gray-200 animate-pulse" />
@@ -135,11 +157,21 @@ export function UserNav({ compact = false }: { compact?: boolean }) {
                 // together they still fit the control's own height. `group` lets the badge
                 // restyle itself on hover: the trigger's hover paints accent-blue, which is
                 // exactly the badge's resting colour.
-                "group relative flex items-center gap-3 h-12 rounded-lg hover:bg-accent-blue hover:text-white min-w-0",
-                compact ? "shrink-0 px-2" : "px-3",
+                "group relative flex h-10 min-w-0 items-center gap-2 rounded-lg hover:bg-accent-blue hover:text-white xl:h-12 xl:gap-3",
+                // Below `detailsFrom` the control is avatar-only, at a smaller
+                // footprint. The name/title/role block is the widest thing in the
+                // header's action cluster (~210px) and was what crowded the stepper,
+                // the page title and the portalled tab strip. The dropdown still
+                // shows the name and the email, and the avatar keeps the initials.
+                // `compact` (the Editing Panel case) stays avatar-only at every width.
+                compact
+                  ? "shrink-0 px-2"
+                  : detailsFrom === "2xl"
+                    ? "px-2 2xl:px-3"
+                    : "px-2 xl:px-3",
               )}
             >
-              <Avatar className="w-10 h-10 shrink-0">
+              <Avatar className="h-9 w-9 shrink-0 xl:h-10 xl:w-10">
                 <AvatarImage
                   src={userImage}
                   alt={userName}
@@ -150,7 +182,12 @@ export function UserNav({ compact = false }: { compact?: boolean }) {
                 </AvatarFallback>
               </Avatar>
               {!compact && (
-                <div className="flex flex-col items-start min-w-0">
+                <div
+                  className={cn(
+                    "hidden min-w-0 flex-col items-start",
+                    detailsFrom === "2xl" ? "2xl:flex" : "xl:flex",
+                  )}
+                >
                   {/* The role, ABOVE the name: the one line that says what this account IS rather
                       than who they are. Deliberately tiny (`text-[9px]`) and shrink-wrapped —
                       it is a label, so the name below stays the loudest thing in the control.

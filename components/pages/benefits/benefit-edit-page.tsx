@@ -12,6 +12,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import {
+  HEADER_TAB_TRIGGER_CLASS,
+  HEADER_TABS_LIST_CLASS,
+} from "@/lib/header-tabs";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { saveBenefit } from "@/lib/save-benefit";
 import { forgetDraftBenefit, purgeDraftBenefit } from "@/lib/benefit-draft";
@@ -422,17 +426,18 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
     // background so the nav element stays fully transparent.
     <TabsList
       className={cn(
-        "w-full gap-1 rounded-none border-0 bg-transparent dark:bg-transparent p-0 flex-nowrap h-auto min-h-fit overflow-x-auto",
-        "[&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
+        // Shared with Settings and Edit Plan: one line, no card chrome, and a
+        // responsive step-down below `xl`/`2xl` (see lib/header-tabs.ts). This
+        // strip is the longest one (six tabs), so it is what the header's centre
+        // column has to fit.
+        HEADER_TABS_LIST_CLASS,
         // Centring that survives an overflow. `justify-center` inside a scroll
         // container clips the START of an overlong strip, leaving the first tabs
-        // off-screen and unreachable by scrolling — which the header can now produce,
-        // because it gives this page's "Edit Benefit / <company> - <category>" column
-        // the width its text actually needs. Auto margins centre the strip while it
-        // fits and collapse to 0 when it does not, so the strip stays flush with the
-        // start and scrolls normally. With the inline Editing Panel open the strip has
-        // to hug the panel edge instead, so it starts flush (the header also forces
-        // `justify-start` there for the tabs it portals).
+        // off-screen and unreachable by scrolling. Auto margins centre the strip
+        // while it fits and collapse to 0 when it does not, so the strip stays
+        // flush with the start and scrolls normally. With the inline Editing Panel
+        // open the strip has to hug the panel edge instead, so it starts flush
+        // (the header also forces `justify-start` there for the tabs it portals).
         previewEditorOpen
           ? "justify-start"
           : "[&>*:first-child]:ml-auto [&>*:last-child]:mr-auto",
@@ -442,7 +447,7 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
         <TabsTrigger
           key={tab.id}
           value={tab.id}
-          className="rounded-none px-4 py-3 text-sm font-medium whitespace-nowrap data-[state=active]:border-b-2 data-[state=active]:border-accent-blue data-[state=active]:font-bold data-[state=active]:text-accent-blue"
+          className={HEADER_TAB_TRIGGER_CLASS}
         >
           {tab.label}
         </TabsTrigger>

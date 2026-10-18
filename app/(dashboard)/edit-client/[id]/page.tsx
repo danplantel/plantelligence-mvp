@@ -132,6 +132,10 @@ import { PlanMeetingsSection } from "@/components/pages/edit-client/plan-meeting
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import {
+  HEADER_TAB_TRIGGER_CLASS,
+  HEADER_TABS_LIST_CLASS,
+} from "@/lib/header-tabs";
 import { isLoggedInUserContact } from "@/lib/resolve-contact-company-name";
 import { isOnboardingAdvisorContactId } from "@/lib/seed-onboarding-advisor-contacts";
 import { ContactCardLayoutPreviewModal } from "@/components/pages/edit-client/contact-card-layout-preview-modal";
@@ -4334,12 +4338,11 @@ export default function EditClientPage() {
             {headerPortalTarget &&
               createPortal(
                 <TabsList
-                  // `border-0` overrides the shared TabsList border (and drops
-                  // the local `border-b`) so the Edit Client nav has no outline
-                  // around it, matching the Edit Benefit nav. The bar stays
-                  // transparent, so the header background shows through.
+                  // Shared with Settings and Edit Benefit: no outline, transparent
+                  // (the header background shows through), one line, and the
+                  // responsive step-down below `xl`/`2xl` (see lib/header-tabs.ts).
                   className={cn(
-                    "w-full gap-1 bg-transparent dark:bg-transparent p-0 border-0 rounded-none flex-nowrap h-auto min-h-fit overflow-x-auto [&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
+                    HEADER_TABS_LIST_CLASS,
                     planEditorOpen ? "justify-start" : "justify-center",
                   )}
                 >
@@ -4347,7 +4350,7 @@ export default function EditClientPage() {
                     <TabsTrigger
                       key={tab.id}
                       value={tab.id}
-                      className="data-[state=active]:font-bold data-[state=active]:border-b-2 data-[state=active]:border-accent-blue data-[state=active]:text-accent-blue rounded-none px-4 py-3 text-sm font-medium whitespace-nowrap"
+                      className={HEADER_TAB_TRIGGER_CLASS}
                     >
                       {tab.label}
                     </TabsTrigger>

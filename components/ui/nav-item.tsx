@@ -94,9 +94,13 @@ export function NavItemComponent({
             onMouseEnter={onHover}
             onMouseLeave={onLeave}
             onClick={() => setIsExpanded(!isExpanded)}
+            // Rows scale down with the viewport (the rail is 13rem below `xl`, 16rem
+            // at `xl` and up — see the sidebar), so the padding and the icon step down
+            // with it. The label keeps `text-sm` (it is the primary nav) and gains
+            // `truncate` so a long title ellipsises instead of wrapping in a narrower rail.
             className={cn(
-              "w-full text-left py-3 rounded-md transition-colors duration-200",
-              "px-4",
+              "w-full text-left py-2 rounded-md transition-colors duration-200 xl:py-3",
+              "px-2 xl:px-4",
               isActive
                 ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
                 : hasActiveChild
@@ -105,11 +109,11 @@ export function NavItemComponent({
             )}
           >
             <div className="flex items-center">
-              <Icon className="size-6 mr-3" />
-              <span className="flex-1 text-sm">{item.title}</span>
+              <Icon className="mr-2 size-5 shrink-0 xl:mr-3 xl:size-6" />
+              <span className="flex-1 truncate text-sm">{item.title}</span>
               <Icons.chevronRight
                 className={cn(
-                  "size-6 transition-transform duration-200",
+                  "size-4 shrink-0 transition-transform duration-200 xl:size-6",
                   isExpanded ? "rotate-90" : "",
                 )}
               />
@@ -123,7 +127,7 @@ export function NavItemComponent({
                 onMouseEnter={onHover}
                 onMouseLeave={onLeave}
                 className={cn(
-                  "w-full py-3 rounded-md transition-colors duration-200 flex justify-center",
+                  "w-full py-2 rounded-md transition-colors duration-200 flex justify-center xl:py-3",
                   isActive
                     ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
                     : hasActiveChild
@@ -131,7 +135,7 @@ export function NavItemComponent({
                       : "text-muted-foreground hover:bg-muted hover:text-foreground",
                 )}
               >
-                <Icon className="size-6" />
+                <Icon className="size-5 xl:size-6" />
               </button>
             </PopoverTrigger>
             <PopoverContent
@@ -181,16 +185,18 @@ export function NavItemComponent({
           data-nav-href={item.href}
           onClick={() => handleNavigate(item.href ?? "#")}
           className={cn(
-            "w-full text-left py-3 rounded-md transition-colors duration-200",
-            isOpen ? "px-4" : "px-0 flex justify-center",
+            "w-full text-left py-2 rounded-md transition-colors duration-200 xl:py-3",
+            isOpen ? "px-2 xl:px-4" : "px-0 flex justify-center",
             isActive
               ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
               : "text-muted-foreground hover:bg-muted hover:text-foreground",
           )}
         >
           <div className={cn("flex items-center", !isOpen && "justify-center")}>
-            <Icon className={cn("size-6", isOpen && "mr-3")} />
-            {isOpen && <span className="text-sm">{item.title}</span>}
+            <Icon
+              className={cn("size-5 shrink-0 xl:size-6", isOpen && "mr-2 xl:mr-3")}
+            />
+            {isOpen && <span className="truncate text-sm">{item.title}</span>}
           </div>
         </button>
       )}
@@ -205,7 +211,7 @@ export function NavItemComponent({
             transition={{ duration: 0.2, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <div className="ml-4 space-y-1">
+            <div className="ml-3 space-y-1 xl:ml-4">
               {item.items.map((subItem, subIndex) => {
                 const SubIcon =
                   subItem.icon && Icons[subItem.icon]
@@ -224,15 +230,17 @@ export function NavItemComponent({
                       setIsExpanded(false);
                     }}
                     className={cn(
-                      "w-full text-left px-3 py-2 rounded-md transition-colors duration-200",
+                      "w-full text-left px-2 py-1.5 rounded-md transition-colors duration-200 xl:px-3 xl:py-2",
                       isSubActive
                         ? "bg-accent-blue text-white hover:bg-accent-blue hover:text-white"
                         : "text-muted-foreground hover:bg-muted hover:text-foreground",
                     )}
                   >
                     <div className="flex items-center">
-                      {SubIcon && <SubIcon className="w-4 h-4 mr-3" />}
-                      <span className="text-sm">{subItem.title}</span>
+                      {SubIcon && (
+                        <SubIcon className="mr-2 size-3.5 shrink-0 xl:mr-3 xl:size-4" />
+                      )}
+                      <span className="truncate text-sm">{subItem.title}</span>
                     </div>
                   </button>
                 );

@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import {
+  HEADER_TAB_TRIGGER_CLASS,
+  HEADER_TABS_LIST_CLASS,
+} from "@/lib/header-tabs";
 import useSWR from "swr";
 import { useForm } from "react-hook-form";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
@@ -1533,8 +1537,9 @@ export default function SettingsPage() {
   const settingsTabList = (
     <TabsList
       className={cn(
-        "w-full gap-1 rounded-none border-0 bg-transparent dark:bg-transparent p-0 flex-nowrap h-auto min-h-fit overflow-x-auto",
-        "[&::-webkit-scrollbar]:hidden [scrollbar-width:none]",
+        // Shared with Edit Plan and Edit Benefit: one line, no card chrome, and
+        // a responsive step-down below `xl`/`2xl` (see lib/header-tabs.ts).
+        HEADER_TABS_LIST_CLASS,
         // Centring that survives an overflow — the same rule Edit Benefit uses: auto
         // margins centre the strip while it fits and collapse to 0 when it does not, so
         // an overlong strip stays flush with the start and scrolls normally instead of
@@ -1550,9 +1555,11 @@ export default function SettingsPage() {
         <TabsTrigger
           key={value}
           value={value}
-          className="relative flex items-center gap-2 rounded-none px-4 py-3 text-sm font-medium whitespace-nowrap data-[state=active]:border-b-2 data-[state=active]:border-accent-blue data-[state=active]:font-bold data-[state=active]:text-accent-blue"
+          className={HEADER_TAB_TRIGGER_CLASS}
         >
-          <Icon className="h-4 w-4" />
+          {/* Sized by the shared recipe's `[&_svg]` rules, so the glyph follows
+              the label down below `xl` and back up again at `xl`/`2xl`. */}
+          <Icon className="shrink-0" />
           {label}
           {dirty && (
             // Inset rather than hanging outside the trigger: the strip is a horizontal

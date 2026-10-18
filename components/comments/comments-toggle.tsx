@@ -34,11 +34,16 @@ export function CommentsToggle() {
       aria-pressed={active}
       aria-label={label}
       title={canComment ? `${label} (Shift+C)` : label}
-      className={cn("relative shrink-0 rounded-full", active && "text-accent-blue")}
+      // Scales down with the viewport (see the header's responsive note), so it keeps
+      // the same footprint as the Messages toggle beside it.
+      className={cn(
+        "relative h-7 w-7 shrink-0 rounded-full xl:h-8 xl:w-8",
+        active && "text-accent-blue",
+      )}
     >
-      <MessageSquare className="h-5 w-5" />
+      <MessageSquare className="h-4 w-4 xl:h-5 xl:w-5" />
       {active && (
-        <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-accent-blue" />
+        <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-accent-blue xl:right-1 xl:top-1" />
       )}
     </Button>
   );
