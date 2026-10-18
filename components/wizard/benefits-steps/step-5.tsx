@@ -28,6 +28,10 @@ import {
   stripDisclaimerCopyright,
 } from "@/lib/disclaimer-constants";
 import { Footer } from "@/components/layout/footer";
+import {
+  DisclosureFooterEditor,
+  type DisclosureEditorMode,
+} from "@/components/wizard/steps/sections/disclosure-footer-editor";
 import { Skeleton } from "@/components/ui/skeleton";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
 import { fetchClientOnce, invalidateClientCache } from "@/lib/fetch-client";
@@ -452,6 +456,10 @@ export function BenefitsStep5() {
 
   // The disclaimer is implied by the category selected in Step 1
   const disclaimer = disclaimersByCategory[currentCategoryKey] || null;
+  // "Use Default" / "Add my own" for the inline editor. `null` means "derive it from the
+  // loaded text"; a boolean records an explicit choice. Held separately from the text
+  // because choosing "Add my own" leaves the default copy in the field until a keystroke.
+  const [customModeChosen, setCustomModeChosen] = useState<boolean | null>(null);
 
   const [hasInitialized, setHasInitialized] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -673,6 +681,83 @@ export function BenefitsStep5() {
     return (d.text || "").replace(/\[Organization Name\]/g, disclaimerOrganizationName);
   }, [disclaimersByCategory, currentCategoryKey, inheritedText, disclaimerOrganizationName]);
 
+  // ── Inline editor state ──
+  const defaultDisclaimerText = stripDisclaimerCopyright(inheritedText);
+  const resolvedStoredText = useCallback(
+    (value: string) =>
+      stripDisclaimerCopyright(
+        value
+          .replace(/\[Organization Name\]/g, disclaimerOrganizationName)
+          .replace(/\[Company Name\]/g, companyName),
+      ),
+    [disclaimerOrganizationName, companyName],
+  );
+  const editorText = disclaimer?.text
+    ? resolvedStoredText(disclaimer.text)
+    : defaultDisclaimerText;
+
+  // The editor is the source of truth now: a keystroke updates the current category's
+  // disclaimer locally at once, then persists to the plan record behind a short debounce.
+  const inlineSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const schedulePersistInline = useCallback(
+    (next: Partial<Record<PortalDisclaimerCategory, Disclaimer | null>>) => {
+      if (inlineSaveTimerRef.current) clearTimeout(inlineSaveTimerRef.current);
+      inlineSaveTimerRef.current = setTimeout(() => {
+        inlineSaveTimerRef.current = null;
+        persistToPlan(next).catch(() => {});
+      }, 700);
+    },
+    [persistToPlan],
+  );
+  useEffect(
+    () => () => {
+      if (inlineSaveTimerRef.current) clearTimeout(inlineSaveTimerRef.current);
+    },
+    [],
+  );
+
+  const writeCurrentDisclaimer = (patch: Partial<Disclaimer>) => {
+    const existing = disclaimersByCategory[currentCategoryKey];
+    const d: Disclaimer = {
+      ...(existing ?? {
+        id: Date.now().toString(),
+        text: "",
+        locations: [CATEGORY_PORTAL_LABELS[currentCategoryKey] || "Global"],
+        customLocation: "",
+        scope: "plan",
+        apply_all_benefits_categories: false,
+      }),
+      ...patch,
+    };
+    const next = { ...disclaimersByCategory, [currentCategoryKey]: d };
+    setDisclaimersByCategory(next);
+    saveStepData(5, { byCategory: next });
+    schedulePersistInline(next);
+  };
+
+  const handleInlineTextChange = (value: string) =>
+    writeCurrentDisclaimer({ text: ensurePlanTelligenceTrademark(value) });
+
+  const handleApplyAllChange = (checked: boolean) =>
+    writeCurrentDisclaimer({ apply_all_benefits_categories: checked });
+
+  // A new category starts from its own loaded copy; the radio follows the loaded text
+  // until the advisor chooses one explicitly.
+  useEffect(() => {
+    setCustomModeChosen(null);
+  }, [currentCategoryKey]);
+
+  const derivedDisclaimerMode: DisclosureEditorMode =
+    editorText.trim() === defaultDisclaimerText.trim() ? "default" : "custom";
+  const disclaimerMode: DisclosureEditorMode =
+    customModeChosen === null
+      ? derivedDisclaimerMode
+      : customModeChosen
+        ? "custom"
+        : "default";
+  const handleDisclaimerModeChange = (mode: DisclosureEditorMode) =>
+    setCustomModeChosen(mode === "custom");
+
   // ── Brand colours from the selected plan ──
   const brandColor =
     (selectedPlan as any)?.brandColor ||
@@ -819,219 +904,56 @@ export function BenefitsStep5() {
       )}
 
       {hasInitialized && (
-        <>
-          {/* ── Disclaimer summary — always shown. Uses the inherited disclaimer
-               (User's profile disclaimer) when no disclaimer is saved for the
-               current category yet. ── */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Applies to:
+        <div className="space-y-4">
+          {/* Which category this disclosure belongs to, and the apply-all shortcut. */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                Applies to:
+              </span>
+              {disclaimer?.apply_all_benefits_categories ? (
+                <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+                  All Categories
                 </span>
-                {disclaimer?.apply_all_benefits_categories ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-semibold">
-                    All Categories
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#23919C]/10 text-[#23919C] text-[10px] font-semibold">
-                    {categoryKeyToHubLabel(currentCategoryKey)}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  onClick={() => setPreviewFooterOpen(true)}
-                  size="sm"
-                  variant="outline"
-                  className="border-gray-300 dark:border-gray-600"
-                >
-                  <Eye className="w-4 h-4 mr-1" />
-                  Preview Footer
-                </Button>
-                <Button
-                  onClick={() => setIsModalOpen(true)}
-                  size="sm"
-                  className="bg-[#23919C] hover:bg-[#1b727a] text-white"
-                >
-                  <Edit2 className="w-4 h-4 mr-1" />
-                  Edit
-                </Button>
-              </div>
+              ) : (
+                <span className="inline-flex items-center rounded-full bg-[#23919C]/10 px-2 py-0.5 text-[10px] font-semibold text-[#23919C]">
+                  {categoryKeyToHubLabel(currentCategoryKey)}
+                </span>
+              )}
             </div>
-
-            {/* Disclaimer card */}
-            <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-card dark:bg-gray-800/50">
-             <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words">
-               {disclaimer?.text
-                 ? disclaimer.text.replace(/\[Organization Name\]/g, disclaimerOrganizationName)
-                 : inheritedText}
-             </div>
-            </div>
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+              <Switch
+                checked={disclaimer?.apply_all_benefits_categories ?? false}
+                onCheckedChange={handleApplyAllChange}
+              />
+              Apply to all benefit categories
+            </label>
           </div>
-        </>
-      )}
 
-      {/* ── Create / Edit Disclaimer Modal ── */}
-      {isModalOpen && (
-        <DisclaimerModal
-          isOpen={isModalOpen}
-          disclaimer={disclaimer}
-          companyName={companyName}
-          organizationName={disclaimerOrganizationName}
-          benefitCategory={currentCategoryKey}
-          inheritedText={inheritedText}
-          onSave={handleSaveDisclaimer}
-          onClose={() => {
-            setIsModalOpen(false);
-          }}
-        />
-      )}
-
-      {/* ── Footer Preview Modal ── */}
-      {previewFooterOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-            {/* Header */}
-            <div className="sticky top-0 z-10 flex items-start justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-xl">
-              <div className="space-y-2">
-                <div>
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                    Footer Preview
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    How the disclaimer will appear on the{" "}
-                    <strong className="text-gray-600 dark:text-gray-300">
-                      {categoryKeyToPortalLabel(currentCategoryKey)}
-                    </strong>{" "}
-                    page
-                  </p>
-                </div>
-                {/* Footer Background Color */}
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mr-1">
-                    Footer Color:
-                  </span>
-                  <span className="text-[10px] text-gray-400 dark:text-gray-500 italic">
-                    Controls the background color of the portal footer on all pages.
-                  </span>
-                  {(["primary", "secondary", "custom"] as const).map((mode) => {
-                    const label =
-                      mode === "primary"
-                        ? "Primary"
-                        : mode === "secondary"
-                          ? "Secondary"
-                          : "Custom";
-                    const colorVal =
-                      mode === "primary"
-                        ? brandColor
-                        : mode === "secondary"
-                          ? secondaryColor
-                          : footerBgCustomColor || "#888888";
-                    const isActive = footerBgMode === mode;
-                    return (
-                      <button
-                        key={mode}
-                        type="button"
-                        onClick={() => {
-                          setFooterBgMode(mode);
-                          schedulePersistFooterBg(mode, footerBgCustomColor);
-                        }}
-                        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-all ${
-                          isActive
-                            ? "border-[#23919C] ring-1 ring-[#23919C] bg-[#23919C]/5"
-                            : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
-                        }`}
-                      >
-                        <span
-                          className="w-3 h-3 rounded-full border border-gray-300 shrink-0"
-                          style={{ background: colorVal }}
-                        />
-                        {label}
-                      </button>
-                    );
-                  })}
-                  {footerBgMode === "custom" && (
-                    <>
-                      <input
-                        type="color"
-                        value={footerBgCustomColor || brandColor}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setFooterBgCustomColor(v);
-                          schedulePersistFooterBg("custom", v);
-                        }}
-                        className="w-6 h-6 rounded cursor-pointer border border-gray-300 p-0.5"
-                      />
-                      <input
-                        type="text"
-                        value={footerBgCustomColor}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setFooterBgCustomColor(v);
-                          schedulePersistFooterBg("custom", v);
-                        }}
-                        placeholder="#HEX"
-                        className="w-20 text-[11px] border border-gray-200 dark:border-gray-600 rounded px-1.5 py-1 bg-transparent"
-                      />
-                    </>
-                  )}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setPreviewFooterOpen(false)}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shrink-0"
-              >
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            </div>
-
-            {/* Preview content – actual Footer component */}
-            <div className="p-0">
-              <div className="bg-black min-h-[200px]">
-                <div className="bg-gray-900 h-16 flex items-center px-6 border-b border-gray-800">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-red-500" />
-                    <div className="w-3 h-3 rounded-full bg-yellow-500" />
-                    <div className="w-3 h-3 rounded-full bg-green-500" />
-                  </div>
-                  <div className="ml-4 text-xs text-gray-400 font-mono">
-                    {categoryKeyToPortalLabel(currentCategoryKey)} — Employee Portal
-                  </div>
-                </div>
-
-                {/* Benefit page content mock */}
-                <div className="px-8 py-12 text-center">
-                  <h2 className="text-2xl font-bold text-white mb-2">
-                    {categoryKeyToPortalLabel(currentCategoryKey)}
-                  </h2>
-                  <p className="text-gray-400 text-sm max-w-xl mx-auto">
-                    This is where the benefit content would appear. Scroll down
-                    to see the Footer with your disclaimer.
-                  </p>
-                </div>
-
-                {/* The actual Footer with disclaimer — uses resolved footer colour */}
-                <Footer
-                  brandColor={resolvedFooterBgColor}
-                  disclosuresText={buildDisclosureText()}
-                  organizationName={organizationName}
-                  companyName={companyName}
-                />
-              </div>
-            </div>
-
-            {/* Close button */}
-            <div className="flex justify-center px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-              <Button
-                onClick={() => setPreviewFooterOpen(false)}
-                variant="outline"
-              >
-                Close Preview
-              </Button>
-            </div>
-          </div>
+          {/* The editor lives inside the real footer — same surface as Edit Plan. */}
+          <DisclosureFooterEditor
+            footer="benefit"
+            primaryColor={brandColor}
+            secondaryColor={secondaryColor}
+            footerBgMode={footerBgMode}
+            footerBgCustomColor={footerBgCustomColor}
+            onFooterBgModeChange={(mode) => {
+              setFooterBgMode(mode);
+              schedulePersistFooterBg(mode, footerBgCustomColor);
+            }}
+            onFooterBgCustomColorChange={(value) => {
+              setFooterBgCustomColor(value);
+              schedulePersistFooterBg("custom", value);
+            }}
+            text={editorText}
+            onTextChange={handleInlineTextChange}
+            mode={disclaimerMode}
+            onModeChange={handleDisclaimerModeChange}
+            defaultText={defaultDisclaimerText}
+            companyName={companyName}
+            organizationName={disclaimerOrganizationName}
+            previewLabel={`${categoryKeyToPortalLabel(currentCategoryKey)} — Employee Portal`}
+          />
         </div>
       )}
     </div>

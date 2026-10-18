@@ -141,7 +141,16 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
           collapse toggle is pinned to `top-[76px]` against it. */}
       <nav
         className={cn(
-          "flex items-center px-3 transition-all duration-200 xl:px-10",
+          "px-3 transition-all duration-200 xl:px-10",
+          // A wizard stepper is centred across the whole header. Three grid columns
+          // with EQUAL flexible sides put the auto-sized middle exactly on the
+          // header's centre, regardless of how wide the page title or the action
+          // cluster are — a flex row only centres it between two columns of
+          // different widths, which is what pushed it off-centre on /new-client.
+          // Everything else (tab pages, plain pages) stays a flex row.
+          stepper && !stepperFloats
+            ? "grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center"
+            : "flex items-center",
           stepper ? "h-[72px]" : "h-16",
           scrolled
             ? "bg-background/80 backdrop-blur-md shadow-sm"

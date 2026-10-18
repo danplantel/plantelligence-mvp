@@ -25,6 +25,10 @@ import {
   stripDisclaimerCopyright,
 } from "@/lib/disclaimer-constants";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
+import {
+  DisclosureFooterEditor,
+  type DisclosureEditorMode,
+} from "@/components/wizard/steps/sections/disclosure-footer-editor";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, Eye, FileText, Edit2, X } from "lucide-react";
 
@@ -507,7 +511,10 @@ export function NewClientStep5({
           }
 
           const onboardingText = await getOnboardingDisclaimerText();
-          if (!onboardingText) return;
+          if (!onboardingText) {
+            seedDefaultDisclaimer();
+            return;
+          }
           if (
             useNewClientWizardStore.getState().stepData.disclaimers
               ?.disclaimers?.length
@@ -529,6 +536,7 @@ export function NewClientStep5({
           setShowInitialPrompt(false);
         } catch (error) {
           console.error("❌ Error prefilling disclaimer:", error);
+          seedDefaultDisclaimer();
         }
       })();
     };
@@ -610,6 +618,88 @@ export function NewClientStep5({
     [saveStepDataLocally, saveStepDataToServer, footerBgMode, footerBgCustomColor],
   );
 
+  // ── Inline editor state ──
+  // The editor is the source of truth now: a keystroke updates local state at once,
+  // then persists to the draft behind a short debounce.
+  const defaultDisclaimerText = stripDisclaimerCopyright(
+    resolveDefaultDisclosuresText(organizationName, companyName, true),
+  );
+  const editorText = disclaimer
+    ? stripDisclaimerCopyright(resolveDisclaimerText(disclaimer.text))
+    : defaultDisclaimerText;
+  const [customModeChosen, setCustomModeChosen] = useState<boolean | null>(null);
+  const derivedDisclaimerMode: DisclosureEditorMode =
+    editorText.trim() === defaultDisclaimerText.trim() ? "default" : "custom";
+  const disclaimerMode: DisclosureEditorMode =
+    customModeChosen === null
+      ? derivedDisclaimerMode
+      : customModeChosen
+        ? "custom"
+        : "default";
+  const handleDisclaimerModeChange = (mode: DisclosureEditorMode) =>
+    setCustomModeChosen(mode === "custom");
+
+  const inlineSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const schedulePersistDisclaimer = useCallback(
+    (d: Disclaimer) => {
+      if (inlineSaveTimerRef.current) clearTimeout(inlineSaveTimerRef.current);
+      inlineSaveTimerRef.current = setTimeout(() => {
+        inlineSaveTimerRef.current = null;
+        persistDisclaimer(d).catch(() => {});
+      }, 600);
+    },
+    [persistDisclaimer],
+  );
+  useEffect(
+    () => () => {
+      if (inlineSaveTimerRef.current) clearTimeout(inlineSaveTimerRef.current);
+    },
+    [],
+  );
+
+  const buildInlineDisclaimer = (patch: Partial<Disclaimer>): Disclaimer => ({
+    ...(disclaimer ?? {
+      id: Date.now().toString(),
+      text: "",
+      locations: ["Home Page"],
+      customLocation: "",
+      scope: "plan",
+      apply_all_benefits_categories: false,
+    }),
+    ...patch,
+  });
+
+  const handleInlineTextChange = (value: string) => {
+    const d = buildInlineDisclaimer({
+      text: ensurePlanTelligenceTrademark(value),
+    });
+    setDisclaimer(d);
+    saveStepDataLocally("disclaimers", {
+      disclaimers: [d],
+      footerBackground: { mode: footerBgMode, customColor: footerBgCustomColor },
+    });
+    schedulePersistDisclaimer(d);
+  };
+
+  /**
+   * Seed the required disclosure when neither the plan, the profile nor onboarding
+   * supplied one. The inline editor always shows the platform copy, so the step is
+   * complete from the first paint rather than waiting on a "Create" click.
+   */
+  function seedDefaultDisclaimer() {
+    const d: Disclaimer = {
+      id: Date.now().toString(),
+      text: defaultDisclaimerText,
+      locations: ["Home Page"],
+      customLocation: "",
+      scope: "plan",
+      apply_all_benefits_categories: false,
+    };
+    setDisclaimer(d);
+    setShowInitialPrompt(false);
+    saveStepDataLocally("disclaimers", { disclaimers: [d] });
+  }
+
   // ── Create / Update handler ──
   const handleSaveDisclaimer = async (data: Omit<Disclaimer, "id">) => {
     const d: Disclaimer = {
@@ -678,87 +768,6 @@ export function NewClientStep5({
         </CardContent>
       </Card>
 
-      {/* ── Footer Background Color ── */}
-      <Card className="border border-gray-200 dark:border-gray-700">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex items-center gap-2">
-            <div
-              className="w-5 h-5 rounded border border-gray-300"
-              style={{ background: resolvedFooterBgColor }}
-            />
-            <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-              Footer Background Color
-            </h3>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Choose which brand color the Footer section uses.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {(["primary", "secondary", "custom"] as const).map((mode) => {
-              const label =
-                mode === "primary"
-                  ? "Primary"
-                  : mode === "secondary"
-                    ? "Secondary"
-                    : "Custom";
-              const colorVal =
-                mode === "primary"
-                  ? primaryColor
-                  : mode === "secondary"
-                    ? secondaryColor
-                    : footerBgCustomColor || "#888888";
-              const isActive = footerBgMode === mode;
-              return (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => {
-                    setFooterBgMode(mode);
-                    persistFooterBg(mode, footerBgCustomColor).catch(() => {});
-                  }}
-                  className={`inline-flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium border transition-all ${
-                    isActive
-                      ? "border-accent-blue ring-1 ring-accent-blue bg-accent-blue/5"
-                      : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
-                  }`}
-                >
-                  <span
-                    className="w-4 h-4 rounded-full border border-gray-300 shrink-0"
-                    style={{ background: colorVal }}
-                  />
-                  {label}
-                </button>
-              );
-            })}
-          </div>
-          {footerBgMode === "custom" && (
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                value={footerBgCustomColor || primaryColor}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setFooterBgCustomColor(v);
-                  persistFooterBg("custom", v).catch(() => {});
-                }}
-                className="w-8 h-8 rounded cursor-pointer border border-gray-300 p-0.5"
-              />
-              <input
-                type="text"
-                value={footerBgCustomColor}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setFooterBgCustomColor(v);
-                  persistFooterBg("custom", v).catch(() => {});
-                }}
-                placeholder="#HEX or color name"
-                className="flex-1 text-xs border border-gray-200 dark:border-gray-600 rounded px-2 py-1.5 bg-transparent"
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* ── Disclaimer loading skeleton ── */}
       {!hasInitialized && (
         <div className="space-y-4">
@@ -784,103 +793,42 @@ export function NewClientStep5({
         </div>
       )}
 
-      {/* ── Disclosure content ── */}
-      {hasInitialized && !disclaimer && showInitialPrompt && (
-        /* ── Initial prompt (no disclosure yet) ── */
-        <div className="space-y-6 py-4">
-          <div className="text-center space-y-2">
-            <div className="flex justify-center">
-              <div className="p-3 rounded-full bg-red-50 dark:bg-red-900/20">
-                <AlertCircle className="w-6 h-6 text-red-500" />
-              </div>
-            </div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              Disclosure Required
-            </h2>
-            <p className="text-sm text-muted-foreground">
-              You must create a disclosure before proceeding. This legal
-              notice will appear in the footer of your{" "}
-              <strong className="text-gray-700 dark:text-gray-200">
-                Home Page
-              </strong>
-              .
-            </p>
-          </div>
-
-          <Button
-            onClick={() => {
-              setShowInitialPrompt(false);
-              setIsModalOpen(true);
-            }}
-            className="w-full h-12 text-base font-bold bg-[#23919C] hover:bg-[#1b727a] text-white rounded-xl shadow-lg shadow-[#23919C]/20"
-          >
-            <FileText className="w-5 h-5 mr-2" />
-            Create Disclosure for Home Page
-          </Button>
-        </div>
-      )}
-
-      {hasInitialized && disclaimer && (
-        /* ── Single disclosure summary ── */
+      {hasInitialized && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-foreground">
-                Disclosure
-              </h2>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                onClick={() => setPreviewFooterOpen(true)}
-                size="sm"
-                variant="outline"
-                className="border-gray-300 dark:border-gray-600"
-              >
-                <Eye className="w-4 h-4 mr-1" />
-                Preview Footer
-              </Button>
-              <Button
-                onClick={() => setIsModalOpen(true)}
-                size="sm"
-                className="bg-[#23919C] hover:bg-[#1b727a] text-white"
-              >
-                <Edit2 className="w-4 h-4 mr-1" />
-                Edit
-              </Button>
-            </div>
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              Applies to:
+            </span>
+            <span className="inline-flex items-center rounded-full bg-[#23919C]/10 px-2 py-0.5 text-[10px] font-semibold text-[#23919C]">
+              Home Page
+            </span>
           </div>
 
-          {/* Single disclaimer card */}
-          <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-card dark:bg-gray-800/50">
-            <div className="flex items-center gap-2 flex-wrap mb-3">
-              <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                Applies to:
-              </span>
-              {disclaimer.apply_all_benefits_categories ? (
-                <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-[10px] font-semibold">
-                  All Categories
-                </span>
-              ) : (
-                [
-                  ...disclaimer.locations,
-                  ...(disclaimer.customLocation
-                    ? [disclaimer.customLocation]
-                    : []),
-                ].map((loc) => (
-                  <span
-                    key={loc}
-                    className="inline-flex items-center px-2 py-0.5 rounded-full bg-[#23919C]/10 text-[#23919C] text-[10px] font-semibold"
-                  >
-                    {loc}
-                  </span>
-                ))
-              )}
-            </div>
-            <div className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words border-t border-gray-100 dark:border-gray-700 pt-3">
-              {disclaimer.text}
-            </div>
-          </div>
-
+          {/* The editor lives inside the real Home Page footer — the same surface
+              every other Disclosure editor uses. */}
+          <DisclosureFooterEditor
+            footer="home"
+            primaryColor={primaryColor}
+            secondaryColor={secondaryColor}
+            footerBgMode={footerBgMode}
+            footerBgCustomColor={footerBgCustomColor}
+            onFooterBgModeChange={(mode) => {
+              setFooterBgMode(mode);
+              persistFooterBg(mode, footerBgCustomColor).catch(() => {});
+            }}
+            onFooterBgCustomColorChange={(value) => {
+              setFooterBgCustomColor(value);
+              persistFooterBg("custom", value).catch(() => {});
+            }}
+            text={editorText}
+            onTextChange={handleInlineTextChange}
+            mode={disclaimerMode}
+            onModeChange={handleDisclaimerModeChange}
+            defaultText={defaultDisclaimerText}
+            companyName={companyName}
+            organizationName={organizationName}
+            previewLabel="Home Page — Employee Portal"
+          />
         </div>
       )}
 

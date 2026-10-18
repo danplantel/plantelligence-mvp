@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import { appendDisclaimerCopyright } from "@/lib/disclaimer-constants";
 
 interface FooterProps {
@@ -9,6 +9,12 @@ interface FooterProps {
   organizationName?: string;
   /** Company name to populate [Company Name] in the disclosures. */
   companyName?: string;
+  /**
+   * Render this INSTEAD of the resolved disclaimer paragraphs — used by the Disclosure
+   * editors (Create Plan, Create Benefits, Edit Benefit) to place an editable Textarea
+   * inside the real footer, so the preview and the editor are one surface.
+   */
+  disclosureNode?: ReactNode;
 }
 
 export function Footer({
@@ -16,6 +22,7 @@ export function Footer({
   disclosuresText,
   organizationName,
   companyName,
+  disclosureNode,
 }: FooterProps) {
   // Resolve the organization/company names for the disclaimer.
   const resolvedOrg = (organizationName || "").trim() || "Lighthouse Financial Advisors";
@@ -103,78 +110,85 @@ export function Footer({
 
         <div className="border-t border-gray-700 pt-8">
           <div className="space-y-6">
-            {/* Disclosures */}
-            <div className="text-xs text-gray-300 leading-relaxed space-y-4">
-              <p>
-                <strong>Disclosures:</strong>
-              </p>
-              {resolvedDisclosuresText ? (
-                <div className="space-y-2">
-                  {/* Render newlines explicitly as React elements
-                      (\n\n → paragraph, \n → <br/>) after normalizing
-                      \r\n, \r, and literal backslash-n (\n). */}
-                  {resolvedDisclosuresText
-                    .replace(/\\n/g, "\n")
-                    .replace(/\r\n/g, "\n")
-                    .replace(/\r/g, "\n")
-                    .split("\n\n")
-                    .filter(Boolean)
-                    .map((paragraph, i) => (
-                      <p key={i}>
-                        {paragraph.split("\n").map((line, j) => (
-                          <Fragment key={j}>
-                            {j > 0 && <br />}
-                            {line}
-                          </Fragment>
-                        ))}
-                      </p>
-                    ))}
-                </div>
-              ) : (
-                <>
-                  <p>
-                    The LPL Financial registered representatives associated with
-                    this website may discuss and/or transact business only with
-                    residents of the states in which they are properly
-                    registered or licensed. No offers may be made or accepted
-                    from any resident of any other state.
-                  </p>
-                  <p>
-                    Securities and financial planning services offered through
-                    LPL Financial, a registered investment advisor, Member FINRA
-                    / SIPC. {resolvedOrg} is a separate entity from LPL
-                    Financial.
-                  </p>
-                  <p>
-                    Sarah Johnson | Key West, FL | 123 Lighthouse Way, Key West,
-                    FL 33040 | CA Insurance Lic. # 0F77158 | Phone: (305)
-                    555-1122
-                  </p>
-                  <p>
-                    Michael Frank | Key West, FL | 123 Lighthouse Way, Key West,
-                    FL 33040 | CA Insurance Lic. # 0F37907 | Phone: (305)
-                    555-3344
-                  </p>
-                  <p>
-                    The content is developed from sources believed to be
-                    providing accurate information. This material was created
-                    for educational and informational purposes only and is not
-                    intended as ERISA, tax, legal or investment advice. If you
-                    are seeking investment advice specific to your needs, such
-                    advice services must be obtained on your own separate from
-                    this educational material. Some of this material was
-                    developed and produced to provide information on a topic
-                    that may be of interest. This is not affiliated with the
-                    named representative, broker-dealer, state – or
-                    SEC-registered investment advisory firm. The opinions
-                    expressed and material provided are for general information
-                    and should not be considered a solicitation for the purchase
-                    or sale of any security.
-                  </p>
-                  <p>®{resolvedOrg}</p>
-                </>
-              )}
-            </div>
+            {/* Disclosures — or the host's own editor, rendered in their place so a
+                page can embed an editable disclosure inside the real footer. */}
+            {disclosureNode ? (
+              <div className="text-xs text-gray-300 leading-relaxed">
+                {disclosureNode}
+              </div>
+            ) : (
+              <div className="text-xs text-gray-300 leading-relaxed space-y-4">
+                <p>
+                  <strong>Disclosures:</strong>
+                </p>
+                {resolvedDisclosuresText ? (
+                  <div className="space-y-2">
+                    {/* Render newlines explicitly as React elements
+                        (\n\n → paragraph, \n → <br/>) after normalizing
+                        \r\n, \r, and literal backslash-n (\n). */}
+                    {resolvedDisclosuresText
+                      .replace(/\\n/g, "\n")
+                      .replace(/\r\n/g, "\n")
+                      .replace(/\r/g, "\n")
+                      .split("\n\n")
+                      .filter(Boolean)
+                      .map((paragraph, i) => (
+                        <p key={i}>
+                          {paragraph.split("\n").map((line, j) => (
+                            <Fragment key={j}>
+                              {j > 0 && <br />}
+                              {line}
+                            </Fragment>
+                          ))}
+                        </p>
+                      ))}
+                  </div>
+                ) : (
+                  <>
+                    <p>
+                      The LPL Financial registered representatives associated with
+                      this website may discuss and/or transact business only with
+                      residents of the states in which they are properly
+                      registered or licensed. No offers may be made or accepted
+                      from any resident of any other state.
+                    </p>
+                    <p>
+                      Securities and financial planning services offered through
+                      LPL Financial, a registered investment advisor, Member FINRA
+                      / SIPC. {resolvedOrg} is a separate entity from LPL
+                      Financial.
+                    </p>
+                    <p>
+                      Sarah Johnson | Key West, FL | 123 Lighthouse Way, Key West,
+                      FL 33040 | CA Insurance Lic. # 0F77158 | Phone: (305)
+                      555-1122
+                    </p>
+                    <p>
+                      Michael Frank | Key West, FL | 123 Lighthouse Way, Key West,
+                      FL 33040 | CA Insurance Lic. # 0F37907 | Phone: (305)
+                      555-3344
+                    </p>
+                    <p>
+                      The content is developed from sources believed to be
+                      providing accurate information. This material was created
+                      for educational and informational purposes only and is not
+                      intended as ERISA, tax, legal or investment advice. If you
+                      are seeking investment advice specific to your needs, such
+                      advice services must be obtained on your own separate from
+                      this educational material. Some of this material was
+                      developed and produced to provide information on a topic
+                      that may be of interest. This is not affiliated with the
+                      named representative, broker-dealer, state – or
+                      SEC-registered investment advisory firm. The opinions
+                      expressed and material provided are for general information
+                      and should not be considered a solicitation for the purchase
+                      or sale of any security.
+                    </p>
+                    <p>®{resolvedOrg}</p>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Copyright */}
             <div className="text-center">
