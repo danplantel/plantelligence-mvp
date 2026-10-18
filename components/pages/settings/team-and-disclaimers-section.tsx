@@ -2,7 +2,6 @@
 
 import { useState, type Ref } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { FileText } from "lucide-react";
 import {
   DisclaimersSettingsSection,
@@ -11,13 +10,17 @@ import {
 import { DisclaimerLedger } from "@/components/pages/settings/disclaimer-ledger";
 
 interface TeamAndDisclaimersSectionProps {
-  isLoading: boolean;
+  /**
+   * No `isLoading` any more: `DisclaimersSettingsSection` owns its own read and its own
+   * skeleton, so it must MOUNT immediately rather than wait for the page's profile read. The
+   * Organization tab is force-mounted by Settings, which means that read starts alongside the
+   * page's initial load instead of when the tab is first opened.
+   */
   disclaimersRef?: Ref<DisclaimersSettingsSectionHandle>;
   onDisclaimersDirtyChange?: (dirty: boolean) => void;
 }
 
 export function TeamAndDisclaimersSection({
-  isLoading,
   disclaimersRef,
   onDisclaimersDirtyChange,
 }: TeamAndDisclaimersSectionProps) {
@@ -41,22 +44,15 @@ export function TeamAndDisclaimersSection({
           </div>
         </CardHeader>
         <CardContent className="pt-6">
-          {isLoading ? (
-            <div className="space-y-4">
-              {[1, 2].map((i) => (
-                <div key={i} className="space-y-2">
-                  <Skeleton className="h-4 w-24" />
-                  <Skeleton className="h-20 w-full" />
-                </div>
-              ))}
-            </div>
-          ) : (
-            <DisclaimersSettingsSection
-              ref={disclaimersRef}
-              onDirtyChange={onDisclaimersDirtyChange}
-              onSaved={() => setLedgerKey((key) => key + 1)}
-            />
-          )}
+          {/* Mounted unconditionally: the section fetches /api/profile itself and renders its
+              own skeleton while that read is in flight. Gating it on the page's `isLoading`
+              delayed the mount — and therefore the fetch — until the page had finished, which
+              is what made the Disclosures skeleton show up when the tab was opened. */}
+          <DisclaimersSettingsSection
+            ref={disclaimersRef}
+            onDirtyChange={onDisclaimersDirtyChange}
+            onSaved={() => setLedgerKey((key) => key + 1)}
+          />
         </CardContent>
       </Card>
 

@@ -1664,8 +1664,21 @@ export default function SettingsPage() {
 
           {/* Organization Tab — also carries the Disclaimers section. The old
               Disclaimers tab was folded in here so every organization-level
-              setting shares one tab and one Save. */}
-          <TabsContent value="organization" className="space-y-6">
+              setting shares one tab and one Save.
+
+              `forceMount` from the FIRST render (not only after the tab is visited):
+              Radix otherwise unmounts an inactive panel, so the Disclosures editor
+              only mounted — and only began its /api/profile read — when somebody
+              clicked the Organization tab, which is exactly why its own skeleton
+              appeared on arrival. Mounted here, it loads alongside the page's
+              initial reads and is ready by the time the tab is opened.
+              `data-[state=inactive]:hidden` replaces the unmount, the same pattern
+              the People & Access panel below uses. */}
+          <TabsContent
+            value="organization"
+            forceMount
+            className="space-y-6 data-[state=inactive]:hidden"
+          >
             <OrganizationSettingsSection
               isLoading={isLoading}
               isSaving={isSaving}
@@ -1674,7 +1687,6 @@ export default function SettingsPage() {
             />
 
             <TeamAndDisclaimersSection
-              isLoading={isLoading}
               disclaimersRef={disclaimersRef}
               onDisclaimersDirtyChange={setTeamDirty}
             />

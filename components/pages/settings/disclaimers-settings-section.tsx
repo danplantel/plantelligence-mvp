@@ -13,8 +13,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Lock } from "lucide-react";
 import { toast } from "sonner";
 import { Disclaimer } from "@/types/wizard";
 import { fetchProfileOnce, invalidateProfileCache } from "@/lib/fetch-profile";
@@ -33,9 +31,11 @@ import { AddNowAttestationModal } from "@/components/wizard/steps/sections/attes
  *
  * Mirrors the Onboarding Step 5b (Compliance Disclosures) editor so the two
  * surfaces cannot drift: the two disclosure surfaces an advisor maintains —
- * **Benefits Hub Footer** and **Flyer & Marketing** — each shown as a locked
- * "Platform Disclosure" beside an editable "Your Disclosure" with the same
- * "Use Recommended" / "Add my own" choice, character limits and merge-field note.
+ * **Benefits Hub Footer** and **Flyer & Marketing** — are each edited as "Your
+ * Disclosure", with the same "Use Default" / "Add my own" choice, character
+ * limits and merge-field note. The platform's own language is still stored
+ * WITH the advisor's text (the save path composes the two), but it is no longer
+ * displayed here: Settings shows only what the advisor can edit.
  *
  * The one deliberate difference from 5b is WHEN it persists. 5b has no Save
  * button, so it writes on every change; Settings has a page-level Save bar, so
@@ -85,8 +85,8 @@ function buildSections(stored: Disclaimer[] | undefined): Record<string, Section
   for (const cfg of DISCLOSURE_SECTIONS) {
     const existing = list.find((d) => (d.locations || []).includes(cfg.location));
     if (existing) {
-      // Split the stored text; if "your" equals the recommended copy, treat it
-      // as "Use Recommended" so the radios reflect how it was saved.
+      // Split the stored text; if "your" equals the default copy, treat it
+      // as "Use Default" so the radios reflect how it was saved.
       const { your } = splitDisclosureText(existing.text, cfg.platformText);
       const isRecommended = your.trim() === cfg.recommendedText.trim();
       result[cfg.key] = {
@@ -129,23 +129,11 @@ export const DisclaimersSettingsSection = forwardRef<
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showAttestation, setShowAttestation] = useState(false);
-  const [orgName, setOrgName] = useState("");
 
   // Baseline snapshot used for "unsaved changes" detection.
   const baselineRef = useRef<Record<string, SectionState>>(buildSections([]));
   // The disclaimers array awaiting attestation, held until the dialog confirms.
   const pendingRef = useRef<Disclaimer[] | null>(null);
-
-  const renderOrg = useCallback(
-    (text: string) =>
-      text
-        .replace(
-          /\[Organization Name\]/g,
-          orgName || "[Organization Name]",
-        )
-        .replace(/\{Organization Name\}/g, orgName || "{Organization Name}"),
-    [orgName],
-  );
 
   const getIsDirty = useCallback(
     () => JSON.stringify(sections) !== JSON.stringify(baselineRef.current),
@@ -159,15 +147,6 @@ export const DisclaimersSettingsSection = forwardRef<
     const run = async () => {
       try {
         const profile: any = await fetchProfileOnce();
-        const profileOrgName =
-          profile?.organizationName ||
-          profile?.wizardSessions?.[0]?.branding?.organizationName ||
-          profile?.organizationType ||
-          stepData.branding?.organizationName ||
-          "";
-        if (!cancelled) {
-          setOrgName(profileOrgName || stepData.branding?.organizationName || "");
-        }
 
         let arr: Disclaimer[] = [];
         const raw = profile?.wizardSessions?.[0]?.disclaimers;
@@ -364,22 +343,19 @@ export const DisclaimersSettingsSection = forwardRef<
     [handleSave, handleReset, getIsDirty],
   );
 
-  const attestationNotice = (
-    <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
-      Confirming opens a short attestation. Benefits Hubs can’t be published
-      until your disclosures are reviewed and confirmed.
-    </div>
-  );
-
   if (isLoading) {
+    // Same placeholder recipe as the rest of Settings (`profile-settings-section.tsx`):
+    // a solid `bg-gray-300` bar for a label, a pulsing `bg-gray-200` block for a field.
+    // The shared `Skeleton` component paints `bg-muted`, which made this one section
+    // read a shade darker than every other Settings skeleton while the page loaded.
     return (
-      <div className="space-y-6">
+      <div className="space-y-4">
         {[1, 2].map((i) => (
-          <div key={i} className="space-y-3">
-            <Skeleton className="h-5 w-44" />
-            <Skeleton className="h-16 w-full" />
-            <Skeleton className="h-4 w-64" />
-            <Skeleton className="h-40 w-full" />
+          <div key={i} className="space-y-2">
+            <div className="h-4 w-44 rounded bg-gray-300" />
+            <div className="h-16 w-full rounded bg-gray-200 animate-pulse" />
+            <div className="h-4 w-64 rounded bg-gray-300" />
+            <div className="h-40 w-full rounded bg-gray-200 animate-pulse" />
           </div>
         ))}
       </div>
@@ -400,18 +376,9 @@ export const DisclaimersSettingsSection = forwardRef<
                 {cfg.title}
               </h3>
 
-              {/* Locked platform language */}
-              <div className="space-y-1.5">
-                <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  <Lock className="h-3 w-3" />
-                  Platform Disclosure
-                </p>
-                <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-400">
-                  {renderOrg(cfg.platformText)}
-                </div>
-              </div>
-
-              {/* Editable "Your Disclosure" */}
+              {/* Editable "Your Disclosure" — the only disclosure text Settings shows.
+                  The platform's own language is still composed into the stored value on
+                  save (see `combineDisclosureText`), it just is not displayed here. */}
               <div className="space-y-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                   Your Disclosure
@@ -455,7 +422,7 @@ export const DisclaimersSettingsSection = forwardRef<
                       htmlFor={`${cfg.key}-recommended`}
                       className="text-sm font-normal cursor-pointer dark:text-gray-300"
                     >
-                      Use Recommended
+                      Use Default
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -495,8 +462,6 @@ export const DisclaimersSettingsSection = forwardRef<
           </Card>
         );
       })}
-
-      {attestationNotice}
 
       {/* The same attestation dialog Step 5b uses, opened on Confirm save. */}
       <AddNowAttestationModal
