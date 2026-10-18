@@ -14,6 +14,8 @@ import {
   resolvePlanAccess,
   type RequiredLevel,
 } from "@/lib/teammates/access.server";
+import { removeBenefitCategoryAccess } from "@/lib/teammates/assignments.server";
+import { resolveOrganizationId } from "@/lib/organization";
 import type { PermissionFunction } from "@/types/teammate";
 
 /**
@@ -510,6 +512,34 @@ export async function DELETE(
             .replace(/\s+/g, " "),
         },
       });
+
+      // A deleted benefit must not leave anybody holding access to it. Collaborators
+      // scoped to this category lose that scope (an assignment covering only this
+      // category is removed); their TeammateProfile is never touched, so they stay an
+      // active teammate and keep any other plan/category. `all`-scope grants are left
+      // alone — the plan grant still covers the categories that remain.
+      const session = await getServerSession(authOptions);
+      const actorUserId = session?.user?.id;
+      if (actorUserId) {
+        try {
+          const organizationId =
+            (client as any).organizationId ??
+            (await resolveOrganizationId(client!.userId));
+          await removeBenefitCategoryAccess({
+            organizationId,
+            clientId: client!.id,
+            category,
+            actorUserId,
+          });
+        } catch (accessCleanupError) {
+          // The Benefit row is already gone; report the cleanup failure but do not turn
+          // a completed delete into a 500 the client would retry.
+          console.error(
+            "Purge: collaborator access cleanup failed (non-fatal):",
+            accessCleanupError,
+          );
+        }
+      }
 
       try {
         const existingEp: any = (client as any).employeePortalPreview;

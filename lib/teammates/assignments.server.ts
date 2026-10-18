@@ -31,7 +31,10 @@ import {
 } from "./permissions";
 // Direction is one-way (assignments → access): access.server never imports this
 // module, so the owner guard can live here without creating a cycle.
-import { assertOrganizationKeepsAnOwner } from "./access.server";
+import {
+  assertOrganizationKeepsAnOwner,
+  normalizeCategory,
+} from "./access.server";
 
 /**
  * The grid as a plain JSON object for Prisma. A `Record<string, string>` has the
@@ -388,6 +391,90 @@ export async function removeAssignment({
   });
 
   return { id: assignmentId };
+}
+
+/**
+ * Deleting a BENEFIT ends every Collaborator's access to that one category.
+ *
+ * Called by the Benefit DELETE route's hard-purge path. Spec T6's rule is the shape here:
+ * access ends immediately, but the PERSON is untouched — no `TeammateProfile` row is
+ * deleted, deactivated or edited, so they remain an active teammate of the organization
+ * and keep any other plan/category they hold. Only the grant that named this benefit goes.
+ *
+ *  - `selected`-scope assignments lose the category from `categories`;
+ *  - an assignment left with NO categories is removed entirely — it would grant nothing;
+ *  - `all`-scope assignments are left alone: the grant covers the plan's remaining (and
+ *    future) categories, so there is no category to remove from it.
+ *
+ * Category comparison goes through `normalizeCategory`, the same alias map the access
+ * resolver uses, so "Custom" / "Company / Plan Sponsor" and "Health Insurance" /
+ * "Group Health" match the stored assignment labels.
+ */
+export async function removeBenefitCategoryAccess({
+  organizationId,
+  clientId,
+  category,
+  actorUserId,
+}: {
+  organizationId: string;
+  clientId: string;
+  category: string;
+  actorUserId: string;
+}): Promise<{ removed: number; updated: number }> {
+  const target = normalizeCategory(category);
+  if (!target) return { removed: 0, updated: 0 };
+
+  const assignments = await prisma.planAssignment.findMany({
+    where: { organizationId, clientId },
+    orderBy: { createdAt: "asc" },
+  });
+
+  let removed = 0;
+  let updated = 0;
+
+  for (const assignment of assignments) {
+    if (assignment.categoryScope !== "selected") continue;
+    const categories = Array.isArray(assignment.categories)
+      ? assignment.categories.map(String)
+      : [];
+    const remaining = categories.filter(
+      (value) => normalizeCategory(value) !== target,
+    );
+    if (remaining.length === categories.length) continue;
+
+    if (remaining.length === 0) {
+      // The assignment covered only the deleted benefit. Remove it — and its audit and
+      // last-Owner guard — through the one existing writer.
+      await removeAssignment({ assignmentId: assignment.id, organizationId, actorUserId });
+      removed += 1;
+      continue;
+    }
+
+    await prisma.planAssignment.update({
+      where: { id: assignment.id },
+      data: {
+        categories: remaining,
+        lastChangedByUserId: actorUserId,
+        lastChangedAt: new Date(),
+      },
+    });
+    await recordTeammateAuditEvent({
+      organizationId,
+      actorUserId,
+      action: "assignment_updated",
+      profileId: assignment.profileId,
+      assignmentId: assignment.id,
+      details: {
+        clientId,
+        categoryRemoved: category,
+        categories: remaining,
+        reason: "benefit_deleted",
+      },
+    });
+    updated += 1;
+  }
+
+  return { removed, updated };
 }
 
 /**

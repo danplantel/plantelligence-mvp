@@ -1,4 +1,7 @@
-import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
+import {
+  BENEFITS_WIZARD_STORAGE_KEY,
+  useBenefitsWizardStore,
+} from "@/lib/benefits-wizard-store";
 
 /**
  * Helpers for the Create Benefits "Cancel" flow.
@@ -151,6 +154,13 @@ export function forgetDraftBenefit(planId: string, category: string): void {
 
     store.saveStepData(1, {
       ...step1,
+      // The deleted benefit was THIS draft's target, so the draft must no longer claim
+      // it. `readPersistedBenefitsDraft()` identifies a draft by `planId` +
+      // `benefitCategory` alone; clearing only the content left it still pointing at the
+      // deleted benefit, which made /benefits label the now-untouched row "Draft" (and
+      // offered "Continue" instead of "Add"). Clearing the identity makes the draft read
+      // as absent, which is exactly what a deleted benefit is.
+      ...(isSameBenefit ? { planId: "", benefitCategory: "" } : {}),
       categoryBenefitByApi: nextRows,
       benefitFieldsLoadedCategories: (
         step1.benefitFieldsLoadedCategories ?? []
@@ -230,5 +240,32 @@ export function forgetDraftBenefit(planId: string, category: string): void {
         ? { supportContactsPlanId: undefined, supportContactsCategory: undefined }
         : {}),
     });
+  }
+
+  // The persist middleware only writes while THIS module's store is hydrated. The Edit
+  // Benefit page never hydrates it, so the in-memory clears above can leave the stored
+  // draft untouched there — and `readPersistedBenefitsDraft()`, which /benefits uses to
+  // label an untouched category "Draft", reads localStorage directly. If that stored
+  // draft targets the deleted plan + category, remove it: a deleted benefit must not
+  // leave behind a draft that still claims it.
+  if (typeof window === "undefined") return;
+  try {
+    const raw = window.localStorage.getItem(BENEFITS_WIZARD_STORAGE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as {
+      state?: {
+        stepData?: {
+          step1?: { planId?: string; benefitCategory?: string };
+        };
+      };
+    };
+    const storedStep1 = parsed?.state?.stepData?.step1;
+    const storedPlanId = String(storedStep1?.planId ?? "").trim();
+    if (storedPlanId === planId && isThisCategory(storedStep1?.benefitCategory)) {
+      window.localStorage.removeItem(BENEFITS_WIZARD_STORAGE_KEY);
+    }
+  } catch {
+    // Storage unavailable (private mode) or the payload is unreadable. The in-memory
+    // clear above still applies for this session.
   }
 }
