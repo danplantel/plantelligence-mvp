@@ -2,6 +2,7 @@ import { z } from "zod";
 import { OrganizationType, TeamSize, ServiceType, LicenseType, BenefitType } from "@/types/wizard";
 import { normalizeOrganizationType } from "@/config/onboarding/organization-types";
 import { normalizeTeamSize } from "@/config/onboarding/team-sizes";
+import { normalizePhoneNumber } from "@/lib/phone-utils";
 
 /**
  * Extract field names from error message for destructive styling
@@ -242,11 +243,12 @@ export const userSetupSchema = z.object({
   phone: z.string()
     .min(1, "Phone number is required")
     .refine((phone) => {
-      // Remove all non-digit characters
-      const digits = phone.replace(/\D/g, '');
+      // Normalize EXACTLY like the phone field does: formatting, a "+1" country code and
+      // an appended extension all disappear, so a value the advisor can see is correct
+      // ("(213) 588-8888") is never rejected for its raw character count.
+      const national = normalizePhoneNumber(phone);
       // Accept 7-10 digits (US number, no country code)
-      const isValid = digits.length >= 7 && digits.length <= 10;
-      return isValid;
+      return national.length >= 7 && national.length <= 10;
     }, {
       message: "Please enter a valid phone number (7-10 digits)"
     }),

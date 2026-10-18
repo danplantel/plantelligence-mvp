@@ -14,6 +14,7 @@ import { Card, CardContent } from "../ui/card";
 import { validateCurrentStep } from "@/lib/wizard-validation";
 import { toast } from "sonner";
 import { TeamSize } from "@/types/wizard";
+import { normalizePhoneNumber } from "@/lib/phone-utils";
 import { AddNowAttestationModal } from "./steps/sections/attestation-modals/add-now-attestation-modal";
 import { SkipAttestationModal } from "./steps/sections/attestation-modals/skip-attestation-modal";
 import { InviteLaterModal } from "./steps/sections/attestation-modals/invite-later-modal";
@@ -323,11 +324,12 @@ export function OnboardingWizard({
               freshStepData.userSetup?.organizationEmail ||
               "",
             // The phone input renders a FORMATTED number ("(657) 556-5121"); validation
-            // and the store both want digits, so normalise here instead of validating the
-            // display string.
+            // and the store both want the national digits, so normalize here instead of
+            // validating the display string. Same helper the field and the schema use, so
+            // a country code or a pasted extension cannot make the two disagree.
             phone: phoneInput?.value
-              ? phoneInput.value.replace(/\D/g, "").slice(0, 10)
-              : freshStepData.userSetup?.phone || "",
+              ? normalizePhoneNumber(phoneInput.value)
+              : normalizePhoneNumber(freshStepData.userSetup?.phone || ""),
             title: titleInput?.value || freshStepData.userSetup?.title || "",
             designations: freshStepData.userSetup?.designations || [],
             headshot: headshotValue || freshStepData.userSetup?.headshot || "",

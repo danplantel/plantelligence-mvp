@@ -1,3 +1,12 @@
+import { normalizePhoneNumber } from "@/lib/phone-utils";
+
+/**
+ * Re-exported so every phone surface (Step 4, the wizard's Next handler, Settings) normalizes
+ * the same way. The implementation lives in `lib/phone-utils` because the validation schema in
+ * `lib/wizard-validation` needs it too and a lib module must not import from a component.
+ */
+export { normalizePhoneNumber };
+
 export interface UserSetupData {
   name: string;
   email: string;
@@ -205,8 +214,8 @@ export const onHeadshotChange = (
 
 // Phone formatting functions
 export const formatPhoneNumber = (value: string): string => {
-  // Remove all non-digit characters
-  const phoneNumber = value.replace(/\D/g, '');
+  // Format the NATIONAL number, so what the field shows is exactly what the form holds.
+  const phoneNumber = normalizePhoneNumber(value);
 
   // Don't format if empty or too short
   if (phoneNumber.length === 0) return '';
@@ -222,10 +231,6 @@ export const formatPhoneNumber = (value: string): string => {
   }
 };
 
-export const normalizePhoneNumber = (value: string): string => {
-  // Remove all non-digit characters and return clean number
-  return value.replace(/\D/g, '');
-};
 
 export const onPhoneChange = (
   value: string,

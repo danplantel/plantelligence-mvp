@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { userSetupSchema } from "@/lib/wizard-validation";
 import { UserSetupSection } from "./sections/user-setup-section/user-setup-section";
+import { normalizePhoneNumber } from "./sections/user-setup-section/user-setup-section.funcs";
 import { useDebounce } from "@/hooks/useDebounce";
 import {
   Dialog,
@@ -147,7 +148,10 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
           // Organization Email loads from the wizard session only — it is NEVER
           // pre-populated with the user's login email (User.email).
           setValue("organizationEmail", serverData.organizationEmail || "");
-          setValue("phone", serverData.phone || "");
+          // Normalize the stored value to the national 10 digits the field renders.
+          // A saved "+1 (213) 588-8888" showed as "(213) 588-8888" while the model
+          // still held 11 digits, so Step 4 reported the phone as invalid.
+          setValue("phone", normalizePhoneNumber(serverData.phone || ""));
           setValue("phoneExtension", serverData.phoneExtension || "");
           setValue("title", serverData.title || "");
           setValue("designations", resolveDesignationIds(serverData.designations));
@@ -170,7 +174,7 @@ export function Step4UserSetup({ errorFields = [] }: Step4UserSetupProps) {
             // Never leave the store's email blank — see the setValue note above.
             email: serverData.email || session?.user?.email || "",
             organizationEmail: serverData.organizationEmail || "",
-            phone: serverData.phone || "",
+            phone: normalizePhoneNumber(serverData.phone || ""),
             phoneExtension: serverData.phoneExtension || "",
             title: serverData.title || "",
             designations: resolveDesignationIds(serverData.designations),
