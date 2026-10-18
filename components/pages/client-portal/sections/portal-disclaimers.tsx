@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment } from "react";
+import { Fragment, type ReactNode } from "react";
 import { appendDisclaimerCopyright } from "@/lib/disclaimer-constants";
 
 interface PortalDisclaimersProps {
@@ -11,12 +11,21 @@ interface PortalDisclaimersProps {
   };
   brandColor?: string;
   onEdit?: () => void;
+  /**
+   * Render this INSTEAD of the resolved disclaimer paragraphs.
+   *
+   * Used by Edit Plan → Disclosures, which embeds its editable Textarea inside the real
+   * footer: the tagline, Quick Links, Contact Information and copyright are then exactly
+   * what participants see, and the disclosure text is edited in place.
+   */
+  disclosureNode?: ReactNode;
 }
 
 export function PortalDisclaimers({
   companyData,
   brandColor,
   onEdit,
+  disclosureNode,
 }: PortalDisclaimersProps) {
   return (
     <section
@@ -111,74 +120,81 @@ export function PortalDisclaimers({
             </>
           )}
           <div className="space-y-6">
-            {/* Dynamic Disclaimers Content */}
-            <div className="space-y-4 text-white text-xs leading-relaxed">
-              <strong>Disclosures:</strong>
+            {/* Dynamic Disclaimers Content — or the host's own editor, rendered in its
+                place so a page can embed an editable disclosure inside the real footer. */}
+            {disclosureNode ? (
+              <div className="text-white text-xs leading-relaxed">
+                {disclosureNode}
+              </div>
+            ) : (
+              <div className="space-y-4 text-white text-xs leading-relaxed">
+                <strong>Disclosures:</strong>
 
-              {companyData?.disclaimers ? (
-                <div className="space-y-2">
-                  {/* Render newlines explicitly (paragraphs on \n\n, line
-                      breaks on \n) so breaks are preserved regardless of CSS. */}
-                  {appendDisclaimerCopyright(String(companyData.disclaimers))
-                    .replace(/\r\n/g, "\n")
-                    .replace(/\r/g, "\n")
-                    .split("\n\n")
-                    .map((paragraph, i) => (
-                      <p key={i}>
-                        {paragraph.split("\n").map((line, j) => (
-                          <Fragment key={j}>
-                            {j > 0 && <br />}
-                            {line}
-                          </Fragment>
-                        ))}
-                      </p>
-                    ))}
-                </div>
-              ) : (
-                <>
-                  <p>
-                    The LPL Financial registered representatives associated with
-                    this website may discuss and/or transact business only with
-                    residents of the states in which they are properly
-                    registered or licensed. No offers may be made or accepted
-                    from any resident of any other state.
-                  </p>
-                  <p>
-                    Securities and financial planning services offered through
-                    LPL Financial, a registered investment advisor, Member FINRA
-                    / SIPC. Lighthouse Financial Advisors is a separate entity
-                    from LPL Financial.
-                  </p>
-                  <p>
-                    Sarah Johnson | Key West, FL | 123 Lighthouse Way, Key West,
-                    FL 33040 | CA Insurance Lic. # 0F77158 | Phone: (305)
-                    555-1122
-                  </p>
-                  <p>
-                    Michael Frank | Key West, FL | 123 Lighthouse Way, Key West,
-                    FL 33040 | CA Insurance Lic. # 0F37907 | Phone: (305)
-                    555-3344
-                  </p>
-                  <p>
-                    The content is developed from sources believed to be
-                    providing accurate information. This material was created
-                    for educational and informational purposes only and is not
-                    intended as ERISA, tax, legal or investment advice. If you
-                    are seeking investment advice specific to your needs, such
-                    advice services must be obtained on your own separate from
-                    this educational material. Some of this material was
-                    developed and produced to provide information on a topic
-                    that may be of interest. This is not affiliated with the
-                    named representative, broker-dealer, state – or
-                    SEC-registered investment advisory firm. The opinions
-                    expressed and material provided are for general information
-                    and should not be considered a solicitation for the purchase
-                    or sale of any security.
-                  </p>
-                  <p>®Lighthouse Financial Advisors</p>
-                </>
-              )}
-            </div>
+                {companyData?.disclaimers ? (
+                  <div className="space-y-2">
+                    {/* Render newlines explicitly (paragraphs on \n\n, line
+                        breaks on \n) so breaks are preserved regardless of CSS. */}
+                    {appendDisclaimerCopyright(String(companyData.disclaimers))
+                      .replace(/\r\n/g, "\n")
+                      .replace(/\r/g, "\n")
+                      .split("\n\n")
+                      .map((paragraph, i) => (
+                        <p key={i}>
+                          {paragraph.split("\n").map((line, j) => (
+                            <Fragment key={j}>
+                              {j > 0 && <br />}
+                              {line}
+                            </Fragment>
+                          ))}
+                        </p>
+                      ))}
+                  </div>
+                ) : (
+                  <>
+                    <p>
+                      The LPL Financial registered representatives associated with
+                      this website may discuss and/or transact business only with
+                      residents of the states in which they are properly
+                      registered or licensed. No offers may be made or accepted
+                      from any resident of any other state.
+                    </p>
+                    <p>
+                      Securities and financial planning services offered through
+                      LPL Financial, a registered investment advisor, Member FINRA
+                      / SIPC. Lighthouse Financial Advisors is a separate entity
+                      from LPL Financial.
+                    </p>
+                    <p>
+                      Sarah Johnson | Key West, FL | 123 Lighthouse Way, Key West,
+                      FL 33040 | CA Insurance Lic. # 0F77158 | Phone: (305)
+                      555-1122
+                    </p>
+                    <p>
+                      Michael Frank | Key West, FL | 123 Lighthouse Way, Key West,
+                      FL 33040 | CA Insurance Lic. # 0F37907 | Phone: (305)
+                      555-3344
+                    </p>
+                    <p>
+                      The content is developed from sources believed to be
+                      providing accurate information. This material was created
+                      for educational and informational purposes only and is not
+                      intended as ERISA, tax, legal or investment advice. If you
+                      are seeking investment advice specific to your needs, such
+                      advice services must be obtained on your own separate from
+                      this educational material. Some of this material was
+                      developed and produced to provide information on a topic
+                      that may be of interest. This is not affiliated with the
+                      named representative, broker-dealer, state – or
+                      SEC-registered investment advisory firm. The opinions
+                      expressed and material provided are for general information
+                      and should not be considered a solicitation for the purchase
+                      or sale of any security.
+                    </p>
+                    <p>®Lighthouse Financial Advisors</p>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* Copyright */}
             <div className="text-center">

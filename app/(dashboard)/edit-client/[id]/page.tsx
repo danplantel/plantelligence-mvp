@@ -144,7 +144,6 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Building2,
   Globe,
-  Eye,
   X,
   Loader2,
   Check,
@@ -173,6 +172,7 @@ import { BrandColorsSection } from "@/components/wizard/new-client-steps/section
 import { CardSelectionModal } from "@/components/ui/card-selection-modal";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
 import { uploadBrandingToR2 } from "@/lib/branding-r2";
+import { bestTextColor } from "@/lib/color-utils";
 import {
   getR2ObjectProxyUrl,
   toR2BrandingKey,
@@ -3502,13 +3502,17 @@ export default function EditClientPage() {
   const [footerBgCustomColor, setFooterBgCustomColor] = useState(
     storedFooterBg.customColor || "",
   );
-  const [isFooterPreviewOpen, setIsFooterPreviewOpen] = useState(false);
   const resolvedFooterBgColor =
     footerBgMode === "secondary"
       ? companyData.secondaryColor
       : footerBgMode === "custom" && footerBgCustomColor.trim()
         ? footerBgCustomColor.trim()
         : companyData.primaryColor;
+  // The disclosure editor now sits INSIDE the footer, so its text has to stay readable on
+  // whatever background the colour controls above select. `bestTextColor` is the same
+  // luminance rule the marketing cards use; it falls back safely while a custom hex is
+  // still being typed.
+  const footerTextColor = bestTextColor(resolvedFooterBgColor);
 
   const persistFooterBg = useCallback(
     (mode: string, customColor: string) => {
@@ -3706,6 +3710,12 @@ export default function EditClientPage() {
   // uses the editable state (including an intentionally cleared value) instead
   // of re-deriving from the stored client disclaimers on every keystroke.
   const disclaimerEditedRef = useRef(false);
+  // "Use Default" / "Add my own" choice for the disclosure editor. It is held
+  // separately from the text because right after choosing "Add my own" the field
+  // still contains the default copy — deriving the radio from text equality
+  // alone would snap the selection back to "Use Default".
+  const [customDisclaimerChosen, setCustomDisclaimerChosen] = useState(false);
+  const disclaimersTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Disclaimer update confirmation dialog state (mirrors the Settings page flow).
   const [showDisclaimerConfirmDialog, setShowDisclaimerConfirmDialog] =
@@ -4261,12 +4271,42 @@ export default function EditClientPage() {
     );
   };
 
-  // Footer preview text: resolves the placeholders but keeps the previous empty
-  // fallback (so PortalDisclaimers renders its built-in text when empty).
-  const getResolvedDisclaimerPreviewText = (): string =>
-    getRawDisclaimerText()
+  // The copy "Use Default" inserts — resolved exactly as the editor's own fallback.
+  const defaultDisclaimerText = stripDisclaimerCopyright(
+    resolveDefaultDisclosuresText(disclaimerOrgName)
       .replace(/\[Organization Name\]/g, disclaimerOrgName)
-      .replace(/\[Company Name\]/g, disclaimerCompName);
+      .replace(/\[Company Name\]/g, disclaimerCompName),
+  );
+  const disclaimerMode: "default" | "custom" =
+    customDisclaimerChosen ||
+    getResolvedDisclaimerText().trim() !== defaultDisclaimerText.trim()
+      ? "custom"
+      : "default";
+
+  /**
+   * The two choices Settings and Onboarding offer, applied to this one editor:
+   * "Use Default" writes the platform copy back in; "Add my own" leaves the field
+   * ready to type in (selecting the default copy so the first keystroke replaces
+   * it) instead of throwing the existing text away.
+   */
+  const handleDisclaimerModeChange = (value: string) => {
+    if (value === "default") {
+      setCustomDisclaimerChosen(false);
+      disclaimerEditedRef.current = true;
+      setDisclaimers(defaultDisclaimerText);
+      return;
+    }
+    const wasDefault =
+      !customDisclaimerChosen &&
+      getResolvedDisclaimerText().trim() === defaultDisclaimerText.trim();
+    setCustomDisclaimerChosen(true);
+    requestAnimationFrame(() => {
+      const el = disclaimersTextareaRef.current;
+      if (!el) return;
+      el.focus();
+      if (wasDefault) el.select();
+    });
+  };
 
   if (loading) {
     return (
@@ -5261,8 +5301,12 @@ export default function EditClientPage() {
                       </p>
                     </div>
 
-                    {/* Footer Background Color + Preview — inline in header */}
+                    {/* Footer background colour. The footer preview below repaints as
+                        this changes, so the choice and its result are on one screen. */}
                     <div className="flex flex-wrap items-center gap-2 shrink-0 pt-1">
+                      <span className="mr-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                        Select Background Color
+                      </span>
                       {(["primary", "secondary", "custom"] as const).map(
                         (mode) => {
                           const label =
@@ -5328,182 +5372,115 @@ export default function EditClientPage() {
                           />
                         </>
                       )}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsFooterPreviewOpen(true)}
-                        className="inline-flex items-center gap-1.5 ml-1"
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        Preview
-                      </Button>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Disclosure Text */}
-                  <div className="space-y-2">
-                    <Label
-                      htmlFor="disclaimers-text"
-                      className="dark:text-gray-300"
-                    >
-                      Disclosure Text
-                    </Label>
-                    <Textarea
-                      id="disclaimers-text"
-                      value={getResolvedDisclaimerText()}
-                      onChange={(e) => {
-                        disclaimerEditedRef.current = true;
-                        setDisclaimers(
-                          ensurePlanTelligenceTrademark(e.target.value),
-                        );
+                  {/* The editor lives INSIDE the REAL footer: `PortalDisclaimers` renders
+                      its own sections — the Benefits Hub tagline, Quick Links, Contact
+                      Information and the copyright row — and the editable disclosure takes
+                      the place of its text. The color buttons above repaint this whole
+                      footer, so the typography/contrast is judged exactly as employees will
+                      read it. No second column, no Preview dialog. */}
+                  <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-gray-700">
+                    <PortalDisclaimers
+                      companyData={{
+                        companyName: companyData.companyName,
+                        brandColor: resolvedFooterBgColor,
                       }}
-                      placeholder="Enter legal disclosures to display in the portal footer..."
-                      rows={25}
-                      className="min-h-[200px] dark:bg-gray-900 dark:text-gray-200"
+                      brandColor={resolvedFooterBgColor}
+                      disclosureNode={
+                        <div className="space-y-2">
+                          <Label
+                            htmlFor="disclaimers-text"
+                            className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide"
+                            style={{ color: footerTextColor, opacity: 0.85 }}
+                          >
+                            <Pencil className="h-3 w-3" />
+                            Disclosure Text
+                          </Label>
+                          {/* The same two choices Settings → Organization › Disclosures and
+                              Onboarding Step 5b offer: keep the platform copy or write your
+                              own. Both act on the one editor below. */}
+                          <RadioGroup
+                            value={disclaimerMode}
+                            onValueChange={handleDisclaimerModeChange}
+                            className="flex items-center gap-6"
+                          >
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem
+                                value="default"
+                                id="disclaimer-mode-default"
+                              />
+                              <Label
+                                htmlFor="disclaimer-mode-default"
+                                className="cursor-pointer text-sm font-normal"
+                                style={{ color: footerTextColor }}
+                              >
+                                Use Default
+                              </Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem
+                                value="custom"
+                                id="disclaimer-mode-custom"
+                              />
+                              <Label
+                                htmlFor="disclaimer-mode-custom"
+                                className="cursor-pointer text-sm font-normal"
+                                style={{ color: footerTextColor }}
+                              >
+                                Add my own
+                              </Label>
+                            </div>
+                          </RadioGroup>
+                          {/* The border says "this is editable" inside a footer that is
+                              otherwise presentation-only. It is drawn in the text colour
+                              (with a light wash behind the field), so it stays visible on
+                              both a dark primary footer and a light custom one. Focus is
+                              shown on THIS border — the textarea itself has no ring. */}
+                          <div
+                            className="rounded-md border p-2 transition-shadow focus-within:ring-2 focus-within:ring-current focus-within:ring-offset-0"
+                            style={{
+                              borderColor: `${footerTextColor}66`,
+                              backgroundColor: `${footerTextColor}0D`,
+                              color: footerTextColor,
+                            }}
+                          >
+                            <Textarea
+                              ref={disclaimersTextareaRef}
+                              id="disclaimers-text"
+                              value={getResolvedDisclaimerText()}
+                              onChange={(e) => {
+                                disclaimerEditedRef.current = true;
+                                setCustomDisclaimerChosen(true);
+                                setDisclaimers(
+                                  ensurePlanTelligenceTrademark(e.target.value),
+                                );
+                              }}
+                              placeholder="Enter legal disclosures to display in the portal footer..."
+                              rows={14}
+                              className="min-h-[220px] resize-y border-0 bg-transparent p-1 text-[13px] leading-relaxed shadow-none focus:border-0 focus:ring-0 focus-visible:outline-none dark:bg-transparent dark:text-inherit"
+                              style={{
+                                color: footerTextColor,
+                                caretColor: footerTextColor,
+                              }}
+                            />
+                          </div>
+                          <p
+                            className="text-[11px]"
+                            style={{ color: footerTextColor, opacity: 0.7 }}
+                          >
+                            This text renders exactly as employees will read it in the
+                            portal footer. The color buttons above repaint this footer.
+                          </p>
+                        </div>
+                      }
                     />
                   </div>
                 </CardContent>
               </Card>
 
-              {/* ── Footer Preview Modal ── */}
-              {isFooterPreviewOpen && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-                  <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-5xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-                    {/* Header */}
-                    <div className="sticky top-0 z-10 flex items-start justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-t-xl">
-                      <div className="space-y-2">
-                        <div>
-                          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                            Footer Preview
-                          </h3>
-                          <p className="text-sm text-muted-foreground dark:text-gray-400">
-                            How the disclosure will appear on the{" "}
-                            <strong className="text-gray-600 dark:text-gray-300">
-                              Home Page
-                            </strong>
-                          </p>
-                        </div>
-                        {/* Footer Color selector in header */}
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400 mr-1">
-                            Footer Color:
-                          </span>
-                          {(["primary", "secondary", "custom"] as const).map(
-                            (mode) => {
-                              const label =
-                                mode === "primary"
-                                  ? "Primary"
-                                  : mode === "secondary"
-                                    ? "Secondary"
-                                    : "Custom";
-                              const colorVal =
-                                mode === "primary"
-                                  ? companyData.primaryColor
-                                  : mode === "secondary"
-                                    ? companyData.secondaryColor
-                                    : footerBgCustomColor || "#888888";
-                              const isActive = footerBgMode === mode;
-                              return (
-                                <button
-                                  key={mode}
-                                  type="button"
-                                  onClick={() => {
-                                    setFooterBgMode(mode);
-                                    persistFooterBg(mode, footerBgCustomColor);
-                                  }}
-                                  className={`inline-flex items-center gap-1 px-2 py-1 rounded text-[11px] font-medium border transition-all ${
-                                    isActive
-                                      ? "border-accent-blue ring-1 ring-accent-blue bg-accent-blue/5"
-                                      : "border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
-                                  }`}
-                                >
-                                  <span
-                                    className="w-3 h-3 rounded-full border border-gray-300 shrink-0"
-                                    style={{ background: colorVal }}
-                                  />
-                                  {label}
-                                </button>
-                              );
-                            },
-                          )}
-                          {footerBgMode === "custom" && (
-                            <>
-                              <input
-                                type="color"
-                                value={
-                                  footerBgCustomColor || companyData.primaryColor
-                                }
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setFooterBgCustomColor(v);
-                                  persistFooterBg("custom", v);
-                                }}
-                                className="w-6 h-6 rounded cursor-pointer border border-gray-300 p-0.5"
-                              />
-                              <input
-                                type="text"
-                                value={footerBgCustomColor}
-                                onChange={(e) => {
-                                  const v = e.target.value;
-                                  setFooterBgCustomColor(v);
-                                  persistFooterBg("custom", v);
-                                }}
-                                placeholder="#HEX"
-                                className="w-20 text-[11px] border border-gray-200 dark:border-gray-600 rounded px-1.5 py-1 bg-transparent dark:text-gray-200"
-                              />
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setIsFooterPreviewOpen(false)}
-                        className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors shrink-0"
-                      >
-                        <X className="w-5 h-5 text-gray-500" />
-                      </button>
-                    </div>
-
-                    {/* Preview content */}
-                    <div className="p-0">
-                      <div className="bg-black min-h-[200px]">
-                        {/* Home page content mock */}
-                        <div className="px-8 py-12 text-center">
-                          <h2 className="text-2xl font-bold text-white mb-2">
-                            Welcome to the Benefits Hub!
-                          </h2>
-                          <p className="text-gray-400 text-sm max-w-xl mx-auto">
-                            This is where the home page content would appear.
-                            Scroll down to see the Footer with your disclosure.
-                          </p>
-                        </div>
-
-                        {/* PortalDisclaimers with disclaimer text */}
-                        <PortalDisclaimers
-                          companyData={{
-                            disclaimers: getResolvedDisclaimerPreviewText(),
-                            brandColor: resolvedFooterBgColor,
-                            companyName: companyData.companyName,
-                          }}
-                          brandColor={resolvedFooterBgColor}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Close button */}
-                    <div className="flex justify-center px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
-                      <Button
-                        onClick={() => setIsFooterPreviewOpen(false)}
-                        variant="outline"
-                      >
-                        Close Preview
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </TabsContent>
           </Tabs>
           </CommentAnchor>
