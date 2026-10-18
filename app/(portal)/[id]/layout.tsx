@@ -15,6 +15,7 @@ import {
 } from "@/components/comments/comment-mode-provider";
 import { PortalCommentsRail } from "@/components/comments/portal-comments-rail";
 import { PortalCommentsZoom } from "@/components/comments/portal-comments-zoom";
+import { PortalInstallApp } from "@/components/pages/client-portal/sections/portal-install-app";
 import { portalCommentsSurface } from "@/lib/comments/portal-surface";
 import { Button } from "@/components/ui/button";
 import { PortalPopUpOverlay } from "@/components/pages/client-portal/sections/portal-popup-overlay";
@@ -622,6 +623,10 @@ export default function ClientViewLayout({
           <ClientViewLayoutContent>{children}</ClientViewLayoutContent>
         </PortalCommentsZoom>
       </PortalCommentsRail>
+      {/* Outside the zoom wrapper and outside the rail: the install prompt is chrome of its own,
+          so the Comments preview must neither scale it nor scroll it away. It arms itself from
+          browser APIs and hides on its own when dismissed or already installed. */}
+      <PortalInstallApp />
     </ClientPortalProvider>
   );
 }

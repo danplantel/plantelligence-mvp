@@ -66,12 +66,31 @@ const redHatDisplay = localFont({
 export const metadata: Metadata = {
   title: "PlanTelligence",
   description: "PlanTelligence - Your AI-Powered Financial Planning Assistant",
+  applicationName: "PlanTelligence",
+  themeColor: "#1F3A60",
+  /**
+   * The web app manifest is served by a route handler so it can be resolved PER PLAN: on a portal
+   * page it returns the plan's own name and `start_url` (derived from the portal's slug), which is
+   * what makes the participant's installed app open their benefits portal rather than the
+   * dashboard. The portal also updates this link with the plan slug once it knows it — see
+   * components/pages/client-portal/sections/portal-install-app.tsx.
+   */
+  manifest: "/api/pwa/manifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "PlanTelligence",
+  },
   icons: {
     icon: [
       { url: "/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/pwa/icon-192.png", type: "image/png", sizes: "192x192" },
+      { url: "/pwa/icon-512.png", type: "image/png", sizes: "512x512" },
       { url: "/favicon.ico", sizes: "any" },
     ],
-    apple: [{ url: "/favicon-32x32.png", sizes: "180x180", type: "image/png" }],
+    apple: [
+      { url: "/pwa/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    ],
   },
 };
 
