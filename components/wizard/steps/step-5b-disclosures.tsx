@@ -5,7 +5,6 @@ import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import {
   PLATFORM_DISCLOSURE_TEXT,
-  DEFAULT_YOUR_DISCLOSURE_TEXT,
   BENEFITS_HUB_YOUR_DISCLOSURE_TEXT,
   FLYER_MARKETING_YOUR_DISCLOSURE_TEXT,
   combineDisclosureText,
@@ -16,7 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Lock, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Disclaimer } from "@/types/wizard";
 import { SkipAttestationModal } from "./sections/attestation-modals/skip-attestation-modal";
 
@@ -72,27 +71,41 @@ const DISCLOSURE_SECTIONS = [
 type SectionMode = "recommended" | "custom";
 
 interface SectionState {
-  mode: SectionMode;
+  /**
+   * `null` until the advisor picks an option — neither radio is preselected. "Use Default" is a
+   * deliberate choice (it persists the recommended copy), so the component must not answer it
+   * for them, and an untouched section should not read as a completed one.
+   */
+  mode: SectionMode | null;
   text: string;
 }
 
-/** Build the per-section editor state from the stored disclaimers. */
+/**
+ * Build the per-section editor state from the stored disclaimers.
+ *
+ * The textarea always starts EMPTY. "Use Default" is a real choice — `upsertSection` writes the
+ * recommended copy when it is selected — so mirroring that copy into the field only made the
+ * advisor read (and scroll past) language they had not been asked to edit, and made an untouched
+ * section look like a draft they had written. A saved custom text is the one thing that IS the
+ * advisor's own, so that is restored.
+ */
 function buildSections(stored: Disclaimer[] | undefined): Record<string, SectionState> {
   const list = Array.isArray(stored) ? stored : [];
   const result: Record<string, SectionState> = {};
   for (const cfg of DISCLOSURE_SECTIONS) {
     const existing = list.find((d) => (d.locations || []).includes(cfg.location));
     if (existing) {
-      // Split the stored text; if "your" equals the recommended copy, treat it
-      // as "Use Default" so the radios reflect how it was saved.
+      // Split the stored text; if "your" equals the recommended copy, the section was saved
+      // as "Use Default" — leave the field blank rather than echoing it back.
       const { your } = splitDisclosureText(existing.text, cfg.platformText);
       const isRecommended = your.trim() === cfg.recommendedText.trim();
       result[cfg.key] = {
-        mode: isRecommended ? "recommended" : "custom",
-        text: isRecommended ? cfg.recommendedText : your,
+        // A saved recommended copy is still the untouched default, so the radios stay unselected.
+        mode: isRecommended ? null : "custom",
+        text: isRecommended ? "" : your,
       };
     } else {
-      result[cfg.key] = { mode: "recommended", text: cfg.recommendedText };
+      result[cfg.key] = { mode: null, text: "" };
     }
   }
   return result;
@@ -101,7 +114,6 @@ function buildSections(stored: Disclaimer[] | undefined): Record<string, Section
 export function Step5bDisclosures({
   onValidationChange,
   onSkipForNow,
-  organizationName,
   useNewClientStore = false,
   forceUniversalScope = false,
 }: Step5bDisclosuresProps) {
@@ -128,18 +140,6 @@ export function Step5bDisclosures({
   // late server refresh can never clobber an in-flight edit.
   const dirtyRef = useRef(false);
   const textTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
-
-  const resolvedOrgName =
-    organizationName ||
-    (useNewClientStore
-      ? (stepData as any).companyBasics?.companyName
-      : (stepData as any).branding?.organizationName) ||
-    "";
-
-  const renderOrg = (text: string) =>
-    text
-      .replace(/\[Organization Name\]/g, resolvedOrgName || "[Organization Name]")
-      .replace(/\{Organization Name\}/g, resolvedOrgName || "{Organization Name}");
 
   // Persist a full disclaimers array (local + server + User.disclaimer mirror).
   const persist = async (updated: Disclaimer[]) => {
@@ -287,9 +287,12 @@ export function Step5bDisclosures({
   const handleModeChange = (key: string, mode: SectionMode) => {
     dirtyRef.current = true;
     const cfg = DISCLOSURE_SECTIONS.find((s) => s.key === key);
+    // "Use Default" reveals the default language in the field (and persists it), so the advisor
+    // can read exactly what will be published. "Add my own" starts from a blank slate. The
+    // section still OPENS empty and unselected — only an explicit click fills it.
     const next: SectionState =
       mode === "recommended"
-        ? { mode, text: cfg?.recommendedText || DEFAULT_YOUR_DISCLOSURE_TEXT }
+        ? { mode, text: cfg?.recommendedText || "" }
         : { mode, text: "" };
     setSections((prev) => ({ ...prev, [key]: next }));
     upsertSection(key, next);
@@ -315,13 +318,6 @@ export function Step5bDisclosures({
       <p className="text-sm text-muted-foreground">
         Provide compliance language for participant and client-facing materials
       </p>
-    </div>
-  );
-
-  const attestationNotice = (
-    <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
-      Confirming opens a short attestation. Skipping is allowed, but Benefits
-      Hubs can’t be published until your disclosures are reviewed and confirmed.
     </div>
   );
 
@@ -354,13 +350,11 @@ export function Step5bDisclosures({
                 }
                 className="w-full flex items-center justify-center gap-2 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-700"
               >
-                Confirm Disclosures / Skip for Now
+                Use Default / Skip for now
               </Button>
             </div>
           </CardContent>
         </Card>
-
-        {attestationNotice}
         </div>
 
         <SkipAttestationModal
@@ -393,18 +387,9 @@ export function Step5bDisclosures({
                 {cfg.title}
               </h3>
 
-              {/* Locked platform language */}
-              <div className="space-y-1.5">
-                <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
-                  <Lock className="h-3 w-3" />
-                  Platform Disclosure
-                </p>
-                <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap break-words dark:border-gray-600 dark:bg-gray-700/50 dark:text-gray-400">
-                  {renderOrg(cfg.platformText)}
-                </div>
-              </div>
-
-              {/* Editable "Your Disclosure" */}
+              {/* Editable "Your Disclosure". The locked Platform Disclosure block that used
+                  to sit above this is gone: the platform text is still appended to the saved
+                  disclaimer (see `combineDisclosureText`), it is just no longer shown here. */}
               <div className="space-y-2">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
                   Your Disclosure
@@ -426,7 +411,8 @@ export function Step5bDisclosures({
                 </p>
 
                 <RadioGroup
-                  value={state?.mode || "recommended"}
+                  // `undefined` (not "") is what Radix reads as "nothing selected".
+                  value={state?.mode ?? undefined}
                   onValueChange={(value) =>
                     handleModeChange(cfg.key, value as SectionMode)
                   }
@@ -482,7 +468,6 @@ export function Step5bDisclosures({
         );
       })}
 
-      {attestationNotice}
     </div>
   );
 }
