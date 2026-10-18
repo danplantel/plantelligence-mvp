@@ -146,6 +146,63 @@ import {
 /** Case-insensitive address used to match a contact row to a person. */
 const contactEmailKey = (value: string | null | undefined): string =>
   (value || "").trim().toLowerCase();
+
+/**
+ * Write the footer-background preference into the SAME payload the portal reads.
+ *
+ * The portal resolves the footer colour from `Client.disclaimers` (`footerBackground`) —
+ * see `app/(portal)/[id]/layout.tsx` and `ClientPortal` — never from company basics. Saving
+ * the choice anywhere else is why changing it here had no effect on the live portal.
+ *
+ * `raw` is the current editor state: the stored JSON envelope, or plain text once the
+ * advisor has typed (the textarea writes a bare string). A text edit is stored as
+ * `disclosuresText` with the structured rows cleared, because the portal prefers those rows
+ * over the single string — this preserves the editor's existing "one text for the plan"
+ * behaviour while keeping `footerBackground` alongside it.
+ */
+function mergeDisclaimersEnvelope(
+  // `unknown`: the API returns the stored disclaimers as an object or a string, and the
+  // editor's state holds the plain text once it has been typed in.
+  raw: unknown,
+  patch: {
+    footerBackground?: { mode: string; customColor: string };
+    text?: string;
+  },
+): string {
+  let parsed: Record<string, any> | null = null;
+  if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+    parsed = raw as Record<string, any>;
+  } else if (typeof raw === "string" && raw.trim()) {
+    try {
+      const candidate = JSON.parse(raw);
+      if (
+        candidate &&
+        typeof candidate === "object" &&
+        !Array.isArray(candidate)
+      ) {
+        parsed = candidate as Record<string, any>;
+      }
+    } catch {
+      parsed = null;
+    }
+  }
+
+  const next: Record<string, any> = parsed ? { ...parsed } : {};
+
+  if (patch.text !== undefined) {
+    next.disclaimers = [];
+    next.disclosuresText = patch.text;
+  } else if (!parsed && typeof raw === "string" && raw.trim()) {
+    // Legacy plain text with no envelope yet — keep it readable as the saved text.
+    next.disclosuresText = raw;
+  }
+
+  if (patch.footerBackground) {
+    next.footerBackground = patch.footerBackground;
+  }
+
+  return JSON.stringify(next);
+}
 import { ContactCardLayoutPreviewModal } from "@/components/pages/edit-client/contact-card-layout-preview-modal";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -187,6 +244,7 @@ import {
 } from "@/lib/branding-image-url";
 import {
   resolveDefaultDisclosuresText,
+  resolveDisclaimerText,
   ensurePlanTelligenceTrademark,
   stripDisclaimerCopyright,
 } from "@/lib/disclaimer-constants";
@@ -3535,17 +3593,36 @@ export default function EditClientPage() {
   }, []);
 
   // ── Footer background color state ──
-  const storedFooterBg =
-    ((companyData as any)?.footerBackground as
+  // Read from the disclaimers envelope first — that is where the portal reads it — and
+  // fall back to company basics for a preference saved by an older build.
+  const storedFooterBg = (() => {
+    const fromCompany = (companyData as any)?.footerBackground as
       | { mode?: string; customColor?: string }
-      | undefined) ?? {};
+      | undefined;
+    if (fromCompany?.mode) return fromCompany;
+    const raw = (client as any)?.disclaimers;
+    try {
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      const fb = parsed?.footerBackground;
+      if (fb && typeof fb === "object") {
+        return fb as { mode?: string; customColor?: string };
+      }
+    } catch {
+      // Plain-text disclaimers — no footer preference stored yet.
+    }
+    return {} as { mode?: string; customColor?: string };
+  })();
   const [footerBgMode, setFooterBgMode] = useState<
     "primary" | "secondary" | "custom"
   >(storedFooterBg.mode === "secondary" || storedFooterBg.mode === "custom"
     ? storedFooterBg.mode
     : "primary");
   const [footerBgCustomColor, setFooterBgCustomColor] = useState(
-    storedFooterBg.customColor || "",
+    // Never start blank: selecting "Custom" without touching the picker used to persist
+    // `{ mode: "custom", customColor: "" }`, which the portal reads as "no custom colour"
+    // and falls back to the primary — so the choice looked like it did nothing. Seeding it
+    // with the current primary keeps the stored value valid from the first click.
+    storedFooterBg.customColor || companyData.primaryColor || "",
   );
   const resolvedFooterBgColor =
     footerBgMode === "secondary"
@@ -3562,10 +3639,29 @@ export default function EditClientPage() {
 
   const persistFooterBg = useCallback(
     (mode: string, customColor: string) => {
-      const payload = { mode, customColor };
-      (handleInputChange as any)("footerBackground", payload);
+      // Saved inside the disclaimers payload, which is what the portal reads. Company
+      // basics never persisted this key, so the choice used to be lost on save.
+      setDisclaimers((prev) =>
+        mergeDisclaimersEnvelope(prev, {
+          footerBackground: { mode, customColor },
+        }),
+      );
     },
-    [handleInputChange],
+    [setDisclaimers],
+  );
+
+  /**
+   * The textarea's writer: replace the text while keeping the disclaimers envelope.
+   *
+   * Writing a bare string here (the old behaviour) dropped both the structured rows and
+   * `footerBackground`, so a colour choice was lost the moment the advisor typed — and the
+   * portal fell back to the primary colour.
+   */
+  const setDisclaimerText = useCallback(
+    (text: string) => {
+      setDisclaimers((prev) => mergeDisclaimersEnvelope(prev, { text }));
+    },
+    [setDisclaimers],
   );
 
   // Mission Statement fields
@@ -4280,26 +4376,14 @@ export default function EditClientPage() {
   // Once the user has edited the disclaimer, use the editable `disclaimers`
   // state as the source of truth so the Textarea reflects keystrokes (and can
   // be cleared). Otherwise fall back to the stored client disclaimers.
-  const getRawDisclaimerText = (): string => {
-    const raw = disclaimerEditedRef.current
-      ? disclaimers
-      : (client as any)?.disclaimers ?? disclaimers;
-    if (typeof raw === "string") return raw;
-    if (Array.isArray(raw))
-      return raw
-        .map((item: any) => item?.text || item || "")
-        .filter(Boolean)
-        .join("\n\n");
-    if (raw && typeof raw === "object") {
-      if (Array.isArray((raw as any).disclaimers))
-        return (raw as any)
-          .disclaimers.map((d: any) => d?.text || "")
-          .filter(Boolean)
-          .join("\n\n");
-      if (raw.text) return raw.text;
-    }
-    return "";
-  };
+  const getRawDisclaimerText = (): string =>
+    // Handles plain text, the JSON envelope (structured rows + `disclosuresText`, which is
+    // what the editor itself writes), and a stringified envelope left by an older save.
+    resolveDisclaimerText(
+      disclaimerEditedRef.current
+        ? disclaimers
+        : (client as any)?.disclaimers ?? disclaimers,
+    );
 
   // Editor text: falls back to the default disclosures (org name resolved) when
   // no disclaimer text exists yet.
@@ -4339,7 +4423,7 @@ export default function EditClientPage() {
     if (value === "default") {
       setCustomDisclaimerChosen(false);
       disclaimerEditedRef.current = true;
-      setDisclaimers(defaultDisclaimerText);
+      setDisclaimerText(defaultDisclaimerText);
       return;
     }
     const wasDefault =
@@ -5503,7 +5587,7 @@ export default function EditClientPage() {
                               onChange={(e) => {
                                 disclaimerEditedRef.current = true;
                                 setCustomDisclaimerChosen(true);
-                                setDisclaimers(
+                                setDisclaimerText(
                                   ensurePlanTelligenceTrademark(e.target.value),
                                 );
                               }}

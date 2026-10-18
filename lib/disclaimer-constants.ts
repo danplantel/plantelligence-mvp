@@ -8,6 +8,54 @@ import {
   DISCLOSURE_MERGE_FIELDS,
 } from "@/config/onboarding/disclosures";
 
+/**
+ * The disclaimer TEXT out of whatever shape a plan stores.
+ *
+ * `Client.disclaimers` is a JSON envelope on plans configured by the current wizards —
+ * `{ disclaimers: [...], disclosuresText, byCategory, footerBackground }` — plain text on
+ * older rows, and a JSON string on a few paths. Every reader needs the text regardless of
+ * the shape; coercing the whole value with `String()` rendered "[object Object]".
+ *
+ * Precedence mirrors the portal: structured rows first, then the single saved text, then a
+ * legacy `text` field.
+ */
+export function resolveDisclaimerText(raw: unknown): string {
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (!trimmed) return "";
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      try {
+        return resolveDisclaimerText(JSON.parse(trimmed));
+      } catch {
+        return raw;
+      }
+    }
+    return raw;
+  }
+  if (Array.isArray(raw)) {
+    return raw
+      .map((item) =>
+        typeof item === "string" ? item : String(item?.text || ""),
+      )
+      .filter(Boolean)
+      .join("\n\n");
+  }
+  if (raw && typeof raw === "object") {
+    const envelope = raw as Record<string, unknown>;
+    if (Array.isArray(envelope.disclaimers) && envelope.disclaimers.length > 0) {
+      return resolveDisclaimerText(envelope.disclaimers);
+    }
+    if (
+      typeof envelope.disclosuresText === "string" &&
+      envelope.disclosuresText.trim()
+    ) {
+      return envelope.disclosuresText;
+    }
+    if (typeof envelope.text === "string") return envelope.text;
+  }
+  return "";
+}
+
 // The default disclosure copy lives in config so the wording can change without
 // touching this module or migrating stored data. Re-exported for existing
 // importers (Settings, onboarding wizard).

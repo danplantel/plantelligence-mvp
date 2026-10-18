@@ -1,7 +1,10 @@
 "use client";
 
 import { Fragment, type ReactNode } from "react";
-import { appendDisclaimerCopyright } from "@/lib/disclaimer-constants";
+import {
+  appendDisclaimerCopyright,
+  resolveDisclaimerText,
+} from "@/lib/disclaimer-constants";
 import { lightSurfaceTextColor } from "@/lib/color-utils";
 
 interface PortalDisclaimersProps {
@@ -14,9 +17,9 @@ interface PortalDisclaimersProps {
   /**
    * Text colour for the footer's own copy.
    *
-   * Defaults to `bestTextColor(brandColor)`: dark text on a light background, white on a
-   * dark or coloured one. The Edit Plan preview passes the live value so the footer reads
-   * correctly while the colour controls are being changed.
+   * Defaults to `lightSurfaceTextColor(brandColor)`: dark text on a light background, white
+   * on a dark or coloured one. The Edit Plan preview passes the live value so the footer
+   * reads correctly while the colour controls are being changed.
    */
   textColor?: string;
   onEdit?: () => void;
@@ -41,6 +44,7 @@ export function PortalDisclaimers({
   // colour controls use, so every line of the footer adjusts together.
   const resolvedTextColor =
     textColor || lightSurfaceTextColor(brandColor || "#0D315F");
+  const disclaimerText = resolveDisclaimerText(companyData?.disclaimers);
   return (
     <section
       className="px-6 py-12 relative"
@@ -141,11 +145,11 @@ export function PortalDisclaimers({
               >
                 <strong>Disclosures:</strong>
 
-                {companyData?.disclaimers ? (
+                {disclaimerText ? (
                   <div className="space-y-2">
                     {/* Render newlines explicitly (paragraphs on \n\n, line
                         breaks on \n) so breaks are preserved regardless of CSS. */}
-                    {appendDisclaimerCopyright(String(companyData.disclaimers))
+                    {appendDisclaimerCopyright(disclaimerText)
                       .replace(/\r\n/g, "\n")
                       .replace(/\r/g, "\n")
                       .split("\n\n")

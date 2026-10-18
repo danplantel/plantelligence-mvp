@@ -95,6 +95,25 @@ export default function ViewClientPage() {
     categoryVisibility,
   ) as any[];
 
+  // The footer background preference is stored in the plan's `disclaimers` JSON (the same
+  // place `app/(portal)/[id]/layout.tsx` reads it). The landing page renders its own footer
+  // through `ClientPortal`, which resolves the colour from `companyData.footerBackground`,
+  // so the preference has to travel with this payload too — without it the home page kept
+  // the primary colour no matter what was saved in Edit Plan → Disclosures.
+  const footerBackground = (() => {
+    try {
+      const raw = (clientData as any)?.disclaimers;
+      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+      const fb = parsed?.footerBackground;
+      return fb && typeof fb === "object"
+        ? (fb as { mode?: string; customColor?: string })
+        : undefined;
+    } catch {
+      // Plain-text disclaimers — no footer preference configured.
+      return undefined;
+    }
+  })();
+
   return (
     <>
       {/* Client Portal Content (without header - header is in layout) */}
@@ -109,6 +128,7 @@ export default function ViewClientPage() {
             logoFileName: clientData.logoFileName || "",
             brandColor: clientData.brandColor,
             secondaryColor: clientData.secondaryColor,
+            footerBackground,
             missionHeadline: clientData.missionHeadline || "",
             missionBody: clientData.missionBody || "",
             appointmentLink: clientData.appointmentLink || "",

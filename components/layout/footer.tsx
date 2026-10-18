@@ -1,8 +1,17 @@
 import { Fragment, type ReactNode } from "react";
 import { appendDisclaimerCopyright } from "@/lib/disclaimer-constants";
+import { lightSurfaceTextColor } from "@/lib/color-utils";
 
 interface FooterProps {
   brandColor?: string;
+  /**
+   * Text colour for the footer's own copy.
+   *
+   * Defaults to `lightSurfaceTextColor(brandColor)`: dark text on a light background, white
+   * on a dark or coloured one — the same rule the Disclosures editor and `PortalDisclaimers`
+   * apply, so the footer stays readable on every colour the advisor can pick.
+   */
+  textColor?: string;
   disclosuresText?: string | null;
   /** Organization name to populate [Organization Name] in the disclosures, and
    *  used in the fallback disclaimer when no disclosuresText is provided. */
@@ -19,11 +28,13 @@ interface FooterProps {
 
 export function Footer({
   brandColor = "#1F3A60",
+  textColor,
   disclosuresText,
   organizationName,
   companyName,
   disclosureNode,
 }: FooterProps) {
+  const resolvedTextColor = textColor || lightSurfaceTextColor(brandColor);
   // Resolve the organization/company names for the disclaimer.
   const resolvedOrg = (organizationName || "").trim() || "Lighthouse Financial Advisors";
   const resolvedCompany = (companyName || "").trim() || "[Company Name]";
@@ -43,8 +54,8 @@ export function Footer({
 
   return (
     <footer
-      className="text-white py-12 font-red-hat"
-      style={{ background: brandColor }}
+      className="py-12 font-red-hat"
+      style={{ background: brandColor, color: resolvedTextColor }}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-3 gap-8 mb-8">
@@ -52,7 +63,10 @@ export function Footer({
             <h3 className="font-dm-serif text-xl font-bold mb-4">
               Benefits Hub
             </h3>
-            <p className="text-gray-300 text-sm leading-relaxed">
+            <p
+              className="text-sm leading-relaxed opacity-80"
+              style={{ color: resolvedTextColor }}
+            >
               Your trusted partner in navigating employee benefits, retirement
               planning, and financial wellness.
             </p>
@@ -61,38 +75,22 @@ export function Footer({
           <div>
             <h4 className="font-dm-serif font-semibold mb-4">Quick Links</h4>
             <ul className="space-y-2 text-sm">
-              <li>
-                <a
-                  href="#"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Benefits Overview
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Plan Materials
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Schedule Appointment
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#"
-                  className="text-gray-300 hover:text-white transition-colors"
-                >
-                  Contact Support
-                </a>
-              </li>
+              {[
+                "Benefits Overview",
+                "Plan Materials",
+                "Schedule Appointment",
+                "Contact Support",
+              ].map((label) => (
+                <li key={label}>
+                  <a
+                    href="#"
+                    className="opacity-80 transition-opacity hover:opacity-100"
+                    style={{ color: resolvedTextColor }}
+                  >
+                    {label}
+                  </a>
+                </li>
+              ))}
             </ul>
           </div>
 
@@ -100,7 +98,10 @@ export function Footer({
             <h4 className="font-dm-serif font-semibold mb-4">
               Contact Information
             </h4>
-            <div className="text-sm text-gray-300 space-y-2">
+            <div
+              className="text-sm opacity-80 space-y-2"
+              style={{ color: resolvedTextColor }}
+            >
               <p>Phone: (305) 555-1122</p>
               <p>Email: support@benefitshub.com</p>
               <p>Hours: Mon-Fri 8AM-6PM EST</p>
@@ -108,16 +109,25 @@ export function Footer({
           </div>
         </div>
 
-        <div className="border-t border-gray-700 pt-8">
+        <div
+          className="border-t pt-8"
+          style={{ borderColor: `${resolvedTextColor}33` }}
+        >
           <div className="space-y-6">
             {/* Disclosures — or the host's own editor, rendered in their place so a
                 page can embed an editable disclosure inside the real footer. */}
             {disclosureNode ? (
-              <div className="text-xs text-gray-300 leading-relaxed">
+              <div
+                className="text-xs leading-relaxed"
+                style={{ color: resolvedTextColor }}
+              >
                 {disclosureNode}
               </div>
             ) : (
-              <div className="text-xs text-gray-300 leading-relaxed space-y-4">
+              <div
+                className="text-xs leading-relaxed space-y-4"
+                style={{ color: resolvedTextColor }}
+              >
                 <p>
                   <strong>Disclosures:</strong>
                 </p>
@@ -192,13 +202,16 @@ export function Footer({
 
             {/* Copyright */}
             <div className="text-center">
-              <p className="text-xs text-gray-400">
+              <p
+                className="text-xs opacity-70"
+                style={{ color: resolvedTextColor }}
+              >
                 © 2024 {resolvedOrg}. All rights reserved. |
-                <a href="#" className="hover:text-white ml-1">
+                <a href="#" className="ml-1 hover:opacity-100">
                   Privacy Policy
                 </a>{" "}
                 |
-                <a href="#" className="hover:text-white ml-1">
+                <a href="#" className="ml-1 hover:opacity-100">
                   Terms of Service
                 </a>{" "}
                 | Powered by PlanTelligence™

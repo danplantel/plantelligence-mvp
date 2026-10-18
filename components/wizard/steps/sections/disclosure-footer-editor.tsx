@@ -26,7 +26,7 @@ import { PortalDisclaimers } from "@/components/pages/client-portal/sections/por
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { bestTextColor } from "@/lib/color-utils";
+import { lightSurfaceTextColor } from "@/lib/color-utils";
 
 export type DisclosureEditorMode = "default" | "custom";
 export type FooterBackgroundMode = "primary" | "secondary" | "custom";
@@ -85,8 +85,9 @@ export function DisclosureFooterEditor({
       : footerBgMode === "custom" && footerBgCustomColor.trim()
         ? footerBgCustomColor.trim()
         : primaryColor;
-  // Same luminance rule the marketing cards use; safe while a custom hex is still being typed.
-  const footerTextColor = bestTextColor(resolvedFooterBgColor);
+  // Light background → dark copy; dark/coloured → white. Same rule the footer itself and
+  // the Edit Plan editor use, and safe while a custom hex is still being typed.
+  const footerTextColor = lightSurfaceTextColor(resolvedFooterBgColor);
 
   const handleModeChange = (value: string) => {
     if (value === "default") {
