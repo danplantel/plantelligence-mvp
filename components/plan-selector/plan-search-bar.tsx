@@ -34,6 +34,13 @@ interface PlanSearchBarProps {
   disabled?: boolean;
   /** Sticky-selection scope the choice is remembered under. */
   module?: PlanSelectorModule;
+  /**
+   * Offer only ACTIVE plans. True everywhere the picker is an advisor choosing among their own
+   * live plans; false for a Collaborator on /benefits, whose invitation may point at a plan that
+   * is still Draft or Archived. They were deliberately allowed to work on it, so the picker must
+   * not filter it away.
+   */
+  activeOnly?: boolean;
 }
 
 /**
@@ -44,11 +51,13 @@ interface PlanSearchBarProps {
  * heading, recent-plan chips, keyboard navigation and dropdown are shared, and
  * only the heading differs per page.
  *
- * Only Active plans are offered: Draft and Archived plans are filtered out
+ * Active plans only by default: Draft and Archived plans are filtered out
  * before the list, the recent chips and the Open Portal link are built, so a
- * plan that is not live can never be selected here. Selection is persisted
- * under the caller's `module` scope (Communications by default), so picking a
- * plan on one Communications page is restored on the other.
+ * plan that is not live can never be selected here. `activeOnly={false}` is the
+ * one exception — a Collaborator on /benefits may be invited to a plan that is
+ * still Draft and must be able to select it. Selection is persisted under the
+ * caller's `module` scope (Communications by default), so picking a plan on one
+ * Communications page is restored on the other.
  */
 export function PlanSearchBar({
   plans,
@@ -57,6 +66,7 @@ export function PlanSearchBar({
   title,
   disabled,
   module = "communications",
+  activeOnly = true,
 }: PlanSearchBarProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -65,11 +75,16 @@ export function PlanSearchBar({
   const containerRef = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const recentIds = getRecentPlanIds();
-  // Active plans only — everything below (dropdown, recents, selection) reads
-  // from this list, never from the raw `plans` prop.
+  // Everything below (dropdown, recents, selection) reads from this list, never
+  // from the raw `plans` prop. `activeOnly` keeps the advisor's view live-only;
+  // a Collaborator's picker passes `false` so an assigned Draft plan remains
+  // selectable.
   const activePlans = useMemo(
-    () => plans.filter((p) => isActiveClientStatus(p.status)),
-    [plans],
+    () =>
+      activeOnly
+        ? plans.filter((p) => isActiveClientStatus(p.status))
+        : plans,
+    [plans, activeOnly],
   );
   const planMap = useMemo(() => {
     const m = new Map<string, PlanSearchBarPlan>();

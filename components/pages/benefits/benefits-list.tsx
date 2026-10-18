@@ -215,55 +215,6 @@ function NoActivePlansCard({ onViewPlans }: { onViewPlans: () => void }) {
 }
 
 /**
- * A Collaborator's plan switcher — the plan picker without the search.
- *
- * A Collaborator holds a handful of assignments at most, and every one of them is a plan
- * they were explicitly invited to. A searchable dropdown over "all plans" is the advisor's
- * control for choosing among plans they own; offering it here would misrepresent an
- * invitation list as the organization's plan library, which is exactly the "Search Plans"
- * affordance a Collaborator should not have.
- *
- * Rendered only when there is more than one plan: with a single assignment the card's own
- * header already names the plan, and a one-item picker is a control that cannot change what
- * is on screen.
- */
-function CollaboratorPlanSwitcher({
-  plans,
-  value,
-  onChange,
-}: {
-  plans: PlanSearchBarPlan[];
-  value: string;
-  onChange: (planId: string) => void;
-}) {
-  return (
-    <Card className="mb-6 shadow-sm dark:bg-gray-800">
-      <CardContent className="flex flex-wrap items-center gap-x-3 gap-y-2 p-4">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-          You have access to
-        </span>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {plans.map((plan) => (
-            <Button
-              key={plan.id}
-              type="button"
-              size="sm"
-              variant={plan.id === value ? "default" : "outline"}
-              // A toggle group rather than a menu: the whole list is on screen, so the
-              // pressed state is what says which plan the card below belongs to.
-              aria-pressed={plan.id === value}
-              onClick={() => onChange(plan.id)}
-            >
-              {plan.companyName}
-            </Button>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-/**
  * Browse Benefits — a plan picker scopes the view to one plan's four benefit
  * pages, each with a Portal Visibility toggle and an action that opens the
  * inline editor (mirrors the "View Plans" list for the plan flow).
@@ -617,34 +568,27 @@ export function BenefitsListPage({
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
 
-      {/* Plan picker — decides which plan's benefits are shown below.
-          A Collaborator gets no plan SEARCH: they were invited to specific plans, so a
-          searchable dropdown over "all plans" is the advisor's control and would present an
-          invitation list as the plan library. With one assignment there is no picker at all —
-          the card's header below names the plan — and with several, the switcher is a plain
-          list of exactly those plans. */}
-      {isCollaborator ? (
-        selectablePlans.length > 1 ? (
-          <CollaboratorPlanSwitcher
+      {/* Plan picker — the ONE plan-selection control on this page, for every role.
+          It used to branch: an advisor got this searchable picker, while a Collaborator got a
+          bare row of plan-name buttons (or no picker at all with a single assignment). That
+          made the surface flicker between two different pickers as `isCollaborator` resolved,
+          and left /benefits with two different "choose a plan" UIs depending on the account.
+          `selectablePlans` already carries the right list for the viewer — Active-only for an
+          advisor, every assigned plan (Draft included) for a Collaborator — so the same picker
+          can serve both; `activeOnly` keeps the Collaborator's Draft assignments selectable. */}
+      <Card className="mb-6 shadow-sm dark:bg-gray-800">
+        <CardContent className="p-6">
+          <PlanSearchBar
             plans={selectablePlans}
             value={selectedPlanId}
             onChange={handleSelectPlan}
+            title="Benefits"
+            module="benefits"
+            disabled={selectablePlans.length === 0}
+            activeOnly={!isCollaborator}
           />
-        ) : null
-      ) : (
-        <Card className="mb-6 shadow-sm dark:bg-gray-800">
-          <CardContent className="p-6">
-            <PlanSearchBar
-              plans={plans}
-              value={selectedPlanId}
-              onChange={handleSelectPlan}
-              title="Benefits"
-              module="benefits"
-              disabled={plans.length === 0}
-            />
-          </CardContent>
-        </Card>
-      )}
+        </CardContent>
+      </Card>
       
       {/* Organization-wide context: the benefits this advisor's organization offers.
           Plan-independent, permanent, and server-rendered — it is on screen before any of
