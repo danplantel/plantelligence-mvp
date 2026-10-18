@@ -166,7 +166,7 @@ export function GiveTeamSeatDialog({
     setAccess({
       ...EMPTY_ACCESS,
       // The benefit this seat is being given for is ticked from the start. Everything else
-      // follows EMPTY_ACCESS (Editor / All Plans / All Categories), so the default grant is
+      // follows EMPTY_ACCESS (Viewer / All Plans / All Categories), so the default grant is
       // unchanged: the tick becomes the effective scope once Benefits access is narrowed to
       // Certain categories, where it is waiting rather than needing to be found.
       categories: currentCustomBenefit ? [currentCustomBenefit] : [],

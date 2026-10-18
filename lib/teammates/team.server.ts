@@ -223,9 +223,11 @@ export async function addTeamMember(
     input.type ?? (await guessPersonTypeForEmail({ organizationId: input.organizationId, email }));
 
   // Resolved ONCE, before the profile is written: the same role goes onto the profile (so a
-  // seat with no plan yet still knows its role) and onto every assignment below.
+  // seat with no plan yet still knows its role) and onto every assignment below. A Team
+  // Member invite starts at Viewer — the least access that still lets them work — matching
+  // the default its pickers show; a Collaborator keeps the server's Contributor default.
   const role: TeammateAssignmentRole =
-    input.role ?? (personType === "team_member" ? "editor" : "contributor");
+    input.role ?? (personType === "team_member" ? "viewer" : "contributor");
 
   if (personType === "team_member") {
     // Throws 409 `seat_limit` (or 403 `seat_limit_owner_only`) rather than hard
@@ -1806,8 +1808,10 @@ export async function addPlanAssignment({
     throw new TeammateDataError("Teammate profile not found.", 404);
   }
 
+  // A newly granted assignment starts at Viewer for a Team Member (the same default the
+  // Add Team Member pickers show); a Collaborator keeps Contributor.
   const role: TeammateAssignmentRole =
-    profile.type === "team_member" ? "editor" : "contributor";
+    profile.type === "team_member" ? "viewer" : "contributor";
 
   return upsertAssignment({
     organizationId,

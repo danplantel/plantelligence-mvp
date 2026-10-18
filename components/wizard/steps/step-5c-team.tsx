@@ -58,8 +58,9 @@ function blankInvite(): TeamInvite {
     id: `invite-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     fullName: "",
     email: "",
-    // Everyone joins as an Editor unless the advisor picks another role.
-    role: "editor",
+    // Everyone joins as a Viewer unless the advisor picks another role — an invite starts
+    // from the least access that still lets the person work, and can be raised here.
+    role: "viewer",
     status: "pending",
   };
 }
@@ -419,10 +420,10 @@ export function Step5cTeam({
               </div>
 
               {/* The role this person joins with. Owner is not offered — an invite can
-                  grant Admin, Editor or Viewer (see INVITABLE_TEAM_ROLES). */}
+                  grant Admin, Editor or Viewer (see INVITABLE_TEAM_ROLES), starting at Viewer. */}
               <div className="w-32 shrink-0 space-y-1">
                 <Select
-                  value={row.role ?? "editor"}
+                  value={row.role ?? "viewer"}
                   onValueChange={(value) =>
                     updateRole(row.id, value as TeammateAssignmentRole)
                   }

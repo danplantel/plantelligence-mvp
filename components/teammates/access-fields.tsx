@@ -77,12 +77,14 @@ export const INVITABLE_TEAM_ROLES: TeammateAssignmentRole[] =
   TEAM_MEMBER_ROLES.filter((role) => role !== "owner");
 
 /**
- * A new Team Member's draft. Editor + All Plans + All Categories is the spec's own default
+ * A new Team Member's draft. Viewer + All Plans + All Categories is the default: an invite
+ * starts from the least access that still lets the person work, and the advisor raises it to
+ * Editor or Admin in the same picker. Plan/category scope keeps the spec's own default
  * ("Default: All Plans + All Categories"), so a caller that wants those can hand this
  * straight to the server rather than restating them.
  */
 export const EMPTY_ACCESS: AccessDraft = {
-  role: "editor",
+  role: "viewer",
   planScope: "all_plans",
   planIds: [],
   categoryScope: "all",

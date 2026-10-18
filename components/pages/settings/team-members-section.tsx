@@ -607,7 +607,7 @@ export function TeamMembersSection() {
    * The New Contact slide's fields. Invite only: a name and an email.
    *
    * The profile's other Key Contact fields (job title, phone, extension, company, headshot)
-   * and the access scope are no longer collected here — the person is invited as an Editor
+   * and the access scope are no longer collected here — the person is invited as a Viewer
    * with All Plans + All Categories and finishes their own profile from the invite email,
    * exactly the shape the onboarding wizard's "Invite Your Team" step uses. `addAccess` is
    * therefore still the draft the EXISTING Contact path edits; on the New path it stays at
@@ -616,10 +616,10 @@ export function TeamMembersSection() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   /**
-   * The role a New Contact joins with. Editor by default. The New Contact slide is
+   * The role a New Contact joins with. Viewer by default. The New Contact slide is
    * otherwise invite-only, so this is the one access decision it still asks for.
    */
-  const [newRole, setNewRole] = useState<TeammateAssignmentRole>("editor");
+  const [newRole, setNewRole] = useState<TeammateAssignmentRole>("viewer");
   const [addAccess, setAddAccess] = useState<AccessDraft>(EMPTY_ACCESS);
   const [confirmUpgrade, setConfirmUpgrade] = useState(false);
 
@@ -885,7 +885,8 @@ export function TeamMembersSection() {
     setEmail("");
     setFirstName("");
     setLastName("");
-    setNewRole("editor");
+    // Every fresh New Contact starts at Viewer, the role the modal's picker shows by default.
+    setNewRole("viewer");
     setContactQuery("");
     setContactResults([]);
     setPickedContact(null);
@@ -978,7 +979,7 @@ export function TeamMembersSection() {
             : {
                 // Invite only: a name and an email. The other Key Contact fields are no
                 // longer collected on this slide, and the role/scope below are the untouched
-                // `EMPTY_ACCESS` defaults (Editor + All Plans + All Categories).
+                // `EMPTY_ACCESS` defaults (Viewer + All Plans + All Categories).
                 firstName,
                 lastName,
               }),
@@ -1566,7 +1567,7 @@ export function TeamMembersSection() {
           <div className="space-y-4">
             {/* Access comes FIRST, but only on the Existing Contact slide. The New Contact
                 slide is an invite only — name and email — so its draft stays at
-                `EMPTY_ACCESS` (Editor + All Plans + All Categories, the same default the
+                `EMPTY_ACCESS` (Viewer + All Plans + All Categories, the same default the
                 onboarding wizard sends) and the role and scope are set afterwards in
                 People & Access. Showing the picker there would contradict the invite-only
                 copy. */}

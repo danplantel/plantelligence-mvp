@@ -844,11 +844,11 @@ export function OnboardingWizard({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             // A Team Member seat, said explicitly. The role is the one staged on the
-            // row (Editor unless the advisor changed it; `?? "editor"` covers rows
+            // row (Viewer unless the advisor changed it; `?? "viewer"` covers rows
             // persisted before the role existed); plan/category scope use the server
             // defaults (All Plans + All Categories).
             type: "team_member",
-            role: invite.role ?? "editor",
+            role: invite.role ?? "viewer",
             name: invite.fullName.trim(),
             email: invite.email.trim(),
           }),
