@@ -1,0 +1,148 @@
+# Testing
+
+Unit tests run on [Vitest](https://vitest.dev) with React Testing Library and
+jsdom. Playwright covers the cross-page journeys. For the complete, itemized
+list of onboarding tests, see
+[`onboarding-tests.md`](onboarding-tests.md).
+
+## Commands
+
+| Command              | Purpose                                         |
+| -------------------- | ----------------------------------------------- |
+| `pnpm test`          | Run the whole unit suite once                   |
+| `pnpm test:watch`    | Re-run changed unit tests on save               |
+| `pnpm test:coverage` | Run once and print a V8 coverage report         |
+| `pnpm exec vitest run <path>` | Run a single unit file or directory    |
+| `pnpm test:onboarding` | Every onboarding unit suite (30 files, 412 tests) |
+| `pnpm test:onboarding:watch` | Onboarding unit tests in watch mode      |
+| `pnpm test:onboarding:coverage` | Onboarding unit tests + coverage     |
+| `pnpm test:onboarding:e2e` | Onboarding Playwright journeys only      |
+| `pnpm test:onboarding:all` | Onboarding unit + E2E                    |
+| `pnpm test:e2e`      | Run Playwright E2E                              |
+| `pnpm test:e2e:ui`   | Run Playwright in UI mode                       |
+| `pnpm test:e2e:install` | Install the Chromium browser binary          |
+
+The onboarding-only scripts are backed by
+[`vitest.onboarding.config.mts`](../vitest.onboarding.config.mts), which
+keeps the default environment and aliases but narrows `include` to the
+onboarding suites. The orchestrator is
+[`scripts/tests/run-onboarding-tests.mjs`](../scripts/tests/run-onboarding-tests.mjs).
+
+Coverage is written to `coverage/` (already gitignored).
+
+## Layout
+
+- [`vitest.config.mts`](../vitest.config.mts) wires the `@/*` and
+  `@video-steps/*` aliases from `tsconfig.json`, jsdom, and coverage.
+- [`vitest.setup.ts`](../vitest.setup.ts) loads `jest-dom`, unmounts trees
+  between tests, and stubs browser APIs jsdom does not implement
+  (`matchMedia`, `ResizeObserver`, `IntersectionObserver`,
+  `scrollIntoView`).
+- Tests live in a `__tests__` folder next to the code they cover and use the
+  `*.test.ts` / `*.test.tsx` suffix.
+
+## Conventions
+
+- Import `describe` / `it` / `expect` / `vi` explicitly from `vitest`. Globals
+  are intentionally disabled so test files stay self-contained and typed.
+- Use `screen` queries from Testing Library and assert on accessible roles,
+  labels, and text rather than CSS classes or component internals.
+- Prefer `findBy*` / `waitFor` for anything that resolves after an effect or
+  promise.
+- Keep tests deterministic. Mock network calls and timers; never hit the real
+  API, database, or auth provider.
+
+## Page-level pattern (onboarding)
+
+[`app/(dashboard)/onboarding/__tests__/page.test.tsx`](../app/(dashboard)/onboarding/__tests__/page.test.tsx)
+covers the onboarding route with the following strategy:
+
+1. **Mock the boundary, not the page.** `next-auth/react`, `next/navigation`,
+   the wizard store, and the page's hooks are mocked so the test controls
+   initialization, session, and navigation without a server.
+2. **Replace heavy children with stubs.** `OnboardingWizard`, the five step
+   components, `DesktopOnlyGate`, and the navigate-away dialog are lightweight
+   test doubles that expose only the props the page wires up.
+3. **Assert integration points.** Examples: the status request redirects to
+   `/dashboard` when complete, the page title is set, the current step
+   component renders, Step 5 validation reaches the wizard, and the leave
+   guard's `onSaveAndExit` persists summary data.
+4. **Cover failure paths.** A non-OK status response and a rejected request
+   must both leave the user on the wizard instead of a blank screen.
+
+State shared by `vi.mock` factories must be created with `vi.hoisted` because
+`vi.mock` calls are lifted above imports.
+
+Pure helpers, such as
+[`lib/__tests__/onboarding-wizard-dirty.test.ts`](../lib/__tests__/onboarding-wizard-dirty.test.ts),
+can be tested directly without React.
+
+## Step component pattern
+
+Each onboarding step has a co-located suite under
+`components/wizard/steps/__tests__/`:
+
+| File | Focus |
+| ---- | ----- |
+| `step-1-user-profile.test.tsx` | progressive disclosure of Team Size, prefill/normalization, error propagation |
+| `step-2-services.test.tsx` | server-loaded selections, service/custom-service saves, insurance flag, failure handling |
+| `step-3-branding.test.tsx` | card wiring, welcome-statement merge fields, branding/client-profile persistence, background upload/removal, color saves |
+| `step-4-user-setup.test.tsx` | server/session fallbacks, phone + designation normalization, immediate saves, blur validation, unmount flush |
+| `step-5-onboarding.test.tsx` | sub-stepper gating (solo vs. team), routing, validity forwarding |
+| `step-5a-summary.test.tsx` | review values, edit-from-review entry points, summary payload mapping |
+| `step-5b-disclosures.test.tsx` | intro vs. editor, skip attestation, recommended/custom copy persistence, limits |
+| `step-5c-team.test.tsx` | seat meter/cap, row add/remove, per-field validation, duplicate/self emails, role updates |
+
+The store is mocked as a small reactive store backed by
+`useSyncExternalStore`, with a mutable `state` object and a `notify()` helper.
+That lets a test mutate `teamInvites` / `step5SubStep` and observe the component
+re-render exactly as it would against Zustand, while every action
+(`saveStepData`, `setTeamInvites`, …) stays a spy.
+
+Heavy section components (`UserProfileSection`, `ServicesSection`,
+`BrandingSetupCard`, `UserSetupSection`, …) are replaced with stubs that render
+the props they receive and expose buttons for the callbacks. Assertions then
+target the contract between a step and its sections: what data is passed down,
+which callback fires, and what payload is persisted.
+
+## Wider unit coverage
+
+Beyond the step suites, these cover the rest of the onboarding flow:
+
+| File | Focus |
+| ---- | ----- |
+| `lib/__tests__/wizard-validation.test.ts` | every step schema and `validateCurrentStep` field mapping |
+| `lib/__tests__/onboarding-wizard-store.test.ts` | navigation, review-edit mode, saves/loads, validation actions, completion, reset, persistence |
+| `components/wizard/__tests__/wizard.test.tsx` | Next/Previous, Step 1 ordering, Step 2 parallel saves, Step 4 DOM normalization, Step 5 routing, skip/confirm/invite flows, completion |
+| `hooks/__tests__/use-navigate-away-guard.test.tsx`, `components/ui/__tests__/navigate-away-warning-dialog.test.tsx` | link interception, popstate, save/discard/stay, two-step discard |
+| `hooks/__tests__/useOnboardingResumeEmail.test.tsx`, `components/__tests__/desktop-only-gate.test.tsx` | resume-email throttling and device gating |
+| `hooks/__tests__/useWizardInit.test.tsx`, `use-scroll-to-error-field.test.tsx`, `useMediaQuery.test.tsx` | initialization, error scrolling, media queries |
+| `components/wizard/steps/__tests__/*-section.test.tsx` | the real form sections that the step suites stub |
+| `app/api/onboarding-wizard/__tests__/routes.test.ts` | every onboarding route handler with mocked Prisma, auth, email, and tokens |
+
+## End-to-end (Playwright)
+
+The E2E suite lives in `e2e/` and is driven by environment variables:
+
+- `E2E_BASE_URL` — an already-running app (default `http://localhost:3000`);
+- `E2E_START_SERVER=1` — let Playwright run `pnpm dev` itself;
+- `E2E_EMAIL` / `E2E_PASSWORD` — a **fresh, not-yet-onboarded** account.
+
+```bash
+pnpm test:e2e:install            # once per machine
+E2E_START_SERVER=1 E2E_EMAIL=... E2E_PASSWORD=... pnpm test:e2e
+```
+
+Without `E2E_BASE_URL`/`E2E_START_SERVER`, the E2E tests skip instead of
+failing. The happy-path test completes onboarding and redirects to the
+dashboard, so reset that account's wizard data before re-running it.
+
+Covered journeys:
+
+- anonymous `/onboarding` redirects to `/signin`;
+- a phone viewport shows the desktop-only notice;
+- an empty Step 1 blocks Next and shows the named-field toast, then accepts the
+  same form once filled;
+- the leave guard intercepts an in-app link and Stay returns to the wizard;
+- the full flow (branding upload, disclosures, invite-later) reaches the
+  dashboard.

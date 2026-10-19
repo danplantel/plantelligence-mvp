@@ -73,6 +73,17 @@ After setting up environment variables and running the development server:
 2. **Customize your Content**: Insert branding, specify details, and link plan resources.
 3. **Generate and Publish**: Once satisfied, initiate the video generation process.
 
+## Testing
+
+Unit tests use [Vitest](https://vitest.dev) with React Testing Library and jsdom.
+See [`docs/testing.md`](docs/testing.md) for conventions and the mocking strategy.
+
+```bash
+pnpm test            # run once
+pnpm test:watch      # watch mode
+pnpm test:coverage   # run once + V8 coverage report
+```
+
 ## License
 
 This project is not yet licensed, and the source code is proprietary. Unauthorized distribution, modification, or use of this code is prohibited. Access is limited to authorized personnel only, and any use outside of granted permissions is strictly forbidden. For inquiries regarding permissions or potential licensing, please contact the project owner via email: Ty Rogers, ty at waypointfas.com.

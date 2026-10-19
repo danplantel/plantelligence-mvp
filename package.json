@@ -12,6 +12,17 @@
     "db:migrate:status": "prisma migrate status",
     "start": "next start",
     "start:host": "next start -H 0.0.0.0",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:onboarding": "node scripts/tests/run-onboarding-tests.mjs",
+    "test:onboarding:watch": "node scripts/tests/run-onboarding-tests.mjs --watch",
+    "test:onboarding:coverage": "node scripts/tests/run-onboarding-tests.mjs --coverage",
+    "test:onboarding:e2e": "node scripts/tests/run-onboarding-tests.mjs --e2e-only",
+    "test:onboarding:all": "node scripts/tests/run-onboarding-tests.mjs --e2e",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:install": "playwright install chromium",
     "lint": "next lint",
     "prettier": "prettier . --write",
     "models:fetch": "npx tsx scripts/models/fetch-bg-model.ts",
@@ -152,6 +163,11 @@
     "zustand": "^4.4.6"
   },
   "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@testing-library/dom": "^10.4.2",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.8",
     "@types/aos": "^3.0.7",
     "@types/bcrypt": "^5.0.2",
     "@types/bcryptjs": "^2.4.6",
@@ -162,7 +178,10 @@
     "@types/qrcode": "^1.5.5",
     "@types/uuid": "^9.0.7",
     "@typescript-eslint/eslint-plugin": "^6.11.0",
+    "@vitest/coverage-v8": "^5.0.5",
+    "jsdom": "^30.1.3",
     "prettier": "3.0.3",
-    "prisma": "^5.22.0"
+    "prisma": "^5.22.0",
+    "vitest": "^5.0.5"
   }
 }

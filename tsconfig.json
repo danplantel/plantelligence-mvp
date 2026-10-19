@@ -10,6 +10,7 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
@@ -33,6 +34,8 @@
   },
   "include": [
     "next-env.d.ts",
+    "vitest.config.mts",
+    "vitest.onboarding.config.mts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
