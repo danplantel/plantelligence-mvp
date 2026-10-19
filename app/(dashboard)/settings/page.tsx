@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { redirectToSignIn } from "@/lib/redirect-to-signin";
 import {
   HEADER_TAB_TRIGGER_CLASS,
   HEADER_TABS_LIST_CLASS,
@@ -146,7 +146,6 @@ export default function SettingsPage() {
    */
   const { isCollaborator } = useViewerAccess();
   const [isSaving, setIsSaving] = useState(false);
-  const router = useRouter();
   const [isLoading, setIsLoading] = useState(
     () => !useOnboardingWizardStore.getState().stepData?.userSetup,
   );
@@ -285,7 +284,7 @@ export default function SettingsPage() {
       setDeletionSuccess(true);
       // Show success state for 3 seconds, then redirect to sign-in
       setTimeout(() => {
-        window.location.href = "/signin";
+        redirectToSignIn();
       }, 3000);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Please try again.";
@@ -531,6 +530,21 @@ export default function SettingsPage() {
   const viewerIsOrganizationOwner = cachedProfile?.organization?.viewerIsOwner as
     | boolean
     | undefined;
+
+  /**
+   * Billing is owner-only, and hiding its tab trigger is not enough: `?tab=billing`
+   * sets `activeTab` before ownership is known, and the panel has no denial branch.
+   * Once the profile answers, send anyone who is not the owner back to Profile.
+   */
+  useEffect(() => {
+    if (
+      activeTab === "billing" &&
+      cachedProfile !== undefined &&
+      viewerIsOrganizationOwner !== true
+    ) {
+      setActiveTab("profile");
+    }
+  }, [activeTab, cachedProfile, viewerIsOrganizationOwner]);
 
   /**
    * Whether the reader is a teammate whose summarised role is Viewer — i.e. read-only across the

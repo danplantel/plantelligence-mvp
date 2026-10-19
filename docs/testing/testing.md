@@ -2,8 +2,9 @@
 
 Unit tests run on [Vitest](https://vitest.dev) with React Testing Library and
 jsdom. Playwright covers the cross-page journeys. For complete, itemized test
-inventories see [`onboarding-tests.md`](onboarding-tests.md) and
-[`auth-testing.md`](auth-testing.md).
+inventories see [`onboarding-tests.md`](onboarding-tests.md),
+[`auth-testing.md`](auth-testing.md), and
+[`settings-test.md`](settings-test.md).
 
 ## Commands
 
@@ -163,6 +164,14 @@ Beyond the step suites, these cover the rest of the onboarding flow:
 | `components/forms/__tests__/resume-onboarding-link.test.tsx` | resume dialog: open, opaque submit, failure, cancel/reset |
 | `lib/__tests__/middleware.test.ts` | route protection: portal/static/API bypass, sign-in redirect, onboarding gate, cookie names |
 | `app/api/__tests__/auth-routes.test.ts` | forget, verify-code, reset-password, signup sanitization, check-email handlers |
+
+## Settings page coverage
+
+| File | Focus |
+| ---- | ----- |
+| `app/(dashboard)/settings/__tests__/page.test.tsx` | tab shell and role gating, Profile/Branding/Organization saves, disclosures fan-out, unsaved-changes guard, People & Access lazy mount, Billing placeholder, Delete Profile dialogs |
+
+See [`settings-test.md`](settings-test.md) for the itemized inventory and the remaining section/route-handler gaps.
 
 ## End-to-end (Playwright)
 
