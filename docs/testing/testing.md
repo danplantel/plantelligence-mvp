@@ -4,8 +4,9 @@ Unit tests run on [Vitest](https://vitest.dev) with React Testing Library and
 jsdom. Playwright covers the cross-page journeys. For complete, itemized test
 inventories see [`onboarding-tests.md`](onboarding-tests.md),
 [`auth-testing.md`](auth-testing.md),
-[`settings-test.md`](settings-test.md), and
-[`../tests/header-sidebar-tests.md`](../tests/header-sidebar-tests.md).
+[`settings-test.md`](settings-test.md),
+[`header-sidebar-tests.md`](header-sidebar-tests.md), and
+[`dashboard-test.md`](dashboard-test.md).
 
 ## Commands
 
@@ -31,6 +32,9 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 | `pnpm test:header-sidebar` | Header + Sidebar suites (2 files, 52 tests) |
 | `pnpm test:header-sidebar:watch` | Header/Sidebar tests in watch mode  |
 | `pnpm test:header-sidebar:coverage` | Header/Sidebar tests + coverage  |
+| `pnpm test:dashboard` | Dashboard suite (3 files, 105 tests)       |
+| `pnpm test:dashboard:watch` | Dashboard tests in watch mode        |
+| `pnpm test:dashboard:coverage` | Dashboard tests + coverage        |
 | `pnpm test:e2e`      | Run Playwright E2E                              |
 | `pnpm test:e2e:ui`   | Run Playwright in UI mode                       |
 | `pnpm test:e2e:install` | Install the Chromium browser binary          |
@@ -49,6 +53,9 @@ Settings does the same with
 The chrome suites use
 [`vitest.header-sidebar.config.mts`](../../vitest.header-sidebar.config.mts) and
 [`scripts/tests/run-header-sidebar-tests.mjs`](../../scripts/tests/run-header-sidebar-tests.mjs).
+The dashboard uses
+[`vitest.dashboard.config.mts`](../../vitest.dashboard.config.mts) and
+[`scripts/tests/run-dashboard-tests.mjs`](../../scripts/tests/run-dashboard-tests.mjs).
 
 Coverage is written to `coverage/` (already gitignored).
 
@@ -193,7 +200,17 @@ See [`settings-test.md`](settings-test.md) for the itemized inventory and the re
 | `components/layout/__tests__/header.test.tsx` | title/company split, stepper and editor overlay, header tab portal, theme toggle, scroll chrome |
 | `components/layout/__tests__/sidebar.test.tsx` | persisted rail state, responsive widths, access skeleton, collaborator nav filtering, logos, editor collapse, wizard step-2 width |
 
-See [`../tests/header-sidebar-tests.md`](../tests/header-sidebar-tests.md) for the itemized inventory and remaining gaps.
+See [`header-sidebar-tests.md`](header-sidebar-tests.md) for the itemized inventory and remaining gaps.
+
+## Dashboard coverage
+
+| File | Focus |
+| ---- | ----- |
+| `components/pages/dashboard/__tests__/dashboard.test.tsx` | identity precedence, avatar resolution/cancellation, loading skeleton, stats overlay, role-based actions/panels, insight detail mapping |
+| `components/pages/dashboard/__tests__/panels.test.tsx` | Active Plans, Meetings, Needs Attention, Recent Activity, Upcoming Meetings, Team, Task List |
+| `app/api/dashboard/__tests__/routes.test.ts` | stats, plans/meetings/attention, tasks CRUD, upcoming meetings, recent activity |
+
+See [`dashboard-test.md`](dashboard-test.md) for the itemized inventory and remaining gaps.
 
 ## End-to-end (Playwright)
 

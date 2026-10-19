@@ -169,4 +169,4 @@ Still worth adding: a Viewer-specific nav journey and a real Edit Plan/Edit Bene
 | Viewer nav journey | A Viewer must not see Branding/Organization while the chrome stays usable. |
 | Per-editor E2E | Edit Plan and Edit Benefit panels, not just the synthetic layout event. |
 
-See [`testing.md`](../testing/testing.md) for shared conventions, plus the onboarding, auth, and settings inventories in that folder.
+See [`testing.md`](testing.md) for shared conventions, plus the onboarding, auth, and settings inventories in that folder.

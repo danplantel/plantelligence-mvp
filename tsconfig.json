@@ -39,6 +39,7 @@
     "vitest.auth.config.mts",
     "vitest.settings.config.mts",
     "vitest.header-sidebar.config.mts",
+    "vitest.dashboard.config.mts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",

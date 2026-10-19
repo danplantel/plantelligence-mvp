@@ -118,9 +118,15 @@ export function Dashboard() {
   const [resolvedAvatar, setResolvedAvatar] = useState<string>("");
   useEffect(() => {
     let cancelled = false;
-    resolveBrandingImageUrl(userInfo.rawAvatar || null).then((url) => {
-      if (!cancelled) setResolvedAvatar(url ?? userInfo.rawAvatar ?? "");
-    });
+    resolveBrandingImageUrl(userInfo.rawAvatar || null)
+      .then((url) => {
+        if (!cancelled) setResolvedAvatar(url ?? userInfo.rawAvatar ?? "");
+      })
+      .catch(() => {
+        // A resolver failure must not leave the avatar blank or surface as an
+        // unhandled rejection — fall back to the raw value the profile gave us.
+        if (!cancelled) setResolvedAvatar(userInfo.rawAvatar ?? "");
+      });
     return () => { cancelled = true; };
   }, [userInfo.rawAvatar]);
 
