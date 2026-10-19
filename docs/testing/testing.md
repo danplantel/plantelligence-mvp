@@ -24,6 +24,9 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 | `pnpm test:auth:coverage` | Auth unit tests + coverage               |
 | `pnpm test:auth:e2e` | Auth Playwright journeys only                  |
 | `pnpm test:auth:all` | Auth unit + E2E                                |
+| `pnpm test:settings` | Every Settings unit suite (1 file, 87 tests)    |
+| `pnpm test:settings:watch` | Settings unit tests in watch mode          |
+| `pnpm test:settings:coverage` | Settings unit tests + coverage         |
 | `pnpm test:e2e`      | Run Playwright E2E                              |
 | `pnpm test:e2e:ui`   | Run Playwright in UI mode                       |
 | `pnpm test:e2e:install` | Install the Chromium browser binary          |
@@ -36,6 +39,9 @@ onboarding suites. The orchestrator is
 The auth-only scripts follow the same pattern with
 [`vitest.auth.config.mts`](../../vitest.auth.config.mts) and
 [`scripts/tests/run-auth-tests.mjs`](../../scripts/tests/run-auth-tests.mjs).
+Settings does the same with
+[`vitest.settings.config.mts`](../../vitest.settings.config.mts) and
+[`scripts/tests/run-settings-tests.mjs`](../../scripts/tests/run-settings-tests.mjs).
 
 Coverage is written to `coverage/` (already gitignored).
 

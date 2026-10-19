@@ -10,11 +10,18 @@ This document is the test inventory for [`app/(dashboard)/settings/page.tsx`](..
 
 ## Running these tests
 
-Settings-only command (the suite is not yet behind a dedicated config/script):
+Settings-only commands:
 
 ```bash
-pnpm exec vitest run "app/(dashboard)/settings/__tests__/page.test.tsx"
+pnpm test:settings           # all Settings unit suites (87 tests)
+pnpm test:settings:watch     # Settings unit tests in watch mode
+pnpm test:settings:coverage  # Settings unit tests + V8 coverage
 ```
+
+These are backed by `vitest.settings.config.mts` and
+`scripts/tests/run-settings-tests.mjs`. The config currently lists the page
+suite explicitly; add each `components/pages/settings` or
+`components/settings` section suite to it as it lands.
 
 All tests:
 
