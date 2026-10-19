@@ -22,15 +22,22 @@
  * standalone, and it is rendered OUTSIDE `PortalCommentsZoom` so the Comments preview cannot scale
  * or scroll it away.
  *
- * On iOS and Android its distance from the bottom edge is not constant: both browsers retract their
- * bottom toolbar while the reader scrolls down, at which point the layout viewport reaches into the
- * home-indicator strip and the pill's rounded corners would sit outside the safe zone. It lifts by
- * 1rem for the duration of a downward scroll and settles back when the reader scrolls up, which is
- * when the toolbar is on screen again.
+ * The bar is PORTALED into `document.body` and lives inside a fixed, viewport-sized layer with
+ * `overflow: hidden` and paint containment. That is deliberate: a fixed element that merely sits at
+ * the end of the page markup can be folded into the document's scrollable overflow by iOS Safari,
+ * which shows up as blank space below the footer. In a fixed layer the bar's box can never be
+ * larger than the viewport, so it cannot lengthen the page in any browser.
+ *
+ * Its offset also includes `env(safe-area-inset-bottom)` — a STATIC value. It used to lift on a
+ * downward scroll to clear the retracting browser toolbar, but changing a fixed element's geometry
+ * during a scroll is exactly the kind of thing that makes iOS recompute the page extent. The safe
+ * area plus a constant margin keeps the rounded corners clear without touching layout while the
+ * reader scrolls.
  */
 
 import { useCallback, useEffect, useState } from "react";
-import { useParams, usePathname } from "next/navigation";
+import { createPortal } from "react-dom";
+import { useParams } from "next/navigation";
 import {
   CheckCircle2,
   ChevronDown,
@@ -67,7 +74,6 @@ const MANIFEST_PATH = "/api/pwa/manifest";
 
 export function PortalInstallApp() {
   const params = useParams<{ id?: string }>();
-  const pathname = usePathname();
   const slug = typeof params?.id === "string" ? params.id : "";
   const { clientData } = useClientPortal();
   const appName = (clientData?.companyName || "").trim() || "PlanTelligence";
@@ -83,11 +89,13 @@ export function PortalInstallApp() {
   );
   const [instructionsOpen, setInstructionsOpen] = useState(false);
   const [busy, setBusy] = useState(false);
-  // Safari (and Chrome on Android) collapse their bottom toolbar while the reader scrolls DOWN,
-  // which hands the layout viewport the home-indicator strip. The pill's rounded corners then sit
-  // partly outside the safe zone. Scroll UP brings the toolbar back and the same offset is correct
-  // again, so the lift follows the scroll direction rather than being permanently larger.
-  const [liftedForBrowserChrome, setLiftedForBrowserChrome] = useState(false);
+  // The element the bar is portaled into. Null during SSR and the first paint — the bar is hidden
+  // until `ready` anyway.
+  const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setPortalHost(document.body);
+  }, []);
 
   // Point the manifest at THIS plan. The root layout links the manifest route so the browser always
   // has one; the slug and name make the installed app start at this portal and carry its name.
@@ -165,41 +173,6 @@ export function PortalInstallApp() {
     return () => window.removeEventListener("appinstalled", onInstalled);
   }, []);
 
-  // Follow the scroll direction on the platforms whose bottom chrome retracts. Desktop browsers
-  // have no retracting toolbar, so the pill keeps a constant offset there and never bobs.
-  useEffect(() => {
-    // A new page starts at the top with the toolbar visible, so start settled.
-    setLiftedForBrowserChrome(false);
-
-    const mobileBrowser =
-      Boolean(environment?.isIOS) || Boolean(environment?.isAndroid);
-    if (!mobileBrowser) return;
-
-    let lastY = window.scrollY;
-    let frame = 0;
-
-    const update = () => {
-      frame = 0;
-      const y = window.scrollY;
-      const delta = y - lastY;
-      // Ignore sub-pixel jitter and the rubber-band bounce at the top of the document.
-      if (Math.abs(delta) < 4) return;
-      lastY = y;
-      setLiftedForBrowserChrome(delta > 0 && y > 24);
-    };
-
-    const onScroll = () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(update);
-    };
-
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      if (frame) window.cancelAnimationFrame(frame);
-    };
-  }, [environment, pathname]);
-
   const dismiss = useCallback(() => {
     setDismissed(true);
     if (!slug) return;
@@ -235,67 +208,77 @@ export function PortalInstallApp() {
 
   const visible = ready && !dismissed && !installed;
 
+  const installBar =
+    visible && portalHost
+      ? createPortal(
+          // A fixed, VIEWPORT-SIZED layer. Its box is exactly the screen, so it cannot contribute
+          // to the document's height. `overflow: hidden` + paint containment keep the pill, its
+          // shadow and any browser compositing artefacts inside that box.
+          <div
+            className="pointer-events-none fixed inset-0 z-40 overflow-hidden print:hidden"
+            style={{ contain: "layout paint" }}
+          >
+            <div
+              // `right` rather than `inset-x-0`: while the Comments rail is open, the prompt centres
+              // in the space that is left instead of sliding under the panel.
+              className="absolute flex justify-center px-3"
+              style={{
+                left: 0,
+                right: "var(--comments-inset, 0px)",
+                bottom:
+                  "calc(0.75rem + env(safe-area-inset-bottom, 0px))",
+              }}
+            >
+              <div className="pointer-events-auto flex w-full max-w-lg items-center gap-2 rounded-2xl border border-black/5 bg-white p-2 pl-3 shadow-[0_10px_35px_rgba(15,23,42,0.18)] sm:w-auto sm:rounded-full">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1F3A60]/10">
+                  <Smartphone
+                    className="h-4 w-4 text-[#1F3A60]"
+                    aria-hidden="true"
+                  />
+                </span>
+
+                {/* One title capped at two lines. Kept short so it reads in full even beside
+                    the button on a phone; `line-clamp-2` only bites on an unusually long
+                    company name. */}
+                <p className="line-clamp-2 min-w-0 flex-1 text-sm font-semibold leading-snug text-gray-900">
+                  {`Get the ${appName} app`}
+                </p>
+
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={handleDownload}
+                  disabled={busy}
+                  className="shrink-0 rounded-full bg-[#1F3A60] px-3 text-white hover:bg-[#2C4B80]"
+                >
+                  {busy ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <>
+                      <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                      Download
+                    </>
+                  )}
+                </Button>
+
+                <button
+                  type="button"
+                  onClick={dismiss}
+                  aria-label="Dismiss the app download prompt"
+                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                >
+                  <X className="h-4 w-4" aria-hidden="true" />
+                </button>
+              </div>
+            </div>
+          </div>,
+          portalHost,
+        )
+      : null;
+
   return (
     <>
-      {visible && (
-        <div
-          // `right` rather than `inset-x-0`: while the Comments rail is open, the prompt centres in
-          // the space that is left instead of sliding under the panel.
-          //
-          // The wrapper is anchored at `bottom-0` with its own `pb-3`, and the lift is a
-          // TRANSFORM on the pill rather than a change to `bottom`. That keeps every box inside the
-          // viewport: nothing about this element is ever positioned outside the bottom edge, which
-          // is the shape iOS Safari needs to avoid folding the fixed element into the page's
-          // scrollable area and leaving blank space below the footer.
-          className="pointer-events-none fixed bottom-0 left-0 z-40 flex justify-center px-3 pb-3 print:hidden"
-          style={{ right: "var(--comments-inset, 0px)" }}
-        >
-          <div
-            className="pointer-events-auto flex w-full max-w-lg items-center gap-2 rounded-2xl border border-black/5 bg-white p-2 pl-3 shadow-[0_10px_35px_rgba(15,23,42,0.18)] transition-transform duration-200 ease-out sm:w-auto sm:rounded-full"
-            style={{
-              transform: liftedForBrowserChrome
-                ? "translateY(-1rem)"
-                : "translateY(0)",
-            }}
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#1F3A60]/10">
-              <Smartphone className="h-4 w-4 text-[#1F3A60]" aria-hidden="true" />
-            </span>
-
-            {/* One title capped at two lines. Kept short so it reads in full even beside the
-                button on a phone; `line-clamp-2` only bites on an unusually long company name. */}
-            <p className="line-clamp-2 min-w-0 flex-1 text-sm font-semibold leading-snug text-gray-900">
-              {`Get the ${appName} app`}
-            </p>
-
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleDownload}
-              disabled={busy}
-              className="shrink-0 rounded-full bg-[#1F3A60] px-3 text-white hover:bg-[#2C4B80]"
-            >
-              {busy ? (
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                <>
-                  <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                  Download
-                </>
-              )}
-            </Button>
-
-            <button
-              type="button"
-              onClick={dismiss}
-              aria-label="Dismiss the app download prompt"
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </button>
-          </div>
-        </div>
-      )}
+      {installBar}
 
       <Dialog open={instructionsOpen} onOpenChange={setInstructionsOpen}>
         <DialogContent className="max-w-md">
