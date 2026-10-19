@@ -18,6 +18,24 @@ import type { NavItem } from "@/types";
 
 const SIDEBAR_STATE_KEY = "sidebar-is-open";
 
+/** Read the saved preference; storage failures must not crash the layout. */
+function readSidebarPreference(): boolean {
+  try {
+    return localStorage.getItem(SIDEBAR_STATE_KEY) !== "false";
+  } catch {
+    return true;
+  }
+}
+
+/** Persist the preference; a quota/security failure must not block the toggle. */
+function writeSidebarPreference(isOpen: boolean) {
+  try {
+    localStorage.setItem(SIDEBAR_STATE_KEY, String(isOpen));
+  } catch {
+    // Storage is unavailable — the in-memory state still works.
+  }
+}
+
 /**
  * The nav's placeholder while the access summary is still being read.
  *
@@ -72,11 +90,8 @@ const Sidebar = memo(function Sidebar() {
 
   // Initialize state from localStorage if available, otherwise default to true
   const [isOpen, setIsOpen] = useState(() => {
-    // Only access localStorage after component mounts (client-side)
-    if (typeof window !== "undefined") {
-      const savedState = localStorage.getItem(SIDEBAR_STATE_KEY);
-      return savedState !== null ? savedState === "true" : true;
-    }
+    // Only access localStorage after component mounts (client-side).
+    if (typeof window !== "undefined") return readSidebarPreference();
     return true;
   });
   const { theme = "system" } = useTheme();
@@ -112,19 +127,14 @@ const Sidebar = memo(function Sidebar() {
   const toggleSidebar = useCallback(() => {
     setIsOpen((prev) => {
       const newState = !prev;
-      // Save to localStorage when toggled
-      if (typeof window !== "undefined") {
-        localStorage.setItem(SIDEBAR_STATE_KEY, String(newState));
-      }
+      if (typeof window !== "undefined") writeSidebarPreference(newState);
       return newState;
     });
   }, []);
 
   // Persist the user's own preference — never the temporary editor rail-collapse.
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem(SIDEBAR_STATE_KEY, String(isOpen));
-    }
+    if (typeof window !== "undefined") writeSidebarPreference(isOpen);
   }, [isOpen]);
 
   // `--sidebar-width` is the real sidebar width that every other surface offsets
@@ -196,6 +206,7 @@ const Sidebar = memo(function Sidebar() {
 
   return (
     <nav
+      aria-label="Main"
       className={cn(
         `fixed left-0 top-0 h-screen z-50 bg-[#FDFDFD] dark:bg-background border-r border-[#efefef] dark:border-[#1c1c1c] transition-all duration-200 ease-in-out flex flex-col`,
       )}
@@ -208,6 +219,7 @@ const Sidebar = memo(function Sidebar() {
       {!forcedCollapsed && (
         <button
           onClick={toggleSidebar}
+          aria-label={effectiveOpen ? "Collapse sidebar" : "Expand sidebar"}
           className={cn(
             "absolute p-2 bg-white dark:bg-background border-[#efefef] dark:border-[#1c1c1c] border rounded-full shadow-lg z-30",
             "top-[76px] -right-4 transform -translate-y-1/2",

@@ -3,8 +3,9 @@
 Unit tests run on [Vitest](https://vitest.dev) with React Testing Library and
 jsdom. Playwright covers the cross-page journeys. For complete, itemized test
 inventories see [`onboarding-tests.md`](onboarding-tests.md),
-[`auth-testing.md`](auth-testing.md), and
-[`settings-test.md`](settings-test.md).
+[`auth-testing.md`](auth-testing.md),
+[`settings-test.md`](settings-test.md), and
+[`../tests/header-sidebar-tests.md`](../tests/header-sidebar-tests.md).
 
 ## Commands
 
@@ -27,6 +28,9 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 | `pnpm test:settings` | Every Settings unit suite (1 file, 87 tests)    |
 | `pnpm test:settings:watch` | Settings unit tests in watch mode          |
 | `pnpm test:settings:coverage` | Settings unit tests + coverage         |
+| `pnpm test:header-sidebar` | Header + Sidebar suites (2 files, 52 tests) |
+| `pnpm test:header-sidebar:watch` | Header/Sidebar tests in watch mode  |
+| `pnpm test:header-sidebar:coverage` | Header/Sidebar tests + coverage  |
 | `pnpm test:e2e`      | Run Playwright E2E                              |
 | `pnpm test:e2e:ui`   | Run Playwright in UI mode                       |
 | `pnpm test:e2e:install` | Install the Chromium browser binary          |
@@ -42,6 +46,9 @@ The auth-only scripts follow the same pattern with
 Settings does the same with
 [`vitest.settings.config.mts`](../../vitest.settings.config.mts) and
 [`scripts/tests/run-settings-tests.mjs`](../../scripts/tests/run-settings-tests.mjs).
+The chrome suites use
+[`vitest.header-sidebar.config.mts`](../../vitest.header-sidebar.config.mts) and
+[`scripts/tests/run-header-sidebar-tests.mjs`](../../scripts/tests/run-header-sidebar-tests.mjs).
 
 Coverage is written to `coverage/` (already gitignored).
 
@@ -178,6 +185,15 @@ Beyond the step suites, these cover the rest of the onboarding flow:
 | `app/(dashboard)/settings/__tests__/page.test.tsx` | tab shell and role gating, Profile/Branding/Organization saves, disclosures fan-out, unsaved-changes guard, People & Access lazy mount, Billing placeholder, Delete Profile dialogs |
 
 See [`settings-test.md`](settings-test.md) for the itemized inventory and the remaining section/route-handler gaps.
+
+## Layout chrome coverage
+
+| File | Focus |
+| ---- | ----- |
+| `components/layout/__tests__/header.test.tsx` | title/company split, stepper and editor overlay, header tab portal, theme toggle, scroll chrome |
+| `components/layout/__tests__/sidebar.test.tsx` | persisted rail state, responsive widths, access skeleton, collaborator nav filtering, logos, editor collapse, wizard step-2 width |
+
+See [`../tests/header-sidebar-tests.md`](../tests/header-sidebar-tests.md) for the itemized inventory and remaining gaps.
 
 ## End-to-end (Playwright)
 

@@ -38,6 +38,7 @@
     "vitest.onboarding.config.mts",
     "vitest.auth.config.mts",
     "vitest.settings.config.mts",
+    "vitest.header-sidebar.config.mts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",

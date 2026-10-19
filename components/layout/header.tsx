@@ -40,7 +40,12 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
   }, []);
 
   useEffect(() => {
-    if (stepper) return;
+    if (stepper) {
+      // A page that swaps from a portalled tab strip to a stepper must not leave
+      // the tab-strip width allowance latched on.
+      setPortalHasContent(false);
+      return;
+    }
     const el = document.getElementById("header-tabs-portal");
     if (!el) return;
     const update = () => setPortalHasContent(el.childElementCount > 0);
@@ -140,6 +145,7 @@ export default function Header({ stepper, stepTitle }: HeaderProps) {
           sizes scale — the header's HEIGHT stays put, because the sidebar's
           collapse toggle is pinned to `top-[76px]` against it. */}
       <nav
+        aria-label="Primary"
         className={cn(
           "px-3 transition-all duration-200 xl:px-10",
           // A wizard stepper is centred across the whole header. Three grid columns
