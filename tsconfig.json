@@ -42,6 +42,7 @@
     "vitest.dashboard.config.mts",
     "vitest.documents.config.mts",
     "vitest.marketing.config.mts",
+    "vitest.meetings.config.mts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",

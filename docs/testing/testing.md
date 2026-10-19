@@ -7,8 +7,9 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 [`settings-test.md`](settings-test.md),
 [`header-sidebar-tests.md`](header-sidebar-tests.md),
 [`dashboard-test.md`](dashboard-test.md),
-[`documents-tests.md`](documents-tests.md), and
-[`marketing-tests.md`](marketing-tests.md).
+[`documents-tests.md`](documents-tests.md),
+[`marketing-tests.md`](marketing-tests.md), and
+[`meetings-tests.md`](meetings-tests.md).
 
 ## Commands
 
@@ -43,6 +44,9 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 | `pnpm test:marketing` | Marketing suite (10 files, 232 tests)     |
 | `pnpm test:marketing:watch` | Marketing tests in watch mode      |
 | `pnpm test:marketing:coverage` | Marketing tests + coverage      |
+| `pnpm test:meetings` | Meetings suite (12 files, 224 tests)      |
+| `pnpm test:meetings:watch` | Meetings tests in watch mode       |
+| `pnpm test:meetings:coverage` | Meetings tests + coverage       |
 | `pnpm test:e2e`      | Run Playwright E2E                              |
 | `pnpm test:e2e:ui`   | Run Playwright in UI mode                       |
 | `pnpm test:e2e:install` | Install the Chromium browser binary          |
@@ -69,6 +73,8 @@ Documents does the same with
 [`scripts/tests/run-documents-tests.mjs`](../../scripts/tests/run-documents-tests.mjs).
 Marketing uses [`vitest.marketing.config.mts`](../../vitest.marketing.config.mts)
 and [`scripts/tests/run-marketing-tests.mjs`](../../scripts/tests/run-marketing-tests.mjs).
+Meetings uses [`vitest.meetings.config.mts`](../../vitest.meetings.config.mts)
+and [`scripts/tests/run-meetings-tests.mjs`](../../scripts/tests/run-meetings-tests.mjs).
 
 Coverage is written to `coverage/` (already gitignored).
 
@@ -237,6 +243,17 @@ See [`dashboard-test.md`](dashboard-test.md) for the itemized inventory and rema
 
 See [`documents-tests.md`](documents-tests.md) for the itemized inventory and remaining gaps.
 
+## Meetings coverage
+
+| File | Focus |
+| ---- | ----- |
+| `app/(dashboard)/communications/meetings/__tests__/page.test.tsx` | plan picker and sticky selection, URL deep links, plan-change loading (including the 6s cap), meeting cards, status/category filters and sorting, calendar + day drawer, portal preview, schedule/edit/duplicate validation and submission, draft saves, delete confirmation, post-save duplicate flow, edge branches |
+| `app/api/meetings/__tests__/routes.test.ts` | meetings POST/GET, PUT/PATCH/DELETE by id, reminders, custom meeting types |
+| `lib/__tests__/meeting-*.test.ts`, `lib/__tests__/date-schedule-day.test.ts` | reminder tiers/day keys, shared schedule validation/payloads, scheduling-day math, timezone-aware start instants and display, Zustand stores |
+| `components/meetings/__tests__/*.test.tsx` | 12-month calendar, day drawer, plan-scoped schedule form |
+
+See [`meetings-tests.md`](meetings-tests.md) for the itemized inventory and remaining gaps.
+
 ## Marketing coverage
 
 | File | Focus |
@@ -305,4 +322,11 @@ Covered marketing journeys (`e2e/marketing.spec.ts`):
 - `/communications/marketing` loads the page heading and plan picker;
 - with `E2E_PLAN_NAME` selected, the flyer creator opens at the format choice;
 - the portal-notice picker walks to the Top Banner form;
+- the selected plan and its picker value survive a reload.
+
+Covered meetings journeys (`e2e/meetings.spec.ts`):
+
+- `/communications/meetings` loads the plan picker and workspace;
+- with `E2E_PLAN_NAME` selected, the schedule dialog opens at its defaults and closes with Escape;
+- Cards, Calendar, and Preview all render;
 - the selected plan and its picker value survive a reload.
