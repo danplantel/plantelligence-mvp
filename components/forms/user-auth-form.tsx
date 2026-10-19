@@ -22,20 +22,14 @@ import { useFormWithLoading } from "@/hooks/useFormWithLoading";
 import { LoadingButton } from "@/components/ui/loading-button";
 import { Eye, EyeOff } from "lucide-react";
 import { signinSchema, type SigninFormValues } from "@/lib/form-schema";
+import {
+  DEFAULT_LANDING_PATH,
+  resolvePostSignInPath,
+} from "@/lib/sign-in-redirect";
 
 interface SignInResult {
   error?: string;
 }
-
-/**
- * Where a sign-in lands when the user asked for no particular page.
- *
- * A route rather than a page: it resolves the viewer's role server-side and redirects to the
- * right place (the Dashboard, or the Benefits page for a Collaborator) — see
- * `app/api/teammates/landing/route.ts`. Defined once so the credentials form and the Google
- * button cannot disagree.
- */
-const DEFAULT_LANDING_PATH = "/api/teammates/landing";
 
 export default function UserAuthForm() {
   const searchParams = useSearchParams();
@@ -91,10 +85,10 @@ export default function UserAuthForm() {
         // Prefer NextAuth's resolved URL, then the callback from the query, then the
         // role-aware landing. Never navigate back to /signin — for a user resuming
         // onboarding that reads as a broken loop.
-        const target = result?.url || callbackUrl || DEFAULT_LANDING_PATH;
-        window.location.href = target.startsWith("/signin")
-          ? "/onboarding"
-          : target;
+        window.location.href = resolvePostSignInPath(
+          result?.url,
+          callbackUrl,
+        );
       }
     }, "Signing in...");
   };

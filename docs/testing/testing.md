@@ -1,9 +1,9 @@
 # Testing
 
 Unit tests run on [Vitest](https://vitest.dev) with React Testing Library and
-jsdom. Playwright covers the cross-page journeys. For the complete, itemized
-list of onboarding tests, see
-[`onboarding-tests.md`](onboarding-tests.md).
+jsdom. Playwright covers the cross-page journeys. For complete, itemized test
+inventories see [`onboarding-tests.md`](onboarding-tests.md) and
+[`auth-testing.md`](auth-testing.md).
 
 ## Commands
 
@@ -18,23 +18,44 @@ list of onboarding tests, see
 | `pnpm test:onboarding:coverage` | Onboarding unit tests + coverage     |
 | `pnpm test:onboarding:e2e` | Onboarding Playwright journeys only      |
 | `pnpm test:onboarding:all` | Onboarding unit + E2E                    |
+| `pnpm test:auth`     | Every auth unit suite (18 files, 161 tests)     |
+| `pnpm test:auth:watch` | Auth unit tests in watch mode                |
+| `pnpm test:auth:coverage` | Auth unit tests + coverage               |
+| `pnpm test:auth:e2e` | Auth Playwright journeys only                  |
+| `pnpm test:auth:all` | Auth unit + E2E                                |
 | `pnpm test:e2e`      | Run Playwright E2E                              |
 | `pnpm test:e2e:ui`   | Run Playwright in UI mode                       |
 | `pnpm test:e2e:install` | Install the Chromium browser binary          |
 
 The onboarding-only scripts are backed by
-[`vitest.onboarding.config.mts`](../vitest.onboarding.config.mts), which
+[`vitest.onboarding.config.mts`](../../vitest.onboarding.config.mts), which
 keeps the default environment and aliases but narrows `include` to the
 onboarding suites. The orchestrator is
-[`scripts/tests/run-onboarding-tests.mjs`](../scripts/tests/run-onboarding-tests.mjs).
+[`scripts/tests/run-onboarding-tests.mjs`](../../scripts/tests/run-onboarding-tests.mjs).
+The auth-only scripts follow the same pattern with
+[`vitest.auth.config.mts`](../../vitest.auth.config.mts) and
+[`scripts/tests/run-auth-tests.mjs`](../../scripts/tests/run-auth-tests.mjs).
 
 Coverage is written to `coverage/` (already gitignored).
 
+## Inventory document structure
+
+Every test inventory in this folder follows the same order so the docs stay
+scannable:
+
+1. `## Summary` — suite counts, runner, and E2E requirements.
+2. `## Running these tests` — the scoped commands first, then the shared ones.
+3. `## End-to-end tests` — spec file, environment requirements, and journeys.
+4. `## Test inventory` — the suite/file/test-count/focus table.
+5. `## Unit test inventory` — every test title, grouped by describe block.
+6. Coverage notes (security regressions, mocking, boundaries), remaining gaps,
+   and any hardening findings.
+
 ## Layout
 
-- [`vitest.config.mts`](../vitest.config.mts) wires the `@/*` and
+- [`vitest.config.mts`](../../vitest.config.mts) wires the `@/*` and
   `@video-steps/*` aliases from `tsconfig.json`, jsdom, and coverage.
-- [`vitest.setup.ts`](../vitest.setup.ts) loads `jest-dom`, unmounts trees
+- [`vitest.setup.ts`](../../vitest.setup.ts) loads `jest-dom`, unmounts trees
   between tests, and stubs browser APIs jsdom does not implement
   (`matchMedia`, `ResizeObserver`, `IntersectionObserver`,
   `scrollIntoView`).
@@ -54,7 +75,7 @@ Coverage is written to `coverage/` (already gitignored).
 
 ## Page-level pattern (onboarding)
 
-[`app/(dashboard)/onboarding/__tests__/page.test.tsx`](../app/(dashboard)/onboarding/__tests__/page.test.tsx)
+[`app/(dashboard)/onboarding/__tests__/page.test.tsx`](../../app/(dashboard)/onboarding/__tests__/page.test.tsx)
 covers the onboarding route with the following strategy:
 
 1. **Mock the boundary, not the page.** `next-auth/react`, `next/navigation`,
@@ -74,7 +95,7 @@ State shared by `vi.mock` factories must be created with `vi.hoisted` because
 `vi.mock` calls are lifted above imports.
 
 Pure helpers, such as
-[`lib/__tests__/onboarding-wizard-dirty.test.ts`](../lib/__tests__/onboarding-wizard-dirty.test.ts),
+[`lib/__tests__/onboarding-wizard-dirty.test.ts`](../../lib/__tests__/onboarding-wizard-dirty.test.ts),
 can be tested directly without React.
 
 ## Step component pattern
@@ -120,13 +141,38 @@ Beyond the step suites, these cover the rest of the onboarding flow:
 | `components/wizard/steps/__tests__/*-section.test.tsx` | the real form sections that the step suites stub |
 | `app/api/onboarding-wizard/__tests__/routes.test.ts` | every onboarding route handler with mocked Prisma, auth, email, and tokens |
 
+## Auth flow coverage
+
+| File | Focus |
+| ---- | ----- |
+| `lib/__tests__/form-schema.test.ts` | shared password policy, sign-up/reset/sign-in schemas |
+| `lib/__tests__/sign-in-redirect.test.ts` | callbackUrl parsing, onboarding collapse, post-sign-in landing, no `/signin` loop |
+| `app/(dashboard)/signin/__tests__/page.test.tsx` | sign-in route shell |
+| `components/pages/sign-in/__tests__/sign-in.test.tsx` | sign-in screen: form/resume link, themes, logo, authenticated redirect wiring |
+| `components/forms/__tests__/user-auth-form.test.tsx` | credentials sign-in: reveal timing, validation, callback/default landing, error mapping, loading, links |
+| `components/forms/__tests__/google-auth-button.test.tsx` | Google OAuth default landing and middleware deep-link preservation |
+| `components/forms/__tests__/user-signup-form.test.tsx` | sign-up: validation, password match, email availability, auto sign-in, API errors, loading, visibility |
+| `app/(dashboard)/signup/__tests__/page.test.tsx` | sign-up route shell, theme toggle, logo |
+| `components/forms/__tests__/forget-password-form.test.tsx` | forgot password: validation, neutral request, errors, loading, auto-clear |
+| `app/(dashboard)/forget/__tests__/page.test.tsx` | forgot-password route shell, heading, copyright, themes |
+| `components/forms/__tests__/reset-pass-form.test.tsx` | reset password: shared policy, match, verified-token POST, errors, loading |
+| `app/(dashboard)/reset-password/__tests__/page.test.tsx` | reset-password route shell, heading, copyright, themes |
+| `lib/__tests__/reset-token.server.test.ts` | signed reset tokens: round-trip, tampering, expiry, missing secret |
+| `components/forms/__tests__/verify-code-form.test.tsx` | 6-digit validation, verification, reset-password redirect with token, errors, loading |
+| `app/(dashboard)/verify-code/__tests__/page.test.tsx` | verify-code route shell, heading, copyright, themes |
+| `components/forms/__tests__/resume-onboarding-link.test.tsx` | resume dialog: open, opaque submit, failure, cancel/reset |
+| `lib/__tests__/middleware.test.ts` | route protection: portal/static/API bypass, sign-in redirect, onboarding gate, cookie names |
+| `app/api/__tests__/auth-routes.test.ts` | forget, verify-code, reset-password, signup sanitization, check-email handlers |
+
 ## End-to-end (Playwright)
 
 The E2E suite lives in `e2e/` and is driven by environment variables:
 
 - `E2E_BASE_URL` — an already-running app (default `http://localhost:3000`);
 - `E2E_START_SERVER=1` — let Playwright run `pnpm dev` itself;
-- `E2E_EMAIL` / `E2E_PASSWORD` — a **fresh, not-yet-onboarded** account.
+- `E2E_EMAIL` / `E2E_PASSWORD` — a **fresh, not-yet-onboarded** account for
+  the onboarding journeys, or any working account for the authenticated
+  sign-in journeys.
 
 ```bash
 pnpm test:e2e:install            # once per machine
@@ -137,7 +183,7 @@ Without `E2E_BASE_URL`/`E2E_START_SERVER`, the E2E tests skip instead of
 failing. The happy-path test completes onboarding and redirects to the
 dashboard, so reset that account's wizard data before re-running it.
 
-Covered journeys:
+Covered onboarding journeys (`e2e/onboarding.spec.ts`):
 
 - anonymous `/onboarding` redirects to `/signin`;
 - a phone viewport shows the desktop-only notice;
@@ -146,3 +192,16 @@ Covered journeys:
 - the leave guard intercepts an in-app link and Stay returns to the wizard;
 - the full flow (branding upload, disclosures, invite-later) reaches the
   dashboard.
+
+Covered auth journeys (`e2e/auth.spec.ts`):
+
+- anonymous `/dashboard` and `/settings/profile` visits land on `/signin` with
+  the original path in `callbackUrl`;
+- sign-in exposes credentials, Google, sign-up, and forgot-password, validates
+  an invalid email, and maps bad credentials to a friendly message;
+- sign-up enforces the shared password policy and forgot-password validates its
+  email;
+- the reset API refuses a request without a signed token and forgot-password
+  returns a neutral response for unknown emails;
+- with credentials, a valid sign-in leaves `/signin`, honours a `callbackUrl`
+  deep link, and an already signed-in visitor skips the form.

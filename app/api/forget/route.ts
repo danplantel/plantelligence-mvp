@@ -15,9 +15,13 @@ export async function POST(request: Request) {
 
         const user = await prisma.user.findUnique({ where: { email } });
 
-        if (!user) {
-            return NextResponse.json({ error: 'User not found' }, { status: 404 });
-        }
+        const neutralResponse = NextResponse.json(
+            { message: "If that email exists, a reset code has been sent." },
+            { status: 200 },
+        );
+
+        // Do not reveal whether an account exists.
+        if (!user) return neutralResponse;
 
         const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -36,7 +40,7 @@ export async function POST(request: Request) {
             data: { resetCode: verificationCode, resetCodeExpiry: expiryDate }
         });
 
-        return NextResponse.json({ message: "Reset email sent successfully" }, { status: 200 });
+        return neutralResponse;
 
     } catch (error) {
         console.error('Reset Password Error:', error);

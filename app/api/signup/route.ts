@@ -50,10 +50,14 @@ export async function POST(request: Request) {
     //     { expiresIn: '24h' }
     // );
 
+    // Never return `password` (the bcrypt hash) or reset fields to the client.
+    const { password: _password, resetCode: _resetCode, resetCodeExpiry: _resetCodeExpiry, ...safeUser } =
+      newUser;
+
     return NextResponse.json(
       {
         message: "User created successfully",
-        user: newUser,
+        user: safeUser,
         // token: token
       },
       { status: 200 },

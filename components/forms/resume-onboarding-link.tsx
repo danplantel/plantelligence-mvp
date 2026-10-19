@@ -55,18 +55,21 @@ export function ResumeOnboardingLink({
     }
   };
 
+  /**
+   * One close path for both the dialog's own onOpenChange (Escape/backdrop) and
+   * the Cancel button, so a cancelled attempt never leaves the previous email
+   * (or a "sent" confirmation) behind on the next open.
+   */
+  const handleOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) {
+      setSent(false);
+      setEmail("");
+    }
+  };
+
   return (
-    <Dialog
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next);
-        if (!next) {
-          // Reset for the next open.
-          setSent(false);
-          setEmail("");
-        }
-      }}
-    >
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <button
           type="button"
@@ -113,7 +116,7 @@ export function ResumeOnboardingLink({
               <Button
                 type="button"
                 variant="outline"
-                onClick={() => setOpen(false)}
+                onClick={() => handleOpenChange(false)}
                 disabled={isSubmitting}
               >
                 Cancel

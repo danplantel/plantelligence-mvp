@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
+import { DEFAULT_LANDING_PATH } from "@/lib/sign-in-redirect";
 import { Button } from "../ui/button";
 import { Icons } from "../icons";
 import { motion } from "framer-motion";
@@ -52,7 +53,7 @@ export default function GoogleSignInButton() {
           // The role decides where a plain sign-in lands (see
           // `app/api/teammates/landing/route.ts`); a deep link from middleware still wins.
           signIn("google", {
-            callbackUrl: callbackUrl ?? "/api/teammates/landing",
+            callbackUrl: callbackUrl ?? DEFAULT_LANDING_PATH,
           })
         }
         style={{

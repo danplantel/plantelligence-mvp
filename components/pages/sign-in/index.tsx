@@ -2,6 +2,7 @@
 
 import UserAuthForm from "@/components/forms/user-auth-form";
 import { ResumeOnboardingLink } from "@/components/forms/resume-onboarding-link";
+import { getCallbackUrl, resolveSignInRedirect } from "@/lib/sign-in-redirect";
 import { useTheme } from "next-themes";
 import { useSession } from "next-auth/react";
 import React, { useEffect, useState } from "react";
@@ -21,10 +22,12 @@ const SignIn = () => {
   // (e.g. from the onboarding resume email) should go straight through instead
   // of staring at the sign-in form.
   useEffect(() => {
-    if (status !== "authenticated") return;
-    const cb = new URLSearchParams(window.location.search).get("callbackUrl");
-    if (!cb) return;
-    window.location.href = cb.includes("/onboarding") ? "/onboarding" : cb;
+    const target = resolveSignInRedirect(
+      status,
+      getCallbackUrl(window.location.search),
+    );
+    if (!target) return;
+    window.location.href = target;
   }, [status]);
 
   const toggleTheme = () => {

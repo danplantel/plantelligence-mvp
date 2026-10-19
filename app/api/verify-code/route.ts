@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { NextResponse } from 'next/server';
+import { createResetToken } from '@/lib/reset-token.server';
 
 const prisma = new PrismaClient();
 
@@ -30,7 +31,14 @@ export async function POST(request: Request) {
             data: { resetCode: null, resetCodeExpiry: null }
         });
 
-        return NextResponse.json({ message: "Verification successful" }, { status: 200 });
+        // The code is single-use. The reset endpoint requires this signed token,
+        // so knowing the email alone can no longer reset the password.
+        const resetToken = createResetToken(email);
+
+        return NextResponse.json(
+            { message: "Verification successful", resetToken },
+            { status: 200 },
+        );
 
     } catch (error) {
         console.error('Verification Error:', error);

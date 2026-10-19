@@ -36,6 +36,7 @@
     "next-env.d.ts",
     "vitest.config.mts",
     "vitest.onboarding.config.mts",
+    "vitest.auth.config.mts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",

@@ -1,17 +1,23 @@
 import { PrismaClient } from '@prisma/client';
-import { NextApiRequest, NextApiResponse } from 'next';
 import { NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
+import { verifyResetToken } from '@/lib/reset-token.server';
 
 const prisma = new PrismaClient();
 
 export async function POST(request: Request) {
     try {
         const data = await request.json();
-        const { email, newPassword } = data;
+        const { email, newPassword, resetToken } = data;
 
         if (!email || !newPassword) {
             return NextResponse.json({ error: 'Email and new password are required' }, { status: 400 });
+        }
+
+        // Proof that the verification-code step was completed for THIS email.
+        const verifiedEmail = verifyResetToken(resetToken);
+        if (!verifiedEmail || verifiedEmail !== email.trim().toLowerCase()) {
+            return NextResponse.json({ error: 'Invalid or expired reset token' }, { status: 401 });
         }
 
         const user = await prisma.user.findUnique({ where: { email } });

@@ -33,6 +33,9 @@ export default function ResetPasswordForm() {
 
   const params = useSearchParams();
   const email = params.get('email') ?? "";
+  // Issued by /api/verify-code after a valid 6-digit code. The reset endpoint
+  // refuses to change a password without it.
+  const resetToken = params.get('token') ?? "";
 
   const form = useForm<ResetPasswordFormValues>({
     resolver: zodResolver(resetPasswordSchema),
@@ -51,6 +54,7 @@ export default function ResetPasswordForm() {
       const response = await axios.post('/api/reset-password', {
         email: email,
         newPassword: data.password,
+        resetToken,
       });
       if (response.status === 200) {
         toast.success("Password reset successfully. Please sign in.");

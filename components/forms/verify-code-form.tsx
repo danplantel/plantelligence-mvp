@@ -53,7 +53,12 @@ export default function VerifyCodeForm() {
         code: data.code,
       });
       if (response.status === 200) {
-        navigation.replace(`/reset-password?email=${email}`);
+        const resetToken = response.data?.resetToken ?? "";
+        navigation.replace(
+          `/reset-password?email=${encodeURIComponent(
+            email,
+          )}&token=${encodeURIComponent(resetToken)}`,
+        );
       } else {
         throw new Error(response.data.message || 'Verification failed');
       }
