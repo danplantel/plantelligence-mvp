@@ -8,8 +8,9 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 [`header-sidebar-tests.md`](header-sidebar-tests.md),
 [`dashboard-test.md`](dashboard-test.md),
 [`documents-tests.md`](documents-tests.md),
-[`marketing-tests.md`](marketing-tests.md), and
-[`meetings-tests.md`](meetings-tests.md).
+[`marketing-tests.md`](marketing-tests.md),
+[`meetings-tests.md`](meetings-tests.md), and
+[`webinars-tests.md`](webinars-tests.md).
 
 ## Commands
 
@@ -47,6 +48,9 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 | `pnpm test:meetings` | Meetings suite (12 files, 224 tests)      |
 | `pnpm test:meetings:watch` | Meetings tests in watch mode       |
 | `pnpm test:meetings:coverage` | Meetings tests + coverage       |
+| `pnpm test:webinars` | Webinars suite (6 files, 139 tests)       |
+| `pnpm test:webinars:watch` | Webinars tests in watch mode        |
+| `pnpm test:webinars:coverage` | Webinars tests + coverage        |
 | `pnpm test:e2e`      | Run Playwright E2E                              |
 | `pnpm test:e2e:ui`   | Run Playwright in UI mode                       |
 | `pnpm test:e2e:install` | Install the Chromium browser binary          |
@@ -75,6 +79,8 @@ Marketing uses [`vitest.marketing.config.mts`](../../vitest.marketing.config.mts
 and [`scripts/tests/run-marketing-tests.mjs`](../../scripts/tests/run-marketing-tests.mjs).
 Meetings uses [`vitest.meetings.config.mts`](../../vitest.meetings.config.mts)
 and [`scripts/tests/run-meetings-tests.mjs`](../../scripts/tests/run-meetings-tests.mjs).
+Webinars uses [`vitest.webinars.config.mts`](../../vitest.webinars.config.mts)
+and [`scripts/tests/run-webinars-tests.mjs`](../../scripts/tests/run-webinars-tests.mjs).
 
 Coverage is written to `coverage/` (already gitignored).
 
@@ -254,6 +260,17 @@ See [`documents-tests.md`](documents-tests.md) for the itemized inventory and re
 
 See [`meetings-tests.md`](meetings-tests.md) for the itemized inventory and remaining gaps.
 
+## Webinars coverage
+
+| File | Focus |
+| ---- | ----- |
+| `app/(dashboard)/communications/webinars/__tests__/page.test.tsx` | client load/skeleton/failure, sticky plan and subtitle, list cards and sorting, add/edit dialog, source switching, thumbnails (upload/frame), placements, uploads, create/update/delete, multi-select bulk delete, video preview (YouTube/Vimeo/MP4/lazy base64), frame capture and edge cases |
+| `app/api/webinars/__tests__/routes.test.ts` | list filtering/projection/placement/sorting, create validation/access, detail get, partial update semantics, delete, bulk delete |
+| `lib/__tests__/webinar-placements.test.ts`, `lib/__tests__/webinar-video-embed.test.ts` | placement normalization and key guards; YouTube/Vimeo/direct-URL parsing and hover parameters |
+| `hooks/__tests__/useWebinarHoverPreview.test.tsx`, `components/webinars/__tests__/webinar-hover-preview.test.tsx` | hover intent, caching/dedupe/stale requests, suspension, preloading; loading/base64/iframe/direct render states |
+
+See [`webinars-tests.md`](webinars-tests.md) for the itemized inventory and remaining gaps.
+
 ## Marketing coverage
 
 | File | Focus |
@@ -329,4 +346,11 @@ Covered meetings journeys (`e2e/meetings.spec.ts`):
 - `/communications/meetings` loads the plan picker and workspace;
 - with `E2E_PLAN_NAME` selected, the schedule dialog opens at its defaults and closes with Escape;
 - Cards, Calendar, and Preview all render;
+- the selected plan and its picker value survive a reload.
+
+Covered webinars journeys (`e2e/webinars.spec.ts`):
+
+- `/communications/webinars` loads the plan picker and workspace;
+- with `E2E_PLAN_NAME` selected, the upload dialog opens at its defaults and closes with Escape;
+- the multi-select toolbar toggles Select → Done and disables Delete with nothing selected;
 - the selected plan and its picker value survive a reload.

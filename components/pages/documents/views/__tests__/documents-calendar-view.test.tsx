@@ -6,6 +6,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { DocumentsCalendarView } from "../documents-calendar-view";
 import { scheduleDayKeyToDate, todayScheduleDayKey } from "@/lib/date";
 
+// The in-flight update tests wait on deferred promises and user events; give
+// them headroom when the whole suite is running in parallel.
+vi.setConfig({ testTimeout: 15_000 });
+
 vi.mock("@/components/ui/calendar", () => ({
   Calendar: ({ onSelect }: any) => (
     <button type="button" onClick={() => onSelect?.(new Date(2026, 6, 4))}>
