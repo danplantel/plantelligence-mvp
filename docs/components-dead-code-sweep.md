@@ -128,7 +128,8 @@ Everything not listed under DEAD/ORPHAN below. Notably: `button`, `card`, `input
 - `documents-list-dashboard.tsx`
 - `sign-up/index.tsx` (signup uses `forms/user-signup-form`, not this)
 - `view-video/index.tsx`, `view-video/SynthesiaVideo.tsx` (both import the dead `../content-library`)
-- `marketing/flyer-generator/**`, `marketing/meeting-flyer/**`, `marketing/pdf-builder/**`, `marketing/pdf-manager/**`, `marketing/missing-retirement/**`, `marketing/saved-pdfs-section.tsx`, `marketing/shared/types.ts`
+- `marketing/flyer-generator/**`, `marketing/meeting-flyer/**`, `marketing/pdf-builder/**`, `marketing/pdf-manager/**`, `marketing/missing-retirement/**`, `marketing/shared/types.ts`
+- ~~`marketing/saved-pdfs-section.tsx`~~ — removed during the Marketing P0–P2 test pass.
 
 ### `wizard/`
 - `universal-wizard.tsx`, `draft-selection-modal.tsx`, `validated-wizard-step.tsx`, `video-steps/template-editor.tsx`

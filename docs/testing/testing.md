@@ -6,8 +6,9 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 [`auth-testing.md`](auth-testing.md),
 [`settings-test.md`](settings-test.md),
 [`header-sidebar-tests.md`](header-sidebar-tests.md),
-[`dashboard-test.md`](dashboard-test.md), and
-[`documents-tests.md`](documents-tests.md).
+[`dashboard-test.md`](dashboard-test.md),
+[`documents-tests.md`](documents-tests.md), and
+[`marketing-tests.md`](marketing-tests.md).
 
 ## Commands
 
@@ -39,6 +40,9 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 | `pnpm test:documents` | Documents suite (16 files, 305 tests)     |
 | `pnpm test:documents:watch` | Documents tests in watch mode      |
 | `pnpm test:documents:coverage` | Documents tests + coverage      |
+| `pnpm test:marketing` | Marketing suite (10 files, 232 tests)     |
+| `pnpm test:marketing:watch` | Marketing tests in watch mode      |
+| `pnpm test:marketing:coverage` | Marketing tests + coverage      |
 | `pnpm test:e2e`      | Run Playwright E2E                              |
 | `pnpm test:e2e:ui`   | Run Playwright in UI mode                       |
 | `pnpm test:e2e:install` | Install the Chromium browser binary          |
@@ -63,6 +67,8 @@ The dashboard uses
 Documents does the same with
 [`vitest.documents.config.mts`](../../vitest.documents.config.mts) and
 [`scripts/tests/run-documents-tests.mjs`](../../scripts/tests/run-documents-tests.mjs).
+Marketing uses [`vitest.marketing.config.mts`](../../vitest.marketing.config.mts)
+and [`scripts/tests/run-marketing-tests.mjs`](../../scripts/tests/run-marketing-tests.mjs).
 
 Coverage is written to `coverage/` (already gitignored).
 
@@ -231,6 +237,17 @@ See [`dashboard-test.md`](dashboard-test.md) for the itemized inventory and rema
 
 See [`documents-tests.md`](documents-tests.md) for the itemized inventory and remaining gaps.
 
+## Marketing coverage
+
+| File | Focus |
+| ---- | ----- |
+| `app/(dashboard)/communications/marketing/__tests__/page.test.tsx` | sticky plan selection, plan-change loading (including the 8s cap), creation cards, notice/flyer lists, status/type filters, bulk and single delete, status updates, flyer metadata and PDF download, modal preview/edit/save wiring, no-client state |
+| `app/api/marketing/__tests__/routes.test.ts` | all eleven Marketing handlers: auth, ACL, validation, whitelists, QR cleanup, file proxying, AI/QR/render fallbacks |
+| `lib/__tests__/marketing-*.test.ts` | hub URLs and flyer modes, QR.io/local QR, flyer copy AI fallback, server PDF/PNG rendering, browser SVG/QR helpers |
+| `components/pages/marketing/__tests__/*.test.tsx` | asset modal validation/preview/edit, flyer template helpers and renderers, image-position drag math |
+
+See [`marketing-tests.md`](marketing-tests.md) for the itemized inventory and remaining gaps.
+
 ## End-to-end (Playwright)
 
 The E2E suite lives in `e2e/` and is driven by environment variables:
@@ -241,7 +258,9 @@ The E2E suite lives in `e2e/` and is driven by environment variables:
   the onboarding journeys, or any working account for the authenticated
   sign-in journeys;
 - `E2E_PLAN_ID` — an active plan id or slug for the plan-scoped Documents
-  journeys.
+  journeys;
+- `E2E_PLAN_NAME` — the company name exactly as the plan picker renders it,
+  for the plan-scoped Marketing journeys.
 
 ```bash
 pnpm test:e2e:install            # once per machine
@@ -280,3 +299,10 @@ Covered documents journeys (`e2e/documents.spec.ts`):
 - `/documents` loads the page heading and plan picker;
 - `/documents?planId=…&tab=upload` opens the Upload surface and its 10-file guidance;
 - with a plan selected, the Calendar and Preview view modes render.
+
+Covered marketing journeys (`e2e/marketing.spec.ts`):
+
+- `/communications/marketing` loads the page heading and plan picker;
+- with `E2E_PLAN_NAME` selected, the flyer creator opens at the format choice;
+- the portal-notice picker walks to the Top Banner form;
+- the selected plan and its picker value survive a reload.
