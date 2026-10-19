@@ -5,8 +5,9 @@ jsdom. Playwright covers the cross-page journeys. For complete, itemized test
 inventories see [`onboarding-tests.md`](onboarding-tests.md),
 [`auth-testing.md`](auth-testing.md),
 [`settings-test.md`](settings-test.md),
-[`header-sidebar-tests.md`](header-sidebar-tests.md), and
-[`dashboard-test.md`](dashboard-test.md).
+[`header-sidebar-tests.md`](header-sidebar-tests.md),
+[`dashboard-test.md`](dashboard-test.md), and
+[`documents-tests.md`](documents-tests.md).
 
 ## Commands
 
@@ -35,6 +36,9 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 | `pnpm test:dashboard` | Dashboard suite (3 files, 105 tests)       |
 | `pnpm test:dashboard:watch` | Dashboard tests in watch mode        |
 | `pnpm test:dashboard:coverage` | Dashboard tests + coverage        |
+| `pnpm test:documents` | Documents suite (16 files, 305 tests)     |
+| `pnpm test:documents:watch` | Documents tests in watch mode      |
+| `pnpm test:documents:coverage` | Documents tests + coverage      |
 | `pnpm test:e2e`      | Run Playwright E2E                              |
 | `pnpm test:e2e:ui`   | Run Playwright in UI mode                       |
 | `pnpm test:e2e:install` | Install the Chromium browser binary          |
@@ -56,6 +60,9 @@ The chrome suites use
 The dashboard uses
 [`vitest.dashboard.config.mts`](../../vitest.dashboard.config.mts) and
 [`scripts/tests/run-dashboard-tests.mjs`](../../scripts/tests/run-dashboard-tests.mjs).
+Documents does the same with
+[`vitest.documents.config.mts`](../../vitest.documents.config.mts) and
+[`scripts/tests/run-documents-tests.mjs`](../../scripts/tests/run-documents-tests.mjs).
 
 Coverage is written to `coverage/` (already gitignored).
 
@@ -212,6 +219,18 @@ See [`header-sidebar-tests.md`](header-sidebar-tests.md) for the itemized invent
 
 See [`dashboard-test.md`](dashboard-test.md) for the itemized inventory and remaining gaps.
 
+## Documents coverage
+
+| File | Focus |
+| ---- | ----- |
+| `app/(dashboard)/documents/__tests__/page.test.tsx` | plan picker and sticky selection, URL/company deep links, brute-force plan fetches, review-date alerts and dismissal, list/cards/calendar/preview views, filters and sorting, upload tab and leave guard, bulk/single delete, preview/download/edit with the R2 fallback, preview order persistence |
+| `app/api/documents/__tests__/routes.test.ts` | all nine document handlers: list/create/patch/delete/view, batch, client-scoped list, expiring, reorder |
+| `components/pages/documents/components/__tests__/*.test.tsx` | compliance upload staging, edit modal validation/file replacement, preview modal blob/download/revocation |
+| `components/pages/documents/tabs/__tests__/*.test.tsx`, `views/__tests__/*.test.tsx` | list/preview tabs, table sorting/actions/category editing, cards editing events, 15-month calendar and review-date drawer |
+| `lib/__tests__/{compliance-document-utils,document-category,document-expirations,document-sort,notification-date-keys,portal-document-language}.test.ts` | category scoring/inference, custom ordering, reminder tiers, day-key math, EN/ES normalization |
+
+See [`documents-tests.md`](documents-tests.md) for the itemized inventory and remaining gaps.
+
 ## End-to-end (Playwright)
 
 The E2E suite lives in `e2e/` and is driven by environment variables:
@@ -220,7 +239,9 @@ The E2E suite lives in `e2e/` and is driven by environment variables:
 - `E2E_START_SERVER=1` — let Playwright run `pnpm dev` itself;
 - `E2E_EMAIL` / `E2E_PASSWORD` — a **fresh, not-yet-onboarded** account for
   the onboarding journeys, or any working account for the authenticated
-  sign-in journeys.
+  sign-in journeys;
+- `E2E_PLAN_ID` — an active plan id or slug for the plan-scoped Documents
+  journeys.
 
 ```bash
 pnpm test:e2e:install            # once per machine
@@ -253,3 +274,9 @@ Covered auth journeys (`e2e/auth.spec.ts`):
   returns a neutral response for unknown emails;
 - with credentials, a valid sign-in leaves `/signin`, honours a `callbackUrl`
   deep link, and an already signed-in visitor skips the form.
+
+Covered documents journeys (`e2e/documents.spec.ts`):
+
+- `/documents` loads the page heading and plan picker;
+- `/documents?planId=…&tab=upload` opens the Upload surface and its 10-file guidance;
+- with a plan selected, the Calendar and Preview view modes render.

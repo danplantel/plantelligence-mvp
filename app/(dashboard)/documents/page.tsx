@@ -120,6 +120,11 @@ export default function DocumentsPage() {
   const handleCardLoad = useCallback((docId: string) => {
     setLoadedCards((prev) => { const next = new Set(prev); next.add(docId); return next; });
   }, []);
+  // `DocumentUploadTab` hands back its save handler. Wrap it in an updater so
+  // React stores the handler itself instead of invoking it as a state updater.
+  const handleSaveFunctionReady = useCallback((saveFn: () => Promise<void>) => {
+    setUploadSaveFn(() => saveFn);
+  }, []);
   const [clientFilter, setClientFilter] = useState("all");
   const [selectedDocs, setSelectedDocs] = useState<Set<string>>(new Set());
   const [isDeleting, setIsDeleting] = useState(false);
@@ -728,7 +733,7 @@ export default function DocumentsPage() {
                       selectedPlan={selectedPlan}
                       showSaveButton={false}
                       onHasUnsavedChangesChange={setHasUnsavedUploadChanges}
-                      onSaveFunctionReady={setUploadSaveFn}
+                      onSaveFunctionReady={handleSaveFunctionReady}
                       onDocumentsAdded={() => {
                         setIsTransitioningToDocuments(true);
                         setActiveSection("documents");

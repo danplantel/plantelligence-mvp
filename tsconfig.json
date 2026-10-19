@@ -40,6 +40,7 @@
     "vitest.settings.config.mts",
     "vitest.header-sidebar.config.mts",
     "vitest.dashboard.config.mts",
+    "vitest.documents.config.mts",
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
