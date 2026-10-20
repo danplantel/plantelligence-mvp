@@ -9,9 +9,7 @@ import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { buildFaqSupportContacts } from "@/lib/faq-support-contacts";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
-import {
-  BenefitsVideoSection,
-} from "@/components/pages/client-portal/sections/benefits-video-section";
+import { BenefitsVideoSection } from "@/components/pages/client-portal/sections/benefits-video-section";
 import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
@@ -52,7 +50,9 @@ export default function RetirementPage() {
 
   // Fetch benefit data from the new Benefit API (typed, no more JSON rummaging)
   const { data: benefitApiData } = useSWR(
-    clientId ? `/api/clients/${clientId}/benefits/Retirement?forPortal=1` : null,
+    clientId
+      ? `/api/clients/${clientId}/benefits/Retirement?forPortal=1`
+      : null,
     fetcher,
     { revalidateOnFocus: false, dedupingInterval: 60_000 },
   );
@@ -61,7 +61,10 @@ export default function RetirementPage() {
   // Fall back to legacy employeePortalPreview during dual-write transition
   const benefitData = useMemo(() => {
     if (benefitFromApi) return benefitFromApi;
-    return getBenefitFromPreview((clientData as any)?.employeePortalPreview, "Retirement");
+    return getBenefitFromPreview(
+      (clientData as any)?.employeePortalPreview,
+      "Retirement",
+    );
   }, [benefitFromApi, clientData]);
 
   /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
@@ -137,10 +140,7 @@ export default function RetirementPage() {
           mergedRaw as Record<string, unknown>[],
         );
         setRetirementDocs(
-          mapMergedRowsToBenefitHubItems(
-            orderedRaw,
-            RETIREMENT_DOCUMENT_HUB,
-          ),
+          mapMergedRowsToBenefitHubItems(orderedRaw, RETIREMENT_DOCUMENT_HUB),
         );
       } catch (error) {
         console.error("Error fetching retirement documents:", error);
@@ -162,7 +162,6 @@ export default function RetirementPage() {
     };
   }, [clientId, documentsSig]);
 
-
   return (
     <div className="min-h-screen w-full">
       <CompletenessAutoTrigger
@@ -181,12 +180,27 @@ export default function RetirementPage() {
           category="Retirement"
         />
 
+        <HowCanWeHelpSection
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          clientId={clientId}
+          cards={(benefitData as any)?.helpCards ?? undefined}
+        />
 
         <BenefitsVideoSection
           brandColor={brandColor}
-          mainTitle={(benefitData as any)?.journeyHeader || "Your Retirement Journey Starts Here"}
-          subtitle={(benefitData as any)?.journeySubtitle || "Build your future with confidence."}
-          description={(benefitData as any)?.journeyBodyText || "Take control of your financial future with our comprehensive retirement planning resources. Whether you're just starting your career or preparing for the next chapter, we provide the tools and guidance you need to build a secure retirement."}
+          mainTitle={
+            (benefitData as any)?.journeyHeader ||
+            "Your Retirement Journey Starts Here"
+          }
+          subtitle={
+            (benefitData as any)?.journeySubtitle ||
+            "Build your future with confidence."
+          }
+          description={
+            (benefitData as any)?.journeyBodyText ||
+            "Take control of your financial future with our comprehensive retirement planning resources. Whether you're just starting your career or preparing for the next chapter, we provide the tools and guidance you need to build a secure retirement."
+          }
           planVideoUrl={benefitData?.planVideo as string | undefined}
           planVideoFallbackImage={RETIREMENT_FALLBACK_IMAGE}
         />
@@ -196,13 +210,6 @@ export default function RetirementPage() {
           placement="retirement"
           brandColor={brandColor}
           secondaryColor={secondaryColor}
-        />
-
-        <HowCanWeHelpSection
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          clientId={clientId}
-          cards={(benefitData as any)?.helpCards ?? undefined}
         />
 
         <FAQSection
@@ -235,9 +242,7 @@ export default function RetirementPage() {
           secondaryColor={secondaryColor}
           contacts={supportContactsForFAQ}
         />
-
       </main>
     </div>
   );
 }
-

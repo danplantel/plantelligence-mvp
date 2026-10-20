@@ -10,9 +10,7 @@ import { buildFaqSupportContacts } from "@/lib/faq-support-contacts";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
-import {
-  BenefitsVideoSection,
-} from "@/components/pages/client-portal/sections/benefits-video-section";
+import { BenefitsVideoSection } from "@/components/pages/client-portal/sections/benefits-video-section";
 import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import {
@@ -49,7 +47,9 @@ export default function LifeInsurancePage() {
 
   // Fetch benefit data from the new Benefit API
   const { data: benefitApiData } = useSWR(
-    clientId ? `/api/clients/${clientId}/benefits/Group%20Life?forPortal=1` : null,
+    clientId
+      ? `/api/clients/${clientId}/benefits/Group%20Life?forPortal=1`
+      : null,
     fetcher,
     { revalidateOnFocus: false, dedupingInterval: 60_000 },
   );
@@ -58,7 +58,10 @@ export default function LifeInsurancePage() {
   // Fall back to legacy employeePortalPreview during dual-write transition
   const benefitData = useMemo(() => {
     if (benefitFromApi) return benefitFromApi;
-    return getBenefitFromPreview((clientData as any)?.employeePortalPreview, "Group Life");
+    return getBenefitFromPreview(
+      (clientData as any)?.employeePortalPreview,
+      "Group Life",
+    );
   }, [benefitFromApi, clientData]);
 
   /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
@@ -100,10 +103,7 @@ export default function LifeInsurancePage() {
           mergedRaw as Record<string, unknown>[],
         );
         setLifeDocs(
-          mapMergedRowsToBenefitHubItems(
-            orderedRaw,
-            LIFE_DOCUMENT_HUB,
-          ),
+          mapMergedRowsToBenefitHubItems(orderedRaw, LIFE_DOCUMENT_HUB),
         );
       } catch (error) {
         console.error("Error fetching life insurance documents:", error);
@@ -154,7 +154,6 @@ export default function LifeInsurancePage() {
     [benefitData?.supportContacts, clientData?.keyContacts],
   );
 
-
   return (
     <div className="min-h-screen w-full">
       <CompletenessAutoTrigger
@@ -173,12 +172,27 @@ export default function LifeInsurancePage() {
           category="Group Life"
         />
 
+        <HowCanWeHelpSection
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          clientId={clientId}
+          cards={(benefitData as any)?.helpCards ?? undefined}
+        />
 
         <BenefitsVideoSection
           brandColor={brandColor}
-          mainTitle={(benefitData as any)?.journeyHeader || "Life Insurance: Protecting What Matters Most"}
-          subtitle={(benefitData as any)?.journeySubtitle || "Secure your family's financial future with the right coverage."}
-          description={(benefitData as any)?.journeyBodyText || "Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."}
+          mainTitle={
+            (benefitData as any)?.journeyHeader ||
+            "Life Insurance: Protecting What Matters Most"
+          }
+          subtitle={
+            (benefitData as any)?.journeySubtitle ||
+            "Secure your family's financial future with the right coverage."
+          }
+          description={
+            (benefitData as any)?.journeyBodyText ||
+            "Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."
+          }
           planVideoUrl={benefitData?.planVideo as string | undefined}
           planVideoFallbackImage={LIFE_INSURANCE_FALLBACK_IMAGE}
         />
@@ -190,14 +204,12 @@ export default function LifeInsurancePage() {
           secondaryColor={secondaryColor}
         />
 
-        <HowCanWeHelpSection
+        <FAQSection
           brandColor={brandColor}
           secondaryColor={secondaryColor}
-          clientId={clientId}
-          cards={(benefitData as any)?.helpCards ?? undefined}
+          faqs={faqsForCategory}
+          contacts={supportContactsForFAQ}
         />
-
-        <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
 
         <PortalMaterialsHero
           brandColor={brandColor}

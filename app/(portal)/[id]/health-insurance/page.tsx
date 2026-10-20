@@ -9,9 +9,7 @@ import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { buildFaqSupportContacts } from "@/lib/faq-support-contacts";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
-import {
-  BenefitsVideoSection,
-} from "@/components/pages/client-portal/sections/benefits-video-section";
+import { BenefitsVideoSection } from "@/components/pages/client-portal/sections/benefits-video-section";
 import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
@@ -49,7 +47,9 @@ export default function HealthInsurancePage() {
 
   // Fetch benefit data from the new Benefit API
   const { data: benefitApiData } = useSWR(
-    clientId ? `/api/clients/${clientId}/benefits/Group%20Health?forPortal=1` : null,
+    clientId
+      ? `/api/clients/${clientId}/benefits/Group%20Health?forPortal=1`
+      : null,
     fetcher,
     { revalidateOnFocus: false, dedupingInterval: 60_000 },
   );
@@ -58,7 +58,10 @@ export default function HealthInsurancePage() {
   // Fall back to legacy employeePortalPreview during dual-write transition
   const benefitData = useMemo(() => {
     if (benefitFromApi) return benefitFromApi;
-    return getBenefitFromPreview((clientData as any)?.employeePortalPreview, "Group Health");
+    return getBenefitFromPreview(
+      (clientData as any)?.employeePortalPreview,
+      "Group Health",
+    );
   }, [benefitFromApi, clientData]);
 
   /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
@@ -100,10 +103,7 @@ export default function HealthInsurancePage() {
           mergedRaw as Record<string, unknown>[],
         );
         setHealthDocs(
-          mapMergedRowsToBenefitHubItems(
-            orderedRaw,
-            HEALTH_DOCUMENT_HUB,
-          ),
+          mapMergedRowsToBenefitHubItems(orderedRaw, HEALTH_DOCUMENT_HUB),
         );
       } catch (error) {
         console.error("Error fetching health documents:", error);
@@ -154,7 +154,6 @@ export default function HealthInsurancePage() {
     [benefitData?.supportContacts, clientData?.keyContacts],
   );
 
-
   return (
     <div className="min-h-screen w-full">
       <CompletenessAutoTrigger
@@ -172,12 +171,27 @@ export default function HealthInsurancePage() {
           category="Group Health"
         />
 
+        <HowCanWeHelpSection
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          clientId={clientId}
+          cards={(benefitData as any)?.helpCards ?? undefined}
+        />
 
         <BenefitsVideoSection
           brandColor={brandColor}
-          mainTitle={(benefitData as any)?.journeyHeader || "Understanding Your Health Benefits"}
-          subtitle={(benefitData as any)?.journeySubtitle || "Navigate your coverage with confidence."}
-          description={(benefitData as any)?.journeyBodyText || "Your health and well-being are our priority. Explore our health insurance resources to understand your coverage options, maximize your benefits, and make informed decisions about your medical, dental, and vision care for you and your family."}
+          mainTitle={
+            (benefitData as any)?.journeyHeader ||
+            "Understanding Your Health Benefits"
+          }
+          subtitle={
+            (benefitData as any)?.journeySubtitle ||
+            "Navigate your coverage with confidence."
+          }
+          description={
+            (benefitData as any)?.journeyBodyText ||
+            "Your health and well-being are our priority. Explore our health insurance resources to understand your coverage options, maximize your benefits, and make informed decisions about your medical, dental, and vision care for you and your family."
+          }
           planVideoUrl={benefitData?.planVideo as string | undefined}
           planVideoFallbackImage={HEALTH_INSURANCE_FALLBACK_IMAGE}
         />
@@ -189,14 +203,12 @@ export default function HealthInsurancePage() {
           secondaryColor={secondaryColor}
         />
 
-        <HowCanWeHelpSection
+        <FAQSection
           brandColor={brandColor}
           secondaryColor={secondaryColor}
-          clientId={clientId}
-          cards={(benefitData as any)?.helpCards ?? undefined}
+          faqs={faqsForCategory}
+          contacts={supportContactsForFAQ}
         />
-
-        <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
 
         <PortalMaterialsHero
           brandColor={brandColor}

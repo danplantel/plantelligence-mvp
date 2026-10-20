@@ -198,6 +198,12 @@ export default function CustomBenefitPage() {
           category="Company / Plan Sponsor"
         />
 
+        <HowCanWeHelpSection
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          clientId={clientId}
+          cards={(benefitData as any)?.helpCards ?? undefined}
+        />
 
         <BenefitsVideoSection
           brandColor={brandColor}
@@ -214,13 +220,6 @@ export default function CustomBenefitPage() {
           placement="wellness-programs"
           brandColor={brandColor}
           secondaryColor={secondaryColor}
-        />
-
-        <HowCanWeHelpSection
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          clientId={clientId}
-          cards={(benefitData as any)?.helpCards ?? undefined}
         />
 
         <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
