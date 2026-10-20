@@ -50,10 +50,7 @@ describe("NewsEventsHeader", () => {
     );
 
     const img = container.querySelector("img");
-    expect(img).toHaveAttribute(
-      "src",
-      "/api/r2/object?key=org%2Fheader.webp",
-    );
+    expect(img).toHaveAttribute("src", "/api/r2/object?key=org%2Fheader.webp");
   });
 
   it("keeps the dark overlay behind the heading", () => {

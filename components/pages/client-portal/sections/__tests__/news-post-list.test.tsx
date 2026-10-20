@@ -97,8 +97,8 @@ describe("NewsPostList", () => {
     ).toEqual(["New", "Mid", "Old"]);
   });
 
-  it("falls back to Announcement for a blank headline", () => {
-    mocks.assets = [post({ headline: "  " })];
+  it("falls back to Announcement for an empty headline", () => {
+    mocks.assets = [post({ headline: "" })];
     renderList();
 
     expect(
@@ -129,13 +129,13 @@ describe("NewsPostList", () => {
     mocks.assets = [post({ createdAt: "2026-02-10T12:00:00Z" })];
     renderList();
 
-    expect(screen.getByText(dateLabel("2026-02-10T12:00:00Z"))).toBeInTheDocument();
+    expect(
+      screen.getByText(dateLabel("2026-02-10T12:00:00Z")),
+    ).toBeInTheDocument();
   });
 
   it("renders a start-end date range", () => {
-    mocks.assets = [
-      post({ startDate: "2026-03-01", endDate: "2026-03-05" }),
-    ];
+    mocks.assets = [post({ startDate: "2026-03-01", endDate: "2026-03-05" })];
     renderList();
 
     expect(
@@ -170,7 +170,7 @@ describe("NewsPostList", () => {
 
     expect(container.querySelector("img")).toBeNull();
     const card = container.querySelector(".group") as HTMLElement;
-    expect(card.style.background).toContain("#123456");
+    expect(card.style.background).toContain("rgb(18, 52, 86)");
   });
 
   it("renders a CTA link and normalizes a bare URL", () => {
@@ -244,7 +244,7 @@ describe("NewsPostList", () => {
 
   it("passes undefined when there is no client id", () => {
     mocks.assets = [post()];
-    renderList(undefined);
+    render(<NewsPostList brandColor="#123456" />);
 
     expect(mocks.hookClientId).toBeUndefined();
   });

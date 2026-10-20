@@ -11,15 +11,12 @@ const mocks = vi.hoisted(() => ({
   documentsRendered: false,
 }));
 
-vi.mock(
-  "@/components/pages/client-portal/sections/webinars-section",
-  () => ({
-    WebinarsSection: (props: any) => {
-      mocks.webinarsProps = props;
-      return <div data-testid="webinars-section" />;
-    },
-  }),
-);
+vi.mock("@/components/pages/client-portal/sections/webinars-section", () => ({
+  WebinarsSection: (props: any) => {
+    mocks.webinarsProps = props;
+    return <div data-testid="webinars-section" />;
+  },
+}));
 
 vi.mock(
   "@/components/pages/client-portal/sections/have-questions-section",
@@ -31,15 +28,12 @@ vi.mock(
   }),
 );
 
-vi.mock(
-  "@/components/pages/client-portal/sections/documents-section",
-  () => ({
-    DocumentsSection: () => {
-      mocks.documentsRendered = true;
-      return <div data-testid="documents-section" />;
-    },
-  }),
-);
+vi.mock("@/components/pages/client-portal/sections/documents-section", () => ({
+  DocumentsSection: () => {
+    mocks.documentsRendered = true;
+    return <div data-testid="documents-section" />;
+  },
+}));
 
 beforeEach(() => {
   mocks.webinarsProps = null;
@@ -55,9 +49,7 @@ describe("WebinarsDashboard", () => {
     expect(
       screen.queryByTestId("have-questions-section"),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByTestId("documents-section"),
-    ).not.toBeInTheDocument();
+    expect(screen.queryByTestId("documents-section")).not.toBeInTheDocument();
     expect(mocks.questionsRendered).toBe(false);
     expect(mocks.documentsRendered).toBe(false);
   });

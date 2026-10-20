@@ -321,11 +321,16 @@ The Edit Benefit suites add **82 tests across 3 files** (26 route + 42 editor + 
 
 ## Portal News & Events coverage
 
-| File                                                    | Focus                                                                                                                    |
-| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `app/(portal)/[id]/news-events/__tests__/page.test.tsx` | Header/posts/webinars composition, plan id and brand-color forwarding, branding-image input/output, white portal surface |
+| File                                                                            | Focus                                                                                                                    |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `app/(portal)/[id]/news-events/__tests__/page.test.tsx`                         | Header/posts/webinars composition, plan id and brand-color forwarding, branding-image input/output, white portal surface |
+| `app/(portal)/[id]/news-events/__tests__/integration.test.tsx`                  | Real header default/resolved background, absolute/data URLs, color fallbacks, one `h1`                                   |
+| `components/pages/client-portal/sections/__tests__/news-post-list.test.tsx`     | Loading/empty/sort, headline, category, dates, background map, CTA, brand color, client id                               |
+| `components/pages/client-portal/sections/__tests__/news-events-header.test.tsx` | Default/custom title and background, empty background, plain `<img>`, overlay                                            |
+| `components/pages/client-portal/sections/__tests__/webinars-dashboard.test.tsx` | Only `WebinarsSection`, prop forwarding, `enableEditing` not forwarded                                                   |
+| `hooks/__tests__/useMarketingAssets.test.ts`                                    | No-client key, public feed URL, options, payload shape, error/loading, type filters                                      |
 
-The portal News & Events page suite adds **12 tests in one file**. See [`portal-news-events-tests.md`](portal-news-events-tests.md) for the itemized inventory and manual checklist.
+The News & Events suites add **54 tests across 6 files**. See [`portal-news-events-tests.md`](portal-news-events-tests.md) for the itemized inventory and manual checklist.
 
 ## End-to-end (Playwright)
 
