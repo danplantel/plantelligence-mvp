@@ -11,6 +11,12 @@ import baseConfig from "./vitest.config.mts";
 const clientsTests = [
   // All Plans page orchestration
   "app/(dashboard)/clients/__tests__/page.test.tsx",
+  // Real search debounce (this file does not mock usehooks-ts)
+  "app/(dashboard)/clients/__tests__/page.debounce.test.tsx",
+  // GET /api/clients contract (scoping, table projection, filters, paging)
+  "app/api/clients/__tests__/route.test.ts",
+  // DELETE /api/clients/[id] authorization and cleanup
+  "app/api/clients/[id]/__tests__/route.test.ts",
 ];
 
 const baseTest = (baseConfig as { test?: Record<string, unknown> }).test ?? {};

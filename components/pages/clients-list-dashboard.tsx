@@ -41,7 +41,7 @@ import { useSession } from "next-auth/react";
 import Link from "next/link";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { useRouter } from "next/navigation";
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useDebounceValue } from "usehooks-ts";
 import useSWR from "swr";
 import {
@@ -154,6 +154,7 @@ export function ClientsListDashboardPage() {
 
   const {
     data: swrData,
+    error: listError,
     isLoading,
     isValidating,
     mutate: refreshClients,
@@ -208,6 +209,18 @@ export function ClientsListDashboardPage() {
   };
 
   const totalPages = Math.ceil(totalClients / itemsPerPage);
+
+  // Deleting the last row on the final page leaves the table asking for a page
+  // that no longer exists: the API answers with an empty list while the footer
+  // still reads "Page 3 of 2". Clamp back to the last real page once the fresh
+  // total arrives. `totalPages === 0` means the filter matched nothing, which is
+  // a legitimate empty result, not a stale page.
+  useEffect(() => {
+    if (!swrData) return;
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [swrData, totalPages, currentPage]);
 
   // Reset to page 1 when filters change
   const prevFiltersRef = useRef({
@@ -539,6 +552,26 @@ export function ClientsListDashboardPage() {
                           </TableRow>
                         ))}
                       </>
+                    ) : listError ? (
+                      // A failed request used to render "No plans found.", which
+                      // reads as "your plans are gone". Keep the failure visible
+                      // and give the user the same retry the toolbar offers.
+                      <TableRow>
+                        <TableCell colSpan={7} className="h-24 text-center">
+                          <p className="text-sm text-muted-foreground">
+                            {"Couldn't load plans. Please try again."}
+                          </p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-3"
+                            onClick={() => refreshClients()}
+                          >
+                            <RefreshCw className="mr-2 h-4 w-4" />
+                            Try again
+                          </Button>
+                        </TableCell>
+                      </TableRow>
                     ) : clients.length === 0 ? (
                       <TableRow>
                         <TableCell colSpan={7} className="h-24 text-center">
@@ -549,6 +582,11 @@ export function ClientsListDashboardPage() {
                       clients.map((client) => {
                         const isDraft =
                           (client.status || "active").toLowerCase() === "draft";
+                        // Legacy rows can be missing a name or a brand colour. The
+                        // table is the only place that would crash on those, so it
+                        // renders a neutral placeholder instead of throwing.
+                        const planName =
+                          client.companyName?.trim() || "Untitled plan";
                         return (
                           <TableRow key={client.id}>
                             <TableCell className="font-medium px-3 py-4">
@@ -557,7 +595,7 @@ export function ClientsListDashboardPage() {
                                   <div className="relative h-10 w-10 rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
                                     <BrandingImage
                                       src={client.companyLogo}
-                                      alt={client.companyName}
+                                      alt={planName}
                                       fillContainer
                                       objectFit="contain"
                                     />
@@ -566,15 +604,16 @@ export function ClientsListDashboardPage() {
                                   <div
                                     className="h-10 w-10 rounded-lg flex items-center justify-center text-white text-sm font-semibold shrink-0"
                                     style={{
-                                      backgroundColor: client.brandColor,
+                                      backgroundColor:
+                                        client.brandColor || "#64748b",
                                     }}
                                   >
-                                    {client.companyName.charAt(0).toUpperCase()}
+                                    {planName.charAt(0).toUpperCase()}
                                   </div>
                                 )}
                                 <div className="min-w-0 flex-1">
                                   <div className="font-medium line-clamp-2">
-                                    {client.companyName}
+                                    {planName}
                                   </div>
                                 </div>
                               </div>

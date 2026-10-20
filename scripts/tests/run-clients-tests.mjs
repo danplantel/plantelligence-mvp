@@ -3,8 +3,8 @@
 /**
  * Run every All Plans (View Clients) test.
  *
- * Uses `vitest.clients.config.mts`, which includes the All Plans page suite
- * in `app/(dashboard)/clients/__tests__`.
+ * Uses `vitest.clients.config.mts`, which lists the All Plans page suite plus
+ * the `GET /api/clients` and `DELETE /api/clients/[id]` contract suites.
  *
  * Usage:
  *   node scripts/tests/run-clients-tests.mjs

@@ -6,23 +6,23 @@ It covers the search/filter/sort shell, the plans table and its row actions, pag
 
 ## Summary
 
-- **Unit tests:** 18 passing in 1 file
-- **Runner:** Vitest + React Testing Library + jsdom
-- **E2E:** none yet — see [Future coverage](#future-coverage)
+- **Unit tests:** 67 passing in 4 files
+- **E2E:** 6 Playwright tests in [`e2e/clients.spec.ts`](../../e2e/clients.spec.ts), env-gated
+- **Runner:** Vitest + React Testing Library + jsdom; Playwright for E2E
 
-The unit suite covers the SWR query contract (filters/sort/page), table rendering, every row action, pagination boundaries, refresh, and both delete outcomes. The manual checklist below remains the source of truth for the API contract and permission-scoped journeys.
+The unit suites cover the All Plans page's SWR query contract, table rendering, every row action, pagination boundaries (including the post-delete page clamp), the request failure state, both delete outcomes, and the two endpoints the table depends on: `GET /api/clients` and `DELETE /api/clients/[id]`. The manual checklist below remains the source of truth for permission-scoped journeys that need real data.
 
 ## Running these tests
 
 All Plans-only commands:
 
 ```bash
-pnpm test:clients           # the page suite (18 tests)
+pnpm test:clients           # page + API suites (67 tests)
 pnpm test:clients:watch     # watch mode
 pnpm test:clients:coverage  # suite + V8 coverage
 ```
 
-These are backed by [`vitest.clients.config.mts`](../../vitest.clients.config.mts) and [`scripts/tests/run-clients-tests.mjs`](../../scripts/tests/run-clients-tests.mjs), which include the page suite explicitly so the command cannot pick up unrelated tests. Add future `components/pages/clients*` suites to that config.
+These are backed by [`vitest.clients.config.mts`](../../vitest.clients.config.mts) and [`scripts/tests/run-clients-tests.mjs`](../../scripts/tests/run-clients-tests.mjs), which list the four suites explicitly so the command cannot pick up unrelated tests.
 
 All tests:
 
@@ -35,11 +35,27 @@ pnpm test:e2e             # Playwright E2E
 pnpm test:e2e:ui          # Playwright UI mode
 ```
 
+The All Plans E2E file skips itself unless credentials are present:
+
+```bash
+E2E_BASE_URL=http://localhost:3000 \
+E2E_EMAIL=advisor@example.com \
+E2E_PASSWORD=... \
+E2E_PLAN_NAME="Acme Corp" \
+pnpm test:e2e
+```
+
+`E2E_PLAN_NAME` gates the two row journeys (contacts tab, delete dialog); the four toolbar journeys only need `E2E_EMAIL` / `E2E_PASSWORD`.
+
 ## Test inventory
 
-| #   | Suite                                             | Tests | Focus                                                                                                                             |
-| --- | ------------------------------------------------- | ----: | --------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | `app/(dashboard)/clients/__tests__/page.test.tsx` |    18 | SWR query construction, table content, row actions, draft gating, contact-count link, pagination, refresh, delete success/failure |
+| #   | Suite                                                      | Tests | Focus                                                                                                                |
+| --- | ---------------------------------------------------------- | ----: | -------------------------------------------------------------------------------------------------------------------- |
+| 1   | `app/(dashboard)/clients/__tests__/page.test.tsx`          |    37 | SWR query construction, table content (incl. failure state), row actions, pagination/clamp, refresh, delete outcomes |
+| 2   | `app/(dashboard)/clients/__tests__/page.debounce.test.tsx` |     2 | The real `useDebounceValue` window: no query while typing, one settled query per burst                               |
+| 3   | `app/api/clients/__tests__/route.test.ts`                  |    18 | `GET /api/clients` auth, plan scoping, `view=table`/`summary` projections, filters, pagination, sorting, 500         |
+| 4   | `app/api/clients/[id]/__tests__/route.test.ts`             |    10 | `DELETE /api/clients/[id]` auth, 404/403, cascading cleanup order, wizard-draft cleanup, 500                         |
+| 5   | `e2e/clients.spec.ts`                                      |     6 | Toolbar shell, empty search, filter/reset/sort request params, refresh, contacts tab, delete dialog cancel           |
 
 ## Unit test inventory
 
@@ -52,6 +68,9 @@ pnpm test:e2e:ui          # Playwright UI mode
 - filters by plan type with the quick buttons and resets the page
 - filters by status from the Advanced Filter menu
 - toggles a sortable column between ascending and descending
+- sorts by Status, Type, Created and Updated, each resetting to page 1
+- clears both filters from **Reset filters**
+- changes the page size (Radix Select) and returns to page 1
 
 **Table content**
 
@@ -59,6 +78,9 @@ pnpm test:e2e:ui          # Playwright UI mode
 - falls back to a neutral badge for an archived status
 - renders five skeleton rows while the first page loads
 - renders the empty state when there are no plans
+- renders the failure state ("Couldn't load plans…") with a working **Try again** instead of the empty state
+- counts contacts from `keyContactsCount`, `keyContacts[]` and `keyContacts.contacts[]`, and treats malformed JSON as 0
+- renders an "Untitled plan" placeholder and a neutral tile for a legacy row without a name or brand colour
 
 **Row actions**
 
@@ -66,13 +88,55 @@ pnpm test:e2e:ui          # Playwright UI mode
 - keeps Marketing as an informational toast
 - links the contact count to the plan's contacts tab
 - limits a draft to Delete and a resume path, storing the draft and opening the persisted step
+- falls back to `/new-client` for a missing or out-of-range `currentStep`
+- falls back to the plan id for the Hub link when the plan has no slug
 
 **Pagination, refresh and delete**
 
 - reports the visible range, pages forward, and disables Next on the final page
-- revalidates the current query from Refresh
+- clamps back to the new last page once a shrinking total invalidates the current page
+- leaves the current page alone when a filter simply matches nothing
+- revalidates the current query from Refresh without rebuilding the SWR key
+- asserts the SWR options (`keepPreviousData`, `dedupingInterval`, `revalidateOnFocus`)
 - confirms deletion only after the dialog, deletes, revalidates, and clears the wizard draft
 - reports a failed deletion, keeps the row, and closes the dialog
+- disables both dialog buttons and shows **Deleting** while the request is in flight
+- reports a thrown delete request and unlocks the dialog
+
+**`app/(dashboard)/clients/__tests__/page.debounce.test.tsx`**
+
+This file is the only one that does not mock `usehooks-ts`; it runs the real
+300 ms debounce on real timers.
+
+- typing keeps SWR on the previous search term until the window elapses
+- a burst of keystrokes settles into a single query, with no intermediate terms
+
+**`app/api/clients/__tests__/route.test.ts`**
+
+- returns `401` with no session
+- scopes both `findMany` and `count` to `listAccessiblePlanIds(userId)`
+- returns no rows for a caller with no accessible plans
+- `view=table`: strips `keyContacts` in favour of `keyContactsCount` for array, object and null shapes
+- `view=table`: selects the slim projection and never `employeePortalPreview`, `documents` or the legacy image columns
+- `summary=1`: returns the picker contract without the table transform
+- passes status/type filters and a case-insensitive name search; omits them for `all`
+- computes `skip`/`take` and the pagination metadata; defaults to page 1 with 25 rows
+- orders by each sortable column and falls back to `createdAt desc` for an unknown column
+- normalizes brand images and reports `documentCount` on the full projection
+- returns `500` when the query fails
+
+**`app/api/clients/[id]/__tests__/route.test.ts`**
+
+- returns `401` with no session and touches no rows
+- returns `404` when neither the id nor the slug resolves
+- resolves a slug with a lookup scoped to the caller and uses the canonical id for cleanup
+- returns `403` when the plan belongs to another advisor
+- deletes webinars (scoped to the user), benefits, documents, meetings, marketing assets, flyers and videos, then the client
+- keeps the legacy company-name meeting cleanup for orphaned rows
+- removes benefits before the client row (the P2014 guard)
+- deletes every wizard draft row that claims the plan by name or slug, deduplicating session ids
+- skips wizard cleanup when there are no drafts
+- returns `500` and leaves the client row alone when a cleanup step fails
 
 ## Running the page
 
@@ -197,13 +261,14 @@ Every action button should have a tooltip naming it (Hub, Documents, Meetings, M
 - [ ] On success: a `Client deleted successfully` toast appears, the row disappears, and the list revalidates without a full reload.
 - [ ] The Create Plan wizard's persisted draft and in-memory state are cleared, so `/new-client` does not resume the deleted plan.
 - [ ] On failure (e.g. API 500): a `Failed to delete client` toast appears, the dialog closes, and the row remains.
-- [ ] Deleting the only row on the last page does not leave `Page N of M` pointing past the end (see [Known gaps](#known-gaps)).
+- [ ] Deleting the only row on the last page moves the table to the new last page instead of leaving `Page N of M` pointing past the end (the `useEffect` clamp does this).
 
 ### 10. Empty and error states
 
 - [ ] With no plans at all, the table shows **No plans found.**
 - [ ] With filters that match nothing, the same empty row is shown and pagination is hidden.
-- [ ] A failed `/api/clients` request is distinguishable from "no plans" (currently it is not — see below).
+- [ ] A failed `/api/clients` request shows **Couldn't load plans. Please try again.** with a **Try again** button, not the empty state.
+- [ ] **Try again** refetches the current query.
 - [ ] The page does not crash when `pagination` is missing from the response.
 
 ### 11. API contract checks
@@ -234,30 +299,35 @@ Run these against `/api/clients` while signed in:
 
 These are observations from the current implementation, not release blockers unless the product decides otherwise:
 
-1. **No E2E coverage.** The page's unit suite covers its orchestration, but no Playwright journey proves the Create Plan → All Plans flow, permission scoping, or persistence against a live API.
-2. **Errors look like an empty list.** `swrData?.data ?? []` means a failed request renders "No plans found." with no error or retry affordance. A user can mistake an outage for having no plans.
-3. **Page clamp after deleting the last row.** `currentPage` is not reduced when a delete makes it larger than `totalPages`, so the table can show an empty page while the footer says `Page 3 of 2`.
-4. **Archived plans.** The quick filters expose only Active and Draft; archived rows appear under "All statuses" and rely on the badge fallback.
-5. **Dead helpers.** `getPlanTypeBadge()` and `handleViewClient()` are defined but not used by the current table; the Hub link builds its own slug-aware URL. They should be removed or wired up deliberately.
-6. **Marketing is a placeholder.** The button only fires a toast; tests should assert the toast, not navigation.
+1. **Delete is owner-only.** `DELETE /api/clients/[id]` returns `403` when `client.userId` is not the caller — even for an organization teammate who can edit the plan — yet the UI shows Delete on every visible row. The API suite pins the current behaviour; the product has to decide whether teammates should be allowed.
+2. **Filters live in memory.** A reload of `/clients` returns to the default filters, sort and page; there is no query-string state to deep-link or restore.
+3. **Archived plans.** The quick filters expose only Active and Draft; archived rows appear under "All statuses" and rely on the badge fallback.
+4. **Dead helpers.** `getPlanTypeBadge()` and `handleViewClient()` are defined but not used by the current table; the Hub link builds its own slug-aware URL. They should be removed or wired up deliberately.
+5. **Marketing is a placeholder.** The button only fires a toast; tests assert the toast, not navigation.
 
 ## Future coverage
 
 ### Additional unit cases
 
-- the real `useDebounceValue` timing (the suite mocks the hook and asserts the settled query);
-- choosing 50/100 per page through the Radix Select, which also resets to page 1;
-- an API error state once the page grows one (today a failed request renders as "No plans found.");
-- the page clamp after deleting the last row on a page, once that behaviour is fixed.
+- a plan created by the wizard appearing after a revalidation;
+- team-member / collaborator row scoping in the UI (the API suite covers the `listAccessiblePlanIds` clause, not the rendering scope).
 
 ### E2E (Playwright)
 
-Add `e2e/clients.spec.ts` for:
+[`e2e/clients.spec.ts`](../../e2e/clients.spec.ts) currently covers:
+
+- the toolbar, quick filters and sortable headers render on `/clients`;
+- a search that cannot match shows **No plans found.** and never the failure state;
+- the quick type filter, Advanced Filter status, **Reset filters** and Plan sorting each issue the expected `/api/clients` params (`view=table`, `status`, `type`, `sortColumn`, `sortDirection`, page reset);
+- **Refresh** revalidates the table projection;
+- with `E2E_PLAN_NAME`: the contact count opens the plan's contacts tab, and cancelling a delete closes the dialog and keeps the row.
+
+Still worth adding:
 
 - a plan created by the Create Plan wizard appears under All Plans and can be searched;
 - a scoped teammate sees only their assigned plans;
-- sort + filter + paginate, then refresh the page and confirm the URL state is reproducible;
-- deleting a draft from its row removes it and does not resume it in the wizard.
+- deleting a disposable draft removes it and does not resume it in the wizard (gate behind an explicit env flag so the suite never destroys real data);
+- a teammate's delete attempt surfacing the API's `403`.
 
 ## Related documentation
 

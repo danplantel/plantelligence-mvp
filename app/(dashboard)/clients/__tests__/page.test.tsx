@@ -17,8 +17,10 @@ import { ClientsListDashboardPage } from "@/components/pages/clients-list-dashbo
 
 const mocks = vi.hoisted(() => ({
   swrData: null as any,
+  swrError: null as any,
   swrLoading: false,
   swrKeys: [] as string[],
+  swrOptions: [] as any[],
   mutate: vi.fn(),
   push: vi.fn(),
   prefetch: vi.fn(),
@@ -32,10 +34,12 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("swr", () => ({
-  default: (key: string) => {
+  default: (key: string, _fetcher: unknown, options: unknown) => {
     mocks.swrKeys.push(key);
+    mocks.swrOptions.push(options);
     return {
       data: mocks.swrData,
+      error: mocks.swrError,
       isLoading: mocks.swrLoading,
       isValidating: false,
       mutate: mocks.mutate,
@@ -169,7 +173,9 @@ function rowFor(name: string): HTMLElement {
 
 beforeEach(() => {
   mocks.swrKeys.length = 0;
+  mocks.swrOptions.length = 0;
   mocks.swrData = listResponse();
+  mocks.swrError = null;
   mocks.swrLoading = false;
   mocks.mutate.mockReset().mockResolvedValue(undefined);
   mocks.push.mockReset();
@@ -250,6 +256,63 @@ describe("ClientsListDashboardPage", () => {
       await user.click(screen.getByRole("button", { name: "Plan" }));
       expect(latestParams().get("sortDirection")).toBe("desc");
     });
+
+    it.each([
+      ["Status", "status"],
+      ["Type", "type"],
+      ["Created", "createdAt"],
+      ["Updated", "updatedAt"],
+    ])("sorts by %s and returns to the first page", async (label, column) => {
+      const user = userEvent.setup();
+      mocks.swrData = listResponse([activePlan], 60, 1, 25);
+      render(<ClientsListDashboardPage />);
+
+      await user.click(screen.getByRole("button", { name: "Next" }));
+      expect(latestParams().get("page")).toBe("2");
+
+      await user.click(screen.getByRole("button", { name: label }));
+
+      expect(latestParams().get("sortColumn")).toBe(column);
+      expect(latestParams().get("sortDirection")).toBe("asc");
+      expect(latestParams().get("page")).toBe("1");
+    });
+
+    it("clears both filters from the Advanced Filter menu", async () => {
+      const user = userEvent.setup();
+      render(<ClientsListDashboardPage />);
+
+      await user.click(screen.getByRole("button", { name: "Prospect" }));
+      await user.click(screen.getByRole("button", { name: /Advanced Filter/ }));
+      await user.click(
+        await screen.findByRole("menuitemradio", { name: "Draft" }),
+      );
+      expect(latestParams().get("type")).toBe("prospect");
+      expect(latestParams().get("status")).toBe("draft");
+
+      await user.click(screen.getByRole("button", { name: /Advanced Filter/ }));
+      await user.click(
+        await screen.findByRole("menuitem", { name: "Reset filters" }),
+      );
+
+      expect(latestParams().get("type")).toBe("all");
+      expect(latestParams().get("status")).toBe("all");
+      expect(latestParams().get("page")).toBe("1");
+    });
+
+    it("changes the page size from the footer and returns to page 1", async () => {
+      const user = userEvent.setup();
+      mocks.swrData = listResponse([activePlan], 60, 1, 25);
+      render(<ClientsListDashboardPage />);
+
+      await user.click(screen.getByRole("button", { name: "Next" }));
+      expect(latestParams().get("page")).toBe("2");
+
+      await user.click(screen.getByRole("combobox"));
+      await user.click(await screen.findByRole("option", { name: "50" }));
+
+      expect(latestParams().get("limit")).toBe("50");
+      expect(latestParams().get("page")).toBe("1");
+    });
   });
 
   describe("table content", () => {
@@ -300,6 +363,74 @@ describe("ClientsListDashboardPage", () => {
 
       expect(screen.getByText("No plans found.")).toBeInTheDocument();
       expect(screen.queryByText(/Showing/)).not.toBeInTheDocument();
+    });
+
+    it("shows the failure state and retries instead of claiming the list is empty", async () => {
+      const user = userEvent.setup();
+      mocks.swrData = null;
+      mocks.swrError = new Error("boom");
+      render(<ClientsListDashboardPage />);
+
+      expect(screen.getByText(/Couldn't load plans/)).toBeInTheDocument();
+      expect(screen.queryByText("No plans found.")).not.toBeInTheDocument();
+
+      await user.click(screen.getByRole("button", { name: /Try again/ }));
+
+      expect(mocks.mutate).toHaveBeenCalledTimes(1);
+    });
+
+    it("counts contacts from either stored JSON shape on the full projection", () => {
+      mocks.swrData = listResponse([
+        {
+          ...activePlan,
+          id: "plan-array",
+          companyName: "Array Co",
+          keyContactsCount: undefined,
+          keyContacts: [{}, {}],
+        },
+        {
+          ...activePlan,
+          id: "plan-object",
+          companyName: "Object Co",
+          keyContactsCount: undefined,
+          keyContacts: { contacts: [{}] },
+        },
+        {
+          ...activePlan,
+          id: "plan-invalid",
+          companyName: "Invalid Co",
+          keyContactsCount: undefined,
+          keyContacts: { contacts: "nope" },
+        },
+        {
+          ...activePlan,
+          id: "plan-null",
+          companyName: "Null Co",
+          keyContactsCount: undefined,
+          keyContacts: null,
+        },
+      ]);
+      render(<ClientsListDashboardPage />);
+
+      expect(screen.getByText("2 contacts")).toBeInTheDocument();
+      expect(screen.getByText("1 contacts")).toBeInTheDocument();
+      expect(screen.getAllByText("0 contacts")).toHaveLength(2);
+    });
+
+    it("renders a placeholder for a legacy row without a name or brand colour", () => {
+      mocks.swrData = listResponse([
+        {
+          ...activePlan,
+          id: "plan-legacy",
+          companyName: "   ",
+          companyLogo: undefined,
+          brandColor: undefined,
+        },
+      ]);
+      render(<ClientsListDashboardPage />);
+
+      expect(screen.getByText("Untitled plan")).toBeInTheDocument();
+      expect(screen.getByText("U")).toBeInTheDocument();
     });
   });
 
@@ -383,6 +514,48 @@ describe("ClientsListDashboardPage", () => {
       );
       expect(mocks.push).toHaveBeenCalledWith("/new-client?step=3");
     });
+
+    it.each([undefined, 0, 9])(
+      "resumes a draft with currentStep=%s at the wizard start",
+      async (currentStep) => {
+        const user = userEvent.setup();
+        mocks.swrData = listResponse([{ ...draftPlan, currentStep }]);
+        render(<ClientsListDashboardPage />);
+
+        await user.click(
+          within(rowFor("Draft Co")).getByRole("button", {
+            name: /Finish Setup/,
+          }),
+        );
+
+        expect(mocks.storePendingDraftSelection).toHaveBeenCalledWith(
+          "plan-draft",
+        );
+        expect(mocks.push).toHaveBeenCalledWith("/new-client");
+      },
+    );
+
+    it("falls back to the plan id when the hub link has no slug", async () => {
+      const user = userEvent.setup();
+      mocks.swrData = listResponse([
+        {
+          ...activePlan,
+          id: "plan-no-slug",
+          companyName: "No Slug Co",
+          slug: undefined,
+        },
+      ]);
+      render(<ClientsListDashboardPage />);
+
+      await user.click(
+        within(rowFor("No Slug Co")).getByRole("button", { name: "Hub" }),
+      );
+
+      expect(mocks.open).toHaveBeenCalledWith(
+        "https://hub.test/plan-no-slug?comments=1",
+        "_blank",
+      );
+    });
   });
 
   describe("pagination", () => {
@@ -407,6 +580,30 @@ describe("ClientsListDashboardPage", () => {
 
       expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
     });
+
+    it("clamps back to the last page when the total shrinks", async () => {
+      const user = userEvent.setup();
+      mocks.swrData = listResponse([activePlan], 30, 1, 25);
+      const { rerender } = render(<ClientsListDashboardPage />);
+
+      await user.click(screen.getByRole("button", { name: "Next" }));
+      expect(latestParams().get("page")).toBe("2");
+
+      // Simulate the deleted row taking the result set from 30 to 25 plans: the
+      // page requested no longer exists, so the table must not stay on it.
+      mocks.swrData = listResponse([], 25, 2, 25);
+      rerender(<ClientsListDashboardPage />);
+
+      await waitFor(() => expect(latestParams().get("page")).toBe("1"));
+    });
+
+    it("leaves the page alone when the filter simply matches nothing", () => {
+      mocks.swrData = listResponse([], 0);
+      render(<ClientsListDashboardPage />);
+
+      expect(latestParams().get("page")).toBe("1");
+      expect(screen.getByText("No plans found.")).toBeInTheDocument();
+    });
   });
 
   describe("refresh", () => {
@@ -417,6 +614,31 @@ describe("ClientsListDashboardPage", () => {
       await user.click(screen.getByRole("button", { name: "Refresh" }));
 
       expect(mocks.mutate).toHaveBeenCalledTimes(1);
+    });
+
+    it("revalidates without rebuilding the key", async () => {
+      const user = userEvent.setup();
+      mocks.swrData = listResponse([activePlan], 60, 1, 25);
+      render(<ClientsListDashboardPage />);
+
+      await user.click(screen.getByRole("button", { name: "Next" }));
+      const keyBeforeRefresh = latestKey();
+
+      await user.click(screen.getByRole("button", { name: "Refresh" }));
+
+      expect(latestKey()).toBe(keyBeforeRefresh);
+      expect(mocks.mutate).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps stale rows on screen while revalidating", () => {
+      render(<ClientsListDashboardPage />);
+
+      const options = mocks.swrOptions[mocks.swrOptions.length - 1];
+      expect(options).toMatchObject({
+        keepPreviousData: true,
+        dedupingInterval: 2_000,
+        revalidateOnFocus: true,
+      });
     });
   });
 
@@ -478,6 +700,67 @@ describe("ClientsListDashboardPage", () => {
       await waitFor(() =>
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
       );
+      expect(screen.getByText("Acme Corp")).toBeInTheDocument();
+    });
+
+    it("locks the dialog while the deletion is in flight", async () => {
+      const user = userEvent.setup();
+      let resolveFetch: (value: unknown) => void = () => {};
+      mocks.fetch.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveFetch = resolve;
+          }),
+      );
+      render(<ClientsListDashboardPage />);
+
+      await user.click(
+        within(rowFor("Acme Corp")).getByRole("button", { name: "Delete" }),
+      );
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+      await waitFor(() =>
+        expect(
+          within(dialog).getByRole("button", { name: /Deleting/ }),
+        ).toBeDisabled(),
+      );
+      expect(
+        within(dialog).getByRole("button", { name: "Cancel" }),
+      ).toBeDisabled();
+      expect(mocks.mutate).not.toHaveBeenCalled();
+
+      resolveFetch({ ok: true, json: async () => ({ success: true }) });
+
+      await waitFor(() =>
+        expect(mocks.toastSuccess).toHaveBeenCalledWith(
+          "Client deleted successfully",
+        ),
+      );
+    });
+
+    it("reports a thrown delete request and unlocks the dialog", async () => {
+      const user = userEvent.setup();
+      vi.spyOn(console, "error").mockImplementation(() => {});
+      mocks.fetch.mockRejectedValue(new Error("network down"));
+      render(<ClientsListDashboardPage />);
+
+      await user.click(
+        within(rowFor("Acme Corp")).getByRole("button", { name: "Delete" }),
+      );
+      const dialog = await screen.findByRole("dialog");
+      await user.click(within(dialog).getByRole("button", { name: "Delete" }));
+
+      await waitFor(() =>
+        expect(mocks.toastError).toHaveBeenCalledWith(
+          "Failed to delete client",
+        ),
+      );
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+      );
+      expect(mocks.mutate).not.toHaveBeenCalled();
+      expect(mocks.resetWizard).not.toHaveBeenCalled();
       expect(screen.getByText("Acme Corp")).toBeInTheDocument();
     });
   });
