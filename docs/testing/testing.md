@@ -12,8 +12,9 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 [`meetings-tests.md`](meetings-tests.md),
 [`webinars-tests.md`](webinars-tests.md),
 [`benefits-clients.md`](benefits-clients.md),
-[`create-benefit-tests.md`](create-benefit-tests.md), and
-[`create-benefits-tests.md`](create-benefits-tests.md).
+[`create-benefit-tests.md`](create-benefit-tests.md),
+[`create-benefits-tests.md`](create-benefits-tests.md), and
+[`portal-news-events-tests.md`](portal-news-events-tests.md).
 
 ## Commands
 
@@ -317,6 +318,14 @@ The Create Benefit page suite adds **103 tests in one file**. See [`create-benef
 | `app/api/clients/[id]/benefits/[category]/__tests__/route.test.ts`         | GET/PUT/DELETE auth, `updateOnly`, R2 signing, soft-disable, purge, dual-write, 500s                                                     |
 
 The Edit Benefit suites add **82 tests across 3 files** (26 route + 42 editor + 14 API). See [`create-benefits-tests.md`](create-benefits-tests.md) for the itemized inventory and manual checklist.
+
+## Portal News & Events coverage
+
+| File                                                    | Focus                                                                                                                    |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `app/(portal)/[id]/news-events/__tests__/page.test.tsx` | Header/posts/webinars composition, plan id and brand-color forwarding, branding-image input/output, white portal surface |
+
+The portal News & Events page suite adds **12 tests in one file**. See [`portal-news-events-tests.md`](portal-news-events-tests.md) for the itemized inventory and manual checklist.
 
 ## End-to-end (Playwright)
 

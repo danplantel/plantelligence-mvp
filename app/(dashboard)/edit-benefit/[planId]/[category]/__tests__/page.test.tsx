@@ -295,47 +295,47 @@ describe("EditBenefitRoute", () => {
       expect(screen.getByTestId("edit-benefit")).toBeInTheDocument();
     });
   });
-});
 
-describe("EditBenefitRoute additional gate cases", () => {
-  it("passes a decoded literal slash through unchanged", () => {
-    setParams("plan-1", "group%2Fhealth");
-    renderRoute();
+  describe("additional gate cases", () => {
+    it("passes a decoded literal slash through unchanged", () => {
+      setParams("plan-1", "group%2Fhealth");
+      renderRoute();
 
-    expect(mocks.accessInput.category).toBe("group/health");
-  });
-
-  it("passes an empty planId through to the hook", () => {
-    setParams("", "retirement");
-    renderRoute();
-
-    expect(mocks.accessInput).toMatchObject({
-      planId: "",
-      category: "Retirement",
+      expect(mocks.accessInput.category).toBe("group/health");
     });
-  });
 
-  it("keeps an empty requestedCategory from the denial", () => {
-    mocks.access = {
-      status: "denied",
-      message: "No access",
-      reason: "denied",
-      denial: { requestedCategory: "" },
-    };
-    setParams("plan-1", "retirement");
-    renderRoute();
+    it("passes an empty planId through to the hook", () => {
+      setParams("", "retirement");
+      renderRoute();
 
-    expect(mocks.noticeProps.category).toBe("");
-  });
+      expect(mocks.accessInput).toMatchObject({
+        planId: "",
+        category: "Retirement",
+      });
+    });
 
-  it("recomputes the lookup input when the params change", () => {
-    const view = renderRoute();
-    setParams("plan-2", "group-life");
-    view.rerender(<EditBenefitRoute />);
+    it("keeps an empty requestedCategory from the denial", () => {
+      mocks.access = {
+        status: "denied",
+        message: "No access",
+        reason: "denied",
+        denial: { requestedCategory: "" },
+      };
+      setParams("plan-1", "retirement");
+      renderRoute();
 
-    expect(mocks.accessInput).toMatchObject({
-      planId: "plan-2",
-      category: "Group Life",
+      expect(mocks.noticeProps.category).toBe("");
+    });
+
+    it("recomputes the lookup input when the params change", () => {
+      const view = renderRoute();
+      setParams("plan-2", "group-life");
+      view.rerender(<EditBenefitRoute />);
+
+      expect(mocks.accessInput).toMatchObject({
+        planId: "plan-2",
+        category: "Group Life",
+      });
     });
   });
 });
