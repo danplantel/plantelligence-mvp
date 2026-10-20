@@ -10,8 +10,9 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 [`documents-tests.md`](documents-tests.md),
 [`marketing-tests.md`](marketing-tests.md),
 [`meetings-tests.md`](meetings-tests.md),
-[`webinars-tests.md`](webinars-tests.md), and
-[`benefits-clients.md`](benefits-clients.md).
+[`webinars-tests.md`](webinars-tests.md),
+[`benefits-clients.md`](benefits-clients.md), and
+[`create-benefit-tests.md`](create-benefit-tests.md).
 
 ## Commands
 
@@ -297,6 +298,14 @@ See [`marketing-tests.md`](marketing-tests.md) for the itemized inventory and re
 | `lib/__tests__/{service-categories,plan-selector-storage,active-client-status,benefit-category-slug,benefit-draft,portal-surface}.test.ts` | The pure helpers the page calls directly                                                                                     |
 
 The Benefits-only suites total **174 tests across 13 files**; [`e2e/benefits.spec.ts`](../../e2e/benefits.spec.ts) adds six env-gated Playwright journeys. See [`benefits-clients.md`](benefits-clients.md) for the itemized inventory, manual checklist and remaining gaps.
+
+## Create Benefit coverage
+
+| File                                                   | Focus                                                                                                                                                                            |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/(dashboard)/new-benefits/__tests__/page.test.tsx` | Deep-link hydration, step validation, Previous/leave prompts, Cancel and row purge, publishing attestation and save, organization-logo sync, header/comment surface, leave guard |
+
+The Create Benefit page suite adds **103 tests in one file**. See [`create-benefit-tests.md`](create-benefit-tests.md) for the itemized inventory and manual checklist.
 
 ## End-to-end (Playwright)
 
