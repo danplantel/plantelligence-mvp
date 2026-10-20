@@ -30,6 +30,7 @@ import {
   customBenefitNameToSlug,
   isPlaceholderBenefitName,
 } from "@/lib/benefit-custom-name";
+import { getPortalCountdown, normalizePortalCtaUrl } from "@/lib/portal-banner";
 
 interface BannerAsset {
   id: string;
@@ -393,10 +394,11 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   const noticeType = bannerData.noticeType as string | undefined;
   const countdownTarget = bannerData.countdownTarget as string | undefined;
   const ctaText = banner?.ctaText || (bannerData.ctaText as string | undefined);
-  const rawPortalCtaUrl = bannerData.portalCtaUrl as string | undefined;
-  const portalCtaUrl = rawPortalCtaUrl && !rawPortalCtaUrl.startsWith("http://") && !rawPortalCtaUrl.startsWith("https://")
-    ? `https://${rawPortalCtaUrl}`
-    : rawPortalCtaUrl;
+  // Absolute for the new tab, but a `mailto:`/`tel:`/same-site CTA is kept as-is
+  // (see lib/portal-banner.ts).
+  const portalCtaUrl = normalizePortalCtaUrl(
+    bannerData.portalCtaUrl as string | undefined,
+  );
 
   const [countdown, setCountdown] = useState({ d: 0, h: 0, m: 0, s: 0, expired: false });
   useEffect(() => {
@@ -404,15 +406,14 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     const target = new Date(countdownTarget).getTime();
     if (isNaN(target)) return;
     const tick = () => {
-      const diff = target - Date.now();
-      if (diff <= 0) { setCountdown({ d: 0, h: 0, m: 0, s: 0, expired: true }); return; }
-      const totalSec = Math.floor(diff / 1000);
+      const parts = getPortalCountdown(countdownTarget);
+      if (!parts) return;
       setCountdown({
-        d: Math.floor(totalSec / 86400),
-        h: Math.floor((totalSec % 86400) / 3600),
-        m: Math.floor((totalSec % 3600) / 60),
-        s: totalSec % 60,
-        expired: false,
+        d: parts.days,
+        h: parts.hours,
+        m: parts.minutes,
+        s: parts.seconds,
+        expired: parts.expired,
       });
     };
     tick();
