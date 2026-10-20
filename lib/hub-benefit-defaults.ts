@@ -76,7 +76,8 @@ const BASE: Record<string, HubBenefitDefault> = {
     title: "Recordkeeper / Vendor",
     description: "Key vendor information and plan resources.",
     partnerLogo: "/benefits-logo/Waypoint-WEB.webp",
-    image: "/benefits-logo/Beach-Summer-Couple-on-Island-Vacation-Holiday-1536x960.webp",
+    image:
+      "/benefits-logo/Beach-Summer-Couple-on-Island-Vacation-Holiday-1536x960.webp",
     buttonText: "LEARN MORE >",
     href: "/",
     category: "Recordkeeper / Vendor",
@@ -102,9 +103,7 @@ export function getHubBenefitDefaultForCategory(
   const n = customLike
     ? "Other Benefits"
     : normalizeBenefitsCategoryForCompleteness(rawStr);
-  return (
-    BASE[n as string] || BASE["Other Benefits"]
-  ) as HubBenefitDefault;
+  return (BASE[n as string] || BASE["Other Benefits"]) as HubBenefitDefault;
 }
 
 /**
@@ -132,9 +131,7 @@ export function mergeUserBenefitWithHubDefaults(
   const userInnerHeaderImage = nonEmptyString(
     (p as any).innerHeaderImage?.url ?? (p as any).innerHeaderImage,
   );
-  const userBody = nonEmptyString(
-    p.shortDescription ?? p.description,
-  );
+  const userBody = nonEmptyString(p.shortDescription ?? p.description);
   const userButton = nonEmptyString(p.buttonText);
   const userHref = nonEmptyString(p.href);
 
@@ -154,7 +151,8 @@ export function mergeUserBenefitWithHubDefaults(
 
   return {
     id: p.id && String(p.id).trim() ? p.id : def.id,
-    category: p.category && String(p.category).trim() ? p.category : def.category,
+    category:
+      p.category && String(p.category).trim() ? p.category : def.category,
     title,
     description: text,
     shortDescription: text,
@@ -172,12 +170,29 @@ export function mergeUserBenefitWithHubDefaults(
     ...(p.planVideoFileName ? { planVideoFileName: p.planVideoFileName } : {}),
     // Preserve inner header image from wizard Step 2 Section 1 Branding
     ...(userInnerHeaderImage ? { innerHeaderImage: userInnerHeaderImage } : {}),
+    // Preserve the landing page card's dedicated image/body (Benefits at a Glance).
+    ...(nonEmptyString(p.landingCardImage)
+      ? { landingCardImage: p.landingCardImage }
+      : {}),
+    ...(nonEmptyString(p.landingCardBody)
+      ? { landingCardBody: p.landingCardBody }
+      : {}),
     // Preserve hero overlay settings from wizard Step 2 Section 1 Branding
-    ...(p.heroBackgroundOpacity !== undefined ? { heroBackgroundOpacity: p.heroBackgroundOpacity } : {}),
-    ...(p.heroContainerBlockOpacity !== undefined ? { heroContainerBlockOpacity: p.heroContainerBlockOpacity } : {}),
-    ...(p.heroContainerInverted !== undefined ? { heroContainerInverted: p.heroContainerInverted } : {}),
-    ...(p.heroBackgroundInverted !== undefined ? { heroBackgroundInverted: p.heroBackgroundInverted } : {}),
-    ...(p.heroUseGradient !== undefined ? { heroUseGradient: p.heroUseGradient } : {}),
+    ...(p.heroBackgroundOpacity !== undefined
+      ? { heroBackgroundOpacity: p.heroBackgroundOpacity }
+      : {}),
+    ...(p.heroContainerBlockOpacity !== undefined
+      ? { heroContainerBlockOpacity: p.heroContainerBlockOpacity }
+      : {}),
+    ...(p.heroContainerInverted !== undefined
+      ? { heroContainerInverted: p.heroContainerInverted }
+      : {}),
+    ...(p.heroBackgroundInverted !== undefined
+      ? { heroBackgroundInverted: p.heroBackgroundInverted }
+      : {}),
+    ...(p.heroUseGradient !== undefined
+      ? { heroUseGradient: p.heroUseGradient }
+      : {}),
     // Preserve journey section text overrides from wizard Step 2 Section 3 Plan Video
     ...(p.journeyHeader ? { journeyHeader: p.journeyHeader } : {}),
     ...(p.journeySubtitle ? { journeySubtitle: p.journeySubtitle } : {}),

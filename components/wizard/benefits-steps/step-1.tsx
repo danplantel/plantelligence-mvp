@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { persistPlanSelection } from "@/lib/plan-selector-storage";
 import { storePendingDraftSelection } from "@/lib/draft-utils";
 import { BENEFIT_TITLE_MAX_LENGTH } from "@/lib/benefit-custom-name";
+import { getDefaultLandingCardBody } from "@/lib/landing-card-defaults";
 import {
   Select,
   SelectContent,
@@ -91,6 +92,9 @@ import {
   BrandImagesData,
 } from "@/types/new-client-wizard";
 import { BrandImageUpload } from "@/components/ui/brand-image-upload";
+import { ModalGallery } from "@/components/ui/modalGallery";
+import { SimpleImageEditorModal } from "@/components/ui/simple-image-editor-modal";
+import { exportFullResolutionImage } from "@/components/wizard/new-client-steps/sections/utils/image-utils";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { toast } from "sonner";
@@ -113,6 +117,13 @@ import {
   toCategoryGalleryKey,
 } from "@/lib/benefit-category-gallery";
 import { BenefitContactDialog } from "./benefit-contact-dialog";
+
+/**
+ * The landing page card renders at roughly 3:2, so its default-image picker
+ * crops and exports to these dimensions (see the "Landing Page Card" accordion).
+ */
+const LANDING_CARD_IMAGE_WIDTH = 1200;
+const LANDING_CARD_IMAGE_HEIGHT = 800;
 
 /** Wizard order — matches accordion below (Branding → Messaging → Contacts → Documents). */
 const BENEFIT_SETUP_SECTION_ORDER = [
@@ -178,7 +189,9 @@ export function BenefitsStep1({
   const [plans, setPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [planLoading, setPlanLoading] = useState(false);
-  const [primaryServiceCategories, setPrimaryServiceCategories] = useState<string[]>([]);
+  const [primaryServiceCategories, setPrimaryServiceCategories] = useState<
+    string[]
+  >([]);
   const [selectedPlanContacts, setSelectedPlanContacts] = useState<
     KeyContact[]
   >([]);
@@ -189,11 +202,24 @@ export function BenefitsStep1({
   const [searchTerm, setSearchTerm] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [activeAccordions, setActiveAccordions] = useState<string[]>([]);
+  // Default-image picker + cropper for the Landing Page Card. The gallery opens
+  // from the upload card's "Choose Default Image" button; choosing an image
+  // hands the FULL-RESOLUTION photo to the cropper, which frames it to the
+  // card's 3:2 guide before anything is saved.
+  const [landingGalleryOpen, setLandingGalleryOpen] = useState(false);
+  const [landingPendingImage, setLandingPendingImage] =
+    useState<BrandImageData | null>(null);
   // In edit mode open every rendered accordion so the sections are visible
   // without an extra click.
   useEffect(() => {
     if (!isEditMode) return;
-    setActiveAccordions(["branding", "messaging", "contacts", "documents"]);
+    setActiveAccordions([
+      "branding",
+      "messaging",
+      "landing-card",
+      "contacts",
+      "documents",
+    ]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditMode]);
 
@@ -294,7 +320,12 @@ export function BenefitsStep1({
       plans.find((p) => p.id === resolvedPlanId);
     setDraftPlanName(((plan as any)?.companyName || "").trim() || "This");
     setDraftDialogOpen(true);
-  }, [isSelectedPlanDraft, resolvedPlanId, currentStepData.selectedPlan, plans]);
+  }, [
+    isSelectedPlanDraft,
+    resolvedPlanId,
+    currentStepData.selectedPlan,
+    plans,
+  ]);
 
   const selectedPlanName = useMemo(
     () => plans.find((p) => p.id === resolvedPlanId)?.companyName ?? "",
@@ -304,7 +335,7 @@ export function BenefitsStep1({
   /** Plan-Sponsor contacts show the plan's logo, not one uploaded per contact. */
   const planCompanyLogo = useMemo(() => {
     const raw = (currentStepData.selectedPlan as any)?.companyLogo;
-    return (raw?.url || (typeof raw === "string" ? raw : "")) || "";
+    return raw?.url || (typeof raw === "string" ? raw : "") || "";
   }, [currentStepData.selectedPlan]);
 
   /**
@@ -336,7 +367,6 @@ export function BenefitsStep1({
     currentStepData.selectedPlan,
     currentStepData.benefitCategory,
   ]);
-
 
   // ── Error Validation Scroll-to ──
   // The benefits page's Next handler dispatches `benefitsStep1ValidationError`
@@ -379,7 +409,10 @@ export function BenefitsStep1({
         window.scrollTo({
           top: Math.max(
             0,
-            window.scrollY + rect.top - window.innerHeight / 2 + rect.height / 2,
+            window.scrollY +
+              rect.top -
+              window.innerHeight / 2 +
+              rect.height / 2,
           ),
           behavior: "smooth",
         });
@@ -574,9 +607,7 @@ export function BenefitsStep1({
 
       const currentBenefitData = {
         category: canonicalCategory,
-        title:
-          currentStepData.benefitTitle ||
-          currentStepData.benefitCategory,
+        title: currentStepData.benefitTitle || currentStepData.benefitCategory,
         shortDescription: currentStepData.shortDescription || "",
         partnerLogo: currentStepData.companyLogo?.url || "",
         image: currentStepData.brandImages?.header?.url || "",
@@ -615,13 +646,25 @@ export function BenefitsStep1({
         merged.employeePortalPreview = {
           ...merged.employeePortalPreview,
           benefits: allBenefits.map((b: any) => {
-            const bNorm = (b.category || "").toLowerCase().trim().replace(/\s+/g, " ");
+            const bNorm = (b.category || "")
+              .toLowerCase()
+              .trim()
+              .replace(/\s+/g, " ");
             let matchKey: string | null = null;
             for (const key of Object.keys(visibility)) {
               const keyNorm = key.toLowerCase().trim().replace(/\s+/g, " ");
-              if (bNorm === keyNorm) { matchKey = key; break; }
-              if (bNorm === "company / plan sponsor" && keyNorm === "custom") { matchKey = key; break; }
-              if (bNorm === "custom" && keyNorm === "custom") { matchKey = key; break; }
+              if (bNorm === keyNorm) {
+                matchKey = key;
+                break;
+              }
+              if (bNorm === "company / plan sponsor" && keyNorm === "custom") {
+                matchKey = key;
+                break;
+              }
+              if (bNorm === "custom" && keyNorm === "custom") {
+                matchKey = key;
+                break;
+              }
             }
             if (matchKey && visibility[matchKey] !== undefined) {
               return { ...b, isEnabled: visibility[matchKey] };
@@ -631,12 +674,14 @@ export function BenefitsStep1({
         };
       } else {
         // No benefits yet — create default placeholders so isEnabled is saved
-        const defaultBenefits = Object.entries(categoryMap).map(([label, { category, id }]) => ({
-          id,
-          category,
-          title: label === "Custom" ? "Wellness Programs" : label,
-          isEnabled: visibility[label] !== false,
-        }));
+        const defaultBenefits = Object.entries(categoryMap).map(
+          ([label, { category, id }]) => ({
+            id,
+            category,
+            title: label === "Custom" ? "Wellness Programs" : label,
+            isEnabled: visibility[label] !== false,
+          }),
+        );
         merged.employeePortalPreview = {
           ...merged.employeePortalPreview,
           benefits: defaultBenefits,
@@ -685,19 +730,16 @@ export function BenefitsStep1({
   // this page never triggers a PUT to /api/clients.
   const lastAutoSavedPayloadRef = useRef<string | null>(null);
   useEffect(() => {
-    if (
-      !getMergedClientData ||
-      !currentStepData.planId
-    )
-      return;
+    if (!getMergedClientData || !currentStepData.planId) return;
 
     const timer = setTimeout(async () => {
       try {
         if (!currentStepData.benefitCategory) return;
 
-        const category = currentStepData.benefitCategory === "Custom"
-          ? "Company / Plan Sponsor"
-          : currentStepData.benefitCategory;
+        const category =
+          currentStepData.benefitCategory === "Custom"
+            ? "Company / Plan Sponsor"
+            : currentStepData.benefitCategory;
 
         const visKey =
           currentStepData.benefitCategory === "Company / Plan Sponsor"
@@ -724,14 +766,27 @@ export function BenefitsStep1({
             ? { partnerLogo: currentStepData.companyLogo?.url || null }
             : {}),
           shortDescription: currentStepData.shortDescription || null,
+          // Landing page card content (Benefits at a Glance). The image is an asset,
+          // so it follows the same "only write once loaded" rule as the logo/header.
+          ...(assetsLoaded
+            ? {
+                landingCardImage: currentStepData.landingCardImage?.url || null,
+              }
+            : {}),
+          landingCardBody: currentStepData.landingCardBody || null,
           insurancePlanId: currentStepData.insurancePlanId || "",
           insuranceLoginUrl: currentStepData.insuranceLoginUrl || "",
-          insuranceBackgroundImage: currentStepData.insuranceBackgroundImage || "",
-          insuranceContainerBlockOpacity: currentStepData.insuranceContainerBlockOpacity ?? 0.8,
+          insuranceBackgroundImage:
+            currentStepData.insuranceBackgroundImage || "",
+          insuranceContainerBlockOpacity:
+            currentStepData.insuranceContainerBlockOpacity ?? 0.8,
           // Header background image (uploaded in the Branding section) — the
           // Benefit row stores this as `backgroundImage` (legacy: `image`).
           ...(assetsLoaded
-            ? { backgroundImage: currentStepData.brandImages?.header?.url || null }
+            ? {
+                backgroundImage:
+                  currentStepData.brandImages?.header?.url || null,
+              }
             : {}),
           // Plan video (uploaded in Step 2 Editor Panel). Must be included
           // so the dual-write doesn't wipe the video from employeePortalPreview.
@@ -764,11 +819,16 @@ export function BenefitsStep1({
         // opening this page would re-create Benefit rows the user deleted from the
         // database. New rows are created only by explicit actions (publish/hide
         // toggle, FAQ save, editor save).
-        await fetch(`/api/clients/${currentStepData.planId}/benefits/${encodeURIComponent(category)}?updateOnly=1`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
+        await fetch(
+          `/api/clients/${currentStepData.planId}/benefits/${encodeURIComponent(
+            category,
+          )}?updateOnly=1`,
+          {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          },
+        );
         // This PUT writes the Benefit row and dual-writes
         // `employeePortalPreview.benefits`, so both shared caches are stale from here.
         invalidateClientCache(currentStepData.planId);
@@ -779,7 +839,11 @@ export function BenefitsStep1({
     }, 500);
 
     return () => clearTimeout(timer);
-  }, [getMergedClientData, currentStepData.planId, currentStepData.benefitCategory]);
+  }, [
+    getMergedClientData,
+    currentStepData.planId,
+    currentStepData.benefitCategory,
+  ]);
 
   // Derive user's primary service categories from the shared /api/profile SWR fetch
   // (deduped — no separate manual fetch that would duplicate the request).
@@ -813,9 +877,7 @@ export function BenefitsStep1({
               ? (result as { error: string }).error
               : `Could not load plans (${response.status})`;
           toast.error(
-            msg === "Unauthorized"
-              ? "Please sign in to load your plans."
-              : msg,
+            msg === "Unauthorized" ? "Please sign in to load your plans." : msg,
           );
           setPlans([]);
           return;
@@ -865,6 +927,8 @@ export function BenefitsStep1({
       benefitTitle: "",
       shortDescription: "",
       companyLogo: null,
+      landingCardImage: null,
+      landingCardBody: "",
       brandImages: {
         header: null,
         thumbnail: null,
@@ -920,11 +984,13 @@ export function BenefitsStep1({
           }
           // Deduplicate by (id || name) + category to allow the same document in different categories
           // while preventing duplicates within the same category.
-          const dedupedInitialDocs = convertedDocs.filter((doc: any, i: number, arr: any[]) =>
-            arr.findIndex((d: any) =>
-              (d.id || d.name) === (doc.id || doc.name) &&
-              (d.category || '') === (doc.category || '')
-            ) === i
+          const dedupedInitialDocs = convertedDocs.filter(
+            (doc: any, i: number, arr: any[]) =>
+              arr.findIndex(
+                (d: any) =>
+                  (d.id || d.name) === (doc.id || doc.name) &&
+                  (d.category || "") === (doc.category || ""),
+              ) === i,
           );
           saveStepData(4, { documents: dedupedInitialDocs });
 
@@ -933,8 +999,7 @@ export function BenefitsStep1({
             (fullPlan.secondaryBannerImg
               ? {
                   url: fullPlan.secondaryBannerImg,
-                  fileName:
-                    fullPlan.secondaryBannerImgName || "background.png",
+                  fileName: fullPlan.secondaryBannerImgName || "background.png",
                   fileSize: 0,
                   width: 0,
                   height: 0,
@@ -981,13 +1046,9 @@ export function BenefitsStep1({
               latest.insuranceBackgroundImage ||
               "",
             insurancePlanId:
-              fullPlanEpp.insurancePlanId ||
-              latest.insurancePlanId ||
-              "",
+              fullPlanEpp.insurancePlanId || latest.insurancePlanId || "",
             insuranceLoginUrl:
-              fullPlanEpp.insuranceLoginUrl ||
-              latest.insuranceLoginUrl ||
-              "",
+              fullPlanEpp.insuranceLoginUrl || latest.insuranceLoginUrl || "",
             insuranceContainerBlockOpacity:
               fullPlanEpp.insuranceContainerBlockOpacity ??
               latest.insuranceContainerBlockOpacity ??
@@ -1003,10 +1064,9 @@ export function BenefitsStep1({
               // (set by the pre-fill effect from the Benefit row / User profile)
               // wins — never override it with the plan-level background, which
               // otherwise resurfaced a stale image across all categories.
-              header:
-                latest.benefitCategory
-                  ? latest.brandImages?.header ?? null
-                  : planBackground ?? latest.brandImages?.header ?? null,
+              header: latest.benefitCategory
+                ? latest.brandImages?.header ?? null
+                : planBackground ?? latest.brandImages?.header ?? null,
             },
           });
         } else {
@@ -1065,7 +1125,6 @@ export function BenefitsStep1({
     return v === "custom" || v === "company / plan sponsor";
   };
 
-
   /** Resolve the client/plan company name (Company / Plan Sponsor name) from the
    *  selected plan, falling back to the plans list by planId so it populates even
    *  before the full plan detail has finished loading. */
@@ -1103,8 +1162,7 @@ export function BenefitsStep1({
     if (!name) return `${prefix}Your Benefits Hub!`;
     // Leave room for the trailing "!" so the headline stays ≤ 35 chars.
     const maxNameLen = 35 - prefix.length - 1;
-    const trimmed =
-      name.length > maxNameLen ? name.slice(0, maxNameLen) : name;
+    const trimmed = name.length > maxNameLen ? name.slice(0, maxNameLen) : name;
     return `${prefix}${trimmed}!`;
   };
 
@@ -1150,7 +1208,9 @@ export function BenefitsStep1({
   const getCustomCategoryNameValue = (): string => {
     const raw = currentStepData.benefitTitle ?? "";
     if (customTitleEditedKeysRef.current.has(customTitleEditKey())) return raw;
-    return isNonTitleCustomValue(raw, currentStepData.benefitCategory) ? "" : raw;
+    return isNonTitleCustomValue(raw, currentStepData.benefitCategory)
+      ? ""
+      : raw;
   };
 
   /** Default Intro Message: a personalized welcome that fills in the
@@ -1273,7 +1333,8 @@ export function BenefitsStep1({
     // contacts/FAQs so the wizard doesn't show the last benefit's data.
     const apiCat = cat === "Custom" ? "Company / Plan Sponsor" : cat;
     const benefit =
-      currentStepData.categoryBenefitByApi[normalizeApiCategory(apiCat)] ?? null;
+      currentStepData.categoryBenefitByApi[normalizeApiCategory(apiCat)] ??
+      null;
 
     if (!benefit) {
       const cleared: BenefitsStep3Data = {
@@ -1323,7 +1384,12 @@ export function BenefitsStep1({
       };
     }
     saveStepData(3, next);
-  }, [currentStepData.planId, currentStepData.benefitCategory, currentStepData.categoryBenefitByApi, saveStepData]);
+  }, [
+    currentStepData.planId,
+    currentStepData.benefitCategory,
+    currentStepData.categoryBenefitByApi,
+    saveStepData,
+  ]);
 
   // Load persisted Benefit Logo (partnerLogo), Benefit Description (shortDescription) and header
   // background for the current category into step1 when entering the flow, so previously saved
@@ -1347,7 +1413,8 @@ export function BenefitsStep1({
 
     const apiCat = cat === "Custom" ? "Company / Plan Sponsor" : cat;
     const benefit =
-      currentStepData.categoryBenefitByApi[normalizeApiCategory(apiCat)] ?? null;
+      currentStepData.categoryBenefitByApi[normalizeApiCategory(apiCat)] ??
+      null;
 
     // The row's own assets, and whether the draft is missing either of them. Adopting
     // the row's value when the draft holds none is always safe — there is nothing to
@@ -1362,9 +1429,24 @@ export function BenefitsStep1({
     const healingRowAssets =
       (!draftHasLogo && !!rowLogo) || (!draftHasHeader && !!rowHeader);
 
+    // Landing page card content lives in its own columns. Adopt the row's values
+    // when the draft is missing them, including drafts marked as "loaded" before
+    // these columns existed.
+    const rowLandingCardImage = benefit?.landingCardImage || "";
+    const rowLandingCardBody = benefit?.landingCardBody || "";
+    const draftHasLandingCardImage = !!currentStepData.landingCardImage?.url;
+    const draftHasLandingCardBody = !!(
+      currentStepData.landingCardBody || ""
+    ).trim();
+    const healingLandingCard =
+      (!draftHasLandingCardImage && !!rowLandingCardImage) ||
+      (!draftHasLandingCardBody && !!rowLandingCardBody);
+
     // User-profile defaults for the advisor's primary service categories.
     const profile = (profileData as any) || {};
-    const primaryCats: string[] = Array.isArray(profile.primaryServiceCategories)
+    const primaryCats: string[] = Array.isArray(
+      profile.primaryServiceCategories,
+    )
       ? profile.primaryServiceCategories
       : [];
     // "Other" in primaryServiceCategories maps to the "Company / Plan Sponsor" benefit hub.
@@ -1380,17 +1462,17 @@ export function BenefitsStep1({
     const wizardBranding = profile.wizardSessions?.[0]?.branding || {};
     const wizardUserSetup = profile.wizardSessions?.[0]?.userSetup || {};
     const userLogo = isPrimary
-      ? (profile.advisorLogoUrl ||
-          profile.advisorLogo ||
-          wizardBranding.logo ||
-          null)
+      ? profile.advisorLogoUrl ||
+        profile.advisorLogo ||
+        wizardBranding.logo ||
+        null
       : null;
     const userHeader = isPrimary
-      ? (profile.backgroundImage ||
-          profile.advisorBackgroundImage ||
-          wizardBranding.backgroundImage ||
-          wizardUserSetup.backgroundImage ||
-          null)
+      ? profile.backgroundImage ||
+        profile.advisorBackgroundImage ||
+        wizardBranding.backgroundImage ||
+        wizardUserSetup.backgroundImage ||
+        null
       : null;
 
     // A changed Organization Logo (Settings → Branding) is authoritative for this
@@ -1428,9 +1510,15 @@ export function BenefitsStep1({
       !orgLogoChanged &&
       !logoEditedForCategory &&
       (!draftLogoUrl || draftLogoIsAutoOrgLogo);
-    const healingContactLogo = contactLogoApplies && draftLogoUrl !== contactLogo;
+    const healingContactLogo =
+      contactLogoApplies && draftLogoUrl !== contactLogo;
 
-    if (loadedCats.includes(cat) && !healingRowAssets && !healingContactLogo) {
+    if (
+      loadedCats.includes(cat) &&
+      !healingRowAssets &&
+      !healingContactLogo &&
+      !healingLandingCard
+    ) {
       return;
     }
     // Benefit-table row wins; the category's Key Contact logo comes next (the partner the
@@ -1441,7 +1529,7 @@ export function BenefitsStep1({
       : benefit?.partnerLogo || contactLogo || userLogo;
     const savedDescription = benefit?.shortDescription || "";
     const savedHeaderImage =
-      (benefit?.backgroundImage || benefit?.image) || userHeader;
+      benefit?.backgroundImage || benefit?.image || userHeader;
     // A logo the advisor set or cleared for THIS category in this session wins over
     // both sources above. Without this the pre-fill re-derived `companyLogo` from the
     // advisor's profile logo (or nulled it for a category with no Benefit row), so a
@@ -1478,6 +1566,8 @@ export function BenefitsStep1({
         ? ""
         : getDefaultIntroHeadline(cat);
       next.shortDescription = getDefaultIntroMessage();
+      next.landingCardImage = null;
+      next.landingCardBody = "";
       // NOTE: contactId (Key Contact selection) is deliberately NOT cleared here — it is
       // managed by the contact-prefill effect / prefillContact, so clearing it on a different
       // render would wipe the pre-selected Primary Contact for every category.
@@ -1504,6 +1594,20 @@ export function BenefitsStep1({
 
     if (savedDescription) {
       next.shortDescription = savedDescription;
+    }
+    if (rowLandingCardImage) {
+      next.landingCardImage = {
+        url: rowLandingCardImage,
+        fileName: "landing-card.png",
+        fileSize: 0,
+        width: 0,
+        height: 0,
+        hasTransparency: false,
+        warnings: [],
+      } as CompanyLogoData;
+    }
+    if (rowLandingCardBody) {
+      next.landingCardBody = rowLandingCardBody;
     }
     if (savedLogo && (!logoEditedLocally || applyOrgLogo)) {
       next.companyLogo = {
@@ -1632,7 +1736,9 @@ export function BenefitsStep1({
       // cleared it a few seconds later. Leave it blank for the hub; the advisor names it.
       benefitTitle:
         baseData.benefitTitle ||
-        (isCustomHubCategory(category) ? "" : getDefaultIntroHeadline(category)),
+        (isCustomHubCategory(category)
+          ? ""
+          : getDefaultIntroHeadline(category)),
       contactId: contact.id,
     };
   };
@@ -1833,7 +1939,8 @@ export function BenefitsStep1({
     // stale legacy employeePortalPreview JSON, which survives Benefit-row deletion.
     const dbCat = catId === "Custom" ? "Company / Plan Sponsor" : catId;
     const existingBenefit =
-      currentStepData.categoryBenefitByApi?.[normalizeApiCategory(dbCat)] ?? null;
+      currentStepData.categoryBenefitByApi?.[normalizeApiCategory(dbCat)] ??
+      null;
 
     // For logo, prioritize local edits if currently editing
     const isCurrentlyBeingEdited = currentStepData.benefitCategory === catId;
@@ -1913,7 +2020,11 @@ export function BenefitsStep1({
       label: CATEGORY_CARDS.find((c) => c.id === cat)?.label ?? cat,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, currentStepData.categoryBenefitByApi, currentStepData.benefitCategory]);
+  }, [
+    isEditMode,
+    currentStepData.categoryBenefitByApi,
+    currentStepData.benefitCategory,
+  ]);
 
   /**
    * Open the shared contact editor (see `BenefitContactDialog`) for `category`.
@@ -2046,11 +2157,13 @@ export function BenefitsStep1({
         // Always update step 4 to ensure we clear documents if the new plan has none
         // Deduplicate by (id || name) + category to allow the same document in different categories
         // while preventing duplicates within the same category.
-        const dedupedDocs = convertedDocs.filter((doc: any, i: number, arr: any[]) =>
-          arr.findIndex((d: any) =>
-            (d.id || d.name) === (doc.id || doc.name) &&
-            (d.category || '') === (doc.category || '')
-          ) === i
+        const dedupedDocs = convertedDocs.filter(
+          (doc: any, i: number, arr: any[]) =>
+            arr.findIndex(
+              (d: any) =>
+                (d.id || d.name) === (doc.id || doc.name) &&
+                (d.category || "") === (doc.category || ""),
+            ) === i,
         );
         saveStepData(4, { documents: dedupedDocs });
 
@@ -2080,13 +2193,23 @@ export function BenefitsStep1({
         const findVisibility = (label: string): boolean | undefined => {
           const target = label.toLowerCase().trim().replace(/\s+/g, " ");
           const found = existingBenefits.find((b: any) => {
-            const bCat = (b.category || "").toLowerCase().trim().replace(/\s+/g, " ");
+            const bCat = (b.category || "")
+              .toLowerCase()
+              .trim()
+              .replace(/\s+/g, " ");
             return bCat === target;
           });
           return found !== undefined ? found.isEnabled !== false : undefined;
         };
 
-        (["Retirement", "Group Health", "Group Life", "Company / Plan Sponsor"] as const).forEach((cat) => {
+        (
+          [
+            "Retirement",
+            "Group Health",
+            "Group Life",
+            "Company / Plan Sponsor",
+          ] as const
+        ).forEach((cat) => {
           const foundVal = findVisibility(cat);
           if (foundVal !== undefined) {
             visibilityFromPlan[cat] = foundVal;
@@ -2107,13 +2230,15 @@ export function BenefitsStep1({
         if (customFound !== undefined) {
           visibilityFromPlan["Custom"] = customFound;
         } else {
-          visibilityFromPlan["Custom"] = visibilityFromPlan["Company / Plan Sponsor"] ?? false;
+          visibilityFromPlan["Custom"] =
+            visibilityFromPlan["Company / Plan Sponsor"] ?? false;
         }
 
         // Client-level categoryPortalVisibility is the authoritative "hidden" signal the
         // portal uses. Respect it so newly created plans (which default to all-hidden) reflect
         // as Hidden here even if their benefit rows don't carry isEnabled=false yet.
-        const planCategoryVisibility = (fullPlan as any)?.categoryPortalVisibility;
+        const planCategoryVisibility = (fullPlan as any)
+          ?.categoryPortalVisibility;
         if (
           planCategoryVisibility &&
           typeof planCategoryVisibility === "object" &&
@@ -2125,8 +2250,12 @@ export function BenefitsStep1({
             "Group Life": "Group Life",
             Other: "Custom",
           };
-          for (const [portalKey, step1Label] of Object.entries(portalToStep1Label)) {
-            const v = (planCategoryVisibility as Record<string, boolean>)[portalKey];
+          for (const [portalKey, step1Label] of Object.entries(
+            portalToStep1Label,
+          )) {
+            const v = (planCategoryVisibility as Record<string, boolean>)[
+              portalKey
+            ];
             if (v !== undefined) {
               visibilityFromPlan[step1Label] = v;
             }
@@ -2253,6 +2382,8 @@ export function BenefitsStep1({
       benefitTitle: "",
       shortDescription: "",
       companyLogo: null,
+      landingCardImage: null,
+      landingCardBody: "",
       benefitVisibility: {},
       brandImages: {
         header: null,
@@ -2266,37 +2397,44 @@ export function BenefitsStep1({
 
   const handleCategoryChange = (benefitCategory: string) => {
     // Normalize "Custom" → "Company / Plan Sponsor" so it matches DB and portal
-    const normalizedCategory = benefitCategory === "Custom" ? "Company / Plan Sponsor" : benefitCategory;
+    const normalizedCategory =
+      benefitCategory === "Custom" ? "Company / Plan Sponsor" : benefitCategory;
     // Pre-fill from the `Benefit` table (source of truth), NOT the stale legacy
     // employeePortalPreview JSON (which survives Benefit-row deletion).
     const existingBenefit =
-      currentStepData.categoryBenefitByApi?.[normalizeApiCategory(normalizedCategory)] ?? null;
+      currentStepData.categoryBenefitByApi?.[
+        normalizeApiCategory(normalizedCategory)
+      ] ?? null;
 
     // User-profile branding fallback for primary service categories (row still wins).
     const profile = (profileData as any) || {};
-    const primaryCats: string[] = Array.isArray(profile.primaryServiceCategories)
+    const primaryCats: string[] = Array.isArray(
+      profile.primaryServiceCategories,
+    )
       ? profile.primaryServiceCategories
       : [];
     const isPrimary = primaryCats.some(
       (pc) =>
-        normalizeApiCategory(String(pc)) === normalizeApiCategory(normalizedCategory) ||
+        normalizeApiCategory(String(pc)) ===
+          normalizeApiCategory(normalizedCategory) ||
         (normalizeApiCategory(String(pc)) === "other" &&
-          normalizeApiCategory(normalizedCategory) === "company / plan sponsor"),
+          normalizeApiCategory(normalizedCategory) ===
+            "company / plan sponsor"),
     );
     const wizardBranding = profile.wizardSessions?.[0]?.branding || {};
     const wizardUserSetup = profile.wizardSessions?.[0]?.userSetup || {};
     const userLogo = isPrimary
-      ? (profile.advisorLogoUrl ||
-          profile.advisorLogo ||
-          wizardBranding.logo ||
-          null)
+      ? profile.advisorLogoUrl ||
+        profile.advisorLogo ||
+        wizardBranding.logo ||
+        null
       : null;
     const userHeader = isPrimary
-      ? (profile.backgroundImage ||
-          profile.advisorBackgroundImage ||
-          wizardBranding.backgroundImage ||
-          wizardUserSetup.backgroundImage ||
-          null)
+      ? profile.backgroundImage ||
+        profile.advisorBackgroundImage ||
+        wizardBranding.backgroundImage ||
+        wizardUserSetup.backgroundImage ||
+        null
       : null;
 
     // A changed Organization Logo (Settings → Branding) replaces this benefit's logo
@@ -2326,7 +2464,20 @@ export function BenefitsStep1({
         (isCustomHubCategory(normalizedCategory)
           ? ""
           : getDefaultIntroHeadline(benefitCategory)),
-      shortDescription: existingBenefit?.shortDescription || getDefaultIntroMessage(),
+      shortDescription:
+        existingBenefit?.shortDescription || getDefaultIntroMessage(),
+      landingCardImage: existingBenefit?.landingCardImage
+        ? ({
+            url: existingBenefit.landingCardImage,
+            fileName: "landing-card.png",
+            fileSize: 0,
+            width: 0,
+            height: 0,
+            hasTransparency: false,
+            warnings: [],
+          } as CompanyLogoData)
+        : null,
+      landingCardBody: existingBenefit?.landingCardBody || "",
       planVideo: existingBenefit?.planVideo || undefined,
       planVideoFileName: existingBenefit?.planVideoFileName || undefined,
       planVideoRemoved: false,
@@ -2359,18 +2510,24 @@ export function BenefitsStep1({
           } as CompanyLogoData)
         : null,
       brandImages: {
-        header: (existingBenefit?.backgroundImage || existingBenefit?.image || userHeader)
-          ? ({
-              url: existingBenefit?.backgroundImage || existingBenefit?.image || userHeader,
-              fileName: "background.png",
-              fileSize: 0,
-              width: 0,
-              height: 0,
-              recommendedSize: "1920 px—1080 px",
-              status: "ok" as const,
-              warnings: [],
-            } as BrandImageData)
-          : null,
+        header:
+          existingBenefit?.backgroundImage ||
+          existingBenefit?.image ||
+          userHeader
+            ? ({
+                url:
+                  existingBenefit?.backgroundImage ||
+                  existingBenefit?.image ||
+                  userHeader,
+                fileName: "background.png",
+                fileSize: 0,
+                width: 0,
+                height: 0,
+                recommendedSize: "1920 px—1080 px",
+                status: "ok" as const,
+                warnings: [],
+              } as BrandImageData)
+            : null,
         thumbnail: null,
         secondaryBanner: null,
         favicon: null,
@@ -2379,7 +2536,8 @@ export function BenefitsStep1({
       insurancePlanId: existingBenefit?.insurancePlanId || "",
       insuranceLoginUrl: existingBenefit?.insuranceLoginUrl || "",
       insuranceBackgroundImage: existingBenefit?.insuranceBackgroundImage || "",
-      insuranceContainerBlockOpacity: existingBenefit?.insuranceContainerBlockOpacity ?? 0.8,
+      insuranceContainerBlockOpacity:
+        existingBenefit?.insuranceContainerBlockOpacity ?? 0.8,
       journeyHeader: existingBenefit?.journeyHeader || "",
       journeySubtitle: existingBenefit?.journeySubtitle || "",
       journeyBodyText: existingBenefit?.journeyBodyText || "",
@@ -2389,12 +2547,17 @@ export function BenefitsStep1({
       customSignatureCompany: existingBenefit?.customSignatureCompany || "",
       customClosingBold: existingBenefit?.customClosingBold ?? true,
       customClosingItalic: existingBenefit?.customClosingItalic ?? false,
-      customSignatureNameBold: existingBenefit?.customSignatureNameBold ?? false,
-      customSignatureNameItalic: existingBenefit?.customSignatureNameItalic ?? false,
-      customSignatureCompanyBold: existingBenefit?.customSignatureCompanyBold ?? false,
-      customSignatureCompanyItalic: existingBenefit?.customSignatureCompanyItalic ?? true,
+      customSignatureNameBold:
+        existingBenefit?.customSignatureNameBold ?? false,
+      customSignatureNameItalic:
+        existingBenefit?.customSignatureNameItalic ?? false,
+      customSignatureCompanyBold:
+        existingBenefit?.customSignatureCompanyBold ?? false,
+      customSignatureCompanyItalic:
+        existingBenefit?.customSignatureCompanyItalic ?? true,
       heroBackgroundOpacity: existingBenefit?.heroBackgroundOpacity ?? 1.0,
-      heroContainerBlockOpacity: existingBenefit?.heroContainerBlockOpacity ?? 0.67,
+      heroContainerBlockOpacity:
+        existingBenefit?.heroContainerBlockOpacity ?? 0.67,
       heroContainerInverted: existingBenefit?.heroContainerInverted ?? false,
       heroBackgroundInverted: existingBenefit?.heroBackgroundInverted ?? false,
       heroUseGradient: existingBenefit?.heroUseGradient ?? false,
@@ -2660,129 +2823,214 @@ export function BenefitsStep1({
     );
   }
 
+  // Per-category defaults for the Landing Page Card's image picker, mirroring
+  // the gallery the Branding section offers for the same benefit category.
+  const landingGalleryKey = toCategoryGalleryKey(
+    currentStepData.benefitCategory,
+  );
+  const landingGalleryImages = landingGalleryKey
+    ? BENEFIT_CATEGORY_GALLERY[landingGalleryKey] || undefined
+    : undefined;
+
+  // The card falls back to the category default when the field is empty, so the
+  // character counter reflects the copy the card will actually render — not the
+  // empty draft.
+  const landingCardBodyEffective =
+    (currentStepData.landingCardBody || "").trim() ||
+    getDefaultLandingCardBody(currentStepData.benefitCategory);
+
+  /**
+   * Hand a picked default photo to the cropper at its ORIGINAL resolution.
+   * Nothing is applied here: the advisor frames the card's 3:2 crop first, and
+   * `handleLandingCropSave` persists the result.
+   */
+  const handleLandingDefaultSelect = async (url: string) => {
+    let dataUrl = url;
+    let width = 0;
+    let height = 0;
+    try {
+      const exported = await exportFullResolutionImage(url);
+      dataUrl = exported.dataUrl;
+      width = exported.width;
+      height = exported.height;
+    } catch (error) {
+      console.error("Failed to load default landing card image:", error);
+    }
+
+    const warnings: string[] = [];
+    if (
+      width > 0 &&
+      height > 0 &&
+      (width < LANDING_CARD_IMAGE_WIDTH || height < LANDING_CARD_IMAGE_HEIGHT)
+    ) {
+      warnings.push(
+        `Below recommended size (${LANDING_CARD_IMAGE_WIDTH}×${LANDING_CARD_IMAGE_HEIGHT}). May appear blurry.`,
+      );
+    }
+
+    setLandingPendingImage({
+      url: dataUrl,
+      originalUrl: dataUrl,
+      fileName: "landing-card.jpg",
+      fileSize: 0,
+      width,
+      height,
+      recommendedSize: `${LANDING_CARD_IMAGE_WIDTH}×${LANDING_CARD_IMAGE_HEIGHT}`,
+      status: warnings.length > 0 ? "warning" : "ok",
+      warnings,
+    });
+    setLandingGalleryOpen(false);
+  };
+
+  /** Persist the card image the cropper exported. */
+  const handleLandingCropSave = (croppedUrl: string, fileName: string) => {
+    saveStepData(1, {
+      ...currentStepData,
+      landingCardImage: {
+        url: croppedUrl,
+        fileName,
+        fileSize: 0,
+        width: LANDING_CARD_IMAGE_WIDTH,
+        height: LANDING_CARD_IMAGE_HEIGHT,
+        hasTransparency: false,
+        warnings: [],
+      } as CompanyLogoData,
+    });
+    setLandingPendingImage(null);
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full mx-auto pb-20">
       {/* 1. Plan & Benefit Selection */}
       {!isEditMode && (
-      <Card className="border border-gray-200 shadow-sm bg-card dark:bg-gray-800 dark:border-gray-700">
-        <CardHeader className="pb-4">
-          <div className="flex items-center justify-between gap-4">
-            {/* Banner — the plan + category are chosen on Browse Benefits and
+        <Card className="border border-gray-200 shadow-sm bg-card dark:bg-gray-800 dark:border-gray-700">
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between gap-4">
+              {/* Banner — the plan + category are chosen on Browse Benefits and
                 arrive via `?planId&category`, so the wizard states the target
                 instead of offering plan/category pickers. */}
-            <div className="min-w-0">
-              <CardTitle className="text-lg text-gray-900 font-bold dark:text-gray-100 truncate">
-                {resolvedPlanId
-                  ? `Creating a new benefit for ${benefitBannerTarget}`
-                  : "No plan selected"}
-              </CardTitle>
-              <CardDescription className="text-sm text-gray-600 text-muted-foreground">
-                {resolvedPlanId
-                  ? "The plan and benefit category come from the Benefits page — continue below to configure this benefit."
-                  : "Open Browse Benefits and use Add on a plan row to create a benefit for it."}
-              </CardDescription>
-            </div>
-            {resolvedPlanId ? (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const plan = plans.find((p: any) => p.id === resolvedPlanId);
-                  const slug = (plan as any)?.slug;
-                  const resolvedSlug = slug || resolvedPlanId;
-                  // Create Benefits: the plan root, with the Comments rail.
-                  const url = withCommentsRail(
-                    getBenefitsHubOpenPortalUrl(resolvedSlug),
-                  );
-                  window.open(url, "_blank");
-                }}
-                className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"
-              >
-                <ExternalLink className="h-4 w-4" />
-                Open Portal
-              </Button>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => router.push("/benefits")}
-                className="gap-1.5 shrink-0"
-              >
-                Choose a plan
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-5">
-
-          {/* Benefit Category Cards */}
-          {resolvedPlanId && (
-            <div
-              className={cn(
-                "space-y-3 animate-in fade-in duration-300 rounded-xl",
-                isFieldInvalid("benefitCategory") &&
-                  "ring-2 ring-red-500 ring-offset-2 ring-offset-background",
+              <div className="min-w-0">
+                <CardTitle className="text-lg text-gray-900 font-bold dark:text-gray-100 truncate">
+                  {resolvedPlanId
+                    ? `Creating a new benefit for ${benefitBannerTarget}`
+                    : "No plan selected"}
+                </CardTitle>
+                <CardDescription className="text-sm text-gray-600 text-muted-foreground">
+                  {resolvedPlanId
+                    ? "The plan and benefit category come from the Benefits page — continue below to configure this benefit."
+                    : "Open Browse Benefits and use Add on a plan row to create a benefit for it."}
+                </CardDescription>
+              </div>
+              {resolvedPlanId ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const plan = plans.find(
+                      (p: any) => p.id === resolvedPlanId,
+                    );
+                    const slug = (plan as any)?.slug;
+                    const resolvedSlug = slug || resolvedPlanId;
+                    // Create Benefits: the plan root, with the Comments rail.
+                    const url = withCommentsRail(
+                      getBenefitsHubOpenPortalUrl(resolvedSlug),
+                    );
+                    window.open(url, "_blank");
+                  }}
+                  className="gap-1.5 shrink-0 bg-accent-blue text-white hover:bg-accent-blue/90"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Open Portal
+                </Button>
+              ) : (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => router.push("/benefits")}
+                  className="gap-1.5 shrink-0"
+                >
+                  Choose a plan
+                </Button>
               )}
-              data-field="benefitCategory"
-            >
-              {/* Hidden when the category is pinned by the deep link — the Browse
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-5">
+            {/* Benefit Category Cards */}
+            {resolvedPlanId && (
+              <div
+                className={cn(
+                  "space-y-3 animate-in fade-in duration-300 rounded-xl",
+                  isFieldInvalid("benefitCategory") &&
+                    "ring-2 ring-red-500 ring-offset-2 ring-offset-background",
+                )}
+                data-field="benefitCategory"
+              >
+                {/* Hidden when the category is pinned by the deep link — the Browse
                   Benefits per-row "+ Add" passes `?planId&category`, so re-picking
                   it here would be redundant. Entry points that arrive with only a
                   plan keep the picker so a category can still be chosen. */}
-              {!hideCategoryPicker && (
-                <>
-                  <Label className="text-sm font-semibold text-gray-700 dark:text-gray-100">
-                    Benefit Category <span className="text-red-500">*</span>
-                  </Label>
+                {!hideCategoryPicker && (
+                  <>
+                    <Label className="text-sm font-semibold text-gray-700 dark:text-gray-100">
+                      Benefit Category <span className="text-red-500">*</span>
+                    </Label>
 
-                  {planLoading ? (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                      {[1, 2, 3, 4].map((i) => (
-                        <div key={i} className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600">
-                          <Skeleton className="size-12 rounded-full" />
-                          <Skeleton className="h-4 w-20" />
-                          <Skeleton className="h-4 w-16 rounded-full" />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                      {CATEGORY_CARDS.map((cat) => {
-                        const status = getCategoryStatus(cat.id);
-                        const exists = !!status?.exists;
-                        const complete = !!status?.isComplete;
-                        const state: BenefitCategoryCardState = !exists
-                          ? "not-created"
-                          : complete
+                    {planLoading ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {[1, 2, 3, 4].map((i) => (
+                          <div
+                            key={i}
+                            className="flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600"
+                          >
+                            <Skeleton className="size-12 rounded-full" />
+                            <Skeleton className="h-4 w-20" />
+                            <Skeleton className="h-4 w-16 rounded-full" />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                        {CATEGORY_CARDS.map((cat) => {
+                          const status = getCategoryStatus(cat.id);
+                          const exists = !!status?.exists;
+                          const complete = !!status?.isComplete;
+                          const state: BenefitCategoryCardState = !exists
+                            ? "not-created"
+                            : complete
                             ? status!.isEnabled
                               ? "published"
                               : "hidden"
                             : "draft";
-                        // "Custom" is stored (and deep-linked) as "Company / Plan Sponsor".
-                        const dbCategory =
-                          cat.id === "Custom" ? "Company / Plan Sponsor" : cat.id;
+                          // "Custom" is stored (and deep-linked) as "Company / Plan Sponsor".
+                          const dbCategory =
+                            cat.id === "Custom"
+                              ? "Company / Plan Sponsor"
+                              : cat.id;
 
-                        const editAction = () => openEditBenefit(dbCategory);
-                        const wizardAction = () => handleCategoryChange(cat.id);
+                          const editAction = () => openEditBenefit(dbCategory);
+                          const wizardAction = () =>
+                            handleCategoryChange(cat.id);
 
-                        return (
-                          <BenefitCategoryCard
-                            key={cat.id}
-                            label={cat.label}
-                            icon={cat.icon}
-                            state={state}
-                            isSelected={isCategoryActive(cat.id)}
-                            missingCount={status?.missing?.length ?? 0}
-                            missingSections={status?.pendingSectionLabels ?? []}
-                            logo={status?.logo ?? null}
-                            primary={
-                              !exists
-                                ? {
-                                    label: "Create benefit",
-                                    icon: "create",
-                                    onClick: wizardAction,
-                                  }
-                                : complete
+                          return (
+                            <BenefitCategoryCard
+                              key={cat.id}
+                              label={cat.label}
+                              icon={cat.icon}
+                              state={state}
+                              isSelected={isCategoryActive(cat.id)}
+                              missingCount={status?.missing?.length ?? 0}
+                              missingSections={
+                                status?.pendingSectionLabels ?? []
+                              }
+                              logo={status?.logo ?? null}
+                              primary={
+                                !exists
+                                  ? {
+                                      label: "Create benefit",
+                                      icon: "create",
+                                      onClick: wizardAction,
+                                    }
+                                  : complete
                                   ? {
                                       label: "Edit benefit",
                                       icon: "edit",
@@ -2793,11 +3041,11 @@ export function BenefitsStep1({
                                       icon: "sparkles",
                                       onClick: wizardAction,
                                     }
-                            }
-                            secondary={
-                              !exists
-                                ? undefined
-                                : complete
+                              }
+                              secondary={
+                                !exists
+                                  ? undefined
+                                  : complete
                                   ? {
                                       label: "Overwrite in wizard",
                                       onClick: () =>
@@ -2811,73 +3059,76 @@ export function BenefitsStep1({
                                       icon: "edit",
                                       onClick: editAction,
                                     }
-                            }
-                          />
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
-              )}
-
-              {/* Custom Category Title Input — the store keeps Custom as
-                  "Company / Plan Sponsor", so accept both keys here. */}
-              {(currentStepData.benefitCategory === "Custom" ||
-                currentStepData.benefitCategory ===
-                  "Company / Plan Sponsor") && (
-                <div className="space-y-2 pt-2 animate-in slide-in-from-top-2 duration-300">
-                  <Label className="text-sm font-semibold text-gray-700 dark:text-gray-100">
-                    Custom Category Name <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    value={getCustomCategoryNameValue()}
-                    onChange={(e) => {
-                      // Lift the mask for this plan + category: from now on the field shows
-                      // exactly what the advisor typed. Without this the mask would fight
-                      // the input — typing "custom" is itself a masked value, so the field
-                      // would visibly erase the advisor's own text.
-                      customTitleEditedKeysRef.current.add(customTitleEditKey());
-                      saveStepData(1, {
-                        ...currentStepData,
-                        benefitTitle: e.target.value,
-                      });
-                    }}
-                    data-field="benefitTitle"
-                    destructive={isFieldInvalid("benefitTitle")}
-                    placeholder="e.g. Disability Insurance, Wellness Program, HSA..."
-                    // `Benefit.title` is the same column the Messaging Intro Headline caps at 35,
-                    // so the Custom hub's name carries the identical limit.
-                    maxLength={BENEFIT_TITLE_MAX_LENGTH}
-                    className={cn(
-                      "bg-white border-gray-200 focus-visible:ring-[#23919C] h-10 dark:bg-gray-700 dark:border-gray-600",
-                      isFieldInvalid("benefitTitle") &&
-                        "border-red-500 dark:border-red-500",
+                              }
+                            />
+                          );
+                        })}
+                      </div>
                     )}
-                  />
-                  <div className="flex justify-end">
-                    <span
+                  </>
+                )}
+
+                {/* Custom Category Title Input — the store keeps Custom as
+                  "Company / Plan Sponsor", so accept both keys here. */}
+                {(currentStepData.benefitCategory === "Custom" ||
+                  currentStepData.benefitCategory ===
+                    "Company / Plan Sponsor") && (
+                  <div className="space-y-2 pt-2 animate-in slide-in-from-top-2 duration-300">
+                    <Label className="text-sm font-semibold text-gray-700 dark:text-gray-100">
+                      Custom Category Name{" "}
+                      <span className="text-red-500">*</span>
+                    </Label>
+                    <Input
+                      value={getCustomCategoryNameValue()}
+                      onChange={(e) => {
+                        // Lift the mask for this plan + category: from now on the field shows
+                        // exactly what the advisor typed. Without this the mask would fight
+                        // the input — typing "custom" is itself a masked value, so the field
+                        // would visibly erase the advisor's own text.
+                        customTitleEditedKeysRef.current.add(
+                          customTitleEditKey(),
+                        );
+                        saveStepData(1, {
+                          ...currentStepData,
+                          benefitTitle: e.target.value,
+                        });
+                      }}
+                      data-field="benefitTitle"
+                      destructive={isFieldInvalid("benefitTitle")}
+                      placeholder="e.g. Disability Insurance, Wellness Program, HSA..."
+                      // `Benefit.title` is the same column the Messaging Intro Headline caps at 35,
+                      // so the Custom hub's name carries the identical limit.
+                      maxLength={BENEFIT_TITLE_MAX_LENGTH}
                       className={cn(
-                        "text-[10px] font-bold",
-                        getCustomCategoryNameValue().length >=
-                          BENEFIT_TITLE_MAX_LENGTH
-                          ? "text-red-500"
-                          : getCustomCategoryNameValue().length < 10
+                        "bg-white border-gray-200 focus-visible:ring-[#23919C] h-10 dark:bg-gray-700 dark:border-gray-600",
+                        isFieldInvalid("benefitTitle") &&
+                          "border-red-500 dark:border-red-500",
+                      )}
+                    />
+                    <div className="flex justify-end">
+                      <span
+                        className={cn(
+                          "text-[10px] font-bold",
+                          getCustomCategoryNameValue().length >=
+                            BENEFIT_TITLE_MAX_LENGTH
+                            ? "text-red-500"
+                            : getCustomCategoryNameValue().length < 10
                             ? "text-amber-500"
                             : "text-green-500",
-                      )}
-                    >
-                      {getCustomCategoryNameValue().length} /{" "}
-                      {BENEFIT_TITLE_MAX_LENGTH} characters
-                    </span>
+                        )}
+                      >
+                        {getCustomCategoryNameValue().length} /{" "}
+                        {BENEFIT_TITLE_MAX_LENGTH} characters
+                      </span>
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Portal Visibility moved to the Browse Benefits page (/benefits). */}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                {/* Portal Visibility moved to the Browse Benefits page (/benefits). */}
+              </div>
+            )}
+          </CardContent>
+        </Card>
       )}
       {resolvedPlanId && currentStepData.benefitCategory && (
         <div
@@ -2892,623 +3143,748 @@ export function BenefitsStep1({
           >
             {/* 1. Branding Section */}
             {showSection("branding") && (
-            <AccordionItem
-              value="branding"
-              className="border-none shadow-md overflow-hidden bg-card rounded-xl"
-            >
-              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
-                <div className="flex items-center justify-between w-full pr-4 text-left">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg transition-colors bg-teal-50 text-accent-blue dark:bg-teal-900/30 dark:text-teal-400">
-                      <ImageIcon className="w-5 h-5" />
+              <AccordionItem
+                value="branding"
+                className="border-none shadow-md overflow-hidden bg-card rounded-xl"
+              >
+                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
+                  <div className="flex items-center justify-between w-full pr-4 text-left">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg transition-colors bg-teal-50 text-accent-blue dark:bg-teal-900/30 dark:text-teal-400">
+                        <ImageIcon className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-foreground group-hover:text-[#23919C]">
+                          Branding
+                        </h3>
+                        <p className="text-xs text-muted-foreground font-normal">
+                          Provider logos and portal header assets
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-foreground group-hover:text-[#23919C]">
-                        Branding
-                      </h3>
-                      <p className="text-xs text-muted-foreground font-normal">
-                        Provider logos and portal header assets
-                      </p>
-                    </div>
-                  </div>
-                  {currentCompleteness?.sections.branding ? (
-                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold dark:bg-green-900/40 dark:text-green-400">
-                      COMPLETED
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="text-amber-600 border-amber-200 bg-amber-50 font-bold dark:text-amber-400 dark:border-amber-700 dark:bg-amber-900/30"
-                    >
-                      INCOMPLETE
-                    </Badge>
-                  )}
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="p-6 space-y-8">
-                <div className="flex flex-col gap-8">
-                  {/* Benefit Logo — wrapped in its own Card so it gets the same
-                      card background/panel as the Brand Images section below. */}
-                  <Card
-                    className={cn(
-                      "dark:bg-gray-800",
-                      isFieldInvalid("companyLogo") && "ring-2 ring-red-500",
+                    {currentCompleteness?.sections.branding ? (
+                      <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold dark:bg-green-900/40 dark:text-green-400">
+                        COMPLETED
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-amber-600 border-amber-200 bg-amber-50 font-bold dark:text-amber-400 dark:border-amber-700 dark:bg-amber-900/30"
+                      >
+                        INCOMPLETE
+                      </Badge>
                     )}
-                    data-field="companyLogo"
-                  >
-                    <CardContent className="pt-4">
-                      <BrandImageUpload
-                        slotKey="companyLogo"
-                        slot={{
-                          title: "Benefit Logo",
-                          description:
-                            "Upload a logo for this specific benefit provider.",
-                          recommendedSize: "900 px—900 px",
-                          accept: ".svg,.png,.jpg,.jpeg",
-                          required: true,
-                          previewAspectRatio: 1,
-                          previewLabel: "Logo preview",
-                          defaultPhoteButton: false,
-                        }}
-                        currentImage={convertLogoToBrandImage(
-                          currentStepData.companyLogo || null,
-                        )}
-                        onImageChange={handleLogoChange}
-                        onImageRemove={() =>
-                          saveStepData(1, {
-                            ...currentStepData,
-                            ...withLocalBenefitEdit({ companyLogo: null }),
-                          })
-                        }
-                        hideButtons={true}
-                        useUniversalModal={true}
-                        universalModalType="normalizer"
-                        // Benefit / provider logo — opt in explicitly.
-                        universalModalAllowBackgroundRemoval={true}
-                        universalModalNormalizeLogoForHeader={true}
-                        universalModalCustomConfig={{
-                          modalTitle: "Benefit Logo",
-                          modalDescription:
-                            "Upload a logo for this specific benefit provider.",
-                        }}
-                        maxFileSize={10}
-                      />
-                    </CardContent>
-                  </Card>
-                  <div className="space-y-4">
-                    {/* Shared BrandImagesSection — the same component the
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="p-6 space-y-8">
+                  <div className="flex flex-col gap-8">
+                    {/* Benefit Logo — wrapped in its own Card so it gets the same
+                      card background/panel as the Brand Images section below. */}
+                    <Card
+                      className={cn(
+                        "dark:bg-gray-800",
+                        isFieldInvalid("companyLogo") && "ring-2 ring-red-500",
+                      )}
+                      data-field="companyLogo"
+                    >
+                      <CardContent className="pt-4">
+                        <BrandImageUpload
+                          slotKey="companyLogo"
+                          slot={{
+                            title: "Benefit Logo",
+                            description:
+                              "Upload a logo for this specific benefit provider.",
+                            recommendedSize: "900 px—900 px",
+                            accept: ".svg,.png,.jpg,.jpeg",
+                            required: true,
+                            previewAspectRatio: 1,
+                            previewLabel: "Logo preview",
+                            defaultPhoteButton: false,
+                          }}
+                          currentImage={convertLogoToBrandImage(
+                            currentStepData.companyLogo || null,
+                          )}
+                          onImageChange={handleLogoChange}
+                          onImageRemove={() =>
+                            saveStepData(1, {
+                              ...currentStepData,
+                              ...withLocalBenefitEdit({ companyLogo: null }),
+                            })
+                          }
+                          hideButtons={true}
+                          useUniversalModal={true}
+                          universalModalType="normalizer"
+                          // Benefit / provider logo — opt in explicitly.
+                          universalModalAllowBackgroundRemoval={true}
+                          universalModalNormalizeLogoForHeader={true}
+                          universalModalCustomConfig={{
+                            modalTitle: "Benefit Logo",
+                            modalDescription:
+                              "Upload a logo for this specific benefit provider.",
+                          }}
+                          maxFileSize={10}
+                        />
+                      </CardContent>
+                    </Card>
+                    <div className="space-y-4">
+                      {/* Shared BrandImagesSection — the same component the
                         new-client wizard Step 1 uses for its "Hero Banner Image"
                         slot, so this hero field gets the identical crop + set
                         image behavior (SimpleImageEditorModal crop, default-photo
                         gallery, auto-crop on select). */}
-                    <BrandImagesSection
-                      brandImages={
-                        currentStepData.brandImages || {
-                          header: null,
-                          thumbnail: null,
-                          secondaryBanner: null,
-                          favicon: null,
+                      <BrandImagesSection
+                        brandImages={
+                          currentStepData.brandImages || {
+                            header: null,
+                            thumbnail: null,
+                            secondaryBanner: null,
+                            favicon: null,
+                          }
                         }
-                      }
-                      onBrandImagesChange={handleBrandImagesChange}
-                      visibleSlots={["header"]}
-                      errorFields={[]}
-                      // Show default photos that match the selected benefit
-                      // category (Retirement / Group Health / Group Life /
-                      // Custom→Wellness) via the gallery metadata.
-                      galleryImages={categoryGalleryImages}
-                    />
+                        onBrandImagesChange={handleBrandImagesChange}
+                        visibleSlots={["header"]}
+                        errorFields={[]}
+                        // Show default photos that match the selected benefit
+                        // category (Retirement / Group Health / Group Life /
+                        // Custom→Wellness) via the gallery metadata.
+                        galleryImages={categoryGalleryImages}
+                      />
+                    </div>
                   </div>
-                </div>
 
-                {!isEditMode && (
-                <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
-                  <Button
-                    onClick={() => handleContinue("messaging")}
-                    className="bg-[#23919C] hover:bg-[#1b727a] text-white font-bold h-11 px-8 rounded-xl shadow-lg shadow-[#23919C]/20 transition-all duration-300"
-                  >
-                    CONTINUE TO MESSAGING
-                  </Button>
-                </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
+                  {!isEditMode && (
+                    <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
+                      <Button
+                        onClick={() => handleContinue("messaging")}
+                        className="bg-[#23919C] hover:bg-[#1b727a] text-white font-bold h-11 px-8 rounded-xl shadow-lg shadow-[#23919C]/20 transition-all duration-300"
+                      >
+                        CONTINUE TO MESSAGING
+                      </Button>
+                    </div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
             )}
 
             {/* 2. Messaging Section */}
             {showSection("messaging") && (
-            <AccordionItem
-              value="messaging"
-              className="border-none shadow-md overflow-hidden bg-card rounded-xl"
-            >
-              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
-                <div className="flex items-center justify-between w-full pr-4 text-left">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg transition-colors bg-teal-50 text-accent-blue dark:bg-teal-900/30 dark:text-teal-400">
-                      <Layout className="w-5 h-5" />
+              <AccordionItem
+                value="messaging"
+                className="border-none shadow-md overflow-hidden bg-card rounded-xl"
+              >
+                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
+                  <div className="flex items-center justify-between w-full pr-4 text-left">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg transition-colors bg-teal-50 text-accent-blue dark:bg-teal-900/30 dark:text-teal-400">
+                        <Layout className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-foreground group-hover:text-[#23919C]">
+                          Messaging
+                        </h3>
+                        <p className="text-xs text-muted-foreground font-normal">
+                          Custom title and benefit description
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-foreground group-hover:text-[#23919C]">
-                        Messaging
-                      </h3>
-                      <p className="text-xs text-muted-foreground font-normal">
-                        Custom title and benefit description
-                      </p>
-                    </div>
-                  </div>
-                  {currentCompleteness?.sections.messaging ? (
-                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold dark:bg-green-900/40 dark:text-green-400">
-                      COMPLETED
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="text-amber-600 border-amber-200 bg-amber-50 font-bold dark:text-amber-400 dark:border-amber-700 dark:bg-amber-900/30"
-                    >
-                      INCOMPLETE
-                    </Badge>
-                  )}
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="p-6 space-y-6">
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
-                      Intro Headline <span className="text-red-500">*</span>
-                    </Label>
-                    <Input
-                      value={currentStepData.benefitTitle}
-                      onChange={(e) =>
-                        saveStepData(1, {
-                          ...currentStepData,
-                          benefitTitle: e.target.value,
-                        })
-                      }
-                      data-field="benefitTitle"
-                      destructive={isFieldInvalid("benefitTitle")}
-                      placeholder={`e.g., 401(k) Retirement Plan`}
-                      className={cn(
-                        "h-11 border-gray-200 dark:border-gray-600",
-                        isFieldInvalid("benefitTitle") &&
-                          "border-red-500 dark:border-red-500",
-                      )}
-                      maxLength={35}
-                    />
-                    <div className="flex justify-between items-center">
-                      <p className="text-[10px] text-gray-400 italic">
-                        This title will override the default &ldquo;
-                        {currentStepData.benefitCategory}&rdquo; label in the
-                        portal.
-                      </p>
-                      <span
-                        className={cn(
-                          "text-[10px] font-bold",
-                          (currentStepData.benefitTitle?.length || 0) >= 33
-                            ? "text-red-500"
-                            : (currentStepData.benefitTitle?.length || 0) < 10
-                              ? "text-amber-500"
-                              : "text-green-500",
-                        )}
+                    {currentCompleteness?.sections.messaging ? (
+                      <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold dark:bg-green-900/40 dark:text-green-400">
+                        COMPLETED
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-amber-600 border-amber-200 bg-amber-50 font-bold dark:text-amber-400 dark:border-amber-700 dark:bg-amber-900/30"
                       >
-                        {currentStepData.benefitTitle?.length || 0} / 35
-                        characters
-                      </span>
-                    </div>
+                        INCOMPLETE
+                      </Badge>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
-                      Intro Message <span className="text-red-500">*</span>
-                    </Label>
-                    <Textarea
-                      value={currentStepData.shortDescription || ""}
-                      onChange={(e) =>
-                        saveStepData(1, {
-                          ...currentStepData,
-                          shortDescription: e.target.value,
-                        })
-                      }
-                      data-field="shortDescription"
-                      destructive={isFieldInvalid("shortDescription")}
-                      placeholder="Provide a high-level overview of this benefit for employees..."
-                      className={cn(
-                        "min-h-[120px] border-gray-200 dark:border-gray-600 resize-none",
-                        isFieldInvalid("shortDescription") &&
-                          "border-red-500 dark:border-red-500",
-                      )}
-                      maxLength={450}
-                    />
-                    <div className="flex justify-between items-center">
-                      <p className="text-[10px] text-gray-400">
-                        Briefly explain what this benefit is and why it matters.
-                      </p>
-                      <span
-                        className={cn(
-                          "text-[10px] font-bold",
-                          (currentStepData.shortDescription?.length || 0) >= 440
-                            ? "text-red-500"
-                            : (currentStepData.shortDescription?.length || 0) < 100
-                              ? "text-amber-500"
-                              : "text-green-500",
-                        )}
-                      >
-                        {currentStepData.shortDescription?.length || 0} / 450
-                        characters
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Closing & Signature */}
-                <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
-                      Closing & Signature
-                    </Label>
-                    <RadioGroup
-                      value={currentStepData.signatureMode || "user"}
-                      onValueChange={(v) =>
-                        saveStepData(1, {
-                          ...currentStepData,
-                          signatureMode: v as "user" | "custom",
-                        })
-                      }
-                      className="space-y-2"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="user" id="sig-user" />
-                        <Label htmlFor="sig-user" className="text-sm font-normal cursor-pointer">
-                          Use Contact&rsquo;s Name & Title
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="custom" id="sig-custom" />
-                        <Label htmlFor="sig-custom" className="text-sm font-normal cursor-pointer">
-                          Custom Signature
-                        </Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
-
-                  {(currentStepData.signatureMode || "user") === "custom" && (
-                    <div className="space-y-3 pl-6 animate-in slide-in-from-top-2 duration-200">
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-gray-600 dark:text-gray-400">
-                          Closing Text
-                        </Label>
-                        <Input
-                          value={currentStepData.customClosing || ""}
-                          onChange={(e) =>
-                            saveStepData(1, {
-                              ...currentStepData,
-                              customClosing: e.target.value,
-                            })
-                          }
-                          placeholder='e.g. "We hope to inspire you to save!"'
-                          className="h-9 border-gray-200 dark:border-gray-600 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-gray-600 dark:text-gray-400">
-                          Signature Name & Title
-                        </Label>
-                        <Input
-                          value={currentStepData.customSignatureName || ""}
-                          onChange={(e) =>
-                            saveStepData(1, {
-                              ...currentStepData,
-                              customSignatureName: e.target.value,
-                            })
-                          }
-                          placeholder='e.g. "Ty G. Rogers Managing Partner"'
-                          className="h-9 border-gray-200 dark:border-gray-600 text-sm"
-                        />
-                      </div>
-                      <div className="space-y-1.5">
-                        <Label className="text-xs font-semibold text-gray-600 dark:text-gray-400">
-                          Company Name
-                        </Label>
-                        <Input
-                          value={currentStepData.customSignatureCompany || ""}
-                          onChange={(e) =>
-                            saveStepData(1, {
-                              ...currentStepData,
-                              customSignatureCompany: e.target.value,
-                            })
-                          }
-                          placeholder='e.g. "Waypoint Financial Advisors"'
-                          className="h-9 border-gray-200 dark:border-gray-600 text-sm"
-                        />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {!isEditMode && (
-                <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
-                  <Button
-                    onClick={() => handleContinue("contacts")}
-                    className="bg-[#23919C] hover:bg-[#1b727a] text-white font-bold h-11 px-8 rounded-xl shadow-lg shadow-[#23919C]/20 transition-all duration-300"
-                  >
-                    CONTINUE TO KEY CONTACTS
-                  </Button>
-                </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
-            )}
-
-            {/* 3. Key Contact Section */}
-            {showSection("contacts") && (
-            <AccordionItem
-              value="contacts"
-              className="border-none shadow-md overflow-hidden bg-card rounded-xl"
-            >
-              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
-                <div className="flex items-center justify-between w-full pr-4 text-left">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg transition-colors bg-teal-50 text-accent-blue dark:bg-teal-900/30 dark:text-teal-400">
-                      <Mail className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-foreground group-hover:text-[#23919C]">
-                        Key Contact
-                      </h3>
-                      <p className="text-xs text-muted-foreground font-normal">
-                        Assign a primary support contact
-                      </p>
-                    </div>
-                  </div>
-                  {currentCompleteness?.sections.contacts ? (
-                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold dark:bg-green-900/40 dark:text-green-400">
-                      ASSIGNED
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="text-amber-600 border-amber-200 bg-amber-50 font-bold dark:text-amber-400 dark:border-amber-700 dark:bg-amber-900/30"
-                    >
-                      UNASSIGNED
-                    </Badge>
-                  )}
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="p-6 space-y-6">
-                <div className="space-y-6">
-                  <div className="space-y-4" data-field="contactId">
-                    <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
-                      Primary Contact <span className="text-red-500">*</span>
-                    </Label>
-                    <Popover open={searchOpen} onOpenChange={setSearchOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={searchOpen}
-                          className={cn(
-                            "w-full justify-between bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 h-11 px-3",
-                            isFieldInvalid("contactId") &&
-                              "border-red-500 dark:border-red-500",
-                          )}
-                        >
-                          <span className="truncate">
-                            {activeContact
-                              ? activeContact.name ||
-                                `${activeContact.firstName} ${activeContact.lastName}` ||
-                                activeContact.email
-                              : "Select a contact..."}
-                          </span>
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent
-                        className="w-[var(--radix-popover-trigger-width)] p-0"
-                        align="start"
-                      >
-                        <div className="flex items-center border-b px-3 h-11">
-                          <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-                          <input
-                            className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
-                            placeholder="Search contacts..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                          />
-                        </div>
-                        <div className="max-h-[300px] overflow-y-auto p-1">
-                          {/* +Add New Contact - always first */}
-                          <button
-                            onClick={() => {
-                              handleCreateContact(
-                                currentStepData.benefitCategory as BenefitsCategory,
-                              );
-                              setSearchOpen(false);
-                            }}
-                            className="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-2.5 text-sm outline-none hover:bg-accent text-[#23919C] font-bold border-b mb-1"
-                          >
-                            <Plus className="mr-2 h-4 w-4" />
-                            ADD NEW CONTACT
-                          </button>
-                          {filteredContacts.length === 0 ? (
-                            <div className="py-6 text-center text-sm text-muted-foreground">
-                              No contacts found.
-                            </div>
-                          ) : (
-                            filteredContacts.map((contact) => (
-                              <button
-                                key={contact.id}
-                                onClick={() => {
-                                  handleContactChange(contact.id);
-                                  setSearchOpen(false);
-                                  setSearchTerm("");
-                                }}
-                                className="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-2 text-sm outline-none hover:bg-accent text-left"
-                              >
-                                <Check
-                                  className={cn(
-                                    "mr-2 h-4 w-4",
-                                    currentStepData.contactId === contact.id
-                                      ? "opacity-100"
-                                      : "opacity-0",
-                                  )}
-                                />
-                                <div className="flex flex-col">
-                                  <span className="font-medium">
-                                    {contact.name ||
-                                      `${contact.firstName} ${contact.lastName}`}
-                                  </span>
-                                  {contact.email && (
-                                    <span className="text-xs text-muted-foreground">
-                                      {contact.email}
-                                    </span>
-                                  )}
-                                </div>
-                              </button>
-                            ))
-                          )}
-                        </div>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  {currentStepData.contactId && (
-                    <div className="pt-4 border-t border-gray-100 dark:border-gray-700 animate-in fade-in duration-300">
-                      <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block">
-                        Contact Photo
+                </AccordionTrigger>
+                <AccordionContent className="p-6 space-y-6">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
+                        Intro Headline <span className="text-red-500">*</span>
                       </Label>
-                      <BrandImageUpload
-                        slotKey="headshot"
-                        slot={{
-                          title: "Contact Photo",
-                          description: "Photo for portal display.",
-                          recommendedSize: "900 px—900 px",
-                          defaultPhoteButton: true,
-                          required: false,
-                          accept: ".png,.jpg,.jpeg",
-                          previewAspectRatio: 1,
-                          previewLabel: "Contact Photo preview",
-                        }}
-                        currentImage={
-                          currentStepData.brandImages?.thumbnail ||
-                          convertToBrandImage(
-                            (activeContact as any)?.headshot ||
-                              (activeContact as any)?.avatar ||
-                              (activeContact as any)?.photo ||
-                              (activeContact as any)?.teamImage,
-                          )
-                        }
-                        onImageChange={handleThumbnailChange}
-                        onImageRemove={() =>
+                      <Input
+                        value={currentStepData.benefitTitle}
+                        onChange={(e) =>
                           saveStepData(1, {
                             ...currentStepData,
-                            brandImages: {
-                              ...currentStepData.brandImages,
-                              thumbnail: null,
-                            },
+                            benefitTitle: e.target.value,
                           })
                         }
-                        hideButtons={true}
-                        useUniversalModal={true}
-                        universalModalType="headshot"
-                        // Headshots must never offer background removal. The
-                        // `headshot` type already excludes it; this makes the
-                        // guarantee explicit at the call site.
-                        universalModalAllowBackgroundRemoval={false}
-                        universalModalCustomConfig={{
-                          modalTitle: "Contact Photo",
-                          modalDescription: "Photo for portal display.",
-                        }}
-                        maxFileSize={5}
+                        data-field="benefitTitle"
+                        destructive={isFieldInvalid("benefitTitle")}
+                        placeholder={`e.g., 401(k) Retirement Plan`}
+                        className={cn(
+                          "h-11 border-gray-200 dark:border-gray-600",
+                          isFieldInvalid("benefitTitle") &&
+                            "border-red-500 dark:border-red-500",
+                        )}
+                        maxLength={35}
                       />
-                    </div>
-                  )}
-
-                  {/* User's Designations — only for the advisor's primary service categories */}
-                  {isCurrentCategoryPrimary &&
-                    profileData?.designations &&
-                    profileData.designations.length > 0 && (
-                    <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
-                      <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">
-                        Your Designations
-                      </Label>
-                      <div className="flex flex-wrap gap-1.5">
-                        {profileData.designations.map((d: string, i: number) => (
-                          <span
-                            key={i}
-                            className="inline-flex items-center gap-1 rounded-full bg-[#23919C]/10 px-2.5 py-1 text-xs font-medium text-[#23919C] dark:bg-[#23919C]/20 dark:text-[#23919C]"
-                          >
-                            {designationLabel(d)}
-                          </span>
-                        ))}
+                      <div className="flex justify-between items-center">
+                        <p className="text-[10px] text-gray-400 italic">
+                          This title will override the default &ldquo;
+                          {currentStepData.benefitCategory}&rdquo; label in the
+                          portal.
+                        </p>
+                        <span
+                          className={cn(
+                            "text-[10px] font-bold",
+                            (currentStepData.benefitTitle?.length || 0) >= 33
+                              ? "text-red-500"
+                              : (currentStepData.benefitTitle?.length || 0) < 10
+                              ? "text-amber-500"
+                              : "text-green-500",
+                          )}
+                        >
+                          {currentStepData.benefitTitle?.length || 0} / 35
+                          characters
+                        </span>
                       </div>
                     </div>
-                  )}
-                </div>
+                    <div className="space-y-2">
+                      <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
+                        Intro Message <span className="text-red-500">*</span>
+                      </Label>
+                      <Textarea
+                        value={currentStepData.shortDescription || ""}
+                        onChange={(e) =>
+                          saveStepData(1, {
+                            ...currentStepData,
+                            shortDescription: e.target.value,
+                          })
+                        }
+                        data-field="shortDescription"
+                        destructive={isFieldInvalid("shortDescription")}
+                        placeholder="Provide a high-level overview of this benefit for employees..."
+                        className={cn(
+                          "min-h-[120px] border-gray-200 dark:border-gray-600 resize-none",
+                          isFieldInvalid("shortDescription") &&
+                            "border-red-500 dark:border-red-500",
+                        )}
+                        maxLength={450}
+                      />
+                      <div className="flex justify-between items-center">
+                        <p className="text-[10px] text-gray-400">
+                          Briefly explain what this benefit is and why it
+                          matters.
+                        </p>
+                        <span
+                          className={cn(
+                            "text-[10px] font-bold",
+                            (currentStepData.shortDescription?.length || 0) >=
+                              440
+                              ? "text-red-500"
+                              : (currentStepData.shortDescription?.length ||
+                                  0) < 100
+                              ? "text-amber-500"
+                              : "text-green-500",
+                          )}
+                        >
+                          {currentStepData.shortDescription?.length || 0} / 450
+                          characters
+                        </span>
+                      </div>
+                    </div>
+                  </div>
 
-                {!isEditMode && (
-                <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
-                  <Button
-                    onClick={() => handleContinue("documents")}
-                    className="bg-[#23919C] hover:bg-[#1b727a] text-white font-bold h-11 px-8 rounded-xl shadow-lg shadow-[#23919C]/20 transition-all duration-300"
-                  >
-                    CONTINUE TO DOCUMENTS
-                  </Button>
-                </div>
-                )}
-              </AccordionContent>
-            </AccordionItem>
+                  {/* Closing & Signature */}
+                  <div className="space-y-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
+                        Closing & Signature
+                      </Label>
+                      <RadioGroup
+                        value={currentStepData.signatureMode || "user"}
+                        onValueChange={(v) =>
+                          saveStepData(1, {
+                            ...currentStepData,
+                            signatureMode: v as "user" | "custom",
+                          })
+                        }
+                        className="space-y-2"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="user" id="sig-user" />
+                          <Label
+                            htmlFor="sig-user"
+                            className="text-sm font-normal cursor-pointer"
+                          >
+                            Use Contact&rsquo;s Name & Title
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="custom" id="sig-custom" />
+                          <Label
+                            htmlFor="sig-custom"
+                            className="text-sm font-normal cursor-pointer"
+                          >
+                            Custom Signature
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    {(currentStepData.signatureMode || "user") === "custom" && (
+                      <div className="space-y-3 pl-6 animate-in slide-in-from-top-2 duration-200">
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                            Closing Text
+                          </Label>
+                          <Input
+                            value={currentStepData.customClosing || ""}
+                            onChange={(e) =>
+                              saveStepData(1, {
+                                ...currentStepData,
+                                customClosing: e.target.value,
+                              })
+                            }
+                            placeholder='e.g. "We hope to inspire you to save!"'
+                            className="h-9 border-gray-200 dark:border-gray-600 text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                            Signature Name & Title
+                          </Label>
+                          <Input
+                            value={currentStepData.customSignatureName || ""}
+                            onChange={(e) =>
+                              saveStepData(1, {
+                                ...currentStepData,
+                                customSignatureName: e.target.value,
+                              })
+                            }
+                            placeholder='e.g. "Ty G. Rogers Managing Partner"'
+                            className="h-9 border-gray-200 dark:border-gray-600 text-sm"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                            Company Name
+                          </Label>
+                          <Input
+                            value={currentStepData.customSignatureCompany || ""}
+                            onChange={(e) =>
+                              saveStepData(1, {
+                                ...currentStepData,
+                                customSignatureCompany: e.target.value,
+                              })
+                            }
+                            placeholder='e.g. "Waypoint Financial Advisors"'
+                            className="h-9 border-gray-200 dark:border-gray-600 text-sm"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {!isEditMode && (
+                    <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
+                      <Button
+                        onClick={() => handleContinue("contacts")}
+                        className="bg-[#23919C] hover:bg-[#1b727a] text-white font-bold h-11 px-8 rounded-xl shadow-lg shadow-[#23919C]/20 transition-all duration-300"
+                      >
+                        CONTINUE TO KEY CONTACTS
+                      </Button>
+                    </div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            )}
+
+            {/* 3. Landing Page Card — the image and body copy shown on the
+                portal's "Your Benefits at a Glance" card. Independent of the
+                hub's Inner Header Image / Intro Message; both fall back to them
+                when left empty. */}
+            {showSection("landing-card") && (
+              <AccordionItem
+                value="landing-card"
+                className="border-none shadow-md overflow-hidden bg-card rounded-xl"
+              >
+                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
+                  <div className="flex items-center justify-between w-full pr-4 text-left">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg transition-colors bg-teal-50 text-accent-blue dark:bg-teal-900/30 dark:text-teal-400">
+                        <Layout className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-foreground group-hover:text-[#23919C]">
+                          Landing Page Card
+                        </h3>
+                        <p className="text-xs text-muted-foreground font-normal">
+                          {
+                            'Image and text on the "Your Benefits at a Glance" card'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className="text-gray-500 border-gray-200 bg-gray-50 font-bold dark:text-gray-400 dark:border-gray-700 dark:bg-gray-800"
+                    >
+                      OPTIONAL
+                    </Badge>
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="p-6 space-y-6">
+                  <div className="space-y-4" data-field="landingCardImage">
+                    <div>
+                      <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
+                        Card Image
+                      </Label>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Shown at the top of the card. Leave empty to use the
+                        Inner Header Image.
+                      </p>
+                    </div>
+                    <BrandImageUpload
+                      slotKey="landingCardImage"
+                      slot={{
+                        title: "Landing Page Card Image",
+                        description:
+                          "Landscape image shown on the Benefits at a Glance card.",
+                        recommendedSize: `${LANDING_CARD_IMAGE_WIDTH}×${LANDING_CARD_IMAGE_HEIGHT} px`,
+                        accept: ".png,.jpg,.jpeg,.webp",
+                        required: false,
+                        previewAspectRatio: 1.5,
+                        previewLabel: "Card preview",
+                        defaultPhoteButton: true,
+                      }}
+                      currentImage={convertLogoToBrandImage(
+                        currentStepData.landingCardImage || null,
+                      )}
+                      onImageChange={(image) =>
+                        saveStepData(1, {
+                          ...currentStepData,
+                          landingCardImage: convertBrandImageToLogo(image),
+                        })
+                      }
+                      onImageRemove={() =>
+                        saveStepData(1, {
+                          ...currentStepData,
+                          landingCardImage: null,
+                        })
+                      }
+                      onDefaultPhotoClick={() => setLandingGalleryOpen(true)}
+                    />
+                  </div>
+
+                  <div className="space-y-2" data-field="landingCardBody">
+                    <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
+                      Body Text
+                    </Label>
+                    <Textarea
+                      value={currentStepData.landingCardBody || ""}
+                      onChange={(e) =>
+                        saveStepData(1, {
+                          ...currentStepData,
+                          // The card renders at most 75 characters; keep the draft
+                          // inside that limit so the counter is always truthful.
+                          landingCardBody: e.target.value.slice(0, 75),
+                        })
+                      }
+                      maxLength={75}
+                      placeholder={
+                        getDefaultLandingCardBody(
+                          currentStepData.benefitCategory,
+                        ) ||
+                        "A short line describing this benefit on the landing page…"
+                      }
+                      className="min-h-[90px] border-gray-200 dark:border-gray-600 resize-none"
+                    />
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-xs text-muted-foreground">
+                        Leave empty to use the default for this benefit. The
+                        card shows at most 75 characters.
+                      </p>
+                      <span className="text-[11px] text-muted-foreground tabular-nums">
+                        {landingCardBodyEffective.length}/75
+                      </span>
+                    </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
+            )}
+
+            {/* 4. Key Contact Section */}
+            {showSection("contacts") && (
+              <AccordionItem
+                value="contacts"
+                className="border-none shadow-md overflow-hidden bg-card rounded-xl"
+              >
+                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
+                  <div className="flex items-center justify-between w-full pr-4 text-left">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg transition-colors bg-teal-50 text-accent-blue dark:bg-teal-900/30 dark:text-teal-400">
+                        <Mail className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-foreground group-hover:text-[#23919C]">
+                          Key Contact
+                        </h3>
+                        <p className="text-xs text-muted-foreground font-normal">
+                          Assign a primary support contact
+                        </p>
+                      </div>
+                    </div>
+                    {currentCompleteness?.sections.contacts ? (
+                      <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold dark:bg-green-900/40 dark:text-green-400">
+                        ASSIGNED
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-amber-600 border-amber-200 bg-amber-50 font-bold dark:text-amber-400 dark:border-amber-700 dark:bg-amber-900/30"
+                      >
+                        UNASSIGNED
+                      </Badge>
+                    )}
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="p-6 space-y-6">
+                  <div className="space-y-6">
+                    <div className="space-y-4" data-field="contactId">
+                      <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
+                        Primary Contact <span className="text-red-500">*</span>
+                      </Label>
+                      <Popover open={searchOpen} onOpenChange={setSearchOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={searchOpen}
+                            className={cn(
+                              "w-full justify-between bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-600 h-11 px-3",
+                              isFieldInvalid("contactId") &&
+                                "border-red-500 dark:border-red-500",
+                            )}
+                          >
+                            <span className="truncate">
+                              {activeContact
+                                ? activeContact.name ||
+                                  `${activeContact.firstName} ${activeContact.lastName}` ||
+                                  activeContact.email
+                                : "Select a contact..."}
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-[var(--radix-popover-trigger-width)] p-0"
+                          align="start"
+                        >
+                          <div className="flex items-center border-b px-3 h-11">
+                            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                            <input
+                              className="flex h-11 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground"
+                              placeholder="Search contacts..."
+                              value={searchTerm}
+                              onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                          </div>
+                          <div className="max-h-[300px] overflow-y-auto p-1">
+                            {/* +Add New Contact - always first */}
+                            <button
+                              onClick={() => {
+                                handleCreateContact(
+                                  currentStepData.benefitCategory as BenefitsCategory,
+                                );
+                                setSearchOpen(false);
+                              }}
+                              className="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-2.5 text-sm outline-none hover:bg-accent text-[#23919C] font-bold border-b mb-1"
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              ADD NEW CONTACT
+                            </button>
+                            {filteredContacts.length === 0 ? (
+                              <div className="py-6 text-center text-sm text-muted-foreground">
+                                No contacts found.
+                              </div>
+                            ) : (
+                              filteredContacts.map((contact) => (
+                                <button
+                                  key={contact.id}
+                                  onClick={() => {
+                                    handleContactChange(contact.id);
+                                    setSearchOpen(false);
+                                    setSearchTerm("");
+                                  }}
+                                  className="relative flex w-full cursor-pointer select-none items-center rounded-sm px-2 py-2 text-sm outline-none hover:bg-accent text-left"
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      currentStepData.contactId === contact.id
+                                        ? "opacity-100"
+                                        : "opacity-0",
+                                    )}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">
+                                      {contact.name ||
+                                        `${contact.firstName} ${contact.lastName}`}
+                                    </span>
+                                    {contact.email && (
+                                      <span className="text-xs text-muted-foreground">
+                                        {contact.email}
+                                      </span>
+                                    )}
+                                  </div>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    {currentStepData.contactId && (
+                      <div className="pt-4 border-t border-gray-100 dark:border-gray-700 animate-in fade-in duration-300">
+                        <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 block">
+                          Contact Photo
+                        </Label>
+                        <BrandImageUpload
+                          slotKey="headshot"
+                          slot={{
+                            title: "Contact Photo",
+                            description: "Photo for portal display.",
+                            recommendedSize: "900 px—900 px",
+                            defaultPhoteButton: true,
+                            required: false,
+                            accept: ".png,.jpg,.jpeg",
+                            previewAspectRatio: 1,
+                            previewLabel: "Contact Photo preview",
+                          }}
+                          currentImage={
+                            currentStepData.brandImages?.thumbnail ||
+                            convertToBrandImage(
+                              (activeContact as any)?.headshot ||
+                                (activeContact as any)?.avatar ||
+                                (activeContact as any)?.photo ||
+                                (activeContact as any)?.teamImage,
+                            )
+                          }
+                          onImageChange={handleThumbnailChange}
+                          onImageRemove={() =>
+                            saveStepData(1, {
+                              ...currentStepData,
+                              brandImages: {
+                                ...currentStepData.brandImages,
+                                thumbnail: null,
+                              },
+                            })
+                          }
+                          hideButtons={true}
+                          useUniversalModal={true}
+                          universalModalType="headshot"
+                          // Headshots must never offer background removal. The
+                          // `headshot` type already excludes it; this makes the
+                          // guarantee explicit at the call site.
+                          universalModalAllowBackgroundRemoval={false}
+                          universalModalCustomConfig={{
+                            modalTitle: "Contact Photo",
+                            modalDescription: "Photo for portal display.",
+                          }}
+                          maxFileSize={5}
+                        />
+                      </div>
+                    )}
+
+                    {/* User's Designations — only for the advisor's primary service categories */}
+                    {isCurrentCategoryPrimary &&
+                      profileData?.designations &&
+                      profileData.designations.length > 0 && (
+                        <div className="pt-4 border-t border-gray-100 dark:border-gray-700">
+                          <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 block">
+                            Your Designations
+                          </Label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {profileData.designations.map(
+                              (d: string, i: number) => (
+                                <span
+                                  key={i}
+                                  className="inline-flex items-center gap-1 rounded-full bg-[#23919C]/10 px-2.5 py-1 text-xs font-medium text-[#23919C] dark:bg-[#23919C]/20 dark:text-[#23919C]"
+                                >
+                                  {designationLabel(d)}
+                                </span>
+                              ),
+                            )}
+                          </div>
+                        </div>
+                      )}
+                  </div>
+
+                  {!isEditMode && (
+                    <div className="flex justify-end pt-4 border-t border-gray-100 dark:border-gray-700">
+                      <Button
+                        onClick={() => handleContinue("documents")}
+                        className="bg-[#23919C] hover:bg-[#1b727a] text-white font-bold h-11 px-8 rounded-xl shadow-lg shadow-[#23919C]/20 transition-all duration-300"
+                      >
+                        CONTINUE TO DOCUMENTS
+                      </Button>
+                    </div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
             )}
 
             {/* 4. Documents Section */}
             {showSection("documents") && (
-            <AccordionItem
-              value="documents"
-              className="border-none shadow-md overflow-hidden bg-card rounded-xl"
-            >
-              <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
-                <div className="flex items-center justify-between w-full pr-4 text-left">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg transition-colors bg-teal-50 text-accent-blue dark:bg-teal-900/30 dark:text-teal-400">
-                      <FileText className="w-5 h-5" />
+              <AccordionItem
+                value="documents"
+                className="border-none shadow-md overflow-hidden bg-card rounded-xl"
+              >
+                <AccordionTrigger className="px-6 py-4 hover:no-underline hover:bg-gray-50/50 group border-b bg-gray-50/30 dark:hover:bg-gray-700/40 dark:bg-gray-800 dark:border-gray-700">
+                  <div className="flex items-center justify-between w-full pr-4 text-left">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg transition-colors bg-teal-50 text-accent-blue dark:bg-teal-900/30 dark:text-teal-400">
+                        <FileText className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-bold text-foreground group-hover:text-[#23919C]">
+                          {currentStepData.benefitCategory
+                            ? `${currentStepData.benefitCategory} Plan Documents`
+                            : "Plan Documents"}
+                        </h3>
+                        <p className="text-xs text-muted-foreground font-normal">
+                          Essential SPDs, SBCs, and guidebooks
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-foreground group-hover:text-[#23919C]">
-                        {currentStepData.benefitCategory
-                          ? `${currentStepData.benefitCategory} Plan Documents`
-                          : "Plan Documents"}
-                      </h3>
-                      <p className="text-xs text-muted-foreground font-normal">
-                        Essential SPDs, SBCs, and guidebooks
-                      </p>
-                    </div>
+                    {currentCompleteness?.sections.documents ? (
+                      <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold dark:bg-green-900/40 dark:text-green-400">
+                        READY
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-amber-600 border-amber-200 bg-amber-50 font-bold dark:text-amber-400 dark:border-amber-700 dark:bg-amber-900/30"
+                      >
+                        REQUIRED
+                      </Badge>
+                    )}
                   </div>
-                  {currentCompleteness?.sections.documents ? (
-                    <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold dark:bg-green-900/40 dark:text-green-400">
-                      READY
-                    </Badge>
-                  ) : (
-                    <Badge
-                      variant="outline"
-                      className="text-amber-600 border-amber-200 bg-amber-50 font-bold dark:text-amber-400 dark:border-amber-700 dark:bg-amber-900/30"
-                    >
-                      REQUIRED
-                    </Badge>
-                  )}
-                </div>
-              </AccordionTrigger>
-              <AccordionContent className="p-6">
-                <BenefitsDocumentsSection
-                  clientId={resolvedPlanId || ""}
-                  documents={stepData.step4?.documents || []}
-                  onChange={(docs) => saveStepData(4, { documents: docs })}
-                  benefitCategory={currentStepData.benefitCategory}
-                  brandColor={
-                    currentStepData.selectedPlan?.brandColor || "#002B5B"
-                  }
-                  secondaryColor={
-                    currentStepData.selectedPlan?.secondaryColor || "#E6C47A"
-                  }
-                  companyName={selectedPlanName || "Plan"}
-                />
-              </AccordionContent>
-            </AccordionItem>
+                </AccordionTrigger>
+                <AccordionContent className="p-6">
+                  <BenefitsDocumentsSection
+                    clientId={resolvedPlanId || ""}
+                    documents={stepData.step4?.documents || []}
+                    onChange={(docs) => saveStepData(4, { documents: docs })}
+                    benefitCategory={currentStepData.benefitCategory}
+                    brandColor={
+                      currentStepData.selectedPlan?.brandColor || "#002B5B"
+                    }
+                    secondaryColor={
+                      currentStepData.selectedPlan?.secondaryColor || "#E6C47A"
+                    }
+                    companyName={selectedPlanName || "Plan"}
+                  />
+                </AccordionContent>
+              </AccordionItem>
             )}
           </Accordion>
         </div>
@@ -3583,8 +3959,12 @@ export function BenefitsStep1({
         planCompanyName={selectedPlanName}
         planLogoUrl={planCompanyLogo}
         brandColor={currentStepData.selectedPlan?.brandColor || "#002B5B"}
-        secondaryColor={currentStepData.selectedPlan?.secondaryColor || "#E6C47A"}
-        appointmentLink={(currentStepData.selectedPlan as any)?.appointmentLink || ""}
+        secondaryColor={
+          currentStepData.selectedPlan?.secondaryColor || "#E6C47A"
+        }
+        appointmentLink={
+          (currentStepData.selectedPlan as any)?.appointmentLink || ""
+        }
         benefitTitle={currentStepData.benefitTitle || ""}
         categoryBenefitByApi={currentStepData.categoryBenefitByApi ?? null}
         onSubmit={handleContactSubmitted}
@@ -3614,6 +3994,39 @@ export function BenefitsStep1({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Landing Page Card: default-image gallery + 3:2 cropper. Mounted at the
+          component root so a collapsing accordion cannot unmount them mid-flow. */}
+      <ModalGallery
+        open={landingGalleryOpen}
+        onOpenChange={setLandingGalleryOpen}
+        images={landingGalleryImages}
+        awaitSelection
+        busyLabel="Loading Preview..."
+        onSelect={handleLandingDefaultSelect}
+      />
+
+      {landingPendingImage && (
+        <SimpleImageEditorModal
+          value={landingPendingImage.url}
+          originalValue={landingPendingImage.originalUrl}
+          fileName={landingPendingImage.fileName || "landing-card.jpg"}
+          existingCropData={landingPendingImage.cropData}
+          onChange={handleLandingCropSave}
+          onRemove={() => setLandingPendingImage(null)}
+          isOpen={Boolean(landingPendingImage)}
+          onClose={() => setLandingPendingImage(null)}
+          modalTitle="Landing Page Card Image"
+          modalDescription={`Frame the image to the card's 3:2 shape (${LANDING_CARD_IMAGE_WIDTH}×${LANDING_CARD_IMAGE_HEIGHT} px).`}
+          saveButtonText="Save Card Image"
+          canvasWidth={640}
+          canvasHeight={480}
+          guidelineWidth={600}
+          guidelineHeight={400}
+          guidelinePadding={20}
+          exportScale={2}
+        />
+      )}
 
       {/* Loading dialog shown while a newly selected plan's data is loading */}
       <PlanChangeLoadingDialog open={planLoading} />

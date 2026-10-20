@@ -17,10 +17,34 @@ export const DEFAULT_BENEFIT_CATEGORIES: {
   href: string;
   buttonText: string;
 }[] = [
-  { id: "retirement", title: "Retirement Plan Benefits", category: "Retirement", href: "/retirement", buttonText: "RETIREMENT BENEFITS>" },
-  { id: "health", title: "Health Insurance", category: "Group Health", href: "/health-insurance", buttonText: "HEALTH BENEFITS>" },
-  { id: "life", title: "Life Insurance", category: "Group Life", href: "/life-insurance", buttonText: "LIFE INSURANCE BENEFITS>" },
-  { id: "wellness", title: "Wellness Programs", category: "Company / Plan Sponsor", href: "/wellness-programs", buttonText: "WELLNESS BENEFITS>" },
+  {
+    id: "retirement",
+    title: "Retirement Plan Benefits",
+    category: "Retirement",
+    href: "/retirement",
+    buttonText: "RETIREMENT BENEFITS>",
+  },
+  {
+    id: "health",
+    title: "Health Insurance",
+    category: "Group Health",
+    href: "/health-insurance",
+    buttonText: "HEALTH BENEFITS>",
+  },
+  {
+    id: "life",
+    title: "Life Insurance",
+    category: "Group Life",
+    href: "/life-insurance",
+    buttonText: "LIFE INSURANCE BENEFITS>",
+  },
+  {
+    id: "wellness",
+    title: "Wellness Programs",
+    category: "Company / Plan Sponsor",
+    href: "/wellness-programs",
+    buttonText: "WELLNESS BENEFITS>",
+  },
 ];
 
 export function normalizeCategory(cat: string | null | undefined): string {
@@ -37,7 +61,10 @@ function isR2DocumentRow(doc: {
   if (sk) {
     return sk.startsWith("org/") || (sk.includes("/") && sk.length > 8);
   }
-  const f = (doc.file && String(doc.file)) || (doc.fileUrl && String(doc.fileUrl)) || "";
+  const f =
+    (doc.file && String(doc.file)) ||
+    (doc.fileUrl && String(doc.fileUrl)) ||
+    "";
   return f.trim() === "r2:stored";
 }
 
@@ -65,13 +92,26 @@ export async function saveBenefit(
 
   // Fallback: read plan video from dedicated per-category localStorage (zustand store may lose it during nav)
   const cat = step1Data?.benefitCategory || "Retirement";
-  const lsKey1 = typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key-" + cat) : null;
+  const lsKey1 =
+    typeof window !== "undefined"
+      ? localStorage.getItem("benefits-plan-video-key-" + cat)
+      : null;
   // Also check old "Custom" key (renamed to "Company / Plan Sponsor")
-  const lsKey2 = cat === "Company / Plan Sponsor" && typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-key-Custom") : null;
+  const lsKey2 =
+    cat === "Company / Plan Sponsor" && typeof window !== "undefined"
+      ? localStorage.getItem("benefits-plan-video-key-Custom")
+      : null;
   const planVideo = step1Data?.planVideo || lsKey1 || lsKey2 || undefined;
-  const lsFn1 = typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-filename-" + cat) : null;
-  const lsFn2 = cat === "Company / Plan Sponsor" && typeof window !== "undefined" ? localStorage.getItem("benefits-plan-video-filename-Custom") : null;
-  const planVideoFileName = step1Data?.planVideoFileName || lsFn1 || lsFn2 || undefined;
+  const lsFn1 =
+    typeof window !== "undefined"
+      ? localStorage.getItem("benefits-plan-video-filename-" + cat)
+      : null;
+  const lsFn2 =
+    cat === "Company / Plan Sponsor" && typeof window !== "undefined"
+      ? localStorage.getItem("benefits-plan-video-filename-Custom")
+      : null;
+  const planVideoFileName =
+    step1Data?.planVideoFileName || lsFn1 || lsFn2 || undefined;
 
   if (!planId) {
     return { success: false, error: "Plan ID missing. Cannot complete setup." };
@@ -101,8 +141,7 @@ export async function saveBenefit(
             { primaryContactId: step1Data?.contactId },
           )
         : "";
-    const partnerLogoUrl =
-      step1Data?.companyLogo?.url || categoryContactLogo;
+    const partnerLogoUrl = step1Data?.companyLogo?.url || categoryContactLogo;
 
     // 2. Edited category row: merge with hub defaults so image / copy / CTA match other cards
     // (saving only partial data was leaving the portal with empty description, image, and button text).
@@ -114,6 +153,8 @@ export async function saveBenefit(
         image: step1Data?.brandImages?.header?.url,
         partnerLogo: partnerLogoUrl,
         innerHeaderImage: step1Data?.innerHeaderImage?.url,
+        landingCardImage: step1Data?.landingCardImage?.url,
+        landingCardBody: step1Data?.landingCardBody,
         contactId: step1Data?.contactId,
         category: step1Data?.benefitCategory,
         planVideo,
@@ -132,7 +173,9 @@ export async function saveBenefit(
       { saveMode: true },
     ) as any;
     // Use the benefitVisibility toggle from Step 1 (default true = published)
-    newBenefit.isEnabled = (step1Data?.benefitVisibility ?? {})[step1Data?.benefitCategory || ""] ?? true;
+    newBenefit.isEnabled =
+      (step1Data?.benefitVisibility ?? {})[step1Data?.benefitCategory || ""] ??
+      true;
 
     // Support contacts for this category, with the Step 1 primary always seeded in.
     // Step 3 is where the advisor toggles contacts on/off, but when they never did,
@@ -173,7 +216,10 @@ export async function saveBenefit(
     }
 
     // 3. Always preserve all 4 categories: merge existing + default placeholders, then set the one we edited
-    const currentBenefits = client.employeePortalPreview?.benefits ?? client.employeePortalPreview?.previewData?.benefits ?? [];
+    const currentBenefits =
+      client.employeePortalPreview?.benefits ??
+      client.employeePortalPreview?.previewData?.benefits ??
+      [];
     const editingCategory = (step1Data?.benefitCategory || "").trim();
     const editingNorm = normalizeCategory(editingCategory);
 
@@ -184,11 +230,9 @@ export async function saveBenefit(
         (b: any) => normalizeCategory(b.category) === norm,
       );
       if (existing) {
-        return mergeUserBenefitWithHubDefaults(
-          existing,
-          d.category,
-          { saveMode: true },
-        ) as any;
+        return mergeUserBenefitWithHubDefaults(existing, d.category, {
+          saveMode: true,
+        }) as any;
       }
       return mergeUserBenefitWithHubDefaults(
         {
@@ -205,18 +249,27 @@ export async function saveBenefit(
     });
 
     // 4. Update keyContacts if we have new local ones or EDITED existing ones (like headshots)
-    const existingContacts = Array.isArray(client.keyContacts) ? client.keyContacts : (client.keyContacts?.contacts || []);
+    const existingContacts = Array.isArray(client.keyContacts)
+      ? client.keyContacts
+      : client.keyContacts?.contacts || [];
     const wizardPlanContacts = step1Data?.selectedPlan?.keyContacts;
-    const localContacts = Array.isArray(wizardPlanContacts) ? wizardPlanContacts : (wizardPlanContacts?.contacts || []);
+    const localContacts = Array.isArray(wizardPlanContacts)
+      ? wizardPlanContacts
+      : wizardPlanContacts?.contacts || [];
 
     // Merge: Prefer local (wizard) data for existing IDs, then add truly new ones
     const updatedContactsList = existingContacts.map((ec: any) => {
-      const localUpdate = localContacts.find((lc: any) => lc.id === ec.id || (lc.email === ec.email && ec.email));
+      const localUpdate = localContacts.find(
+        (lc: any) => lc.id === ec.id || (lc.email === ec.email && ec.email),
+      );
       return localUpdate ? { ...ec, ...localUpdate } : ec;
     });
 
-    const newContactsToAdd = localContacts.filter((lc: any) =>
-      !existingContacts.some((ec: any) => ec.id === lc.id || (lc.email === ec.email && ec.email))
+    const newContactsToAdd = localContacts.filter(
+      (lc: any) =>
+        !existingContacts.some(
+          (ec: any) => ec.id === lc.id || (lc.email === ec.email && ec.email),
+        ),
     );
 
     const finalContactsList = [...updatedContactsList, ...newContactsToAdd];
@@ -241,12 +294,13 @@ export async function saveBenefit(
     // editingHub to avoid duplicating other-category documents when concatenated with
     // retirementPlanDocuments below.
     const step4List = (step4Data?.documents || []) as any[];
-    const step4ForCurrentCategory = step4List.filter((d) =>
-      resolvePersistedDocumentCategory(
-        d.type || "Document",
-        d.category,
-        d.storageKey,
-      ) === editingHub
+    const step4ForCurrentCategory = step4List.filter(
+      (d) =>
+        resolvePersistedDocumentCategory(
+          d.type || "Document",
+          d.category,
+          d.storageKey,
+        ) === editingHub,
     );
     const fromApiThisHub = (currentDocuments as any[]).filter((d) => {
       // Accept both "Document" and the legacy "other" type so documents
@@ -262,21 +316,24 @@ export async function saveBenefit(
     // storageKey matches real-ID docs from the API (e.g., auto-persisted R2 uploads).
     // Without storageKey matching, both the temp-ID and real-ID versions would be
     // included, doubling the documents on every completion.
-    const step4IdSet = new Set(step4ForCurrentCategory.map((d) => String(d.id ?? "")));
+    const step4IdSet = new Set(
+      step4ForCurrentCategory.map((d) => String(d.id ?? "")),
+    );
     const step4KeySet = new Set(
       step4ForCurrentCategory
         .map((d) => (d.storageKey ? String(d.storageKey).trim() : ""))
         .filter(Boolean),
     );
-    const onlyOnServer = fromApiThisHub.filter(
-      (d) => {
-        if (step4IdSet.has(String(d.id))) return false;
-        const apiKey = (d.storageKey && String(d.storageKey).trim()) || "";
-        if (apiKey && step4KeySet.has(apiKey)) return false;
-        return true;
-      },
-    );
-    const mergedForCurrentCategory = [...step4ForCurrentCategory, ...onlyOnServer];
+    const onlyOnServer = fromApiThisHub.filter((d) => {
+      if (step4IdSet.has(String(d.id))) return false;
+      const apiKey = (d.storageKey && String(d.storageKey).trim()) || "";
+      if (apiKey && step4KeySet.has(apiKey)) return false;
+      return true;
+    });
+    const mergedForCurrentCategory = [
+      ...step4ForCurrentCategory,
+      ...onlyOnServer,
+    ];
 
     const newDocuments = mergedForCurrentCategory.map((doc: any) => {
       // `GET /api/clients` documents use `title`/`fileUrl`; wizard Step 4 uses `name`/`file`
@@ -311,7 +368,12 @@ export async function saveBenefit(
 
       const isR2 = isR2DocumentRow(doc);
       let fileData: string | undefined = doc.file;
-      if (!isR2 && fileData && !fileData.startsWith("data:") && !fileData.startsWith("/api/")) {
+      if (
+        !isR2 &&
+        fileData &&
+        !fileData.startsWith("data:") &&
+        !fileData.startsWith("/api/")
+      ) {
         fileData = `data:application/pdf;base64,${fileData}`;
       }
       if (isR2) {
@@ -382,7 +444,8 @@ export async function saveBenefit(
         insurancePlanId: step1Data?.insurancePlanId || "",
         insuranceLoginUrl: step1Data?.insuranceLoginUrl || "",
         insuranceBackgroundImage: step1Data?.insuranceBackgroundImage || "",
-        insuranceContainerBlockOpacity: step1Data?.insuranceContainerBlockOpacity ?? 0.8,
+        insuranceContainerBlockOpacity:
+          step1Data?.insuranceContainerBlockOpacity ?? 0.8,
         // Provider / recordkeeper for this category (rendered beside the
         // account-access block). Mirrored into the legacy preview too so both
         // read paths agree during the dual-write transition.
@@ -441,17 +504,28 @@ export async function saveBenefit(
       (updatePayload as any).documentsData = {
         retirementPlanDocuments: finalRetirementDocs,
         // Preserve other types
-        otherDocuments: currentDocuments.filter((d: any) => d.type !== "Document" && d.type !== "SPD" && d.type !== "SBC"),
-        spdFile: currentDocuments.find((d: any) => d.type === "SPD") ? {
-          fileName: currentDocuments.find((d: any) => d.type === "SPD")?.fileName,
-          file: currentDocuments.find((d: any) => d.type === "SPD")?.fileUrl,
-        } : null,
-        sbcFile: currentDocuments.find((d: any) => d.type === "SBC") ? {
-          fileName: currentDocuments.find((d: any) => d.type === "SBC")?.fileName,
-          file: currentDocuments.find((d: any) => d.type === "SBC")?.fileUrl,
-        } : null,
-      }
-    };
+        otherDocuments: currentDocuments.filter(
+          (d: any) =>
+            d.type !== "Document" && d.type !== "SPD" && d.type !== "SBC",
+        ),
+        spdFile: currentDocuments.find((d: any) => d.type === "SPD")
+          ? {
+              fileName: currentDocuments.find((d: any) => d.type === "SPD")
+                ?.fileName,
+              file: currentDocuments.find((d: any) => d.type === "SPD")
+                ?.fileUrl,
+            }
+          : null,
+        sbcFile: currentDocuments.find((d: any) => d.type === "SBC")
+          ? {
+              fileName: currentDocuments.find((d: any) => d.type === "SBC")
+                ?.fileName,
+              file: currentDocuments.find((d: any) => d.type === "SBC")
+                ?.fileUrl,
+            }
+          : null,
+      };
+    }
 
     const updateResponse = await fetch(`/api/clients/${planId}`, {
       method: "PUT",
@@ -460,7 +534,8 @@ export async function saveBenefit(
     });
 
     const updateResult = await updateResponse.json();
-    if (!updateResult.success) throw new Error(updateResult.error || "Failed to update client");
+    if (!updateResult.success)
+      throw new Error(updateResult.error || "Failed to update client");
     // The row just changed — drop the cached copy so any reader that follows (the
     // benefits PUT's dual-write below, or a step that mounts right after) sees it.
     invalidateClientCache(planId);
@@ -475,7 +550,9 @@ export async function saveBenefit(
         : step1Data?.benefitCategory;
     if (benefitCategory) {
       const benefitResponse = await fetch(
-        `/api/clients/${planId}/benefits/${encodeURIComponent(benefitCategory)}`,
+        `/api/clients/${planId}/benefits/${encodeURIComponent(
+          benefitCategory,
+        )}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
@@ -485,6 +562,8 @@ export async function saveBenefit(
             partnerLogo: partnerLogoUrl || null,
             backgroundImage: step1Data?.brandImages?.header?.url || null,
             innerHeaderImage: step1Data?.innerHeaderImage?.url || null,
+            landingCardImage: step1Data?.landingCardImage?.url || null,
+            landingCardBody: step1Data?.landingCardBody || null,
             planVideo: step1Data?.planVideo || null,
             planVideoFileName: step1Data?.planVideoFileName || null,
             journeyHeader: step1Data?.journeyHeader || null,
@@ -543,6 +622,9 @@ export async function saveBenefit(
 
     return { success: true };
   } catch (error: any) {
-    return { success: false, error: error?.message || "Failed to save benefit" };
+    return {
+      success: false,
+      error: error?.message || "Failed to save benefit",
+    };
   }
 }

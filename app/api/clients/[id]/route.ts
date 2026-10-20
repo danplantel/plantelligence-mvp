@@ -78,7 +78,7 @@ function normalizeUserDisclaimerToText(raw: unknown): string {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     let clientId = params.id;
@@ -326,12 +326,12 @@ export async function GET(
       const contactsArray = Array.isArray(rawContacts) ? rawContacts : [];
       const byVisibility = filterContactsByPortalVisibility(
         contactsArray as Record<string, unknown>[],
-        categoryPortalVisibility
+        categoryPortalVisibility,
       );
       // `showOnPortal` is derived from `showOnBenefitsHub`, so this drops exactly the
       // people the advisor switched display off for (T7 Part B item 2).
       const filtered = byVisibility.filter(
-        (c: any) => c?.showOnPortal !== false
+        (c: any) => c?.showOnPortal !== false,
       );
       keyContactsToReturn = Array.isArray(derived)
         ? filtered
@@ -384,6 +384,7 @@ export async function GET(
         "image",
         "backgroundImage",
         "innerHeaderImage",
+        "landingCardImage",
         "partnerLogo",
       ] as const;
 
@@ -435,14 +436,14 @@ export async function GET(
     console.error("Error fetching client:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -468,10 +469,7 @@ export async function PUT(
     }
 
     if (!existingClient) {
-      return NextResponse.json(
-        { error: "Client not found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
     // T2: authorization is the caller's ASSIGNMENT, not `Client.userId`.
@@ -563,7 +561,10 @@ export async function PUT(
       try {
         if (logoCropData && logoCropData.cropped) {
           const imageToProcess = logoCropData.originalImage || logoUrl;
-          logoUrl = await processBase64ImageWithCrop(imageToProcess, logoCropData);
+          logoUrl = await processBase64ImageWithCrop(
+            imageToProcess,
+            logoCropData,
+          );
         }
       } catch (error) {
         console.warn("Failed to crop company logo, using original:", error);
@@ -572,7 +573,9 @@ export async function PUT(
 
     // Extract brand images from brandImages object
     let backgroundImg =
-      (brandImages as any)?.header?.url || (brandImages as any)?.thumbnail?.url || existingClient.backgroundImg;
+      (brandImages as any)?.header?.url ||
+      (brandImages as any)?.thumbnail?.url ||
+      existingClient.backgroundImg;
     let backgroundImgName =
       (brandImages as any)?.header?.fileName ||
       existingClient.backgroundImgName;
@@ -592,47 +595,78 @@ export async function PUT(
     let faviconImgName =
       (brandImages as any)?.favicon?.fileName || existingClient.faviconImgName;
 
-    if (brandImages && typeof brandImages === 'object') {
-      const headerCropData = (brandImages as any)?.header?.cropData as CropMetadata | undefined;
-      const thumbnailCropData = (brandImages as any)?.thumbnail?.cropData as CropMetadata | undefined;
-      const secondaryBannerCropData = (brandImages as any)?.secondaryBanner?.cropData as CropMetadata | undefined;
-      const faviconCropData = (brandImages as any)?.favicon?.cropData as CropMetadata | undefined;
+    if (brandImages && typeof brandImages === "object") {
+      const headerCropData = (brandImages as any)?.header?.cropData as
+        | CropMetadata
+        | undefined;
+      const thumbnailCropData = (brandImages as any)?.thumbnail?.cropData as
+        | CropMetadata
+        | undefined;
+      const secondaryBannerCropData = (brandImages as any)?.secondaryBanner
+        ?.cropData as CropMetadata | undefined;
+      const faviconCropData = (brandImages as any)?.favicon?.cropData as
+        | CropMetadata
+        | undefined;
 
       if (backgroundImg && isBase64Image(backgroundImg)) {
         try {
           if (headerCropData && headerCropData.cropped) {
-            const imageToProcess = headerCropData.originalImage || backgroundImg;
-            backgroundImg = await processBase64ImageWithCrop(imageToProcess, headerCropData);
+            const imageToProcess =
+              headerCropData.originalImage || backgroundImg;
+            backgroundImg = await processBase64ImageWithCrop(
+              imageToProcess,
+              headerCropData,
+            );
           }
         } catch (error) {
-          console.warn("Failed to crop background image, using original:", error);
+          console.warn(
+            "Failed to crop background image, using original:",
+            error,
+          );
         }
       }
       if (thumbnailImg && isBase64Image(thumbnailImg)) {
         try {
           if (thumbnailCropData && thumbnailCropData.cropped) {
-            const imageToProcess = thumbnailCropData.originalImage || thumbnailImg;
-            thumbnailImg = await processBase64ImageWithCrop(imageToProcess, thumbnailCropData);
+            const imageToProcess =
+              thumbnailCropData.originalImage || thumbnailImg;
+            thumbnailImg = await processBase64ImageWithCrop(
+              imageToProcess,
+              thumbnailCropData,
+            );
           }
         } catch (error) {
-          console.warn("Failed to crop thumbnail image, using original:", error);
+          console.warn(
+            "Failed to crop thumbnail image, using original:",
+            error,
+          );
         }
       }
       if (secondaryBannerImg && isBase64Image(secondaryBannerImg)) {
         try {
           if (secondaryBannerCropData && secondaryBannerCropData.cropped) {
-            const imageToProcess = secondaryBannerCropData.originalImage || secondaryBannerImg;
-            secondaryBannerImg = await processBase64ImageWithCrop(imageToProcess, secondaryBannerCropData);
+            const imageToProcess =
+              secondaryBannerCropData.originalImage || secondaryBannerImg;
+            secondaryBannerImg = await processBase64ImageWithCrop(
+              imageToProcess,
+              secondaryBannerCropData,
+            );
           }
         } catch (error) {
-          console.warn("Failed to crop secondary banner image, using original:", error);
+          console.warn(
+            "Failed to crop secondary banner image, using original:",
+            error,
+          );
         }
       }
       if (faviconImg && isBase64Image(faviconImg)) {
         try {
           if (faviconCropData && faviconCropData.cropped) {
             const imageToProcess = faviconCropData.originalImage || faviconImg;
-            faviconImg = await processBase64ImageWithCrop(imageToProcess, faviconCropData);
+            faviconImg = await processBase64ImageWithCrop(
+              imageToProcess,
+              faviconCropData,
+            );
           }
         } catch (error) {
           console.warn("Failed to crop favicon image, using original:", error);
@@ -699,14 +733,18 @@ export async function PUT(
     // `companyName` (falling back to the stored value), so equality here means unchanged.
     const nextCompanyName = companyName || existingClient.companyName;
     const isRename =
-      Boolean(nextCompanyName) && nextCompanyName !== existingClient.companyName;
+      Boolean(nextCompanyName) &&
+      nextCompanyName !== existingClient.companyName;
 
     const updateData: any = {
       companyName: nextCompanyName,
       // Written only on an actual change — `updatedAt` cannot stand in, because every edit
       // touches it. `previousName` lets the feed say what the plan was renamed from.
       ...(isRename
-        ? { previousName: existingClient.companyName, nameUpdatedAt: new Date() }
+        ? {
+            previousName: existingClient.companyName,
+            nameUpdatedAt: new Date(),
+          }
         : {}),
       companyWebsite: companyWebsite ?? existingClient.companyWebsite,
       ...(newSlug !== null && { slug: newSlug }),
@@ -721,20 +759,59 @@ export async function PUT(
       missionHeadline: missionHeadline ?? existingClient.missionHeadline,
       missionBody: missionBody ?? existingClient.missionBody,
       appointmentLink: appointmentLink ?? existingClient.appointmentLink,
-      heroTitle: heroTitle !== undefined ? heroTitle : (existingClient as any).heroTitle,
-      heroDescription: heroDescription !== undefined ? heroDescription : (existingClient as any).heroDescription,
-      heroOverlayOpacity: heroOverlayOpacity !== undefined ? heroOverlayOpacity : (existingClient as any).heroOverlayOpacity,
-      heroBackgroundOpacity: heroBackgroundOpacity !== undefined ? heroBackgroundOpacity : (existingClient as any).heroBackgroundOpacity,
-      heroContainerOpacity: heroContainerOpacity !== undefined ? heroContainerOpacity : (existingClient as any).heroContainerOpacity,
-      heroContainerBackgroundOpacity: (body as any).heroContainerBackgroundOpacity !== undefined ? (body as any).heroContainerBackgroundOpacity : (existingClient as any)?.heroContainerBackgroundOpacity ?? (existingClient as any)?.heroContainerOpacity,
-      heroContainerBlockOpacity: (body as any).heroContainerBlockOpacity !== undefined ? (body as any).heroContainerBlockOpacity : (existingClient as any)?.heroContainerBlockOpacity ?? (existingClient as any)?.heroContainerOpacity,
-      heroCompanyNameColor: heroCompanyNameColor !== undefined ? heroCompanyNameColor : (existingClient as any).heroCompanyNameColor,
-      heroContainerInverted: heroContainerInverted !== undefined ? heroContainerInverted : (existingClient as any)?.heroContainerInverted ?? false,
-      heroBackgroundInverted: heroBackgroundInverted !== undefined ? heroBackgroundInverted : (existingClient as any)?.heroBackgroundInverted ?? false,
+      heroTitle:
+        heroTitle !== undefined ? heroTitle : (existingClient as any).heroTitle,
+      heroDescription:
+        heroDescription !== undefined
+          ? heroDescription
+          : (existingClient as any).heroDescription,
+      heroOverlayOpacity:
+        heroOverlayOpacity !== undefined
+          ? heroOverlayOpacity
+          : (existingClient as any).heroOverlayOpacity,
+      heroBackgroundOpacity:
+        heroBackgroundOpacity !== undefined
+          ? heroBackgroundOpacity
+          : (existingClient as any).heroBackgroundOpacity,
+      heroContainerOpacity:
+        heroContainerOpacity !== undefined
+          ? heroContainerOpacity
+          : (existingClient as any).heroContainerOpacity,
+      heroContainerBackgroundOpacity:
+        (body as any).heroContainerBackgroundOpacity !== undefined
+          ? (body as any).heroContainerBackgroundOpacity
+          : (existingClient as any)?.heroContainerBackgroundOpacity ??
+            (existingClient as any)?.heroContainerOpacity,
+      heroContainerBlockOpacity:
+        (body as any).heroContainerBlockOpacity !== undefined
+          ? (body as any).heroContainerBlockOpacity
+          : (existingClient as any)?.heroContainerBlockOpacity ??
+            (existingClient as any)?.heroContainerOpacity,
+      heroCompanyNameColor:
+        heroCompanyNameColor !== undefined
+          ? heroCompanyNameColor
+          : (existingClient as any).heroCompanyNameColor,
+      heroContainerInverted:
+        heroContainerInverted !== undefined
+          ? heroContainerInverted
+          : (existingClient as any)?.heroContainerInverted ?? false,
+      heroBackgroundInverted:
+        heroBackgroundInverted !== undefined
+          ? heroBackgroundInverted
+          : (existingClient as any)?.heroBackgroundInverted ?? false,
       // heroInverted: heroInverted !== undefined ? heroInverted : (existingClient as any).heroInverted, // Removed: missing from schema
-      heroUseGradient: heroUseGradient !== undefined ? heroUseGradient : (existingClient as any).heroUseGradient,
-      desktopHeroBackgroundPosition: (body as any).desktopHeroBackgroundPosition !== undefined ? (body as any).desktopHeroBackgroundPosition : (existingClient as any)?.desktopHeroBackgroundPosition,
-      mobileHeroBackgroundPosition: (body as any).mobileHeroBackgroundPosition !== undefined ? (body as any).mobileHeroBackgroundPosition : (existingClient as any)?.mobileHeroBackgroundPosition,
+      heroUseGradient:
+        heroUseGradient !== undefined
+          ? heroUseGradient
+          : (existingClient as any).heroUseGradient,
+      desktopHeroBackgroundPosition:
+        (body as any).desktopHeroBackgroundPosition !== undefined
+          ? (body as any).desktopHeroBackgroundPosition
+          : (existingClient as any)?.desktopHeroBackgroundPosition,
+      mobileHeroBackgroundPosition:
+        (body as any).mobileHeroBackgroundPosition !== undefined
+          ? (body as any).mobileHeroBackgroundPosition
+          : (existingClient as any)?.mobileHeroBackgroundPosition,
       // Contact images must be R2 keys, not inline data URLs: `keyContacts` is read by
       // the benefits/portal routes and forwarded to the browser, so a base64 headshot
       // here costs every reader hundreds of KB (measured: 447 KB on one plan). The
@@ -745,7 +822,12 @@ export async function PUT(
       // never send contacts — ran the R2 normaliser over the existing array and wrote
       // it straight back.
       ...(keyContacts != null
-        ? { keyContacts: await normalizeContactImagesToR2(keyContacts as any, params.id) }
+        ? {
+            keyContacts: await normalizeContactImagesToR2(
+              keyContacts as any,
+              params.id,
+            ),
+          }
         : {}),
       // employeePortalPreview: merge patch with existing data.
       // Benefits are now managed via the dedicated Benefit API with dual-write
@@ -784,17 +866,23 @@ export async function PUT(
           if (typeof disclaimers === "string") {
             try {
               const parsed = JSON.parse(disclaimers);
-              console.log("=== Parsed and saving disclaimers (from string) to client ===", {
-                clientId,
-                parsed,
-              });
+              console.log(
+                "=== Parsed and saving disclaimers (from string) to client ===",
+                {
+                  clientId,
+                  parsed,
+                },
+              );
               return parsed;
             } catch (e) {
               // If parsing fails, it's probably old format - keep as string for backward compatibility
-              console.log("=== Saving disclaimers (string, old format) to client ===", {
-                clientId,
-                disclaimers,
-              });
+              console.log(
+                "=== Saving disclaimers (string, old format) to client ===",
+                {
+                  clientId,
+                  disclaimers,
+                },
+              );
               return disclaimers;
             }
           } else {
@@ -870,7 +958,10 @@ export async function PUT(
         // Add SPD document if exists
         if (documentsData.spdFile && documentsData.spdFile.fileName) {
           // Only create if file is base64, not a URL
-          if (documentsData.spdFile.file && !documentsData.spdFile.file.startsWith('/api/')) {
+          if (
+            documentsData.spdFile.file &&
+            !documentsData.spdFile.file.startsWith("/api/")
+          ) {
             documentsToCreate.push({
               clientId,
               title: "Summary Plan Description (SPD)",
@@ -883,10 +974,13 @@ export async function PUT(
         }
 
         // Add other documents if exists
-        if (documentsData.otherDocuments && Array.isArray(documentsData.otherDocuments)) {
+        if (
+          documentsData.otherDocuments &&
+          Array.isArray(documentsData.otherDocuments)
+        ) {
           for (const doc of documentsData.otherDocuments) {
             // Only create if file is base64
-            if (doc.file && doc.fileName && !doc.file.startsWith('/api/')) {
+            if (doc.file && doc.fileName && !doc.file.startsWith("/api/")) {
               documentsToCreate.push({
                 clientId,
                 title: doc.title || doc.fileName || "Document",
@@ -898,7 +992,7 @@ export async function PUT(
                   doc.category,
                 ),
               });
-            } else if (doc.file && doc.file.startsWith('/api/documents/')) {
+            } else if (doc.file && doc.file.startsWith("/api/documents/")) {
               // Preserve existing document by restoring its URL
               const match = doc.file.match(/\/api\/documents\/([^\/?]+)/);
               const docId = match ? match[1] : doc.id;
@@ -922,7 +1016,10 @@ export async function PUT(
 
         // Add SBC document if exists
         if (documentsData.sbcFile && documentsData.sbcFile.fileName) {
-          if (documentsData.sbcFile.file && !documentsData.sbcFile.file.startsWith('/api/')) {
+          if (
+            documentsData.sbcFile.file &&
+            !documentsData.sbcFile.file.startsWith("/api/")
+          ) {
             documentsToCreate.push({
               clientId,
               title: "Summary of Benefits and Coverage (SBC)",
@@ -931,8 +1028,13 @@ export async function PUT(
               type: "SBC",
               category: "Group Health",
             });
-          } else if (documentsData.sbcFile.file && documentsData.sbcFile.file.startsWith('/api/')) {
-            const match = documentsData.sbcFile.file.match(/\/api\/documents\/([^\/?]+)/);
+          } else if (
+            documentsData.sbcFile.file &&
+            documentsData.sbcFile.file.startsWith("/api/")
+          ) {
+            const match = documentsData.sbcFile.file.match(
+              /\/api\/documents\/([^\/?]+)/,
+            );
             const docId = match ? match[1] : null;
             const fileUrl = docId ? existingDocsMap.get(docId) : null;
             if (fileUrl) {
@@ -959,7 +1061,8 @@ export async function PUT(
         // document through its own DELETE immediately, so "empty list" never means
         // "delete everything" here.
         const incomingDocs = documentsData.retirementPlanDocuments;
-        const canReplaceDocuments = Array.isArray(incomingDocs) && incomingDocs.length > 0;
+        const canReplaceDocuments =
+          Array.isArray(incomingDocs) && incomingDocs.length > 0;
 
         if (!canReplaceDocuments) {
           console.warn(
@@ -978,7 +1081,12 @@ export async function PUT(
         }
 
         // Helper function to detect language (same as in complete-v2)
-        const detectLanguage = (name: string, fileName: string, desc: string | null, storedLanguage?: string): string => {
+        const detectLanguage = (
+          name: string,
+          fileName: string,
+          desc: string | null,
+          storedLanguage?: string,
+        ): string => {
           // Use stored language if available
           if (storedLanguage === "ES" || storedLanguage === "EN") {
             return storedLanguage;
@@ -987,16 +1095,40 @@ export async function PUT(
           const source = `${name} ${fileName} ${desc || ""}`.toLowerCase();
 
           // Check for explicit markers
-          if (source.includes("[es]") || source.includes("(es)") || source.includes("español") || source.includes("espanol")) {
+          if (
+            source.includes("[es]") ||
+            source.includes("(es)") ||
+            source.includes("español") ||
+            source.includes("espanol")
+          ) {
             return "ES";
           }
-          if (source.includes("[en]") || source.includes("(en)") || source.includes("english")) {
+          if (
+            source.includes("[en]") ||
+            source.includes("(en)") ||
+            source.includes("english")
+          ) {
             return "EN";
           }
 
           // Check for Spanish words
-          const spanishWords = ["aquí", "puedes", "guía", "jubilación", "descripción", "información", "participante", "inscripción", "formulario", "folleto", "notificación", "solicitud"];
-          const hasSpanishWords = spanishWords.some(word => source.includes(word));
+          const spanishWords = [
+            "aquí",
+            "puedes",
+            "guía",
+            "jubilación",
+            "descripción",
+            "información",
+            "participante",
+            "inscripción",
+            "formulario",
+            "folleto",
+            "notificación",
+            "solicitud",
+          ];
+          const hasSpanishWords = spanishWords.some((word) =>
+            source.includes(word),
+          );
           if (hasSpanishWords) {
             return "ES";
           }
@@ -1042,7 +1174,11 @@ export async function PUT(
             // pointer to the file. A map miss costs nothing, so just look it up.
             if (!docStorageKey && doc.id) {
               const fromDb = storageKeyById.get(String(doc.id));
-              if (fromDb && String(fromDb).trim() && looksLikeObjectKey(String(fromDb).trim())) {
+              if (
+                fromDb &&
+                String(fromDb).trim() &&
+                looksLikeObjectKey(String(fromDb).trim())
+              ) {
                 docStorageKey = String(fromDb).trim();
               }
             }
@@ -1073,7 +1209,12 @@ export async function PUT(
                     "Document",
                     doc.category,
                   ),
-                  language: detectLanguage(documentName, originalFileName, shortDescription, storedLanguage),
+                  language: detectLanguage(
+                    documentName,
+                    originalFileName,
+                    shortDescription,
+                    storedLanguage,
+                  ),
                   clientId: clientId,
                   uploadedAt: new Date(),
                 },
@@ -1084,7 +1225,9 @@ export async function PUT(
             // Check if it's in Document format
             if (doc && doc.file && (doc.name || doc.originalFileName)) {
               // Document format
-              const isApiUrl = typeof doc.file === 'string' && doc.file.startsWith('/api/documents/');
+              const isApiUrl =
+                typeof doc.file === "string" &&
+                doc.file.startsWith("/api/documents/");
               // Skip R2 placeholder so we don't treat it as inline data
               const isR2Placeholder = doc.file === "r2:stored";
               if (isR2Placeholder) {
@@ -1108,13 +1251,20 @@ export async function PUT(
                 }
               } else {
                 fileUrl = doc.file;
-                if (fileUrl && !fileUrl.startsWith('data:') && !fileUrl.startsWith('http') && !fileUrl.startsWith('/api/')) {
+                if (
+                  fileUrl &&
+                  !fileUrl.startsWith("data:") &&
+                  !fileUrl.startsWith("http") &&
+                  !fileUrl.startsWith("/api/")
+                ) {
                   fileUrl = `data:application/pdf;base64,${fileUrl}`;
                 }
               }
 
-              documentName = doc.name || doc.originalFileName || `Document ${i + 1}`;
-              originalFileName = doc.originalFileName || doc.name || documentName;
+              documentName =
+                doc.name || doc.originalFileName || `Document ${i + 1}`;
+              originalFileName =
+                doc.originalFileName || doc.name || documentName;
               shortDescription = doc.shortDescription || null;
               storedLanguage = doc.language;
             }
@@ -1122,7 +1272,7 @@ export async function PUT(
             else if (doc && doc.fileName && doc.fileData) {
               // OptionalFiles format
               fileUrl = doc.fileData;
-              if (fileUrl && !fileUrl.startsWith('data:')) {
+              if (fileUrl && !fileUrl.startsWith("data:")) {
                 // If it's just base64 data, add data URL prefix
                 fileUrl = `data:application/pdf;base64,${fileUrl}`;
               }
@@ -1138,7 +1288,12 @@ export async function PUT(
             }
 
             // Detect language
-            const detectedLanguage = detectLanguage(documentName, originalFileName, shortDescription, storedLanguage);
+            const detectedLanguage = detectLanguage(
+              documentName,
+              originalFileName,
+              shortDescription,
+              storedLanguage,
+            );
 
             // Create document, reusing the original _id when this row already existed
             // (matched by its R2 key) so ids stay stable across saves.
@@ -1214,7 +1369,11 @@ export async function PUT(
     // Check for Prisma-specific error properties
     const prismaError = error as any;
     if (prismaError.code) console.error("Prisma error code:", prismaError.code);
-    if (prismaError.meta) console.error("Prisma error meta:", JSON.stringify(prismaError.meta, null, 2));
+    if (prismaError.meta)
+      console.error(
+        "Prisma error meta:",
+        JSON.stringify(prismaError.meta, null, 2),
+      );
 
     return NextResponse.json(
       {
@@ -1261,7 +1420,9 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
         error?.name === "MongoServerSelectionError";
       if (!retryable || attempt === maxRetries) throw error;
       console.warn(
-        `[clients PUT] transient Prisma failure (${error?.code ?? error?.name}), retry ${attempt} of ${maxRetries - 1}`,
+        `[clients PUT] transient Prisma failure (${
+          error?.code ?? error?.name
+        }), retry ${attempt} of ${maxRetries - 1}`,
       );
       // Short linear back-off (300/600ms). The aborted transaction is already gone, so
       // there is nothing to wait for beyond letting a momentary blip pass.
@@ -1273,7 +1434,7 @@ async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id: string } },
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -1296,10 +1457,7 @@ export async function DELETE(
     }
 
     if (!client) {
-      return NextResponse.json(
-        { error: "Client not found" },
-        { status: 404 },
-      );
+      return NextResponse.json({ error: "Client not found" }, { status: 404 });
     }
 
     if (client.userId !== session.user.id) {
@@ -1329,9 +1487,7 @@ export async function DELETE(
       where: {
         session: { userId: session.user.id },
         OR: [
-          ...(client.companyName
-            ? [{ companyName: client.companyName }]
-            : []),
+          ...(client.companyName ? [{ companyName: client.companyName }] : []),
           ...(client.slug ? [{ portalUrl: client.slug }] : []),
         ],
       },
@@ -1358,24 +1514,46 @@ export async function DELETE(
       // removed before the client, otherwise prisma.client.delete() throws P2014.
       () => prisma.benefit.deleteMany({ where: { clientId } }),
       () => prisma.document.deleteMany({ where: { clientId } }),
-      () => prisma.meeting.deleteMany({
-        where: {
-          userId: session.user.id,
-          OR: [{ clientId }, { client: clientName, clientId: null }],
-        },
-      }),
+      () =>
+        prisma.meeting.deleteMany({
+          where: {
+            userId: session.user.id,
+            OR: [{ clientId }, { client: clientName, clientId: null }],
+          },
+        }),
       () => prisma.marketingAsset.deleteMany({ where: { clientId } }),
       () => prisma.marketingFlyer.deleteMany({ where: { clientId } }),
       () => prisma.video.deleteMany({ where: { clientId } }),
       ...(staleSessionIds.length > 0
         ? [
-            () => prisma.newClientCompanyBasics.deleteMany({ where: { sessionId: { in: staleSessionIds } } }),
-            () => prisma.newClientWelcomeStatement.deleteMany({ where: { sessionId: { in: staleSessionIds } } }),
-            () => prisma.newClientKeyContacts.deleteMany({ where: { sessionId: { in: staleSessionIds } } }),
-            () => prisma.newClientContactBuilder.deleteMany({ where: { sessionId: { in: staleSessionIds } } }),
-            () => prisma.newClientComplianceDocuments.deleteMany({ where: { sessionId: { in: staleSessionIds } } }),
-            () => prisma.newClientEmployeePortalPreview.deleteMany({ where: { sessionId: { in: staleSessionIds } } }),
-            () => prisma.newClientWizardSession.deleteMany({ where: { id: { in: staleSessionIds } } }),
+            () =>
+              prisma.newClientCompanyBasics.deleteMany({
+                where: { sessionId: { in: staleSessionIds } },
+              }),
+            () =>
+              prisma.newClientWelcomeStatement.deleteMany({
+                where: { sessionId: { in: staleSessionIds } },
+              }),
+            () =>
+              prisma.newClientKeyContacts.deleteMany({
+                where: { sessionId: { in: staleSessionIds } },
+              }),
+            () =>
+              prisma.newClientContactBuilder.deleteMany({
+                where: { sessionId: { in: staleSessionIds } },
+              }),
+            () =>
+              prisma.newClientComplianceDocuments.deleteMany({
+                where: { sessionId: { in: staleSessionIds } },
+              }),
+            () =>
+              prisma.newClientEmployeePortalPreview.deleteMany({
+                where: { sessionId: { in: staleSessionIds } },
+              }),
+            () =>
+              prisma.newClientWizardSession.deleteMany({
+                where: { id: { in: staleSessionIds } },
+              }),
           ]
         : []),
       () => prisma.client.delete({ where: { id: clientId } }),

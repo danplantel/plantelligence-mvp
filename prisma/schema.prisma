@@ -938,6 +938,11 @@ model Benefit {
   backgroundImage String?
   innerHeaderImage String?
 
+  // Landing page "Benefits at a Glance" card — dedicated image + body copy so the
+  // card can differ from the hub's inner header and intro message.
+  landingCardImage String?
+  landingCardBody  String?
+
   // Help Cards
   helpCards Json?
 

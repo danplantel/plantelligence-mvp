@@ -13,6 +13,7 @@ import {
   BenefitsCategory,
 } from "@/types/new-client-wizard";
 import { getBenefitCompleteness } from "@/lib/benefit-completeness";
+import { getDefaultLandingCardBody } from "@/lib/landing-card-defaults";
 import { IncompleteBenefitDialog } from "./incomplete-benefit-dialog";
 import {
   getCategoryPortalVisibility,
@@ -21,7 +22,6 @@ import {
 } from "@/lib/portal-category-visibility";
 import { mergeUserBenefitWithHubDefaults } from "@/lib/hub-benefit-defaults";
 import { getCategoryDefaultInnerImageUrl } from "@/lib/portal-category-hero-background";
-import { BrandingImage } from "@/components/ui/branding-image";
 
 interface PortalBenefitsProps {
   brandColor?: string;
@@ -110,6 +110,48 @@ export function PortalBenefits({
       );
 
     return contactWithLogo?.companyLogo || defaultLogo;
+  };
+
+  /**
+   * The partner company's NAME, resolved from the same contact that supplies
+   * the partner logo. The portal card shows this name where the logo used to
+   * be, so the contact lookup mirrors `getPartnerLogo` exactly.
+   */
+  const getPartnerName = (benefit: Benefit): string => {
+    const categoryMap: Record<string, string> = {
+      "Retirement Plan Benefits": "Retirement",
+      "Health Insurance": "Group Health",
+      "Life Insurance": "Group Life",
+      "Wellness Programs": "Company / Plan Sponsor",
+    };
+
+    // 1. The explicitly assigned contact wins.
+    if (benefit.contactId) {
+      const assignedContact = keyContacts.find(
+        (c) => c.id === benefit.contactId,
+      );
+      if (assignedContact?.companyName) return assignedContact.companyName;
+    }
+
+    // 2. Otherwise the primary contact for the benefit's category.
+    const targetCategory =
+      (benefit.category as string) || categoryMap[benefit.title];
+    if (!targetCategory) return "";
+
+    const contactWithName =
+      keyContacts.find(
+        (contact) =>
+          contact.benefitsCategories?.includes(targetCategory as any) &&
+          (contact.isPrimary || contact.isPrimaryOverall) &&
+          contact.companyName,
+      ) ||
+      keyContacts.find(
+        (contact) =>
+          contact.benefitsCategories?.includes(targetCategory as any) &&
+          contact.companyName,
+      );
+
+    return contactWithName?.companyName || "";
   };
 
   const defaultBenefits = [
@@ -222,6 +264,7 @@ export function PortalBenefits({
     .map((benefit) => ({
       ...benefit,
       partnerLogo: getPartnerLogo(benefit, benefit.partnerLogo || ""),
+      partnerName: getPartnerName(benefit),
     }));
 
   const handleBenefitClick = (e: React.MouseEvent, benefit: any) => {
@@ -230,10 +273,7 @@ export function PortalBenefits({
       const category = (benefit.category ||
         benefit.title ||
         "") as BenefitsCategory;
-      const completeness = getBenefitCompleteness(
-        category,
-        completenessInput,
-      );
+      const completeness = getBenefitCompleteness(category, completenessInput);
 
       if (!completeness.isComplete) {
         e.preventDefault();
@@ -273,7 +313,8 @@ export function PortalBenefits({
   return (
     <section className="bg-white py-8 sm:py-10 lg:py-12 box-border flex flex-col items-center justify-center">
       <div className="text-center mb-8 sm:mb-12 lg:mb-16 px-4">
-        <h2 className="text-2xl sm:text-4xl lg:text-[48px] font-dm-serif mb-4 sm:mb-6"
+        <h2
+          className="text-2xl sm:text-4xl lg:text-[48px] font-dm-serif mb-4 sm:mb-6"
           style={{ color: brandColor }}
         >
           Your Benefits at a Glance
@@ -299,10 +340,37 @@ export function PortalBenefits({
             // hub's welcome banner: custom per-category image first, then the
             // per-category default placeholder image, then the legacy card image.
             const cardImage =
+              // Dedicated landing-card image first; older benefits (and cards the
+              // advisor never customised) fall back to the hub's inner header.
+              benefit.landingCardImage ||
               benefit.innerHeaderImage ||
               getCategoryDefaultInnerImageUrl(category) ||
               benefit.image ||
               "";
+
+            // Button copy is stored as e.g. "RETIREMENT BENEFITS>". Split the
+            // trailing chevron out so it can carry a deliberate gap from the label.
+            const buttonText = benefit.buttonText || "";
+            const hasButtonArrow = buttonText.trimEnd().endsWith(">");
+            const buttonLabel = hasButtonArrow
+              ? buttonText.trimEnd().slice(0, -1).trimEnd()
+              : buttonText;
+
+            // Card body copy is capped at 75 characters including spaces (the
+            // ellipsis counts toward the cap) so a long description cannot push
+            // the partner name and CTA out of line.
+            const descriptionText =
+              // Dedicated card copy first, then the category's landing-card
+              // default, then the hub's intro message.
+              benefit.landingCardBody ||
+              getDefaultLandingCardBody(category) ||
+              benefit.description ||
+              (benefit as any).shortDescription ||
+              "";
+            const bodyText =
+              descriptionText.length > 75
+                ? `${descriptionText.slice(0, 74).trimEnd()}…`
+                : descriptionText;
 
             const fadeUp = {
               hidden: { opacity: 0, y: 200 },
@@ -326,7 +394,9 @@ export function PortalBenefits({
                   /* ── Placeholder Card for Incomplete Benefits ── */
                   <Card
                     className={`text-center w-full max-w-full sm:max-w-[303px] h-full rounded-xl border border-dashed border-gray-300 bg-gray-50/80 overflow-hidden flex flex-col transition-all duration-300 ease-in-out relative group ${
-                      hasClientId ? "cursor-pointer hover:-translate-y-2 hover:shadow-lg" : ""
+                      hasClientId
+                        ? "cursor-pointer hover:-translate-y-2 hover:shadow-lg"
+                        : ""
                     }`}
                     onClick={(e) => {
                       if (hasClientId) {
@@ -365,7 +435,9 @@ export function PortalBenefits({
                   /* ── Live Benefit Card ── */
                   <div
                     className={`text-center w-full max-w-full sm:max-w-[303px] h-full rounded-xl ring-1 ring-[#E5E7EB] shadow-sm bg-white overflow-hidden flex flex-col transition-all duration-300 ease-in-out relative group ${
-                      onEdit ? "cursor-pointer hover:-translate-y-2 hover:shadow-lg" : "hover:-translate-y-2 hover:shadow-lg"
+                      onEdit
+                        ? "cursor-pointer hover:-translate-y-2 hover:shadow-lg"
+                        : "hover:-translate-y-2 hover:shadow-lg"
                     }`}
                     onClick={(e) => {
                       if (onEdit) {
@@ -391,14 +463,14 @@ export function PortalBenefits({
                           {benefit.title}
                         </h3>
 
-                        {/* Description */}
+                        {/* Description (max 75 characters, spaces included) */}
                         <p className="text-gray-600 text-sm sm:text-base font-red-hat leading-relaxed mb-3 sm:mb-4 whitespace-pre-line">
-                          {benefit.description || (benefit as any).shortDescription}
+                          {bodyText}
                         </p>
                       </div>
 
                       <div className="flex min-h-[130px] px-4 sm:px-5 flex-col items-center justify-between">
-                        {/* Partner logo */}
+                        {/* Partner company name (replaces the partner logo) */}
                         <div className="flex justify-center mb-3 sm:mb-4">
                           {onEdit && (
                             <div className="absolute top-2 left-2 z-20 bg-blue-500 rounded-full p-1.5 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
@@ -418,20 +490,10 @@ export function PortalBenefits({
                               </svg>
                             </div>
                           )}
-                          {benefit.partnerLogo && (
-                            <div
-                              className={`relative ${
-                                onEdit
-                                  ? "group-hover:ring-2 group-hover:ring-blue-500/50 rounded p-1 transition-all"
-                                  : ""
-                              }`}
-                            >
-                              <BrandingImage
-                                src={benefit.partnerLogo}
-                                alt={benefit.title}
-                                className="opacity-90 w-auto h-auto max-w-[140px] sm:max-w-[160px]"
-                              />
-                            </div>
+                          {(benefit as any).partnerName && (
+                            <p className="text-center text-sm sm:text-base font-red-hat font-semibold text-gray-700">
+                              {(benefit as any).partnerName}
+                            </p>
                           )}
                         </div>
 
@@ -443,14 +505,20 @@ export function PortalBenefits({
                             style={{ background: secondaryColor }}
                             onClick={(e) => handleBenefitClick(e, benefit)}
                           >
-                            {benefit.buttonText}
+                            {buttonLabel}
+                            {hasButtonArrow && (
+                              <span className="ml-1.5">{">"}</span>
+                            )}
                           </Link>
                         ) : (
                           <div
                             className="block w-full rounded-md py-2.5 sm:py-3 text-center text-xs sm:text-sm font-semibold tracking-wide text-white transition-all duration-300 cursor-default"
                             style={{ background: secondaryColor }}
                           >
-                            {benefit.buttonText}
+                            {buttonLabel}
+                            {hasButtonArrow && (
+                              <span className="ml-1.5">{">"}</span>
+                            )}
                           </div>
                         )}
                       </div>

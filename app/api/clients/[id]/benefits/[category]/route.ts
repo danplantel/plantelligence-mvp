@@ -40,7 +40,7 @@ async function resolveClient(
     permission: PermissionFunction;
     level: RequiredLevel;
     category?: string | null;
-  }
+  },
 ): Promise<[any, NextResponse | null]> {
   const forPortal = request.nextUrl.searchParams.get("forPortal") === "1";
   const portalAdvisorId = forPortal
@@ -56,7 +56,10 @@ async function resolveClient(
     const session = await getServerSession(authOptions);
     sessionUserId = session?.user?.id;
     if (!sessionUserId && !devPublic) {
-      return [null, NextResponse.json({ error: "Unauthorized" }, { status: 401 })];
+      return [
+        null,
+        NextResponse.json({ error: "Unauthorized" }, { status: 401 }),
+      ];
     }
   }
 
@@ -83,7 +86,10 @@ async function resolveClient(
   });
 
   if (!client) {
-    return [null, NextResponse.json({ error: "Client not found" }, { status: 404 })];
+    return [
+      null,
+      NextResponse.json({ error: "Client not found" }, { status: 404 }),
+    ];
   }
 
   // Public portal: the plan must belong to the advisor its slug resolved to.
@@ -137,7 +143,9 @@ async function signBenefitVideo(b: any) {
       const u = new URL(v, "http://localhost");
       const k = u.searchParams.get("key");
       if (k) return k;
-    } catch { /* not a URL, treat as raw key */ }
+    } catch {
+      /* not a URL, treat as raw key */
+    }
     return v;
   };
 
@@ -146,7 +154,9 @@ async function signBenefitVideo(b: any) {
     try {
       const url = await getPresignedReadUrl({ key: rawKey });
       if (url) return { ...b, planVideo: url };
-    } catch { /* keep original */ }
+    } catch {
+      /* keep original */
+    }
   }
   return b;
 }
@@ -157,7 +167,7 @@ async function signBenefitVideo(b: any) {
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string; category: string } }
+  { params }: { params: { id: string; category: string } },
 ) {
   try {
     const [client, error] = await resolveClient(params.id, request, {
@@ -189,7 +199,7 @@ export async function GET(
     console.error("Error fetching benefit:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -200,7 +210,7 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string; category: string } }
+  { params }: { params: { id: string; category: string } },
 ) {
   try {
     const [client, error] = await resolveClient(params.id, request, {
@@ -275,7 +285,11 @@ export async function PUT(
       return key ?? value;
     };
 
-    const partnerLogo = await toR2Key(body.partnerLogo, "logo", "benefit-logo.png");
+    const partnerLogo = await toR2Key(
+      body.partnerLogo,
+      "logo",
+      "benefit-logo.png",
+    );
     const backgroundImage = await toR2Key(
       body.backgroundImage,
       "background",
@@ -285,6 +299,11 @@ export async function PUT(
       body.innerHeaderImage,
       "background",
       "benefit-inner-header.png",
+    );
+    const landingCardImage = await toR2Key(
+      body.landingCardImage,
+      "background",
+      "benefit-landing-card.png",
     );
     const insuranceBackgroundImage = await toR2Key(
       body.insuranceBackgroundImage,
@@ -310,11 +329,14 @@ export async function PUT(
         partnerLogo: partnerLogo ?? null,
         backgroundImage: backgroundImage ?? null,
         innerHeaderImage: innerHeaderImage ?? null,
+        landingCardImage: landingCardImage ?? null,
+        landingCardBody: body.landingCardBody ?? null,
         helpCards: body.helpCards ?? null,
         insurancePlanId: body.insurancePlanId ?? null,
         insuranceLoginUrl: body.insuranceLoginUrl ?? null,
         insuranceBackgroundImage: insuranceBackgroundImage ?? null,
-        insuranceContainerBlockOpacity: body.insuranceContainerBlockOpacity ?? null,
+        insuranceContainerBlockOpacity:
+          body.insuranceContainerBlockOpacity ?? null,
         faqs: body.faqs ?? null,
         supportContacts: body.supportContacts ?? null,
         providerContact: body.providerContact ?? null,
@@ -333,53 +355,122 @@ export async function PUT(
         heroContainerInverted: body.heroContainerInverted ?? null,
         heroBackgroundInverted: body.heroBackgroundInverted ?? null,
         heroUseGradient: body.heroUseGradient ?? null,
-        desktopHeroBackgroundPosition: body.desktopHeroBackgroundPosition ?? null,
+        desktopHeroBackgroundPosition:
+          body.desktopHeroBackgroundPosition ?? null,
         mobileHeroBackgroundPosition: body.mobileHeroBackgroundPosition ?? null,
         isEnabled: body.isEnabled ?? true,
       },
       update: {
         title: body.title !== undefined ? body.title : undefined,
-        shortDescription: body.shortDescription !== undefined ? body.shortDescription : undefined,
-        journeyHeader: body.journeyHeader !== undefined ? body.journeyHeader : undefined,
-        journeySubtitle: body.journeySubtitle !== undefined ? body.journeySubtitle : undefined,
-        journeyBodyText: body.journeyBodyText !== undefined ? body.journeyBodyText : undefined,
+        shortDescription:
+          body.shortDescription !== undefined
+            ? body.shortDescription
+            : undefined,
+        journeyHeader:
+          body.journeyHeader !== undefined ? body.journeyHeader : undefined,
+        journeySubtitle:
+          body.journeySubtitle !== undefined ? body.journeySubtitle : undefined,
+        journeyBodyText:
+          body.journeyBodyText !== undefined ? body.journeyBodyText : undefined,
         planVideo: body.planVideo !== undefined ? body.planVideo : undefined,
-        planVideoFileName: body.planVideoFileName !== undefined ? body.planVideoFileName : undefined,
+        planVideoFileName:
+          body.planVideoFileName !== undefined
+            ? body.planVideoFileName
+            : undefined,
         partnerLogo: partnerLogo,
         backgroundImage: backgroundImage,
         innerHeaderImage: innerHeaderImage,
+        landingCardImage: landingCardImage,
+        landingCardBody:
+          body.landingCardBody !== undefined ? body.landingCardBody : undefined,
         helpCards: body.helpCards !== undefined ? body.helpCards : undefined,
-        insurancePlanId: body.insurancePlanId !== undefined ? body.insurancePlanId : undefined,
-        insuranceLoginUrl: body.insuranceLoginUrl !== undefined ? body.insuranceLoginUrl : undefined,
+        insurancePlanId:
+          body.insurancePlanId !== undefined ? body.insurancePlanId : undefined,
+        insuranceLoginUrl:
+          body.insuranceLoginUrl !== undefined
+            ? body.insuranceLoginUrl
+            : undefined,
         insuranceBackgroundImage: insuranceBackgroundImage,
-        insuranceContainerBlockOpacity: body.insuranceContainerBlockOpacity !== undefined ? body.insuranceContainerBlockOpacity : undefined,
+        insuranceContainerBlockOpacity:
+          body.insuranceContainerBlockOpacity !== undefined
+            ? body.insuranceContainerBlockOpacity
+            : undefined,
         faqs: body.faqs !== undefined ? body.faqs : undefined,
-        supportContacts: body.supportContacts !== undefined ? body.supportContacts : undefined,
-        providerContact: body.providerContact !== undefined ? body.providerContact : undefined,
-        signatureMode: body.signatureMode !== undefined ? body.signatureMode : undefined,
-        customClosing: body.customClosing !== undefined ? body.customClosing : undefined,
-        customSignatureName: body.customSignatureName !== undefined ? body.customSignatureName : undefined,
-        customSignatureCompany: body.customSignatureCompany !== undefined ? body.customSignatureCompany : undefined,
-        customClosingBold: body.customClosingBold !== undefined ? body.customClosingBold : undefined,
-        customClosingItalic: body.customClosingItalic !== undefined ? body.customClosingItalic : undefined,
-        customSignatureNameBold: body.customSignatureNameBold !== undefined ? body.customSignatureNameBold : undefined,
-        customSignatureNameItalic: body.customSignatureNameItalic !== undefined ? body.customSignatureNameItalic : undefined,
-        customSignatureCompanyBold: body.customSignatureCompanyBold !== undefined ? body.customSignatureCompanyBold : undefined,
-        customSignatureCompanyItalic: body.customSignatureCompanyItalic !== undefined ? body.customSignatureCompanyItalic : undefined,
-        heroBackgroundOpacity: body.heroBackgroundOpacity !== undefined ? body.heroBackgroundOpacity : undefined,
-        heroContainerBlockOpacity: body.heroContainerBlockOpacity !== undefined ? body.heroContainerBlockOpacity : undefined,
-        heroContainerInverted: body.heroContainerInverted !== undefined ? body.heroContainerInverted : undefined,
-        heroBackgroundInverted: body.heroBackgroundInverted !== undefined ? body.heroBackgroundInverted : undefined,
-        heroUseGradient: body.heroUseGradient !== undefined ? body.heroUseGradient : undefined,
-        desktopHeroBackgroundPosition: body.desktopHeroBackgroundPosition !== undefined ? body.desktopHeroBackgroundPosition : undefined,
-        mobileHeroBackgroundPosition: body.mobileHeroBackgroundPosition !== undefined ? body.mobileHeroBackgroundPosition : undefined,
+        supportContacts:
+          body.supportContacts !== undefined ? body.supportContacts : undefined,
+        providerContact:
+          body.providerContact !== undefined ? body.providerContact : undefined,
+        signatureMode:
+          body.signatureMode !== undefined ? body.signatureMode : undefined,
+        customClosing:
+          body.customClosing !== undefined ? body.customClosing : undefined,
+        customSignatureName:
+          body.customSignatureName !== undefined
+            ? body.customSignatureName
+            : undefined,
+        customSignatureCompany:
+          body.customSignatureCompany !== undefined
+            ? body.customSignatureCompany
+            : undefined,
+        customClosingBold:
+          body.customClosingBold !== undefined
+            ? body.customClosingBold
+            : undefined,
+        customClosingItalic:
+          body.customClosingItalic !== undefined
+            ? body.customClosingItalic
+            : undefined,
+        customSignatureNameBold:
+          body.customSignatureNameBold !== undefined
+            ? body.customSignatureNameBold
+            : undefined,
+        customSignatureNameItalic:
+          body.customSignatureNameItalic !== undefined
+            ? body.customSignatureNameItalic
+            : undefined,
+        customSignatureCompanyBold:
+          body.customSignatureCompanyBold !== undefined
+            ? body.customSignatureCompanyBold
+            : undefined,
+        customSignatureCompanyItalic:
+          body.customSignatureCompanyItalic !== undefined
+            ? body.customSignatureCompanyItalic
+            : undefined,
+        heroBackgroundOpacity:
+          body.heroBackgroundOpacity !== undefined
+            ? body.heroBackgroundOpacity
+            : undefined,
+        heroContainerBlockOpacity:
+          body.heroContainerBlockOpacity !== undefined
+            ? body.heroContainerBlockOpacity
+            : undefined,
+        heroContainerInverted:
+          body.heroContainerInverted !== undefined
+            ? body.heroContainerInverted
+            : undefined,
+        heroBackgroundInverted:
+          body.heroBackgroundInverted !== undefined
+            ? body.heroBackgroundInverted
+            : undefined,
+        heroUseGradient:
+          body.heroUseGradient !== undefined ? body.heroUseGradient : undefined,
+        desktopHeroBackgroundPosition:
+          body.desktopHeroBackgroundPosition !== undefined
+            ? body.desktopHeroBackgroundPosition
+            : undefined,
+        mobileHeroBackgroundPosition:
+          body.mobileHeroBackgroundPosition !== undefined
+            ? body.mobileHeroBackgroundPosition
+            : undefined,
         isEnabled: body.isEnabled !== undefined ? body.isEnabled : undefined,
       },
     });
 
     // DUAL-WRITE: Sync benefit back to employeePortalPreview JSON for backward compatibility
     try {
-      const allBenefits = await prisma.benefit.findMany({ where: { clientId } });
+      const allBenefits = await prisma.benefit.findMany({
+        where: { clientId },
+      });
       const existingEp = (client as any).employeePortalPreview || {};
 
       // Map existing legacy benefits by category so we can preserve legacy-only
@@ -401,49 +492,52 @@ export async function PUT(
         const legacy = legacyByCategory.get(norm(b.category));
         const bg = b.backgroundImage || legacy?.image || null;
         return {
-        id: b.category.toLowerCase().replace(/\s+/g, "-"),
-        title: b.title,
-        category: b.category,
-        isEnabled: b.isEnabled,
-        shortDescription: b.shortDescription,
-        journeyHeader: b.journeyHeader,
-        journeySubtitle: b.journeySubtitle,
-        journeyBodyText: b.journeyBodyText,
-        planVideo: b.planVideo,
-        planVideoFileName: b.planVideoFileName,
-        partnerLogo: b.partnerLogo,
-        // Legacy consumers (portal-welcome-banner, completeness check) read the
-        // header background from `image`; the new Benefit model calls it
-        // `backgroundImage`. Write both so neither breaks during dual-write.
-        image: bg,
-        backgroundImage: bg,
-        innerHeaderImage: b.innerHeaderImage,
-        helpCards: b.helpCards,
-        insurancePlanId: b.insurancePlanId,
-        insuranceLoginUrl: b.insuranceLoginUrl,
-        insuranceBackgroundImage: b.insuranceBackgroundImage,
-        insuranceContainerBlockOpacity: b.insuranceContainerBlockOpacity,
-        faqs: b.faqs,
-        supportContacts: b.supportContacts,
-        providerContact: b.providerContact,
-        signatureMode: b.signatureMode,
-        customClosing: b.customClosing,
-        customSignatureName: b.customSignatureName,
-        customSignatureCompany: b.customSignatureCompany,
-        customClosingBold: b.customClosingBold,
-        customClosingItalic: b.customClosingItalic,
-        customSignatureNameBold: b.customSignatureNameBold,
-        customSignatureNameItalic: b.customSignatureNameItalic,
-        customSignatureCompanyBold: b.customSignatureCompanyBold,
-        customSignatureCompanyItalic: b.customSignatureCompanyItalic,
-        heroBackgroundOpacity: b.heroBackgroundOpacity,
-        heroContainerBlockOpacity: b.heroContainerBlockOpacity,
-        heroContainerInverted: b.heroContainerInverted,
-        heroBackgroundInverted: b.heroBackgroundInverted,
-        heroUseGradient: b.heroUseGradient,
-        desktopHeroBackgroundPosition: b.desktopHeroBackgroundPosition,
-        mobileHeroBackgroundPosition: b.mobileHeroBackgroundPosition,
-      };
+          id: b.category.toLowerCase().replace(/\s+/g, "-"),
+          title: b.title,
+          category: b.category,
+          isEnabled: b.isEnabled,
+          shortDescription: b.shortDescription,
+          journeyHeader: b.journeyHeader,
+          journeySubtitle: b.journeySubtitle,
+          journeyBodyText: b.journeyBodyText,
+          planVideo: b.planVideo,
+          planVideoFileName: b.planVideoFileName,
+          partnerLogo: b.partnerLogo,
+          // Legacy consumers (portal-welcome-banner, completeness check) read the
+          // header background from `image`; the new Benefit model calls it
+          // `backgroundImage`. Write both so neither breaks during dual-write.
+          image: bg,
+          backgroundImage: bg,
+          innerHeaderImage: b.innerHeaderImage,
+          // Dedicated landing page card content (Benefits at a Glance).
+          landingCardImage: b.landingCardImage,
+          landingCardBody: b.landingCardBody,
+          helpCards: b.helpCards,
+          insurancePlanId: b.insurancePlanId,
+          insuranceLoginUrl: b.insuranceLoginUrl,
+          insuranceBackgroundImage: b.insuranceBackgroundImage,
+          insuranceContainerBlockOpacity: b.insuranceContainerBlockOpacity,
+          faqs: b.faqs,
+          supportContacts: b.supportContacts,
+          providerContact: b.providerContact,
+          signatureMode: b.signatureMode,
+          customClosing: b.customClosing,
+          customSignatureName: b.customSignatureName,
+          customSignatureCompany: b.customSignatureCompany,
+          customClosingBold: b.customClosingBold,
+          customClosingItalic: b.customClosingItalic,
+          customSignatureNameBold: b.customSignatureNameBold,
+          customSignatureNameItalic: b.customSignatureNameItalic,
+          customSignatureCompanyBold: b.customSignatureCompanyBold,
+          customSignatureCompanyItalic: b.customSignatureCompanyItalic,
+          heroBackgroundOpacity: b.heroBackgroundOpacity,
+          heroContainerBlockOpacity: b.heroContainerBlockOpacity,
+          heroContainerInverted: b.heroContainerInverted,
+          heroBackgroundInverted: b.heroBackgroundInverted,
+          heroUseGradient: b.heroUseGradient,
+          desktopHeroBackgroundPosition: b.desktopHeroBackgroundPosition,
+          mobileHeroBackgroundPosition: b.mobileHeroBackgroundPosition,
+        };
       });
 
       await prisma.client.update({
@@ -453,7 +547,10 @@ export async function PUT(
         },
       });
     } catch (dualWriteErr) {
-      console.error("Dual-write to employeePortalPreview failed (non-fatal):", dualWriteErr);
+      console.error(
+        "Dual-write to employeePortalPreview failed (non-fatal):",
+        dualWriteErr,
+      );
     }
 
     const signed = await signBenefitVideo(benefit);
@@ -463,7 +560,7 @@ export async function PUT(
     console.error("Error upserting benefit:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -482,7 +579,7 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; category: string } }
+  { params }: { params: { id: string; category: string } },
 ) {
   try {
     const [client, error] = await resolveClient(params.id, request);
@@ -545,7 +642,10 @@ export async function DELETE(
         const existingEp: any = (client as any).employeePortalPreview;
         if (existingEp && Array.isArray(existingEp.benefits)) {
           const norm = (cat: unknown) =>
-            String(cat ?? "").toLowerCase().trim().replace(/\s+/g, " ");
+            String(cat ?? "")
+              .toLowerCase()
+              .trim()
+              .replace(/\s+/g, " ");
           const target = norm(category);
           const benefits = existingEp.benefits.filter(
             (b: any) => norm(b?.category) !== target,
@@ -560,7 +660,10 @@ export async function DELETE(
       } catch (mirrorErr) {
         // The row is already gone; a stale mirror entry is recoverable, so don't
         // fail the purge over it.
-        console.error("Purge: legacy mirror cleanup failed (non-fatal):", mirrorErr);
+        console.error(
+          "Purge: legacy mirror cleanup failed (non-fatal):",
+          mirrorErr,
+        );
       }
 
       return NextResponse.json({ success: true, purged: deleted.count });
@@ -581,7 +684,7 @@ export async function DELETE(
     console.error("Error deleting benefit:", error);
     return NextResponse.json(
       { error: "Internal server error" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,128 +1,142 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { CompanyLogoData, BrandImagesData, Document } from "@/types/new-client-wizard";
+import {
+  CompanyLogoData,
+  BrandImagesData,
+  Document,
+} from "@/types/new-client-wizard";
 import type { TypographyThemeId } from "@/lib/typography-themes";
 import type { ProviderContact } from "@/types/benefit";
 
 export interface WizardStep {
-    id: number;
-    title: string;
-    description: string;
-    completed: boolean;
+  id: number;
+  title: string;
+  description: string;
+  completed: boolean;
 }
 
 export interface HelpCardData {
-    id: string;
-    title: string;
-    introBold?: string;
-    paragraphs: string[];
-    cta: string;
-    href?: string;
+  id: string;
+  title: string;
+  introBold?: string;
+  paragraphs: string[];
+  cta: string;
+  href?: string;
 }
 
 export interface BenefitsStep1Data {
-    planId: string;
-    benefitCategory: string;
-    /** Portal typography theme for the plan (see lib/typography-themes.ts).
-     *  Edited on Step 2; persisted to the Client record on completion. */
-    typographyTheme?: TypographyThemeId;
-    contactId: string;
-    benefitTitle: string;
-    shortDescription?: string;
-    companyLogo?: CompanyLogoData | null;
-    /** Right column image displayed full-height in the hero section (Inner Header Image) */
-    innerHeaderImage?: CompanyLogoData | null;
-    brandImages?: BrandImagesData;
-    // Temporary storage for contact details if changed
-    contactName?: string;
-    contactEmail?: string;
-    contactPhone?: string;
-    contactPhoneExtension?: string;
-    selectedPlan?: any | null;
-    /** Per-category publish/hide toggle state. Default true (published). */
-    benefitVisibility?: Record<string, boolean>;
-    /** Customizable "How Can We Help You Today?" cards */
-    helpCards?: HelpCardData[];
-    /** Plan ID displayed in the Insurance Benefits Access & Materials section */
-    insurancePlanId?: string;
-    /** URL for the Register or Login Here button in the Insurance Benefits section */
-    insuranceLoginUrl?: string;
-    /** Background image URL for the Insurance Benefits Access & Materials section */
-    insuranceBackgroundImage?: string;
-    /** Insurance section overlay darkness (0-1, higher = darker) */
-    insuranceContainerBlockOpacity?: number;
-    /**
-     * Provider / recordkeeper that administers this benefit (e.g. Voya, Empower,
-     * UnitedHealthcare). Shown beside the account-access block on the portal; the
-     * provider's logo is the Benefit Logo (`partnerLogo`).
-     */
-    providerContact?: ProviderContact | null;
-    /** Hero overlay opacity for the background image */
-    heroOverlayOpacity?: number;
-    /** Hero background image opacity */
-    heroBackgroundOpacity?: number;
-    /** Hero container block opacity */
-    heroContainerBlockOpacity?: number;
-    /** Invert hero container colors */
-    heroContainerInverted?: boolean;
-    /** Invert hero background colors */
-    heroBackgroundInverted?: boolean;
-    heroUseGradient?: boolean;
-    /** Closing & Signature mode: "user" = use contact's info, "custom" = custom text */
-    signatureMode?: "user" | "custom";
-    /** Custom closing text (when signatureMode is "custom") */
-    customClosing?: string;
-    /** Custom signature name & title (when signatureMode is "custom") */
-    customSignatureName?: string;
-    /** Custom signature company name (when signatureMode is "custom") */
-    customSignatureCompany?: string;
-    // Per-line bold/italic toggles (applied in both "user" and "custom" modes)
-    customClosingBold?: boolean;
-    customClosingItalic?: boolean;
-    customSignatureNameBold?: boolean;
-    customSignatureNameItalic?: boolean;
-    customSignatureCompanyBold?: boolean;
-    customSignatureCompanyItalic?: boolean;
-    /** Plan Video URL (uploaded in Step 2, Section 3 — replaces the right-column image in BenefitsVideoSection) */
-    planVideo?: string;
-    /** Original file name of the uploaded plan video */
-    planVideoFileName?: string;
-    /** When true, the user explicitly removed the video — overrides persisted categoryBenefit.planVideo */
-    planVideoRemoved?: boolean;
-    /** Journey section main header override */
-    journeyHeader?: string;
-    /** Journey section subtitle override */
-    journeySubtitle?: string;
-    /** Journey section body text override */
-    journeyBodyText?: string;
-    /** Categories for which benefit fields (logo, short description) have been loaded from the
-     *  persisted benefit on entry, so re-entry doesn't clobber in-session edits. */
-    benefitFieldsLoadedCategories?: string[];
-    /** Categories whose logo was set or cleared locally in this session. The Benefit-row pre-fill
-     *  must not re-derive `companyLogo` for these — it re-reads the persisted partnerLogo / the
-     *  advisor's profile logo (and nulls the logo outright when no Benefit row exists), so without
-     *  this a just-saved logo snaps back to the previous image until the category is re-entered. */
-    benefitLogoEditedCategories?: string[];
-    /** The advisor's organization logo (`User.advisorLogoUrl`) as of the last time this benefit's
-     *  logo was pre-filled. When Settings → Branding saves a NEW org logo it no longer matches, so
-     *  the Benefit Logo (Step 1) and Provider Logo (Step 2) adopt the new image instead of the
-     *  persisted Benefit row's `partnerLogo` shadowing it (that column normally holds the previous
-     *  org logo, written back by this page's auto-save). */
-    orgLogoSnapshot?: string;
-    /** Benefit-table rows for this client keyed by normalized category (source of truth), fetched
-     *  from GET /api/clients/{planId}/benefits. A category missing from this map means no Benefit
-     *  row exists (e.g. it was deleted) so the wizard must NOT pre-fill content from the stale
-     *  legacy employeePortalPreview.benefits JSON. */
-    categoryBenefitByApi?: Record<string, any | null>;
+  planId: string;
+  benefitCategory: string;
+  /** Portal typography theme for the plan (see lib/typography-themes.ts).
+   *  Edited on Step 2; persisted to the Client record on completion. */
+  typographyTheme?: TypographyThemeId;
+  contactId: string;
+  benefitTitle: string;
+  shortDescription?: string;
+  companyLogo?: CompanyLogoData | null;
+  /** Right column image displayed full-height in the hero section (Inner Header Image) */
+  innerHeaderImage?: CompanyLogoData | null;
+  /**
+   * Landing page "Benefits at a Glance" card image. Independent of
+   * `innerHeaderImage`; when empty the card falls back to it.
+   */
+  landingCardImage?: CompanyLogoData | null;
+  /**
+   * Landing page "Benefits at a Glance" card body (max 75 chars). Independent of
+   * `shortDescription`; when empty the card falls back to it.
+   */
+  landingCardBody?: string;
+  brandImages?: BrandImagesData;
+  // Temporary storage for contact details if changed
+  contactName?: string;
+  contactEmail?: string;
+  contactPhone?: string;
+  contactPhoneExtension?: string;
+  selectedPlan?: any | null;
+  /** Per-category publish/hide toggle state. Default true (published). */
+  benefitVisibility?: Record<string, boolean>;
+  /** Customizable "How Can We Help You Today?" cards */
+  helpCards?: HelpCardData[];
+  /** Plan ID displayed in the Insurance Benefits Access & Materials section */
+  insurancePlanId?: string;
+  /** URL for the Register or Login Here button in the Insurance Benefits section */
+  insuranceLoginUrl?: string;
+  /** Background image URL for the Insurance Benefits Access & Materials section */
+  insuranceBackgroundImage?: string;
+  /** Insurance section overlay darkness (0-1, higher = darker) */
+  insuranceContainerBlockOpacity?: number;
+  /**
+   * Provider / recordkeeper that administers this benefit (e.g. Voya, Empower,
+   * UnitedHealthcare). Shown beside the account-access block on the portal; the
+   * provider's logo is the Benefit Logo (`partnerLogo`).
+   */
+  providerContact?: ProviderContact | null;
+  /** Hero overlay opacity for the background image */
+  heroOverlayOpacity?: number;
+  /** Hero background image opacity */
+  heroBackgroundOpacity?: number;
+  /** Hero container block opacity */
+  heroContainerBlockOpacity?: number;
+  /** Invert hero container colors */
+  heroContainerInverted?: boolean;
+  /** Invert hero background colors */
+  heroBackgroundInverted?: boolean;
+  heroUseGradient?: boolean;
+  /** Closing & Signature mode: "user" = use contact's info, "custom" = custom text */
+  signatureMode?: "user" | "custom";
+  /** Custom closing text (when signatureMode is "custom") */
+  customClosing?: string;
+  /** Custom signature name & title (when signatureMode is "custom") */
+  customSignatureName?: string;
+  /** Custom signature company name (when signatureMode is "custom") */
+  customSignatureCompany?: string;
+  // Per-line bold/italic toggles (applied in both "user" and "custom" modes)
+  customClosingBold?: boolean;
+  customClosingItalic?: boolean;
+  customSignatureNameBold?: boolean;
+  customSignatureNameItalic?: boolean;
+  customSignatureCompanyBold?: boolean;
+  customSignatureCompanyItalic?: boolean;
+  /** Plan Video URL (uploaded in Step 2, Section 3 — replaces the right-column image in BenefitsVideoSection) */
+  planVideo?: string;
+  /** Original file name of the uploaded plan video */
+  planVideoFileName?: string;
+  /** When true, the user explicitly removed the video — overrides persisted categoryBenefit.planVideo */
+  planVideoRemoved?: boolean;
+  /** Journey section main header override */
+  journeyHeader?: string;
+  /** Journey section subtitle override */
+  journeySubtitle?: string;
+  /** Journey section body text override */
+  journeyBodyText?: string;
+  /** Categories for which benefit fields (logo, short description) have been loaded from the
+   *  persisted benefit on entry, so re-entry doesn't clobber in-session edits. */
+  benefitFieldsLoadedCategories?: string[];
+  /** Categories whose logo was set or cleared locally in this session. The Benefit-row pre-fill
+   *  must not re-derive `companyLogo` for these — it re-reads the persisted partnerLogo / the
+   *  advisor's profile logo (and nulls the logo outright when no Benefit row exists), so without
+   *  this a just-saved logo snaps back to the previous image until the category is re-entered. */
+  benefitLogoEditedCategories?: string[];
+  /** The advisor's organization logo (`User.advisorLogoUrl`) as of the last time this benefit's
+   *  logo was pre-filled. When Settings → Branding saves a NEW org logo it no longer matches, so
+   *  the Benefit Logo (Step 1) and Provider Logo (Step 2) adopt the new image instead of the
+   *  persisted Benefit row's `partnerLogo` shadowing it (that column normally holds the previous
+   *  org logo, written back by this page's auto-save). */
+  orgLogoSnapshot?: string;
+  /** Benefit-table rows for this client keyed by normalized category (source of truth), fetched
+   *  from GET /api/clients/{planId}/benefits. A category missing from this map means no Benefit
+   *  row exists (e.g. it was deleted) so the wizard must NOT pre-fill content from the stale
+   *  legacy employeePortalPreview.benefits JSON. */
+  categoryBenefitByApi?: Record<string, any | null>;
 }
 
 export interface FAQItem {
-    id: string;
-    question: string;
-    answer: string;
-    linkLabel?: string;
-    linkHref?: string;
-    enabled: boolean;
+  id: string;
+  question: string;
+  answer: string;
+  linkLabel?: string;
+  linkHref?: string;
+  enabled: boolean;
 }
 
 /**
@@ -130,57 +144,57 @@ export interface FAQItem {
  * types/benefit.ts (the persisted shape) — keep the two in step.
  */
 export interface SupportContact {
-    contactId: string;
-    title: string;
-    description: string;
-    enabled: boolean;
-    /** Render order within the category's team (lower first). */
-    order?: number;
-    /** Marks the category's primary contact. */
-    isPrimary?: boolean;
+  contactId: string;
+  title: string;
+  description: string;
+  enabled: boolean;
+  /** Render order within the category's team (lower first). */
+  order?: number;
+  /** Marks the category's primary contact. */
+  isPrimary?: boolean;
 }
 
 export interface BenefitsStep3Data {
-    faqs: FAQItem[];
-    supportContacts: SupportContact[];
-    currentSubStep?: "a" | "b";
-    /** Per-category FAQ storage keyed by benefitCategory (e.g. "Retirement", "Group Health", "Group Life", "Custom").
-     *  Persisted across wizard step navigations so manual additions are not lost. */
-    faqsByCategory?: Record<string, FAQItem[]>;
-    /** Categories for which support contacts have been loaded from the persisted benefit.
-     *  Prevents re-loading from clobbering in-session edits/removals on re-render. */
-    supportContactsLoadedCategories?: string[];
-    /** The plan + benefit category whose `supportContacts` this step3 state currently holds.
-     *  Stamped whenever support contacts are initialized (Step 1) or edited (Step 3) so a page
-     *  refresh — which resets `supportContactsLoadedCategories` to [] — can tell a legitimate
-     *  draft for THIS benefit from stale data left over from another plan/category, and never
-     *  clobbers the persisted draft with Benefit-row data (or an empty clear). */
-    supportContactsPlanId?: string;
-    supportContactsCategory?: string;
+  faqs: FAQItem[];
+  supportContacts: SupportContact[];
+  currentSubStep?: "a" | "b";
+  /** Per-category FAQ storage keyed by benefitCategory (e.g. "Retirement", "Group Health", "Group Life", "Custom").
+   *  Persisted across wizard step navigations so manual additions are not lost. */
+  faqsByCategory?: Record<string, FAQItem[]>;
+  /** Categories for which support contacts have been loaded from the persisted benefit.
+   *  Prevents re-loading from clobbering in-session edits/removals on re-render. */
+  supportContactsLoadedCategories?: string[];
+  /** The plan + benefit category whose `supportContacts` this step3 state currently holds.
+   *  Stamped whenever support contacts are initialized (Step 1) or edited (Step 3) so a page
+   *  refresh — which resets `supportContactsLoadedCategories` to [] — can tell a legitimate
+   *  draft for THIS benefit from stale data left over from another plan/category, and never
+   *  clobbers the persisted draft with Benefit-row data (or an empty clear). */
+  supportContactsPlanId?: string;
+  supportContactsCategory?: string;
 }
 
 export interface BenefitsStep4Data {
-    documents: Document[];
+  documents: Document[];
 }
 
 export interface BenefitsWizardState {
-    currentStep: number;
-    totalSteps: number;
-    steps: WizardStep[];
-    stepData: {
-        step1?: BenefitsStep1Data;
-        step2?: any;
-        step3?: BenefitsStep3Data;
-        step4?: BenefitsStep4Data;
-        step5?: any;
-    };
-    nextStep: () => void;
-    previousStep: () => void;
-    goToStep: (step: number) => void;
-    saveStepData: (step: number, data: any) => void;
-    saveStepDataLocally: (stepKey: string, data: any) => void;
-    completeStep: (stepId: number) => void;
-    resetWizard: () => void;
+  currentStep: number;
+  totalSteps: number;
+  steps: WizardStep[];
+  stepData: {
+    step1?: BenefitsStep1Data;
+    step2?: any;
+    step3?: BenefitsStep3Data;
+    step4?: BenefitsStep4Data;
+    step5?: any;
+  };
+  nextStep: () => void;
+  previousStep: () => void;
+  goToStep: (step: number) => void;
+  saveStepData: (step: number, data: any) => void;
+  saveStepDataLocally: (stepKey: string, data: any) => void;
+  completeStep: (stepId: number) => void;
+  resetWizard: () => void;
 }
 
 // Keep only small data URLs in localStorage to avoid quota issues.
@@ -230,36 +244,37 @@ const createSafeStorage = (): any => {
 };
 
 const benefitsWizardSteps: WizardStep[] = [
-    {
-        id: 1,
-        title: "Plan & Benefit Selection",
-        description: "Choose a plan and the benefit you want to create",
-        completed: false,
-    },
-    {
-        id: 2,
-        title: "Preview & Edit",
-        description: "Preview the benefit page and edit branding, messaging, FAQs, and contacts",
-        completed: false,
-    },
-    {
-        id: 3,
-        title: "Step 3",
-        description: "Description for Step 3",
-        completed: false,
-    },
-    {
-        id: 4,
-        title: "Step 4",
-        description: "Description for Step 4",
-        completed: false,
-    },
-    {
-        id: 5,
-        title: "Step 5",
-        description: "Description for Step 5",
-        completed: false,
-    },
+  {
+    id: 1,
+    title: "Plan & Benefit Selection",
+    description: "Choose a plan and the benefit you want to create",
+    completed: false,
+  },
+  {
+    id: 2,
+    title: "Preview & Edit",
+    description:
+      "Preview the benefit page and edit branding, messaging, FAQs, and contacts",
+    completed: false,
+  },
+  {
+    id: 3,
+    title: "Step 3",
+    description: "Description for Step 3",
+    completed: false,
+  },
+  {
+    id: 4,
+    title: "Step 4",
+    description: "Description for Step 4",
+    completed: false,
+  },
+  {
+    id: 5,
+    title: "Step 5",
+    description: "Description for Step 5",
+    completed: false,
+  },
 ];
 
 /**
@@ -286,151 +301,155 @@ export const BENEFITS_WIZARD_STORAGE_KEY = "benefits-wizard";
  * the stored payload cannot be read: an unknown draft must never invent a label.
  */
 export function readPersistedBenefitsDraft(): {
-    planId: string;
-    benefitCategory: string;
+  planId: string;
+  benefitCategory: string;
 } | null {
-    if (typeof window === "undefined") return null;
-    try {
-        const raw = window.localStorage.getItem(BENEFITS_WIZARD_STORAGE_KEY);
-        if (!raw) return null;
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(BENEFITS_WIZARD_STORAGE_KEY);
+    if (!raw) return null;
 
-        const parsed = JSON.parse(raw) as {
-            state?: {
-                stepData?: {
-                    step1?: { planId?: string; benefitCategory?: string };
-                };
-            };
+    const parsed = JSON.parse(raw) as {
+      state?: {
+        stepData?: {
+          step1?: { planId?: string; benefitCategory?: string };
         };
-        const step1 = parsed?.state?.stepData?.step1;
-        const planId = (step1?.planId || "").trim();
-        const benefitCategory = (step1?.benefitCategory || "").trim();
-        if (!planId || !benefitCategory) return null;
+      };
+    };
+    const step1 = parsed?.state?.stepData?.step1;
+    const planId = (step1?.planId || "").trim();
+    const benefitCategory = (step1?.benefitCategory || "").trim();
+    if (!planId || !benefitCategory) return null;
 
-        return { planId, benefitCategory };
-    } catch {
-        return null;
-    }
+    return { planId, benefitCategory };
+  } catch {
+    return null;
+  }
 }
 
 export const useBenefitsWizardStore = create<BenefitsWizardState>()(
-    persist(
-        (set, get) => ({
-            currentStep: 1,
-            totalSteps: 5,
-            steps: benefitsWizardSteps,
-            stepData: {},
+  persist(
+    (set, get) => ({
+      currentStep: 1,
+      totalSteps: 5,
+      steps: benefitsWizardSteps,
+      stepData: {},
 
-            nextStep: () => {
-                const { currentStep, totalSteps } = get();
-                if (currentStep < totalSteps) {
-                    set({ currentStep: currentStep + 1 });
-                }
-            },
-
-            previousStep: () => {
-                const { currentStep } = get();
-                if (currentStep > 1) {
-                    set({ currentStep: currentStep - 1 });
-                }
-            },
-
-            goToStep: (step: number) => {
-                const { totalSteps } = get();
-                if (step >= 1 && step <= totalSteps) {
-                    set({ currentStep: step });
-                }
-            },
-
-            saveStepData: (step: number, data: any) => {
-                set((state) => ({
-                    stepData: {
-                        ...state.stepData,
-                        [`step${step}`]: data,
-                    },
-                }));
-            },
-            saveStepDataLocally: (stepKey: string, data: any) => {
-                set((state) => ({
-                    stepData: {
-                        ...state.stepData,
-                        [stepKey]: data,
-                    },
-                }));
-            },
-
-            completeStep: (stepId: number) => {
-                set((state) => ({
-                    steps: state.steps.map((step) =>
-                        step.id === stepId ? { ...step, completed: true } : step
-                    ),
-                }));
-            },
-
-            resetWizard: () => {
-                set({
-                    currentStep: 1,
-                    stepData: {},
-                    steps: benefitsWizardSteps.map((s) => ({ ...s, completed: false })),
-                });
-            },
-        }),
-        {
-            name: BENEFITS_WIZARD_STORAGE_KEY,
-            skipHydration: true,
-            storage: createSafeStorage(),
-            partialize: (state) => {
-                // Strip large/base64 data and reset tracking fields that should
-                // be re-evaluated on rehydration so effects re-run correctly.
-                const cleaned: any = { ...state };
-                if (cleaned.stepData) {
-                    const sd = { ...cleaned.stepData };
-
-                    if (sd.step1) {
-                        const s1 = { ...sd.step1 };
-                        // Don't persist selectedPlan — will be re-fetched from API on rehydration
-                        delete s1.selectedPlan;
-                        // Re-fetch Benefit-table rows on rehydration so the wizard reflects DB truth
-                        delete (s1 as any).categoryBenefitByApi;
-                        // Reset loaded-categories tracking so effects re-run on rehydration
-                        // and re-load partnerLogo / shortDescription from the API
-                        s1.benefitFieldsLoadedCategories = [];
-
-                        // Preserve companyLogo URL as-is — logos are small and must
-                        // survive refresh so the auto-save (which fires on rehydration)
-                        // doesn't overwrite the API's saved partnerLogo with null.
-                        // Unlike brandImages, logos are rarely large enough to cause
-                        // localStorage quota issues.
-
-                        // Preserve brandImages.header.url (hero background) — same
-                        // rationale as companyLogo: must survive refresh so the
-                        // auto-save doesn't overwrite the API value with null.
-                        // Strip other brandImages slots which hold large uploads.
-                        if (s1.brandImages) {
-                            s1.brandImages = { ...s1.brandImages };
-                            for (const key of ["thumbnail", "secondaryBanner", "favicon"] as const) {
-                                if (s1.brandImages[key]?.url) {
-                                    s1.brandImages[key] = {
-                                        ...s1.brandImages[key]!,
-                                        url: keepSmallDataUrl(s1.brandImages[key]!.url, 50_000),
-                                    };
-                                }
-                            }
-                        }
-
-                        sd.step1 = s1;
-                    }
-
-                    if (sd.step3) {
-                        const s3 = { ...sd.step3 };
-                        // Reset loaded-categories tracking so support contacts are re-loaded on rehydration
-                        s3.supportContactsLoadedCategories = [];
-                        sd.step3 = s3;
-                    }
-
-                    cleaned.stepData = sd;
-                }
-                return cleaned;
-            },
+      nextStep: () => {
+        const { currentStep, totalSteps } = get();
+        if (currentStep < totalSteps) {
+          set({ currentStep: currentStep + 1 });
         }
-    )
+      },
+
+      previousStep: () => {
+        const { currentStep } = get();
+        if (currentStep > 1) {
+          set({ currentStep: currentStep - 1 });
+        }
+      },
+
+      goToStep: (step: number) => {
+        const { totalSteps } = get();
+        if (step >= 1 && step <= totalSteps) {
+          set({ currentStep: step });
+        }
+      },
+
+      saveStepData: (step: number, data: any) => {
+        set((state) => ({
+          stepData: {
+            ...state.stepData,
+            [`step${step}`]: data,
+          },
+        }));
+      },
+      saveStepDataLocally: (stepKey: string, data: any) => {
+        set((state) => ({
+          stepData: {
+            ...state.stepData,
+            [stepKey]: data,
+          },
+        }));
+      },
+
+      completeStep: (stepId: number) => {
+        set((state) => ({
+          steps: state.steps.map((step) =>
+            step.id === stepId ? { ...step, completed: true } : step,
+          ),
+        }));
+      },
+
+      resetWizard: () => {
+        set({
+          currentStep: 1,
+          stepData: {},
+          steps: benefitsWizardSteps.map((s) => ({ ...s, completed: false })),
+        });
+      },
+    }),
+    {
+      name: BENEFITS_WIZARD_STORAGE_KEY,
+      skipHydration: true,
+      storage: createSafeStorage(),
+      partialize: (state) => {
+        // Strip large/base64 data and reset tracking fields that should
+        // be re-evaluated on rehydration so effects re-run correctly.
+        const cleaned: any = { ...state };
+        if (cleaned.stepData) {
+          const sd = { ...cleaned.stepData };
+
+          if (sd.step1) {
+            const s1 = { ...sd.step1 };
+            // Don't persist selectedPlan — will be re-fetched from API on rehydration
+            delete s1.selectedPlan;
+            // Re-fetch Benefit-table rows on rehydration so the wizard reflects DB truth
+            delete (s1 as any).categoryBenefitByApi;
+            // Reset loaded-categories tracking so effects re-run on rehydration
+            // and re-load partnerLogo / shortDescription from the API
+            s1.benefitFieldsLoadedCategories = [];
+
+            // Preserve companyLogo URL as-is — logos are small and must
+            // survive refresh so the auto-save (which fires on rehydration)
+            // doesn't overwrite the API's saved partnerLogo with null.
+            // Unlike brandImages, logos are rarely large enough to cause
+            // localStorage quota issues.
+
+            // Preserve brandImages.header.url (hero background) — same
+            // rationale as companyLogo: must survive refresh so the
+            // auto-save doesn't overwrite the API value with null.
+            // Strip other brandImages slots which hold large uploads.
+            if (s1.brandImages) {
+              s1.brandImages = { ...s1.brandImages };
+              for (const key of [
+                "thumbnail",
+                "secondaryBanner",
+                "favicon",
+              ] as const) {
+                if (s1.brandImages[key]?.url) {
+                  s1.brandImages[key] = {
+                    ...s1.brandImages[key]!,
+                    url: keepSmallDataUrl(s1.brandImages[key]!.url, 50_000),
+                  };
+                }
+              }
+            }
+
+            sd.step1 = s1;
+          }
+
+          if (sd.step3) {
+            const s3 = { ...sd.step3 };
+            // Reset loaded-categories tracking so support contacts are re-loaded on rehydration
+            s3.supportContactsLoadedCategories = [];
+            sd.step3 = s3;
+          }
+
+          cleaned.stepData = sd;
+        }
+        return cleaned;
+      },
+    },
+  ),
 );

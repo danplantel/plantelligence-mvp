@@ -38,7 +38,7 @@ export interface CompanyLogoData {
     scale: number;
     offsetX: number;
     offsetY: number;
-    layout: 'horizontal' | 'square';
+    layout: "horizontal" | "square";
   };
 }
 
@@ -52,7 +52,7 @@ export interface BrandImageData {
   width: number;
   height: number;
   recommendedSize: string;
-  status: 'ok' | 'warning' | 'error';
+  status: "ok" | "warning" | "error";
   warnings: string[];
   cropData?: CropMetadata;
 }
@@ -86,7 +86,11 @@ export interface CompanyBasicsData {
   planType?: string;
   /** Custom portal URL slug (max 20 chars, alphanumeric + hyphens). Falls back to auto-generated from companyName. */
   portalUrl?: string;
-  organizationType?: "Advisor Firm" | "Client" | "Recordkeeper" | "Partner/Custom";
+  organizationType?:
+    | "Advisor Firm"
+    | "Client"
+    | "Recordkeeper"
+    | "Partner/Custom";
   isPrimaryColorPickerOpen?: boolean;
   isSecondaryColorPickerOpen?: boolean;
   heroTitle?: string;
@@ -218,7 +222,9 @@ export interface KeyContact {
   displayScheduleAppointment?: boolean;
   // New format: separate orders for contact info and action buttons
   contactInfoOrder?: ("phone" | "email")[];
-  actionButtonOrder?: ("phone" | "email" | "schedule" | "website")[] | ("schedule" | "website")[];
+  actionButtonOrder?:
+    | ("phone" | "email" | "schedule" | "website")[]
+    | ("schedule" | "website")[];
   contactUrl?: string;
   contactButtonType?: "email" | "phone" | "calendar" | "url"; // Legacy
   displayScope?: "futureUse" | "thisPortal";
@@ -297,6 +303,16 @@ export interface Benefit {
   image?: string;
   /** Right column image displayed full-height in the hub hero section (Inner Header Image). */
   innerHeaderImage?: string | null;
+  /**
+   * Landing page "Benefits at a Glance" card image. When empty, the card falls
+   * back to `innerHeaderImage`.
+   */
+  landingCardImage?: string | null;
+  /**
+   * Landing page "Benefits at a Glance" card body. When empty, the card falls
+   * back to `description` / `shortDescription`.
+   */
+  landingCardBody?: string | null;
   buttonText?: string;
   href?: string;
   category?: BenefitsCategory;
@@ -382,7 +398,8 @@ export const PORTAL_DISCLAIMER_CATEGORIES = [
   "Other",
 ] as const;
 
-export type PortalDisclaimerCategory = (typeof PORTAL_DISCLAIMER_CATEGORIES)[number];
+export type PortalDisclaimerCategory =
+  (typeof PORTAL_DISCLAIMER_CATEGORIES)[number];
 
 export interface DisclaimersData {
   /** Legacy flattened disclaimer list. New records use `byCategory` only —
@@ -418,7 +435,11 @@ export interface NewClientWizardState {
   goToStep: (step: number) => void;
   completeStep: (stepId: number) => void;
   completeWizard: () => Promise<void>;
-  saveStepData: (stepType: string, data: any, saveToServer?: boolean) => Promise<void>;
+  saveStepData: (
+    stepType: string,
+    data: any,
+    saveToServer?: boolean,
+  ) => Promise<void>;
   saveStepDataLocally: (stepType: string, data: any) => Promise<void>;
   saveStepDataToServer: (stepType: string, data: any) => Promise<boolean>;
   loadAllWizardData: () => Promise<any>;
