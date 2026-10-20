@@ -157,9 +157,9 @@ export function PrimaryContactCard({
       buttons.push({
         type: "call",
         label: "Call Now",
-        url: contact.phone
-          ? `tel:${getBasePhoneForDialing(contact.phone)}`
-          : "",
+        // `getBasePhoneForDialing` already returns the `tel:` scheme, so adding
+        // one here produced `tel:tel:+1…` and the button dialled nothing.
+        url: contact.phone ? getBasePhoneForDialing(contact.phone) : "",
       });
     } else if (ctaBtnType === "email") {
       if (primaryIndex === -1) primaryIndex = buttons.length;
@@ -205,8 +205,6 @@ export function PrimaryContactCard({
     }
   }
 
-  const hasAnyButton = buttons.some((b) => !!b.url);
-
   // Legacy fallback: only show default Schedule button when no CTA system data exists at all
   if (buttons.length === 0 && contact.enableContactButton === undefined) {
     buttons.push({
@@ -216,6 +214,10 @@ export function PrimaryContactCard({
     });
     primaryIndex = 0;
   }
+
+  // Computed AFTER the legacy fallback: the rendered button list is gated on
+  // this flag, so computing it first silently dropped the fallback button.
+  const hasAnyButton = buttons.some((b) => !!b.url);
 
   const gridGap = compact
     ? "gap-4 sm:gap-6 lg:gap-8"
@@ -376,7 +378,8 @@ export function PrimaryContactCard({
           {/* PHONE (clickable) */}
           {contact.phone && contact.displayPhone !== false && (
             <a
-              href={`tel:${getBasePhoneForDialing(contact.phone)}`}
+              // `getBasePhoneForDialing` already carries the scheme.
+              href={getBasePhoneForDialing(contact.phone)}
               className="flex items-center gap-2.5 text-sm sm:text-base font-red-hat hover:opacity-80 transition-opacity group"
               style={{ color: textColor }}
             >
@@ -406,7 +409,12 @@ export function PrimaryContactCard({
 
           {/* SCHEDULE APPOINTMENT BUTTON */}
           <div className="w-full pt-2">
-            {buttons.length > 0 ? (
+            {/* Only live buttons are drawn. An explicitly disabled CTA, an
+                unknown CTA type, or a CTA whose URL could not be built (e.g.
+                "Call Now" with no number) renders nothing rather than a dead
+                button; contacts with no CTA config at all take the legacy
+                Schedule Appt. fallback pushed above. */}
+            {hasAnyButton &&
               buttons.map((button, idx) => {
                 const isPrimaryButton = idx === primaryIndex;
                 // Primary CTA uses the SECONDARY color, matching
@@ -446,18 +454,7 @@ export function PrimaryContactCard({
                     {button.label}
                   </Button>
                 );
-              })
-            ) : (
-              <Button
-                className="w-full rounded-lg px-5 py-3 text-sm font-semibold uppercase tracking-wide text-white hover:opacity-90 font-red-hat transition-all duration-200 hover:scale-105"
-                // Same secondary-color CTA as above — this is the button rendered
-                // when the contact has no configured action buttons.
-                style={{ backgroundColor: effectiveSecondaryColor }}
-                onClick={() => window.open(appointmentLink, "_blank")}
-              >
-                Schedule Appointment
-              </Button>
-            )}
+              })}
           </div>
         </div>
       </div>

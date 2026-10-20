@@ -15,17 +15,13 @@ The page changed shape in a way the suites pin: the "Your organization offers" s
 
 ## Running these tests
 
-There is no scoped Benefits script yet. Run the new suites directly:
-
 ```bash
-pnpm exec vitest run "app/(dashboard)/benefits/__tests__"
-pnpm exec vitest run "components/pages/benefits/__tests__"
-pnpm exec vitest run "components/plan-selector/__tests__"
-pnpm exec vitest run "app/api/benefits/__tests__"
-pnpm exec vitest run "app/api/clients/[id]/__tests__/route.visibility.test.ts"
-pnpm exec vitest run "app/api/teammates/plan-assignments/__tests__"
-pnpm exec vitest run lib/__tests__/service-categories.test.ts lib/__tests__/plan-selector-storage.test.ts lib/__tests__/active-client-status.test.ts lib/__tests__/benefit-category-slug.test.ts lib/__tests__/benefit-draft.test.ts lib/__tests__/portal-surface.test.ts
+pnpm test:benefits           # every Browse Benefits suite (174 tests)
+pnpm test:benefits:watch     # watch mode
+pnpm test:benefits:coverage  # suite + V8 coverage
 ```
+
+These are backed by [`vitest.benefits.config.mts`](../../vitest.benefits.config.mts) and [`scripts/tests/run-benefits-tests.mjs`](../../scripts/tests/run-benefits-tests.mjs), which list the 13 suites explicitly so the command cannot pick up unrelated tests.
 
 All tests:
 
@@ -435,6 +431,8 @@ Still worth adding:
 
 ## Related documentation
 
+- [`docs/testing/create-benefit-tests.md`](create-benefit-tests.md) — the Create Benefit wizard that writes these rows.
+- [`docs/testing/edit-benefits-tests.md`](edit-benefits-tests.md) — the Edit Benefit route, editor and API.
 - [`docs/testing/clients-tests.md`](clients-tests.md) — the All Plans page behind the plan picker, and the accessible-plan scoping model.
 - [`docs/testing/edit-client-tests.md`](edit-client-tests.md) — Key Contacts and plan settings that feed the row's contacts.
 - [`docs/testing/settings-test.md`](settings-test.md) — where `primaryServiceCategories` is edited.

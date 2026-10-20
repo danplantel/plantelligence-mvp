@@ -7,6 +7,7 @@ It covers the page's orchestration around the wizard: deep-link hydration, step 
 ## Summary
 
 - **Unit tests:** 103 passing in 1 file.
+- **Scoped scripts:** `pnpm test:create-benefit`, `pnpm test:create-benefit:watch`, `pnpm test:create-benefit:coverage`.
 - **E2E:** none dedicated; the page is not yet in a Playwright spec.
 - **Runner:** Vitest + React Testing Library + jsdom.
 
@@ -15,8 +16,12 @@ The page is mostly orchestration, so the suite mocks the wizard store, the five 
 ## Running these tests
 
 ```bash
-pnpm exec vitest run "app/(dashboard)/new-benefits/__tests__/page.test.tsx"
+pnpm test:create-benefit           # the Create Benefit suite (103 tests)
+pnpm test:create-benefit:watch     # watch mode
+pnpm test:create-benefit:coverage  # suite + V8 coverage
 ```
+
+These are backed by [`vitest.create-benefit.config.mts`](../../vitest.create-benefit.config.mts) and [`scripts/tests/run-create-benefit-tests.mjs`](../../scripts/tests/run-create-benefit-tests.mjs).
 
 All tests:
 
@@ -278,7 +283,8 @@ Mutating journeys should run against a disposable plan or be gated behind an exp
 
 ## Related documentation
 
-- [`docs/testing/benefits-clients.md`](benefits-clients.md) — Browse Benefits, which links into this wizard.
+- [`docs/testing/benefits-tests.md`](benefits-tests.md) — Browse Benefits, which links into this wizard.
+- [`docs/testing/edit-benefits-tests.md`](edit-benefits-tests.md) — the Edit Benefit route, editor and API.
 - [`docs/testing/onboarding-tests.md`](onboarding-tests.md) — the shared wizard/step testing patterns.
 - [`docs/testing/settings-test.md`](settings-test.md) — where the organization logo and primary categories are edited.
 - [`docs/testing/testing.md`](testing.md) — the shared runner, conventions and inventory structure.

@@ -143,9 +143,9 @@ export function LargeHorizontalCard({
       buttons.push({
         type: "call",
         label: "Call Now",
-        url: contact.phone
-          ? `tel:${getBasePhoneForDialing(contact.phone)}`
-          : "",
+        // `getBasePhoneForDialing` already returns the `tel:` scheme, so adding
+        // one here produced `tel:tel:+1…` and the button dialled nothing.
+        url: contact.phone ? getBasePhoneForDialing(contact.phone) : "",
       });
     } else if (ctaBtnType === "email") {
       if (primaryIndex === -1) primaryIndex = buttons.length;
@@ -191,8 +191,6 @@ export function LargeHorizontalCard({
     }
   }
 
-  const hasAnyButton = buttons.some((b) => !!b.url);
-
   // Legacy fallback: only show default Schedule button when no CTA system data exists at all
   if (buttons.length === 0 && contact.enableContactButton === undefined) {
     buttons.push({
@@ -202,6 +200,10 @@ export function LargeHorizontalCard({
     });
     primaryIndex = 0;
   }
+
+  // Computed AFTER the legacy fallback: the rendered button list is gated on
+  // this flag, so computing it first silently dropped the fallback button.
+  const hasAnyButton = buttons.some((b) => !!b.url);
 
   const logoScaleEffective = contact.logoScale ?? baselineLogoScale ?? 1;
   /** Taller base than 80px so "2×" reads visually on wide cards (avatar column is up to ~200px tall) */

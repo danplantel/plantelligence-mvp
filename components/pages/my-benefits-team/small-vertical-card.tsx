@@ -232,9 +232,9 @@ export function SmallVerticalCard({
       buttons.push({
         type: "call",
         label: "Call Now",
-        url: contact.phone
-          ? `tel:${getBasePhoneForDialing(contact.phone)}`
-          : "",
+        // `getBasePhoneForDialing` already returns the `tel:` scheme, so adding
+        // one here produced `tel:tel:+1…` and the button dialled nothing.
+        url: contact.phone ? getBasePhoneForDialing(contact.phone) : "",
       });
     } else if (ctaBtnType === "email") {
       if (primaryIndex === -1) primaryIndex = buttons.length;
@@ -290,8 +290,6 @@ export function SmallVerticalCard({
     }
   }
 
-  const hasAnyButton = buttons.some((b) => !!b.url);
-
   // Legacy fallback: only show default Schedule button when no CTA system data exists at all
   if (buttons.length === 0 && contact.enableContactButton === undefined) {
     buttons.push({
@@ -301,6 +299,10 @@ export function SmallVerticalCard({
     });
     primaryIndex = 0;
   }
+
+  // Computed AFTER the legacy fallback: the rendered button list is gated on
+  // this flag, so computing it first silently dropped the fallback button.
+  const hasAnyButton = buttons.some((b) => !!b.url);
 
   if (disableAnimation) {
     const cardPadding = compact
@@ -682,7 +684,10 @@ export function SmallVerticalCard({
     >
       <div className="flex flex-col items-center flex-1 w-full">
         {/* BENEFIT CATEGORY TAG — see the comment on the non-animated variant above. */}
-        <ContactCategoryBadge categories={categoryListValues} className="mb-2" />
+        <ContactCategoryBadge
+          categories={categoryListValues}
+          className="mb-2"
+        />
         {/* COMPANY LOGO BAR — Team/Support Line contacts show their Company Logo
             here, with the support-line icon in the circular avatar slot below
             (positions swapped). */}
@@ -698,6 +703,14 @@ export function SmallVerticalCard({
                 })`,
               }}
             />
+          )}
+          {/* Preview-only placeholder, matching the non-animated variant. */}
+          {showPlaceholders && !(contact.companyLogo || contact.logo) && (
+            <div className="w-full h-full flex items-center justify-center rounded bg-gray-50 border border-dashed border-gray-200 px-2">
+              <span className="text-[10px] text-gray-400 font-medium text-center leading-tight">
+                [Upload Company Logo]
+              </span>
+            </div>
           )}
         </div>
 
@@ -742,6 +755,35 @@ export function SmallVerticalCard({
         >
           {displayNameText}
         </h3>
+
+        {/* DESIGNATIONS — same rule as the non-animated variant: acronyms only,
+            held to a single row. This block was previously missing here, so the
+            live portal cards showed no designation chips. */}
+        {!isTeamSupport &&
+          (contact.designations || []).some(
+            (value) => value && value.trim(),
+          ) && (
+            <div className="mb-1 sm:mb-2 w-full min-w-0 flex-shrink-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <div className="mx-auto flex w-max items-center gap-px">
+                {(contact.designations || [])
+                  .filter((value) => value && value.trim())
+                  .map((value, index) => (
+                    <span
+                      key={index}
+                      className="inline-block shrink-0 whitespace-nowrap rounded-full px-1 py-px text-center text-[8px] leading-none tracking-tight"
+                      style={{
+                        color: textColor || "#4B5563",
+                        backgroundColor: textColor
+                          ? "rgba(255,255,255,0.16)"
+                          : "#F3F4F6",
+                      }}
+                    >
+                      {designationAcronym(value)}
+                    </span>
+                  ))}
+              </div>
+            </div>
+          )}
 
         {/* TITLE / DEPARTMENT LABEL — hidden for Team/Support Line contacts
             because the team name above already conveys it. */}

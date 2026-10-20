@@ -12,14 +12,17 @@ The route is deliberately small. It decides between the restricted notice, a loa
   - benefit-category API: 14
 - **E2E:** none dedicated; the route/editor have no Playwright spec yet.
 - **Runner:** Vitest + React Testing Library + jsdom.
+- **Scoped scripts:** `pnpm test:edit-benefit`, `pnpm test:edit-benefit:watch`, `pnpm test:edit-benefit:coverage`.
 
 ## Running these tests
 
 ```bash
-pnpm exec vitest run "app/(dashboard)/edit-benefit/[planId]/[category]/__tests__/page.test.tsx"
-pnpm exec vitest run "components/pages/benefits/__tests__/benefit-edit-page.test.tsx"
-pnpm exec vitest run "app/api/clients/[id]/benefits/[category]/__tests__/route.test.ts"
+pnpm test:edit-benefit           # route + editor + API (82 tests)
+pnpm test:edit-benefit:watch     # watch mode
+pnpm test:edit-benefit:coverage  # suite + V8 coverage
 ```
+
+These are backed by [`vitest.edit-benefit.config.mts`](../../vitest.edit-benefit.config.mts) and [`scripts/tests/run-edit-benefit-tests.mjs`](../../scripts/tests/run-edit-benefit-tests.mjs), which list the three suites explicitly so the command cannot pick up unrelated tests.
 
 All tests:
 
@@ -270,6 +273,6 @@ A future `e2e/edit-benefit.spec.ts` should cover:
 ## Related documentation
 
 - [`docs/testing/create-benefit-tests.md`](create-benefit-tests.md) — the Create Benefit wizard that writes these rows.
-- [`docs/testing/benefits-clients.md`](benefits-clients.md) — Browse Benefits, which links into this route.
+- [`docs/testing/benefits-tests.md`](benefits-tests.md) — Browse Benefits, which links into this route.
 - [`docs/testing/settings-test.md`](settings-test.md) — the shared tab-shell and save patterns used by the editor.
 - [`docs/testing/testing.md`](testing.md) — the shared runner, conventions and inventory structure.

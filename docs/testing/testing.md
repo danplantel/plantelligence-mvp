@@ -11,9 +11,9 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 [`marketing-tests.md`](marketing-tests.md),
 [`meetings-tests.md`](meetings-tests.md),
 [`webinars-tests.md`](webinars-tests.md),
-[`benefits-clients.md`](benefits-clients.md),
+[`benefits-tests.md`](benefits-tests.md),
 [`create-benefit-tests.md`](create-benefit-tests.md),
-[`create-benefits-tests.md`](create-benefits-tests.md), and
+[`edit-benefits-tests.md`](edit-benefits-tests.md), and
 [`portal-news-events-tests.md`](portal-news-events-tests.md).
 
 ## Commands
@@ -24,6 +24,15 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 | `pnpm test:watch`                   | Re-run changed unit tests on save                 |
 | `pnpm test:coverage`                | Run once and print a V8 coverage report           |
 | `pnpm exec vitest run <path>`       | Run a single unit file or directory               |
+| `pnpm test:benefits`                | Browse Benefits suite (13 files, 174 tests)       |
+| `pnpm test:benefits:watch`          | Browse Benefits tests in watch mode               |
+| `pnpm test:benefits:coverage`       | Browse Benefits tests + coverage                  |
+| `pnpm test:create-benefit`          | Create Benefit suite (1 file, 103 tests)          |
+| `pnpm test:create-benefit:watch`    | Create Benefit tests in watch mode                |
+| `pnpm test:create-benefit:coverage` | Create Benefit tests + coverage                   |
+| `pnpm test:edit-benefit`            | Edit Benefit suites (3 files, 82 tests)           |
+| `pnpm test:edit-benefit:watch`      | Edit Benefit tests in watch mode                  |
+| `pnpm test:edit-benefit:coverage`   | Edit Benefit tests + coverage                     |
 | `pnpm test:onboarding`              | Every onboarding unit suite (30 files, 412 tests) |
 | `pnpm test:onboarding:watch`        | Onboarding unit tests in watch mode               |
 | `pnpm test:onboarding:coverage`     | Onboarding unit tests + coverage                  |
@@ -299,7 +308,7 @@ See [`marketing-tests.md`](marketing-tests.md) for the itemized inventory and re
 | `app/api/teammates/plan-assignments/__tests__/route.test.ts`                                                                               | Per-plan assignment roster used by the "Assigned to …" line                                                                  |
 | `lib/__tests__/{service-categories,plan-selector-storage,active-client-status,benefit-category-slug,benefit-draft,portal-surface}.test.ts` | The pure helpers the page calls directly                                                                                     |
 
-The Benefits-only suites total **174 tests across 13 files**; [`e2e/benefits.spec.ts`](../../e2e/benefits.spec.ts) adds six env-gated Playwright journeys. See [`benefits-clients.md`](benefits-clients.md) for the itemized inventory, manual checklist and remaining gaps.
+The Benefits-only suites total **174 tests across 13 files**; [`e2e/benefits.spec.ts`](../../e2e/benefits.spec.ts) adds six env-gated Playwright journeys. See [`benefits-tests.md`](benefits-tests.md) for the itemized inventory, manual checklist and remaining gaps.
 
 ## Create Benefit coverage
 
@@ -317,7 +326,7 @@ The Create Benefit page suite adds **103 tests in one file**. See [`create-benef
 | `components/pages/benefits/__tests__/benefit-edit-page.test.tsx`           | Hydration/chrome, tabs, Custom name, save, delete, portal link, preview layout                                                           |
 | `app/api/clients/[id]/benefits/[category]/__tests__/route.test.ts`         | GET/PUT/DELETE auth, `updateOnly`, R2 signing, soft-disable, purge, dual-write, 500s                                                     |
 
-The Edit Benefit suites add **82 tests across 3 files** (26 route + 42 editor + 14 API). See [`create-benefits-tests.md`](create-benefits-tests.md) for the itemized inventory and manual checklist.
+The Edit Benefit suites add **82 tests across 3 files** (26 route + 42 editor + 14 API). See [`edit-benefits-tests.md`](edit-benefits-tests.md) for the itemized inventory and manual checklist.
 
 ## Portal News & Events coverage
 
