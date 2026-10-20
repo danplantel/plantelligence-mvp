@@ -11,8 +11,9 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 [`marketing-tests.md`](marketing-tests.md),
 [`meetings-tests.md`](meetings-tests.md),
 [`webinars-tests.md`](webinars-tests.md),
-[`benefits-clients.md`](benefits-clients.md), and
-[`create-benefit-tests.md`](create-benefit-tests.md).
+[`benefits-clients.md`](benefits-clients.md),
+[`create-benefit-tests.md`](create-benefit-tests.md), and
+[`create-benefits-tests.md`](create-benefits-tests.md).
 
 ## Commands
 
@@ -306,6 +307,16 @@ The Benefits-only suites total **174 tests across 13 files**; [`e2e/benefits.spe
 | `app/(dashboard)/new-benefits/__tests__/page.test.tsx` | Deep-link hydration, step validation, Previous/leave prompts, Cancel and row purge, publishing attestation and save, organization-logo sync, header/comment surface, leave guard |
 
 The Create Benefit page suite adds **103 tests in one file**. See [`create-benefit-tests.md`](create-benefit-tests.md) for the itemized inventory and manual checklist.
+
+## Edit Benefit coverage
+
+| File                                                                       | Focus                                                                                                                                    |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/(dashboard)/edit-benefit/[planId]/[category]/__tests__/page.test.tsx` | Plan/category params, slug decoding, the `usePlanAccess` query, loading/denied/allowed rendering, `NoAccessNotice` context, editor props |
+| `components/pages/benefits/__tests__/benefit-edit-page.test.tsx`           | Hydration/chrome, tabs, Custom name, save, delete, portal link, preview layout                                                           |
+| `app/api/clients/[id]/benefits/[category]/__tests__/route.test.ts`         | GET/PUT/DELETE auth, `updateOnly`, R2 signing, soft-disable, purge, dual-write, 500s                                                     |
+
+The Edit Benefit suites add **82 tests across 3 files** (26 route + 42 editor + 14 API). See [`create-benefits-tests.md`](create-benefits-tests.md) for the itemized inventory and manual checklist.
 
 ## End-to-end (Playwright)
 
