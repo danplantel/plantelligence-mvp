@@ -132,7 +132,9 @@ vi.mock("@/lib/marketing/hub-url", () => ({
     if (category === "Group Health") return "health-insurance";
     if (category === "Group Life") return "life-insurance";
     if (category === "Company / Plan Sponsor") {
-      return customName ? customName.toLowerCase().replace(/\s+/g, "-") : "wellness-programs";
+      return customName
+        ? customName.toLowerCase().replace(/\s+/g, "-")
+        : "wellness-programs";
     }
     return "";
   },
@@ -154,7 +156,11 @@ vi.mock("@/components/plan-selector/plan-search-bar", () => ({
   PlanSearchBar: (props: any) => {
     mocks.planSearchProps = props;
     return (
-      <div data-testid="plan-search" data-active-only={String(props.activeOnly)} data-value={props.value}>
+      <div
+        data-testid="plan-search"
+        data-active-only={String(props.activeOnly)}
+        data-value={props.value}
+      >
         {props.plans.map((plan: any) => (
           <button
             key={plan.id}
@@ -224,7 +230,9 @@ function row(overrides: Record<string, unknown> = {}) {
 }
 
 function renderPage() {
-  return render(<BenefitsListPage orgCategories={["Retirement", "Group Health"]} />);
+  return render(
+    <BenefitsListPage orgCategories={["Retirement", "Group Health"]} />,
+  );
 }
 
 function callsFor(prefix: string) {
@@ -323,32 +331,30 @@ describe("BenefitsListPage", () => {
   describe("plan selection", () => {
     it("restores the module's sticky plan", async () => {
       mocks.getLastPlanId.mockReturnValue("plan-2");
-      mocks.benefitsData = { benefits: [row({ planId: "plan-2", planName: "Beta LLC" })] };
+      mocks.benefitsData = {
+        benefits: [row({ planId: "plan-2", planName: "Beta LLC" })],
+      };
       renderPage();
 
-      await waitFor(() =>
-        expect(mocks.planSearchProps?.value).toBe("plan-2"),
-      );
+      await waitFor(() => expect(mocks.planSearchProps?.value).toBe("plan-2"));
       expect(mocks.readPersistedBenefitsDraft).toHaveBeenCalled();
     });
 
     it("falls back to the shared MRU when the sticky plan is gone", async () => {
       mocks.getLastPlanId.mockReturnValue("missing-plan");
       mocks.getRecentPlanIds.mockReturnValue(["plan-2"]);
-      mocks.benefitsData = { benefits: [row({ planId: "plan-2", planName: "Beta LLC" })] };
+      mocks.benefitsData = {
+        benefits: [row({ planId: "plan-2", planName: "Beta LLC" })],
+      };
       renderPage();
 
-      await waitFor(() =>
-        expect(mocks.planSearchProps?.value).toBe("plan-2"),
-      );
+      await waitFor(() => expect(mocks.planSearchProps?.value).toBe("plan-2"));
     });
 
     it("falls back to the first selectable plan", async () => {
       renderPage();
 
-      await waitFor(() =>
-        expect(mocks.planSearchProps?.value).toBe("plan-1"),
-      );
+      await waitFor(() => expect(mocks.planSearchProps?.value).toBe("plan-1"));
     });
 
     it("persists a new selection and re-scopes the assignments read", async () => {
@@ -373,9 +379,10 @@ describe("BenefitsListPage", () => {
       renderPage();
       await screen.findByText("Retirement Plan Benefits");
 
-      expect(
-        mocks.planSearchProps.plans.map((plan: any) => plan.id),
-      ).toEqual(["plan-1", "plan-2"]);
+      expect(mocks.planSearchProps.plans.map((plan: any) => plan.id)).toEqual([
+        "plan-1",
+        "plan-2",
+      ]);
       expect(mocks.planSearchProps.activeOnly).toBe(true);
     });
 
@@ -385,9 +392,11 @@ describe("BenefitsListPage", () => {
       renderPage();
       await screen.findByText("Retirement Plan Benefits");
 
-      expect(
-        mocks.planSearchProps.plans.map((plan: any) => plan.id),
-      ).toEqual(["plan-1", "plan-2", "plan-draft"]);
+      expect(mocks.planSearchProps.plans.map((plan: any) => plan.id)).toEqual([
+        "plan-1",
+        "plan-2",
+        "plan-draft",
+      ]);
       expect(mocks.planSearchProps.activeOnly).toBe(false);
     });
   });
@@ -409,7 +418,9 @@ describe("BenefitsListPage", () => {
       mocks.planListError = new Error("offline");
       renderPage();
 
-      expect(await screen.findByText("Couldn't load your plans")).toBeInTheDocument();
+      expect(
+        await screen.findByText("Couldn't load your plans"),
+      ).toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: /Try again/ }));
       expect(mocks.planListMutate).toHaveBeenCalled();
@@ -439,9 +450,7 @@ describe("BenefitsListPage", () => {
       renderPage();
 
       expect(
-        await screen.findByText(
-          /You haven’t been added to a plan yet/,
-        ),
+        await screen.findByText(/You haven’t been added to a plan yet/),
       ).toBeInTheDocument();
       expect(
         screen.queryByRole("button", { name: "Create Plan" }),
@@ -453,9 +462,7 @@ describe("BenefitsListPage", () => {
       mocks.planListData = { data: [plans[2]] };
       renderPage();
 
-      expect(
-        await screen.findByText(/No active plans\./),
-      ).toBeInTheDocument();
+      expect(await screen.findByText(/No active plans\./)).toBeInTheDocument();
 
       await user.click(screen.getByRole("button", { name: "View Plans" }));
       expect(mocks.push).toHaveBeenCalledWith("/clients");
@@ -479,15 +486,21 @@ describe("BenefitsListPage", () => {
       mocks.planListError = new Error("revalidation failed");
       renderPage();
 
-      expect(await screen.findByText("Retirement Plan Benefits")).toBeInTheDocument();
-      expect(screen.queryByText("Couldn't load your plans")).not.toBeInTheDocument();
+      expect(
+        await screen.findByText("Retirement Plan Benefits"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText("Couldn't load your plans"),
+      ).not.toBeInTheDocument();
     });
 
     it("keeps cached benefits visible when a later read fails", async () => {
       mocks.benefitsError = new Error("revalidation failed");
       renderPage();
 
-      expect(await screen.findByText("Retirement Plan Benefits")).toBeInTheDocument();
+      expect(
+        await screen.findByText("Retirement Plan Benefits"),
+      ).toBeInTheDocument();
       expect(
         screen.queryByText("Couldn't load this plan's benefits"),
       ).not.toBeInTheDocument();
@@ -498,7 +511,9 @@ describe("BenefitsListPage", () => {
     it("titles the card with the selected plan and the owner subtitle", async () => {
       renderPage();
 
-      expect(await screen.findByRole("heading", { name: "Acme Corp" })).toBeInTheDocument();
+      expect(
+        await screen.findByRole("heading", { name: "Acme Corp" }),
+      ).toBeInTheDocument();
       expect(
         screen.getByText("Publish, hide, and edit this plan’s benefit pages."),
       ).toBeInTheDocument();
@@ -524,7 +539,9 @@ describe("BenefitsListPage", () => {
       };
       renderPage();
 
-      expect(await screen.findByText("Retirement Plan Benefits")).toBeInTheDocument();
+      expect(
+        await screen.findByText("Retirement Plan Benefits"),
+      ).toBeInTheDocument();
       expect(screen.queryByText("Beta only")).not.toBeInTheDocument();
     });
 
@@ -535,7 +552,9 @@ describe("BenefitsListPage", () => {
       expect(
         await screen.findByText("No benefits found for this plan."),
       ).toBeInTheDocument();
-      expect(screen.getByRole("heading", { name: "Plan Benefits" })).toBeInTheDocument();
+      expect(
+        screen.getByRole("heading", { name: "Plan Benefits" }),
+      ).toBeInTheDocument();
     });
 
     it("renders a custom title as a secondary note on a standard category", async () => {
@@ -544,7 +563,9 @@ describe("BenefitsListPage", () => {
       };
       renderPage();
 
-      expect(await screen.findByText("Retirement Plan Benefits")).toBeInTheDocument();
+      expect(
+        await screen.findByText("Retirement Plan Benefits"),
+      ).toBeInTheDocument();
       expect(screen.getByText("Your Retirement Journey")).toBeInTheDocument();
     });
 
@@ -672,7 +693,9 @@ describe("BenefitsListPage", () => {
       renderPage();
       await screen.findByText("Not created");
 
-      expect(screen.queryByRole("button", { name: /Add/ })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Add/ }),
+      ).not.toBeInTheDocument();
     });
 
     it("hides Add when the viewer cannot edit benefits", async () => {
@@ -681,7 +704,9 @@ describe("BenefitsListPage", () => {
       renderPage();
       await screen.findByText("Not created");
 
-      expect(screen.queryByRole("button", { name: /Add/ })).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: /Add/ }),
+      ).not.toBeInTheDocument();
     });
 
     it("shows Published/Hidden and a Switch for an owner", async () => {
@@ -720,7 +745,9 @@ describe("BenefitsListPage", () => {
   describe("assignees", () => {
     it("lists collaborators plus the Key Contact and excludes contact-mirror rows", async () => {
       mocks.benefitsData = {
-        benefits: [row({ keyContact: { id: "kc", name: "Kai", headshot: null } })],
+        benefits: [
+          row({ keyContact: { id: "kc", name: "Kai", headshot: null } }),
+        ],
       };
       mocks.assignmentsData = {
         assignments: [
@@ -843,8 +870,7 @@ describe("BenefitsListPage", () => {
       expect(mocks.toastSuccess).toHaveBeenCalledWith(
         "Retirement Plan Benefits hidden",
         expect.objectContaining({
-          description:
-            "This benefit is now hidden on the Benefits Hub.",
+          description: "This benefit is now hidden on the Benefits Hub.",
         }),
       );
       expect(mocks.benefitsMutate).toHaveBeenCalled();
@@ -853,8 +879,16 @@ describe("BenefitsListPage", () => {
     it("reports a failed visibility write and revalidates", async () => {
       const user = userEvent.setup();
       mocks.fetch
-        .mockResolvedValueOnce({ ok: false, status: 500, json: async () => ({}) })
-        .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) });
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 500,
+          json: async () => ({}),
+        })
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        });
       renderPage();
       await screen.findByText("Published");
 
@@ -872,8 +906,16 @@ describe("BenefitsListPage", () => {
     it("still reports success when only the benefit flag write fails", async () => {
       const user = userEvent.setup();
       mocks.fetch
-        .mockResolvedValueOnce({ ok: true, status: 200, json: async () => ({}) })
-        .mockResolvedValueOnce({ ok: false, status: 404, json: async () => ({}) });
+        .mockResolvedValueOnce({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        })
+        .mockResolvedValueOnce({
+          ok: false,
+          status: 404,
+          json: async () => ({}),
+        });
       renderPage();
       await screen.findByText("Published");
 

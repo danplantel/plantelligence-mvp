@@ -6,24 +6,25 @@ It covers the server-side organization-category resolution, the client plan pick
 
 ## Summary
 
-- **Dedicated unit tests:** none yet — there is no `app/(dashboard)/benefits/__tests__/` folder and no Benefits test script.
-- **Indirect unit coverage:** 3 suites touch adjacent behaviour (service-category mapping, `/benefits` middleware redirect, Benefits nav gating).
-- **Dedicated E2E:** none; no `e2e/benefits.spec.ts`.
+- **Dedicated unit tests:** 174 passing in 13 files.
+- **Indirect unit coverage:** 3 additional suites touch adjacent behaviour (service-category mapping, `/benefits` middleware redirect, Benefits nav gating).
+- **Dedicated E2E:** 6 Playwright tests in [`e2e/benefits.spec.ts`](../../e2e/benefits.spec.ts:1), env-gated.
 - **Runner:** Vitest + React Testing Library + jsdom; Playwright for E2E.
 
-The page changed shape in a way tests should pin: the "Your organization offers" strip is now resolved **on the server** ([`getOrgServiceCategories`](<../../app/(dashboard)/benefits/page.tsx:77>)) so its chips are part of the first paint, while everything below it remains a client component with its own SWR loading ladder. The sections below therefore split the target inventory into server-page, client-page, strip, API, and pure-helper suites.
+The page changed shape in a way the suites pin: the "Your organization offers" strip is resolved **on the server** ([`getOrgServiceCategories`](<../../app/(dashboard)/benefits/page.tsx:77>)) so its chips are part of the first paint, while everything below it remains a client component with its own SWR loading ladder. The inventory is split into server-page, client-page, strip, picker, API, visibility-write, assignment-read, and pure-helper suites.
 
 ## Running these tests
 
-There is no scoped Benefits script yet. Until one is added, run the whole suite or target the files directly:
+There is no scoped Benefits script yet. Run the new suites directly:
 
 ```bash
-pnpm test
-pnpm exec vitest run "app/(dashboard)/benefits"
-pnpm exec vitest run "components/pages/benefits"
-pnpm exec vitest run "app/api/benefits"
-pnpm test:watch
-pnpm test:coverage
+pnpm exec vitest run "app/(dashboard)/benefits/__tests__"
+pnpm exec vitest run "components/pages/benefits/__tests__"
+pnpm exec vitest run "components/plan-selector/__tests__"
+pnpm exec vitest run "app/api/benefits/__tests__"
+pnpm exec vitest run "app/api/clients/[id]/__tests__/route.visibility.test.ts"
+pnpm exec vitest run "app/api/teammates/plan-assignments/__tests__"
+pnpm exec vitest run lib/__tests__/service-categories.test.ts lib/__tests__/plan-selector-storage.test.ts lib/__tests__/active-client-status.test.ts lib/__tests__/benefit-category-slug.test.ts lib/__tests__/benefit-draft.test.ts lib/__tests__/portal-surface.test.ts
 ```
 
 All tests:
@@ -37,20 +38,40 @@ pnpm test:e2e             # Playwright E2E
 pnpm test:e2e:ui          # Playwright UI mode
 ```
 
-No Benefits E2E spec exists, so there is nothing env-gated for this page. A future `e2e/benefits.spec.ts` should follow the existing gate (skip unless `E2E_BASE_URL` or `E2E_START_SERVER` is set) and use `E2E_PLAN_NAME` only for journeys that need a named active plan.
+The Benefits E2E spec skips itself unless an app and credentials are present:
+
+```bash
+E2E_BASE_URL=http://localhost:3000 \
+E2E_EMAIL=advisor@example.com \
+E2E_PASSWORD=... \
+E2E_PLAN_NAME="Acme Corp" \
+E2E_SECOND_PLAN_NAME="Beta LLC" \
+pnpm test:e2e e2e/benefits.spec.ts
+```
+
+`E2E_PLAN_NAME` gates the selected-plan journeys, `E2E_SECOND_PLAN_NAME` gates the no-refetch journey, `E2E_COLLABORATOR_EMAIL` / `E2E_COLLABORATOR_PASSWORD` gate the collaborator journey, and `E2E_BENEFIT_TOGGLE=1` gates the mutating publish/hide journey.
 
 ## Test inventory
 
-| #   | Suite                                                              | Tests | Status    | Focus                                                                                                   |
-| --- | ------------------------------------------------------------------ | ----: | --------- | ------------------------------------------------------------------------------------------------------- |
-| 1   | `app/(dashboard)/benefits/__tests__/page.test.tsx`                 |    14 | Planned   | Session lookup, own-category precedence, wizard-session fallback, organization-owner fallback, failure degradation |
-| 2   | `components/pages/benefits/__tests__/benefits-list.test.tsx`       |    28 | Planned   | SWR keys, plan selection, state ladder, rows, drafts, toggles, roles, empty/failure states              |
-| 3   | `components/pages/benefits/__tests__/org-service-categories.test.tsx` |  5 | Planned   | Chips, empty copy, Settings edit/add affordance, server-fed rendering                                   |
-| 4   | `app/api/benefits/__tests__/route.test.ts`                         |    12 | Planned   | Auth, accessible-plan scoping, category scoping, row shape, visibility, completeness, 500                |
-| 5   | `lib/__tests__/service-categories.test.ts`                         |     6 | Planned   | `normalizePrimaryServiceCategories`, Step 2 ↔ category mapping, canonical ordering                      |
-| 6   | `lib/__tests__/onboarding-wizard-store.test.ts`                    |  (existing) | Indirect | Uses `step2ServicesToCategories` in the Step 2 save path                                                |
-| 7   | `lib/__tests__/middleware.test.ts`                                 |  (existing) | Indirect | Unauthenticated `/benefits?…` redirects to `/signin` with `callbackUrl`                                  |
-| 8   | `components/layout/__tests__/sidebar.test.tsx`                     |  (existing) | Indirect | Benefits nav visibility for owners, teammates and collaborators                                         |
+| #   | Suite                                                                 |      Tests | Status      | Focus                                                                                                              |
+| --- | --------------------------------------------------------------------- | ---------: | ----------- | ------------------------------------------------------------------------------------------------------------------ |
+| 1   | `app/(dashboard)/benefits/__tests__/page.test.tsx`                    |         15 | Implemented | Session lookup, own-category precedence, wizard-session fallback, organization-owner fallback, failure degradation |
+| 2   | `components/pages/benefits/__tests__/benefits-list.test.tsx`          |         51 | Implemented | SWR keys, plan selection, state ladder, rows, drafts, toggles, roles, assignees, empty/failure states              |
+| 3   | `components/pages/benefits/__tests__/org-service-categories.test.tsx` |          5 | Implemented | Chips, empty copy, Settings edit/add affordance, server-fed rendering                                              |
+| 4   | `components/plan-selector/__tests__/plan-search-bar.test.tsx`         |         14 | Implemented | Active-only filtering, Draft retention for collaborators, recents, search, keyboard, portal link                   |
+| 5   | `app/api/benefits/__tests__/route.test.ts`                            |         20 | Implemented | Auth, accessible-plan scoping, category scoping, row shape, visibility, completeness, 500                          |
+| 6   | `app/api/clients/[id]/__tests__/route.visibility.test.ts`             |          8 | Implemented | Full-map visibility write, auth gate, normalization, omission preserves stored map                                 |
+| 7   | `app/api/teammates/plan-assignments/__tests__/route.test.ts`          |          7 | Implemented | Auth, required planId, view refusal, real-id lookup after slug entry                                               |
+| 8   | `lib/__tests__/service-categories.test.ts`                            |          9 | Implemented | `normalizePrimaryServiceCategories`, Step 2 ↔ category mapping, canonical ordering                                |
+| 9   | `lib/__tests__/plan-selector-storage.test.ts`                         |          7 | Implemented | Per-module sticky keys, MRU, corrupt storage, clear-on-logout                                                      |
+| 10  | `lib/__tests__/active-client-status.test.ts`                          |          9 | Implemented | Active/active casing, blank legacy status, Draft/Archived                                                          |
+| 11  | `lib/__tests__/benefit-category-slug.test.ts`                         |         10 | Implemented | Category ↔ slug round-trips, Custom alias, fallback, encoded input                                                |
+| 12  | `lib/__tests__/benefit-draft.test.ts`                                 |          7 | Implemented | Category key normalization, Custom→API mapping, persisted draft parsing                                            |
+| 13  | `lib/__tests__/portal-surface.test.ts`                                |         12 | Implemented | Comments-rail flag, portal surface mapping, Custom hub segment                                                     |
+| 14  | `lib/__tests__/onboarding-wizard-store.test.ts`                       | (existing) | Indirect    | Uses `step2ServicesToCategories` in the Step 2 save path                                                           |
+| 15  | `lib/__tests__/middleware.test.ts`                                    | (existing) | Indirect    | Unauthenticated `/benefits?…` redirects to `/signin` with `callbackUrl`                                            |
+| 16  | `components/layout/__tests__/sidebar.test.tsx`                        | (existing) | Indirect    | Benefits nav visibility for owners, teammates and collaborators                                                    |
+| 17  | `e2e/benefits.spec.ts`                                                |          6 | Implemented | Shell, plan switch without refetch, reload persistence, View, opt-in toggle, collaborator chrome                   |
 
 ## Unit test inventory
 
@@ -223,11 +244,11 @@ Mock the boundary (`next/navigation`, `sonner`, `useViewerAccess`, `usePageTitle
 
 These suites are already green and pin parts of the page's dependency surface:
 
-| File | What it already protects |
-| ---- | ------------------------ |
-| [`lib/__tests__/onboarding-wizard-store.test.ts`](../../lib/__tests__/onboarding-wizard-store.test.ts:303) | The Step 2 services → category-label mapping the teammate fallback reuses. |
-| [`lib/__tests__/middleware.test.ts`](../../lib/__tests__/middleware.test.ts:84) | An unauthenticated `/benefits?tab=plans&page=2` redirect preserves the full path in `callbackUrl`. |
-| [`components/layout/__tests__/sidebar.test.tsx`](../../components/layout/__tests__/sidebar.test.tsx:22) | The **Benefits** nav entry exists and is filtered for restricted collaborators. |
+| File                                                                                                       | What it already protects                                                                           |
+| ---------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| [`lib/__tests__/onboarding-wizard-store.test.ts`](../../lib/__tests__/onboarding-wizard-store.test.ts:303) | The Step 2 services → category-label mapping the teammate fallback reuses.                         |
+| [`lib/__tests__/middleware.test.ts`](../../lib/__tests__/middleware.test.ts:84)                            | An unauthenticated `/benefits?tab=plans&page=2` redirect preserves the full path in `callbackUrl`. |
+| [`components/layout/__tests__/sidebar.test.tsx`](../../components/layout/__tests__/sidebar.test.tsx:22)    | The **Benefits** nav entry exists and is filtered for restricted collaborators.                    |
 
 They do not exercise the server page, the client list, the organization strip, or `/api/benefits`.
 
@@ -277,7 +298,7 @@ Prepare these before running the checklist:
 ### 1. Server-rendered organization strip
 
 - [ ] The **Your organization offers** strip is visible on first paint, before the plan card resolves.
-- [ ] Its chips never appear *after* the plan's benefit rows on a cold load.
+- [ ] Its chips never appear _after_ the plan's benefit rows on a cold load.
 - [ ] The chips match `User.primaryServiceCategories`, trimmed, de-duplicated and in canonical order.
 - [ ] An unknown stored label is still shown, after the canonical labels.
 - [ ] With an empty column but a latest wizard session, the Step 2 services appear as labels.
@@ -302,7 +323,7 @@ Prepare these before running the checklist:
 
 ### 3. Loading, empty and failure states
 
-- [ ] A cold load shows the route skeleton ([`loading.tsx`](../../app/(dashboard)/benefits/loading.tsx:15)) and then the plan-card skeleton, with no empty-state flash.
+- [ ] A cold load shows the route skeleton ([`loading.tsx`](<../../app/(dashboard)/benefits/loading.tsx:15>)) and then the plan-card skeleton, with no empty-state flash.
 - [ ] The plan-card skeleton mirrors the card's header + four rows.
 - [ ] With no plans, an advisor sees **No plans yet. Create a plan first, then add its benefits.** plus **Create Plan** and **Create Benefit**.
 - [ ] With no plans, a Collaborator sees the invitation copy and no Create Plan action.
@@ -322,7 +343,7 @@ Prepare these before running the checklist:
 - [ ] **Complete** is green; **Incomplete** is amber.
 - [ ] Each missing item is its own amber chip; a complete row has none.
 - [ ] **Assigned to …** lists every collaborator assigned to the category plus the Key Contact.
-- [ ] A collaborator assigned to *all* categories appears on every card.
+- [ ] A collaborator assigned to _all_ categories appears on every card.
 - [ ] Key Contacts are not listed as if they were benefit assignees.
 - [ ] More than three avatars collapse to three plus a `+N` chip.
 - [ ] The missing-field count matches the amber chips for the same row.
@@ -353,17 +374,17 @@ Prepare these before running the checklist:
 
 ### 7. API contract checks
 
-| Check | Expected |
-| ----- | -------- |
-| `GET /api/benefits` with no session | `401` |
-| Accessible plans | Rows only for `listAccessiblePlanIds(userId)` |
-| Category-scoped collaborator | Only the granted categories for that plan |
-| Row shape | `planId`, `planName`, `planSlug`, `planStatus`, `category`, `label`, `visibilityKey`, `title`, `partnerLogo`, `isEnabled`, `exists`, `planVisibility`, `isComplete`, `missingInfo`, `keyContact` |
-| Missing Benefit row | `exists: false`, `isEnabled: false`, default label title |
-| Missing company name | `planName: "Untitled plan"` |
-| Soft-archived document | Not counted toward `missingInfo` |
-| Response payload | No `employeePortalPreview` / base64 images |
-| Query failure | `500` with `success: false` |
+| Check                               | Expected                                                                                                                                                                                         |
+| ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `GET /api/benefits` with no session | `401`                                                                                                                                                                                            |
+| Accessible plans                    | Rows only for `listAccessiblePlanIds(userId)`                                                                                                                                                    |
+| Category-scoped collaborator        | Only the granted categories for that plan                                                                                                                                                        |
+| Row shape                           | `planId`, `planName`, `planSlug`, `planStatus`, `category`, `label`, `visibilityKey`, `title`, `partnerLogo`, `isEnabled`, `exists`, `planVisibility`, `isComplete`, `missingInfo`, `keyContact` |
+| Missing Benefit row                 | `exists: false`, `isEnabled: false`, default label title                                                                                                                                         |
+| Missing company name                | `planName: "Untitled plan"`                                                                                                                                                                      |
+| Soft-archived document              | Not counted toward `missingInfo`                                                                                                                                                                 |
+| Response payload                    | No `employeePortalPreview` / base64 images                                                                                                                                                       |
+| Query failure                       | `500` with `success: false`                                                                                                                                                                      |
 
 ### 8. Accessibility and keyboard
 
@@ -378,35 +399,39 @@ Prepare these before running the checklist:
 
 These are observations from the current implementation, not release blockers unless the product decides otherwise:
 
-1. **No dedicated tests exist.** This page is one of the few plan-scoped surfaces with no suite of its own; the target inventory above is the proposed first pass.
-2. **The benefits read is capped at 100 plans.** `/api/benefits` uses `take: 100` on the accessible clients, while the picker fetches up to 500 (`limit=500`). An account with more than 100 accessible plans can select a plan that has no rows in the response and see **No benefits found for this plan.**
-3. **The toggle is two writes, not one transaction.** The client visibility PUT and the benefit `isEnabled` PUT are independent. If the first succeeds and the second fails, the UI only warns and revalidates to a state where the hub is hidden but the benefit still says enabled.
-4. **Draft state is local.** `readPersistedBenefitsDraft()` reads `localStorage` once on mount, so **Draft** / **Continue** does not follow the advisor to another browser.
-5. **The organization strip disappears for collaborators.** That is deliberate (the labels belong to the owner, and the plan card already states what the plan has), but it means the strip's server fallback is never exercised for a collaborator.
-6. **The strip degrades silently.** Every failure is logged and converted to `[]`, which is indistinguishable from “nothing selected”. The server page intentionally prefers a degraded header to a failed page.
-7. **Plan-list failure is masked when cached data exists.** `keepPreviousData` keeps the picker usable, so a revalidation failure after a successful first load is not surfaced anywhere.
+1. **The benefits read is capped at 100 plans.** `/api/benefits` uses `take: 100` on the accessible clients, while the picker fetches up to 500 (`limit=500`). An account with more than 100 accessible plans can select a plan that has no rows in the response and see **No benefits found for this plan.**
+2. **The toggle is two writes, not one transaction.** The client visibility PUT and the benefit `isEnabled` PUT are independent. If the first succeeds and the second fails, the UI only warns and revalidates to a state where the hub is hidden but the benefit still says enabled.
+3. **Draft state is local.** `readPersistedBenefitsDraft()` reads `localStorage` once on mount, so **Draft** / **Continue** does not follow the advisor to another browser.
+4. **The organization strip disappears for collaborators.** That is deliberate (the labels belong to the owner, and the plan card already states what the plan has), but it means the strip's server fallback is never exercised for a collaborator.
+5. **The strip degrades silently.** Every failure is logged and converted to `[]`, which is indistinguishable from “nothing selected”. The server page intentionally prefers a degraded header to a failed page.
+6. **Plan-list failure is masked when cached data exists.** `keepPreviousData` keeps the picker usable, so a revalidation failure after a successful first load is not surfaced anywhere.
 
 ## Future coverage
 
-### Unit cases to add first
+### Unit cases to add next
 
-- the server page's own/owner fallback split, including the `ownerUserId === userId` guard;
-- the content-state ladder order, especially “plan list failed before benefits failed”;
-- the collaborator variants (no strip, no Switch, no Add, **Open Portal** action);
-- the optimistic toggle plus its two-request rollback path;
-- `/api/benefits` visibility and category scoping.
+- two rows toggling at the same time: only the active row spins, and the second row is not disabled;
+- a selected plan that disappears from the plan list after a revalidation (pin or fix the stale selection);
+- the `create_benefits: view` + non-collaborator case, which currently still receives a publish Switch;
+- the `/api/benefits` `take: 100` truncation against a picker list of 500;
+- a malformed `/api/benefits` row missing `planVisibility` (the toggle must not throw).
 
 ### E2E (Playwright)
 
-A future `e2e/benefits.spec.ts` should cover:
+[`e2e/benefits.spec.ts`](../../e2e/benefits.spec.ts:1) now covers:
 
-- `/benefits` loads the picker, the organization strip, and the selected plan's card;
-- with `E2E_PLAN_NAME`, the selected plan and its rows survive a reload (sticky module selection);
-- an owner can toggle a disposable benefit off and back on, with the toast;
-- a collaborator sees the section-scoped rows and no publish Switch;
-- the plan picker's search filters the dropdown.
+- the picker, organization strip, and plan card render;
+- switching plans does not re-request `/api/benefits`;
+- with `E2E_PLAN_NAME`, the selected plan survives a reload;
+- **View** opens an Edit Benefit route;
+- with `E2E_BENEFIT_TOGGLE=1`, a disposable benefit toggles off and back on;
+- a collaborator sees no organization strip and no publish Switch.
 
-Benefit-mutating journeys should be gated behind an explicit env flag so the suite never changes real advisor data.
+Still worth adding:
+
+- a collaborator with a category-scoped assignment sees only that section;
+- the plan picker's search narrows the dropdown (the unit suite covers it, the browser journey does not);
+- a failed `/api/benefits` response renders **Couldn't load this plan's benefits** with a working retry.
 
 ## Related documentation
 

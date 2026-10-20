@@ -70,11 +70,7 @@ describe("step2ServicesToCategories", () => {
 
   it("drops unknown service values instead of inventing labels", () => {
     expect(
-      step2ServicesToCategories([
-        "not-a-service",
-        ServiceType.RETIREMENT,
-        "",
-      ]),
+      step2ServicesToCategories(["not-a-service", ServiceType.RETIREMENT, ""]),
     ).toEqual(["Retirement"]);
   });
 });

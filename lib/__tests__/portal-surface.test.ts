@@ -81,7 +81,10 @@ describe("portalCommentsSurface", () => {
 
   it("returns null for a path that belongs to another plan or is too deep", () => {
     expect(
-      portalCommentsSurface({ pathname: "/other/retirement", planSlug: "acme" }),
+      portalCommentsSurface({
+        pathname: "/other/retirement",
+        planSlug: "acme",
+      }),
     ).toBeNull();
     expect(
       portalCommentsSurface({

@@ -64,9 +64,7 @@ describe("GET /api/teammates/plan-assignments", () => {
   });
 
   it("requires a planId", async () => {
-    const response = await GET(
-      request("/api/teammates/plan-assignments"),
-    );
+    const response = await GET(request("/api/teammates/plan-assignments"));
 
     expect(response.status).toBe(400);
     expect(await payload(response)).toEqual({ error: "planId is required" });

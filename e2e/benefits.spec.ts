@@ -212,7 +212,9 @@ test.describe("benefits collaborator", () => {
     "Set E2E_COLLABORATOR_EMAIL / E2E_COLLABORATOR_PASSWORD to run this journey",
   );
 
-  test("hides the organization strip and publish controls", async ({ page }) => {
+  test("hides the organization strip and publish controls", async ({
+    page,
+  }) => {
     await signIn(page, collaboratorEmail!, collaboratorPassword!);
     await openBenefits(page);
 

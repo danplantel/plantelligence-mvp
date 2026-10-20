@@ -9,51 +9,52 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 [`dashboard-test.md`](dashboard-test.md),
 [`documents-tests.md`](documents-tests.md),
 [`marketing-tests.md`](marketing-tests.md),
-[`meetings-tests.md`](meetings-tests.md), and
-[`webinars-tests.md`](webinars-tests.md).
+[`meetings-tests.md`](meetings-tests.md),
+[`webinars-tests.md`](webinars-tests.md), and
+[`benefits-clients.md`](benefits-clients.md).
 
 ## Commands
 
-| Command              | Purpose                                         |
-| -------------------- | ----------------------------------------------- |
-| `pnpm test`          | Run the whole unit suite once                   |
-| `pnpm test:watch`    | Re-run changed unit tests on save               |
-| `pnpm test:coverage` | Run once and print a V8 coverage report         |
-| `pnpm exec vitest run <path>` | Run a single unit file or directory    |
-| `pnpm test:onboarding` | Every onboarding unit suite (30 files, 412 tests) |
-| `pnpm test:onboarding:watch` | Onboarding unit tests in watch mode      |
-| `pnpm test:onboarding:coverage` | Onboarding unit tests + coverage     |
-| `pnpm test:onboarding:e2e` | Onboarding Playwright journeys only      |
-| `pnpm test:onboarding:all` | Onboarding unit + E2E                    |
-| `pnpm test:auth`     | Every auth unit suite (18 files, 161 tests)     |
-| `pnpm test:auth:watch` | Auth unit tests in watch mode                |
-| `pnpm test:auth:coverage` | Auth unit tests + coverage               |
-| `pnpm test:auth:e2e` | Auth Playwright journeys only                  |
-| `pnpm test:auth:all` | Auth unit + E2E                                |
-| `pnpm test:settings` | Every Settings unit suite (1 file, 87 tests)    |
-| `pnpm test:settings:watch` | Settings unit tests in watch mode          |
-| `pnpm test:settings:coverage` | Settings unit tests + coverage         |
-| `pnpm test:header-sidebar` | Header + Sidebar suites (2 files, 52 tests) |
-| `pnpm test:header-sidebar:watch` | Header/Sidebar tests in watch mode  |
-| `pnpm test:header-sidebar:coverage` | Header/Sidebar tests + coverage  |
-| `pnpm test:dashboard` | Dashboard suite (3 files, 105 tests)       |
-| `pnpm test:dashboard:watch` | Dashboard tests in watch mode        |
-| `pnpm test:dashboard:coverage` | Dashboard tests + coverage        |
-| `pnpm test:documents` | Documents suite (16 files, 305 tests)     |
-| `pnpm test:documents:watch` | Documents tests in watch mode      |
-| `pnpm test:documents:coverage` | Documents tests + coverage      |
-| `pnpm test:marketing` | Marketing suite (10 files, 232 tests)     |
-| `pnpm test:marketing:watch` | Marketing tests in watch mode      |
-| `pnpm test:marketing:coverage` | Marketing tests + coverage      |
-| `pnpm test:meetings` | Meetings suite (12 files, 224 tests)      |
-| `pnpm test:meetings:watch` | Meetings tests in watch mode       |
-| `pnpm test:meetings:coverage` | Meetings tests + coverage       |
-| `pnpm test:webinars` | Webinars suite (6 files, 139 tests)       |
-| `pnpm test:webinars:watch` | Webinars tests in watch mode        |
-| `pnpm test:webinars:coverage` | Webinars tests + coverage        |
-| `pnpm test:e2e`      | Run Playwright E2E                              |
-| `pnpm test:e2e:ui`   | Run Playwright in UI mode                       |
-| `pnpm test:e2e:install` | Install the Chromium browser binary          |
+| Command                             | Purpose                                           |
+| ----------------------------------- | ------------------------------------------------- |
+| `pnpm test`                         | Run the whole unit suite once                     |
+| `pnpm test:watch`                   | Re-run changed unit tests on save                 |
+| `pnpm test:coverage`                | Run once and print a V8 coverage report           |
+| `pnpm exec vitest run <path>`       | Run a single unit file or directory               |
+| `pnpm test:onboarding`              | Every onboarding unit suite (30 files, 412 tests) |
+| `pnpm test:onboarding:watch`        | Onboarding unit tests in watch mode               |
+| `pnpm test:onboarding:coverage`     | Onboarding unit tests + coverage                  |
+| `pnpm test:onboarding:e2e`          | Onboarding Playwright journeys only               |
+| `pnpm test:onboarding:all`          | Onboarding unit + E2E                             |
+| `pnpm test:auth`                    | Every auth unit suite (18 files, 161 tests)       |
+| `pnpm test:auth:watch`              | Auth unit tests in watch mode                     |
+| `pnpm test:auth:coverage`           | Auth unit tests + coverage                        |
+| `pnpm test:auth:e2e`                | Auth Playwright journeys only                     |
+| `pnpm test:auth:all`                | Auth unit + E2E                                   |
+| `pnpm test:settings`                | Every Settings unit suite (1 file, 87 tests)      |
+| `pnpm test:settings:watch`          | Settings unit tests in watch mode                 |
+| `pnpm test:settings:coverage`       | Settings unit tests + coverage                    |
+| `pnpm test:header-sidebar`          | Header + Sidebar suites (2 files, 52 tests)       |
+| `pnpm test:header-sidebar:watch`    | Header/Sidebar tests in watch mode                |
+| `pnpm test:header-sidebar:coverage` | Header/Sidebar tests + coverage                   |
+| `pnpm test:dashboard`               | Dashboard suite (3 files, 105 tests)              |
+| `pnpm test:dashboard:watch`         | Dashboard tests in watch mode                     |
+| `pnpm test:dashboard:coverage`      | Dashboard tests + coverage                        |
+| `pnpm test:documents`               | Documents suite (16 files, 305 tests)             |
+| `pnpm test:documents:watch`         | Documents tests in watch mode                     |
+| `pnpm test:documents:coverage`      | Documents tests + coverage                        |
+| `pnpm test:marketing`               | Marketing suite (10 files, 232 tests)             |
+| `pnpm test:marketing:watch`         | Marketing tests in watch mode                     |
+| `pnpm test:marketing:coverage`      | Marketing tests + coverage                        |
+| `pnpm test:meetings`                | Meetings suite (12 files, 224 tests)              |
+| `pnpm test:meetings:watch`          | Meetings tests in watch mode                      |
+| `pnpm test:meetings:coverage`       | Meetings tests + coverage                         |
+| `pnpm test:webinars`                | Webinars suite (6 files, 139 tests)               |
+| `pnpm test:webinars:watch`          | Webinars tests in watch mode                      |
+| `pnpm test:webinars:coverage`       | Webinars tests + coverage                         |
+| `pnpm test:e2e`                     | Run Playwright E2E                                |
+| `pnpm test:e2e:ui`                  | Run Playwright in UI mode                         |
+| `pnpm test:e2e:install`             | Install the Chromium browser binary               |
 
 The onboarding-only scripts are backed by
 [`vitest.onboarding.config.mts`](../../vitest.onboarding.config.mts), which
@@ -121,7 +122,7 @@ scannable:
 
 ## Page-level pattern (onboarding)
 
-[`app/(dashboard)/onboarding/__tests__/page.test.tsx`](../../app/(dashboard)/onboarding/__tests__/page.test.tsx)
+[`app/(dashboard)/onboarding/__tests__/page.test.tsx`](<../../app/(dashboard)/onboarding/__tests__/page.test.tsx>)
 covers the onboarding route with the following strategy:
 
 1. **Mock the boundary, not the page.** `next-auth/react`, `next/navigation`,
@@ -149,16 +150,16 @@ can be tested directly without React.
 Each onboarding step has a co-located suite under
 `components/wizard/steps/__tests__/`:
 
-| File | Focus |
-| ---- | ----- |
-| `step-1-user-profile.test.tsx` | progressive disclosure of Team Size, prefill/normalization, error propagation |
-| `step-2-services.test.tsx` | server-loaded selections, service/custom-service saves, insurance flag, failure handling |
-| `step-3-branding.test.tsx` | card wiring, welcome-statement merge fields, branding/client-profile persistence, background upload/removal, color saves |
-| `step-4-user-setup.test.tsx` | server/session fallbacks, phone + designation normalization, immediate saves, blur validation, unmount flush |
-| `step-5-onboarding.test.tsx` | sub-stepper gating (solo vs. team), routing, validity forwarding |
-| `step-5a-summary.test.tsx` | review values, edit-from-review entry points, summary payload mapping |
-| `step-5b-disclosures.test.tsx` | intro vs. editor, skip attestation, recommended/custom copy persistence, limits |
-| `step-5c-team.test.tsx` | seat meter/cap, row add/remove, per-field validation, duplicate/self emails, role updates |
+| File                           | Focus                                                                                                                    |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `step-1-user-profile.test.tsx` | progressive disclosure of Team Size, prefill/normalization, error propagation                                            |
+| `step-2-services.test.tsx`     | server-loaded selections, service/custom-service saves, insurance flag, failure handling                                 |
+| `step-3-branding.test.tsx`     | card wiring, welcome-statement merge fields, branding/client-profile persistence, background upload/removal, color saves |
+| `step-4-user-setup.test.tsx`   | server/session fallbacks, phone + designation normalization, immediate saves, blur validation, unmount flush             |
+| `step-5-onboarding.test.tsx`   | sub-stepper gating (solo vs. team), routing, validity forwarding                                                         |
+| `step-5a-summary.test.tsx`     | review values, edit-from-review entry points, summary payload mapping                                                    |
+| `step-5b-disclosures.test.tsx` | intro vs. editor, skip attestation, recommended/custom copy persistence, limits                                          |
+| `step-5c-team.test.tsx`        | seat meter/cap, row add/remove, per-field validation, duplicate/self emails, role updates                                |
 
 The store is mocked as a small reactive store backed by
 `useSyncExternalStore`, with a mutable `state` object and a `notify()` helper.
@@ -176,111 +177,126 @@ which callback fires, and what payload is persisted.
 
 Beyond the step suites, these cover the rest of the onboarding flow:
 
-| File | Focus |
-| ---- | ----- |
-| `lib/__tests__/wizard-validation.test.ts` | every step schema and `validateCurrentStep` field mapping |
-| `lib/__tests__/onboarding-wizard-store.test.ts` | navigation, review-edit mode, saves/loads, validation actions, completion, reset, persistence |
-| `components/wizard/__tests__/wizard.test.tsx` | Next/Previous, Step 1 ordering, Step 2 parallel saves, Step 4 DOM normalization, Step 5 routing, skip/confirm/invite flows, completion |
-| `hooks/__tests__/use-navigate-away-guard.test.tsx`, `components/ui/__tests__/navigate-away-warning-dialog.test.tsx` | link interception, popstate, save/discard/stay, two-step discard |
-| `hooks/__tests__/useOnboardingResumeEmail.test.tsx`, `components/__tests__/desktop-only-gate.test.tsx` | resume-email throttling and device gating |
-| `hooks/__tests__/useWizardInit.test.tsx`, `use-scroll-to-error-field.test.tsx`, `useMediaQuery.test.tsx` | initialization, error scrolling, media queries |
-| `components/wizard/steps/__tests__/*-section.test.tsx` | the real form sections that the step suites stub |
-| `app/api/onboarding-wizard/__tests__/routes.test.ts` | every onboarding route handler with mocked Prisma, auth, email, and tokens |
+| File                                                                                                                | Focus                                                                                                                                  |
+| ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/__tests__/wizard-validation.test.ts`                                                                           | every step schema and `validateCurrentStep` field mapping                                                                              |
+| `lib/__tests__/onboarding-wizard-store.test.ts`                                                                     | navigation, review-edit mode, saves/loads, validation actions, completion, reset, persistence                                          |
+| `components/wizard/__tests__/wizard.test.tsx`                                                                       | Next/Previous, Step 1 ordering, Step 2 parallel saves, Step 4 DOM normalization, Step 5 routing, skip/confirm/invite flows, completion |
+| `hooks/__tests__/use-navigate-away-guard.test.tsx`, `components/ui/__tests__/navigate-away-warning-dialog.test.tsx` | link interception, popstate, save/discard/stay, two-step discard                                                                       |
+| `hooks/__tests__/useOnboardingResumeEmail.test.tsx`, `components/__tests__/desktop-only-gate.test.tsx`              | resume-email throttling and device gating                                                                                              |
+| `hooks/__tests__/useWizardInit.test.tsx`, `use-scroll-to-error-field.test.tsx`, `useMediaQuery.test.tsx`            | initialization, error scrolling, media queries                                                                                         |
+| `components/wizard/steps/__tests__/*-section.test.tsx`                                                              | the real form sections that the step suites stub                                                                                       |
+| `app/api/onboarding-wizard/__tests__/routes.test.ts`                                                                | every onboarding route handler with mocked Prisma, auth, email, and tokens                                                             |
 
 ## Auth flow coverage
 
-| File | Focus |
-| ---- | ----- |
-| `lib/__tests__/form-schema.test.ts` | shared password policy, sign-up/reset/sign-in schemas |
-| `lib/__tests__/sign-in-redirect.test.ts` | callbackUrl parsing, onboarding collapse, post-sign-in landing, no `/signin` loop |
-| `app/(dashboard)/signin/__tests__/page.test.tsx` | sign-in route shell |
-| `components/pages/sign-in/__tests__/sign-in.test.tsx` | sign-in screen: form/resume link, themes, logo, authenticated redirect wiring |
-| `components/forms/__tests__/user-auth-form.test.tsx` | credentials sign-in: reveal timing, validation, callback/default landing, error mapping, loading, links |
-| `components/forms/__tests__/google-auth-button.test.tsx` | Google OAuth default landing and middleware deep-link preservation |
-| `components/forms/__tests__/user-signup-form.test.tsx` | sign-up: validation, password match, email availability, auto sign-in, API errors, loading, visibility |
-| `app/(dashboard)/signup/__tests__/page.test.tsx` | sign-up route shell, theme toggle, logo |
-| `components/forms/__tests__/forget-password-form.test.tsx` | forgot password: validation, neutral request, errors, loading, auto-clear |
-| `app/(dashboard)/forget/__tests__/page.test.tsx` | forgot-password route shell, heading, copyright, themes |
-| `components/forms/__tests__/reset-pass-form.test.tsx` | reset password: shared policy, match, verified-token POST, errors, loading |
-| `app/(dashboard)/reset-password/__tests__/page.test.tsx` | reset-password route shell, heading, copyright, themes |
-| `lib/__tests__/reset-token.server.test.ts` | signed reset tokens: round-trip, tampering, expiry, missing secret |
-| `components/forms/__tests__/verify-code-form.test.tsx` | 6-digit validation, verification, reset-password redirect with token, errors, loading |
-| `app/(dashboard)/verify-code/__tests__/page.test.tsx` | verify-code route shell, heading, copyright, themes |
-| `components/forms/__tests__/resume-onboarding-link.test.tsx` | resume dialog: open, opaque submit, failure, cancel/reset |
-| `lib/__tests__/middleware.test.ts` | route protection: portal/static/API bypass, sign-in redirect, onboarding gate, cookie names |
-| `app/api/__tests__/auth-routes.test.ts` | forget, verify-code, reset-password, signup sanitization, check-email handlers |
+| File                                                         | Focus                                                                                                   |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- |
+| `lib/__tests__/form-schema.test.ts`                          | shared password policy, sign-up/reset/sign-in schemas                                                   |
+| `lib/__tests__/sign-in-redirect.test.ts`                     | callbackUrl parsing, onboarding collapse, post-sign-in landing, no `/signin` loop                       |
+| `app/(dashboard)/signin/__tests__/page.test.tsx`             | sign-in route shell                                                                                     |
+| `components/pages/sign-in/__tests__/sign-in.test.tsx`        | sign-in screen: form/resume link, themes, logo, authenticated redirect wiring                           |
+| `components/forms/__tests__/user-auth-form.test.tsx`         | credentials sign-in: reveal timing, validation, callback/default landing, error mapping, loading, links |
+| `components/forms/__tests__/google-auth-button.test.tsx`     | Google OAuth default landing and middleware deep-link preservation                                      |
+| `components/forms/__tests__/user-signup-form.test.tsx`       | sign-up: validation, password match, email availability, auto sign-in, API errors, loading, visibility  |
+| `app/(dashboard)/signup/__tests__/page.test.tsx`             | sign-up route shell, theme toggle, logo                                                                 |
+| `components/forms/__tests__/forget-password-form.test.tsx`   | forgot password: validation, neutral request, errors, loading, auto-clear                               |
+| `app/(dashboard)/forget/__tests__/page.test.tsx`             | forgot-password route shell, heading, copyright, themes                                                 |
+| `components/forms/__tests__/reset-pass-form.test.tsx`        | reset password: shared policy, match, verified-token POST, errors, loading                              |
+| `app/(dashboard)/reset-password/__tests__/page.test.tsx`     | reset-password route shell, heading, copyright, themes                                                  |
+| `lib/__tests__/reset-token.server.test.ts`                   | signed reset tokens: round-trip, tampering, expiry, missing secret                                      |
+| `components/forms/__tests__/verify-code-form.test.tsx`       | 6-digit validation, verification, reset-password redirect with token, errors, loading                   |
+| `app/(dashboard)/verify-code/__tests__/page.test.tsx`        | verify-code route shell, heading, copyright, themes                                                     |
+| `components/forms/__tests__/resume-onboarding-link.test.tsx` | resume dialog: open, opaque submit, failure, cancel/reset                                               |
+| `lib/__tests__/middleware.test.ts`                           | route protection: portal/static/API bypass, sign-in redirect, onboarding gate, cookie names             |
+| `app/api/__tests__/auth-routes.test.ts`                      | forget, verify-code, reset-password, signup sanitization, check-email handlers                          |
 
 ## Settings page coverage
 
-| File | Focus |
-| ---- | ----- |
+| File                                               | Focus                                                                                                                                                                               |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `app/(dashboard)/settings/__tests__/page.test.tsx` | tab shell and role gating, Profile/Branding/Organization saves, disclosures fan-out, unsaved-changes guard, People & Access lazy mount, Billing placeholder, Delete Profile dialogs |
 
 See [`settings-test.md`](settings-test.md) for the itemized inventory and the remaining section/route-handler gaps.
 
 ## Layout chrome coverage
 
-| File | Focus |
-| ---- | ----- |
-| `components/layout/__tests__/header.test.tsx` | title/company split, stepper and editor overlay, header tab portal, theme toggle, scroll chrome |
+| File                                           | Focus                                                                                                                             |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `components/layout/__tests__/header.test.tsx`  | title/company split, stepper and editor overlay, header tab portal, theme toggle, scroll chrome                                   |
 | `components/layout/__tests__/sidebar.test.tsx` | persisted rail state, responsive widths, access skeleton, collaborator nav filtering, logos, editor collapse, wizard step-2 width |
 
 See [`header-sidebar-tests.md`](header-sidebar-tests.md) for the itemized inventory and remaining gaps.
 
 ## Dashboard coverage
 
-| File | Focus |
-| ---- | ----- |
+| File                                                      | Focus                                                                                                                                   |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
 | `components/pages/dashboard/__tests__/dashboard.test.tsx` | identity precedence, avatar resolution/cancellation, loading skeleton, stats overlay, role-based actions/panels, insight detail mapping |
-| `components/pages/dashboard/__tests__/panels.test.tsx` | Active Plans, Meetings, Needs Attention, Recent Activity, Upcoming Meetings, Team, Task List |
-| `app/api/dashboard/__tests__/routes.test.ts` | stats, plans/meetings/attention, tasks CRUD, upcoming meetings, recent activity |
+| `components/pages/dashboard/__tests__/panels.test.tsx`    | Active Plans, Meetings, Needs Attention, Recent Activity, Upcoming Meetings, Team, Task List                                            |
+| `app/api/dashboard/__tests__/routes.test.ts`              | stats, plans/meetings/attention, tasks CRUD, upcoming meetings, recent activity                                                         |
 
 See [`dashboard-test.md`](dashboard-test.md) for the itemized inventory and remaining gaps.
 
 ## Documents coverage
 
-| File | Focus |
-| ---- | ----- |
-| `app/(dashboard)/documents/__tests__/page.test.tsx` | plan picker and sticky selection, URL/company deep links, brute-force plan fetches, review-date alerts and dismissal, list/cards/calendar/preview views, filters and sorting, upload tab and leave guard, bulk/single delete, preview/download/edit with the R2 fallback, preview order persistence |
-| `app/api/documents/__tests__/routes.test.ts` | all nine document handlers: list/create/patch/delete/view, batch, client-scoped list, expiring, reorder |
-| `components/pages/documents/components/__tests__/*.test.tsx` | compliance upload staging, edit modal validation/file replacement, preview modal blob/download/revocation |
-| `components/pages/documents/tabs/__tests__/*.test.tsx`, `views/__tests__/*.test.tsx` | list/preview tabs, table sorting/actions/category editing, cards editing events, 15-month calendar and review-date drawer |
-| `lib/__tests__/{compliance-document-utils,document-category,document-expirations,document-sort,notification-date-keys,portal-document-language}.test.ts` | category scoring/inference, custom ordering, reminder tiers, day-key math, EN/ES normalization |
+| File                                                                                                                                                     | Focus                                                                                                                                                                                                                                                                                               |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/(dashboard)/documents/__tests__/page.test.tsx`                                                                                                      | plan picker and sticky selection, URL/company deep links, brute-force plan fetches, review-date alerts and dismissal, list/cards/calendar/preview views, filters and sorting, upload tab and leave guard, bulk/single delete, preview/download/edit with the R2 fallback, preview order persistence |
+| `app/api/documents/__tests__/routes.test.ts`                                                                                                             | all nine document handlers: list/create/patch/delete/view, batch, client-scoped list, expiring, reorder                                                                                                                                                                                             |
+| `components/pages/documents/components/__tests__/*.test.tsx`                                                                                             | compliance upload staging, edit modal validation/file replacement, preview modal blob/download/revocation                                                                                                                                                                                           |
+| `components/pages/documents/tabs/__tests__/*.test.tsx`, `views/__tests__/*.test.tsx`                                                                     | list/preview tabs, table sorting/actions/category editing, cards editing events, 15-month calendar and review-date drawer                                                                                                                                                                           |
+| `lib/__tests__/{compliance-document-utils,document-category,document-expirations,document-sort,notification-date-keys,portal-document-language}.test.ts` | category scoring/inference, custom ordering, reminder tiers, day-key math, EN/ES normalization                                                                                                                                                                                                      |
 
 See [`documents-tests.md`](documents-tests.md) for the itemized inventory and remaining gaps.
 
 ## Meetings coverage
 
-| File | Focus |
-| ---- | ----- |
-| `app/(dashboard)/communications/meetings/__tests__/page.test.tsx` | plan picker and sticky selection, URL deep links, plan-change loading (including the 6s cap), meeting cards, status/category filters and sorting, calendar + day drawer, portal preview, schedule/edit/duplicate validation and submission, draft saves, delete confirmation, post-save duplicate flow, edge branches |
-| `app/api/meetings/__tests__/routes.test.ts` | meetings POST/GET, PUT/PATCH/DELETE by id, reminders, custom meeting types |
-| `lib/__tests__/meeting-*.test.ts`, `lib/__tests__/date-schedule-day.test.ts` | reminder tiers/day keys, shared schedule validation/payloads, scheduling-day math, timezone-aware start instants and display, Zustand stores |
-| `components/meetings/__tests__/*.test.tsx` | 12-month calendar, day drawer, plan-scoped schedule form |
+| File                                                                         | Focus                                                                                                                                                                                                                                                                                                                 |
+| ---------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/(dashboard)/communications/meetings/__tests__/page.test.tsx`            | plan picker and sticky selection, URL deep links, plan-change loading (including the 6s cap), meeting cards, status/category filters and sorting, calendar + day drawer, portal preview, schedule/edit/duplicate validation and submission, draft saves, delete confirmation, post-save duplicate flow, edge branches |
+| `app/api/meetings/__tests__/routes.test.ts`                                  | meetings POST/GET, PUT/PATCH/DELETE by id, reminders, custom meeting types                                                                                                                                                                                                                                            |
+| `lib/__tests__/meeting-*.test.ts`, `lib/__tests__/date-schedule-day.test.ts` | reminder tiers/day keys, shared schedule validation/payloads, scheduling-day math, timezone-aware start instants and display, Zustand stores                                                                                                                                                                          |
+| `components/meetings/__tests__/*.test.tsx`                                   | 12-month calendar, day drawer, plan-scoped schedule form                                                                                                                                                                                                                                                              |
 
 See [`meetings-tests.md`](meetings-tests.md) for the itemized inventory and remaining gaps.
 
 ## Webinars coverage
 
-| File | Focus |
-| ---- | ----- |
-| `app/(dashboard)/communications/webinars/__tests__/page.test.tsx` | client load/skeleton/failure, sticky plan and subtitle, list cards and sorting, add/edit dialog, source switching, thumbnails (upload/frame), placements, uploads, create/update/delete, multi-select bulk delete, video preview (YouTube/Vimeo/MP4/lazy base64), frame capture and edge cases |
-| `app/api/webinars/__tests__/routes.test.ts` | list filtering/projection/placement/sorting, create validation/access, detail get, partial update semantics, delete, bulk delete |
-| `lib/__tests__/webinar-placements.test.ts`, `lib/__tests__/webinar-video-embed.test.ts` | placement normalization and key guards; YouTube/Vimeo/direct-URL parsing and hover parameters |
-| `hooks/__tests__/useWebinarHoverPreview.test.tsx`, `components/webinars/__tests__/webinar-hover-preview.test.tsx` | hover intent, caching/dedupe/stale requests, suspension, preloading; loading/base64/iframe/direct render states |
+| File                                                                                                              | Focus                                                                                                                                                                                                                                                                                          |
+| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/(dashboard)/communications/webinars/__tests__/page.test.tsx`                                                 | client load/skeleton/failure, sticky plan and subtitle, list cards and sorting, add/edit dialog, source switching, thumbnails (upload/frame), placements, uploads, create/update/delete, multi-select bulk delete, video preview (YouTube/Vimeo/MP4/lazy base64), frame capture and edge cases |
+| `app/api/webinars/__tests__/routes.test.ts`                                                                       | list filtering/projection/placement/sorting, create validation/access, detail get, partial update semantics, delete, bulk delete                                                                                                                                                               |
+| `lib/__tests__/webinar-placements.test.ts`, `lib/__tests__/webinar-video-embed.test.ts`                           | placement normalization and key guards; YouTube/Vimeo/direct-URL parsing and hover parameters                                                                                                                                                                                                  |
+| `hooks/__tests__/useWebinarHoverPreview.test.tsx`, `components/webinars/__tests__/webinar-hover-preview.test.tsx` | hover intent, caching/dedupe/stale requests, suspension, preloading; loading/base64/iframe/direct render states                                                                                                                                                                                |
 
 See [`webinars-tests.md`](webinars-tests.md) for the itemized inventory and remaining gaps.
 
 ## Marketing coverage
 
-| File | Focus |
-| ---- | ----- |
+| File                                                               | Focus                                                                                                                                                                                                                                                |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `app/(dashboard)/communications/marketing/__tests__/page.test.tsx` | sticky plan selection, plan-change loading (including the 8s cap), creation cards, notice/flyer lists, status/type filters, bulk and single delete, status updates, flyer metadata and PDF download, modal preview/edit/save wiring, no-client state |
-| `app/api/marketing/__tests__/routes.test.ts` | all eleven Marketing handlers: auth, ACL, validation, whitelists, QR cleanup, file proxying, AI/QR/render fallbacks |
-| `lib/__tests__/marketing-*.test.ts` | hub URLs and flyer modes, QR.io/local QR, flyer copy AI fallback, server PDF/PNG rendering, browser SVG/QR helpers |
-| `components/pages/marketing/__tests__/*.test.tsx` | asset modal validation/preview/edit, flyer template helpers and renderers, image-position drag math |
+| `app/api/marketing/__tests__/routes.test.ts`                       | all eleven Marketing handlers: auth, ACL, validation, whitelists, QR cleanup, file proxying, AI/QR/render fallbacks                                                                                                                                  |
+| `lib/__tests__/marketing-*.test.ts`                                | hub URLs and flyer modes, QR.io/local QR, flyer copy AI fallback, server PDF/PNG rendering, browser SVG/QR helpers                                                                                                                                   |
+| `components/pages/marketing/__tests__/*.test.tsx`                  | asset modal validation/preview/edit, flyer template helpers and renderers, image-position drag math                                                                                                                                                  |
 
 See [`marketing-tests.md`](marketing-tests.md) for the itemized inventory and remaining gaps.
+
+## Browse Benefits coverage
+
+| File                                                                                                                                       | Focus                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------- |
+| `app/(dashboard)/benefits/__tests__/page.test.tsx`                                                                                         | Server page: session lookup, own-category precedence, wizard-session and organization-owner fallbacks, failure degradation   |
+| `components/pages/benefits/__tests__/benefits-list.test.tsx`                                                                               | SWR keys, sticky selection, content-state ladder, rows, drafts, completeness, assignees, toggle, roles, empty/failure states |
+| `components/pages/benefits/__tests__/org-service-categories.test.tsx`                                                                      | Organization strip chips, empty copy and Settings affordance                                                                 |
+| `components/plan-selector/__tests__/plan-search-bar.test.tsx`                                                                              | Active-only filtering, Draft retention for collaborators, recents, search, keyboard and portal link                          |
+| `app/api/benefits/__tests__/route.test.ts`                                                                                                 | `GET /api/benefits` auth, accessible/category scoping, row shape, visibility, completeness and 500s                          |
+| `app/api/clients/[id]/__tests__/route.visibility.test.ts`                                                                                  | The plan-level `categoryPortalVisibility` write behind the publish/hide toggle                                               |
+| `app/api/teammates/plan-assignments/__tests__/route.test.ts`                                                                               | Per-plan assignment roster used by the "Assigned to …" line                                                                  |
+| `lib/__tests__/{service-categories,plan-selector-storage,active-client-status,benefit-category-slug,benefit-draft,portal-surface}.test.ts` | The pure helpers the page calls directly                                                                                     |
+
+The Benefits-only suites total **174 tests across 13 files**; [`e2e/benefits.spec.ts`](../../e2e/benefits.spec.ts) adds six env-gated Playwright journeys. See [`benefits-clients.md`](benefits-clients.md) for the itemized inventory, manual checklist and remaining gaps.
 
 ## End-to-end (Playwright)
 

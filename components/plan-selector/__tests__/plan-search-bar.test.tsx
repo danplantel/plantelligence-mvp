@@ -25,8 +25,18 @@ vi.mock("@/lib/marketing/hub-url", () => ({
 }));
 
 const plans: PlanSearchBarPlan[] = [
-  { id: "plan-active", companyName: "Acme Corp", slug: "acme", status: "Active" },
-  { id: "plan-draft", companyName: "Draft Co", slug: "draft-co", status: "Draft" },
+  {
+    id: "plan-active",
+    companyName: "Acme Corp",
+    slug: "acme",
+    status: "Active",
+  },
+  {
+    id: "plan-draft",
+    companyName: "Draft Co",
+    slug: "draft-co",
+    status: "Draft",
+  },
   {
     id: "plan-archived",
     companyName: "Archived Co",
@@ -67,9 +77,15 @@ describe("PlanSearchBar", () => {
 
     await user.click(screen.getByRole("textbox", { name: "Search plans" }));
 
-    expect(screen.getByRole("option", { name: "Acme Corp" })).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Legacy Co" })).toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "Draft Co" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Acme Corp" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Legacy Co" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "Draft Co" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("option", { name: "Archived Co" }),
     ).not.toBeInTheDocument();
@@ -81,7 +97,9 @@ describe("PlanSearchBar", () => {
 
     await user.click(screen.getByRole("textbox", { name: "Search plans" }));
 
-    expect(screen.getByRole("option", { name: "Draft Co" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Draft Co" }),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("option", { name: "Archived Co" }),
     ).toBeInTheDocument();
@@ -97,11 +115,21 @@ describe("PlanSearchBar", () => {
     ];
     renderPicker({ activeOnly: false });
 
-    expect(screen.getByRole("button", { name: "Draft Co" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Acme Corp" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Archived Co" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Legacy Co" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "missing" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Draft Co" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Acme Corp" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Archived Co" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Legacy Co" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "missing" }),
+    ).not.toBeInTheDocument();
   });
 
   it("selects a recent chip and persists the choice for the module", async () => {
@@ -119,10 +147,17 @@ describe("PlanSearchBar", () => {
     const user = userEvent.setup();
     renderPicker();
 
-    await user.type(screen.getByRole("textbox", { name: "Search plans" }), "acme");
+    await user.type(
+      screen.getByRole("textbox", { name: "Search plans" }),
+      "acme",
+    );
 
-    expect(screen.getByRole("option", { name: "Acme Corp" })).toBeInTheDocument();
-    expect(screen.queryByRole("option", { name: "Legacy Co" })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("option", { name: "Acme Corp" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("option", { name: "Legacy Co" }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText("1 plan found")).toBeInTheDocument();
   });
 
@@ -219,14 +254,17 @@ describe("PlanSearchBar", () => {
     await user.click(input);
 
     expect(input).toHaveAttribute("aria-expanded", "true");
-    expect(
-      screen.getByRole("option", { name: "Acme Corp" }),
-    ).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByRole("option", { name: "Acme Corp" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
   });
 
   it("disables the search input when there are no selectable plans", () => {
     renderPicker({ plans: [], disabled: true });
 
-    expect(screen.getByRole("textbox", { name: "Search plans" })).toBeDisabled();
+    expect(
+      screen.getByRole("textbox", { name: "Search plans" }),
+    ).toBeDisabled();
   });
 });

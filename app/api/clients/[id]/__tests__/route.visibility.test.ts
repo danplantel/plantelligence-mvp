@@ -91,10 +91,7 @@ function existingClient(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function request(
-  body: Record<string, unknown>,
-  id = "plan-1",
-): NextRequest {
+function request(body: Record<string, unknown>, id = "plan-1"): NextRequest {
   return new NextRequest(new URL(`/api/clients/${id}`, "http://localhost"), {
     method: "PUT",
     headers: { "content-type": "application/json" },

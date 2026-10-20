@@ -1,9 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import {
-  categoryToSlug,
-  slugToCategory,
-} from "@/lib/benefit-category-slug";
+import { categoryToSlug, slugToCategory } from "@/lib/benefit-category-slug";
 
 describe("benefit category slugs", () => {
   it.each([
