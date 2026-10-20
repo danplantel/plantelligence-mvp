@@ -142,17 +142,26 @@ export function ClientsListDashboardPage() {
       sortDirection,
     });
     return `/api/clients?${params.toString()}`;
-  }, [searchDebounce, statusFilter, planTypeFilter, currentPage, itemsPerPage, sortColumn, sortDirection]);
+  }, [
+    searchDebounce,
+    statusFilter,
+    planTypeFilter,
+    currentPage,
+    itemsPerPage,
+    sortColumn,
+    sortDirection,
+  ]);
 
-  const { data: swrData, isLoading, isValidating, mutate: refreshClients } = useSWR(
-    swrKey,
-    jsonFetcher,
-    {
-      keepPreviousData: true,   // show stale data while revalidating — no blank flash
-      dedupingInterval: 2_000,  // allow refetch after 2s (was 60s, hiding new drafts)
-      revalidateOnFocus: true,  // refetch when user returns to this tab
-    },
-  );
+  const {
+    data: swrData,
+    isLoading,
+    isValidating,
+    mutate: refreshClients,
+  } = useSWR(swrKey, jsonFetcher, {
+    keepPreviousData: true, // show stale data while revalidating — no blank flash
+    dedupingInterval: 2_000, // allow refetch after 2s (was 60s, hiding new drafts)
+    revalidateOnFocus: true, // refetch when user returns to this tab
+  });
 
   const clients: Client[] = swrData?.data ?? [];
   const totalClients: number = swrData?.pagination?.total ?? 0;
@@ -201,7 +210,11 @@ export function ClientsListDashboardPage() {
   const totalPages = Math.ceil(totalClients / itemsPerPage);
 
   // Reset to page 1 when filters change
-  const prevFiltersRef = useRef({ planTypeFilter, statusFilter, searchDebounce });
+  const prevFiltersRef = useRef({
+    planTypeFilter,
+    statusFilter,
+    searchDebounce,
+  });
   useMemo(() => {
     const prev = prevFiltersRef.current;
     if (
@@ -289,9 +302,7 @@ export function ClientsListDashboardPage() {
       client.currentStep <= 5
         ? client.currentStep
         : null;
-    router.push(
-      step != null ? `/new-client?step=${step}` : "/new-client",
-    );
+    router.push(step != null ? `/new-client?step=${step}` : "/new-client");
   };
 
   return (
@@ -311,7 +322,11 @@ export function ClientsListDashboardPage() {
               </div>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="text-sm shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="text-sm shrink-0"
+                  >
                     <Filter className="mr-2 h-4 w-4" />
                     Advanced Filter
                   </Button>
@@ -398,7 +413,11 @@ export function ClientsListDashboardPage() {
                 Prospect
               </Button>
               <div className="flex items-center gap-2 ml-auto">
-                <Button onClick={() => refreshClients()} variant="outline" size="sm">
+                <Button
+                  onClick={() => refreshClients()}
+                  variant="outline"
+                  size="sm"
+                >
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Refresh
                 </Button>
@@ -411,472 +430,496 @@ export function ClientsListDashboardPage() {
               </div>
             </div>
 
-          <div className="rounded-md border overflow-hidden">
-            <div className="w-full">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[200px] px-3 py-4">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("companyName")}
-                        className="h-auto p-0 font-semibold"
-                      >
-                        Plan
-                        <ChevronsUpDown className="ml-2 h-4 w-4" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="py-4">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("status")}
-                        className="h-auto p-0 font-semibold"
-                      >
-                        Status
-                        <ChevronsUpDown className="ml-2 h-4 w-4" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="py-4">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("type")}
-                        className="h-auto p-0 font-semibold"
-                      >
-                        Type
-                        <ChevronsUpDown className="ml-2 h-4 w-4" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="py-4">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("createdAt")}
-                        className="h-auto p-0 font-semibold"
-                      >
-                        Created
-                        <ChevronsUpDown className="ml-2 h-4 w-4" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="py-4">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("updatedAt")}
-                        className="h-auto p-0 font-semibold"
-                      >
-                        Updated
-                        <ChevronsUpDown className="ml-2 h-4 w-4" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="py-4">Key Contacts</TableHead>
-                    <TableHead className="py-4">Quick Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    // Skeleton Loader
-                    <>
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <TableRow key={i}>
-                          {/* Plan */}
-                          <TableCell className="p-4">
-                            <div className="flex items-center space-x-3">
-                              <div className="h-10 w-10 rounded-lg bg-gray-200 animate-pulse" />
-                              <div className="space-y-2 flex-1">
-                                <div className="h-4 bg-gray-200 rounded w-32 animate-pulse" />
-                                <div className="h-3 bg-gray-200 rounded w-24 animate-pulse" />
-                              </div>
-                            </div>
-                          </TableCell>
-                          {/* Status */}
-                          <TableCell className="py-4">
-                            <div className="h-6 w-16 bg-gray-200 rounded-full animate-pulse" />
-                          </TableCell>
-                          {/* Type */}
-                          <TableCell className="py-4">
-                            <div className="h-6 w-20 bg-gray-200 rounded-full animate-pulse" />
-                          </TableCell>
-                          {/* Created */}
-                          <TableCell className="py-4">
-                            <div className="h-4 bg-gray-200 rounded w-20 animate-pulse" />
-                          </TableCell>
-                          {/* Updated */}
-                          <TableCell className="py-4">
-                            <div className="h-4 bg-gray-200 rounded w-20 animate-pulse" />
-                          </TableCell>
-                          {/* Key Contacts */}
-                          <TableCell className="py-4">
-                            <div className="h-8 bg-gray-200 rounded w-24 animate-pulse" />
-                          </TableCell>
-                          {/* Quick Actions */}
-                          <TableCell className="py-4">
-                            <div className="flex items-center space-x-1">
-                              {[1, 2, 3, 4, 5, 6].map((j) => (
-                                <div
-                                  key={j}
-                                  className="h-8 w-8 bg-gray-200 rounded animate-pulse"
-                                />
-                              ))}
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </>
-                  ) : clients.length === 0 ? (
+            <div className="rounded-md border overflow-hidden">
+              <div className="w-full">
+                <Table>
+                  <TableHeader>
                     <TableRow>
-                      <TableCell colSpan={7} className="h-24 text-center">
-                        No plans found.
-                      </TableCell>
+                      <TableHead className="w-[200px] px-3 py-4">
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort("companyName")}
+                          className="h-auto p-0 font-semibold"
+                        >
+                          Plan
+                          <ChevronsUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="py-4">
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort("status")}
+                          className="h-auto p-0 font-semibold"
+                        >
+                          Status
+                          <ChevronsUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="py-4">
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort("type")}
+                          className="h-auto p-0 font-semibold"
+                        >
+                          Type
+                          <ChevronsUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="py-4">
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort("createdAt")}
+                          className="h-auto p-0 font-semibold"
+                        >
+                          Created
+                          <ChevronsUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="py-4">
+                        <Button
+                          variant="ghost"
+                          onClick={() => handleSort("updatedAt")}
+                          className="h-auto p-0 font-semibold"
+                        >
+                          Updated
+                          <ChevronsUpDown className="ml-2 h-4 w-4" />
+                        </Button>
+                      </TableHead>
+                      <TableHead className="py-4">Key Contacts</TableHead>
+                      <TableHead className="py-4">Quick Actions</TableHead>
                     </TableRow>
-                  ) : (
-                    clients.map((client) => {
-                      const isDraft =
-                        (client.status || "active").toLowerCase() === "draft";
-                      return (
-                        <TableRow key={client.id}>
-                          <TableCell className="font-medium px-3 py-4">
-                            <div className="flex items-center space-x-2">
-                              {client.companyLogo ? (
-                                <div className="relative h-10 w-10 rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
-                                  <BrandingImage
-                                    src={client.companyLogo}
-                                    alt={client.companyName}
-                                    fillContainer
-                                    objectFit="contain"
-                                  />
-                                </div>
-                              ) : (
-                                <div
-                                  className="h-10 w-10 rounded-lg flex items-center justify-center text-white text-sm font-semibold shrink-0"
-                                  style={{ backgroundColor: client.brandColor }}
-                                >
-                                  {client.companyName.charAt(0).toUpperCase()}
-                                </div>
-                              )}
-                              <div className="min-w-0 flex-1">
-                                <div className="font-medium line-clamp-2">
-                                  {client.companyName}
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading ? (
+                      // Skeleton Loader
+                      <>
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <TableRow key={i}>
+                            {/* Plan */}
+                            <TableCell className="p-4">
+                              <div className="flex items-center space-x-3">
+                                <div className="h-10 w-10 rounded-lg bg-gray-200 animate-pulse" />
+                                <div className="space-y-2 flex-1">
+                                  <div className="h-4 bg-gray-200 rounded w-32 animate-pulse" />
+                                  <div className="h-3 bg-gray-200 rounded w-24 animate-pulse" />
                                 </div>
                               </div>
-                            </div>
-                          </TableCell>
-                          <TableCell className="py-4">
-                            {(() => {
-                              const normalizedStatus = (
-                                client.status || "active"
-                              ).toLowerCase();
-                              const statusLabel =
-                                normalizedStatus === "active"
-                                  ? "Active"
-                                  : normalizedStatus === "draft"
-                                  ? "Draft"
-                                  : client.status || "Active";
-                              const statusClasses =
-                                normalizedStatus === "draft"
-                                  ? "border-orange-200 text-orange-700 bg-orange-50"
-                                  : normalizedStatus === "active"
-                                  ? "border-green-200 text-green-700 bg-green-50"
-                                  : "border-gray-200 text-gray-700 bg-gray-50";
-
-                              return (
-                                <Badge
-                                  variant="outline"
-                                  className={statusClasses}
-                                >
-                                  {statusLabel}
-                                </Badge>
-                              );
-                            })()}
-                          </TableCell>
-                          <TableCell className="py-4">
-                            <Badge
-                              variant="outline"
-                              className={
-                                client.type === "prospect"
-                                  ? "border-orange-200 text-orange-700"
-                                  : "border-green-200 text-green-700"
-                              }
-                            >
-                              {client.type === "prospect"
-                                ? "Prospect"
-                                : "Client"}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground py-4">
-                            {formatDate(client.createdAt)}
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground py-4">
-                            {formatDate(client.updatedAt)}
-                          </TableCell>
-                          <TableCell className="py-4">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() =>
-                                router.push(
-                                  `/edit-client/${client.id}?tab=contacts`,
-                                )
-                              }
-                              className="text-sm hover:text-primary"
-                            >
-                              {(() => {
-                                // `view=table` sends a pre-computed count so the
-                                // base64 headshots inside `keyContacts` never reach
-                                // the browser. The JSON shapes below are the fallback
-                                // for any caller still on the full projection.
-                                if (typeof client.keyContactsCount === "number") {
-                                  return client.keyContactsCount;
-                                }
-                                if (Array.isArray(client.keyContacts)) {
-                                  return client.keyContacts.length;
-                                }
-                                if (
-                                  client.keyContacts &&
-                                  typeof client.keyContacts === "object" &&
-                                  Array.isArray(
-                                    (client.keyContacts as { contacts?: unknown })
-                                      .contacts,
-                                  )
-                                ) {
-                                  return (
-                                    (client.keyContacts as { contacts: unknown[] })
-                                      .contacts.length
-                                  );
-                                }
-                                return 0;
-                              })()}{" "}
-                              contacts
-                            </Button>
-                          </TableCell>
-                          <TableCell className="py-4">
-                            <TooltipProvider>
+                            </TableCell>
+                            {/* Status */}
+                            <TableCell className="py-4">
+                              <div className="h-6 w-16 bg-gray-200 rounded-full animate-pulse" />
+                            </TableCell>
+                            {/* Type */}
+                            <TableCell className="py-4">
+                              <div className="h-6 w-20 bg-gray-200 rounded-full animate-pulse" />
+                            </TableCell>
+                            {/* Created */}
+                            <TableCell className="py-4">
+                              <div className="h-4 bg-gray-200 rounded w-20 animate-pulse" />
+                            </TableCell>
+                            {/* Updated */}
+                            <TableCell className="py-4">
+                              <div className="h-4 bg-gray-200 rounded w-20 animate-pulse" />
+                            </TableCell>
+                            {/* Key Contacts */}
+                            <TableCell className="py-4">
+                              <div className="h-8 bg-gray-200 rounded w-24 animate-pulse" />
+                            </TableCell>
+                            {/* Quick Actions */}
+                            <TableCell className="py-4">
                               <div className="flex items-center space-x-1">
-                                {/* Drafts are not published yet, so Hub, Documents,
+                                {[1, 2, 3, 4, 5, 6].map((j) => (
+                                  <div
+                                    key={j}
+                                    className="h-8 w-8 bg-gray-200 rounded animate-pulse"
+                                  />
+                                ))}
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </>
+                    ) : clients.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="h-24 text-center">
+                          No plans found.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      clients.map((client) => {
+                        const isDraft =
+                          (client.status || "active").toLowerCase() === "draft";
+                        return (
+                          <TableRow key={client.id}>
+                            <TableCell className="font-medium px-3 py-4">
+                              <div className="flex items-center space-x-2">
+                                {client.companyLogo ? (
+                                  <div className="relative h-10 w-10 rounded-lg overflow-hidden shrink-0 flex items-center justify-center">
+                                    <BrandingImage
+                                      src={client.companyLogo}
+                                      alt={client.companyName}
+                                      fillContainer
+                                      objectFit="contain"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div
+                                    className="h-10 w-10 rounded-lg flex items-center justify-center text-white text-sm font-semibold shrink-0"
+                                    style={{
+                                      backgroundColor: client.brandColor,
+                                    }}
+                                  >
+                                    {client.companyName.charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-medium line-clamp-2">
+                                    {client.companyName}
+                                  </div>
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="py-4">
+                              {(() => {
+                                const normalizedStatus = (
+                                  client.status || "active"
+                                ).toLowerCase();
+                                const statusLabel =
+                                  normalizedStatus === "active"
+                                    ? "Active"
+                                    : normalizedStatus === "draft"
+                                    ? "Draft"
+                                    : client.status || "Active";
+                                const statusClasses =
+                                  normalizedStatus === "draft"
+                                    ? "border-orange-200 text-orange-700 bg-orange-50"
+                                    : normalizedStatus === "active"
+                                    ? "border-green-200 text-green-700 bg-green-50"
+                                    : "border-gray-200 text-gray-700 bg-gray-50";
+
+                                return (
+                                  <Badge
+                                    variant="outline"
+                                    className={statusClasses}
+                                  >
+                                    {statusLabel}
+                                  </Badge>
+                                );
+                              })()}
+                            </TableCell>
+                            <TableCell className="py-4">
+                              <Badge
+                                variant="outline"
+                                className={
+                                  client.type === "prospect"
+                                    ? "border-orange-200 text-orange-700"
+                                    : "border-green-200 text-green-700"
+                                }
+                              >
+                                {client.type === "prospect"
+                                  ? "Prospect"
+                                  : "Client"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground py-4">
+                              {formatDate(client.createdAt)}
+                            </TableCell>
+                            <TableCell className="text-sm text-muted-foreground py-4">
+                              {formatDate(client.updatedAt)}
+                            </TableCell>
+                            <TableCell className="py-4">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  router.push(
+                                    `/edit-client/${client.id}?tab=contacts`,
+                                  )
+                                }
+                                className="text-sm hover:text-primary"
+                              >
+                                {(() => {
+                                  // `view=table` sends a pre-computed count so the
+                                  // base64 headshots inside `keyContacts` never reach
+                                  // the browser. The JSON shapes below are the fallback
+                                  // for any caller still on the full projection.
+                                  if (
+                                    typeof client.keyContactsCount === "number"
+                                  ) {
+                                    return client.keyContactsCount;
+                                  }
+                                  if (Array.isArray(client.keyContacts)) {
+                                    return client.keyContacts.length;
+                                  }
+                                  if (
+                                    client.keyContacts &&
+                                    typeof client.keyContacts === "object" &&
+                                    Array.isArray(
+                                      (
+                                        client.keyContacts as {
+                                          contacts?: unknown;
+                                        }
+                                      ).contacts,
+                                    )
+                                  ) {
+                                    return (
+                                      client.keyContacts as {
+                                        contacts: unknown[];
+                                      }
+                                    ).contacts.length;
+                                  }
+                                  return 0;
+                                })()}{" "}
+                                contacts
+                              </Button>
+                            </TableCell>
+                            <TableCell className="py-4">
+                              <TooltipProvider>
+                                <div className="flex items-center space-x-1">
+                                  {/* Drafts are not published yet, so Hub, Documents,
                                     Meetings, Marketing and Edit are hidden — Quick
                                     Actions shows Delete only, next to the Finish
                                     Setup button in the final column. */}
-                                {!isDraft && (
-                                  <>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => {
-                                        const slug = client.slug || client.id;
-                                        // The Hub row's preview link carries the Comments rail too,
-                                        // so the same link means the same thing wherever it is opened
-                                        // from.
-                                        const url = withCommentsRail(
-                                          getBenefitsHubOpenPortalUrl(slug),
-                                        );
-                                        window.open(url, "_blank");
-                                      }}
-                                    >
-                                      <Globe className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Hub</p>
-                                  </TooltipContent>
-                                </Tooltip>
+                                  {!isDraft && (
+                                    <>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            aria-label="Hub"
+                                            className="h-8 w-8"
+                                            onClick={() => {
+                                              const slug =
+                                                client.slug || client.id;
+                                              // The Hub row's preview link carries the Comments rail too,
+                                              // so the same link means the same thing wherever it is opened
+                                              // from.
+                                              const url = withCommentsRail(
+                                                getBenefitsHubOpenPortalUrl(
+                                                  slug,
+                                                ),
+                                              );
+                                              window.open(url, "_blank");
+                                            }}
+                                          >
+                                            <Globe className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Hub</p>
+                                        </TooltipContent>
+                                      </Tooltip>
 
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => {
-                                        const searchParams =
-                                          new URLSearchParams({
-                                            company: client.companyName,
-                                          });
-                                        router.push(
-                                          `/documents?${searchParams.toString()}`,
-                                        );
-                                      }}
-                                    >
-                                      <FileTextIcon className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Documents</p>
-                                  </TooltipContent>
-                                </Tooltip>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            aria-label="Documents"
+                                            className="h-8 w-8"
+                                            onClick={() => {
+                                              const searchParams =
+                                                new URLSearchParams({
+                                                  company: client.companyName,
+                                                });
+                                              router.push(
+                                                `/documents?${searchParams.toString()}`,
+                                              );
+                                            }}
+                                          >
+                                            <FileTextIcon className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Documents</p>
+                                        </TooltipContent>
+                                      </Tooltip>
 
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => {
-                                        const searchParams =
-                                          new URLSearchParams({
-                                            client: client.companyName,
-                                            clientId: client.id,
-                                          });
-                                        router.push(
-                                          `/communications?${searchParams.toString()}`,
-                                        );
-                                      }}
-                                    >
-                                      <Calendar className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Meetings</p>
-                                  </TooltipContent>
-                                </Tooltip>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            aria-label="Meetings"
+                                            className="h-8 w-8"
+                                            onClick={() => {
+                                              const searchParams =
+                                                new URLSearchParams({
+                                                  client: client.companyName,
+                                                  clientId: client.id,
+                                                });
+                                              router.push(
+                                                `/communications?${searchParams.toString()}`,
+                                              );
+                                            }}
+                                          >
+                                            <Calendar className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Meetings</p>
+                                        </TooltipContent>
+                                      </Tooltip>
 
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() =>
-                                        toast.info(
-                                          "Marketing feature will be implemented soon",
-                                        )
-                                      }
-                                    >
-                                      <Megaphone className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Marketing</p>
-                                  </TooltipContent>
-                                </Tooltip>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            aria-label="Marketing"
+                                            className="h-8 w-8"
+                                            onClick={() =>
+                                              toast.info(
+                                                "Marketing feature will be implemented soon",
+                                              )
+                                            }
+                                          >
+                                            <Megaphone className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Marketing</p>
+                                        </TooltipContent>
+                                      </Tooltip>
 
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => handleEditClient(client.id)}
-                                    >
-                                      <Edit className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Edit</p>
-                                  </TooltipContent>
-                                </Tooltip>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            aria-label="Edit"
+                                            className="h-8 w-8"
+                                            onClick={() =>
+                                              handleEditClient(client.id)
+                                            }
+                                          >
+                                            <Edit className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Edit</p>
+                                        </TooltipContent>
+                                      </Tooltip>
 
-                                {/* Delete is always available — a draft can be
+                                      {/* Delete is always available — a draft can be
                                     discarded, and every other action needs a
                                     completed plan (see the isDraft guard above). */}
-                                </>)}
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                      onClick={() => handleDeleteClient(client)}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </TooltipTrigger>
-                                  <TooltipContent>
-                                    <p>Delete</p>
-                                  </TooltipContent>
-                                </Tooltip>
+                                    </>
+                                  )}
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        aria-label="Delete"
+                                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        onClick={() =>
+                                          handleDeleteClient(client)
+                                        }
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p>Delete</p>
+                                    </TooltipContent>
+                                  </Tooltip>
 
-                                {/* Drafts get the wizard resume right beside Delete. It
+                                  {/* Drafts get the wizard resume right beside Delete. It
                                     used to live in its own column after Quick Actions,
                                     where the table's column sizing pushed it away from
                                     the actions it belongs to. */}
-                                {isDraft && (
-                                  <Button
-                                    variant="default"
-                                    size="sm"
-                                    onClick={() => handleFinishSetup(client)}
-                                    className="h-8"
-                                  >
-                                    <CheckCircle className="mr-2 h-4 w-4" />
-                                    Finish Setup
-                                  </Button>
-                                )}
-                              </div>
-                            </TooltipProvider>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-
-          {/* Pagination Controls */}
-          {totalClients > 0 && (
-            <div className="flex items-center justify-between px-6 py-4 border-t">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Show</span>
-                <Select
-                  value={itemsPerPage.toString()}
-                  onValueChange={(value) => {
-                    setItemsPerPage(Number(value));
-                    setCurrentPage(1);
-                  }}
-                >
-                  <SelectTrigger className="w-[80px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="25">25</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                  </SelectContent>
-                </Select>
-                <span className="text-sm text-muted-foreground">per page</span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  Showing{" "}
-                  {totalClients > 0
-                    ? Math.min(
-                        (currentPage - 1) * itemsPerPage + 1,
-                        totalClients,
-                      )
-                    : 0}{" "}
-                  to {Math.min(currentPage * itemsPerPage, totalClients)} of{" "}
-                  {totalClients} plans
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.max(1, prev - 1))
-                  }
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <span className="text-sm text-muted-foreground">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.min(totalPages, prev + 1))
-                  }
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
+                                  {isDraft && (
+                                    <Button
+                                      variant="default"
+                                      size="sm"
+                                      onClick={() => handleFinishSetup(client)}
+                                      className="h-8"
+                                    >
+                                      <CheckCircle className="mr-2 h-4 w-4" />
+                                      Finish Setup
+                                    </Button>
+                                  )}
+                                </div>
+                              </TooltipProvider>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })
+                    )}
+                  </TableBody>
+                </Table>
               </div>
             </div>
-          )}
+
+            {/* Pagination Controls */}
+            {totalClients > 0 && (
+              <div className="flex items-center justify-between px-6 py-4 border-t">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Show</span>
+                  <Select
+                    value={itemsPerPage.toString()}
+                    onValueChange={(value) => {
+                      setItemsPerPage(Number(value));
+                      setCurrentPage(1);
+                    }}
+                  >
+                    <SelectTrigger className="w-[80px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="25">25</SelectItem>
+                      <SelectItem value="50">50</SelectItem>
+                      <SelectItem value="100">100</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <span className="text-sm text-muted-foreground">
+                    per page
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">
+                    Showing{" "}
+                    {totalClients > 0
+                      ? Math.min(
+                          (currentPage - 1) * itemsPerPage + 1,
+                          totalClients,
+                        )
+                      : 0}{" "}
+                    to {Math.min(currentPage * itemsPerPage, totalClients)} of{" "}
+                    {totalClients} plans
+                  </span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(1, prev - 1))
+                    }
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(totalPages, prev + 1))
+                    }
+                    disabled={currentPage === totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </Card>
 
@@ -887,8 +930,8 @@ export function ClientsListDashboardPage() {
               <DialogTitle>Confirm Delete</DialogTitle>
               <DialogDescription>
                 Are you sure you want to delete{" "}
-                <strong>{clientToDelete?.companyName}</strong>? This action cannot
-                be undone and will also delete all associated documents.
+                <strong>{clientToDelete?.companyName}</strong>? This action
+                cannot be undone and will also delete all associated documents.
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
