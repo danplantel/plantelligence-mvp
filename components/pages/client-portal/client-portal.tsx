@@ -12,6 +12,7 @@ import {
   WebinarsDashboard,
 } from "./sections";
 import { motion } from "framer-motion";
+import { ChevronRight } from "lucide-react";
 import { KeyContact } from "@/types/new-client-wizard";
 
 interface CompanyData {
@@ -78,6 +79,76 @@ interface ClientPortalProps {
   showEditIndicators?: boolean;
 }
 
+/** Life events that have a step-by-step benefits checklist behind them. */
+const LIFE_EVENT_CHECKLISTS = [
+  "Having a baby",
+  "Getting married",
+  "Moving",
+  "Leaving the company",
+  "Approaching Retirement",
+  "Losing a Loved One",
+  "Divorce",
+  "Going on Leave",
+] as const;
+
+interface SomethingChangedProps {
+  brandColor?: string;
+  secondaryColor?: string;
+}
+
+/**
+ * "Something Changed? Start Here." — the life-event entry point shown directly
+ * beneath "Your Benefits at a Glance".
+ *
+ * Each row is a button so the checklists can be wired to their pages later;
+ * for now they are presentational.
+ */
+function SomethingChanged({
+  brandColor = "#1F3A60",
+  secondaryColor = "#6B7280",
+}: SomethingChangedProps) {
+  return (
+    <section className="bg-white px-4 py-16 sm:px-6 lg:px-20 lg:py-20">
+      <div className="mx-auto max-w-7xl">
+        <div className="mx-auto mb-10 max-w-2xl text-center">
+          <h2
+            className="font-dm-serif text-3xl leading-tight sm:text-4xl lg:text-[40px]"
+            style={{ color: brandColor }}
+          >
+            Something Changed? Start Here.
+          </h2>
+          <p className="mt-2 font-red-hat text-base text-gray-600 sm:text-lg">
+            Step-by-step checklists across all your benefits.
+          </p>
+        </div>
+
+        {/* Two rows of four from `lg` up; two columns on tablets, one on phones. */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {LIFE_EVENT_CHECKLISTS.map((label) => (
+            <button
+              key={label}
+              type="button"
+              className="group flex min-h-[72px] w-full items-center justify-between gap-3 rounded-xl border px-5 py-4 text-left shadow-sm transition-all duration-200 hover:opacity-90 hover:shadow-md"
+              style={{
+                backgroundColor: secondaryColor,
+                borderColor: secondaryColor,
+              }}
+            >
+              <span className="font-red-hat text-sm font-medium text-white">
+                {label}
+              </span>
+              <ChevronRight
+                className="h-4 w-4 shrink-0 text-white transition-transform duration-200 group-hover:translate-x-0.5"
+                aria-hidden="true"
+              />
+            </button>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export function ClientPortal({
   data,
   isPreview = false,
@@ -111,7 +182,8 @@ export function ClientPortal({
     const fb = companyData?.footerBackground;
     if (!fb) return brandColor;
     if (fb.mode === "secondary") return secondaryColor;
-    if (fb.mode === "custom" && fb.customColor?.trim()) return fb.customColor.trim();
+    if (fb.mode === "custom" && fb.customColor?.trim())
+      return fb.customColor.trim();
     return brandColor;
   })();
 
@@ -171,8 +243,12 @@ export function ClientPortal({
           containerInverted={companyData?.heroContainerInverted ?? false}
           backgroundInverted={companyData?.heroBackgroundInverted ?? false}
           useGradient={companyData?.heroUseGradient ?? false}
-          desktopHeroBackgroundPosition={companyData?.desktopHeroBackgroundPosition}
-          mobileHeroBackgroundPosition={companyData?.mobileHeroBackgroundPosition}
+          desktopHeroBackgroundPosition={
+            companyData?.desktopHeroBackgroundPosition
+          }
+          mobileHeroBackgroundPosition={
+            companyData?.mobileHeroBackgroundPosition
+          }
           onHeroTitleClick={onHeroTitleClick}
           onHeroDescriptionClick={onHeroDescriptionClick}
           showEditIndicators={showEditIndicators}
@@ -218,6 +294,11 @@ export function ClientPortal({
           }}
         />
       )}
+
+      <SomethingChanged
+        brandColor={brandColor}
+        secondaryColor={secondaryColor}
+      />
 
       {/* <motion.div
         variants={fadeRight}

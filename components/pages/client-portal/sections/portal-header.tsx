@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { X, ChevronDown, Calendar, Pencil, Menu } from "lucide-react";
+import { X, ChevronDown, Calendar, Pencil, Menu, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -158,7 +158,8 @@ export function PortalHeader({
       if (visibility[key] === false) return false;
       if (!benefitHubsList) return true;
       const hub = benefitHubsList.find(
-        (h) => benefitCategoryToVisibilityKey(String(h?.category || "")) === key,
+        (h) =>
+          benefitCategoryToVisibilityKey(String(h?.category || "")) === key,
       );
       if (!hub) return false; // not created yet
       return hub.isEnabled !== false; // created but Hidden
@@ -296,7 +297,6 @@ export function PortalHeader({
   };
 
   const handleLogoClick = (e: React.MouseEvent) => {
-    
     if (enableLogoHover && onLogoClick) {
       e.preventDefault();
       e.stopPropagation();
@@ -306,7 +306,6 @@ export function PortalHeader({
 
   return (
     <>
-
       {/* Header */}
       <header
         className="bg-white shadow-md transition-all duration-300 overflow-hidden"
@@ -331,237 +330,260 @@ export function PortalHeader({
               : undefined
           }
         >
-        <div className="flex h-full items-center justify-between">
-          {/* Logo */}
-          {enableNavigation ? (
-            <Link
-              href={baseUrl}
-              className="flex h-full items-center gap-4 overflow-hidden"
-            >
-              {companyData?.companyLogo && (
-                <BrandingImage
-                  src={companyData.companyLogo}
-                  alt="Company Logo"
-                  className="object-contain"
-                  style={{
-                    maxHeight: HEADER_LOGO_BAND_PX,
-                    maxWidth: HEADER_LOGO_MAX_WIDTH_PX,
-                  }}
-                />
-              )}
-            </Link>
-          ) : (
-            <div
-              className={`relative flex h-full items-center gap-4 ${
-                enableLogoHover ? "cursor-pointer" : "cursor-default"
-              }`}
-              onClick={handleLogoClick}
-              onMouseEnter={handleLogoMouseEnter}
-              onMouseLeave={handleLogoMouseLeave}
-            >
-              {companyData?.companyLogo && (
-                <>
+          <div className="flex h-full items-center justify-between">
+            {/* Logo */}
+            {enableNavigation ? (
+              <Link
+                href={baseUrl}
+                className="flex h-full items-center gap-4 overflow-hidden"
+              >
+                {companyData?.companyLogo && (
                   <BrandingImage
                     src={companyData.companyLogo}
                     alt="Company Logo"
-                    className={`object-contain transition-all ${
-                      isLogoHovered ? "ring-2 border-1 border-blue-500/50" : ""
-                    }`}
+                    className="object-contain"
                     style={{
                       maxHeight: HEADER_LOGO_BAND_PX,
                       maxWidth: HEADER_LOGO_MAX_WIDTH_PX,
                     }}
                   />
-                  {enableLogoHover && isLogoHovered && (
-                    <div className="absolute top-[-6px] left-[-6px] z-20 bg-blue-500 rounded-full p-1.5 shadow-lg">
-                      <Pencil
-                        className="w-3 h-3 text-white"
-                        strokeWidth={2.5}
-                      />
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-
-          {/* Mobile hamburger button */}
-          <div className="md:hidden">
-            <button
-              type="button"
-              onClick={() => setMobileMenuOpen(true)}
-              className="rounded-lg p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors"
-              aria-label="Open menu"
-            >
-              <Menu className="h-6 w-6" />
-            </button>
-          </div>
-
-          {/* Desktop Navigation */}
-          <nav className="hidden items-center gap-8 md:flex">
-            {/* Your Benefits dropdown: only show when at least one category is visible */}
-            {benefitsNavItems.length > 0 && (
+                )}
+              </Link>
+            ) : (
               <div
-                className="relative"
-                onMouseEnter={handleBenefitsMouseEnter}
-                onMouseLeave={handleBenefitsMouseLeave}
+                className={`relative flex h-full items-center gap-4 ${
+                  enableLogoHover ? "cursor-pointer" : "cursor-default"
+                }`}
+                onClick={handleLogoClick}
+                onMouseEnter={handleLogoMouseEnter}
+                onMouseLeave={handleLogoMouseLeave}
               >
-                <DropdownMenu
-                  open={isBenefitsOpen}
-                  onOpenChange={(open) => {
-                    setIsBenefitsOpen(open);
-                    if (!open && hoverTimeoutRef.current) {
-                      clearTimeout(hoverTimeoutRef.current);
-                      hoverTimeoutRef.current = null;
-                    }
-                  }}
-                >
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      className={`font-medium transition-colors duration-200 ${
-                        isBenefitsActive
-                          ? "text-gray-900"
-                          : "text-gray-600 hover:text-gray-800"
+                {companyData?.companyLogo && (
+                  <>
+                    <BrandingImage
+                      src={companyData.companyLogo}
+                      alt="Company Logo"
+                      className={`object-contain transition-all ${
+                        isLogoHovered
+                          ? "ring-2 border-1 border-blue-500/50"
+                          : ""
                       }`}
-                      style={
-                        isBenefitsOpen
-                          ? { background: brandColor, color: "#fff" }
-                          : undefined
-                      }
-                    >
-                      Your Benefits <ChevronDown className="ml-1 h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent
-                    align="end"
-                    className="w-56 animate-in fade-in-0 zoom-in-95 duration-200"
-                  >
-                    {enableNavigation ? (
-                      <>
-                        {benefitsNavItems.map((item) => (
-                          <Link key={item.path} href={`${baseUrl}${item.path}`}>
-                            <DropdownMenuItem>{item.label}</DropdownMenuItem>
-                          </Link>
-                        ))}
-                      </>
-                    ) : (
-                      <>
-                        {benefitsNavItems.map((item) => (
-                          <DropdownMenuItem
-                            key={item.path}
-                            onClick={(e) => e.preventDefault()}
-                            className="cursor-default"
-                          >
-                            {item.label}
-                          </DropdownMenuItem>
-                        ))}
-                      </>
+                      style={{
+                        maxHeight: HEADER_LOGO_BAND_PX,
+                        maxWidth: HEADER_LOGO_MAX_WIDTH_PX,
+                      }}
+                    />
+                    {enableLogoHover && isLogoHovered && (
+                      <div className="absolute top-[-6px] left-[-6px] z-20 bg-blue-500 rounded-full p-1.5 shadow-lg">
+                        <Pencil
+                          className="w-3 h-3 text-white"
+                          strokeWidth={2.5}
+                        />
+                      </div>
                     )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                  </>
+                )}
               </div>
             )}
 
-            <div
-              className="relative"
-              onMouseEnter={handleNewsEventsMouseEnter}
-              onMouseLeave={handleNewsEventsMouseLeave}
-            >
-              {enableNavigation ? (
-                <Link href={`${baseUrl}/news-events`}>
-                  <Button
-                    variant="ghost"
-                    className={`font-medium transition-colors duration-200 ${
-                      isActive("/news-events")
-                        ? ""
-                        : "text-gray-600 hover:text-gray-800"
-                    }`}
-                    style={
-                      isActive("/news-events") || isNewsEventsHovered
-                        ? {
-                            background: brandColor,
-                            color: "white",
-                          }
-                        : undefined
-                    }
-                  >
-                    News & Events
-                  </Button>
-                </Link>
-              ) : (
-                <Button
-                  variant="ghost"
-                  className={`font-medium transition-colors duration-200 cursor-default ${
-                    isActive("/news-events")
-                      ? ""
-                      : "text-gray-600 hover:text-gray-800"
-                  }`}
-                  style={
-                    isActive("/news-events") || isNewsEventsHovered
-                      ? {
-                          background: brandColor,
-                          color: "white",
-                        }
-                      : undefined
-                  }
-                  onClick={(e) => e.preventDefault()}
+            {/* Right side: mobile menu, desktop navigation, and the ask CTA.
+              Kept in ONE cluster so the CTA is always the last thing in the header and
+              the hamburger can never be stranded mid-header — which is what happens in
+              the scaled editing previews, where `md:` measures the panel, not referenceWidth. */}
+            <div className="flex items-center gap-3 md:gap-6">
+              {/* Mobile hamburger button */}
+              <div className="md:hidden">
+                <button
+                  type="button"
+                  onClick={() => setMobileMenuOpen(true)}
+                  className="rounded-lg p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 transition-colors"
+                  aria-label="Open menu"
                 >
-                  News & Events
-                </Button>
-              )}
-            </div>
+                  <Menu className="h-6 w-6" />
+                </button>
+              </div>
 
-            <div
-              className="relative"
-              onMouseEnter={handleTeamMouseEnter}
-              onMouseLeave={handleTeamMouseLeave}
-            >
-              {enableNavigation ? (
-                <Link href={`${baseUrl}/my-benefits-team`}>
-                  <Button
-                    variant="ghost"
-                    className={`font-medium transition-colors duration-200 ${
-                      isActive("/my-benefits-team")
-                        ? ""
-                        : "text-gray-600 hover:text-gray-800"
-                    }`}
-                    style={
-                      isActive("/my-benefits-team") || isTeamHovered
-                        ? {
-                            background: brandColor,
-                            color: "white",
-                          }
-                        : undefined
-                    }
+              {/* Desktop Navigation */}
+              <nav className="hidden items-center gap-8 md:flex">
+                {/* Your Benefits dropdown: only show when at least one category is visible */}
+                {benefitsNavItems.length > 0 && (
+                  <div
+                    className="relative"
+                    onMouseEnter={handleBenefitsMouseEnter}
+                    onMouseLeave={handleBenefitsMouseLeave}
                   >
-                    My Benefits Team
-                  </Button>
-                </Link>
-              ) : (
-                <Button
-                  variant="ghost"
-                  className={`font-medium transition-colors duration-200 cursor-default ${
-                    isActive("/my-benefits-team")
-                      ? ""
-                      : "text-gray-600 hover:text-gray-800"
-                  }`}
-                  style={
-                    isActive("/my-benefits-team") || isTeamHovered
-                      ? {
-                          background: brandColor,
-                          color: "white",
+                    <DropdownMenu
+                      open={isBenefitsOpen}
+                      onOpenChange={(open) => {
+                        setIsBenefitsOpen(open);
+                        if (!open && hoverTimeoutRef.current) {
+                          clearTimeout(hoverTimeoutRef.current);
+                          hoverTimeoutRef.current = null;
                         }
-                      : undefined
-                  }
-                  onClick={(e) => e.preventDefault()}
+                      }}
+                    >
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          className={`font-medium transition-colors duration-200 ${
+                            isBenefitsActive
+                              ? "text-gray-900"
+                              : "text-gray-600 hover:text-gray-800"
+                          }`}
+                          style={
+                            isBenefitsOpen
+                              ? { background: brandColor, color: "#fff" }
+                              : undefined
+                          }
+                        >
+                          Your Benefits <ChevronDown className="ml-1 h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        align="end"
+                        className="w-56 animate-in fade-in-0 zoom-in-95 duration-200"
+                      >
+                        {enableNavigation ? (
+                          <>
+                            {benefitsNavItems.map((item) => (
+                              <Link
+                                key={item.path}
+                                href={`${baseUrl}${item.path}`}
+                              >
+                                <DropdownMenuItem>
+                                  {item.label}
+                                </DropdownMenuItem>
+                              </Link>
+                            ))}
+                          </>
+                        ) : (
+                          <>
+                            {benefitsNavItems.map((item) => (
+                              <DropdownMenuItem
+                                key={item.path}
+                                onClick={(e) => e.preventDefault()}
+                                className="cursor-default"
+                              >
+                                {item.label}
+                              </DropdownMenuItem>
+                            ))}
+                          </>
+                        )}
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )}
+
+                <div
+                  className="relative"
+                  onMouseEnter={handleNewsEventsMouseEnter}
+                  onMouseLeave={handleNewsEventsMouseLeave}
                 >
-                  My Benefits Team
-                </Button>
-              )}
+                  {enableNavigation ? (
+                    <Link href={`${baseUrl}/news-events`}>
+                      <Button
+                        variant="ghost"
+                        className={`font-medium transition-colors duration-200 ${
+                          isActive("/news-events")
+                            ? ""
+                            : "text-gray-600 hover:text-gray-800"
+                        }`}
+                        style={
+                          isActive("/news-events") || isNewsEventsHovered
+                            ? {
+                                background: brandColor,
+                                color: "white",
+                              }
+                            : undefined
+                        }
+                      >
+                        News & Events
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      className={`font-medium transition-colors duration-200 cursor-default ${
+                        isActive("/news-events")
+                          ? ""
+                          : "text-gray-600 hover:text-gray-800"
+                      }`}
+                      style={
+                        isActive("/news-events") || isNewsEventsHovered
+                          ? {
+                              background: brandColor,
+                              color: "white",
+                            }
+                          : undefined
+                      }
+                      onClick={(e) => e.preventDefault()}
+                    >
+                      News & Events
+                    </Button>
+                  )}
+                </div>
+
+                <div
+                  className="relative"
+                  onMouseEnter={handleTeamMouseEnter}
+                  onMouseLeave={handleTeamMouseLeave}
+                >
+                  {enableNavigation ? (
+                    <Link href={`${baseUrl}/my-benefits-team`}>
+                      <Button
+                        variant="ghost"
+                        className={`font-medium transition-colors duration-200 ${
+                          isActive("/my-benefits-team")
+                            ? ""
+                            : "text-gray-600 hover:text-gray-800"
+                        }`}
+                        style={
+                          isActive("/my-benefits-team") || isTeamHovered
+                            ? {
+                                background: brandColor,
+                                color: "white",
+                              }
+                            : undefined
+                        }
+                      >
+                        My Benefits Team
+                      </Button>
+                    </Link>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      className={`font-medium transition-colors duration-200 cursor-default ${
+                        isActive("/my-benefits-team")
+                          ? ""
+                          : "text-gray-600 hover:text-gray-800"
+                      }`}
+                      style={
+                        isActive("/my-benefits-team") || isTeamHovered
+                          ? {
+                              background: brandColor,
+                              color: "white",
+                            }
+                          : undefined
+                      }
+                      onClick={(e) => e.preventDefault()}
+                    >
+                      My Benefits Team
+                    </Button>
+                  )}
+                </div>
+              </nav>
+
+              {/* Ask a question — UI only for now; the flow will be wired later */}
+              <Button
+                type="button"
+                className="gap-2 rounded-full px-4 text-xs font-medium text-white shadow-sm transition-opacity hover:opacity-90 sm:px-5 sm:text-sm"
+                style={{ background: secondaryColor }}
+              >
+                <Search className="h-4 w-4 shrink-0" />
+                Ask a question
+              </Button>
             </div>
-          </nav>
-        </div>
+          </div>
         </div>
       </header>
 
@@ -586,168 +608,235 @@ export function PortalHeader({
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
               className="absolute right-0 top-0 h-full w-[280px] bg-white shadow-2xl flex flex-col"
             >
-            {/* Drawer header — logo removed, compact */}
-            <div className="flex items-center justify-end px-4 py-1.5 border-b min-h-0">
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen(false)}
-                className="rounded-lg p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
-                aria-label="Close menu"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            {/* Drawer navigation links — tighter spacing */}
-            <nav className="flex-1 overflow-y-auto py-2 px-3 space-y-0.5">
-              {/* Home */}
-              {enableNavigation ? (
-                <Link
-                  href={baseUrl}
+              {/* Drawer header — logo removed, compact */}
+              <div className="flex items-center justify-end px-4 py-1.5 border-b min-h-0">
+                <button
+                  type="button"
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    isHomeActive
-                      ? "text-white"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                  }`}
-                  style={
-                    isHomeActive
-                      ? { backgroundColor: brandColor }
-                      : undefined
-                  }
+                  className="rounded-lg p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
+                  aria-label="Close menu"
                 >
-                  <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
-                  </svg>
-                  Home
-                </Link>
-              ) : (
-                <span className="flex items-center rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600">
-                  <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                    <polyline points="9 22 9 12 15 12 15 22" />
-                  </svg>
-                  Home
-                </span>
-              )}
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
 
-              {/* Your Benefits sub-links */}
-              {benefitsNavItems.length > 0 && (
-                <div className="space-y-0.5">
-                  <div className="flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-600">
-                    <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 20h9" /><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+              {/* Drawer navigation links — tighter spacing */}
+              <nav className="flex-1 overflow-y-auto py-2 px-3 space-y-0.5">
+                {/* Home */}
+                {enableNavigation ? (
+                  <Link
+                    href={baseUrl}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      isHomeActive
+                        ? "text-white"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    }`}
+                    style={
+                      isHomeActive ? { backgroundColor: brandColor } : undefined
+                    }
+                  >
+                    <svg
+                      className="mr-3 h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                      <polyline points="9 22 9 12 15 12 15 22" />
                     </svg>
-                    Your Benefits
+                    Home
+                  </Link>
+                ) : (
+                  <span className="flex items-center rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600">
+                    <svg
+                      className="mr-3 h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                      <polyline points="9 22 9 12 15 12 15 22" />
+                    </svg>
+                    Home
+                  </span>
+                )}
+
+                {/* Your Benefits sub-links */}
+                {benefitsNavItems.length > 0 && (
+                  <div className="space-y-0.5">
+                    <div className="flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-600">
+                      <svg
+                        className="mr-3 h-5 w-5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M12 20h9" />
+                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                      </svg>
+                      Your Benefits
+                    </div>
+                    <div className="ml-4 space-y-0.5 border-l border-gray-200 pl-3">
+                      {benefitsNavItems.map((item) =>
+                        enableNavigation ? (
+                          <Link
+                            key={item.path}
+                            href={`${baseUrl}${item.path}`}
+                            onClick={() => setMobileMenuOpen(false)}
+                            className={`flex items-center rounded-lg px-3 py-2 text-sm transition-colors ${
+                              isActive(item.path)
+                                ? "text-white font-medium"
+                                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+                            }`}
+                            style={
+                              isActive(item.path)
+                                ? { backgroundColor: brandColor }
+                                : undefined
+                            }
+                          >
+                            {item.label}
+                          </Link>
+                        ) : (
+                          <span
+                            key={item.path}
+                            className="flex items-center rounded-lg px-3 py-2 text-sm text-gray-500"
+                          >
+                            {item.label}
+                          </span>
+                        ),
+                      )}
+                    </div>
                   </div>
-                  <div className="ml-4 space-y-0.5 border-l border-gray-200 pl-3">
-                    {benefitsNavItems.map((item) => (
-                      enableNavigation ? (
-                        <Link
-                          key={item.path}
-                          href={`${baseUrl}${item.path}`}
-                          onClick={() => setMobileMenuOpen(false)}
-                          className={`flex items-center rounded-lg px-3 py-2 text-sm transition-colors ${
-                            isActive(item.path)
-                              ? "text-white font-medium"
-                              : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                          }`}
-                          style={
-                            isActive(item.path)
-                              ? { backgroundColor: brandColor }
-                              : undefined
-                          }
-                        >
-                          {item.label}
-                        </Link>
-                      ) : (
-                        <span
-                          key={item.path}
-                          className="flex items-center rounded-lg px-3 py-2 text-sm text-gray-500"
-                        >
-                          {item.label}
-                        </span>
-                      )
-                    ))}
-                  </div>
-                </div>
-              )}
+                )}
 
-              {/* News & Events */}
-              {enableNavigation ? (
-                <Link
-                  href={`${baseUrl}/news-events`}
+                {/* News & Events */}
+                {enableNavigation ? (
+                  <Link
+                    href={`${baseUrl}/news-events`}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      isActive("/news-events")
+                        ? "text-white"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    }`}
+                    style={
+                      isActive("/news-events")
+                        ? { backgroundColor: brandColor }
+                        : undefined
+                    }
+                  >
+                    <svg
+                      className="mr-3 h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                    News & Events
+                  </Link>
+                ) : (
+                  <span className="flex items-center rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600">
+                    <svg
+                      className="mr-3 h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                      <line x1="16" y1="2" x2="16" y2="6" />
+                      <line x1="8" y1="2" x2="8" y2="6" />
+                      <line x1="3" y1="10" x2="21" y2="10" />
+                    </svg>
+                    News & Events
+                  </span>
+                )}
+
+                {/* My Benefits Team */}
+                {enableNavigation ? (
+                  <Link
+                    href={`${baseUrl}/my-benefits-team`}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                      isActive("/my-benefits-team")
+                        ? "text-white"
+                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                    }`}
+                    style={
+                      isActive("/my-benefits-team")
+                        ? { backgroundColor: brandColor }
+                        : undefined
+                    }
+                  >
+                    <svg
+                      className="mr-3 h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    My Benefits Team
+                  </Link>
+                ) : (
+                  <span className="flex items-center rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600">
+                    <svg
+                      className="mr-3 h-5 w-5"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                      <circle cx="9" cy="7" r="4" />
+                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                    </svg>
+                    My Benefits Team
+                  </span>
+                )}
+              </nav>
+
+              {/* Drawer footer close button — compact */}
+              <div className="px-4 py-2.5 border-t border-gray-100">
+                <button
+                  type="button"
                   onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    isActive("/news-events")
-                      ? "text-white"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                  }`}
-                  style={
-                    isActive("/news-events")
-                      ? { backgroundColor: brandColor }
-                      : undefined
-                  }
+                  className="w-full rounded-lg py-2.5 text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-colors"
                 >
-                  <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-                  </svg>
-                  News & Events
-                </Link>
-              ) : (
-                <span className="flex items-center rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600">
-                  <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
-                  </svg>
-                  News & Events
-                </span>
-              )}
-
-              {/* My Benefits Team */}
-              {enableNavigation ? (
-                <Link
-                  href={`${baseUrl}/my-benefits-team`}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                    isActive("/my-benefits-team")
-                      ? "text-white"
-                      : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                  }`}
-                  style={
-                    isActive("/my-benefits-team")
-                      ? { backgroundColor: brandColor }
-                      : undefined
-                  }
-                >
-                  <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </svg>
-                  My Benefits Team
-                </Link>
-              ) : (
-                <span className="flex items-center rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600">
-                  <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                  </svg>
-                  My Benefits Team
-                </span>
-              )}
-            </nav>
-
-            {/* Drawer footer close button — compact */}
-            <div className="px-4 py-2.5 border-t border-gray-100">
-              <button
-                type="button"
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-full rounded-lg py-2.5 text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-              >
-                Close
-              </button>
-            </div>
-          </motion.div>
-        </div>
-      )}
+                  Close
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
       </AnimatePresence>
     </>
   );

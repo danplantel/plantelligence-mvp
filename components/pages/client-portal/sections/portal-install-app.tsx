@@ -5,14 +5,18 @@
  *
  * A fixed, dismissible bar at the bottom of every participant portal page:
  *
- *  - **Android / desktop Chromium** — the browser's own install flow. The `beforeinstallprompt` event
- *    is captured early by [`lib/pwa/install-prompt`](../../../lib/pwa/install-prompt.ts) and calling
- *    `prompt()` hands the user straight into the native install dialog.
+ *  - **Android** — the browser's own install flow. The `beforeinstallprompt` event is captured
+ *    early by [`lib/pwa/install-prompt`](../../../lib/pwa/install-prompt.ts) and calling `prompt()`
+ *    hands the user straight into the native install dialog.
  *  - **iOS** — there is no install API. Tapping Download opens a modal with the Safari
  *    Share → View More → Add to Home Screen steps (and says so when the reader is in
  *    Chrome/Firefox/Edge on iOS, where adding to the home screen is impossible).
  *  - **Anything else without a prompt** — a modal with the browser-menu steps, so the button never
  *    silently does nothing.
+ *
+ * The prompt is MOBILE-ONLY (`md:hidden`). On a desktop display the browser already exposes its own
+ * install affordance (the address-bar icon), so a bar offering the same thing is noise. The manifest
+ * and service worker still register on desktop — they are what keep the page installable.
  *
  * It also does the two things the install needs to be possible at all: it points the document's
  * `<link rel="manifest">` at the per-plan manifest (`/api/pwa/manifest`) and registers the
@@ -215,7 +219,9 @@ export function PortalInstallApp() {
           // to the document's height. `overflow: hidden` + paint containment keep the pill, its
           // shadow and any browser compositing artefacts inside that box.
           <div
-            className="pointer-events-none fixed inset-0 z-40 overflow-hidden print:hidden"
+            // `md:hidden` keeps this mobile-only: desktop displays use the browser's own install
+            // affordance, and the bar would otherwise cover the footer of a wide layout.
+            className="pointer-events-none fixed inset-0 z-40 overflow-hidden print:hidden md:hidden"
             style={{ contain: "layout paint" }}
           >
             <div
@@ -225,8 +231,7 @@ export function PortalInstallApp() {
               style={{
                 left: 0,
                 right: "var(--comments-inset, 0px)",
-                bottom:
-                  "calc(0.75rem + env(safe-area-inset-bottom, 0px))",
+                bottom: "calc(0.75rem + env(safe-area-inset-bottom, 0px))",
               }}
             >
               <div className="pointer-events-auto flex w-full max-w-lg items-center gap-2 rounded-2xl border border-black/5 bg-white p-2 pl-3 shadow-[0_10px_35px_rgba(15,23,42,0.18)] sm:w-auto sm:rounded-full">
@@ -252,7 +257,10 @@ export function PortalInstallApp() {
                   className="shrink-0 rounded-full bg-[#1F3A60] px-3 text-white hover:bg-[#2C4B80]"
                 >
                   {busy ? (
-                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                    <Loader2
+                      className="h-4 w-4 animate-spin"
+                      aria-hidden="true"
+                    />
                   ) : (
                     <>
                       <Download className="mr-1.5 h-4 w-4" aria-hidden="true" />
@@ -285,7 +293,8 @@ export function PortalInstallApp() {
           <DialogHeader>
             <DialogTitle>{`Install ${appName}`}</DialogTitle>
             <DialogDescription>
-              Add this benefits portal to your home screen so it opens like an app.
+              Add this benefits portal to your home screen so it opens like an
+              app.
             </DialogDescription>
           </DialogHeader>
 
@@ -303,21 +312,27 @@ export function PortalInstallApp() {
                   icon={Share}
                   title="Tap the Share button"
                 >
-                  {"In Safari’s toolbar, tap the Share icon — the square with an arrow pointing up."}
+                  {
+                    "In Safari’s toolbar, tap the Share icon — the square with an arrow pointing up."
+                  }
                 </InstructionStep>
                 <InstructionStep
                   index={2}
                   icon={ChevronDown}
                   title="Tap View More"
                 >
-                  {"Tap the “View More” button — the downward arrow — to show every option in the Share Sheet."}
+                  {
+                    "Tap the “View More” button — the downward arrow — to show every option in the Share Sheet."
+                  }
                 </InstructionStep>
                 <InstructionStep
                   index={3}
                   icon={SquarePlus}
                   title="Add to Home Screen"
                 >
-                  {"In the Share Sheet, tap “Add to Home Screen”, then tap “Add” to finish."}
+                  {
+                    "In the Share Sheet, tap “Add to Home Screen”, then tap “Add” to finish."
+                  }
                 </InstructionStep>
               </ol>
             </>
@@ -328,17 +343,23 @@ export function PortalInstallApp() {
                 icon={MoreVertical}
                 title="Open the browser menu"
               >
-                {"Tap the three-dot menu in the top-right corner of your browser."}
+                {
+                  "Tap the three-dot menu in the top-right corner of your browser."
+                }
               </InstructionStep>
               <InstructionStep
                 index={2}
                 icon={Download}
                 title="Choose Install app"
               >
-                {"Pick “Install app” (some browsers call it “Add to Home screen”)."}
+                {
+                  "Pick “Install app” (some browsers call it “Add to Home screen”)."
+                }
               </InstructionStep>
               <InstructionStep index={3} icon={CheckCircle2} title="Confirm">
-                {"Tap Install and the portal opens in its own window from now on."}
+                {
+                  "Tap Install and the portal opens in its own window from now on."
+                }
               </InstructionStep>
             </ol>
           )}
