@@ -73,6 +73,10 @@ function NewBenefitsPageInner() {
   // disabled during this window so a resume never flashes the warning dialog.
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const benefitsBaselineRef = useRef<string | null>(null);
+  // The success-path delay that rewinds the wizard and leaves. Kept in a ref so
+  // unmounting during that 1.5s window cannot run a store write or a navigation
+  // for a page the advisor has already left.
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // True once the user has interacted with the page. Until then every store write is
   // treated as the app's own pre-fill rather than user work — see the subscription below.
   const userInteractedRef = useRef(false);
@@ -153,7 +157,11 @@ function NewBenefitsPageInner() {
   const step1PlanId = useBenefitsWizardStore(
     (s) => s.stepData.step1?.planId ?? "",
   );
-  const surfaceCategoryRaw = (benefitCategoryName || categoryParam || "").trim();
+  const surfaceCategoryRaw = (
+    benefitCategoryName ||
+    categoryParam ||
+    ""
+  ).trim();
   const surfaceCategory = /^custom$/i.test(surfaceCategoryRaw)
     ? "Company / Plan Sponsor"
     : surfaceCategoryRaw;
@@ -254,6 +262,16 @@ function NewBenefitsPageInner() {
     setTitle("Create Benefits");
   }, [setTitle]);
 
+  useEffect(
+    () => () => {
+      if (leaveTimerRef.current) {
+        clearTimeout(leaveTimerRef.current);
+        leaveTimerRef.current = null;
+      }
+    },
+    [],
+  );
+
   // Show the selected plan's company name + benefit category in the page header
   // (next to the "Create Benefits" title) instead of inside the plan selection
   // card, e.g. "Loading Company - Retirement".
@@ -335,7 +353,8 @@ function NewBenefitsPageInner() {
       !!categoryParam &&
       !!step1?.planId &&
       step1.planId === planIdParam &&
-      normalizeForMatch(step1.benefitCategory) === normalizeForMatch(categoryParam);
+      normalizeForMatch(step1.benefitCategory) ===
+        normalizeForMatch(categoryParam);
 
     const applyFromUrl = (resumedDraft: boolean) => {
       if (!planIdParam) return;
@@ -414,7 +433,15 @@ function NewBenefitsPageInner() {
       // Typed as a Promise explicitly: zustand declares `rehydrate()` as
       // `void | Promise<void>`, and every apply below is gated on it.
       const hydration: Promise<void> = (async () => {
-        await useBenefitsWizardStore.persist.rehydrate();
+        try {
+          await useBenefitsWizardStore.persist.rehydrate();
+        } catch (error) {
+          // The persisted draft is an optimisation, not a requirement: a storage
+          // failure (private mode, quota, corrupt payload) must still let the
+          // page start and the deep link apply. Without this catch the rejection
+          // stayed unhandled and `isInitialLoading` never cleared.
+          console.error("[new-benefits] rehydrate failed", error);
+        }
       })();
       const applyOnceHydrated = () =>
         void hydration.then(() => {
@@ -453,7 +480,11 @@ function NewBenefitsPageInner() {
     // No deep link — rehydrate persisted state and only reset if truly empty
     let cancelled = false;
     const init = async () => {
-      await useBenefitsWizardStore.persist.rehydrate();
+      try {
+        await useBenefitsWizardStore.persist.rehydrate();
+      } catch (error) {
+        console.error("[new-benefits] rehydrate failed", error);
+      }
       if (cancelled) return;
       const sd = useBenefitsWizardStore.getState().stepData;
       if (!sd.step1?.planId && !sd.step1?.benefitCategory) {
@@ -502,7 +533,9 @@ function NewBenefitsPageInner() {
 
       // The org logo is only the default logo for the advisor's PRIMARY categories —
       // mirrors the Step 1 pre-fill so both agree.
-      const primaryCats: string[] = Array.isArray(profile.primaryServiceCategories)
+      const primaryCats: string[] = Array.isArray(
+        profile.primaryServiceCategories,
+      )
         ? profile.primaryServiceCategories
         : [];
       const apiCat =
@@ -613,7 +646,8 @@ function NewBenefitsPageInner() {
       // editor paints them red and scrolls to the first one. Prefer the direct
       // handler registered by Step 2; fall back to the editor event.
       const missingFields: string[] = [];
-      if (!step1Data?.companyLogo?.url?.trim()) missingFields.push("companyLogo");
+      if (!step1Data?.companyLogo?.url?.trim())
+        missingFields.push("companyLogo");
       if (!step1Data?.brandImages?.header?.url?.trim())
         missingFields.push("brandImages.header");
       if (!step1Data?.benefitTitle?.trim()) missingFields.push("benefitTitle");
@@ -761,7 +795,8 @@ function NewBenefitsPageInner() {
     setIsLoading(true);
     try {
       const result = await saveBenefit(stepData);
-      if (!result.success) throw new Error(result.error || "Failed to save benefit");
+      if (!result.success)
+        throw new Error(result.error || "Failed to save benefit");
 
       const categoryName = stepData.step1?.benefitCategory || "Benefit";
       completeStep(currentStep);
@@ -772,7 +807,9 @@ function NewBenefitsPageInner() {
       // and Previous exit (`isLeavingToBenefits`): the leave guard is disarmed and
       // then a real document navigation runs, because a client-side push out of a
       // guarded wizard does not take effect.
-      setTimeout(() => {
+      if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current);
+      leaveTimerRef.current = setTimeout(() => {
+        leaveTimerRef.current = null;
         // Rewind the wizard first, so a later visit doesn't resume on the publish
         // step of an already-published benefit.
         useBenefitsWizardStore.getState().goToStep(1);
