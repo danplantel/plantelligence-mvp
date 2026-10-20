@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { designationLabel } from "@/config/onboarding/designations";
+import { designationAcronym } from "@/config/onboarding/designations";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { toNextImageSrc } from "@/lib/branding-image-url";
@@ -19,7 +21,7 @@ interface PortalWelcomeBannerProps {
   onTitleClick?: () => void;
   /** Click handler for the summary description text. Opens the editor. */
   onDescriptionClick?: () => void;
-  /** Click handler for the Inner Header Image (right column). Opens the editor. */
+  /** Click handler for the Inner Header Image (left column). Opens the editor. */
   onInnerHeaderImageClick?: () => void;
   clientData?: {
     companyName?: string;
@@ -67,7 +69,7 @@ interface PortalWelcomeBannerProps {
   } | null;
   customImage?: string; // Override right-side Benefits Logo
   customImageAlt?: string;
-  /** Inner Header Image — full-height image for the right column of the hero section */
+  /** Inner Header Image — full-height image for the left column of the hero section */
   customInnerHeaderImage?: string;
   // Hero overlay settings
   backgroundOpacity?: number;
@@ -123,6 +125,12 @@ export function PortalWelcomeBanner({
   // Auto-fetch the logged-in user's profile data from /api/profile when the
   // caller doesn't pass them explicitly (e.g. live portal pages). The Step 2
   // preview passes `customDesignations` directly, so this fetch is skipped.
+  // Portal base path for in-app links (e.g. My Benefits Team). Empty in the
+  // wizard's preview chrome, where no plan slug is in the route.
+  const params = useParams<{ id?: string }>();
+  const portalBasePath =
+    typeof params?.id === "string" && params.id ? `/${params.id}` : "";
+
   const [autoDesignations, setAutoDesignations] = useState<string[]>([]);
   const [autoOrganizationName, setAutoOrganizationName] = useState<string>("");
   const [autoEmail, setAutoEmail] = useState<string>("");
@@ -140,31 +148,33 @@ export function PortalWelcomeBanner({
         if (cancelled || !data) return;
         const arr = Array.isArray((data as any)?.designations)
           ? (data as any).designations
-          : ((data as any)?.user?.designations || []);
+          : (data as any)?.user?.designations || [];
         setAutoDesignations(arr);
         setAutoOrganizationName(
           (data as any)?.organizationName ||
             (data as any)?.user?.organizationName ||
             "",
         );
-        setAutoEmail(
-          (data as any)?.email ||
-            (data as any)?.user?.email ||
-            "",
-        );
+        setAutoEmail((data as any)?.email || (data as any)?.user?.email || "");
       })
       .catch(() => {});
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [profile]);
 
-  // Stored designations are ids; render their labels. Legacy full labels and
-  // genuinely free-text values pass through `designationLabel` unchanged.
-  const effectiveDesignations = (
+  // Stored designations are ids. The signature row shows their acronyms (CFP®,
+  // AIF®); legacy full labels and genuinely free-text values pass through the
+  // resolver unchanged, so custom entries still display.
+  const designationValues =
     customDesignations !== undefined
       ? customDesignations
-      : (profile?.designations ?? autoDesignations)
-  ).map(designationLabel);
-  const effectiveOrganizationName = profile?.organizationName ?? autoOrganizationName;
+      : profile?.designations ?? autoDesignations;
+  const effectiveDesignationAcronyms = designationValues
+    .map(designationAcronym)
+    .filter(Boolean);
+  const effectiveOrganizationName =
+    profile?.organizationName ?? autoOrganizationName;
   const effectiveEmail = profile?.email ?? autoEmail;
 
   // Look up per-category benefit data from employeePortalPreview (saved by Step 1)
@@ -205,25 +215,48 @@ export function PortalWelcomeBanner({
   if (category) {
     const target = category.toLowerCase();
     // 1. Try to find isPrimary contact for this category
-    primaryContact = visibleContacts?.find(c =>
-      c.isPrimary &&
-      ((c.benefitsCategory || "").toLowerCase() === target ||
-        (c.benefitsCategories || []).map((s: string) => s.toLowerCase()).includes(target))
+    primaryContact = visibleContacts?.find(
+      (c) =>
+        c.isPrimary &&
+        ((c.benefitsCategory || "").toLowerCase() === target ||
+          (c.benefitsCategories || [])
+            .map((s: string) => s.toLowerCase())
+            .includes(target)),
     );
 
     // 2. Try to find any contact for this category
     if (!primaryContact) {
-      primaryContact = visibleContacts?.find(c =>
-        (c.benefitsCategory || "").toLowerCase() === target ||
-        (c.benefitsCategories || []).map((s: string) => s.toLowerCase()).includes(target)
+      primaryContact = visibleContacts?.find(
+        (c) =>
+          (c.benefitsCategory || "").toLowerCase() === target ||
+          (c.benefitsCategories || [])
+            .map((s: string) => s.toLowerCase())
+            .includes(target),
       );
     }
   }
 
   // 3. Fallback to general primary contact or first contact
   if (!primaryContact) {
-    primaryContact = visibleContacts?.find((contact) => contact.isPrimary) || visibleContacts?.[0];
+    primaryContact =
+      visibleContacts?.find((contact) => contact.isPrimary) ||
+      visibleContacts?.[0];
   }
+
+  // Hero CTAs. The schedule button names the category's key contact (first name
+  // only) and uses that contact's scheduling link, falling back to the plan's
+  // appointment link. Without a name it stays a generic "Schedule a Meeting".
+  const contactFirstName =
+    String(primaryContact?.fullName || primaryContact?.name || "")
+      .trim()
+      .split(/\s+/)[0] || "";
+  const scheduleLabel = contactFirstName
+    ? `Schedule with ${contactFirstName}`
+    : "Schedule a Meeting";
+  const scheduleHref =
+    (primaryContact as any)?.schedulingUrl ||
+    (clientData as any)?.appointmentLink ||
+    "";
 
   // Determine whether the primary contact is the logged-in user (advisor).
   // Compare by email — the key contact linked to the advisor account will
@@ -231,7 +264,8 @@ export function PortalWelcomeBanner({
   const isPrimaryContactLoggedInUser = !!(
     effectiveEmail &&
     primaryContact &&
-    ((primaryContact as any).email?.toLowerCase() === effectiveEmail.toLowerCase())
+    (primaryContact as any).email?.toLowerCase() ===
+      effectiveEmail.toLowerCase()
   );
 
   const companyName = clientData?.companyName?.trim() || "Waypoint";
@@ -271,7 +305,7 @@ export function PortalWelcomeBanner({
     effectiveOrganizationName ||
     "Company Name";
 
-  // Inner Header Image (right column, full height):
+  // Inner Header Image (left column, full height):
   // customInnerHeaderImage override → categoryBenefit.innerHeaderImage (per-category) →
   // category default inner image (from /benefits-hub-default-inner-images) matched to the
   // current benefit category. The default images replace the company logo in this slot.
@@ -287,7 +321,23 @@ export function PortalWelcomeBanner({
     categoryDefaultInnerImage,
   );
 
-  const wizardStep1Data = useBenefitsWizardStore((s) => s.stepData?.step1 as any);
+  // The circular portrait shows the category's key contact's headshot. Without
+  // one it falls back to the Inner Header Image, which keeps its in-place
+  // editing affordance; a headshot is not the inner-header field, so clicking it
+  // must not open that editor.
+  const contactHeadshotUrl = primaryContact?.headshot
+    ? toNextImageSrc(String(primaryContact.headshot), "")
+    : "";
+  const portraitSrc = contactHeadshotUrl || innerHeaderImageUrl;
+  const portraitEditable =
+    !contactHeadshotUrl && Boolean(onInnerHeaderImageClick);
+  const portraitAlt = contactHeadshotUrl
+    ? String(primaryContact?.fullName || primaryContact?.name || "")
+    : "";
+
+  const wizardStep1Data = useBenefitsWizardStore(
+    (s) => s.stepData?.step1 as any,
+  );
 
   // Handle description as string or array of paragraphs
   const descriptionParagraphs = Array.isArray(description)
@@ -296,32 +346,60 @@ export function PortalWelcomeBanner({
 
   // Resolve overlay settings: persisted API values (employeePortalPreview) take precedence over props
   const epPreview = clientData?.employeePortalPreview as any;
-  const effectiveBackgroundOpacity = epPreview?.heroBackgroundOpacity ?? backgroundOpacity;
-  const effectiveContainerBlockOpacity = epPreview?.heroContainerBlockOpacity ?? containerBlockOpacity;
-  const effectiveContainerInverted = epPreview?.heroContainerInverted ?? containerInverted;
-  const effectiveBackgroundInverted = epPreview?.heroBackgroundInverted ?? backgroundInverted;
+  const effectiveBackgroundOpacity =
+    epPreview?.heroBackgroundOpacity ?? backgroundOpacity;
+  const effectiveContainerBlockOpacity =
+    epPreview?.heroContainerBlockOpacity ?? containerBlockOpacity;
+  const effectiveContainerInverted =
+    epPreview?.heroContainerInverted ?? containerInverted;
+  const effectiveBackgroundInverted =
+    epPreview?.heroBackgroundInverted ?? backgroundInverted;
   const effectiveUseGradient = epPreview?.heroUseGradient ?? useGradient;
 
   // Compute dynamic overlay styles
   const backgroundOverlayStyle = effectiveBackgroundInverted
-    ? { backgroundColor: `rgba(255, 255, 255, ${1 - effectiveBackgroundOpacity})` }
+    ? {
+        backgroundColor: `rgba(255, 255, 255, ${
+          1 - effectiveBackgroundOpacity
+        })`,
+      }
     : { backgroundColor: `rgba(0, 0, 0, ${1 - effectiveBackgroundOpacity})` };
 
   // Container background: solid backgroundColor when gradient is off, backgroundImage gradient when on
   const containerBgStyle = effectiveContainerInverted
     ? effectiveUseGradient
-      ? { backgroundImage: `linear-gradient(to bottom, rgba(255, 255, 255, ${effectiveContainerBlockOpacity}), rgba(255, 255, 255, ${effectiveContainerBlockOpacity * 0.3}))` }
-      : { backgroundColor: `rgba(255, 255, 255, ${effectiveContainerBlockOpacity})` }
+      ? {
+          backgroundImage: `linear-gradient(to bottom, rgba(255, 255, 255, ${effectiveContainerBlockOpacity}), rgba(255, 255, 255, ${
+            effectiveContainerBlockOpacity * 0.3
+          }))`,
+        }
+      : {
+          backgroundColor: `rgba(255, 255, 255, ${effectiveContainerBlockOpacity})`,
+        }
     : effectiveUseGradient
-      ? { backgroundImage: `linear-gradient(to bottom, rgba(0, 0, 0, ${effectiveContainerBlockOpacity}), rgba(0, 0, 0, ${effectiveContainerBlockOpacity * 0.3}))` }
-      : { backgroundColor: `rgba(0, 0, 0, ${effectiveContainerBlockOpacity})` };
+    ? {
+        backgroundImage: `linear-gradient(to bottom, rgba(0, 0, 0, ${effectiveContainerBlockOpacity}), rgba(0, 0, 0, ${
+          effectiveContainerBlockOpacity * 0.3
+        }))`,
+      }
+    : { backgroundColor: `rgba(0, 0, 0, ${effectiveContainerBlockOpacity})` };
 
   const [hoveredField, setHoveredField] = useState<string | null>(null);
 
   const EditPencil = () => (
     <div className="absolute -top-2 -left-2 z-20 bg-[#3b82f6] rounded-full p-1.5 shadow-lg border border-white/20">
-      <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+      <svg
+        className="w-3 h-3 text-white"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2.5}
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+        />
       </svg>
     </div>
   );
@@ -330,13 +408,23 @@ export function PortalWelcomeBanner({
   // Priority (matches the live hub): persisted per-category benefit image →
   // the wizard Step 1 header image (when its category matches the one being
   // previewed) → the per-category default hero image.
-  const categoryDefaultBg = CATEGORY_DEFAULT_BGS[category || ""] || DEFAULT_WELCOME_BG;
+  const categoryDefaultBg =
+    CATEGORY_DEFAULT_BGS[category || ""] || DEFAULT_WELCOME_BG;
   const benefits = clientData?.employeePortalPreview?.benefits ?? [];
-  const catBenefit = benefits.find((b: any) => (b.category || "").toLowerCase() === (category || "").toLowerCase());
+  const catBenefit = benefits.find(
+    (b: any) =>
+      (b.category || "").toLowerCase() === (category || "").toLowerCase(),
+  );
   const persistedImage = catBenefit?.image;
   const wizardImage = wizardStep1Data?.brandImages?.header?.url;
-  const wizardMatch = wizardStep1Data?.benefitCategory && category && wizardStep1Data.benefitCategory === category ? wizardImage : undefined;
-  const backgroundRawForBanner = persistedImage || wizardMatch || categoryDefaultBg;
+  const wizardMatch =
+    wizardStep1Data?.benefitCategory &&
+    category &&
+    wizardStep1Data.benefitCategory === category
+      ? wizardImage
+      : undefined;
+  const backgroundRawForBanner =
+    persistedImage || wizardMatch || categoryDefaultBg;
 
   // R2 keys (org/...) are streamed through the same-origin /api/r2/object proxy
   // (session-authenticated on the dashboard, plan-scoped on the public portal)
@@ -348,7 +436,8 @@ export function PortalWelcomeBanner({
   const { url: resolvedBannerBgUrl } = useBrandingImageUrl(
     backgroundRawForBanner || null,
   );
-  const backgroundSrc = resolvedBannerBgUrl || backgroundRawForBanner || categoryDefaultBg;
+  const backgroundSrc =
+    resolvedBannerBgUrl || backgroundRawForBanner || categoryDefaultBg;
 
   return (
     <section
@@ -424,56 +513,49 @@ export function PortalWelcomeBanner({
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] min-h-[28rem] lg:min-h-[30rem]"
+            className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] min-h-[28rem] lg:min-h-[30rem]"
           >
-            {/* LEFT: Text content */}
-            <div className="order-2 lg:order-1 px-8 py-10 sm:px-12 lg:py-12">
-              {/* Company Logo (top-left) — hidden on mobile.
-                  Priority: per-category partnerLogo (set via wizard Provider Logo upload)
-                  → plan-level companyLogo → fallback "LOGO HERE" placeholder */}
-              {(() => {
-                const resolvedLogo = categoryBenefit?.partnerLogo || clientData?.companyLogo;
-                if (resolvedLogo) {
-                  return (
-                    <BrandingImage
-                      src={resolvedLogo}
-                      alt={`${clientData?.companyName || "Company"} logo`}
-                      className="mb-6 h-16 w-auto hidden lg:block"
-                    />
-                  );
-                }
-                return (
-                  <p className={`mb-6 text-xs font-semibold tracking-[0.4em] hidden lg:block ${
-                    effectiveContainerInverted ? "text-gray-400" : "text-white/70"
-                  }`}>
-                    LOGO HERE
-                  </p>
-                );
-              })()}
-
+            {/* RIGHT: Text content (left on mobile, where the image leads) */}
+            <div className="order-2 flex flex-col px-8 py-10 sm:px-12 lg:order-2 lg:py-12">
               {/* Title */}
               <div
-                className={`relative ${onTitleClick ? "cursor-pointer group" : ""}`}
-                onClick={(e) => { e.stopPropagation(); onTitleClick?.(); }}
+                className={`relative ${
+                  onTitleClick ? "cursor-pointer group" : ""
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTitleClick?.();
+                }}
                 onMouseEnter={() => onTitleClick && setHoveredField("title")}
                 onMouseLeave={() => onTitleClick && setHoveredField(null)}
               >
                 {onTitleClick && hoveredField === "title" && <EditPencil />}
-                <h1 className={`font-unna font-dm-serif text-3xl leading-tight sm:text-4xl lg:text-5xl ${
-                  effectiveContainerInverted ? "text-gray-900" : "text-white"
-                }`}>
+                <h1
+                  className={`font-unna font-dm-serif text-3xl leading-tight sm:text-4xl lg:text-5xl ${
+                    effectiveContainerInverted ? "text-gray-900" : "text-white"
+                  }`}
+                >
                   {headline}
                 </h1>
               </div>
 
               {/* Description paragraphs */}
               <div
-                className={`relative ${onDescriptionClick ? "cursor-pointer group mt-6" : "mt-6"}`}
-                onClick={(e) => { e.stopPropagation(); onDescriptionClick?.(); }}
-                onMouseEnter={() => onDescriptionClick && setHoveredField("description")}
+                className={`relative ${
+                  onDescriptionClick ? "cursor-pointer group mt-6" : "mt-6"
+                }`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDescriptionClick?.();
+                }}
+                onMouseEnter={() =>
+                  onDescriptionClick && setHoveredField("description")
+                }
                 onMouseLeave={() => onDescriptionClick && setHoveredField(null)}
               >
-                {onDescriptionClick && hoveredField === "description" && <EditPencil />}
+                {onDescriptionClick && hoveredField === "description" && (
+                  <EditPencil />
+                )}
                 <div className="text-base font-red-hat space-y-4">
                   {descriptionParagraphs.map((para, idx) => (
                     <p key={idx}>{para}</p>
@@ -483,71 +565,211 @@ export function PortalWelcomeBanner({
 
               {/* Closing & Signature */}
               <div className="pt-5">
-                <p className={`text-lg font-red-hat ${customClosingBold ? "font-bold" : "font-normal"} ${customClosingItalic ? "italic" : ""}`}>{closing}</p>
+                <p
+                  className={`text-lg font-red-hat ${
+                    customClosingBold ? "font-bold" : "font-normal"
+                  } ${customClosingItalic ? "italic" : ""}`}
+                >
+                  {closing}
+                </p>
 
-                {/* Horizontal Line */}
-                <div className="border-t border[#999] mt-2 opacity-20"></div>
-              
-                <div className="mt-2 space-y-1">
-                  <p className={`text-base font-red-hat font-bold ${
-                    effectiveContainerInverted ? "text-gray-900" : "text-white"
-                  } ${customSignatureNameBold ? "font-bold" : ""} ${customSignatureNameItalic ? "italic" : ""}`}>
-                    {signatureName}
-                  </p>
-                  {effectiveDesignations.length > 0 && (
-                    <p className={`text-sm font-red-hat font-normal ${
-                      effectiveContainerInverted ? "text-gray-700" : "text-white/70"
-                    }`}>
-                      {effectiveDesignations.join(", ")}
+                {/* Signature — row 1: a short 30px rule + the key contact's
+                    name. Row 2: designations - company/plan name. */}
+                <div className="mt-3 space-y-1.5">
+                  {signatureName && (
+                    <div className="flex items-center gap-2">
+                      <span
+                        aria-hidden="true"
+                        className={`h-px w-[30px] shrink-0 ${
+                          effectiveContainerInverted
+                            ? "bg-gray-400"
+                            : "bg-white/60"
+                        }`}
+                      />
+                      <p
+                        className={`text-xl font-red-hat font-bold sm:text-2xl ${
+                          effectiveContainerInverted
+                            ? "text-gray-900"
+                            : "text-white"
+                        } ${customSignatureNameBold ? "font-bold" : ""} ${
+                          customSignatureNameItalic ? "italic" : ""
+                        }`}
+                      >
+                        {signatureName}
+                      </p>
+                    </div>
+                  )}
+
+                  {(effectiveDesignationAcronyms.length > 0 ||
+                    signatureCompany) && (
+                    <p
+                      className={`flex flex-nowrap items-center gap-x-2 whitespace-nowrap ${
+                        signatureName ? "pl-[38px]" : ""
+                      }`}
+                    >
+                      {effectiveDesignationAcronyms.length > 0 && (
+                        <span
+                          className={`shrink-0 text-sm font-red-hat font-normal ${
+                            effectiveContainerInverted
+                              ? "text-gray-700"
+                              : "text-white/70"
+                          }`}
+                        >
+                          {effectiveDesignationAcronyms.join(", ")}
+                        </span>
+                      )}
+                      {effectiveDesignationAcronyms.length > 0 &&
+                        signatureCompany && (
+                          <span
+                            className={`shrink-0 ${
+                              effectiveContainerInverted
+                                ? "text-gray-400"
+                                : "text-white/40"
+                            }`}
+                          >
+                            -
+                          </span>
+                        )}
+                      {signatureCompany && (
+                        <span
+                          title={signatureCompany}
+                          className={`min-w-0 truncate text-xs uppercase tracking-[0.2em] font-red-hat font-normal ${
+                            effectiveContainerInverted
+                              ? "text-gray-500"
+                              : "text-white/90"
+                          } ${customSignatureCompanyBold ? "font-bold" : ""} ${
+                            customSignatureCompanyItalic ? "italic" : ""
+                          }`}
+                        >
+                          {signatureCompany}
+                        </span>
+                      )}
                     </p>
                   )}
-                  <p className={`text-xs uppercase tracking-[0.2em] font-red-hat font-normal ${
-                    effectiveContainerInverted ? "text-gray-500" : "text-white/90"
-                  } ${customSignatureCompanyBold ? "font-bold" : ""} ${customSignatureCompanyItalic ? "italic" : ""}`}>
-                    {signatureCompany}
-                  </p>
                 </div>
+              </div>
+
+              {/* CTA row — side by side at the bottom of the info column. */}
+              <div className="mt-auto flex flex-row gap-3 pt-8">
+                {scheduleHref ? (
+                  <a
+                    href={scheduleHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex flex-1 items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
+                    style={{ background: secondaryColor }}
+                  >
+                    {scheduleLabel}
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    className="inline-flex flex-1 items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
+                    style={{ background: secondaryColor }}
+                  >
+                    {scheduleLabel}
+                  </button>
+                )}
+
+                <Link
+                  href={`${portalBasePath}/my-benefits-team`}
+                  className={`inline-flex flex-1 items-center justify-center rounded-lg border px-5 py-3 text-sm font-semibold transition-all duration-200 hover:opacity-90 ${
+                    effectiveContainerInverted
+                      ? "border-gray-300 text-gray-900"
+                      : "border-white/40 text-white"
+                  }`}
+                >
+                  Meet the Team
+                </Link>
               </div>
             </div>
 
-            {/* RIGHT: Inner Header Image — custom image → category default image.
-                Editable in place, like the headline and description above it. */}
-            <div
-              // Marks the image as the scroll target for the editor's own Inner Header
-              // Image control, which asks the preview to reveal it when focused. Only
-              // present where there is an editing panel — the live portal has no such
-              // consumer, and the attribute is not part of its markup contract.
-              data-preview-field={
-                onInnerHeaderImageClick ? "innerHeaderImage" : undefined
-              }
-              className={`order-1 lg:order-2 relative ${onInnerHeaderImageClick ? "cursor-pointer group" : ""}`}
-              onClick={(e) => {
-                e.stopPropagation();
-                onInnerHeaderImageClick?.();
-              }}
-              onMouseEnter={() =>
-                onInnerHeaderImageClick && setHoveredField("innerHeaderImage")
-              }
-              onMouseLeave={() => onInnerHeaderImageClick && setHoveredField(null)}
-            >
-              {onInnerHeaderImageClick && hoveredField === "innerHeaderImage" && (
-                <EditPencil />
-              )}
-              {innerHeaderImageUrl ? (
-                <img
-                  src={innerHeaderImageUrl}
-                  alt=""
-                  className="absolute inset-0 h-full w-full object-cover"
-                />
-              ) : (
-                <div className="relative flex min-h-[200px] w-full items-center justify-center">
-                  <span className={`text-sm font-semibold tracking-wider ${
-                    effectiveContainerInverted ? "text-gray-400" : "text-white/50"
-                  }`}>
-                    BENEFITS LOGO
-                  </span>
+            {/* LEFT: key contact headshot (falls back to the Inner Header Image)
+                in a circular frame, with the company logo beneath it. The
+                fallback image is editable in place, like the headline and
+                description beside it. */}
+            <div className="order-1 flex flex-col items-center justify-center gap-5 px-4 py-10 lg:order-1 lg:pl-16 lg:pr-4">
+              <div
+                // Marks the Inner Header Image as the scroll target for the
+                // editor's own control, which asks the preview to reveal it when
+                // focused. Only present when the fallback image is what's shown
+                // and an editing panel exists — the live portal has no such
+                // consumer, and the attribute is not part of its markup contract.
+                data-preview-field={
+                  portraitEditable ? "innerHeaderImage" : undefined
+                }
+                className={`relative ${
+                  portraitEditable ? "cursor-pointer group" : ""
+                }`}
+                onClick={(e) => {
+                  if (!portraitEditable) return;
+                  e.stopPropagation();
+                  onInnerHeaderImageClick?.();
+                }}
+                onMouseEnter={() =>
+                  portraitEditable && setHoveredField("innerHeaderImage")
+                }
+                onMouseLeave={() => portraitEditable && setHoveredField(null)}
+              >
+                {portraitEditable && hoveredField === "innerHeaderImage" && (
+                  <EditPencil />
+                )}
+                <div
+                  className={`h-[200px] w-[200px] shrink-0 overflow-hidden rounded-full shadow-2xl ring-4 ${
+                    effectiveContainerInverted
+                      ? "ring-gray-200"
+                      : "ring-white/30"
+                  }`}
+                >
+                  {portraitSrc ? (
+                    <img
+                      src={portraitSrc}
+                      alt={portraitAlt}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <div className="flex h-full w-full items-center justify-center bg-white/10">
+                      <span
+                        className={`text-xs font-semibold tracking-wider ${
+                          effectiveContainerInverted
+                            ? "text-gray-400"
+                            : "text-white/50"
+                        }`}
+                      >
+                        BENEFITS LOGO
+                      </span>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
+
+              {/* Company logo — beneath the circular Inner Header Image.
+                  Priority: per-category partnerLogo (set via wizard Provider Logo
+                  upload) → plan-level companyLogo → fallback "LOGO HERE". */}
+              {(() => {
+                const resolvedLogo =
+                  categoryBenefit?.partnerLogo || clientData?.companyLogo;
+                if (resolvedLogo) {
+                  return (
+                    <BrandingImage
+                      src={resolvedLogo}
+                      alt={`${clientData?.companyName || "Company"} logo`}
+                      className="h-12 w-auto max-w-[200px] object-contain sm:h-14"
+                    />
+                  );
+                }
+                return (
+                  <p
+                    className={`text-xs font-semibold tracking-[0.4em] ${
+                      effectiveContainerInverted
+                        ? "text-gray-400"
+                        : "text-white/70"
+                    }`}
+                  >
+                    LOGO HERE
+                  </p>
+                );
+              })()}
             </div>
           </motion.div>
         </div>

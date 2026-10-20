@@ -336,7 +336,7 @@ export function PortalBenefits({
               : { isComplete: true, missingInfo: [] };
 
             // The top image of each Benefit Card is the Benefit Hub's Inner
-            // Header Image — the same image shown in the right column of that
+            // Header Image — the same image shown in the left column of that
             // hub's welcome banner: custom per-category image first, then the
             // per-category default placeholder image, then the legacy card image.
             const cardImage =
