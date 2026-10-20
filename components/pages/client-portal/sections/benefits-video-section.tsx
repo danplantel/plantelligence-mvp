@@ -3,11 +3,22 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import Image from "next/image";
 import { motion, useInView } from "framer-motion";
-import { Pencil, Play } from "lucide-react";
+import { Clock, Pencil, Play } from "lucide-react";
 import { toNextImageSrc } from "@/lib/branding-image-url";
+import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
+
+/** `m:ss` for the video's runtime. */
+function formatVideoDuration(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const minutes = Math.floor(total / 60);
+  const remainder = total % 60;
+  return `${minutes}:${String(remainder).padStart(2, "0")}`;
+}
 
 interface BenefitsVideoSectionProps {
   brandColor?: string;
+  /** Accent colour for the subtitle and the Watch Now CTA. */
+  secondaryColor?: string;
   mainTitle?: string;
   subtitle?: string;
   description?: string;
@@ -15,6 +26,17 @@ interface BenefitsVideoSectionProps {
   planVideoUrl?: string;
   /** Fallback image shown when no planVideoUrl is set. Expected to be a category-specific placeholder. */
   planVideoFallbackImage?: string;
+  /** Poster image (uploaded, captured frame, or URL) for the video and its no-video fallback. */
+  videoThumbnail?: string;
+  /**
+   * Short label describing the video — "Advisor Intro", "This benefit", or
+   * "Our Services". Shown beside the runtime under the subtitle.
+   */
+  videoLabel?: string;
+  /** The plan's contacts — resolves the key contact named on the Schedule button. */
+  keyContacts?: unknown;
+  /** Benefit category used to pick the key contact. */
+  category?: string;
 
   // ── Optional edit hooks (used by the Benefits wizard preview) ──
   /** When set, clicking the main title opens the editor and a pencil shows on hover */
@@ -29,17 +51,21 @@ interface BenefitsVideoSectionProps {
 
 export function BenefitsVideoSection({
   brandColor = "#0FB879",
+  secondaryColor = "#C89B5B",
   mainTitle = "Your Retirement Journey Starts Here",
   subtitle = "Build your future with confidence.",
   description,
   planVideoUrl,
   planVideoFallbackImage,
+  videoThumbnail,
+  videoLabel = "This benefit",
+  keyContacts,
+  category,
   onMainTitleClick,
   onSubtitleClick,
   onDescriptionClick,
   onVideoClick,
 }: BenefitsVideoSectionProps) {
-
   const sectionRef = useRef(null);
   const isInView = useInView(sectionRef, { once: true, margin: "-80px" });
 
@@ -55,7 +81,14 @@ export function BenefitsVideoSection({
 
   const [hoveredField, setHoveredField] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [videoDurationSec, setVideoDurationSec] = useState<number | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  // A new source has a new runtime; don't show the previous video's length until
+  // the new metadata arrives.
+  useEffect(() => {
+    setVideoDurationSec(null);
+  }, [planVideoUrl]);
 
   const handlePlayPause = useCallback(() => {
     const video = videoRef.current;
@@ -69,6 +102,28 @@ export function BenefitsVideoSection({
     }
   }, []);
 
+  /** "Watch Now" brings the player into view and starts it. */
+  const handleWatchNow = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.scrollIntoView({ behavior: "smooth", block: "center" });
+    void video.play().catch(() => {});
+  }, []);
+
+  // The category's key contact — the same person the welcome banner signs.
+  const primaryContact = useMemo(
+    () => resolvePortalPrimaryContact(keyContacts, category),
+    [keyContacts, category],
+  );
+  const contactFirstName =
+    String(primaryContact?.fullName || primaryContact?.name || "")
+      .trim()
+      .split(/\s+/)[0] || "";
+  const scheduleLabel = contactFirstName
+    ? `Schedule with ${contactFirstName}`
+    : "Schedule a Meeting";
+  const scheduleHref = (primaryContact as any)?.schedulingUrl || "";
+
   const EditPencil = ({ label }: { label: string }) => (
     <div
       className="absolute -top-2 -left-2 z-20 bg-[#3b82f6] rounded-full p-1.5 shadow-lg border border-white/20"
@@ -81,76 +136,172 @@ export function BenefitsVideoSection({
   return (
     <section
       ref={sectionRef}
-      className="relative flex min-h-[50vh] flex-col overflow-hidden bg-gray-100 text-white lg:min-h-screen"
+      className="relative flex min-h-[50vh] flex-col overflow-hidden bg-[#111828] text-white lg:min-h-screen"
     >
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 sm:px-6 lg:px-8">
         <div className="grid w-full max-w-[1280px] items-center gap-6 pb-2 md:gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
           <motion.div
-            className="max-w-3xl"
+            className="flex h-full max-w-3xl flex-col justify-center"
             variants={textVariants}
             initial="hidden"
             animate={isInView ? "visible" : "hidden"}
             transition={{ duration: 0.7, ease: "easeOut" }}
           >
             <div
-              className={`relative ${onMainTitleClick ? "cursor-pointer group" : ""}`}
+              className={`relative ${
+                onMainTitleClick ? "cursor-pointer group" : ""
+              }`}
               data-preview-field="journeyHeader"
-              onClick={(e) => { e.stopPropagation(); onMainTitleClick?.(); }}
-              onMouseEnter={() => onMainTitleClick && setHoveredField("mainTitle")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onMainTitleClick?.();
+              }}
+              onMouseEnter={() =>
+                onMainTitleClick && setHoveredField("mainTitle")
+              }
               onMouseLeave={() => onMainTitleClick && setHoveredField(null)}
             >
-              {onMainTitleClick && hoveredField === "mainTitle" && <EditPencil label="Edit header" />}
-              <h1 className="mb-4 mt-[2em] lg:mt-0 font-unna font-dm-serif text-gray-900 text-[28px] font-normal leading-tight sm:text-3xl md:text-4xl lg:text-[40px]">
+              {onMainTitleClick && hoveredField === "mainTitle" && (
+                <EditPencil label="Edit header" />
+              )}
+              <h1 className="mb-4 mt-[2em] lg:mt-0 font-unna font-dm-serif text-white text-[28px] font-normal leading-tight sm:text-3xl md:text-4xl lg:text-[40px]">
                 {mainTitle}
               </h1>
             </div>
             <div
-              className={`relative ${onSubtitleClick ? "cursor-pointer group" : ""}`}
+              className={`relative ${
+                onSubtitleClick ? "cursor-pointer group" : ""
+              }`}
               data-preview-field="journeySubtitle"
-              onClick={(e) => { e.stopPropagation(); onSubtitleClick?.(); }}
-              onMouseEnter={() => onSubtitleClick && setHoveredField("subtitle")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onSubtitleClick?.();
+              }}
+              onMouseEnter={() =>
+                onSubtitleClick && setHoveredField("subtitle")
+              }
               onMouseLeave={() => onSubtitleClick && setHoveredField(null)}
             >
-              {onSubtitleClick && hoveredField === "subtitle" && <EditPencil label="Edit subtitle" />}
-              <h2 className="mb-5 text-lg font-medium font-dm-serif text-[#26A69A] sm:text-xl md:text-2xl lg:text-[24px]">
+              {onSubtitleClick && hoveredField === "subtitle" && (
+                <EditPencil label="Edit subtitle" />
+              )}
+              <h2
+                className="mb-3 text-lg font-medium font-dm-serif sm:text-xl md:text-2xl lg:text-[24px]"
+                style={{ color: secondaryColor }}
+              >
                 {subtitle}
               </h2>
             </div>
+
+            {/* Video meta — runtime + content label, directly under the subtitle. */}
+            <div className="mb-5 flex flex-wrap items-center gap-3">
+              {planVideoUrl && (
+                <span className="inline-flex items-center gap-1.5 text-sm font-red-hat text-white/70">
+                  <Clock className="h-4 w-4" aria-hidden="true" />
+                  {videoDurationSec != null
+                    ? formatVideoDuration(videoDurationSec)
+                    : "--:--"}
+                </span>
+              )}
+              <span className="inline-flex items-center rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/80">
+                {videoLabel}
+              </span>
+            </div>
+
             <div
-              className={`relative ${onDescriptionClick ? "cursor-pointer group" : ""}`}
+              className={`relative ${
+                onDescriptionClick ? "cursor-pointer group" : ""
+              }`}
               data-preview-field="journeyBodyText"
-              onClick={(e) => { e.stopPropagation(); onDescriptionClick?.(); }}
-              onMouseEnter={() => onDescriptionClick && setHoveredField("description")}
+              onClick={(e) => {
+                e.stopPropagation();
+                onDescriptionClick?.();
+              }}
+              onMouseEnter={() =>
+                onDescriptionClick && setHoveredField("description")
+              }
               onMouseLeave={() => onDescriptionClick && setHoveredField(null)}
             >
-              {onDescriptionClick && hoveredField === "description" && <EditPencil label="Edit body text" />}
-              <p className="mb-6 sm:text-[19px] text-base leading-relaxed text-gray-800 font-red-hat">
+              {onDescriptionClick && hoveredField === "description" && (
+                <EditPencil label="Edit body text" />
+              )}
+              <p className="mb-6 sm:text-[19px] text-base leading-relaxed text-white/80 font-red-hat">
                 {description}
               </p>
+            </div>
+
+            {/* Left-column CTAs: start the plan video and book the key contact. */}
+            <div className="mt-2 flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={handleWatchNow}
+                disabled={!planVideoUrl}
+                className="inline-flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                style={{ background: secondaryColor }}
+              >
+                Watch Now
+                <Play
+                  className="h-4 w-4"
+                  fill="currentColor"
+                  aria-hidden="true"
+                />
+              </button>
+
+              {scheduleHref ? (
+                <a
+                  href={scheduleHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center rounded-lg border border-white/30 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/10"
+                >
+                  {scheduleLabel}
+                </a>
+              ) : (
+                <button
+                  type="button"
+                  className="inline-flex items-center justify-center rounded-lg border border-white/30 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/10"
+                >
+                  {scheduleLabel}
+                </button>
+              )}
             </div>
           </motion.div>
 
           <motion.div
-            className={`relative w-full ${onVideoClick ? "cursor-pointer group" : ""}`}
+            className={`relative w-full ${
+              onVideoClick ? "cursor-pointer group" : ""
+            }`}
             data-preview-field="planVideo"
             variants={imageVariants}
             initial="hidden"
             animate={isInView ? "visible" : "hidden"}
             transition={{ duration: 0.7, ease: "easeOut", delay: 0.15 }}
-            onClick={(e) => { e.stopPropagation(); onVideoClick?.(); }}
+            onClick={(e) => {
+              e.stopPropagation();
+              onVideoClick?.();
+            }}
             onMouseEnter={() => onVideoClick && setHoveredField("video")}
             onMouseLeave={() => onVideoClick && setHoveredField(null)}
           >
-            {onVideoClick && hoveredField === "video" && <EditPencil label="Edit plan video" />}
+            {onVideoClick && hoveredField === "video" && (
+              <EditPencil label="Edit plan video" />
+            )}
             <div className="aspect-video overflow-hidden rounded-xl border border-white/15 bg-black/80 shadow-2xl sm:rounded-2xl">
               {planVideoUrl ? (
-                <div className="relative h-full w-full cursor-pointer" onClick={handlePlayPause}>
+                <div
+                  className="relative h-full w-full cursor-pointer"
+                  onClick={handlePlayPause}
+                >
                   <video
                     ref={videoRef}
                     src={planVideoUrl}
+                    poster={videoThumbnail || undefined}
                     className="h-full w-full object-cover"
                     playsInline
                     preload="metadata"
+                    onLoadedMetadata={(event) =>
+                      setVideoDurationSec(event.currentTarget.duration)
+                    }
                     onEnded={() => setIsPlaying(false)}
                     onPause={() => setIsPlaying(false)}
                     onPlay={() => setIsPlaying(true)}
@@ -158,14 +309,21 @@ export function BenefitsVideoSection({
                   {!isPlaying && (
                     <div className="absolute inset-0 flex items-center justify-center bg-black/20 transition-opacity">
                       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-white/90 shadow-lg transition-transform hover:scale-110">
-                        <Play className="h-7 w-7 translate-x-0.5 text-gray-900" fill="currentColor" />
+                        <Play
+                          className="h-7 w-7 translate-x-0.5 text-gray-900"
+                          fill="currentColor"
+                        />
                       </div>
                     </div>
                   )}
                 </div>
               ) : (
                 <Image
-                  src={planVideoFallbackImage || "/placeholder.svg"}
+                  src={
+                    videoThumbnail ||
+                    planVideoFallbackImage ||
+                    "/placeholder.svg"
+                  }
                   alt={"Category placeholder image"}
                   fill
                   className="object-cover"

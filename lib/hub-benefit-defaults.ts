@@ -168,6 +168,12 @@ export function mergeUserBenefitWithHubDefaults(
     // Preserve plan video from wizard Step 2 Section 3
     ...(p.planVideo ? { planVideo: p.planVideo } : {}),
     ...(p.planVideoFileName ? { planVideoFileName: p.planVideoFileName } : {}),
+    ...(nonEmptyString(p.planVideoLabel)
+      ? { planVideoLabel: p.planVideoLabel }
+      : {}),
+    ...(nonEmptyString(p.planVideoThumbnail)
+      ? { planVideoThumbnail: p.planVideoThumbnail }
+      : {}),
     // Preserve inner header image from wizard Step 2 Section 1 Branding
     ...(userInnerHeaderImage ? { innerHeaderImage: userInnerHeaderImage } : {}),
     // Preserve the landing page card's dedicated image/body (Benefits at a Glance).

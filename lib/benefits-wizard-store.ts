@@ -101,6 +101,10 @@ export interface BenefitsStep1Data {
   planVideo?: string;
   /** Original file name of the uploaded plan video */
   planVideoFileName?: string;
+  /** "Advisor Intro" | "This benefit" | "Our Services" — shown beside the video runtime. */
+  planVideoLabel?: string;
+  /** Poster image: uploaded image, captured video frame, or external URL. */
+  planVideoThumbnail?: string;
   /** When true, the user explicitly removed the video — overrides persisted categoryBenefit.planVideo */
   planVideoRemoved?: boolean;
   /** Journey section main header override */

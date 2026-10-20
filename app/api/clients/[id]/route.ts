@@ -381,6 +381,7 @@ export async function GET(
 
       const BENEFIT_SIGN_FIELDS = [
         "planVideo",
+        "planVideoThumbnail",
         "image",
         "backgroundImage",
         "innerHeaderImage",

@@ -189,6 +189,11 @@ export default function RetirementPage() {
 
         <BenefitsVideoSection
           brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          keyContacts={clientData?.keyContacts}
+          category="Retirement"
+          videoLabel={benefitData?.planVideoLabel ?? undefined}
+          videoThumbnail={benefitData?.planVideoThumbnail ?? undefined}
           mainTitle={
             (benefitData as any)?.journeyHeader ||
             "Your Retirement Journey Starts Here"

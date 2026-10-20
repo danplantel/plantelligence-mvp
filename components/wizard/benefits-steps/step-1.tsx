@@ -792,6 +792,11 @@ export function BenefitsStep1({
           // so the dual-write doesn't wipe the video from employeePortalPreview.
           planVideo: currentStepData.planVideo || null,
           planVideoFileName: currentStepData.planVideoFileName || null,
+          planVideoLabel: currentStepData.planVideoLabel || null,
+          // The thumbnail is deliberately omitted: it can be a freshly captured
+          // data URL, and re-sending it on every debounce would re-upload it each
+          // time. `saveBenefit()` persists it on completion / edit save, and the
+          // draft keeps it in localStorage in the meantime.
           // Journey section overrides (Section 2 & 3 in the editor panel).
           // Persist so the live portal page shows these values even before
           // the wizard is completed.

@@ -27,7 +27,9 @@ import {
 } from "@/components/ui/accordion";
 import {
   ImageIcon,
+  ImagePlus,
   Layout,
+  Link2,
   Mail,
   HelpCircle,
   CheckCircle2,
@@ -41,6 +43,7 @@ import {
   Video,
   Upload,
 } from "lucide-react";
+import { compressImage } from "@/lib/image-compression";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -263,6 +266,44 @@ export function BenefitsEditorPanel({
   const [videoUploading, setVideoUploading] = useState(false);
   const [videoUploadProgress, setVideoUploadProgress] = useState(0);
 
+  // ── Section 4: Video Source ──
+  const [videoSourceMode, setVideoSourceMode] = useState<"upload" | "url">(
+    "upload",
+  );
+  const [videoUrlDraft, setVideoUrlDraft] = useState("");
+  const [isVideoDragOver, setIsVideoDragOver] = useState(false);
+  const videoFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // ── Section 4: Thumbnail ──
+  const [thumbnailMode, setThumbnailMode] = useState<"upload" | "frame">(
+    "upload",
+  );
+  const [thumbnailBusy, setThumbnailBusy] = useState(false);
+  const [thumbnailFrameTime, setThumbnailFrameTime] = useState(0);
+  const [thumbnailDuration, setThumbnailDuration] = useState(0);
+  const thumbnailVideoRef = useRef<HTMLVideoElement | null>(null);
+
+  const VIDEO_LABELS = [
+    "Advisor Intro",
+    "This benefit",
+    "Our Services",
+  ] as const;
+  const THUMBNAIL_MAX_EDGE = 640;
+
+  /** R2 keys load through the authed proxy; absolute URLs load as-is. */
+  const resolvedPlanVideoUrl = step1Data.planVideo
+    ? step1Data.planVideo.startsWith("http") ||
+      step1Data.planVideo.startsWith("/api/")
+      ? step1Data.planVideo
+      : `/api/r2/object?key=${encodeURIComponent(step1Data.planVideo)}`
+    : "";
+  const resolvedThumbnailUrl = step1Data.planVideoThumbnail
+    ? step1Data.planVideoThumbnail.startsWith("data:") ||
+      step1Data.planVideoThumbnail.startsWith("http")
+      ? step1Data.planVideoThumbnail
+      : `/api/r2/object?key=${encodeURIComponent(step1Data.planVideoThumbnail)}`
+    : "";
+
   const [highlightedSection, setHighlightedSection] = React.useState<
     string | null
   >(null);
@@ -393,13 +434,8 @@ export function BenefitsEditorPanel({
     });
   };
 
-  // Plan Video upload handler
-  const handlePlanVideoUpload = async (
-    e: React.ChangeEvent<HTMLInputElement>,
-  ) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
+  // ── Plan Video upload (shared by the file picker and the dropzone) ──
+  const uploadPlanVideoFile = async (file: File) => {
     if (!file.type.startsWith("video/")) {
       toast.error("Please select a valid video file.");
       return;
@@ -438,8 +474,122 @@ export function BenefitsEditorPanel({
     } finally {
       setVideoUploading(false);
       setVideoUploadProgress(0);
-      e.target.value = "";
     }
+  };
+
+  const handlePlanVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    void uploadPlanVideoFile(file);
+    e.target.value = "";
+  };
+
+  const handleVideoDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsVideoDragOver(true);
+  };
+
+  const handleVideoDragLeave = () => setIsVideoDragOver(false);
+
+  const handleVideoDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsVideoDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) void uploadPlanVideoFile(file);
+  };
+
+  /** Pasted URLs save directly as the video source (no upload). */
+  const handleApplyVideoUrl = () => {
+    const url = videoUrlDraft.trim();
+    if (!url) {
+      toast.error("Paste a video URL first.");
+      return;
+    }
+    if (!/^https?:\/\//i.test(url) && !url.startsWith("/")) {
+      toast.error("Enter a valid video URL (https://…).");
+      return;
+    }
+    const fileName =
+      decodeURIComponent(url.split("?")[0].split("/").pop() || "") ||
+      "External video";
+    saveStepData(1, {
+      ...step1Data,
+      planVideo: url,
+      planVideoFileName: fileName,
+      planVideoRemoved: false,
+    });
+    setVideoUrlDraft("");
+  };
+
+  const handleVideoLabelChange = (label: string) => {
+    saveStepData(1, { ...step1Data, planVideoLabel: label });
+  };
+
+  // ── Thumbnail (uploaded image or a captured video frame) ──
+  const applyThumbnail = async (dataUrl: string) => {
+    try {
+      setThumbnailBusy(true);
+      const compressed = await compressImage(dataUrl, {
+        maxWidth: THUMBNAIL_MAX_EDGE,
+        maxHeight: THUMBNAIL_MAX_EDGE,
+        quality: 0.8,
+        mimeType: "image/jpeg",
+      });
+      saveStepData(1, { ...step1Data, planVideoThumbnail: compressed });
+    } catch (error) {
+      console.error("Error processing thumbnail:", error);
+      toast.error("Failed to process that image");
+    } finally {
+      setThumbnailBusy(false);
+    }
+  };
+
+  const handleThumbnailFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      e.target.value = "";
+      return;
+    }
+    const dataUrl = await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+    if (!dataUrl) {
+      toast.error("Failed to read that image");
+      e.target.value = "";
+      return;
+    }
+    await applyThumbnail(dataUrl);
+    e.target.value = "";
+  };
+
+  const handleThumbnailScrub = (time: number) => {
+    setThumbnailFrameTime(time);
+    const video = thumbnailVideoRef.current;
+    if (video) video.currentTime = time;
+  };
+
+  const captureThumbnailFrame = async () => {
+    const video = thumbnailVideoRef.current;
+    if (!video || !video.videoWidth) return;
+    const scale = Math.min(1, THUMBNAIL_MAX_EDGE / video.videoWidth);
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    await applyThumbnail(canvas.toDataURL("image/jpeg", 0.85));
+  };
+
+  const handleRemoveThumbnail = () => {
+    saveStepData(1, { ...step1Data, planVideoThumbnail: undefined });
   };
 
   const handleRemovePlanVideo = () => {
@@ -447,6 +597,7 @@ export function BenefitsEditorPanel({
       ...step1Data,
       planVideo: undefined,
       planVideoFileName: undefined,
+      planVideoThumbnail: undefined,
       planVideoRemoved: true,
     });
   };
@@ -1222,12 +1373,300 @@ export function BenefitsEditorPanel({
               : "",
           )}
         >
-          <SectionHeader number={4} title="Plan Video" />
+          <SectionHeader number={4} title="Video Source" />
           <p className="text-[13px] text-muted-foreground mb-6">
-            Upload a video to replace the image in the right column of the
-            Retirement Journey section. If no video is uploaded, the default
-            category image will be shown instead.
+            Add the video shown in the journey section, say what it covers, and
+            choose a poster image. Without a video, the category image is shown.
           </p>
+
+          {/* 4a — Video Source: upload a file or paste a URL. */}
+          <div className="space-y-4 mb-6 p-4 border border-muted rounded-lg bg-white dark:bg-gray-800">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Label className="text-xs font-bold text-foreground">
+                Video Source
+              </Label>
+              <div className="inline-flex overflow-hidden rounded-lg border border-muted">
+                <button
+                  type="button"
+                  aria-pressed={videoSourceMode === "upload"}
+                  onClick={() => setVideoSourceMode("upload")}
+                  className={cn(
+                    "flex h-8 items-center gap-1.5 px-3 text-xs font-medium transition-colors",
+                    videoSourceMode === "upload"
+                      ? "bg-[#23919C] text-white"
+                      : "bg-white text-muted-foreground hover:bg-muted dark:bg-gray-800",
+                  )}
+                >
+                  <Upload className="h-3.5 w-3.5" />
+                  Upload File
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={videoSourceMode === "url"}
+                  onClick={() => setVideoSourceMode("url")}
+                  className={cn(
+                    "flex h-8 items-center gap-1.5 border-l border-muted px-3 text-xs font-medium transition-colors",
+                    videoSourceMode === "url"
+                      ? "bg-[#23919C] text-white"
+                      : "bg-white text-muted-foreground hover:bg-muted dark:bg-gray-800",
+                  )}
+                >
+                  <Link2 className="h-3.5 w-3.5" />
+                  Paste URL
+                </button>
+              </div>
+            </div>
+
+            {videoSourceMode === "upload" ? (
+              <div className="space-y-3">
+                <div
+                  role="button"
+                  tabIndex={0}
+                  aria-label="Drag a video here or choose a file"
+                  onClick={() => videoFileInputRef.current?.click()}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      videoFileInputRef.current?.click();
+                    }
+                  }}
+                  onDragOver={handleVideoDragOver}
+                  onDragLeave={handleVideoDragLeave}
+                  onDrop={handleVideoDrop}
+                  className={cn(
+                    "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors",
+                    isVideoDragOver
+                      ? "border-[#23919C] bg-teal-50/60 dark:bg-teal-900/20"
+                      : "border-muted hover:border-[#23919C]/60 hover:bg-muted/40",
+                    videoUploading && "pointer-events-none opacity-60",
+                  )}
+                >
+                  <Upload className="h-6 w-6 text-[#23919C]" />
+                  <p className="text-sm font-medium">
+                    Drag a video or file here
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    or click to choose a file · MP4, WebM, OGG
+                  </p>
+                  {videoUploading && (
+                    <div className="mt-2 w-full max-w-xs">
+                      <div className="h-2 w-full rounded-full bg-gray-200 dark:bg-gray-700">
+                        <div
+                          className="h-2 rounded-full bg-[#23919C] transition-all duration-300"
+                          style={{ width: `${videoUploadProgress}%` }}
+                        />
+                      </div>
+                      <p className="mt-1 text-[11px] text-muted-foreground">
+                        Uploading… {videoUploadProgress}%
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <input
+                  ref={videoFileInputRef}
+                  type="file"
+                  accept="video/*,.mp4,.webm,.ogg"
+                  onChange={handlePlanVideoUpload}
+                  onFocus={() => focusPreviewField("planVideo")}
+                  className="hidden"
+                  disabled={videoUploading}
+                />
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Input
+                  value={videoUrlDraft}
+                  onChange={(e) => setVideoUrlDraft(e.target.value)}
+                  placeholder="https://…/video.mp4"
+                  className="h-9 flex-1 text-sm"
+                />
+                <Button type="button" size="sm" onClick={handleApplyVideoUrl}>
+                  Use URL
+                </Button>
+              </div>
+            )}
+
+            {step1Data.planVideo && (
+              <Card className="border border-muted shadow-sm">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <Video className="h-5 w-5 text-blue-600" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">
+                        {step1Data.planVideoFileName || "External video"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Current video source
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRemovePlanVideo}
+                      className="text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                      Remove
+                    </Button>
+                  </div>
+                  <div className="aspect-video overflow-hidden rounded-lg bg-black">
+                    <video
+                      src={resolvedPlanVideoUrl}
+                      poster={resolvedThumbnailUrl || undefined}
+                      controls
+                      className="h-full w-full object-contain"
+                      playsInline
+                      preload="metadata"
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* 4b — What's the video about? */}
+          <div className="space-y-3 mb-6 p-4 border border-muted rounded-lg bg-white dark:bg-gray-800">
+            <Label className="text-xs font-bold text-foreground">
+              {"What's the video about?"}
+            </Label>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {VIDEO_LABELS.map((label) => (
+                <button
+                  key={label}
+                  type="button"
+                  aria-pressed={step1Data.planVideoLabel === label}
+                  onClick={() => handleVideoLabelChange(label)}
+                  className={cn(
+                    "rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                    step1Data.planVideoLabel === label
+                      ? "border-[#23919C] bg-[#23919C] text-white"
+                      : "border-muted bg-white text-muted-foreground hover:border-[#23919C]/60 hover:text-foreground dark:bg-gray-800",
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 4c — Thumbnail: uploaded image or a captured video frame. */}
+          <div className="space-y-3 mb-6 p-4 border border-muted rounded-lg bg-white dark:bg-gray-800">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <Label className="text-xs font-bold text-foreground">
+                Thumbnail
+              </Label>
+              <div className="inline-flex overflow-hidden rounded-lg border border-muted">
+                <button
+                  type="button"
+                  aria-pressed={thumbnailMode === "upload"}
+                  onClick={() => setThumbnailMode("upload")}
+                  className={cn(
+                    "flex h-8 items-center gap-1.5 px-3 text-xs font-medium transition-colors",
+                    thumbnailMode === "upload"
+                      ? "bg-[#23919C] text-white"
+                      : "bg-white text-muted-foreground hover:bg-muted dark:bg-gray-800",
+                  )}
+                >
+                  <ImagePlus className="h-3.5 w-3.5" />
+                  Upload Image
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={thumbnailMode === "frame"}
+                  disabled={!resolvedPlanVideoUrl}
+                  title={
+                    resolvedPlanVideoUrl
+                      ? undefined
+                      : "Add a video source first"
+                  }
+                  onClick={() => setThumbnailMode("frame")}
+                  className={cn(
+                    "flex h-8 items-center gap-1.5 border-l border-muted px-3 text-xs font-medium transition-colors",
+                    thumbnailMode === "frame"
+                      ? "bg-[#23919C] text-white"
+                      : "bg-white text-muted-foreground hover:bg-muted dark:bg-gray-800",
+                    !resolvedPlanVideoUrl &&
+                      "cursor-not-allowed opacity-50 hover:bg-white dark:hover:bg-gray-800",
+                  )}
+                >
+                  <Video className="h-3.5 w-3.5" />
+                  From Video
+                </button>
+              </div>
+            </div>
+
+            {thumbnailMode === "upload" ? (
+              <div className="space-y-2">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleThumbnailFileChange}
+                  disabled={thumbnailBusy}
+                  className="text-sm"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  JPG, PNG, or WebP. Downscaled to {THUMBNAIL_MAX_EDGE} px.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <video
+                  ref={thumbnailVideoRef}
+                  src={resolvedPlanVideoUrl || undefined}
+                  className="aspect-video w-full rounded-md bg-black"
+                  playsInline
+                  preload="metadata"
+                  onLoadedMetadata={(e) =>
+                    setThumbnailDuration(e.currentTarget.duration || 0)
+                  }
+                />
+                <input
+                  type="range"
+                  min={0}
+                  max={thumbnailDuration || 0}
+                  step={0.1}
+                  value={Math.min(thumbnailFrameTime, thumbnailDuration || 0)}
+                  onChange={(e) => handleThumbnailScrub(Number(e.target.value))}
+                  aria-label="Choose the video frame to use"
+                  className="w-full accent-[#23919C]"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  onClick={() => void captureThumbnailFrame()}
+                  disabled={thumbnailBusy || !resolvedPlanVideoUrl}
+                >
+                  Use This Frame
+                </Button>
+              </div>
+            )}
+
+            {resolvedThumbnailUrl && (
+              <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={resolvedThumbnailUrl}
+                  alt="Current video thumbnail"
+                  className="h-16 w-28 rounded-md object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">Current thumbnail</p>
+                  <p className="text-xs text-muted-foreground">
+                    Shown before the video plays.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRemoveThumbnail}
+                  className="shrink-0 text-destructive hover:text-destructive"
+                >
+                  Remove
+                </Button>
+              </div>
+            )}
+          </div>
 
           {/* Video Section Overrides */}
           <div className="space-y-4 mb-6 p-4 border border-muted rounded-lg bg-white dark:bg-gray-800">
@@ -1291,90 +1730,6 @@ export function BenefitsEditorPanel({
                 />
               </div>
             </div>
-          </div>
-
-          <div className="space-y-4">
-            <Label className="text-xs font-bold text-foreground">
-              Upload Plan Video
-            </Label>
-            {step1Data.planVideo ? (
-              <Card className="border border-muted shadow-sm">
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <Video className="w-5 h-5 text-blue-600" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">
-                        {step1Data.planVideoFileName || "Uploaded Video"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        Video uploaded successfully
-                      </p>
-                    </div>
-                  </div>
-                  <div className="aspect-video overflow-hidden rounded-lg bg-black">
-                    <video
-                      src={
-                        step1Data.planVideo?.startsWith("http") ||
-                        step1Data.planVideo?.startsWith("/api/")
-                          ? step1Data.planVideo
-                          : `/api/r2/object?key=${encodeURIComponent(
-                              step1Data.planVideo || "",
-                            )}`
-                      }
-                      controls
-                      className="h-full w-full object-contain"
-                      playsInline
-                      preload="metadata"
-                    />
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleRemovePlanVideo}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="w-3.5 h-3.5 mr-2" />
-                    Remove Video
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <label
-                    className={cn(
-                      "inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors cursor-pointer dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700",
-                      videoUploading && "opacity-50 pointer-events-none",
-                    )}
-                  >
-                    <Upload className="w-4 h-4" />
-                    {videoUploading
-                      ? `Uploading... ${videoUploadProgress}%`
-                      : "Choose Video File"}
-                    <input
-                      type="file"
-                      accept="video/*"
-                      onChange={handlePlanVideoUpload}
-                      onFocus={() => focusPreviewField("planVideo")}
-                      className="hidden"
-                      disabled={videoUploading}
-                    />
-                  </label>
-                </div>
-                {videoUploading && (
-                  <div className="w-full bg-gray-200 rounded-full h-2 dark:bg-gray-700">
-                    <div
-                      className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${videoUploadProgress}%` }}
-                    />
-                  </div>
-                )}
-                <p className="text-[11px] text-muted-foreground">
-                  Accepted formats: MP4, WebM, OGG. The video will be displayed
-                  in the right column of the plan page.
-                </p>
-              </div>
-            )}
           </div>
         </div>
 

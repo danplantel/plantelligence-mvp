@@ -181,6 +181,11 @@ export default function LifeInsurancePage() {
 
         <BenefitsVideoSection
           brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          keyContacts={clientData?.keyContacts}
+          category="Group Life"
+          videoLabel={benefitData?.planVideoLabel ?? undefined}
+          videoThumbnail={benefitData?.planVideoThumbnail ?? undefined}
           mainTitle={
             (benefitData as any)?.journeyHeader ||
             "Life Insurance: Protecting What Matters Most"

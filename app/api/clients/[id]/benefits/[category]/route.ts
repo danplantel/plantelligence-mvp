@@ -305,6 +305,11 @@ export async function PUT(
       "background",
       "benefit-landing-card.png",
     );
+    const planVideoThumbnail = await toR2Key(
+      body.planVideoThumbnail,
+      "background",
+      "plan-video-thumbnail.png",
+    );
     const insuranceBackgroundImage = await toR2Key(
       body.insuranceBackgroundImage,
       "background",
@@ -326,6 +331,8 @@ export async function PUT(
         journeyBodyText: body.journeyBodyText ?? null,
         planVideo: body.planVideo ?? null,
         planVideoFileName: body.planVideoFileName ?? null,
+        planVideoLabel: body.planVideoLabel ?? null,
+        planVideoThumbnail: planVideoThumbnail ?? null,
         partnerLogo: partnerLogo ?? null,
         backgroundImage: backgroundImage ?? null,
         innerHeaderImage: innerHeaderImage ?? null,
@@ -377,6 +384,9 @@ export async function PUT(
           body.planVideoFileName !== undefined
             ? body.planVideoFileName
             : undefined,
+        planVideoLabel:
+          body.planVideoLabel !== undefined ? body.planVideoLabel : undefined,
+        planVideoThumbnail: planVideoThumbnail,
         partnerLogo: partnerLogo,
         backgroundImage: backgroundImage,
         innerHeaderImage: innerHeaderImage,
@@ -502,6 +512,8 @@ export async function PUT(
           journeyBodyText: b.journeyBodyText,
           planVideo: b.planVideo,
           planVideoFileName: b.planVideoFileName,
+          planVideoLabel: b.planVideoLabel,
+          planVideoThumbnail: b.planVideoThumbnail,
           partnerLogo: b.partnerLogo,
           // Legacy consumers (portal-welcome-banner, completeness check) read the
           // header background from `image`; the new Benefit model calls it

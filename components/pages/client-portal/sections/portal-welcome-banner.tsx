@@ -8,6 +8,7 @@ import { designationAcronym } from "@/config/onboarding/designations";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { toNextImageSrc } from "@/lib/branding-image-url";
+import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
 import {
   DEFAULT_WELCOME_BG,
   CATEGORY_DEFAULT_BGS,
@@ -188,60 +189,12 @@ export function PortalWelcomeBanner({
     );
   }, [category, clientData?.employeePortalPreview?.benefits]);
 
-  let visibleContacts: any[] = [];
-
-  if (clientData?.keyContacts) {
-    if (Array.isArray(clientData.keyContacts)) {
-      visibleContacts = clientData.keyContacts.filter(
-        (contact: any) => contact.showOnPortal !== false,
-      );
-    } else if (
-      typeof clientData.keyContacts === "object" &&
-      clientData.keyContacts !== null
-    ) {
-      const keyContactsData = clientData.keyContacts as any;
-      const contactsArray = Array.isArray(keyContactsData.contacts)
-        ? keyContactsData.contacts
-        : [];
-      visibleContacts = contactsArray.filter(
-        (contact: any) => contact.showOnPortal !== false,
-      );
-    }
-  }
-
-  // Determine primary contact based on category if provided
-  let primaryContact = null;
-
-  if (category) {
-    const target = category.toLowerCase();
-    // 1. Try to find isPrimary contact for this category
-    primaryContact = visibleContacts?.find(
-      (c) =>
-        c.isPrimary &&
-        ((c.benefitsCategory || "").toLowerCase() === target ||
-          (c.benefitsCategories || [])
-            .map((s: string) => s.toLowerCase())
-            .includes(target)),
-    );
-
-    // 2. Try to find any contact for this category
-    if (!primaryContact) {
-      primaryContact = visibleContacts?.find(
-        (c) =>
-          (c.benefitsCategory || "").toLowerCase() === target ||
-          (c.benefitsCategories || [])
-            .map((s: string) => s.toLowerCase())
-            .includes(target),
-      );
-    }
-  }
-
-  // 3. Fallback to general primary contact or first contact
-  if (!primaryContact) {
-    primaryContact =
-      visibleContacts?.find((contact) => contact.isPrimary) ||
-      visibleContacts?.[0];
-  }
+  // The category's key contact. Shared with the video section's Schedule button
+  // so both name the same person for the same benefit.
+  const primaryContact = resolvePortalPrimaryContact(
+    clientData?.keyContacts,
+    category,
+  );
 
   // Hero CTAs. The schedule button names the category's key contact (first name
   // only) and uses that contact's scheduling link, falling back to the plan's

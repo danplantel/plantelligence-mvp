@@ -73,9 +73,13 @@ export interface BenefitData {
   journeySubtitle?: string | null;
   journeyBodyText?: string | null;
 
-  // Plan Video (raw R2 key)
+  // Plan Video (raw R2 key or external URL)
   planVideo?: string | null;
   planVideoFileName?: string | null;
+  /** "Advisor Intro" | "This benefit" | "Our Services" */
+  planVideoLabel?: string | null;
+  /** Poster image (R2 key, external URL, or data URL) */
+  planVideoThumbnail?: string | null;
 
   // Branding
   partnerLogo?: string | null;

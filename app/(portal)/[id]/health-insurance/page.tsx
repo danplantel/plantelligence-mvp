@@ -180,6 +180,11 @@ export default function HealthInsurancePage() {
 
         <BenefitsVideoSection
           brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          keyContacts={clientData?.keyContacts}
+          category="Group Health"
+          videoLabel={benefitData?.planVideoLabel ?? undefined}
+          videoThumbnail={benefitData?.planVideoThumbnail ?? undefined}
           mainTitle={
             (benefitData as any)?.journeyHeader ||
             "Understanding Your Health Benefits"

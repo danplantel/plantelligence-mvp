@@ -566,6 +566,8 @@ export async function saveBenefit(
             landingCardBody: step1Data?.landingCardBody || null,
             planVideo: step1Data?.planVideo || null,
             planVideoFileName: step1Data?.planVideoFileName || null,
+            planVideoLabel: step1Data?.planVideoLabel || null,
+            planVideoThumbnail: step1Data?.planVideoThumbnail || null,
             journeyHeader: step1Data?.journeyHeader || null,
             journeySubtitle: step1Data?.journeySubtitle || null,
             journeyBodyText: step1Data?.journeyBodyText || null,

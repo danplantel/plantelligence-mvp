@@ -929,9 +929,13 @@ model Benefit {
   journeySubtitle String?
   journeyBodyText String?
 
-  // Plan Video (raw R2 key)
+  // Plan Video (raw R2 key or external URL)
   planVideo         String?
   planVideoFileName String?
+  // Content label shown beside the runtime: "Advisor Intro" | "This benefit" | "Our Services".
+  planVideoLabel     String?
+  // Poster image: an uploaded image, a frame captured from the video, or an external URL.
+  planVideoThumbnail String?
 
   // Branding
   partnerLogo     String?
