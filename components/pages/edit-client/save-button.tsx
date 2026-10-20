@@ -26,8 +26,9 @@ export function SaveButton({
 
   return (
     <div className="flex items-center gap-3">
-      {clientStatus === "Active" && !isFormValid && (
-        onInvalidClick ? (
+      {clientStatus === "Active" &&
+        !isFormValid &&
+        (onInvalidClick ? (
           <button
             type="button"
             onClick={onInvalidClick}
@@ -42,17 +43,20 @@ export function SaveButton({
             <AlertTriangle className="w-4 h-4" />
             <span>Complete all required fields to activate</span>
           </div>
-        )
-      )}
+        ))}
 
+      {/* LoadingButton replaces `children` with its label while loading, so the
+          busy text has to come from `loadingText` — a ternary in children is
+          never rendered. */}
       <LoadingButton
         onClick={onSave}
         isLoading={saving}
+        loadingText="Saving..."
         disabled={!canSave}
         className="min-w-[120px]"
       >
         <Save className="w-4 h-4 mr-2" />
-        {saving ? "Saving..." : "Save Changes"}
+        Save Changes
       </LoadingButton>
     </div>
   );
