@@ -12,7 +12,7 @@ import { ClientsListDashboardPage } from "@/components/pages/clients-list-dashbo
  * SWR, routing, the debounce hook and the wizard store are mocked, so these
  * tests assert the page's own behaviour: the query it builds, what the table
  * renders, and what each action does. The API contract itself has its own
- * checklist in `docs/testing/clients.md`.
+ * checklist in `docs/testing/clients-tests.md`.
  */
 
 const mocks = vi.hoisted(() => ({
