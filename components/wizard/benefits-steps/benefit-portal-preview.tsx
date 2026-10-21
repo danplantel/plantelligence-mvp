@@ -2,45 +2,54 @@
 
 import React, { useMemo, useState, useEffect } from "react";
 
-// Preview-specific overrides so child sections expand to fill the wide container.
-// The welcome banner is deliberately excluded: it is the live portal component and
-// must keep the same 72rem content width it has on the four Benefit Hub pages.
+// The preview is a scaled render of the real portal, so the sections keep their
+// own live max-widths. Anything that stretched them to the 1400px canvas made the
+// preview wider than the Benefit Hub pages it is meant to represent.
 const previewStyles = `
   .preview-portal-container {
     width: 100% !important;
     max-width: none !important;
   }
-  .preview-portal-container section {
-    width: 100% !important;
-    max-width: 100% !important;
-  }
-  .preview-portal-container .max-w-4xl,
-  .preview-portal-container .max-w-7xl,
-  .preview-portal-container .max-w-5xl,
-  .preview-portal-container .max-w-6xl {
-    max-width: 100% !important;
-    width: 100% !important;
-  }
-  /* Live-portal width for the Benefit Hub Header. The id selector outranks the
-     generic overrides above, so the banner's inner max-w-7xl stays 72rem
-     instead of stretching across the 1400px preview canvas. */
-  .preview-portal-container #portal-welcome-banner .max-w-7xl {
-    max-width: 72rem !important;
-    width: 100% !important;
-  }
-  /* FAQ section — restore benefits hub width (max-w-3xl = 48rem) */
-  .preview-portal-container section.py-20.bg-white > .max-w-3xl {
-    max-width: 48rem !important;
-    width: 100% !important;
-  }
 `;
+
+/** Copy the four live hub pages use for their document band. */
+const DOCUMENT_SECTION_COPY: Record<
+  string,
+  { title: string; description: string; accordionHeaderTitle?: string }
+> = {
+  Retirement: {
+    title: "Retirement Plan Documents & Forms",
+    description:
+      "Access all your important retirement plan documents, forms, and notices in one convenient location.",
+  },
+  "Group Health": {
+    title: "Health Plan Documents & Forms",
+    description:
+      "Access all your important health plan documents, forms, and notices in one convenient location.",
+    accordionHeaderTitle: "Health Plan Documents",
+  },
+  "Group Life": {
+    title: "Life Insurance Documents & Forms",
+    description:
+      "Access all your important life insurance plan documents, forms, and notices in one convenient location.",
+    accordionHeaderTitle: "Life Insurance Documents",
+  },
+  "Company / Plan Sponsor": {
+    title: "Wellness Program Documents & Forms",
+    description:
+      "Access all your important wellness program documents, forms, and notices in one convenient location.",
+    accordionHeaderTitle: "Wellness Program Documents",
+  },
+};
 
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import { BenefitsVideoSection } from "@/components/pages/client-portal/sections/benefits-video-section";
+import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
 import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
 import { BenefitDocumentSection } from "@/components/pages/client-portal/sections/benefit-document-section";
+import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import {
   FAQSection,
   DynamicFAQItem,
@@ -112,6 +121,10 @@ export function BenefitPortalPreview({
   const step4Data = stepData.step4;
 
   const category = step1Data?.benefitCategory || "Retirement";
+  // "Custom" is the legacy deep-link spelling of the hub whose stored label is
+  // "Company / Plan Sponsor" — the live pages use the latter.
+  const canonicalCategory =
+    category === "Custom" ? "Company / Plan Sponsor" : category;
 
   // Whether the current benefit category is one of the advisor's primary service categories.
   // Gates User.designations so they only show for categories the user actually serves.
@@ -337,6 +350,19 @@ export function BenefitPortalPreview({
     return map[category] || map["Retirement"];
   }, [category]);
 
+  // The live hub's document band and webinar placement for this category.
+  const documentSectionCopy =
+    DOCUMENT_SECTION_COPY[canonicalCategory] ||
+    DOCUMENT_SECTION_COPY.Retirement;
+  const webinarPlacement =
+    canonicalCategory === "Group Health"
+      ? "health-insurance"
+      : canonicalCategory === "Group Life"
+      ? "life-insurance"
+      : canonicalCategory === "Company / Plan Sponsor"
+      ? "wellness-programs"
+      : "retirement";
+
   const [hoveredSection, setHoveredSection] = useState<string | null>(null);
 
   const handleEdit = (sectionId: string, fieldId?: string) => {
@@ -536,9 +562,33 @@ export function BenefitPortalPreview({
           />
         </div>
 
+        {/* Section order mirrors the live Benefit Hub pages:
+            How Can We Help → Video → Webinars → FAQs → Account Access →
+            Documents → Have Questions. */}
+
+        <div
+          className={mobile ? "force-visible relative" : "relative"}
+          data-preview-field="helpCards"
+        >
+          <HowCanWeHelpSection
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            clientId={step1Data?.planId}
+            cards={
+              step1Data?.helpCards?.length
+                ? step1Data.helpCards
+                : DEFAULT_HELP_CARDS
+            }
+            onCardEdit={(cardId) => handleEdit("helpCards", cardId)}
+          />
+        </div>
+
         <div className={mobile ? "force-visible relative" : "relative"}>
           <BenefitsVideoSection
             brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            keyContacts={previewKeyContacts}
+            category={category}
             mainTitle={
               step1Data?.journeyHeader ||
               (() => {
@@ -599,22 +649,20 @@ export function BenefitPortalPreview({
           />
         </div>
 
-        <div
-          className={mobile ? "force-visible relative" : "relative"}
-          data-preview-field="helpCards"
-        >
-          <HowCanWeHelpSection
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            clientId={step1Data?.planId}
-            cards={
-              step1Data?.helpCards?.length
-                ? step1Data.helpCards
-                : DEFAULT_HELP_CARDS
-            }
-            onCardEdit={(cardId) => handleEdit("helpCards", cardId)}
-          />
-        </div>
+        {/* Videos published to this page from Communications → Webinars. */}
+        <BenefitsHubWebinarsSection
+          placement={webinarPlacement}
+          clientId={step1Data?.planId}
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+        />
+
+        <FAQSection
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          faqs={faqsForCategory}
+          contacts={faqContacts}
+        />
 
         <div
           className="relative group cursor-pointer"
@@ -626,6 +674,7 @@ export function BenefitPortalPreview({
           {hoveredSection === "insurance" && <EditPencil />}
           <PortalMaterialsHero
             brandColor={brandColor}
+            secondaryColor={secondaryColor}
             category={category}
             // Live provider / recordkeeper straight from the editor. This prop
             // was previously omitted, so the "Administered by" block never
@@ -656,6 +705,24 @@ export function BenefitPortalPreview({
             onPlanIdClick={() => handleEdit("insurance", "planId")}
           />
         </div>
+
+        <BenefitDocumentSection
+          brandColor={brandColor}
+          accentColor={secondaryColor}
+          retirementDocs={documents}
+          title={documentSectionCopy.title}
+          description={documentSectionCopy.description}
+          accordionHeaderTitle={documentSectionCopy.accordionHeaderTitle}
+          // The rows are already scoped to the category being edited, so the
+          // category badge would only repeat it (same reason as the Branding tab).
+          hideCategoryBadge
+        />
+
+        <HaveQuestions
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          contacts={faqContacts}
+        />
       </main>
     </div>
   );

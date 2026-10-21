@@ -14,6 +14,12 @@ import type { WebinarPlacementKey } from "@/lib/webinar-placements";
 interface BenefitsHubWebinarsSectionProps {
   /** Which portal page's videos to show (see `lib/webinar-placements`). */
   placement: WebinarPlacementKey;
+  /**
+   * Plan identifier (slug or ObjectId). Defaults to the portal route's `[id]`
+   * segment; the dashboard preview has no such segment, so it passes the plan
+   * being edited explicitly.
+   */
+  clientId?: string;
   brandColor?: string;
   secondaryColor?: string;
   /** Heading shown above the grid. */
@@ -67,6 +73,7 @@ function WebinarCardSkeleton({ className }: { className?: string }) {
  */
 export function BenefitsHubWebinarsSection({
   placement,
+  clientId,
   brandColor = "#002B5B",
   secondaryColor = "#FBBF24",
   title = "Webinars",
@@ -77,8 +84,11 @@ export function BenefitsHubWebinarsSection({
   // end of a waterfall — that, together with the video payloads, is why the band
   // appeared seconds after the rest of the page. Portal URLs carry the plan slug
   // and the API accepts a slug or an ObjectId, so the segment is enough here.
+  // The dashboard preview has no `[id]` segment, so it supplies `clientId`.
   const params = useParams();
-  const planRef = typeof params?.id === "string" ? params.id : "";
+  const planRef =
+    (typeof clientId === "string" && clientId) ||
+    (typeof params?.id === "string" ? params.id : "");
 
   const [replays, setReplays] = useState<WebinarReplay[]>([]);
   const [isLoading, setIsLoading] = useState(true);

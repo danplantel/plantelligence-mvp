@@ -226,6 +226,7 @@ export default function RetirementPage() {
 
         <PortalMaterialsHero
           brandColor={brandColor}
+          secondaryColor={secondaryColor}
           cardHeading="Retirement Plan Account Access"
           category="Retirement"
           provider={benefitData?.providerContact ?? null}

@@ -996,17 +996,18 @@ function SortableCard({
             {!isEditing && (
               <Button
                 className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden text-white"
+                // View/Document CTA uses the brand's secondary color.
                 style={{
-                  backgroundColor: brandColor,
-                  borderColor: brandColor,
+                  backgroundColor: accentColor,
+                  borderColor: accentColor,
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = accentColor;
-                  e.currentTarget.style.borderColor = accentColor;
-                }}
-                onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = brandColor;
                   e.currentTarget.style.borderColor = brandColor;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = accentColor;
+                  e.currentTarget.style.borderColor = accentColor;
                 }}
                 onClick={() => onPreview(doc)}
               >
@@ -1606,17 +1607,18 @@ export function DocsGrid({
                 {!isEditing && (
                   <Button
                     className="flex-1 flex items-center justify-center gap-2 text-[14px] leading-tight font-red-hat font-semibold tracking-wide transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden text-white"
+                    // View/Document CTA uses the brand's secondary color.
                     style={{
-                      backgroundColor: brandColor,
-                      borderColor: brandColor,
+                      backgroundColor: accentColor,
+                      borderColor: accentColor,
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = accentColor;
-                      e.currentTarget.style.borderColor = accentColor;
-                    }}
-                    onMouseLeave={(e) => {
                       e.currentTarget.style.backgroundColor = brandColor;
                       e.currentTarget.style.borderColor = brandColor;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = accentColor;
+                      e.currentTarget.style.borderColor = accentColor;
                     }}
                     onClick={() => onPreview(doc)}
                   >

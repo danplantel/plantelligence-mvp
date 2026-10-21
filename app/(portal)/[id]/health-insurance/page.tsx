@@ -217,6 +217,7 @@ export default function HealthInsurancePage() {
 
         <PortalMaterialsHero
           brandColor={brandColor}
+          secondaryColor={secondaryColor}
           cardHeading="Group Health Insurance Account Access"
           category="Group Health"
           provider={benefitData?.providerContact ?? null}

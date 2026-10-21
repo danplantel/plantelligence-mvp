@@ -231,6 +231,7 @@ export default function CustomBenefitPage() {
 
         <PortalMaterialsHero
           brandColor={brandColor}
+          secondaryColor={secondaryColor}
           cardHeading="Wellness Program Account Access"
           category="Company / Plan Sponsor"
           provider={benefitData?.providerContact ?? null}

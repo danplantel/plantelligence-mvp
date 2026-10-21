@@ -20,6 +20,8 @@ const INSURANCE_DEFAULT_BGS: Record<string, string> = {
 
 interface PortalMaterialsHeroProps {
   brandColor?: string;
+  /** Brand secondary color — used by the Register / Login CTA. */
+  secondaryColor?: string;
   backgroundImage?: string;
   /** Overlay darkness (0-1, higher = darker overlay) */
   containerBlockOpacity?: number;
@@ -42,6 +44,7 @@ interface PortalMaterialsHeroProps {
 
 export function PortalMaterialsHero({
   brandColor = "#1F3A60",
+  secondaryColor,
   backgroundImage: backgroundImageProp,
   containerBlockOpacity = 0.8,
   cardHeading = "Group Health Insurance Account Access",
@@ -180,7 +183,9 @@ export function PortalMaterialsHero({
                 size="lg"
                 onClick={resolvedOnButtonClick}
                 className="my-4 flex h-auto w-full items-center justify-center gap-2 px-6 py-3 text-[16px] leading-tight font-red-hat text-white hover:opacity-90"
-                style={{ background: brandColor }}
+                // The Register / Login CTA is the brand's secondary color on every
+                // Benefit Hub page and in the editor previews.
+                style={{ background: secondaryColor || brandColor }}
               >
                 {buttonLabel}
                 <ExternalLink className="h-5 w-5" />

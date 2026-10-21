@@ -218,6 +218,7 @@ export default function LifeInsurancePage() {
 
         <PortalMaterialsHero
           brandColor={brandColor}
+          secondaryColor={secondaryColor}
           cardHeading="Group Life Insurance Account Access"
           category="Group Life"
           provider={benefitData?.providerContact ?? null}
