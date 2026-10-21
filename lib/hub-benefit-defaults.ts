@@ -128,9 +128,6 @@ export function mergeUserBenefitWithHubDefaults(
   const userPartner = nonEmptyString(
     p.partnerLogo ?? p.companyLogo ?? (p as any).companyLogo?.url,
   );
-  const userInnerHeaderImage = nonEmptyString(
-    (p as any).innerHeaderImage?.url ?? (p as any).innerHeaderImage,
-  );
   const userBody = nonEmptyString(p.shortDescription ?? p.description);
   const userButton = nonEmptyString(p.buttonText);
   const userHref = nonEmptyString(p.href);
@@ -174,8 +171,6 @@ export function mergeUserBenefitWithHubDefaults(
     ...(nonEmptyString(p.planVideoThumbnail)
       ? { planVideoThumbnail: p.planVideoThumbnail }
       : {}),
-    // Preserve inner header image from wizard Step 2 Section 1 Branding
-    ...(userInnerHeaderImage ? { innerHeaderImage: userInnerHeaderImage } : {}),
     // Preserve the landing page card's dedicated image/body (Benefits at a Glance).
     ...(nonEmptyString(p.landingCardImage)
       ? { landingCardImage: p.landingCardImage }

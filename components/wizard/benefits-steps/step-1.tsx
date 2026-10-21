@@ -1579,7 +1579,6 @@ export function BenefitsStep1({
       // Keep a logo the advisor just set for this category — clearing it here is what
       // made a new upload vanish until the category was re-entered.
       if (!logoEditedLocally && !applyOrgLogo) next.companyLogo = null;
-      next.innerHeaderImage = null;
       next.brandImages = {
         header: null,
         thumbnail: null,
@@ -2496,17 +2495,6 @@ export function BenefitsStep1({
         ? ({
             url: nextLogo,
             fileName: "logo.png",
-            fileSize: 0,
-            width: 0,
-            height: 0,
-            hasTransparency: false,
-            warnings: [],
-          } as CompanyLogoData)
-        : null,
-      innerHeaderImage: existingBenefit?.innerHeaderImage
-        ? ({
-            url: existingBenefit.innerHeaderImage,
-            fileName: "inner-header.png",
             fileSize: 0,
             width: 0,
             height: 0,
@@ -3504,8 +3492,8 @@ export function BenefitsStep1({
 
             {/* 3. Landing Page Card — the image and body copy shown on the
                 portal's "Your Benefits at a Glance" card. Independent of the
-                hub's Inner Header Image / Intro Message; both fall back to them
-                when left empty. */}
+                hub's key-contact portrait and Intro Message; when left empty it
+                falls back to the category's stock card image and copy. */}
             {showSection("landing-card") && (
               <AccordionItem
                 value="landing-card"
@@ -3544,7 +3532,7 @@ export function BenefitsStep1({
                       </Label>
                       <p className="mt-1 text-xs text-muted-foreground">
                         Shown at the top of the card. Leave empty to use the
-                        Inner Header Image.
+                        category's default image.
                       </p>
                     </div>
                     <BrandImageUpload

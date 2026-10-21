@@ -295,11 +295,6 @@ export async function PUT(
       "background",
       "benefit-background.png",
     );
-    const innerHeaderImage = await toR2Key(
-      body.innerHeaderImage,
-      "background",
-      "benefit-inner-header.png",
-    );
     const landingCardImage = await toR2Key(
       body.landingCardImage,
       "background",
@@ -335,7 +330,6 @@ export async function PUT(
         planVideoThumbnail: planVideoThumbnail ?? null,
         partnerLogo: partnerLogo ?? null,
         backgroundImage: backgroundImage ?? null,
-        innerHeaderImage: innerHeaderImage ?? null,
         landingCardImage: landingCardImage ?? null,
         landingCardBody: body.landingCardBody ?? null,
         helpCards: body.helpCards ?? null,
@@ -389,7 +383,6 @@ export async function PUT(
         planVideoThumbnail: planVideoThumbnail,
         partnerLogo: partnerLogo,
         backgroundImage: backgroundImage,
-        innerHeaderImage: innerHeaderImage,
         landingCardImage: landingCardImage,
         landingCardBody:
           body.landingCardBody !== undefined ? body.landingCardBody : undefined,
@@ -520,7 +513,6 @@ export async function PUT(
           // `backgroundImage`. Write both so neither breaks during dual-write.
           image: bg,
           backgroundImage: bg,
-          innerHeaderImage: b.innerHeaderImage,
           // Dedicated landing page card content (Benefits at a Glance).
           landingCardImage: b.landingCardImage,
           landingCardBody: b.landingCardBody,

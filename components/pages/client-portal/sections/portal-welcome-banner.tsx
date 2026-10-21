@@ -22,8 +22,6 @@ interface PortalWelcomeBannerProps {
   onTitleClick?: () => void;
   /** Click handler for the summary description text. Opens the editor. */
   onDescriptionClick?: () => void;
-  /** Click handler for the Inner Header Image (left column). Opens the editor. */
-  onInnerHeaderImageClick?: () => void;
   clientData?: {
     companyName?: string;
     missionHeadline?: string;
@@ -70,8 +68,6 @@ interface PortalWelcomeBannerProps {
   } | null;
   customImage?: string; // Override right-side Benefits Logo
   customImageAlt?: string;
-  /** Inner Header Image — full-height image for the left column of the hero section */
-  customInnerHeaderImage?: string;
   // Hero overlay settings
   backgroundOpacity?: number;
   containerBlockOpacity?: number;
@@ -97,7 +93,6 @@ export function PortalWelcomeBanner({
   secondaryColor = "#C89B5B",
   onTitleClick,
   onDescriptionClick,
-  onInnerHeaderImageClick,
   customHeadline,
   customDescription,
   customClosing,
@@ -107,7 +102,6 @@ export function PortalWelcomeBanner({
   profile,
   customImage,
   customImageAlt,
-  customInnerHeaderImage,
   category,
   backgroundOpacity = 1.0,
   containerBlockOpacity = 0.67,
@@ -258,32 +252,19 @@ export function PortalWelcomeBanner({
     effectiveOrganizationName ||
     "Company Name";
 
-  // Inner Header Image (left column, full height):
-  // customInnerHeaderImage override → categoryBenefit.innerHeaderImage (per-category) →
-  // category default inner image (from /benefits-hub-default-inner-images) matched to the
-  // current benefit category. The default images replace the company logo in this slot.
+  // The banner's left-column portrait is the category's key contact headshot.
+  // When the contact has no headshot, fall back to the category's stock image so
+  // the banner keeps its layout. There is no separate custom "Inner Header
+  // Image" any more — the headshot is that image.
   const categoryDefaultInnerImage =
     CATEGORY_DEFAULT_INNER_IMAGES[category || ""] ||
     CATEGORY_DEFAULT_INNER_IMAGES["Retirement"];
-  // Resolve R2 keys (org/...) to a loadable URL so a stored key (e.g. the inner
-  // header image) never renders as a broken relative URL.
-  const innerHeaderImageUrl = toNextImageSrc(
-    customInnerHeaderImage ||
-      categoryBenefit?.innerHeaderImage ||
-      categoryDefaultInnerImage,
-    categoryDefaultInnerImage,
-  );
-
-  // The circular portrait shows the category's key contact's headshot. Without
-  // one it falls back to the Inner Header Image, which keeps its in-place
-  // editing affordance; a headshot is not the inner-header field, so clicking it
-  // must not open that editor.
   const contactHeadshotUrl = primaryContact?.headshot
     ? toNextImageSrc(String(primaryContact.headshot), "")
     : "";
-  const portraitSrc = contactHeadshotUrl || innerHeaderImageUrl;
-  const portraitEditable =
-    !contactHeadshotUrl && Boolean(onInnerHeaderImageClick);
+  const portraitSrc = contactHeadshotUrl
+    ? contactHeadshotUrl
+    : toNextImageSrc(categoryDefaultInnerImage, categoryDefaultInnerImage);
   const portraitAlt = contactHeadshotUrl
     ? String(primaryContact?.fullName || primaryContact?.name || "")
     : "";
@@ -637,36 +618,10 @@ export function PortalWelcomeBanner({
               </div>
             </div>
 
-            {/* LEFT: key contact headshot (falls back to the Inner Header Image)
-                in a circular frame, with the company logo beneath it. The
-                fallback image is editable in place, like the headline and
-                description beside it. */}
+            {/* LEFT: key contact headshot (falls back to the category's stock
+                image) in a circular frame, with the company logo beneath it. */}
             <div className="order-1 flex flex-col items-center justify-center gap-5 px-4 py-10 lg:order-1 lg:pl-16 lg:pr-4">
-              <div
-                // Marks the Inner Header Image as the scroll target for the
-                // editor's own control, which asks the preview to reveal it when
-                // focused. Only present when the fallback image is what's shown
-                // and an editing panel exists — the live portal has no such
-                // consumer, and the attribute is not part of its markup contract.
-                data-preview-field={
-                  portraitEditable ? "innerHeaderImage" : undefined
-                }
-                className={`relative ${
-                  portraitEditable ? "cursor-pointer group" : ""
-                }`}
-                onClick={(e) => {
-                  if (!portraitEditable) return;
-                  e.stopPropagation();
-                  onInnerHeaderImageClick?.();
-                }}
-                onMouseEnter={() =>
-                  portraitEditable && setHoveredField("innerHeaderImage")
-                }
-                onMouseLeave={() => portraitEditable && setHoveredField(null)}
-              >
-                {portraitEditable && hoveredField === "innerHeaderImage" && (
-                  <EditPencil />
-                )}
+              <div className="relative">
                 <div
                   className={`h-[200px] w-[200px] shrink-0 overflow-hidden rounded-full shadow-2xl ring-4 ${
                     effectiveContainerInverted
@@ -696,7 +651,7 @@ export function PortalWelcomeBanner({
                 </div>
               </div>
 
-              {/* Company logo — beneath the circular Inner Header Image.
+              {/* Company logo — beneath the circular key-contact portrait.
                   Priority: per-category partnerLogo (set via wizard Provider Logo
                   upload) → plan-level companyLogo → fallback "LOGO HERE". */}
               {(() => {

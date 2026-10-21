@@ -84,7 +84,6 @@ export interface BenefitData {
   // Branding
   partnerLogo?: string | null;
   backgroundImage?: string | null;
-  innerHeaderImage?: string | null;
 
   // Help Cards
   helpCards?: HelpCardData[] | null;

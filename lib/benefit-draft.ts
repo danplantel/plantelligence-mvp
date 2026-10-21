@@ -176,7 +176,6 @@ export function forgetDraftBenefit(planId: string, category: string): void {
             benefitTitle: apiCategory === "Company / Plan Sponsor" ? "" : apiCategory,
             shortDescription: "",
             companyLogo: null,
-            innerHeaderImage: null,
             brandImages: {
               header: null,
               thumbnail: null,

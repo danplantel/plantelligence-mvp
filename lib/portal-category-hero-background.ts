@@ -17,10 +17,9 @@ export const CATEGORY_DEFAULT_BGS: Record<string, string> = {
 };
 
 /**
- * Per-category default Inner Header Images (right column of the hub welcome banner),
- * used when no custom Inner Header Image is set. Shared between the hub welcome
- * banner (portal-welcome-banner) and the benefit cards (portal-benefits) so both
- * show the same per-hub image.
+ * Per-category stock images for the hub welcome banner's portrait and the benefit
+ * cards. Used when the key contact has no headshot (banner) or a card has no
+ * dedicated landing image. Shared by both surfaces so they stay in step.
  */
 export const CATEGORY_DEFAULT_INNER_IMAGES: Record<string, string> = {
   Retirement: "/benefits-hub-default-inner-images/retirement_image.jpg",
@@ -30,7 +29,7 @@ export const CATEGORY_DEFAULT_INNER_IMAGES: Record<string, string> = {
   Custom: "/benefits-hub-default-inner-images/wellness_image.jpg",
 };
 
-/** Resolve the default Inner Header Image for a benefit category (safe fallback to Retirement). */
+/** Resolve the category's stock image (safe fallback to Retirement). */
 export function getCategoryDefaultInnerImageUrl(
   category: string | null | undefined,
 ): string {

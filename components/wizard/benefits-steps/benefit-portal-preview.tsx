@@ -175,6 +175,18 @@ export function BenefitPortalPreview({
     return byCategory[norm(apiCat)] ?? undefined;
   }, [step1Data?.categoryBenefitByApi, category]);
 
+  // The welcome banner's circular portrait is the key contact's headshot. Pass the
+  // advisor's explicit Step 1 selection when there is one, so the preview shows the
+  // same person the published portal will feature for this benefit.
+  const previewKeyContacts = useMemo(() => {
+    const raw = (step1Data?.selectedPlan as any)?.keyContacts;
+    const contacts: any[] = Array.isArray(raw) ? raw : raw?.contacts || [];
+    const contactId = step1Data?.contactId;
+    if (!contactId) return contacts;
+    const selected = contacts.filter((contact) => contact?.id === contactId);
+    return selected.length > 0 ? selected : contacts;
+  }, [step1Data?.selectedPlan, step1Data?.contactId]);
+
   // ── Plan Video: wizard-in-progress first, then persisted (unless explicitly removed), then localStorage fallback ──
   // R2 keys are stored raw; preview uses the admin-authenticated /api/r2/object endpoint
   const planVideoUrl = useMemo(() => {
@@ -339,7 +351,6 @@ export function BenefitPortalPreview({
       customSignatureCompany: "messaging",
       companyLogo: "messaging",
       brandImagesHeader: "messaging",
-      innerHeaderImage: "innerHeaderImage",
       insuranceBackgroundImage: "insurance",
       insuranceContainerBlockOpacity: "insurance",
       insurancePlanId: "insurance",
@@ -441,7 +452,6 @@ export function BenefitPortalPreview({
               "Explore your comprehensive benefits package."
             }
             customImage={step1Data?.companyLogo?.url}
-            customInnerHeaderImage={step1Data?.innerHeaderImage?.url}
             backgroundOpacity={step1Data?.heroBackgroundOpacity ?? 1.0}
             containerBlockOpacity={step1Data?.heroContainerBlockOpacity ?? 0.67}
             containerInverted={step1Data?.heroContainerInverted ?? false}
@@ -451,6 +461,8 @@ export function BenefitPortalPreview({
               {
                 companyName:
                   step1Data?.selectedPlan?.companyName || "Your Company",
+                // Drives the banner's key-contact portrait (headshot).
+                keyContacts: previewKeyContacts,
                 // Top-left: use the Provider Logo from the editor panel (Step 2), fall back to plan-level
                 companyLogo:
                   step1Data?.companyLogo?.url ||
@@ -506,12 +518,6 @@ export function BenefitPortalPreview({
             onTitleClick={() => handleEdit("messaging", "benefitTitle")}
             onDescriptionClick={() =>
               handleEdit("messaging", "shortDescription")
-            }
-            // The Inner Header Image lives in the Branding section, and its own
-            // control carries the matching field id, so the panel scrolls
-            // straight to it rather than to the top of the section.
-            onInnerHeaderImageClick={() =>
-              handleEdit("branding", "innerHeaderImage")
             }
             desktopHeroBackgroundPosition={
               (step1Data as any)?.desktopHeroBackgroundPosition

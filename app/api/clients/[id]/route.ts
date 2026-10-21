@@ -384,7 +384,6 @@ export async function GET(
         "planVideoThumbnail",
         "image",
         "backgroundImage",
-        "innerHeaderImage",
         "landingCardImage",
         "partnerLogo",
       ] as const;

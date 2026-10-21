@@ -34,11 +34,9 @@ export interface BenefitsStep1Data {
   benefitTitle: string;
   shortDescription?: string;
   companyLogo?: CompanyLogoData | null;
-  /** Right column image displayed full-height in the hero section (Inner Header Image) */
-  innerHeaderImage?: CompanyLogoData | null;
   /**
-   * Landing page "Benefits at a Glance" card image. Independent of
-   * `innerHeaderImage`; when empty the card falls back to it.
+   * Landing page "Benefits at a Glance" card image. When empty the card falls
+   * back to the category's stock image.
    */
   landingCardImage?: CompanyLogoData | null;
   /**

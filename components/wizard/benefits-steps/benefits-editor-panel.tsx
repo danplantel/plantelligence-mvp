@@ -6,7 +6,6 @@ import {
   HelpCardData,
 } from "@/lib/benefits-wizard-store";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
-import { getCategoryDefaultInnerImageUrl } from "@/lib/portal-category-hero-background";
 import {
   BENEFIT_CATEGORY_GALLERY,
   toCategoryGalleryKey,
@@ -164,19 +163,6 @@ export function BenefitsEditorPanel({
   }) as BenefitsStep3Data;
 
   /**
-   * The category's stock Inner Header Image.
-   *
-   * This is what the preview shows while no custom image is uploaded
-   * (`CATEGORY_DEFAULT_INNER_IMAGES`, shared by the hub banner and the hub cards), so the
-   * Inner Header Image control below displays it too. Without it that control sat empty
-   * beside a preview showing a photo — the one field in this panel whose state disagreed
-   * with what the advisor could see.
-   */
-  const defaultInnerHeaderImageUrl = getCategoryDefaultInnerImageUrl(
-    step1Data.benefitCategory,
-  );
-
-  /**
    * Default backgrounds for the Header Background's "Choose Default Image" gallery,
    * matched to the benefit category (Retirement / Group Health / Group Life /
    * Custom→Wellness).
@@ -229,15 +215,11 @@ export function BenefitsEditorPanel({
   const insuranceLoginUrlRef = useRef<HTMLDivElement>(null);
   const companyLogoRef = useRef<HTMLDivElement>(null);
   const brandImagesHeaderRef = useRef<HTMLDivElement>(null);
-  const innerHeaderImageRef = useRef<HTMLDivElement>(null);
   const benefitTitleRef = useRef<HTMLDivElement>(null);
   const shortDescriptionRef = useRef<HTMLDivElement>(null);
   const fieldRefs: Record<string, React.RefObject<HTMLDivElement>> = {
     companyLogo: companyLogoRef,
     "brandImages.header": brandImagesHeaderRef,
-    // Lets a click on the Inner Header Image in the preview land on this control
-    // rather than just at the top of the Branding section.
-    innerHeaderImage: innerHeaderImageRef,
     benefitTitle: benefitTitleRef,
     shortDescription: shortDescriptionRef,
     insuranceLoginUrl: insuranceLoginUrlRef,
@@ -398,21 +380,6 @@ export function BenefitsEditorPanel({
     saveStepData(1, {
       ...step1Data,
       companyLogo: {
-        url: imageData.url,
-        fileName: imageData.fileName,
-        fileSize: imageData.fileSize,
-        width: imageData.width,
-        height: imageData.height,
-        hasTransparency: false,
-        warnings: [],
-      } as CompanyLogoData,
-    });
-  };
-
-  const handleInnerHeaderImageChange = (imageData: BrandImageData) => {
-    saveStepData(1, {
-      ...step1Data,
-      innerHeaderImage: {
         url: imageData.url,
         fileName: imageData.fileName,
         fileSize: imageData.fileSize,
@@ -836,76 +803,6 @@ export function BenefitsEditorPanel({
                 }}
               />
             </div>
-            <div
-              ref={innerHeaderImageRef}
-              data-field="innerHeaderImage"
-              className="space-y-4"
-              onMouseDown={() => focusPreviewField("innerHeaderImage")}
-            >
-              <Label className="text-xs font-bold text-foreground">
-                Inner Header Image
-              </Label>
-              <BrandImageUpload
-                slotKey="innerHeaderImage"
-                slot={{
-                  title: "",
-                  description:
-                    "Full-height image displayed in the left column of the hero section. Replaces the Benefits Logo when set.",
-                  recommendedSize: "1200×1600 px",
-                  accept: ".png,.jpg,.jpeg",
-                  required: false,
-                  previewAspectRatio: 0.75,
-                  previewLabel: "Inner Header Preview",
-                }}
-                currentImage={
-                  step1Data.innerHeaderImage
-                    ? ({
-                        url: step1Data.innerHeaderImage.url,
-                        fileName: step1Data.innerHeaderImage.fileName,
-                        fileSize: step1Data.innerHeaderImage.fileSize || 0,
-                        width: step1Data.innerHeaderImage.width || 0,
-                        height: step1Data.innerHeaderImage.height || 0,
-                        recommendedSize: "1200x1600",
-                        status: "ok",
-                        warnings: [],
-                      } as BrandImageData)
-                    : ({
-                        // Not uploaded yet — show the default the preview is using.
-                        // Replacing it is what writing `innerHeaderImage` does, so
-                        // editing from here behaves like any other upload.
-                        url: defaultInnerHeaderImageUrl,
-                        fileName: "default-inner-header.jpg",
-                        fileSize: 0,
-                        width: 0,
-                        height: 0,
-                        recommendedSize: "1200x1600",
-                        status: "ok",
-                        warnings: [],
-                      } as BrandImageData)
-                }
-                onImageChange={handleInnerHeaderImageChange}
-                onImageRemove={() =>
-                  saveStepData(1, { ...step1Data, innerHeaderImage: null })
-                }
-                hideButtons={true}
-                useUniversalModal={true}
-                universalModalType="normalizer"
-                // Full-height hero photo, not a logo — background
-                // removal would punch it full of holes. It borrows
-                // the normalizer type only for the header-bar fit.
-                universalModalAllowBackgroundRemoval={false}
-                universalModalCustomConfig={{
-                  outlinePadding: 0,
-                  modalTitle: "Inner Header Image",
-                  modalDescription:
-                    "Full-height image displayed in the left column of the hero section. Replaces the Benefits Logo when set.",
-                  // Not a logo — keep the size-based hint instead of
-                  // the logo guidance inherited from `normalizer`.
-                  recommendedText: undefined,
-                }}
-              />
-            </div>
-
             {/* Hero Overlay Settings */}
             <div className="space-y-4">
               <Label className="text-xs font-bold text-foreground">

@@ -241,7 +241,6 @@ describe("PortalBenefits card content", () => {
       benefits: [
         benefitRow({
           landingCardImage: "https://cdn.test/landing.png",
-          innerHeaderImage: "https://cdn.test/inner.png",
         }),
       ] as any,
     });
@@ -249,19 +248,6 @@ describe("PortalBenefits card content", () => {
     expect(screen.getByAltText("Retirement Plan Benefits")).toHaveAttribute(
       "src",
       "https://cdn.test/landing.png",
-    );
-  });
-
-  it("falls back to the hub's inner header image", () => {
-    renderBenefits({
-      benefits: [
-        benefitRow({ innerHeaderImage: "https://cdn.test/inner.png" }),
-      ] as any,
-    });
-
-    expect(screen.getByAltText("Retirement Plan Benefits")).toHaveAttribute(
-      "src",
-      "https://cdn.test/inner.png",
     );
   });
 

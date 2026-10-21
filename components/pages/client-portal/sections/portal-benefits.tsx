@@ -335,15 +335,12 @@ export function PortalBenefits({
               ? getBenefitCompleteness(category, completenessInput)
               : { isComplete: true, missingInfo: [] };
 
-            // The top image of each Benefit Card is the Benefit Hub's Inner
-            // Header Image — the same image shown in the left column of that
-            // hub's welcome banner: custom per-category image first, then the
-            // per-category default placeholder image, then the legacy card image.
+            // The top image of each Benefit Card: the dedicated landing-card
+            // image first, then the category's stock card image, then the
+            // legacy card image. (The banner's Inner Header Image is now the
+            // key contact's headshot, so it is not part of this chain.)
             const cardImage =
-              // Dedicated landing-card image first; older benefits (and cards the
-              // advisor never customised) fall back to the hub's inner header.
               benefit.landingCardImage ||
-              benefit.innerHeaderImage ||
               getCategoryDefaultInnerImageUrl(category) ||
               benefit.image ||
               "";
@@ -445,7 +442,7 @@ export function PortalBenefits({
                       }
                     }}
                   >
-                    {/* Image Section - Top (Benefit Hub Inner Header Image) */}
+                    {/* Image Section - Top (Benefits at a Glance card image) */}
                     <img
                       src={cardImage}
                       alt={benefit.title}
