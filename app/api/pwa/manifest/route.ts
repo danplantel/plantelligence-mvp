@@ -93,6 +93,12 @@ export function GET(request: NextRequest) {
     sanitizeName(request.nextUrl.searchParams.get("name")) ||
     "PlanTelligence Benefits";
 
+  // A plan install uses the Plan Company Logo, resolved by /api/pwa/icon. The
+  // brand-level manifest (no slug) keeps the platform icons.
+  const planIcon = slug
+    ? `/api/pwa/icon?slug=${encodeURIComponent(slug)}`
+    : null;
+
   const manifest = {
     // Identity: one installed app per plan. Distinct ids also keep two plans on the same
     // home screen from overwriting each other.
@@ -105,26 +111,49 @@ export function GET(request: NextRequest) {
     display: "standalone",
     background_color: "#FFFFFF",
     theme_color: "#1F3A60",
-    icons: [
-      {
-        src: "/pwa/icon-192.png",
-        sizes: "192x192",
-        type: "image/png",
-        purpose: "any",
-      },
-      {
-        src: "/pwa/icon-512.png",
-        sizes: "512x512",
-        type: "image/png",
-        purpose: "any",
-      },
-      {
-        src: "/pwa/icon-maskable-512.png",
-        sizes: "512x512",
-        type: "image/png",
-        purpose: "maskable",
-      },
-    ],
+    icons: planIcon
+      ? [
+          {
+            src: `${planIcon}&size=192`,
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: `${planIcon}&size=512`,
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            // The icon route contains the logo on a white square, so it has the
+            // safe-zone padding a maskable icon needs.
+            src: `${planIcon}&size=512`,
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
+        ]
+      : [
+          {
+            src: "/pwa/icon-192.png",
+            sizes: "192x192",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "/pwa/icon-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "any",
+          },
+          {
+            src: "/pwa/icon-maskable-512.png",
+            sizes: "512x512",
+            type: "image/png",
+            purpose: "maskable",
+          },
+        ],
   } as const;
 
   return new NextResponse(JSON.stringify(manifest), {

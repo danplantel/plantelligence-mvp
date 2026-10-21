@@ -103,11 +103,17 @@ export function PortalInstallApp() {
 
   // Point the manifest at THIS plan. The root layout links the manifest route so the browser always
   // has one; the slug and name make the installed app start at this portal and carry its name.
+  //
+  // iOS ignores manifest icons when adding to the home screen, so the `apple-touch-icon` link is
+  // re-pointed at the same plan-aware icon route. Without it an iOS install would keep the
+  // PlanTelligence mark while Android/desktop use the plan's logo.
   useEffect(() => {
     if (!slug || typeof document === "undefined") return;
     const href = `${MANIFEST_PATH}?slug=${encodeURIComponent(
       slug,
     )}&name=${encodeURIComponent(appName)}`;
+    // 192px is the closest square the route renders to iOS's 180px touch icon.
+    const iconHref = `/api/pwa/icon?slug=${encodeURIComponent(slug)}&size=192`;
 
     let link = document.head.querySelector<HTMLLinkElement>(
       'link[rel="manifest"]',
@@ -122,6 +128,19 @@ export function PortalInstallApp() {
     const previousHref = link.getAttribute("href");
     link.setAttribute("href", href);
 
+    let appleLink = document.head.querySelector<HTMLLinkElement>(
+      'link[rel="apple-touch-icon"]',
+    );
+    const appleCreatedHere = !appleLink;
+    if (!appleLink) {
+      appleLink = document.createElement("link");
+      appleLink.rel = "apple-touch-icon";
+      appleLink.setAttribute("sizes", "180x180");
+      document.head.appendChild(appleLink);
+    }
+    const previousAppleHref = appleLink.getAttribute("href");
+    appleLink.setAttribute("href", iconHref);
+
     // Leaving the portal restores the app-level manifest rather than leaving this plan's on a
     // dashboard page the browser may keep open.
     return () => {
@@ -129,6 +148,11 @@ export function PortalInstallApp() {
         link?.remove();
       } else if (previousHref) {
         link?.setAttribute("href", previousHref);
+      }
+      if (appleCreatedHere) {
+        appleLink?.remove();
+      } else if (previousAppleHref) {
+        appleLink?.setAttribute("href", previousAppleHref);
       }
     };
   }, [slug, appName]);
