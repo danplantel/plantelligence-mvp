@@ -197,7 +197,7 @@ describe("BenefitsStep5", () => {
       expect(mocks.fetchClientOnce).toHaveBeenCalledWith("plan-1");
     });
 
-    it("inherits the profile disclaimer when the plan has none", async () => {
+    it("inherits the profile disclaimer as the default copy", async () => {
       mocks.fetchProfileOnce.mockResolvedValue({
         organizationName: "Profile Org",
         disclaimer: [
@@ -212,21 +212,26 @@ describe("BenefitsStep5", () => {
       await waitForEditor();
 
       await waitFor(() =>
-        expect(screen.getByTestId("text")).toHaveTextContent(
+        expect(screen.getByTestId("default-text")).toHaveTextContent(
           "Profile defaults for Profile Org and Acme Corp",
         ),
       );
+      // Inherited copy is the "Use Default" option, so the editor starts blank
+      // and neither radio is preselected.
+      expect(screen.getByTestId("text").textContent).toBe("");
+      expect(screen.getByTestId("mode").textContent).toBe("");
       expect(screen.getByTestId("org")).toHaveTextContent("Profile Org");
     });
 
-    it("builds the default disclosure when nothing is stored", async () => {
+    it("builds the default disclosure but leaves the choice unselected", async () => {
       renderStep();
       await waitForEditor();
 
-      expect(screen.getByTestId("text").textContent).toContain(
+      expect(screen.getByTestId("default-text").textContent).toContain(
         "separate and unaffiliated entities",
       );
-      expect(screen.getByTestId("mode")).toHaveTextContent("default");
+      expect(screen.getByTestId("text").textContent).toBe("");
+      expect(screen.getByTestId("mode").textContent).toBe("");
     });
 
     it("seeds a legacy flat disclaimers array into the current category", async () => {
@@ -262,7 +267,8 @@ describe("BenefitsStep5", () => {
       expect(screen.getByTestId("text")).not.toHaveTextContent(
         "Group health only disclosure",
       );
-      expect(screen.getByTestId("text").textContent).toContain(
+      expect(screen.getByTestId("text").textContent).toBe("");
+      expect(screen.getByTestId("default-text").textContent).toContain(
         "separate and unaffiliated entities",
       );
     });
@@ -272,7 +278,8 @@ describe("BenefitsStep5", () => {
       renderStep();
       await waitForEditor();
 
-      expect(screen.getByTestId("text").textContent).toContain(
+      expect(screen.getByTestId("text").textContent).toBe("");
+      expect(screen.getByTestId("default-text").textContent).toContain(
         "separate and unaffiliated entities",
       );
     });
@@ -381,11 +388,11 @@ describe("BenefitsStep5", () => {
       });
     });
 
-    it("switches between the default and custom editor modes", async () => {
+    it("starts unselected, then switches between default and custom modes", async () => {
       renderStep();
       await waitForEditor();
 
-      expect(screen.getByTestId("mode")).toHaveTextContent("default");
+      expect(screen.getByTestId("mode").textContent).toBe("");
 
       fireEvent.click(screen.getByRole("button", { name: "choose-custom" }));
       expect(screen.getByTestId("mode")).toHaveTextContent("custom");

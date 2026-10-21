@@ -692,9 +692,9 @@ export function BenefitsStep5() {
       ),
     [disclaimerOrganizationName, companyName],
   );
-  const editorText = disclaimer?.text
-    ? resolvedStoredText(disclaimer.text)
-    : defaultDisclaimerText;
+  const editorText = disclaimer
+    ? resolvedStoredText(disclaimer.text || "")
+    : "";
 
   // The editor is the source of truth now: a keystroke updates the current category's
   // disclaimer locally at once, then persists to the plan record behind a short debounce.
@@ -747,9 +747,14 @@ export function BenefitsStep5() {
     setCustomModeChosen(null);
   }, [currentCategoryKey]);
 
-  const derivedDisclaimerMode: DisclosureEditorMode =
-    editorText.trim() === defaultDisclaimerText.trim() ? "default" : "custom";
-  const disclaimerMode: DisclosureEditorMode =
+  // Only a SAVED custom disclosure preselects a radio. Default/blank copy leaves
+  // both radios unselected — the advisor has not made a choice yet.
+  const hasCustomDisclosureText =
+    !!editorText.trim() &&
+    editorText.trim() !== defaultDisclaimerText.trim();
+  const derivedDisclaimerMode: DisclosureEditorMode | null =
+    hasCustomDisclosureText ? "custom" : null;
+  const disclaimerMode: DisclosureEditorMode | null =
     customModeChosen === null
       ? derivedDisclaimerMode
       : customModeChosen
@@ -945,7 +950,9 @@ export function BenefitsStep5() {
               setFooterBgCustomColor(value);
               schedulePersistFooterBg("custom", value);
             }}
-            text={editorText}
+            // No radio selected → the editor is blank, not pre-filled with the
+            // inherited/platform copy. "Use Default" is what writes that copy in.
+            text={disclaimerMode === null ? "" : editorText}
             onTextChange={handleInlineTextChange}
             mode={disclaimerMode}
             onModeChange={handleDisclaimerModeChange}

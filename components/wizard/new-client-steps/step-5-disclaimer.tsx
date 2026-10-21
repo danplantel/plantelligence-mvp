@@ -629,11 +629,16 @@ export function NewClientStep5({
   );
   const editorText = disclaimer
     ? stripDisclaimerCopyright(resolveDisclaimerText(disclaimer.text))
-    : defaultDisclaimerText;
+    : "";
   const [customModeChosen, setCustomModeChosen] = useState<boolean | null>(null);
-  const derivedDisclaimerMode: DisclosureEditorMode =
-    editorText.trim() === defaultDisclaimerText.trim() ? "default" : "custom";
-  const disclaimerMode: DisclosureEditorMode =
+  // Only a SAVED custom disclosure preselects a radio. Default/blank copy leaves
+  // both radios unselected — the advisor has not made a choice yet.
+  const hasCustomDisclosureText =
+    !!editorText.trim() &&
+    editorText.trim() !== defaultDisclaimerText.trim();
+  const derivedDisclaimerMode: DisclosureEditorMode | null =
+    hasCustomDisclosureText ? "custom" : null;
+  const disclaimerMode: DisclosureEditorMode | null =
     customModeChosen === null
       ? derivedDisclaimerMode
       : customModeChosen
@@ -823,7 +828,9 @@ export function NewClientStep5({
               setFooterBgCustomColor(value);
               persistFooterBg("custom", value).catch(() => {});
             }}
-            text={editorText}
+            // No radio selected → the editor is blank, not pre-filled with the
+            // platform copy. "Use Default" is what writes that copy in.
+            text={disclaimerMode === null ? "" : editorText}
             onTextChange={handleInlineTextChange}
             mode={disclaimerMode}
             onModeChange={handleDisclaimerModeChange}

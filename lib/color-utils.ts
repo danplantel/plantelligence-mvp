@@ -391,6 +391,22 @@ export function bestTextColor(background: string): "#FFFFFF" | "#000000" {
 }
 
 /**
+ * Is this colour a blue / green / teal shade?
+ *
+ * Used by the disclosure footer editor: its selected-radio indicator is the
+ * product's teal accent, which disappears against a footer painted the same
+ * family of colours. Grey/black/white and warm colours return false.
+ */
+export function isBlueGreen(hex: string): boolean {
+  const color = safeChroma(hex);
+  if (!color) return false;
+  const [hue, saturation] = color.hsl();
+  if (!Number.isFinite(hue) || saturation < 0.15) return false;
+  // Chroma's hue is 0–360: green ~120, cyan/teal ~180, blue ~240.
+  return hue >= 130 && hue <= 280;
+}
+
+/**
  * Text colour for a colour-painted surface the advisor can choose (the Disclosures footer
  * preview).
  *

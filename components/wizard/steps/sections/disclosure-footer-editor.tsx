@@ -26,7 +26,11 @@ import { PortalDisclaimers } from "@/components/pages/client-portal/sections/por
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
-import { lightSurfaceTextColor } from "@/lib/color-utils";
+import {
+  contrastRatio,
+  isBlueGreen,
+  lightSurfaceTextColor,
+} from "@/lib/color-utils";
 
 export type DisclosureEditorMode = "default" | "custom";
 export type FooterBackgroundMode = "primary" | "secondary" | "custom";
@@ -47,7 +51,8 @@ interface DisclosureFooterEditorProps {
   /** Editor value. */
   text: string;
   onTextChange: (value: string) => void;
-  mode: DisclosureEditorMode;
+  /** `null` renders both radios unselected — the "no choice made yet" state. */
+  mode: DisclosureEditorMode | null;
   onModeChange: (mode: DisclosureEditorMode) => void;
   /** The copy "Use Default" inserts. */
   defaultText: string;
@@ -89,19 +94,32 @@ export function DisclosureFooterEditor({
   // the Edit Plan editor use, and safe while a custom hex is still being typed.
   const footerTextColor = lightSurfaceTextColor(resolvedFooterBgColor);
 
+  // The radio indicator is the product teal accent. On a footer painted a
+  // blue/green/teal shade — or any background it barely contrasts with — that
+  // indicator is invisible, so switch to black/white chosen for this background.
+  const ACCENT_BLUE = "#23919C";
+  const radioIndicatorColor =
+    isBlueGreen(resolvedFooterBgColor) ||
+    contrastRatio(ACCENT_BLUE, resolvedFooterBgColor) < 3
+      ? lightSurfaceTextColor(resolvedFooterBgColor)
+      : ACCENT_BLUE;
+
   const handleModeChange = (value: string) => {
     if (value === "default") {
       onModeChange("default");
       onTextChange(defaultText);
       return;
     }
-    const wasDefault = text.trim() === defaultText.trim();
+    // Choosing "Add my own" starts from a blank editor. The field is empty while
+    // no radio is selected, and any default/inherited copy must not reappear.
+    const shouldClear = !text.trim() || text.trim() === defaultText.trim();
     onModeChange("custom");
+    if (shouldClear) onTextChange("");
     requestAnimationFrame(() => {
       const el = textareaRef.current;
       if (!el) return;
       el.focus();
-      if (wasDefault) el.select();
+      if (shouldClear) el.setSelectionRange(0, 0);
     });
   };
 
@@ -117,12 +135,19 @@ export function DisclosureFooterEditor({
       </Label>
 
       <RadioGroup
-        value={mode}
+        value={mode ?? ""}
         onValueChange={handleModeChange}
         className="flex items-center gap-6"
       >
         <div className="flex items-center space-x-2">
-          <RadioGroupItem value="default" id="disclosure-mode-default" />
+          <RadioGroupItem
+            value="default"
+            id="disclosure-mode-default"
+            style={{
+              color: radioIndicatorColor,
+              borderColor: radioIndicatorColor,
+            }}
+          />
           <Label
             htmlFor="disclosure-mode-default"
             className="cursor-pointer text-sm font-normal"
@@ -132,7 +157,14 @@ export function DisclosureFooterEditor({
           </Label>
         </div>
         <div className="flex items-center space-x-2">
-          <RadioGroupItem value="custom" id="disclosure-mode-custom" />
+          <RadioGroupItem
+            value="custom"
+            id="disclosure-mode-custom"
+            style={{
+              color: radioIndicatorColor,
+              borderColor: radioIndicatorColor,
+            }}
+          />
           <Label
             htmlFor="disclosure-mode-custom"
             className="cursor-pointer text-sm font-normal"

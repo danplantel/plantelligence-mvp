@@ -65,6 +65,7 @@ vi.mock("@/components/wizard/steps/sections/disclosure-footer-editor", () => ({
   DisclosureFooterEditor: ({
     text,
     mode,
+    defaultText,
     onTextChange,
     onModeChange,
     onFooterBgModeChange,
@@ -72,6 +73,7 @@ vi.mock("@/components/wizard/steps/sections/disclosure-footer-editor", () => ({
     <div data-testid="footer-editor">
       <p data-testid="editor-text">{text}</p>
       <span data-testid="editor-mode">{mode}</span>
+      <p data-testid="editor-default-text">{defaultText}</p>
       <button type="button" onClick={() => onTextChange(`${text} updated`)}>
         Append text
       </button>
@@ -189,7 +191,7 @@ describe("NewClientStep5", () => {
     );
   });
 
-  it("seeds the platform default when every source is empty", async () => {
+  it("seeds the platform default but leaves the choice unselected and blank", async () => {
     mocks.state.stepData = { companyBasics: { companyName: "Acme" } };
 
     render(<NewClientStep5 />);
@@ -209,7 +211,13 @@ describe("NewClientStep5", () => {
     );
     expect(mocks.fetchProfileOnce).toHaveBeenCalledTimes(1);
     expect(mocks.onboarding.loadStepData).toHaveBeenCalledWith("disclaimers");
-    expect(screen.getByTestId("editor-mode")).toHaveTextContent("default");
+    // Neither radio is preselected and the editor starts blank; "Use Default"
+    // is what writes the seeded copy into the field.
+    expect(screen.getByTestId("editor-mode").textContent).toBe("");
+    expect(screen.getByTestId("editor-text").textContent).toBe("");
+    expect(screen.getByTestId("editor-default-text")).toHaveTextContent(
+      "Acme",
+    );
   });
 
   it("saves an inline edit locally at once and to the server after the debounce", async () => {
