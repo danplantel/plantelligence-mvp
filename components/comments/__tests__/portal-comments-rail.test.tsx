@@ -36,10 +36,24 @@ const mocks = vi.hoisted(() => ({
     needsDraft: false,
     toggleMode: vi.fn(),
   },
+  messagesMode: {
+    open: false,
+    toggle: vi.fn(),
+    unreadTotal: 0,
+  },
 }));
 
 vi.mock("next-auth/react", () => ({
   useSession: () => ({ status: mocks.sessionStatus, data: null }),
+}));
+
+vi.mock("next/navigation", () => ({
+  useParams: () => ({ id: "plan-1" }),
+  usePathname: () => "/plan-1/retirement",
+}));
+
+vi.mock("@/contexts/client-portal-context", () => ({
+  useClientPortal: () => ({ clientData: { companyName: "Acme Corp" } }),
 }));
 
 vi.mock("@/hooks/useMediaQuery", () => ({
@@ -47,7 +61,14 @@ vi.mock("@/hooks/useMediaQuery", () => ({
 }));
 
 vi.mock("@/components/comments/comments-rail", () => ({
-  CommentsRail: () => <div data-testid="comments-rail" />,
+  CommentsRail: ({ surfaceLabel, showViewer, showPanelSwitch }: any) => (
+    <div
+      data-testid="comments-rail"
+      data-surface-label={surfaceLabel ?? ""}
+      data-show-viewer={String(Boolean(showViewer))}
+      data-show-panel-switch={String(Boolean(showPanelSwitch))}
+    />
+  ),
 }));
 
 vi.mock("@/components/comments/comment-mode-provider", () => ({
@@ -62,6 +83,22 @@ vi.mock("@/components/comments/comment-mode-provider", () => ({
     return <div data-testid="comment-mode-provider">{children}</div>;
   },
   useCommentMode: () => mocks.mode,
+}));
+
+vi.mock("@/components/messages/messages-mode-provider", () => ({
+  MessagesModeProvider: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="messages-mode-provider">{children}</div>
+  ),
+  useMessagesMode: () => mocks.messagesMode,
+}));
+
+vi.mock("@/components/messages/messages-rail", () => ({
+  MessagesRail: ({ showPanelSwitch }: any) => (
+    <div
+      data-testid="messages-rail"
+      data-show-panel-switch={String(Boolean(showPanelSwitch))}
+    />
+  ),
 }));
 
 function renderRail() {
@@ -86,6 +123,11 @@ beforeEach(() => {
     mode: "on",
     needsDraft: false,
     toggleMode: vi.fn(),
+  };
+  mocks.messagesMode = {
+    open: false,
+    toggle: vi.fn(),
+    unreadTotal: 0,
   };
   setSearch("");
   document.documentElement.style.removeProperty("--comments-rail-top");
@@ -148,6 +190,35 @@ describe("PortalCommentsRail gates", () => {
     expect(screen.getByText("portal content")).toBeInTheDocument();
     expect(mocks.initialModes).toEqual(["on"]);
   });
+
+  it("names the plan/benefit conversation and shows the reader's identity", () => {
+    setSearch("?comments=on");
+    renderRail();
+
+    expect(screen.getByTestId("comments-rail")).toHaveAttribute(
+      "data-surface-label",
+      "Acme Corp · Retirement",
+    );
+    expect(screen.getByTestId("comments-rail")).toHaveAttribute(
+      "data-show-viewer",
+      "true",
+    );
+  });
+
+  it("mounts Direct Messages and puts the panel switch inside both rails", () => {
+    setSearch("?comments=on");
+    renderRail();
+
+    expect(screen.getByTestId("messages-rail")).toBeInTheDocument();
+    expect(screen.getByTestId("comments-rail")).toHaveAttribute(
+      "data-show-panel-switch",
+      "true",
+    );
+    expect(screen.getByTestId("messages-rail")).toHaveAttribute(
+      "data-show-panel-switch",
+      "true",
+    );
+  });
 });
 
 describe("PortalCommentsRail chrome", () => {
@@ -198,12 +269,15 @@ describe("PortalCommentsRail chrome", () => {
     expect(button).toBeDisabled();
   });
 
-  it("sits at the rail's left edge while the rail is open", () => {
+  it("sits at the rail's left edge while either rail is open", () => {
     setSearch("?comments=on");
     renderRail();
 
     expect(
       screen.getByRole("button", { name: "Turn comments off" }),
-    ).toHaveStyle({ right: "calc(var(--comments-inset, 0px) + 1.5rem)" });
+    ).toHaveStyle({
+      right:
+        "calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)",
+    });
   });
 });

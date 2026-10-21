@@ -43,6 +43,7 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useOptionalCommentMode } from "@/components/comments/comment-mode-provider";
+import { useOptionalMessagesMode } from "@/components/messages/messages-mode-provider";
 import { COMMENTS_RAIL_WIDTH } from "@/lib/comments/comments-layout";
 
 /**
@@ -66,7 +67,12 @@ export function PortalCommentsZoom({
   children: React.ReactNode;
 }) {
   const comments = useOptionalCommentMode();
-  const open = Boolean(comments?.canComment && comments.mode === "on");
+  const messages = useOptionalMessagesMode();
+  // Comments and Direct Messages share the same right-hand column (see
+  // lib/right-panel.ts), so the portal scales for either one.
+  const open = Boolean(
+    (comments?.canComment && comments.mode === "on") || messages?.open,
+  );
 
   const [scale, setScale] = useState(1);
   const [contentHeight, setContentHeight] = useState(0);
@@ -93,7 +99,7 @@ export function PortalCommentsZoom({
   // Measure the UNSCALED height. `offsetHeight` ignores transforms, which is exactly what the
   // wrapper has to be divided down by.
   useEffect(() => {
-    if (!comments) return;
+    if (!comments && !messages) return;
     const element = contentRef.current;
     if (!element) return;
     const measure = () => setContentHeight(element.offsetHeight);
@@ -101,10 +107,10 @@ export function PortalCommentsZoom({
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [comments]);
+  }, [comments, messages]);
 
   // No provider at all — an unarmed portal, or any dashboard page. Contribute nothing.
-  if (!comments) return <>{children}</>;
+  if (!comments && !messages) return <>{children}</>;
 
   const scaled = open && scale < 1;
 
@@ -134,6 +140,7 @@ export function PortalCommentsZoom({
                 willChange: "transform",
                 // The scale already leaves the rail's column clear — see the file comment.
                 "--comments-inset": "0px",
+                "--messages-inset": "0px",
               } as CSSProperties)
             : undefined
         }

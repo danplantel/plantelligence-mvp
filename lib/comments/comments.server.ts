@@ -548,6 +548,15 @@ export async function listMentionableUsers(input: {
       name: person.name || person.email,
       email: person.email,
       headshot: person.headshot,
+      // The rail identifies the signed-in reader from this same list, so the
+      // person's standing rides along rather than needing a second lookup.
+      roleLabel: person.isOrganizationOwner
+        ? "Owner"
+        : person.seatType === "team_member"
+          ? "Team Member"
+          : person.seatType === "collaborator"
+            ? "Collaborator"
+            : null,
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 

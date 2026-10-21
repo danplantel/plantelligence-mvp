@@ -462,7 +462,10 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
         // as it was. The FIXED header cannot inherit it and clears the column itself, below.
         // While the rail is open this resolves to 0px too: `PortalCommentsZoom` scales the whole
         // portal instead and overrides the variable inside its subtree (portal-comments-zoom.tsx).
-        paddingRight: "var(--comments-inset, 0px)",
+        // Comments and Direct Messages share the same right-hand column, so the
+        // page clears whichever one is open (they are never both open).
+        paddingRight:
+          "max(var(--comments-inset, 0px), var(--messages-inset, 0px))",
       }}
     >
       {/* `right` rather than `w-full`: with a rail open, `left-0 right-<inset>` is what shortens the
@@ -471,7 +474,10 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
       <div
         ref={fixedHeaderRef}
         className="fixed top-0 left-0 z-50"
-        style={{ right: "var(--comments-inset, 0px)" }}
+        style={{
+          right:
+            "max(var(--comments-inset, 0px), var(--messages-inset, 0px))",
+        }}
       >
         {/* Published Top Banner — rendered above the header */}
         {showBanner && (

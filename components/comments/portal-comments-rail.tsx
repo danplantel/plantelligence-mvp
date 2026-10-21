@@ -36,17 +36,29 @@
  * markup — a hydration mismatch for a panel that is a nicety.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
+import { useParams, usePathname } from "next/navigation";
 import { MessageSquare } from "lucide-react";
 import {
   CommentModeProvider,
   useCommentMode,
 } from "@/components/comments/comment-mode-provider";
 import { CommentsRail } from "@/components/comments/comments-rail";
+import { MessagesModeProvider } from "@/components/messages/messages-mode-provider";
+import { MessagesRail } from "@/components/messages/messages-rail";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useClientPortal } from "@/contexts/client-portal-context";
 import { cn } from "@/lib/utils";
-import { wantsCommentsRail } from "@/lib/comments/portal-surface";
+import {
+  portalCommentsSurface,
+  wantsCommentsRail,
+} from "@/lib/comments/portal-surface";
+import { benefitCategoryToVisibilityKey } from "@/lib/portal-category-visibility";
+import {
+  customBenefitNameToSlug,
+  isPlaceholderBenefitName,
+} from "@/lib/benefit-custom-name";
 
 /** The same breakpoint the desktop gate uses — a rail is a desktop affordance. */
 const DESKTOP_QUERY = "(min-width: 1024px)";
@@ -58,6 +70,9 @@ export function PortalCommentsRail({
 }) {
   const [flagged, setFlagged] = useState(false);
   const { status } = useSession();
+  const { clientData } = useClientPortal();
+  const params = useParams<{ id?: string }>();
+  const pathname = usePathname();
   // `serverFallback: false` — assume NOT desktop until measured, so a phone never reserves the column
   // for a panel it is about to be told it cannot have.
   const isDesktop = useMediaQuery(DESKTOP_QUERY, false);
@@ -68,6 +83,46 @@ export function PortalCommentsRail({
 
   const armed = flagged && status === "authenticated" && isDesktop;
 
+  /**
+   * The Plan / Benefit conversation this rail is attached to.
+   *
+   * The panel itself is global (it sits beside the page, not inside it), so the
+   * reader needs the page's own name to know which comments they are reading.
+   * The same surface mapping the layout registers is used here, including the
+   * Custom hub's advisor-chosen slug.
+   */
+  const surfaceLabel = useMemo(() => {
+    const planSlug = typeof params?.id === "string" ? params.id : "";
+    const hubs = (clientData as any)?.benefitHubs;
+    const customHubSlug = (() => {
+      if (!Array.isArray(hubs)) return null;
+      const hub = hubs.find(
+        (entry: any) =>
+          benefitCategoryToVisibilityKey(String(entry?.category || "")) ===
+          "Other",
+      );
+      const title = String(hub?.title || "").trim();
+      return title && !isPlaceholderBenefitName(title)
+        ? customBenefitNameToSlug(title)
+        : null;
+    })();
+    const surface = portalCommentsSurface({
+      pathname: pathname ?? "",
+      planSlug,
+      customHubSlug,
+    });
+    if (!surface) return null;
+
+    const benefitLabel =
+      surface.targetType === "benefit"
+        ? surface.category === "Other"
+          ? "Custom Benefit"
+          : surface.category
+        : "Plan Hub";
+    const companyName = String(clientData?.companyName || "").trim();
+    return companyName ? `${companyName} · ${benefitLabel}` : benefitLabel;
+  }, [clientData, params?.id, pathname]);
+
   // The rail's own top offset. The dashboard docks it below its header (`4rem`); here the portal's
   // header is cleared by `--comments-inset` — it stops where the rail begins — so the panel can use
   // the full height of the window instead of starting below a header it is not sitting under.
@@ -75,11 +130,14 @@ export function PortalCommentsRail({
     if (!armed) return;
     const root = document.documentElement;
     root.style.setProperty("--comments-rail-top", "0px");
+    // The Messages rail shares this column and docks to the same top edge.
+    root.style.setProperty("--messages-rail-top", "0px");
     // Braces, not a concise arrow: `removeProperty` returns a value, and a cleanup that returns one
     // is not a cleanup as far as React's types are concerned. `comments-layout.ts` does it this way
     // for the same reason.
     return () => {
       root.style.removeProperty("--comments-rail-top");
+      root.style.removeProperty("--messages-rail-top");
     };
   }, [armed]);
 
@@ -87,10 +145,18 @@ export function PortalCommentsRail({
 
   return (
     <CommentModeProvider initialMode="on">
-      {children}
-      <CommentsRail />
-      {/* Inside the provider: it is the rail's own on/off control. */}
-      <PortalCommentsButton />
+      <MessagesModeProvider>
+        {children}
+        <CommentsRail
+          surfaceLabel={surfaceLabel}
+          showViewer
+          showPanelSwitch
+        />
+        {/* Same column as Comments; `lib/right-panel.ts` keeps the two exclusive. */}
+        <MessagesRail showPanelSwitch />
+        {/* Inside the providers: the portal's single floating Comments button. */}
+        <PortalCommentsButton />
+      </MessagesModeProvider>
     </CommentModeProvider>
   );
 }
@@ -98,16 +164,17 @@ export function PortalCommentsRail({
 /**
  * The floating Comments button, bottom-right.
  *
- * The portal has no header action cluster, so without this a reader who closes the rail has no way
- * back to it short of editing the URL — the flag is what MOUNTED the panel, and closing it is not a
- * navigation, so nothing re-reads the query string. Same icon and same active treatment as the
- * header's `CommentsToggle`, so the control reads as the same feature rather than as a portal-only
- * invention.
+ * The portal has no header action cluster, so without this a reader who closes
+ * the rail has no way back to it short of editing the URL. Same icon and active
+ * treatment as the dashboard's `CommentsToggle`.
  *
- * It sits at the rail's LEFT edge while the rail is open (`inset + 1.5rem`), which is also what keeps
- * it clickable: parked in the corner it would be underneath the panel it is meant to close. With the
- * rail closed `--comments-inset` is absent, the expression collapses to the corner, and the button
- * drifts back to where a reader expects it.
+ * The Comments / Messages switch lives at the top of the rail itself
+ * (`RailPanelSwitch`), not here: this button only opens the Comments panel.
+ *
+ * It sits at the rail's LEFT edge while either rail is open
+ * (`inset + 1.5rem`) — the single place to read the MAX of the two insets,
+ * since only one can be open at a time. With both closed the expression
+ * collapses to the corner.
  */
 function PortalCommentsButton() {
   const { canComment, mode, needsDraft, toggleMode } = useCommentMode();
@@ -127,7 +194,10 @@ function PortalCommentsButton() {
       aria-pressed={active}
       aria-label={label}
       title={label}
-      style={{ right: "calc(var(--comments-inset, 0px) + 1.5rem)" }}
+      style={{
+        right:
+          "calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)",
+      }}
       className={cn(
         "fixed bottom-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors",
         active

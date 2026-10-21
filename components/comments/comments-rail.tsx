@@ -56,6 +56,7 @@ import { AssignTaskDialog } from "./assign-task-dialog";
 import { TeamMembersDialog } from "./team-members-dialog";
 import { UserProfileProvider, useUserProfile } from "./user-profile-context";
 import { AttachmentThumbnail } from "./attachment-thumbnail";
+import { RailPanelSwitch } from "./rail-panel-switch";
 
 type ThreadFilter = "open" | "resolved" | "all";
 
@@ -682,10 +683,38 @@ function RailComposer({
  * and reply that can draw a name. The panel owns ONE profile dialog, and any name inside it — a
  * message's author, an assignment's assignee — can ask for it. See `user-profile-context`.
  */
-export function CommentsRail() {
+interface CommentsRailProps {
+  /**
+   * Human-readable context for the conversation, e.g. "Acme Corp · Retirement".
+   * The portal supplies it from the page it is docked to; the dashboard omits it
+   * and the panel falls back to its target.
+   */
+  surfaceLabel?: string | null;
+  /**
+   * Show the signed-in reader's headshot, name and role above the thread list.
+   * The portal turns this on; the dashboard's rail already has that identity in
+   * its surrounding chrome.
+   */
+  showViewer?: boolean;
+  /**
+   * Render the Comments / Messages tabs in the panel header. The portal turns
+   * this on; the dashboard keeps its separate header toggles.
+   */
+  showPanelSwitch?: boolean;
+}
+
+export function CommentsRail({
+  surfaceLabel,
+  showViewer = false,
+  showPanelSwitch = false,
+}: CommentsRailProps = {}) {
   return (
     <UserProfileProvider>
-      <CommentsPanel />
+      <CommentsPanel
+        surfaceLabel={surfaceLabel}
+        showViewer={showViewer}
+        showPanelSwitch={showPanelSwitch}
+      />
     </UserProfileProvider>
   );
 }
@@ -696,7 +725,15 @@ export function CommentsRail() {
  * Split from `CommentsRail` so the provider can wrap the tree WITHOUT re-indenting four hundred
  * lines of JSX around it — the panel's markup is unchanged, only its ancestor is new.
  */
-function CommentsPanel() {
+function CommentsPanel({
+  surfaceLabel,
+  showViewer = false,
+  showPanelSwitch = false,
+}: {
+  surfaceLabel?: string | null;
+  showViewer?: boolean;
+  showPanelSwitch?: boolean;
+}) {
   const {
     canComment,
     mode,
@@ -714,7 +751,22 @@ function CommentsPanel() {
     // knows it rather than deriving a second answer.
     canModerate,
     assignTask,
+    mentionable,
   } = useCommentMode();
+
+  // The reader's own identity for the context band. `mentionable` is the same
+  // roster the @mention picker uses and already carries the current user with
+  // their seat's name, headshot and role — no extra request.
+  const viewer = showViewer && currentUserId
+    ? mentionable.find((person) => person.userId === currentUserId) ?? null
+    : null;
+  const contextLabel =
+    surfaceLabel ||
+    (target?.targetType === "benefit" && target.category
+      ? `Benefit · ${target.category}`
+      : target
+        ? "Plan chat"
+        : null);
 
   // Who is typing across every thread on this surface, in ONE poll — the rail shows all of them at
   // once, so a fetch per card is the thing to avoid. Enabled only while the panel is actually open
@@ -947,12 +999,18 @@ function CommentsPanel() {
     >
       <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-4">
         <div className="flex min-w-0 items-center gap-2">
-          <MessageSquare className="h-4 w-4 shrink-0 text-accent-blue" />
-          <span className="shrink-0 text-sm font-semibold">Comments</span>
+          {showPanelSwitch ? (
+            <RailPanelSwitch active="comments" />
+          ) : (
+            <>
+              <MessageSquare className="h-4 w-4 shrink-0 text-accent-blue" />
+              <span className="shrink-0 text-sm font-semibold">Comments</span>
+            </>
+          )}
           {/* Which benefit these threads belong to. A benefit's thread is keyed by its category
               and this panel is global, so without a label the reader has to infer whose comments
               they are looking at from the page behind the panel. */}
-          {target?.targetType === "benefit" && target.category ? (
+          {!surfaceLabel && target?.targetType === "benefit" && target.category ? (
             <span
               className="truncate rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground"
               title={target.category}
@@ -998,6 +1056,47 @@ function CommentsPanel() {
           </Button>
         </div>
       </div>
+
+      {/* Which Plan/Benefit conversation this is, and who is reading it. A
+          context band rather than more header chrome: the plan/benefit name can
+          be long, and the reader's identity needs room for a name AND a role. */}
+      {(contextLabel || viewer) && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-border bg-muted/30 px-3 py-2">
+          {viewer ? (
+            <span className="h-7 w-7 shrink-0 overflow-hidden rounded-full bg-muted">
+              <Headshot
+                src={viewer.headshot}
+                alt={viewer.name}
+                monogramName={viewer.name}
+                wrapperClassName="rounded-full"
+              />
+            </span>
+          ) : null}
+          <div className="min-w-0 flex-1">
+            {viewer ? (
+              <p
+                className="truncate text-xs font-semibold text-foreground"
+                title={viewer.name}
+              >
+                {viewer.name}
+              </p>
+            ) : null}
+            {contextLabel ? (
+              <p
+                className="truncate text-[10px] text-muted-foreground"
+                title={contextLabel}
+              >
+                {contextLabel}
+              </p>
+            ) : null}
+          </div>
+          {viewer?.roleLabel ? (
+            <span className="shrink-0 rounded-full bg-background px-2 py-0.5 text-[10px] font-medium text-muted-foreground ring-1 ring-border">
+              {viewer.roleLabel}
+            </span>
+          ) : null}
+        </div>
+      )}
 
       {/* The new-comments pill, in normal FLOW directly under the header — the top of the comments
           UI, in both views. In flow rather than floated because it must not collide with the filter

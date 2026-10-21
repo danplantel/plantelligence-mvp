@@ -350,6 +350,12 @@ export interface MentionableUser {
   name: string;
   email: string;
   headshot: string | null;
+  /**
+   * The person's organization role ("Owner", "Team Member", "Collaborator"), when
+   * known. The Comments rail also uses this list to identify the signed-in reader
+   * in its header, so the role travels with the name and picture.
+   */
+  roleLabel?: string | null;
 }
 
 /* ─────────────────────────── "Currently typing" ─────────────────────────── */

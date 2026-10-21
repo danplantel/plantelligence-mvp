@@ -35,6 +35,7 @@ import {
 import { useViewerAccess } from "@/hooks/useViewerAccess";
 import { CommentAttachmentModal } from "@/components/comments/comment-attachment-modal";
 import { AttachmentThumbnail } from "@/components/comments/attachment-thumbnail";
+import { RailPanelSwitch } from "@/components/comments/rail-panel-switch";
 import { DirectoryPicker } from "./directory-picker";
 import { MessagesComposer } from "./messages-composer";
 import { useOptionalMessagesMode } from "./messages-mode-provider";
@@ -676,7 +677,15 @@ function MessagesThread({ threadId }: { threadId: string }) {
 
 /* ─────────────────────────────────── The rail ─────────────────────────────────── */
 
-export function MessagesRail() {
+export function MessagesRail({
+  showPanelSwitch = false,
+}: {
+  /**
+   * Render the Comments / Messages tabs in the panel header. The portal turns
+   * this on; the dashboard keeps its separate header toggles.
+   */
+  showPanelSwitch?: boolean;
+} = {}) {
   const mode = useOptionalMessagesMode();
   // Declared before the early return: hooks must run on every render, and the picker is chrome.
   const [showPicker, setShowPicker] = useState(false);
@@ -726,7 +735,13 @@ export function MessagesRail() {
       tabIndex={-1}
       role="complementary"
       aria-label="Messages"
-      className="fixed right-0 top-16 z-50 flex h-[calc(100vh-4rem)] w-[24rem] flex-col border-l border-border bg-background shadow-sm focus:outline-none"
+      className="fixed right-0 z-50 flex w-[24rem] flex-col border-l border-border bg-background shadow-sm focus:outline-none"
+      // The dashboard docks the panel below its 4rem header; the participant
+      // portal raises it to the full height (see portal-comments-rail.tsx).
+      style={{
+        top: "var(--messages-rail-top, 4rem)",
+        height: "calc(100vh - var(--messages-rail-top, 4rem))",
+      }}
     >
       <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-border px-2">
         <div className="flex min-w-0 items-center gap-1.5">
@@ -741,7 +756,11 @@ export function MessagesRail() {
               <ArrowLeft className="h-4 w-4" />
             </Button>
           )}
-          <h2 className="truncate text-sm font-semibold">Messages</h2>
+          {showPanelSwitch ? (
+            <RailPanelSwitch active="messages" />
+          ) : (
+            <h2 className="truncate text-sm font-semibold">Messages</h2>
+          )}
           {unreadTotal > 0 && (
             <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-accent-blue px-1 text-[10px] font-semibold leading-none text-white">
               {unreadTotal > 9 ? "9+" : unreadTotal}
