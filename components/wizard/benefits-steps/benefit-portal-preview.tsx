@@ -3,7 +3,8 @@
 import React, { useMemo, useState, useEffect } from "react";
 
 // Preview-specific overrides so child sections expand to fill the wide container.
-// Preserve PortalWelcomeBanner inner content width (max-w-7xl).
+// The welcome banner is deliberately excluded: it is the live portal component and
+// must keep the same 72rem content width it has on the four Benefit Hub pages.
 const previewStyles = `
   .preview-portal-container {
     width: 100% !important;
@@ -18,6 +19,13 @@ const previewStyles = `
   .preview-portal-container .max-w-5xl,
   .preview-portal-container .max-w-6xl {
     max-width: 100% !important;
+    width: 100% !important;
+  }
+  /* Live-portal width for the Benefit Hub Header. The id selector outranks the
+     generic overrides above, so the banner's inner max-w-7xl stays 72rem
+     instead of stretching across the 1400px preview canvas. */
+  .preview-portal-container #portal-welcome-banner .max-w-7xl {
+    max-width: 72rem !important;
     width: 100% !important;
   }
   /* FAQ section — restore benefits hub width (max-w-3xl = 48rem) */
