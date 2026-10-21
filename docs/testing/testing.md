@@ -358,9 +358,12 @@ The E2E suite lives in `e2e/` and is driven by environment variables:
 
 - `E2E_BASE_URL` — an already-running app (default `http://localhost:3000`);
 - `E2E_START_SERVER=1` — let Playwright run `pnpm dev` itself;
-- `E2E_EMAIL` / `E2E_PASSWORD` — a **fresh, not-yet-onboarded** account for
-  the onboarding journeys, or any working account for the authenticated
-  sign-in journeys;
+- `E2E_EMAIL` / `E2E_PASSWORD` — an account for the dashboard, documents,
+  communications, and header/sidebar journeys. The **onboarding and auth**
+  specs ignore these: each provisions its own throwaway account through
+  `/signup` and deletes it afterwards;
+- `E2E_KEEP_USER=1` — keep that throwaway account and print its credentials
+  instead of deleting it;
 - `E2E_PLAN_ID` — an active plan id or slug for the plan-scoped Documents
   journeys;
 - `E2E_PLAN_NAME` — the company name exactly as the plan picker renders it,
@@ -368,16 +371,22 @@ The E2E suite lives in `e2e/` and is driven by environment variables:
 
 ```bash
 pnpm test:e2e:install            # once per machine
-E2E_START_SERVER=1 E2E_EMAIL=... E2E_PASSWORD=... pnpm test:e2e
+E2E_START_SERVER=1 pnpm test:e2e                             # self-provisioning specs
+E2E_START_SERVER=1 E2E_EMAIL=... E2E_PASSWORD=... pnpm test:e2e   # + account-bound specs
 ```
 
 Without `E2E_BASE_URL`/`E2E_START_SERVER`, the E2E tests skip instead of
-failing. The happy-path test completes onboarding and redirects to the
-dashboard, so reset that account's wizard data before re-running it.
+failing, and an all-skipped run exits 0. Every page sits behind the client-side
+Early Access gate, so the specs enter the code **`22222`** through the modal
+(`e2e/onboarding.spec.ts` and `e2e/auth.spec.ts`). The onboarding happy path
+completes the wizard on a freshly created account and deletes it, so repeat runs
+start clean and no manual reset is needed.
 
-Covered onboarding journeys (`e2e/onboarding.spec.ts`):
+Covered onboarding journeys (`e2e/onboarding.spec.ts`, 7 tests):
 
 - anonymous `/onboarding` redirects to `/signin`;
+- a wrong Early Access code shows an inline error, and `22222` reveals the
+  sign-in form;
 - a phone viewport shows the desktop-only notice;
 - an empty Step 1 blocks Next and shows the named-field toast, then accepts the
   same form once filled;
@@ -385,18 +394,20 @@ Covered onboarding journeys (`e2e/onboarding.spec.ts`):
 - the full flow (branding upload, disclosures, invite-later) reaches the
   dashboard.
 
-Covered auth journeys (`e2e/auth.spec.ts`):
+Covered auth journeys (`e2e/auth.spec.ts`, 12 tests):
 
 - anonymous `/dashboard` and `/settings/profile` visits land on `/signin` with
   the original path in `callbackUrl`;
-- sign-in exposes credentials, Google, sign-up, and forgot-password, validates
-  an invalid email, and maps bad credentials to a friendly message;
-- sign-up enforces the shared password policy and forgot-password validates its
-  email;
+- sign-in exposes credentials, Google, sign-up, and forgot-password, and maps
+  bad credentials to a friendly message;
+- an invalid email is stopped by native `type="email"` validation before any
+  request leaves the browser (asserted as `validity.typeMismatch` plus a zero
+  request count for `/api/auth/callback/credentials` and `/api/forget`);
+- sign-up enforces the shared password policy;
 - the reset API refuses a request without a signed token and forgot-password
   returns a neutral response for unknown emails;
-- with credentials, a valid sign-in leaves `/signin`, honours a `callbackUrl`
-  deep link, and an already signed-in visitor skips the form.
+- with its own provisioned account, a valid sign-in leaves `/signin`, honours a
+  `callbackUrl` deep link, and an already signed-in visitor skips the form.
 
 Covered documents journeys (`e2e/documents.spec.ts`):
 

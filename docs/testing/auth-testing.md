@@ -6,7 +6,7 @@ This document is the test inventory for sign-in, sign-up, verification code, for
 
 - **Unit tests:** 161 passing across 18 files
 - **Runner:** Vitest + React Testing Library + jsdom
-- **E2E:** 12 Playwright journeys in `e2e/auth.spec.ts`; the page/API journeys run against a live app, the authenticated ones also need `E2E_EMAIL` / `E2E_PASSWORD`
+- **E2E:** 12 Playwright journeys in `e2e/auth.spec.ts`; they need only a reachable app and provision their own throwaway account (no `E2E_EMAIL` / `E2E_PASSWORD`)
 
 ## Running these tests
 
@@ -38,9 +38,44 @@ pnpm test:e2e:ui          # Playwright UI mode
 
 File: `e2e/auth.spec.ts`
 
-These require `E2E_BASE_URL` (or `E2E_START_SERVER=1`); the authenticated
-journeys also need `E2E_EMAIL` / `E2E_PASSWORD`. They skip cleanly when
-unconfigured.
+These require only an app: `E2E_BASE_URL`, or `E2E_START_SERVER=1` to let
+Playwright start `pnpm dev`. They skip cleanly when neither is set, and an
+all-skipped run exits 0. No credentials are needed — the three authenticated
+journeys provision their own account.
+
+**Self-provisioning.** The lifecycle hooks are scoped to the
+`authenticated sign-in` describe, so the nine public `auth pages` tests never
+spend a signup. `beforeAll` passes the Early Access gate, creates a unique user
+through `/signup` (`auth-e2e+<stamp>@plantelligence.test`), and waits for
+onboarding to render. `afterAll` signs in as that user and calls
+`DELETE /api/profile/delete?confirmOrganization=true`, the app's own cascade
+(plans, wizard sessions, organization, then the user). The spec never reads
+`E2E_EMAIL` / `E2E_PASSWORD`, so a stale shell value cannot silently reuse an
+old account. Set `E2E_KEEP_USER=1` to keep the account for inspection; its
+credentials are printed.
+
+**Early Access gate.** [`InviteCodeProvider`](../../components/providers/invite-code-provider.tsx:15)
+blocks every page until the invite-code modal accepts the code **`22222`**.
+`enterEarlyAccessCode()` fills the five inputs, clicks **Enter Code**, and
+retries through `toPass`, because dev's first paint can be visible before React
+hydrates (a pre-hydration click has no handler). Every `page.goto` in this spec
+is followed by that helper. The two `request`-fixture journeys call
+`/api/reset-password` and `/api/forget` directly, so the client-side gate does
+not apply to them.
+
+**Native email validation.** Both auth forms render
+`<input type="email">`, so Chromium's constraint validation blocks the submit
+event before React Hook Form can paint the Zod message. The two invalid-email
+journeys therefore assert `validity.typeMismatch`, a non-empty
+`validationMessage`, and **zero** requests to `/api/auth/callback/credentials`
+or `/api/forget`. Counting requests is the stronger claim: it proves nothing
+reached the server, which reading a rendered string cannot.
+
+```powershell
+cd "C:\Users\eddie\OneDrive\Desktop\Upwork Projects\plantelligence-dev"
+$env:E2E_START_SERVER = "1"
+pnpm test:auth:e2e
+```
 
 - **auth pages**
   - an anonymous dashboard visit is sent to sign-in with a `callbackUrl`
@@ -57,28 +92,33 @@ unconfigured.
   - a `callbackUrl` deep link is honoured after signing in
   - an already signed-in visitor with a `callbackUrl` skips the form
 
+The nine `auth pages` journeys are read-only. The three authenticated ones reuse
+the single provisioned account and only read session state, so they stay
+independent and can run in any order — unlike the onboarding wizard journeys,
+which mutate shared state and are declared `serial`.
+
 ## Test inventory
 
-| # | Suite | Tests | Focus |
-| - | ----- | ----: | ----- |
-| 1 | `lib/__tests__/form-schema.test.ts` | 24 | Shared Zod schemas: password policy, sign-up/reset/sign-in validation |
-| 2 | `lib/__tests__/middleware.test.ts` | 16 | Route protection: static/portal/API bypass, sign-in redirect, onboarding gate, cookie names |
-| 3 | `lib/__tests__/reset-token.server.test.ts` | 6 | Signed reset tokens: round-trip, tampering/secret changes, expiry, missing secret |
-| 4 | `lib/__tests__/sign-in-redirect.test.ts` | 12 | Pure navigation rules: callbackUrl parsing, onboarding collapse, post-sign-in landing |
-| 5 | `app/api/__tests__/auth-routes.test.ts` | 25 | API contracts: forget, verify-code, reset-password, signup sanitization, check-email |
-| 6 | `components/forms/__tests__/forget-password-form.test.tsx` | 7 | Forgot password: validation, neutral request, API/network errors, loading, auto-clear |
-| 7 | `components/forms/__tests__/google-auth-button.test.tsx` | 5 | Google OAuth: default role-aware landing and preservation of middleware deep links |
-| 8 | `components/forms/__tests__/reset-pass-form.test.tsx` | 10 | Reset password: shared policy, match, verified-token POST, errors, loading, visibility |
-| 9 | `components/forms/__tests__/resume-onboarding-link.test.tsx` | 4 | Resume link dialog: open, opaque submit, failure, cancel/reset |
-| 10 | `components/forms/__tests__/user-auth-form.test.tsx` | 9 | Credentials sign-in: reveal timing, validation, callback/default landing, errors, loading, links |
-| 11 | `components/forms/__tests__/user-signup-form.test.tsx` | 13 | Sign-up: password rules/match, email availability, auto sign-in, API errors, loading, visibility |
-| 12 | `components/forms/__tests__/verify-code-form.test.tsx` | 8 | Verify code: 6-digit validation, API payload, reset-password redirect with token, errors, loading |
-| 13 | `app/(dashboard)/forget/__tests__/page.test.tsx` | 4 | Forgot-password route shell: heading, description, copyright, logo, theme |
-| 14 | `app/(dashboard)/reset-password/__tests__/page.test.tsx` | 4 | Reset-password route shell: heading, description, copyright, logo, theme |
-| 15 | `app/(dashboard)/signup/__tests__/page.test.tsx` | 4 | Sign-up route shell: form, light/dark/system logo, theme toggle |
-| 16 | `app/(dashboard)/verify-code/__tests__/page.test.tsx` | 4 | Verify-code route shell: heading, description, copyright, logo, theme |
-| 17 | `app/(dashboard)/signin/__tests__/page.test.tsx` | 1 | Sign-in route shell delegates to the SignIn screen |
-| 18 | `components/pages/sign-in/__tests__/sign-in.test.tsx` | 5 | Sign-in screen: form + resume link, light/dark/system logo, theme toggle, authenticated redirect wiring |
+| #   | Suite                                                        | Tests | Focus                                                                                                   |
+| --- | ------------------------------------------------------------ | ----: | ------------------------------------------------------------------------------------------------------- |
+| 1   | `lib/__tests__/form-schema.test.ts`                          |    24 | Shared Zod schemas: password policy, sign-up/reset/sign-in validation                                   |
+| 2   | `lib/__tests__/middleware.test.ts`                           |    16 | Route protection: static/portal/API bypass, sign-in redirect, onboarding gate, cookie names             |
+| 3   | `lib/__tests__/reset-token.server.test.ts`                   |     6 | Signed reset tokens: round-trip, tampering/secret changes, expiry, missing secret                       |
+| 4   | `lib/__tests__/sign-in-redirect.test.ts`                     |    12 | Pure navigation rules: callbackUrl parsing, onboarding collapse, post-sign-in landing                   |
+| 5   | `app/api/__tests__/auth-routes.test.ts`                      |    25 | API contracts: forget, verify-code, reset-password, signup sanitization, check-email                    |
+| 6   | `components/forms/__tests__/forget-password-form.test.tsx`   |     7 | Forgot password: validation, neutral request, API/network errors, loading, auto-clear                   |
+| 7   | `components/forms/__tests__/google-auth-button.test.tsx`     |     5 | Google OAuth: default role-aware landing and preservation of middleware deep links                      |
+| 8   | `components/forms/__tests__/reset-pass-form.test.tsx`        |    10 | Reset password: shared policy, match, verified-token POST, errors, loading, visibility                  |
+| 9   | `components/forms/__tests__/resume-onboarding-link.test.tsx` |     4 | Resume link dialog: open, opaque submit, failure, cancel/reset                                          |
+| 10  | `components/forms/__tests__/user-auth-form.test.tsx`         |     9 | Credentials sign-in: reveal timing, validation, callback/default landing, errors, loading, links        |
+| 11  | `components/forms/__tests__/user-signup-form.test.tsx`       |    13 | Sign-up: password rules/match, email availability, auto sign-in, API errors, loading, visibility        |
+| 12  | `components/forms/__tests__/verify-code-form.test.tsx`       |     8 | Verify code: 6-digit validation, API payload, reset-password redirect with token, errors, loading       |
+| 13  | `app/(dashboard)/forget/__tests__/page.test.tsx`             |     4 | Forgot-password route shell: heading, description, copyright, logo, theme                               |
+| 14  | `app/(dashboard)/reset-password/__tests__/page.test.tsx`     |     4 | Reset-password route shell: heading, description, copyright, logo, theme                                |
+| 15  | `app/(dashboard)/signup/__tests__/page.test.tsx`             |     4 | Sign-up route shell: form, light/dark/system logo, theme toggle                                         |
+| 16  | `app/(dashboard)/verify-code/__tests__/page.test.tsx`        |     4 | Verify-code route shell: heading, description, copyright, logo, theme                                   |
+| 17  | `app/(dashboard)/signin/__tests__/page.test.tsx`             |     1 | Sign-in route shell delegates to the SignIn screen                                                      |
+| 18  | `components/pages/sign-in/__tests__/sign-in.test.tsx`        |     5 | Sign-in screen: form + resume link, light/dark/system logo, theme toggle, authenticated redirect wiring |
 
 ## Unit test inventory
 
@@ -120,7 +160,6 @@ unconfigured.
 - requires a password
 - does not apply the password policy at sign-in time
 
-
 ### `lib/__tests__/middleware.test.ts`
 
 **middleware**
@@ -142,7 +181,6 @@ unconfigured.
 - reads the dev session cookie outside production
 - reads the secure session cookie in production
 
-
 ### `lib/__tests__/reset-token.server.test.ts`
 
 **reset token**
@@ -153,7 +191,6 @@ unconfigured.
 - rejects a token with the wrong purpose
 - rejects an expired token
 - refuses to create a token without a configured secret
-
 
 ### `lib/__tests__/sign-in-redirect.test.ts`
 
@@ -177,7 +214,6 @@ unconfigured.
 - reads and decodes the callbackUrl parameter
 - returns null when the parameter is absent
 - treats an empty callbackUrl as absent
-
 
 ### `app/api/__tests__/auth-routes.test.ts`
 
@@ -221,7 +257,6 @@ unconfigured.
 - reports an existing email as unavailable
 - returns 500 when the lookup fails
 
-
 ### `components/forms/__tests__/forget-password-form.test.tsx`
 
 **ForgetPasswordForm**
@@ -234,7 +269,6 @@ unconfigured.
 - shows the loading state and disables the field
 - clears the error after eight seconds
 
-
 ### `components/forms/__tests__/google-auth-button.test.tsx`
 
 **GoogleSignInButton**
@@ -244,7 +278,6 @@ unconfigured.
 - falls back to the role-aware landing route
 - preserves a callbackUrl supplied by middleware
 - preserves a deep link with query parameters
-
 
 ### `components/forms/__tests__/reset-pass-form.test.tsx`
 
@@ -261,7 +294,6 @@ unconfigured.
 - toggles both password fields
 - posts an empty token when the query has none
 
-
 ### `components/forms/__tests__/resume-onboarding-link.test.tsx`
 
 **ResumeOnboardingLink**
@@ -270,7 +302,6 @@ unconfigured.
 - posts the email and shows the neutral confirmation
 - shows the same neutral confirmation when the request fails
 - Cancel closes the dialog and resets the form
-
 
 ### `components/forms/__tests__/user-auth-form.test.tsx`
 
@@ -285,7 +316,6 @@ unconfigured.
 - maps an unknown error to the generic message
 - shows the loading state while the request is in flight
 - renders the alternate auth links and Google button
-
 
 ### `components/forms/__tests__/user-signup-form.test.tsx`
 
@@ -305,7 +335,6 @@ unconfigured.
 - toggles both password fields
 - links back to sign-in
 
-
 ### `components/forms/__tests__/verify-code-form.test.tsx`
 
 **VerifyCodeForm**
@@ -319,7 +348,6 @@ unconfigured.
 - shows the loading state and disables the field
 - posts an empty email when the query has none
 
-
 ### `app/(dashboard)/forget/__tests__/page.test.tsx`
 
 **Forgot-password page**
@@ -328,7 +356,6 @@ unconfigured.
 - renders the light logo for the light theme
 - renders the dark logo and toggles back to light
 - toggles from light to dark
-
 
 ### `app/(dashboard)/reset-password/__tests__/page.test.tsx`
 
@@ -339,7 +366,6 @@ unconfigured.
 - renders the dark logo and toggles back to light
 - toggles from light to dark
 
-
 ### `app/(dashboard)/signup/__tests__/page.test.tsx`
 
 **Signup page**
@@ -348,7 +374,6 @@ unconfigured.
 - switches to the dark theme
 - renders the dark logo and switches back to light
 - uses the dark logo for the system theme
-
 
 ### `app/(dashboard)/verify-code/__tests__/page.test.tsx`
 
@@ -359,13 +384,11 @@ unconfigured.
 - renders the dark logo and toggles back to light
 - toggles from light to dark
 
-
 ### `app/(dashboard)/signin/__tests__/page.test.tsx`
 
 **Sign-in page**
 
 - renders the sign-in screen
-
 
 ### `components/pages/sign-in/__tests__/sign-in.test.tsx`
 
@@ -399,8 +422,10 @@ unconfigured.
 ## Coverage boundaries
 
 - These are client/route-handler tests. A real Google OAuth round trip and real SMTP delivery are out of scope.
-- Successful sign-in assigns `window.location.href`; jsdom cannot perform the navigation, so tests assert the resolver/`signIn` call and rendered state rather than the final page.
+- Successful sign-in assigns `window.location.href`; jsdom cannot perform the navigation, so tests assert the resolver/`signIn` call and rendered state rather than the final page. The `Not implemented: navigation to another Document` lines printed by `pnpm test:auth` come from exactly these assertions and are expected.
+- Zod messages for an invalid email cannot be asserted through the UI in either jsdom or Playwright: the native `type="email"` constraint check runs first. The unit suites drive the schema directly, and the E2E suite asserts native validity plus a zero request count.
 - The Playwright suite is the only place a real session cookie and middleware run end to end.
+- The auth E2E deletes its account through the app's own API, so it cannot run against a read-only or shared database.
 - The NextAuth runtime (`lib/auth-options.ts`), the role-aware landing route (`/api/teammates/landing`), the authenticated password/email change flows, and the email libraries are not covered yet — see below.
 
 ## Remaining test gaps
@@ -409,32 +434,39 @@ Prioritised candidates, highest risk first.
 
 ### P0 — session and account security
 
-| Candidate | Why it matters |
-| --------- | -------------- |
-| `lib/auth-options.ts` → `authorize()` | Credentials sign-in: missing/blank fields, email normalization, unknown user, OAuth-only user with no password, wrong password, success, and database failure. Mock `prisma` and `bcrypt.compare`. |
-| `lib/auth-options.ts` → `jwt` / `session` callbacks | The `onboardingComplete` latch (completed wizard, active teammate, deactivated teammate), Google email → database id mapping, org-name/email backfills, and latch survival across calls. |
-| `lib/auth-options.ts` → `signIn` callback | First Google sign-in creates the user plus organization; an existing provider switch is persisted; a notification-email failure never blocks login. |
-| `app/api/teammates/landing/route.ts` | The Destination both sign-in forms use: unauthenticated → `/signin`, advisor → `/dashboard`, collaborator → `/benefits`, access lookup failure fails open to `/benefits`. |
-| `app/api/profile/change-password/route.ts` | Current-password proof, length bounds, hashing, Google/OAuth users with no password, confirmation email best-effort, and 401/404/500 paths. |
-| Password-change UI | `components/pages/settings/password-change-section.tsx` plus the Google-account alternative in `google-account-section.tsx`. |
+| Candidate                                           | Why it matters                                                                                                                                                                                     |
+| --------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `lib/auth-options.ts` → `authorize()`               | Credentials sign-in: missing/blank fields, email normalization, unknown user, OAuth-only user with no password, wrong password, success, and database failure. Mock `prisma` and `bcrypt.compare`. |
+| `lib/auth-options.ts` → `jwt` / `session` callbacks | The `onboardingComplete` latch (completed wizard, active teammate, deactivated teammate), Google email → database id mapping, org-name/email backfills, and latch survival across calls.           |
+| `lib/auth-options.ts` → `signIn` callback           | First Google sign-in creates the user plus organization; an existing provider switch is persisted; a notification-email failure never blocks login.                                                |
+| `app/api/teammates/landing/route.ts`                | The Destination both sign-in forms use: unauthenticated → `/signin`, advisor → `/dashboard`, collaborator → `/benefits`, access lookup failure fails open to `/benefits`.                          |
+| `app/api/profile/change-password/route.ts`          | Current-password proof, length bounds, hashing, Google/OAuth users with no password, confirmation email best-effort, and 401/404/500 paths.                                                        |
+| Password-change UI                                  | `components/pages/settings/password-change-section.tsx` plus the Google-account alternative in `google-account-section.tsx`.                                                                       |
 
 ### P1 — email and session configuration
 
-| Candidate | Why it matters |
-| --------- | -------------- |
-| `lib/email.ts` | `sendSignInNotificationEmail`, `sendPasswordChangedConfirmationEmail`, and any other auth mail; assert recipient/subject/body and that SMTP errors are swallowed where callers require it. |
-| `lib/sendResetEmail.ts` | Reset mail composition: code, `/verify-code?email=…` URL, subject, and R2-hosted logo fallbacks. Mock `nodemailer` and `@/lib/branding-r2`. |
-| Email-change verification routes | `profile/send-email-verification`, `profile/verify-email-change`, and `profile/clear-email-verification` — token/code validation and ownership checks. |
-| Auth cookie/session config | Assert `authOptions.cookies.sessionToken` names/options and the 8-hour `maxAge` so the middleware cookie-name mirror cannot drift. |
+| Candidate                        | Why it matters                                                                                                                                                                             |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `lib/email.ts`                   | `sendSignInNotificationEmail`, `sendPasswordChangedConfirmationEmail`, and any other auth mail; assert recipient/subject/body and that SMTP errors are swallowed where callers require it. |
+| `lib/sendResetEmail.ts`          | Reset mail composition: code, `/verify-code?email=…` URL, subject, and R2-hosted logo fallbacks. Mock `nodemailer` and `@/lib/branding-r2`.                                                |
+| Email-change verification routes | `profile/send-email-verification`, `profile/verify-email-change`, and `profile/clear-email-verification` — token/code validation and ownership checks.                                     |
+| Auth cookie/session config       | Assert `authOptions.cookies.sessionToken` names/options and the 8-hour `maxAge` so the middleware cookie-name mirror cannot drift.                                                         |
 
 ### P2 — end-to-end depth
 
-| Candidate | Why it matters |
-| --------- | -------------- |
-| Full reset journey | Seed a known reset code (or expose one only under test), then Playwright: forgot → verify → reset → sign in with the new password. This is the one critical path `e2e/auth.spec.ts` cannot assert without inbox access. |
-| Sign-up → onboarding | Create a disposable account, confirm it auto-signs in, completes or resumes onboarding, then clean it up. |
-| Google OAuth | Only with a dedicated Google test identity; otherwise keep the current button/unit coverage. |
-| Mobile sign-in layout | Low risk; the onboarding suite already covers the desktop-only gate. |
+| Candidate                 | Why it matters                                                                                                                                                                                                          |
+| ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Full reset journey        | Seed a known reset code (or expose one only under test), then Playwright: forgot → verify → reset → sign in with the new password. This is the one critical path `e2e/auth.spec.ts` cannot assert without inbox access. |
+| Email-and-password change | Covered only at the unit level today; an authenticated Playwright journey would prove the re-authentication prompt and the confirmation mail.                                                                           |
+| Google OAuth              | Only with a dedicated Google test identity; otherwise keep the current button/unit coverage.                                                                                                                            |
+| Mobile sign-in layout     | Low risk; the onboarding suite already covers the desktop-only gate.                                                                                                                                                    |
+
+Covered by another suite, no longer a gap here:
+
+- **Sign-up → onboarding** — [`e2e/onboarding.spec.ts`](../../e2e/onboarding.spec.ts:1) provisions a disposable
+  account through `/signup`, confirms the auto sign-in lands on the wizard,
+  completes it, and deletes the account in `afterAll`. The auth E2E reuses the
+  same pattern for its three authenticated journeys.
 
 ## Hardening findings (fix before testing them)
 
@@ -452,6 +484,7 @@ accepts unlimited guesses.
 anyone who knows an email can take over the account.
 
 **Fix:**
+
 1. Add `resetCodeAttempts Int @default(0)` (and optionally
    `resetCodeSentAt DateTime?` for resend throttling) to `User`, with a
    migration.

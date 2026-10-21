@@ -7,7 +7,11 @@
  * schema/navigation suites, sign-in, sign-up, forgot/reset password,
  * verification-code, resume-link, middleware, and auth API routes
  * (161 tests at the time of writing). Passing `--e2e` also runs the Playwright
- * auth journeys; `--e2e-only` runs just those.
+ * auth journeys; `--e2e-only` runs just those. The E2E suite provisions its own
+ * throwaway account through /signup, passes the Early Access gate with 22222,
+ * and deletes the account again, so it needs no E2E_EMAIL / E2E_PASSWORD. It
+ * does need an app (`E2E_BASE_URL`, or `E2E_START_SERVER=1`) and skips cleanly
+ * without one.
  *
  * Usage:
  *   node scripts/tests/run-auth-tests.mjs
