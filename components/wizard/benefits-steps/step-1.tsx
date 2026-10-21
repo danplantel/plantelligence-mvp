@@ -3532,7 +3532,7 @@ export function BenefitsStep1({
                       </Label>
                       <p className="mt-1 text-xs text-muted-foreground">
                         Shown at the top of the card. Leave empty to use the
-                        category's default image.
+                        default category image.
                       </p>
                     </div>
                     <BrandImageUpload
