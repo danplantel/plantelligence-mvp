@@ -3,6 +3,7 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -37,6 +38,9 @@ export function SkipAttestationModal({
           <DialogTitle className="dark:text-gray-100">
             Skip Disclosures for now?
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Confirm that you want to skip reviewing disclosures for now.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">

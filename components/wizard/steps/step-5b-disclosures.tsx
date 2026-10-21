@@ -411,8 +411,11 @@ export function Step5bDisclosures({
                 </p>
 
                 <RadioGroup
-                  // `undefined` (not "") is what Radix reads as "nothing selected".
-                  value={state?.mode ?? undefined}
+                  // `""` is also "nothing selected" to Radix, and unlike
+                  // `undefined` it keeps the group controlled from the first
+                  // render — passing `undefined` first and then a mode made
+                  // React warn about switching uncontrolled → controlled.
+                  value={state?.mode ?? ""}
                   onValueChange={(value) =>
                     handleModeChange(cfg.key, value as SectionMode)
                   }

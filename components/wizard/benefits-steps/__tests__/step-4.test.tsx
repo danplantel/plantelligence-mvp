@@ -330,6 +330,9 @@ async function openPreviewTab() {
 
 describe("BenefitsStep4", () => {
   beforeEach(() => {
+    // The load/delete failure cases log by design; the assertions live on the
+    // toast, so keep the run output clean.
+    vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.reset(
       {
         planId: "plan-1",

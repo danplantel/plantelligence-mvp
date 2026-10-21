@@ -6,6 +6,7 @@ import { OrganizationType, ServiceType, TeamSize } from "@/types/wizard";
 import { useOnboardingWizardStore } from "../onboarding-wizard-store";
 
 const getSession = vi.hoisted(() => vi.fn(async () => null));
+const hardNavigate = vi.hoisted(() => vi.fn());
 const toast = vi.hoisted(() => ({
   error: vi.fn(),
   success: vi.fn(),
@@ -13,6 +14,7 @@ const toast = vi.hoisted(() => ({
 }));
 
 vi.mock("next-auth/react", () => ({ getSession }));
+vi.mock("@/lib/hard-navigate", () => ({ hardNavigate }));
 vi.mock("sonner", () => ({ toast }));
 
 const fetchMock = vi.fn();
@@ -558,13 +560,14 @@ describe("onboarding wizard store", () => {
       );
     });
 
-    it("refreshes the session after a successful completion", async () => {
+    it("refreshes the session, then sends the browser to the dashboard", async () => {
       fetchMock.mockResolvedValue(jsonResponse({ success: true }));
 
       store().completeWizard();
       await flush();
 
       expect(getSession).toHaveBeenCalled();
+      expect(hardNavigate).toHaveBeenCalledWith("/dashboard");
     });
 
     it("resetWizard clears navigation, data, errors, invites, and loading", () => {

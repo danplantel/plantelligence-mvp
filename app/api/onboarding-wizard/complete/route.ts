@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth-options";
 import { completeWizardOnboarding } from "@/lib/wizard-completion";
 import prisma from "@/lib/prisma";
 import { sendSignUpConfirmationEmail } from "@/lib/email";
+import { onboardingDebug } from "@/lib/onboarding-debug";
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log("🔍 [complete] Found all incomplete sessions:", allSessions.length);
+    onboardingDebug("🔍 [complete] Found all incomplete sessions:", allSessions.length);
 
     // Pick the session with the most related records (most complete data)
     // This handles the case where parallel saves created multiple sessions
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
         session.userSetup,
       ].filter(Boolean).length;
 
-      console.log(`🔍 [complete] Session ${session.id}: ${relationCount} relations, created ${session.createdAt}`);
+      onboardingDebug(`🔍 [complete] Session ${session.id}: ${relationCount} relations, created ${session.createdAt}`);
 
       if (relationCount > maxRelations) {
         maxRelations = relationCount;
@@ -66,7 +67,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log("🔍 [complete] Selected wizard session:", {
+    onboardingDebug("🔍 [complete] Selected wizard session:", {
       id: wizardSession?.id,
       createdAt: wizardSession?.createdAt,
       relationCount: maxRelations,
@@ -95,18 +96,18 @@ export async function POST(request: NextRequest) {
         details: `No user record found for ID: ${session.user.id}`
       }, { status: 404 });
     }
-    console.log("✅ User verified:", existingUser.email);
+    onboardingDebug("✅ User verified:", existingUser.email);
 
     // Use the comprehensive wizard completion function to merge all wizard data into User
-    console.log("🚀 Starting wizard completion for user:", session.user.id);
-    console.log("📋 Wizard session ID:", wizardSession.id);
+    onboardingDebug("🚀 Starting wizard completion for user:", session.user.id);
+    onboardingDebug("📋 Wizard session ID:", wizardSession.id);
     
     const completionResult = await completeWizardOnboarding({
       userId: session.user.id,
       wizardSessionId: wizardSession.id,
     });
     
-    console.log("✅ Wizard completion result:", completionResult);
+    onboardingDebug("✅ Wizard completion result:", completionResult);
 
     // Send the sign-up confirmation email after the onboarding wizard completes
     // (best-effort — never blocks the completion response).

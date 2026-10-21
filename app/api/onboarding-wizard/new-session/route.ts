@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import { onboardingDebug } from "@/lib/onboarding-debug";
 
 const prisma = new PrismaClient();
 
@@ -35,7 +36,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log("📥 [new-session POST] Created new wizard session:", newSession.id);
+    onboardingDebug("📥 [new-session POST] Created new wizard session:", newSession.id);
 
     return NextResponse.json({
       success: true,

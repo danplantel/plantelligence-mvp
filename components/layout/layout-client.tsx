@@ -41,6 +41,19 @@ export function NewLayoutClient({
   const { isCollaborator, can, primaryAssignment } =
     useViewerAccess(viewerAccess);
 
+  // These Zustand subscriptions must run on EVERY route, including the
+  // standalone onboarding and auth pages below. React requires the same hooks
+  // in the same order on every render; subscribing only after the early returns
+  // meant moving from /onboarding to a dashboard route rendered more hooks than
+  // the previous render ("Rendered more hooks than during the previous render")
+  // and crashed the page.
+  const newClientSteps = useNewClientWizardStore((s) => s.steps);
+  const newClientCurrentStep = useNewClientWizardStore((s) => s.currentStep);
+
+  const benefitsSteps = useBenefitsWizardStore((s) => s.steps);
+  const benefitsCurrentStep = useBenefitsWizardStore((s) => s.currentStep);
+  const benefitsTotalSteps = useBenefitsWizardStore((s) => s.totalSteps);
+
   // If it's onboarding page, render without header/sidebar (the onboarding
   // gate is handled server-side by middleware, not by a client guard).
   if (pathname.includes("/onboarding")) {
@@ -63,15 +76,6 @@ export function NewLayoutClient({
   // The Create Benefit wizard now lives at /new-benefits; /benefits is the
   // Browse Benefits list (which shows no stepper).
   const isBenefitsPage = pathname === "/new-benefits";
-
-  // Read new-client wizard state for the step title shown next to the page title
-  const newClientSteps = useNewClientWizardStore((s) => s.steps);
-  const newClientCurrentStep = useNewClientWizardStore((s) => s.currentStep);
-
-  // Read benefits wizard state
-  const benefitsSteps = useBenefitsWizardStore((s) => s.steps);
-  const benefitsCurrentStep = useBenefitsWizardStore((s) => s.currentStep);
-  const benefitsTotalSteps = useBenefitsWizardStore((s) => s.totalSteps);
 
   // The benefits wizard does not append a step title next to the page title —
   // the header reads "Create Benefits / <Company Name>" (the company name is set

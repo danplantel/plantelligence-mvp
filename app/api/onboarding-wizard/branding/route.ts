@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { validateBranding } from "@/lib/wizard-validation";
 import { z } from "zod";
 import { toR2BrandingKey } from "@/lib/branding-image-url";
+import { onboardingDebug } from "@/lib/onboarding-debug";
 
 /**
  * Normalize an image value: if it's a full proxy URL (e.g. /api/r2/object?key=org/...),
@@ -29,7 +30,7 @@ export async function POST(request: NextRequest) {
     }
 
     const rawData = await request.json();
-    console.log("📥 [branding POST] Received data keys:", Object.keys(rawData));
+    onboardingDebug("📥 [branding POST] Received data keys:", Object.keys(rawData));
 
     // Normalize image fields: strip proxy URLs back to raw R2 keys
     if (rawData.logo !== undefined) {
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
 
     // Validate the data
     const data = validateBranding(rawData);
-    console.log("📥 [branding POST] Validated data keys:", Object.keys(data));
+    onboardingDebug("📥 [branding POST] Validated data keys:", Object.keys(data));
 
     // Find or create wizard session
     let wizardSession = await prisma.wizardSession.findFirst({
@@ -53,7 +54,7 @@ export async function POST(request: NextRequest) {
         completed: false,
       }
     });
-    console.log("📥 [branding POST] Found session:", wizardSession?.id || "none");
+    onboardingDebug("📥 [branding POST] Found session:", wizardSession?.id || "none");
 
     if (!wizardSession) {
       wizardSession = await prisma.wizardSession.create({
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
           completed: false,
         }
       });
-      console.log("📥 [branding POST] Created new session:", wizardSession.id);
+      onboardingDebug("📥 [branding POST] Created new session:", wizardSession.id);
     }
 
     const branding = await prisma.wizardBranding.upsert({
@@ -101,7 +102,7 @@ export async function POST(request: NextRequest) {
         avatarFileName: data.avatarFileName,
       },
     });
-    console.log("📥 [branding POST] Saved branding ID:", branding.id);
+    onboardingDebug("📥 [branding POST] Saved branding ID:", branding.id);
 
     return NextResponse.json({ branding });
   } catch (error) {

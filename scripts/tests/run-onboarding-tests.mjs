@@ -3,9 +3,13 @@
 /**
  * Run every onboarding test.
  *
- * Unit coverage uses `vitest.onboarding.config.mts`, which includes all 30
- * onboarding suites (412 tests at the time of writing). Passing `--e2e` also
+ * Unit coverage uses `vitest.onboarding.config.mts`, which includes all 40
+ * onboarding suites (582 tests at the time of writing). Passing `--e2e` also
  * runs the Playwright onboarding journeys; `--e2e-only` runs just those.
+ *
+ * The E2E journeys are self-provisioning: the spec passes the Early Access
+ * gate, creates a throwaway user through /signup, and deletes it through the
+ * app's own account-deletion cascade. No E2E_EMAIL / E2E_PASSWORD is needed.
  *
  * Usage:
  *   node scripts/tests/run-onboarding-tests.mjs
@@ -24,7 +28,9 @@ const includeE2E = args.has("--e2e");
 const e2eOnly = args.has("--e2e-only");
 
 if (watch && includeE2E) {
-  console.error("--watch cannot be combined with --e2e (Playwright has its own UI mode).");
+  console.error(
+    "--watch cannot be combined with --e2e (Playwright has its own UI mode).",
+  );
   process.exit(1);
 }
 

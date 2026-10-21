@@ -617,15 +617,17 @@ export function Step3Branding({ errorFields = [] }: Step3BrandingProps) {
                   }
                 }
 
-                // Debug: log what's being saved to the store
-                console.log(`[Step3] Saving brandingData to store:`, {
-                  field,
-                  value,
-                  primaryColor: brandingData.primaryColor,
-                  secondaryColor: brandingData.secondaryColor,
-                  latestBrandingPrimary: latestBranding.primaryColor,
-                  refPrimary: primaryColorRef.current,
-                });
+                // Debug: log what's being saved to the store. Development only.
+                if (process.env.NODE_ENV === "development") {
+                  console.log(`[Step3] Saving brandingData to store:`, {
+                    field,
+                    value,
+                    primaryColor: brandingData.primaryColor,
+                    secondaryColor: brandingData.secondaryColor,
+                    latestBrandingPrimary: latestBranding.primaryColor,
+                    refPrimary: primaryColorRef.current,
+                  });
+                }
 
                 await saveStepDataLocally("branding", brandingData);
 

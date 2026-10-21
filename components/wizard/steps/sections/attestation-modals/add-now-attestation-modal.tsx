@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -46,6 +47,9 @@ export function AddNowAttestationModal({
           <DialogTitle className="dark:text-gray-100">
             Confirm Your Disclosures
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Review the disclosures, then accept the attestation to continue.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">

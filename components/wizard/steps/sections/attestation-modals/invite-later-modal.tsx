@@ -3,6 +3,7 @@
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -38,6 +39,9 @@ export function InviteLaterModal({
           <DialogTitle className="dark:text-gray-100">
             Invite your team later?
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Confirm that you will invite team members later from Settings.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3">

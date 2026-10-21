@@ -248,6 +248,8 @@ function fetchCall(index: number) {
 }
 
 beforeEach(() => {
+  // The 404-benefit-flag branch warns by design; the assertion is on the toast.
+  vi.spyOn(console, "warn").mockImplementation(() => {});
   mocks.swrCalls.length = 0;
   mocks.benefitsData = { benefits: [row()] };
   mocks.benefitsError = null;

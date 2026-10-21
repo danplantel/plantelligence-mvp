@@ -4,9 +4,10 @@ This document is the test inventory for [`components/layout/header.tsx`](../../c
 
 ## Summary
 
-- **Unit tests:** 52 passing across 2 files
+- **Unit tests:** 58 passing across 3 files
 - **Header:** 21 tests
 - **Sidebar:** 31 tests
+- **Layout client:** 6 tests
 - **Runner:** Vitest + React Testing Library + jsdom
 - **E2E:** 4 Playwright journeys in `e2e/header-sidebar.spec.ts` (skipped unless configured)
 
@@ -15,7 +16,7 @@ This document is the test inventory for [`components/layout/header.tsx`](../../c
 Chrome-only commands:
 
 ```bash
-pnpm test:header-sidebar           # Header + Sidebar suites (52 tests)
+pnpm test:header-sidebar           # Header + Sidebar + layout suites (58 tests)
 pnpm test:header-sidebar:watch     # watch mode
 pnpm test:header-sidebar:coverage  # suites + V8 coverage
 ```
@@ -52,10 +53,11 @@ Still worth adding: a Viewer-specific nav journey and a real Edit Plan/Edit Bene
 
 ## Test inventory
 
-| # | Suite | Tests | Focus |
-| - | ----- | ----: | ----- |
-| 1 | `components/layout/__tests__/header.test.tsx` | 21 | Title/subtitle/company split, stepper/editor modes, header tab portal detection and mode switching, theme toggle, scroll chrome, listener cleanup |
-| 2 | `components/layout/__tests__/sidebar.test.tsx` | 31 | Persisted rail state (including storage failures), responsive widths, `--sidebar-width`, access skeleton, reactive access/media changes, collaborator filtering, logos, editor collapse, wizard step-2 width |
+| #   | Suite                                                | Tests | Focus                                                                                                                                                                                                        |
+| --- | ---------------------------------------------------- | ----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 1   | `components/layout/__tests__/header.test.tsx`        |    21 | Title/subtitle/company split, stepper/editor modes, header tab portal detection and mode switching, theme toggle, scroll chrome, listener cleanup                                                            |
+| 2   | `components/layout/__tests__/sidebar.test.tsx`       |    31 | Persisted rail state (including storage failures), responsive widths, `--sidebar-width`, access skeleton, reactive access/media changes, collaborator filtering, logos, editor collapse, wizard step-2 width |
+| 3   | `components/layout/__tests__/layout-client.test.tsx` |     6 | Standalone onboarding/auth chrome, wizard steppers, path refusal, and the onboarding → dashboard hook-order transition                                                                                       |
 
 ## Unit test inventory
 
@@ -121,6 +123,17 @@ Still worth adding: a Viewer-specific nav journey and a real Edit Plan/Edit Bene
 - opens the logo in a new tab
 - removes its preview-layout listener on unmount
 
+### `components/layout/__tests__/layout-client.test.tsx`
+
+**NewLayoutClient**
+
+- renders onboarding standalone, without the dashboard chrome
+- renders auth pages standalone
+- moves from onboarding to the benefits wizard without changing hook order
+- moves from sign-in to the new-client wizard without changing hook order
+- shows no stepper outside the wizard routes
+- renders the refusal instead of the page when the path is not allowed
+
 ## Source changes required by the tests
 
 - **Both navs have accessible names.** Header is `aria-label="Primary"`, Sidebar is `aria-label="Main"`.
@@ -128,10 +141,12 @@ Still worth adding: a Viewer-specific nav journey and a real Edit Plan/Edit Bene
 - **Corrupted persistence falls back to open.** An unrecognised `sidebar-is-open` value previously evaluated to `false` and locked the rail collapsed; it now defaults to open.
 - **Storage failures are contained.** Both `getItem` (initializer) and `setItem` (toggle + persistence effect) are wrapped; disabled/quota-blocked storage can no longer crash the layout or abort the toggle.
 - **Stepper mode clears the tab-strip allowance.** Switching from a portalled tab strip to a stepper no longer leaves `portalHasContent` latched, so `UserNav` returns to its normal details breakpoint.
+- **All hooks run before the layout's early returns.** `NewLayoutClient` used to subscribe to the wizard stores only after returning early for `/onboarding` and the auth pages. Moving from one of those routes to a dashboard route changed the hook count and crashed with "Rendered more hooks than during the previous render"; the subscriptions now sit above every return, and `layout-client.test.tsx` pins the transition.
 
 ## Mocking strategy
 
 **Header**
+
 - `@/hooks/usePageTitleContext` supplies the title/subtitle.
 - `next-themes` supplies `resolvedTheme` and records `setTheme`.
 - `MessagesToggle`, `CommentsToggle`, `NotificationsMenu`, and `UserNav` are contract stubs; `UserNav` records `compact` / `detailsFrom`.
@@ -140,6 +155,7 @@ Still worth adding: a Viewer-specific nav journey and a real Edit Plan/Edit Bene
 - Editor state is driven through the real `step5EditorStateChange` / `step2EditorStateChange` window events.
 
 **Sidebar**
+
 - `@/hooks/useViewerAccess` is a `useSyncExternalStore`-backed fake so access changes re-filter the nav without remounting.
 - `@/hooks/useMediaQuery` is also reactive, so a 16rem → 13rem viewport change is exercised.
 - `@/lib/new-client-wizard-store` is a `useSyncExternalStore`-backed fake so `currentStep` changes re-render the memoised sidebar.
@@ -159,14 +175,14 @@ Still worth adding: a Viewer-specific nav journey and a real Edit Plan/Edit Bene
 
 ## Remaining test gaps
 
-| Candidate | Why it matters |
-| --------- | -------------- |
-| `components/layout/notifications-menu.tsx` | Bell popover, unread badges, fetch/refresh behavior. |
-| `components/layout/user-nav.tsx` | Avatar/name breakpoints, menu actions, sign-out, `compact` variants. |
-| `components/comments/comments-toggle.tsx`, `components/messages/messages-toggle.tsx` | Toggle state, badges, panel wiring. |
-| `components/ui/dashboard-nav.tsx` | Link rendering, groups/accordions, active-route highlighting, collapsed tooltips. |
-| `lib/teammates/nav-access.ts` | The real `mayUsePath` matrix, including parent/child group rules. |
-| Viewer nav journey | A Viewer must not see Branding/Organization while the chrome stays usable. |
-| Per-editor E2E | Edit Plan and Edit Benefit panels, not just the synthetic layout event. |
+| Candidate                                                                            | Why it matters                                                                    |
+| ------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| `components/layout/notifications-menu.tsx`                                           | Bell popover, unread badges, fetch/refresh behavior.                              |
+| `components/layout/user-nav.tsx`                                                     | Avatar/name breakpoints, menu actions, sign-out, `compact` variants.              |
+| `components/comments/comments-toggle.tsx`, `components/messages/messages-toggle.tsx` | Toggle state, badges, panel wiring.                                               |
+| `components/ui/dashboard-nav.tsx`                                                    | Link rendering, groups/accordions, active-route highlighting, collapsed tooltips. |
+| `lib/teammates/nav-access.ts`                                                        | The real `mayUsePath` matrix, including parent/child group rules.                 |
+| Viewer nav journey                                                                   | A Viewer must not see Branding/Organization while the chrome stays usable.        |
+| Per-editor E2E                                                                       | Edit Plan and Edit Benefit panels, not just the synthetic layout event.           |
 
 See [`testing.md`](testing.md) for shared conventions, plus the onboarding, auth, and settings inventories in that folder.

@@ -151,6 +151,12 @@ function signOut() {
 
 describe("onboarding API routes", () => {
   beforeEach(() => {
+    // Several tests exercise failure paths on purpose; those routes log the
+    // error before returning 4xx/5xx. Keep the run readable without hiding
+    // unexpected logs from real code paths (the spies are restored per test).
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
     signIn();
     prisma.wizardSession.findFirst.mockResolvedValue({ id: "session-1" });
     prisma.wizardSession.findMany.mockResolvedValue([{ id: "session-1" }]);

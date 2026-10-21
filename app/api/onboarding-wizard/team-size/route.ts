@@ -3,6 +3,7 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { TeamSizeFormData, TeamSize } from "@/types/wizard";
+import { onboardingDebug } from "@/lib/onboarding-debug";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data: TeamSizeFormData = await request.json();
-    console.log("📥 [team-size POST] Received data:", JSON.stringify(data));
+    onboardingDebug("📥 [team-size POST] Received data:", JSON.stringify(data));
 
     // Find or create wizard session
     let wizardSession = await prisma.wizardSession.findFirst({
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
         completed: false,
       }
     });
-    console.log("📥 [team-size POST] Found session:", wizardSession?.id || "none");
+    onboardingDebug("📥 [team-size POST] Found session:", wizardSession?.id || "none");
 
     if (!wizardSession) {
       wizardSession = await prisma.wizardSession.create({
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
           completed: false,
         }
       });
-      console.log("📥 [team-size POST] Created new session:", wizardSession.id);
+      onboardingDebug("📥 [team-size POST] Created new session:", wizardSession.id);
     }
 
     const teamSize = await prisma.wizardTeamSize.upsert({
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
         teamSize: data.teamSize,
       }
     });
-    console.log("📥 [team-size POST] Saved teamSize:", JSON.stringify(teamSize));
+    onboardingDebug("📥 [team-size POST] Saved teamSize:", JSON.stringify(teamSize));
 
     return NextResponse.json({ teamSize });
   } catch (error) {

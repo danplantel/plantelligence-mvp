@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { ServicesFormData, ServiceType } from "@/types/wizard";
 import prisma from "@/lib/prisma";
+import { onboardingDebug } from "@/lib/onboarding-debug";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     const data: ServicesFormData = await request.json();
-    console.log("📥 Services POST received:", data);
+    onboardingDebug("📥 Services POST received:", data);
 
     let wizardSession = await prisma.wizardSession.findFirst({
       where: { userId: session.user.id },
@@ -23,9 +24,9 @@ export async function POST(request: NextRequest) {
       wizardSession = await prisma.wizardSession.create({
         data: { userId: session.user.id },
       });
-      console.log("✨ Created new wizard session:", wizardSession.id);
+      onboardingDebug("✨ Created new wizard session:", wizardSession.id);
     } else {
-      console.log("📋 Found existing wizard session:", wizardSession.id);
+      onboardingDebug("📋 Found existing wizard session:", wizardSession.id);
     }
 
     const services = await prisma.wizardServices.upsert({
@@ -40,7 +41,7 @@ export async function POST(request: NextRequest) {
       }
     });
 
-    console.log("✅ Services saved to WizardServices:", services);
+    onboardingDebug("✅ Services saved to WizardServices:", services);
     return NextResponse.json({ services });
   } catch (error) {
     console.error("❌ API - Error saving services:", error);

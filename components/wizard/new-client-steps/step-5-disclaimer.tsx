@@ -311,14 +311,17 @@ export function NewClientStep5({
   const companyName =
     newClientStepData.companyBasics?.companyName || "[Company Name]";
 
-  // DEBUG: confirm what [Organization Name] resolves to.
-  console.log("[step5] org/company resolve:", JSON.stringify({
-    onboardingBrandingOrg: onboardingStepData.branding?.organizationName ?? null,
-    advisorProfileOrg: (advisorProfile as any)?.organizationName ?? null,
-    planCompany: newClientStepData.companyBasics?.companyName ?? null,
-    resolvedOrganizationName: organizationName,
-    resolvedCompanyName: companyName,
-  }));
+  // DEBUG: confirm what [Organization Name] resolves to. Development only —
+  // this ran on every render in tests and in production.
+  if (process.env.NODE_ENV === "development") {
+    console.log("[step5] org/company resolve:", JSON.stringify({
+      onboardingBrandingOrg: onboardingStepData.branding?.organizationName ?? null,
+      advisorProfileOrg: (advisorProfile as any)?.organizationName ?? null,
+      planCompany: newClientStepData.companyBasics?.companyName ?? null,
+      resolvedOrganizationName: organizationName,
+      resolvedCompanyName: companyName,
+    }));
+  }
 
   // Resolve both placeholders in the disclaimer text.
   const resolveDisclaimerText = useCallback(

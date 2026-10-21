@@ -80,6 +80,17 @@ function clickLink(name: string) {
   return fireEvent.click(screen.getByRole("link", { name }));
 }
 
+/**
+ * NOTE: this file intentionally produces a handful of jsdom
+ * "Not implemented: navigation to another Document" messages.
+ *
+ * The six tests that assert the guard lets a click through (disabled guard,
+ * external, download, target=_blank, ignored, current URL) require the anchor's
+ * default action to remain unprevented — that is the property under test
+ * (`fireEvent.click(...)` must return true). jsdom then tries to navigate and
+ * logs that it cannot. Suppressing it here would weaken the assertions, so the
+ * messages are accepted as the known cost of testing both sides of the guard.
+ */
 describe("useNavigateAwayGuard", () => {
   beforeEach(() => {
     push.mockClear();

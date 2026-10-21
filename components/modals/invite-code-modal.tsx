@@ -12,12 +12,17 @@ interface InviteCodeModalProps {
 
 const InviteCodeModal = ({ open, handleClose }: InviteCodeModalProps) => {
   const [code, setCode] = useState(["", "", "", "", ""]);
+  // Inline feedback as well as the toast: while the gate is open the app's
+  // Toaster is NOT mounted (InviteCodeProvider renders only this modal), so a
+  // toast-only error was invisible to the user.
+  const [error, setError] = useState<string | null>(null);
   const inputRefs = useRef<Array<HTMLInputElement | null>>([]);
 
   const handleChange = (value: string, index: number) => {
     const newCode = [...code];
     newCode[index] = value;
     setCode(newCode);
+    setError(null);
 
     // If a value was entered and it's not the last input, move to next input
     if (value && index < code.length - 1) {
@@ -40,6 +45,7 @@ const InviteCodeModal = ({ open, handleClose }: InviteCodeModalProps) => {
     if (code.join("") === "22222") {
       handleClose();
     } else {
+      setError("Incorrect invite code");
       toast.error("Incorrect invite code");
       // Keep the modal open so the user can retry
     }
@@ -99,6 +105,7 @@ const InviteCodeModal = ({ open, handleClose }: InviteCodeModalProps) => {
                 value={char}
                 onChange={(e) => handleChange(e.target.value, index)}
                 onKeyDown={(e) => handleKeyDown(e, index)}
+                aria-invalid={error ? true : undefined}
                 // Accent-blue at full strength, and the focus ring is the same token rather than
                 // the hard-coded teal (#005F73) that used to sit beside a grey border — so the
                 // empty boxes, the focused box and the button all read as one accent family.
@@ -106,6 +113,14 @@ const InviteCodeModal = ({ open, handleClose }: InviteCodeModalProps) => {
               />
             ))}
           </div>
+          {error ? (
+            <p
+              role="alert"
+              className="mt-3 text-sm font-medium text-red-600 dark:text-red-400"
+            >
+              {error}
+            </p>
+          ) : null}
           <button
             onClick={handleSubmit}
             className="mt-6 inline-flex items-center justify-center rounded-full text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-accent-blue text-white hover:bg-accent-blue/90 h-10 px-4 py-2"

@@ -18,6 +18,7 @@ import { normalizePhoneNumber } from "@/lib/phone-utils";
 import { AddNowAttestationModal } from "./steps/sections/attestation-modals/add-now-attestation-modal";
 import { SkipAttestationModal } from "./steps/sections/attestation-modals/skip-attestation-modal";
 import { InviteLaterModal } from "./steps/sections/attestation-modals/invite-later-modal";
+import { hardNavigate } from "@/lib/hard-navigate";
 
 // Function to focus on the top-most invalid field and scroll to it.
 // Chooses the FIRST errored field in DOCUMENT ORDER (not validation order) so
@@ -162,6 +163,25 @@ export function OnboardingWizard({
   // Step 5c "Invite Later" confirmation.
   const [showInviteLaterModal, setShowInviteLaterModal] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
+
+  /**
+   * The post-completion redirect timer.
+   *
+   * Held in a ref so unmounting the wizard (or completing a second time)
+   * cancels it. Previously the bare `setTimeout` outlived the component: if the
+   * advisor left before three seconds passed, the page still navigated, and in
+   * jsdom the pending redirect surfaced as "navigation is not implemented".
+   */
+  const redirectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(
+    () => () => {
+      if (redirectTimerRef.current) {
+        clearTimeout(redirectTimerRef.current);
+        redirectTimerRef.current = null;
+      }
+    },
+    [],
+  );
 
   /**
    * Swallow the footer click that a dialog dismissal can leak.
@@ -455,8 +475,9 @@ export function OnboardingWizard({
         const latestStore = useOnboardingWizardStore.getState();
         const latestStepData = latestStore.stepData;
 
-        // Debug: log what's being sent to the server for Step 3 branding
-        if (currentStep === 3) {
+        // Debug: log what's being sent to the server for Step 3 branding.
+        // Development only — test and production runs must stay quiet.
+        if (currentStep === 3 && process.env.NODE_ENV === "development") {
           console.log("[handleNext] Step 3 - render-cycle stepData.branding:", {
             primaryColor: stepData.branding?.primaryColor,
             secondaryColor: stepData.branding?.secondaryColor,
@@ -635,10 +656,13 @@ export function OnboardingWizard({
           // Best-effort; the jwt callback re-checks on the next session fetch.
         }
 
-        // Show success overlay with green checkmark for 3 seconds, then navigate
+        // Show success overlay with green checkmark for 3 seconds, then navigate.
+        // Cancel any earlier redirect first so a retry cannot stack timers.
         setShowSuccessOverlay(true);
-        setTimeout(() => {
-          window.location.href = "/dashboard";
+        if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current);
+        redirectTimerRef.current = setTimeout(() => {
+          redirectTimerRef.current = null;
+          hardNavigate("/dashboard");
         }, 3000);
       } else {
         const errorData = await response.json();

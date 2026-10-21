@@ -19,6 +19,7 @@ import { normalizeTeamSize } from "@/config/onboarding/team-sizes";
 import { step2ServicesToCategories } from "./service-categories";
 import { getSession } from "next-auth/react";
 import { toast } from "sonner";
+import { hardNavigate } from "@/lib/hard-navigate";
 
 export interface WizardStep {
   id: number;
@@ -748,7 +749,7 @@ export const useOnboardingWizardStore = create<OnboardingWizardState>()(
               // Best-effort; the jwt callback re-checks on the next session fetch.
             }
             // Redirect to new dashboard after completion
-            window.location.href = '/dashboard';
+            hardNavigate("/dashboard");
           } else {
             // Handle error response
             const errorData = await response.json();

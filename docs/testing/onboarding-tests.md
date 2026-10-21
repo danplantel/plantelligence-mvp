@@ -4,8 +4,8 @@ This document lists every automated test associated with the onboarding flow. It
 
 ## Summary
 
-- **Unit tests:** 412 passing across 30 files
-- **End-to-end tests:** 5 Playwright tests
+- **Unit tests:** 582 passing across 40 files
+- **End-to-end tests:** 7 Playwright tests
 - **Unit runner:** Vitest + React Testing Library + jsdom
 - **E2E runner:** Playwright + Chromium
 
@@ -14,10 +14,10 @@ This document lists every automated test associated with the onboarding flow. It
 Onboarding-only commands:
 
 ```bash
-pnpm test:onboarding           # all 30 onboarding unit suites (412 tests)
+pnpm test:onboarding           # all 40 onboarding unit suites (582 tests)
 pnpm test:onboarding:watch     # onboarding unit tests in watch mode
 pnpm test:onboarding:coverage  # onboarding unit tests + V8 coverage
-pnpm test:onboarding:e2e       # the 5 Playwright onboarding journeys
+pnpm test:onboarding:e2e       # the 7 Playwright onboarding journeys
 pnpm test:onboarding:all       # onboarding unit + E2E
 ```
 
@@ -34,14 +34,31 @@ pnpm test:e2e:install     # install Chromium once
 pnpm test:e2e             # Playwright E2E
 pnpm test:e2e:ui          # Playwright UI mode
 ```
+
 ## End-to-end tests
 
 File: `e2e/onboarding.spec.ts`
 
-These require `E2E_BASE_URL` (or `E2E_START_SERVER=1`) and a fresh, not-yet-onboarded account in `E2E_EMAIL` / `E2E_PASSWORD`. They skip cleanly when unconfigured.
+These require only an app: `E2E_BASE_URL`, or `E2E_START_SERVER=1` to let Playwright start `pnpm dev`. They skip cleanly when neither is set, and an all-skipped run exits 0.
+
+**Self-provisioning.** `test.beforeAll` passes the Early Access gate, creates a unique user through `/signup` (`e2e+<stamp>@plantelligence.test`), and verifies Step 1 renders. `test.afterAll` signs in as that user and calls `DELETE /api/profile/delete?confirmOrganization=true`, the app's own cascade (plans, wizard sessions, organization, then the user). The spec does not read `E2E_EMAIL` / `E2E_PASSWORD`, so a stale shell value cannot reuse an old account. Set `E2E_KEEP_USER=1` to keep the account for inspection; its credentials are printed.
+
+**Early Access gate.** [`InviteCodeProvider`](../../components/providers/invite-code-provider.tsx:15) blocks every page until the invite-code modal accepts the hardcoded code **`22222`**. The helper fills the five inputs and clicks **Enter Code**; two dedicated tests assert that a wrong code is rejected and that `22222` reveals the sign-in form. Because the provider renders only the modal (the app's Toaster is not mounted yet), [`InviteCodeModal`](../../components/modals/invite-code-modal.tsx:13) owns an inline `role="alert"` for the error in addition to its sonner toast.
+
+**Serial wizard.** The three wizard journeys are `serial` and share the one provisioned account: the first two stage data, the last completes onboarding. If one fails, the rest are reported as "did not run". The account is deleted afterwards, so every run starts fresh.
+
+**Cleanup scope.** The deletion cascade removes database rows. The Step 3 logo is uploaded to R2, which that cascade does not track, so the object may remain in the bucket.
+
+```powershell
+cd "C:\Users\eddie\OneDrive\Desktop\Upwork Projects\plantelligence-dev"
+$env:E2E_START_SERVER = "1"
+pnpm test:onboarding:e2e
+```
 
 - **onboarding authentication**
   - redirects an anonymous visitor to sign-in
+  - rejects an incorrect Early Access code
+  - accepts 22222 and reveals the sign-in form
 - **onboarding on a phone**
   - shows the desktop-only notice instead of the wizard
 - **onboarding wizard** (serial)
@@ -51,40 +68,50 @@ These require `E2E_BASE_URL` (or `E2E_START_SERVER=1`) and a fresh, not-yet-onbo
 
 See [`testing.md`](testing.md) for conventions and the mocking strategy.
 
-------
+---
 
-| # | Suite | Tests | Focus |
-| - | ----- | ----: | ----- |
-| 1 | `app/(dashboard)/onboarding/__tests__/page.test.tsx` | 17 | Route shell: loading, status redirect, step rendering, leave-guard wiring, resume email |
-| 2 | `components/wizard/steps/__tests__/step-1-user-profile.test.tsx` | 6 | Step 1 orchestration: team-size reveal, prefill/normalization, error propagation |
-| 3 | `components/wizard/steps/__tests__/step-2-services.test.tsx` | 9 | Step 2 orchestration: server load, service saves, insurance flag, failure handling |
-| 4 | `components/wizard/steps/__tests__/step-3-branding.test.tsx` | 11 | Step 3 orchestration: branding/client-profile saves, previews, background upload/removal |
-| 5 | `components/wizard/steps/__tests__/step-4-user-setup.test.tsx` | 8 | Step 4 orchestration: server/session fallbacks, immediate saves, blur validation, unmount flush |
-| 6 | `components/wizard/steps/__tests__/step-5-onboarding.test.tsx` | 9 | Step 5 sub-stepper: solo vs. team gating, navigation, validity forwarding |
-| 7 | `components/wizard/steps/__tests__/step-5a-summary.test.tsx` | 6 | 5a Review: values, edit entry points, summary payload mapping |
-| 8 | `components/wizard/steps/__tests__/step-5b-disclosures.test.tsx` | 8 | 5b Disclosures: intro/editor, skip attestation, recommended/custom saves, limits |
-| 9 | `components/wizard/steps/__tests__/step-5c-team.test.tsx` | 14 | 5c Team: seat cap, row edits, email validation, duplicate/self checks, roles |
-| 10 | `components/wizard/steps/__tests__/user-profile-section.test.tsx` | 10 | Real organization picker: saves, Other description, errors, blur |
-| 11 | `components/wizard/steps/__tests__/team-size-section.test.tsx` | 8 | Real team-size picker: saves, errors, blur |
-| 12 | `components/wizard/steps/__tests__/services-section.test.tsx` | 9 | Real service categories: mapping, toggle fallback, Other input, limits |
-| 13 | `components/wizard/steps/__tests__/user-setup-section.test.tsx` | 14 | Real user form: field blur, phone formatting, contact toggle, designations, headshot |
-| 14 | `components/wizard/steps/__tests__/branding-setup-card.test.tsx` | 10 | Real branding card: name/website, logo upload, color extraction, background removal |
-| 15 | `components/wizard/steps/__tests__/brand-colors-section.test.tsx` | 9 | Real color controls: edits, swap, extraction availability, errors |
-| 16 | `components/wizard/steps/__tests__/brand-images-section.test.tsx` | 3 | Real image slots: rendering and visibleSlots filtering |
-| 17 | `components/wizard/steps/__tests__/summary-edit-modal.test.tsx` | 6 | Summary edit modal: normalized payload, tab edits, cancel |
-| 18 | `components/wizard/steps/__tests__/attestation-modals.test.tsx` | 7 | Attestation dialogs: gating, confirm, back, reset |
-| 19 | `components/wizard/__tests__/wizard.test.tsx` | 25 | Wizard shell: next/previous, saves, Step 5 routing, invites, completion, labels |
-| 20 | `lib/__tests__/wizard-validation.test.ts` | 40 | Schemas and validateCurrentStep field mapping |
-| 21 | `lib/__tests__/onboarding-wizard-store.test.ts` | 46 | Store state machine, persistence, validation actions, summary saves |
-| 22 | `lib/__tests__/onboarding-wizard-dirty.test.ts` | 8 | Dirty-state detection |
-| 23 | `hooks/__tests__/use-navigate-away-guard.test.tsx` | 17 | Leave guard: beforeunload, link interception, popstate, save/discard/stay |
-| 24 | `components/ui/__tests__/navigate-away-warning-dialog.test.tsx` | 11 | Warning dialog: actions, two-step discard, loading, Escape |
-| 25 | `hooks/__tests__/useOnboardingResumeEmail.test.tsx` | 9 | Resume email: throttle, storage failures, response handling |
-| 26 | `components/__tests__/desktop-only-gate.test.tsx` | 6 | Desktop gate: desktop/mobile rendering and block callbacks |
-| 27 | `hooks/__tests__/useWizardInit.test.tsx` | 3 | Wizard initialization: load, error reset, idempotence |
-| 28 | `hooks/__tests__/use-scroll-to-error-field.test.tsx` | 7 | Error scrolling: document order, blur exclusion, focus, cleanup |
-| 29 | `hooks/__tests__/useMediaQuery.test.tsx` | 5 | Media query: match state, updates, SSR fallback, unsubscribe |
-| 30 | `app/api/onboarding-wizard/__tests__/routes.test.ts` | 71 | All 17 route handlers with mocked Prisma/auth/email/tokens |
+| #   | Suite                                                                               | Tests | Focus                                                                                           |
+| --- | ----------------------------------------------------------------------------------- | ----: | ----------------------------------------------------------------------------------------------- |
+| 1   | `app/(dashboard)/onboarding/__tests__/page.test.tsx`                                |    17 | Route shell: loading, status redirect, step rendering, leave-guard wiring, resume email         |
+| 2   | `components/wizard/steps/__tests__/step-1-user-profile.test.tsx`                    |     6 | Step 1 orchestration: team-size reveal, prefill/normalization, error propagation                |
+| 3   | `components/wizard/steps/__tests__/step-2-services.test.tsx`                        |     9 | Step 2 orchestration: server load, service saves, insurance flag, failure handling              |
+| 4   | `components/wizard/steps/__tests__/step-3-branding.test.tsx`                        |    11 | Step 3 orchestration: branding/client-profile saves, previews, background upload/removal        |
+| 5   | `components/wizard/steps/__tests__/step-4-user-setup.test.tsx`                      |     8 | Step 4 orchestration: server/session fallbacks, immediate saves, blur validation, unmount flush |
+| 6   | `components/wizard/steps/__tests__/step-5-onboarding.test.tsx`                      |     9 | Step 5 sub-stepper: solo vs. team gating, navigation, validity forwarding                       |
+| 7   | `components/wizard/steps/__tests__/step-5a-summary.test.tsx`                        |     6 | 5a Review: values, edit entry points, summary payload mapping                                   |
+| 8   | `components/wizard/steps/__tests__/step-5b-disclosures.test.tsx`                    |     8 | 5b Disclosures: intro/editor, skip attestation, recommended/custom saves, limits                |
+| 9   | `components/wizard/steps/__tests__/step-5c-team.test.tsx`                           |    14 | 5c Team: seat cap, row edits, email validation, duplicate/self checks, roles                    |
+| 10  | `components/wizard/steps/__tests__/user-profile-section.test.tsx`                   |    10 | Real organization picker: saves, Other description, errors, blur                                |
+| 11  | `components/wizard/steps/__tests__/team-size-section.test.tsx`                      |     8 | Real team-size picker: saves, errors, blur                                                      |
+| 12  | `components/wizard/steps/__tests__/services-section.test.tsx`                       |     9 | Real service categories: mapping, toggle fallback, Other input, limits                          |
+| 13  | `components/wizard/steps/__tests__/user-setup-section.test.tsx`                     |    14 | Real user form: field blur, phone formatting, contact toggle, designations, headshot            |
+| 14  | `components/wizard/steps/__tests__/branding-setup-card.test.tsx`                    |    10 | Real branding card: name/website, logo upload, color extraction, background removal             |
+| 15  | `components/wizard/steps/__tests__/brand-colors-section.test.tsx`                   |     9 | Real color controls: edits, swap, extraction availability, errors                               |
+| 16  | `components/wizard/steps/__tests__/brand-images-section.test.tsx`                   |     3 | Real image slots: rendering and visibleSlots filtering                                          |
+| 17  | `components/wizard/steps/__tests__/summary-edit-modal.test.tsx`                     |     6 | Summary edit modal: normalized payload, tab edits, cancel                                       |
+| 18  | `components/wizard/steps/__tests__/attestation-modals.test.tsx`                     |     7 | Attestation dialogs: gating, confirm, back, reset                                               |
+| 19  | `components/wizard/__tests__/wizard.test.tsx`                                       |    25 | Wizard shell: next/previous, saves, Step 5 routing, invites, completion, labels                 |
+| 20  | `lib/__tests__/wizard-validation.test.ts`                                           |    40 | Schemas and validateCurrentStep field mapping                                                   |
+| 21  | `lib/__tests__/onboarding-wizard-store.test.ts`                                     |    46 | Store state machine, persistence, validation actions, summary saves                             |
+| 22  | `lib/__tests__/onboarding-wizard-dirty.test.ts`                                     |     8 | Dirty-state detection                                                                           |
+| 23  | `hooks/__tests__/use-navigate-away-guard.test.tsx`                                  |    17 | Leave guard: beforeunload, link interception, popstate, save/discard/stay                       |
+| 24  | `components/ui/__tests__/navigate-away-warning-dialog.test.tsx`                     |    11 | Warning dialog: actions, two-step discard, loading, Escape                                      |
+| 25  | `hooks/__tests__/useOnboardingResumeEmail.test.tsx`                                 |     9 | Resume email: throttle, storage failures, response handling                                     |
+| 26  | `components/__tests__/desktop-only-gate.test.tsx`                                   |     6 | Desktop gate: desktop/mobile rendering and block callbacks                                      |
+| 27  | `hooks/__tests__/useWizardInit.test.tsx`                                            |     3 | Wizard initialization: load, error reset, idempotence                                           |
+| 28  | `hooks/__tests__/use-scroll-to-error-field.test.tsx`                                |     7 | Error scrolling: document order, blur exclusion, focus, cleanup                                 |
+| 29  | `hooks/__tests__/useMediaQuery.test.tsx`                                            |     5 | Media query: match state, updates, SSR fallback, unsubscribe                                    |
+| 30  | `app/api/onboarding-wizard/__tests__/routes.test.ts`                                |    71 | All 17 route handlers with mocked Prisma/auth/email/tokens                                      |
+| 31  | `components/wizard/__tests__/new-client-wizard.test.tsx`                            |    19 | New-client wizard chrome: step labels, next/previous, validation blocking                       |
+| 32  | `components/wizard/new-client-steps/__tests__/step-1-company-basics.test.tsx`       |     7 | Plan type, company fields, portal-slug derivation, website normalization                        |
+| 33  | `components/wizard/new-client-steps/__tests__/step-3-key-contacts.test.tsx`         |    11 | Key-contact routing: main contact, explorer, preview, back prompts                              |
+| 34  | `components/wizard/new-client-steps/__tests__/step-4-compliance-documents.test.tsx` |     9 | Documents tabs, skip validation, delete confirmation, R2 cleanup                                |
+| 35  | `components/wizard/new-client-steps/__tests__/step-5-disclaimer.test.tsx`           |     7 | Disclaimer seeding, inheritance, inline save, footer background                                 |
+| 36  | `components/wizard/new-client-steps/sections/utils/__tests__/utils.test.ts`         |    25 | Wizard section utilities                                                                        |
+| 37  | `components/wizard/benefits-steps/__tests__/step-1.test.tsx`                        |    18 | Shared benefit Step 1 (also covered by the Create Benefit suite)                                |
+| 38  | `components/wizard/benefits-steps/__tests__/step-3.test.tsx`                        |    32 | Shared benefit Step 3: contacts, collaborators, FAQs                                            |
+| 39  | `components/wizard/benefits-steps/__tests__/step-4.test.tsx`                        |    23 | Shared benefit Step 4: documents                                                                |
+| 40  | `components/wizard/benefits-steps/__tests__/step-5.test.tsx`                        |    19 | Shared benefit Step 5: footer disclosures                                                       |
 
 ## Unit tests
 
@@ -760,5 +787,3 @@ See [`testing.md`](testing.md) for conventions and the mocking strategy.
 - redirects to sign-in for an invalid token
 - redirects to sign-in when the user is missing
 - establishes the session and redirects to onboarding
-
-

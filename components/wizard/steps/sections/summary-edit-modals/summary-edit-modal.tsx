@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -261,6 +262,10 @@ We hope to inspire confidence and peace of mind as you navigate your benefits jo
             <Edit className="w-5 h-5" />
             Edit organization & profile
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            Edit the organization, services, branding, and profile details shown
+            in the summary.
+          </DialogDescription>
         </DialogHeader>
 
         <Tabs defaultValue="user-profile" className="w-full">
