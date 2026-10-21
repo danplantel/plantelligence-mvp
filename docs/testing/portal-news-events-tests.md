@@ -6,27 +6,43 @@ The page is a composition layer. It reads the portal's plan context, chooses bra
 
 ## Summary
 
-- **Unit tests:** 54 passing across 6 files.
+- **Unit tests:** 157 passing across 15 files.
   - page composition: 12
   - page + real header integration: 8
-  - `NewsPostList`: 19
-  - `NewsEventsHeader`: 5
-  - `WebinarsDashboard`: 3
+  - page error paths: 5
+  - `NewsPostList`: 19 + 13 edge cases
+  - `NewsEventsHeader`: 5 + 3 edge cases
+  - `WebinarsDashboard`: 3 + 3 parity checks
+  - webinar helpers: 23
+  - `UpcomingWebinarCard`: 15
+  - `WebinarReplayCard`: 19
+  - `WebinarsSection`: 13
   - `useMarketingAssets` / `useNewsPostAssets`: 7
-- **E2E:** none dedicated for this route.
-- **Runner:** Vitest + React Testing Library + jsdom.
+  - `shouldShowPopUpOnPage`: 9
+- **E2E:** 4, env-gated on `E2E_BASE_URL` + `E2E_PORTAL_SLUG` ([`e2e/portal-news-events.spec.ts`](../../e2e/portal-news-events.spec.ts:1)).
+- **Runner:** `pnpm test:portal-news` / `:watch` / `:coverage` — [`vitest.portal-news.config.mts`](../../vitest.portal-news.config.mts:1) driven by [`scripts/tests/run-portal-news-tests.mjs`](../../scripts/tests/run-portal-news-tests.mjs:1).
+- Seven defects were found and fixed while writing the suites (see [Fixed while writing these suites](#fixed-while-writing-these-suites)).
 
 ## Running these tests
 
 ```bash
-pnpm exec vitest run "app/(portal)/[id]/news-events/__tests__"
-pnpm exec vitest run "components/pages/client-portal/sections/__tests__/news-post-list.test.tsx"
-pnpm exec vitest run "components/pages/client-portal/sections/__tests__/news-events-header.test.tsx"
-pnpm exec vitest run "components/pages/client-portal/sections/__tests__/webinars-dashboard.test.tsx"
-pnpm exec vitest run "hooks/__tests__/useMarketingAssets.test.ts"
+pnpm test:portal-news            # all 157 unit tests in the scoped config
+pnpm test:portal-news:watch
+pnpm test:portal-news:coverage
+E2E_BASE_URL=… E2E_PORTAL_SLUG=… pnpm exec playwright test e2e/portal-news-events.spec.ts
 ```
 
-All tests:
+Individual suites, if you need to narrow it down:
+
+```bash
+pnpm exec vitest run "app/(portal)/[id]/news-events/__tests__"
+pnpm exec vitest run "components/pages/client-portal/sections/__tests__/news-post-list.test.tsx"
+pnpm exec vitest run "components/pages/client-portal/sections/__tests__/webinar-helpers.test.ts"
+pnpm exec vitest run "components/pages/client-portal/sections/__tests__/webinars-section.test.tsx"
+pnpm exec vitest run "hooks/__tests__/shouldShowPopUpOnPage.test.ts"
+```
+
+Everything in the project:
 
 ```bash
 pnpm test
@@ -36,14 +52,23 @@ pnpm test:coverage
 
 ## Test inventory
 
-| #   | Suite                                                                           | Tests | Focus                                                                                      |
-| --- | ------------------------------------------------------------------------------- | ----: | ------------------------------------------------------------------------------------------ |
-| 1   | `app/(portal)/[id]/news-events/__tests__/page.test.tsx`                         |    12 | Composition, brand forwarding, header background input/output, white surface               |
-| 2   | `app/(portal)/[id]/news-events/__tests__/integration.test.tsx`                  |     8 | Real header default/resolved background, absolute/data URLs, color fallbacks, one `h1`     |
-| 3   | `components/pages/client-portal/sections/__tests__/news-post-list.test.tsx`     |    19 | Loading/empty/sort, headline, category, dates, background map, CTA, brand color, client id |
-| 4   | `components/pages/client-portal/sections/__tests__/news-events-header.test.tsx` |     5 | Default/custom title and background, empty background, plain `<img>`, overlay              |
-| 5   | `components/pages/client-portal/sections/__tests__/webinars-dashboard.test.tsx` |     3 | Only `WebinarsSection`, prop forwarding, `enableEditing` not forwarded                     |
-| 6   | `hooks/__tests__/useMarketingAssets.test.ts`                                    |     7 | No-client key, public feed URL, options, payload shape, error/loading, type filters        |
+| #   | Suite                                                                                  | Tests | Focus                                                                                      |
+| --- | -------------------------------------------------------------------------------------- | ----: | ------------------------------------------------------------------------------------------ |
+| 1   | `app/(portal)/[id]/news-events/__tests__/page.test.tsx`                                |    12 | Composition, brand forwarding, header background input/output, white surface               |
+| 2   | `app/(portal)/[id]/news-events/__tests__/integration.test.tsx`                         |     8 | Real header default/resolved background, absolute/data URLs, color fallbacks, one `h1`     |
+| 3   | `app/(portal)/[id]/news-events/__tests__/page-error-paths.test.tsx`                    |     5 | Non-string banner, missing/empty id, portal defaults                                       |
+| 4   | `components/pages/client-portal/sections/__tests__/news-post-list.test.tsx`            |    19 | Loading/empty/sort, headline, category, dates, background map, CTA, brand color, client id |
+| 5   | `components/pages/client-portal/sections/__tests__/news-post-list-edge.test.tsx`       |    13 | Publish window, invalid dates, CTA schemes, unsafe schemes, dead `secondaryColor`          |
+| 6   | `components/pages/client-portal/sections/__tests__/news-events-header.test.tsx`        |     5 | Default/custom title and background, empty background, plain `<img>`, overlay              |
+| 7   | `components/pages/client-portal/sections/__tests__/news-events-header-edge.test.tsx`   |     3 | Whitespace background, overlay without image, single `h1`                                  |
+| 8   | `components/pages/client-portal/sections/__tests__/webinars-dashboard.test.tsx`        |     3 | Only `WebinarsSection`, prop forwarding, `enableEditing` not forwarded                     |
+| 9   | `components/pages/client-portal/sections/__tests__/webinars-dashboard-parity.test.tsx` |     3 | No documents/support contacts, exact prop set                                              |
+| 10  | `components/pages/client-portal/sections/__tests__/webinar-helpers.test.ts`            |    23 | Time/date formatting, URL coercion, embeds, meeting mapping, language guessing             |
+| 11  | `components/pages/client-portal/sections/__tests__/upcoming-webinar-card.test.tsx`     |    15 | Title/format, detail rows, register/replay/disabled CTA matrix, accent colour              |
+| 12  | `components/pages/client-portal/sections/__tests__/webinar-replay-card.test.tsx`       |    19 | Media precedence, modal lifecycle, lazy file fetch, teaser suspension                      |
+| 13  | `components/pages/client-portal/sections/__tests__/webinars-section.test.tsx`          |    13 | Both reads, transforms, empty states, no-client path, `onLoadComplete`                     |
+| 14  | `hooks/__tests__/useMarketingAssets.test.ts`                                           |     7 | No-client key, public feed URL, options, payload shape, error/loading, type filters        |
+| 15  | `hooks/__tests__/shouldShowPopUpOnPage.test.ts`                                        |     9 | `all` / home / benefits / news-events / my-benefits-team targeting, substring matching     |
 
 ## Page composition
 
@@ -126,6 +151,56 @@ pnpm test:coverage
 - pop-up type filter
 - portal-notice type filter
 
+## Webinar helpers and cards
+
+### `webinar-helpers.test.ts`
+
+- `formatTime12h`: 24h → 12h with AM/PM, midnight, empty, unparseable passthrough
+- `coerceToHttpUrl`: bare host and host/path gain `https://`, existing `http(s)` kept, whitespace/space-bearing/scheme values refused
+- `firstRegisterableUrl`: first usable candidate, skips empty and invalid, `undefined` when none
+- `hubDateKey`: date-only kept, timestamp truncated to the date
+- `getEmbedUrl`: YouTube watch/short → embed, Vimeo → player, otherwise `null`
+- `mapHubMeetingToWebinar`: drops rows missing a title/date/time; maps date, 12h time with timezone, description, duration, language; a URL-shaped location becomes the join link while a plain address stays the location; registration falls back to the meeting link; non-string id dropped
+- `guessLanguageFromWebinar`: `[es]` / `(es)` / `español` markers, Spanish vocabulary, English default, and the English `plan` false positive
+
+### `upcoming-webinar-card.test.tsx`
+
+- the session's own title, and the `format` label defaulting to "Group Sessions"
+- advisor description vs the generic "What we'll cover" agenda
+- date, start time, duration, `meetingFormat · platform`, language and location rows, and their omission
+- register link (registration → join → disabled), replay link, "Replay not available", non-http replay ignored
+- accent colour from `secondaryColor`, defaulting to the portal gold
+
+### `webinar-replay-card.test.tsx`
+
+- media precedence: thumbnail → YouTube still → direct `<video>` → play placeholder
+- modal: YouTube embed iframe, direct controlled `<video>`, close button, backdrop close, no video → no modal
+- on-demand file: `?forPortal=1&clientId=…` fetch, loading state, success payload, `!ok` and thrown errors, missing-client variant, and fetching even when a thumbnail is showing
+- title/description box, duration, `Popular`, teaser suspended while the modal is open, teaser preload on mount
+
+## `WebinarsSection`
+
+- both reads and their exact contracts (`?forHub=1` with credentials; `placement=news-events&includeVideoFiles=0`)
+- upcoming/past cards from mapped meetings, rows that cannot be rendered dropped
+- replay cards, malformed payloads, rejected reads
+- no `clientId`: no request at all, and the section must leave its loading state
+- loading copy per section, empty states, `onLoadComplete` once after both reads settle
+- all three section headings
+
+## Pop-up targeting
+
+`shouldShowPopUpOnPage` decides which pages a Marketing pop-up appears on: `all`, `home`, `benefits` (including extra benefit paths), `news-events`, `my-benefits-team`, plus the documented substring matching and unknown-key behaviour.
+
+## Fixed while writing these suites
+
+1. **`UpcomingWebinarCard` never rendered the meeting title.** Upcoming and Past cards only ever said "Group Sessions" / "Webinar", so a participant could not tell which session they were registering for. The title now renders under the format label.
+2. **Post CTA URLs mangled non-http schemes.** `mailto:` and `tel:` became `https://mailto:…`; the list now reuses `normalizePortalCtaUrl` and, because a post is advisor-authored on a public page, only allows `http(s):`, `mailto:`, `tel:` and same-site paths — anything else (notably `javascript:`) renders as the plain label.
+3. **The page crashed on a non-string `secondaryBannerImg`.** `(value || "").trim()` threw on a number/object; the value is now read only when it is a string.
+4. **A plan with no `clientId` stayed on "Loading…" forever.** Both reads returned before clearing their loading flag, so the empty states (and `onLoadComplete`) never appeared.
+5. **`NewsEventsHeader` requested an image for a whitespace `backgroundImage`**; whitespace is now treated as "no background".
+6. **The replay modal was not a dialog.** It is now `role="dialog"`/`aria-modal` named by the replay title, and its close button is labelled "Close video".
+7. **`WebinarsDashboard` imported `HaveQuestionsSection` and `DocumentsSection` without rendering them**, making the route look like it also showed documents and support contacts. The dead imports are gone.
+
 ## Manual checklist
 
 - [ ] `/acme/news-events` renders the News & Events header.
@@ -144,38 +219,24 @@ pnpm test:coverage
 
 ## Known gaps
 
-1. **`WebinarsSection` itself is not covered here.** Its loading/empty/failure, upcoming/past grouping, cards, registration links, hover preview and on-demand video are a separate suite.
-2. **`useBrandingImageUrl` is mocked.** The page suite proves the input and output wiring; R2-key resolution and the `/api/r2/object` proxy have their own coverage.
-3. **`NewsPostList` uses a mocked `framer-motion`.** Animation timing and viewport triggers are not asserted.
-4. **No E2E.** A browser journey would prove the portal context, the R2 background and the published posts/webinars together.
+Observations pinned as-is rather than changed:
+
+1. **The publish window is not enforced on the portal.** Posts render regardless of `startDate`/`endDate`; only `status` gates them, and that filter is server-side. An expired post keeps publishing.
+2. **Invalid dates print the literal "Invalid Date"** for `createdAt`, `startDate` and `endDate`.
+3. **`NewsPostList` accepts `secondaryColor` and never uses it**, and four of the five category badge entries share one class string — the badge map cannot differentiate anything. The page still passes the prop.
+4. **`guessLanguageFromWebinar` classifies any title containing "plan" as Spanish**, because "plan" is in the Spanish word list.
+5. **The Past empty state is gated on `clientId`** while the Upcoming and Replays empty states are not, so a plan-less render leaves "Past Meetings" blank.
+6. **The replay play surface is a click-only `div`.** The modal is now a proper dialog, but the card cannot be opened from the keyboard.
+7. **Read failures collapse into empty states** (`console.error` only): a plan whose meetings request fails sees "No upcoming sessions" rather than an error or a retry.
+8. **`useBrandingImageUrl` is mocked** in the page suites; R2-key resolution and the `/api/r2/object` proxy have their own coverage.
+9. **`framer-motion` is mocked** in the post list, so animation timing and viewport triggers are not asserted.
+10. **The E2E is env-gated** (`E2E_BASE_URL` + `E2E_PORTAL_SLUG`) and is not part of `pnpm test`.
 
 ## Future coverage
 
-### Webinars
-
-- `WebinarsSection` loading/empty/failure
-- upcoming vs. past grouping
-- registration/join link
-- hover preview and video playback
-- missing `clientId` short-circuit
-
-### Page and posts
-
-- a post with `startDate` only and `endDate` only
-- a CTA URL with `http://`
-- a CTA URL with an unsupported scheme
-- `clientData` present but `id` missing
-- a context whose `secondaryBannerImg` is a whitespace string with surrounding content
-
-### E2E (Playwright)
-
-A future `portal-news-events.spec.ts` should cover:
-
-- a seeded plan's `/news-events` page showing the header, at least one post and one webinar;
-- the header background resolving from an R2 key;
-- a post CTA opening its external URL in a new tab;
-- a plan with no posts/webinars showing the child empty states;
-- the page at a mobile viewport.
+- keyboard activation (role, `tabIndex`, Enter/Space) for the replay card;
+- a user-facing retry when either read fails;
+- an E2E run in CI with a seeded plan that has one post, one upcoming meeting and one replay.
 
 ## Related documentation
 

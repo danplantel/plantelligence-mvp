@@ -959,6 +959,67 @@ describe("BenefitsListPage", () => {
         },
       });
     });
+
+    it("treats a row with no visibility map as empty when toggling", async () => {
+      const user = userEvent.setup();
+      mocks.benefitsData = { benefits: [row({ planVisibility: undefined })] };
+      renderPage();
+      await screen.findByText("Published");
+
+      await user.click(screen.getByRole("switch"));
+
+      await waitFor(() => expect(mocks.fetch).toHaveBeenCalledTimes(2));
+      expect(JSON.parse(fetchCall(0)[1].body)).toEqual({
+        categoryPortalVisibility: { Retirement: false },
+      });
+    });
+
+    it("writes once per row when two row toggles overlap", async () => {
+      const user = userEvent.setup();
+      mocks.benefitsData = {
+        benefits: [
+          row(),
+          row({
+            category: "Group Health",
+            label: "Health Insurance",
+            visibilityKey: "Group Health",
+            title: "Health Insurance",
+          }),
+        ],
+      };
+      renderPage();
+      await screen.findByText("Retirement Plan Benefits");
+
+      const switches = screen.getAllByRole("switch");
+      expect(switches).toHaveLength(2);
+
+      await user.click(switches[0]);
+      await user.click(switches[1]);
+
+      await waitFor(() => expect(mocks.fetch).toHaveBeenCalledTimes(4));
+      const urls = mocks.fetch.mock.calls.map(([url]) => String(url));
+      expect(urls.filter((url) => url === "/api/clients/plan-1")).toHaveLength(
+        2,
+      );
+      expect(urls).toContain("/api/clients/plan-1/benefits/Retirement");
+      expect(urls).toContain("/api/clients/plan-1/benefits/Group%20Health");
+
+      const visibilityBodies = mocks.fetch.mock.calls
+        .filter(([url]) => String(url) === "/api/clients/plan-1")
+        .map(([, init]) => JSON.parse(String((init as RequestInit).body)));
+      expect(visibilityBodies).toEqual([
+        expect.objectContaining({
+          categoryPortalVisibility: expect.objectContaining({
+            Retirement: false,
+          }),
+        }),
+        expect.objectContaining({
+          categoryPortalVisibility: expect.objectContaining({
+            "Group Health": false,
+          }),
+        }),
+      ]);
+    });
   });
 
   describe("cross-tab updates", () => {

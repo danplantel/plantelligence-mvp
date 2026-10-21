@@ -24,13 +24,13 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 | `pnpm test:watch`                   | Re-run changed unit tests on save                 |
 | `pnpm test:coverage`                | Run once and print a V8 coverage report           |
 | `pnpm exec vitest run <path>`       | Run a single unit file or directory               |
-| `pnpm test:benefits`                | Browse Benefits suite (13 files, 174 tests)       |
+| `pnpm test:benefits`                | Browse Benefits suite (13 files, 176 tests)       |
 | `pnpm test:benefits:watch`          | Browse Benefits tests in watch mode               |
 | `pnpm test:benefits:coverage`       | Browse Benefits tests + coverage                  |
-| `pnpm test:create-benefit`          | Create Benefit suite (1 file, 103 tests)          |
+| `pnpm test:create-benefit`          | Create Benefit suite (6 files, 214 tests)         |
 | `pnpm test:create-benefit:watch`    | Create Benefit tests in watch mode                |
 | `pnpm test:create-benefit:coverage` | Create Benefit tests + coverage                   |
-| `pnpm test:edit-benefit`            | Edit Benefit suites (3 files, 82 tests)           |
+| `pnpm test:edit-benefit`            | Edit Benefit suites (9 files, 206 tests)          |
 | `pnpm test:edit-benefit:watch`      | Edit Benefit tests in watch mode                  |
 | `pnpm test:edit-benefit:coverage`   | Edit Benefit tests + coverage                     |
 | `pnpm test:onboarding`              | Every onboarding unit suite (30 files, 412 tests) |
@@ -308,25 +308,36 @@ See [`marketing-tests.md`](marketing-tests.md) for the itemized inventory and re
 | `app/api/teammates/plan-assignments/__tests__/route.test.ts`                                                                               | Per-plan assignment roster used by the "Assigned to …" line                                                                  |
 | `lib/__tests__/{service-categories,plan-selector-storage,active-client-status,benefit-category-slug,benefit-draft,portal-surface}.test.ts` | The pure helpers the page calls directly                                                                                     |
 
-The Benefits-only suites total **174 tests across 13 files**; [`e2e/benefits.spec.ts`](../../e2e/benefits.spec.ts) adds six env-gated Playwright journeys. See [`benefits-tests.md`](benefits-tests.md) for the itemized inventory, manual checklist and remaining gaps.
+The Benefits-only suites total **176 tests across 13 files**; [`e2e/benefits.spec.ts`](../../e2e/benefits.spec.ts) adds six env-gated Playwright journeys. See [`benefits-tests.md`](benefits-tests.md) for the itemized inventory, manual checklist and remaining gaps.
 
 ## Create Benefit coverage
 
-| File                                                   | Focus                                                                                                                                                                            |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `app/(dashboard)/new-benefits/__tests__/page.test.tsx` | Deep-link hydration, step validation, Previous/leave prompts, Cancel and row purge, publishing attestation and save, organization-logo sync, header/comment surface, leave guard |
+| File                                                                      | Focus                                                                                                                                                                            |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/(dashboard)/new-benefits/__tests__/page.test.tsx`                    | Deep-link hydration, step validation, Previous/leave prompts, Cancel and row purge, publishing attestation and save, organization-logo sync, header/comment surface, leave guard |
+| `components/wizard/benefits-steps/__tests__/step-1.test.tsx`              | Plan-list gate, category picker/custom name, messaging, signature, primary contact, section and edit-mode gating                                                                 |
+| `components/wizard/benefits-steps/__tests__/step-3.test.tsx`              | Contact roster/fallback, selection + cap, plan writes, collaborator actions, FAQ add/edit/remove/save, previews                                                                  |
+| `components/wizard/benefits-steps/__tests__/step-4.test.tsx`              | Document load/merge, category/language filters, upload, delete branches, inline edit, reorder and sort                                                                           |
+| `components/wizard/benefits-steps/__tests__/step-5.test.tsx`              | Disclosure seed ladder, category mapping, debounced inline saves, apply-all, footer background, timer cleanup                                                                    |
+| `components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx` | Locked scope, submit payload, domain suggestion, existing-collaborator search, success/warning/error toasts                                                                      |
 
-The Create Benefit page suite adds **103 tests in one file**. See [`create-benefit-tests.md`](create-benefit-tests.md) for the itemized inventory and manual checklist.
+The Create Benefit suites add **214 tests across 6 files**. See [`create-benefit-tests.md`](create-benefit-tests.md) for the itemized inventory and manual checklist.
 
 ## Edit Benefit coverage
 
-| File                                                                       | Focus                                                                                                                                    |
-| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| `app/(dashboard)/edit-benefit/[planId]/[category]/__tests__/page.test.tsx` | Plan/category params, slug decoding, the `usePlanAccess` query, loading/denied/allowed rendering, `NoAccessNotice` context, editor props |
-| `components/pages/benefits/__tests__/benefit-edit-page.test.tsx`           | Hydration/chrome, tabs, Custom name, save, delete, portal link, preview layout                                                           |
-| `app/api/clients/[id]/benefits/[category]/__tests__/route.test.ts`         | GET/PUT/DELETE auth, `updateOnly`, R2 signing, soft-disable, purge, dual-write, 500s                                                     |
+| File                                                                        | Focus                                                                                                                                    |
+| --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `app/(dashboard)/edit-benefit/[planId]/[category]/__tests__/page.test.tsx`  | Plan/category params, slug decoding, the `usePlanAccess` query, loading/denied/allowed rendering, `NoAccessNotice` context, editor props |
+| `components/pages/benefits/__tests__/benefit-edit-page.test.tsx`            | Hydration/chrome, tabs, Custom name, save, delete, portal link, preview layout                                                           |
+| `components/pages/benefits/__tests__/edit-benefit-preview-section.test.tsx` | Editor auto-open/toggle, header events, desktop/mobile, full-row fallback, logo/brand, typography, scroll bridge                         |
+| `components/wizard/benefits-steps/__tests__/step-1.test.tsx`                | Plan gate, edit-mode picker and CONTINUE hiding, messaging, signature, primary contact                                                   |
+| `components/wizard/benefits-steps/__tests__/step-3.test.tsx`                | Contact roster/cap/writes, collaborator actions, FAQ edits, `section="contacts" \| "faqs"` tabs                                          |
+| `components/wizard/benefits-steps/__tests__/step-4.test.tsx`                | Document load/merge, filters, upload, delete branches, inline edit, reorder, sort                                                        |
+| `components/wizard/benefits-steps/__tests__/step-5.test.tsx`                | Disclosure seeding, category mapping, debounced saves, apply-all, timer cleanup                                                          |
+| `components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx`   | Contacts-tab invite: scope, payload, suggestion, search and toasts                                                                       |
+| `app/api/clients/[id]/benefits/[category]/__tests__/route.test.ts`          | GET/PUT/DELETE auth, `updateOnly`, R2 signing, soft-disable, purge, dual-write, 500s                                                     |
 
-The Edit Benefit suites add **82 tests across 3 files** (26 route + 42 editor + 14 API). See [`edit-benefits-tests.md`](edit-benefits-tests.md) for the itemized inventory and manual checklist.
+The Edit Benefit suites add **206 tests across 9 files** (26 route + 42 editor + 13 preview + 92 shared steps + 19 invite + 14 API). See [`edit-benefits-tests.md`](edit-benefits-tests.md) for the itemized inventory and manual checklist.
 
 ## Portal News & Events coverage
 

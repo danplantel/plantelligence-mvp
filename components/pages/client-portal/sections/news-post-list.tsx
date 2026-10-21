@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { motion } from "framer-motion";
 import { Calendar, ArrowRight } from "lucide-react";
 import { useNewsPostAssets } from "@/hooks/useMarketingAssets";
+import { normalizePortalCtaUrl } from "@/lib/portal-banner";
 
 interface NewsPostListProps {
   clientId?: string;
@@ -26,7 +27,8 @@ const CATEGORY_BADGE_STYLES: Record<string, string> = {
   Reminder: "bg-white/20 text-white border-white/30 backdrop-blur-sm",
 };
 
-const FALLBACK_BADGE = "bg-white/20 text-white border-white/30 backdrop-blur-sm";
+const FALLBACK_BADGE =
+  "bg-white/20 text-white border-white/30 backdrop-blur-sm";
 
 function getBadgeClass(_category: string): string {
   return CATEGORY_BADGE_STYLES[_category] || FALLBACK_BADGE;
@@ -40,7 +42,8 @@ export function NewsPostList({
 
   const publishedPosts = useMemo(() => {
     return [...newsPosts].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
     );
   }, [newsPosts]);
 
@@ -83,11 +86,23 @@ export function NewsPostList({
             const bgImageId = (data.bgImage as string) || "";
             const bgSrc = bgImageId ? BG_IMAGE_MAP[bgImageId] || "" : "";
             const hasBg = !!bgSrc;
-            const rawCtaUrl = (data.ctaUrl as string) || "";
-            // Normalize URL: if no protocol is present, prepend https://
-            const ctaUrl = rawCtaUrl && !/^https?:\/\//i.test(rawCtaUrl)
-              ? `https://${rawCtaUrl}`
-              : rawCtaUrl;
+            // The same rule the portal banner CTA uses: a bare host gains
+            // https://, while anything that already has a scheme (mailto:, tel:,
+            // https:) or points inside the site is left alone. Prefixing every
+            // non-http value produced links like `https://mailto:…`.
+            //
+            // A post is advisor-authored and this list is public, so only the
+            // schemes a participant can safely follow become a link; anything
+            // else (notably `javascript:`) renders as the plain CTA label.
+            const normalizedCta = normalizePortalCtaUrl(
+              (data.ctaUrl as string) || "",
+            );
+            const isSafeCta =
+              !!normalizedCta &&
+              (/^(https?:|mailto:|tel:)/i.test(normalizedCta) ||
+                normalizedCta.startsWith("/") ||
+                normalizedCta.startsWith("#"));
+            const ctaUrl = isSafeCta ? normalizedCta : "";
             const hasCtaUrl = !!ctaUrl;
 
             const formatDate = (d: string | null | undefined) =>
@@ -101,7 +116,10 @@ export function NewsPostList({
 
             const startDateFormatted = formatDate(post.startDate);
             const endDateFormatted = formatDate(post.endDate);
-            const dateStr = [startDateFormatted, endDateFormatted ? ` - ${endDateFormatted}` : ""]
+            const dateStr = [
+              startDateFormatted,
+              endDateFormatted ? ` - ${endDateFormatted}` : "",
+            ]
               .filter(Boolean)
               .join("");
 
@@ -125,7 +143,13 @@ export function NewsPostList({
               >
                 <div
                   className="group relative h-full min-h-[380px] sm:min-h-[360px] rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
-                  style={!hasBg ? { background: `linear-gradient(135deg, ${brandColor} 0%, #2c4b80 100%)` } : undefined}
+                  style={
+                    !hasBg
+                      ? {
+                          background: `linear-gradient(135deg, ${brandColor} 0%, #2c4b80 100%)`,
+                        }
+                      : undefined
+                  }
                 >
                   {/* Background image */}
                   {hasBg && (
@@ -144,18 +168,23 @@ export function NewsPostList({
                     {/* Category badge + date */}
                     <div className="flex flex-row flex-wrap items-center gap-1.5 mb-2 sm:mb-3">
                       <span
-                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold self-start ${getBadgeClass(category)}`}
+                        className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold self-start ${getBadgeClass(
+                          category,
+                        )}`}
                       >
                         {category}
                       </span>
                       {post.createdAt && (
                         <span className="text-[10px] sm:text-xs text-white/60 sm:text-white/70 flex items-center gap-1">
                           <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                          {new Date(post.createdAt).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
+                          {new Date(post.createdAt).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                            },
+                          )}
                         </span>
                       )}
                     </div>
@@ -167,7 +196,9 @@ export function NewsPostList({
 
                     {/* Subtitle */}
                     {subtitle && (
-                      <p className="text-xs sm:text-sm text-white/80 mt-1 sm:mt-1.5 line-clamp-2 sm:line-clamp-none">{subtitle}</p>
+                      <p className="text-xs sm:text-sm text-white/80 mt-1 sm:mt-1.5 line-clamp-2 sm:line-clamp-none">
+                        {subtitle}
+                      </p>
                     )}
 
                     {/* Date range */}

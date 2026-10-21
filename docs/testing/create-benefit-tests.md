@@ -6,17 +6,23 @@ It covers the page's orchestration around the wizard: deep-link hydration, step 
 
 ## Summary
 
-- **Unit tests:** 103 passing in 1 file.
+- **Unit tests:** 214 passing across 6 files.
+  - page shell/validation/publish: 103
+  - shared Step 1 (plan, category, messaging, contact): 18
+  - shared Step 3 (contacts, collaborators, FAQs): 32
+  - shared Step 4 (documents): 23
+  - shared Step 5 (footer disclosures): 19
+  - `InviteCollaboratorDialog`: 19
 - **Scoped scripts:** `pnpm test:create-benefit`, `pnpm test:create-benefit:watch`, `pnpm test:create-benefit:coverage`.
 - **E2E:** none dedicated; the page is not yet in a Playwright spec.
 - **Runner:** Vitest + React Testing Library + jsdom.
 
-The page is mostly orchestration, so the suite mocks the wizard store, the five step screens, the wizard chrome, the three dialogs, the leave guard, `saveBenefit`, `purgeDraftBenefit`, `fetchProfileOnce`, and the comment surface. The assertions therefore target the page's own decisions rather than the internals of the steps.
+The page suite is mostly orchestration, so it mocks the wizard store, the five step screens, the wizard chrome, the three dialogs, the leave guard, `saveBenefit`, `purgeDraftBenefit`, `fetchProfileOnce`, and the comment surface. The four shared step suites then drive the real step components with their presentation children stubbed: they pin the plan/category gate and messaging writes (Step 1), the contact roster, cap, collaborators and FAQ edits (Step 3), the document load/merge/delete/edit/reorder contract (Step 4), and the per-category disclosure seeding, debounced saves and timer cleanup (Step 5). The invite dialog suite covers its scoped chips, domain suggestion, existing-collaborator search and every toast branch.
 
 ## Running these tests
 
 ```bash
-pnpm test:create-benefit           # the Create Benefit suite (103 tests)
+pnpm test:create-benefit           # the Create Benefit suite (214 tests)
 pnpm test:create-benefit:watch     # watch mode
 pnpm test:create-benefit:coverage  # suite + V8 coverage
 ```
@@ -51,6 +57,16 @@ pnpm test:e2e             # Playwright E2E
 | 13  | Leave/cancel edge cases   |     7 | Draft kept on clean Previous, Previous never purges, Stay, dialog contracts, cancelling state           |
 | 14  | Publish edge cases        |     7 | Attestation close, delayed leave, timer cleanup, Benefit fallback, 5s error, undefined result           |
 | 15  | Org-logo edge cases       |     8 | advisorLogo/session fallback, whitespace/non-array skip, case matching, row snapshot, unmount cancel    |
+
+Shared step and dialog suites (the real components, with presentation children stubbed):
+
+| #   | Suite                                                                     | Tests | Focus                                                                                          |
+| --- | ------------------------------------------------------------------------- | ----: | ---------------------------------------------------------------------------------------------- |
+| 16  | `components/wizard/benefits-steps/__tests__/step-1.test.tsx`              |    18 | Plan gate, picker/custom name, messaging, signature, primary contact, section/mode gating      |
+| 17  | `components/wizard/benefits-steps/__tests__/step-3.test.tsx`              |    32 | Contact roster/fallback, selection + cap, plan writes, collaborators, FAQ add/edit/remove/save |
+| 18  | `components/wizard/benefits-steps/__tests__/step-4.test.tsx`              |    23 | Load + merge, category/language filters, upload, delete branches, inline edit, reorder, sort   |
+| 19  | `components/wizard/benefits-steps/__tests__/step-5.test.tsx`              |    19 | Seed ladder, category mapping, inline debounce, apply-all, footer background, timer cleanup    |
+| 20  | `components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx` |    19 | Scope chips, reset, submit payload, suggestion/search, success/warning/error toasts            |
 
 ## Unit test inventory
 
@@ -257,7 +273,8 @@ pnpm test:e2e             # Playwright E2E
 2. **The double-confirm window is not covered.** Calling the attestation `onConfirm` twice before `isLoading` re-renders is hard to drive through the dialog stub; the save handler itself has no re-entry guard.
 3. **Whitespace `contactId` is not treated as missing.** The suite pins the current Step 1 behavior; if the product wants a trimmed contact id, the page and test both need updating.
 4. **A profile logo arriving after user interaction** is not asserted against the internal baseline; only the draft write itself is covered.
-5. **No E2E journey.** The real wizard, the real store rehydration, the attestation checkboxes and the document navigation are not exercised in a browser.
+5. **`BenefitsEditorPanel` internals are not driven.** The step suites stub it (and the other presentation children); its field wiring, validation scroll and image editing remain with the Edit Benefit preview work.
+6. **No E2E journey.** The real wizard, the real store rehydration, the attestation checkboxes and the document navigation are not exercised in a browser.
 
 ## Future coverage
 

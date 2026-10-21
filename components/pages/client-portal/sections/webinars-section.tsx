@@ -133,7 +133,7 @@ const parseLocalDate = (dateStr: string): Date => {
   return new Date(dateStr);
 };
 
-function hubDateKey(iso: string) {
+export function hubDateKey(iso: string) {
   if (iso.match(/^\d{4}-\d{2}-\d{2}$/)) return iso;
   return iso.slice(0, 10);
 }
@@ -147,7 +147,7 @@ function hasWebUrlPrefix(s: string) {
  * Pasted links often omit https://. Turn bare host/path forms into a valid
  * `https://…` URL so the portal Register button can enable and navigate.
  */
-function coerceToHttpUrl(s: string): string | undefined {
+export function coerceToHttpUrl(s: string): string | undefined {
   const t = s.trim();
   if (!t) return undefined;
   if (hasWebUrlPrefix(t)) return t;
@@ -156,7 +156,7 @@ function coerceToHttpUrl(s: string): string | undefined {
   return `https://${t}`;
 }
 
-function firstRegisterableUrl(...candidates: (string | undefined)[]) {
+export function firstRegisterableUrl(...candidates: (string | undefined)[]) {
   for (const c of candidates) {
     if (!c) continue;
     const u = hasWebUrlPrefix(c) ? c.trim() : coerceToHttpUrl(c);
@@ -166,7 +166,7 @@ function firstRegisterableUrl(...candidates: (string | undefined)[]) {
 }
 
 /** Convert 24h time string to 12h AM/PM format */
-function formatTime12h(time24: string): string {
+export function formatTime12h(time24: string): string {
   if (!time24) return "";
   const [hour24, minute] = time24.split(":").map(Number);
   if (isNaN(hour24) || isNaN(minute)) return time24;
@@ -175,7 +175,7 @@ function formatTime12h(time24: string): string {
   return `${hour12}:${minute.toString().padStart(2, "0")} ${ampm}`;
 }
 
-function mapHubMeetingToWebinar(
+export function mapHubMeetingToWebinar(
   m: Record<string, unknown>,
   isPast: boolean,
 ): UpcomingWebinar | null {
@@ -188,10 +188,8 @@ function mapHubMeetingToWebinar(
     typeof m.registrationUrl === "string" ? m.registrationUrl.trim() : "";
   const meetLink =
     typeof m.meetingLink === "string" ? m.meetingLink.trim() : "";
-  const loc =
-    typeof m.hubLocation === "string" ? m.hubLocation.trim() : "";
-  const replay =
-    typeof m.replayUrl === "string" ? m.replayUrl.trim() : "";
+  const loc = typeof m.hubLocation === "string" ? m.hubLocation.trim() : "";
+  const replay = typeof m.replayUrl === "string" ? m.replayUrl.trim() : "";
   const meetingType =
     typeof m.meetingType === "string" ? m.meetingType : "General";
   const tz =
@@ -211,9 +209,7 @@ function mapHubMeetingToWebinar(
       ? m.language.trim()
       : "";
   const meetingFormat =
-    typeof m.format === "string" && m.format.trim()
-      ? m.format.trim()
-      : "";
+    typeof m.format === "string" && m.format.trim() ? m.format.trim() : "";
   const platform =
     typeof m.platform === "string" && m.platform.trim()
       ? m.platform.trim()
@@ -254,8 +250,11 @@ export function UpcomingWebinarCard({
   secondaryColor?: string;
 }) {
   const accentColor = secondaryColor ?? "#C9A961";
-  const registerHref =
-    (webinar.registrationLink?.trim() || webinar.link?.trim() || "").trim();
+  const registerHref = (
+    webinar.registrationLink?.trim() ||
+    webinar.link?.trim() ||
+    ""
+  ).trim();
   const canRegister = isHttpUrl(registerHref);
   const locationLabel = webinar.location?.trim();
   const timeLabel = webinar.time || "";
@@ -272,7 +271,10 @@ export function UpcomingWebinarCard({
   return (
     <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full">
       {/* Top accent bar */}
-      <div style={{ backgroundColor: accentColor }} className="h-2 w-full shrink-0" />
+      <div
+        style={{ backgroundColor: accentColor }}
+        className="h-2 w-full shrink-0"
+      />
 
       {/* Header: icon + format + title combined */}
       <div className="flex items-center gap-3 px-6 pt-6 pb-3">
@@ -283,15 +285,22 @@ export function UpcomingWebinarCard({
           <Calendar className="w-5 h-5" style={{ color: accentColor }} />
         </div>
         <div className="min-w-0 flex-1">
-          <span className="text-sm font-semibold uppercase tracking-wider" style={{ color: accentColor }}>
+          <span
+            className="text-sm font-semibold uppercase tracking-wider"
+            style={{ color: accentColor }}
+          >
             {formatLabel}
           </span>
+          {/* The session's own name. Without it the card only ever read
+              "Group Sessions" and never said which meeting it was. */}
+          <h3 className="mt-1 text-lg font-semibold text-[#002B5B] leading-snug">
+            {webinar.title}
+          </h3>
         </div>
       </div>
 
       {/* Content body */}
       <div className="px-6 pb-4 flex-1 space-y-4">
-
         {/* Description — show actual content from the meeting, fall back to defaults */}
         {hasDescription ? (
           <div className="text-sm text-gray-600 leading-relaxed line-clamp-4">
@@ -300,10 +309,13 @@ export function UpcomingWebinarCard({
         ) : (
           <div className="text-sm text-gray-600 space-y-2 leading-relaxed">
             <p>
-              Join us for this informative session covering key plan features and strategies
-              to help you make informed decisions about your benefits.
+              Join us for this informative session covering key plan features
+              and strategies to help you make informed decisions about your
+              benefits.
             </p>
-            <p className="font-semibold text-gray-800">What we&rsquo;ll cover:</p>
+            <p className="font-semibold text-gray-800">
+              What we&rsquo;ll cover:
+            </p>
             <ul className="list-disc list-inside space-y-1 text-gray-600">
               <li>Plan features and investment options</li>
               <li>How to make the most of your benefits</li>
@@ -317,42 +329,74 @@ export function UpcomingWebinarCard({
         <div className="space-y-3 pt-2 border-t border-gray-100">
           {webinar.date && (
             <div className="flex items-center gap-2.5 text-sm text-gray-700">
-              <Calendar className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
-              <span className="w-[88px] shrink-0 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Date</span>
+              <Calendar
+                className="w-4 h-4 shrink-0"
+                style={{ color: accentColor }}
+              />
+              <span className="w-[88px] shrink-0 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                Date
+              </span>
               <span className="font-medium">{webinar.date}</span>
             </div>
           )}
           {timeLabel && (
             <div className="flex items-center gap-2.5 text-sm text-gray-700">
-              <Clock className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
-              <span className="w-[88px] shrink-0 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Start Time</span>
+              <Clock
+                className="w-4 h-4 shrink-0"
+                style={{ color: accentColor }}
+              />
+              <span className="w-[88px] shrink-0 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                Start Time
+              </span>
               <span className="font-medium">{timeLabel}</span>
             </div>
           )}
           {hasDuration && (
             <div className="flex items-center gap-2.5 text-sm text-gray-700">
-              <Clock className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
-              <span className="w-[88px] shrink-0 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Duration</span>
+              <Clock
+                className="w-4 h-4 shrink-0"
+                style={{ color: accentColor }}
+              />
+              <span className="w-[88px] shrink-0 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                Duration
+              </span>
               <span className="font-medium">{webinar.duration}</span>
             </div>
           )}
           {hasMeetingFormat && (
             <div className="flex items-center gap-2.5 text-sm text-gray-700">
-              <MapPin className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
-              <span className="w-[88px] shrink-0 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Format</span>
-              <span>{hasPlatform ? `${webinar.meetingFormat} · ${webinar.platform}` : webinar.meetingFormat}</span>
+              <MapPin
+                className="w-4 h-4 shrink-0"
+                style={{ color: accentColor }}
+              />
+              <span className="w-[88px] shrink-0 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                Format
+              </span>
+              <span>
+                {hasPlatform
+                  ? `${webinar.meetingFormat} · ${webinar.platform}`
+                  : webinar.meetingFormat}
+              </span>
             </div>
           )}
           {hasLanguage && (
             <div className="flex items-center gap-2.5 text-sm text-gray-700">
-              <Languages className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
-              <span className="w-[88px] shrink-0 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Language</span>
+              <Languages
+                className="w-4 h-4 shrink-0"
+                style={{ color: accentColor }}
+              />
+              <span className="w-[88px] shrink-0 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                Language
+              </span>
               <span>{webinar.language}</span>
             </div>
           )}
           {locationLabel && (
             <div className="flex items-center gap-2.5 text-sm text-gray-700">
-              <MapPin className="w-4 h-4 shrink-0" style={{ color: accentColor }} />
+              <MapPin
+                className="w-4 h-4 shrink-0"
+                style={{ color: accentColor }}
+              />
               <span>{locationLabel}</span>
             </div>
           )}
@@ -505,7 +549,7 @@ export function guessLanguageFromWebinar(webinar: any): WebinarLanguage {
 }
 
 // Helper function to convert YouTube/Vimeo URLs to embed format
-function getEmbedUrl(url: string): string | null {
+export function getEmbedUrl(url: string): string | null {
   // YouTube
   const youtubeMatch = url.match(
     /(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/,
@@ -553,9 +597,9 @@ export function WebinarReplayCard({
   const videoFileEndpoint = useCallback(
     (subject: HoverPreviewSubject) =>
       replay.clientId
-        ? `/api/webinars/${subject.id}?forPortal=1&clientId=${encodeURIComponent(
-            replay.clientId,
-          )}`
+        ? `/api/webinars/${
+            subject.id
+          }?forPortal=1&clientId=${encodeURIComponent(replay.clientId)}`
         : `/api/webinars/${subject.id}`,
     [replay.clientId],
   );
@@ -798,6 +842,11 @@ export function WebinarReplayCard({
         typeof document !== "undefined" &&
         createPortal(
           <div
+            // A dialog rather than a bare overlay, so assistive tech announces the
+            // video by its title and the close affordance is reachable by name.
+            role="dialog"
+            aria-modal="true"
+            aria-label={replay.title}
             className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
             onClick={() => setIsVideoModalOpen(false)}
           >
@@ -811,6 +860,7 @@ export function WebinarReplayCard({
                 </h3>
                 <button
                   onClick={() => setIsVideoModalOpen(false)}
+                  aria-label="Close video"
                   className="text-gray-500 hover:text-gray-700"
                 >
                   <svg
@@ -892,6 +942,9 @@ export function WebinarsSection({
       if (!clientId) {
         setUpcomingWebinars([]);
         setPastMeetings([]);
+        // Without this the section stayed on "Loading upcoming sessions…"
+        // forever, because the early return skipped the `finally` below.
+        setIsLoading(false);
         return;
       }
 
@@ -915,15 +968,15 @@ export function WebinarsSection({
             .map((m: Record<string, unknown>) =>
               mapHubMeetingToWebinar(m, false),
             )
-            .filter(
-              (w: UpcomingWebinar | null): w is UpcomingWebinar => Boolean(w),
+            .filter((w: UpcomingWebinar | null): w is UpcomingWebinar =>
+              Boolean(w),
             );
           const past = result.data.past
             .map((m: Record<string, unknown>) =>
               mapHubMeetingToWebinar(m, true),
             )
-            .filter(
-              (w: UpcomingWebinar | null): w is UpcomingWebinar => Boolean(w),
+            .filter((w: UpcomingWebinar | null): w is UpcomingWebinar =>
+              Boolean(w),
             );
           setUpcomingWebinars(upcoming);
           setPastMeetings(past);
@@ -947,6 +1000,8 @@ export function WebinarsSection({
     const fetchWebinarReplays = async () => {
       if (!clientId) {
         setWebinarReplays([]);
+        // Same as the meetings read: clear the loading flag on the no-op path.
+        setIsLoadingReplays(false);
         return;
       }
 
@@ -969,21 +1024,23 @@ export function WebinarsSection({
           // client-side plan filter: the server narrows the response to the plan we
           // named, and `clientId` here can be a slug, which would never equal a
           // row's `clientId` ObjectId.
-          const transformed: WebinarReplay[] = result.data.map((webinar: any) => ({
-            id: webinar.id,
-            clientId: webinar.clientId,
-            title: webinar.webinarTitle,
-            description: webinar.description ?? undefined,
-            eventDate: webinar.eventDate,
-            thumbnail: webinar.thumbnail ?? undefined,
-            videoUrl: webinar.videoUrl,
-            // No videoFileUrl: the list request omits the base64 payload, so the
-            // card fetches a video's file on demand when play is pressed.
-            hasVideoFile: Boolean(webinar.hasVideoFile),
-            language: guessLanguageFromWebinar(webinar),
-            // Optional: calculate duration if available
-            // duration: webinar.duration || "N/A",
-          }));
+          const transformed: WebinarReplay[] = result.data.map(
+            (webinar: any) => ({
+              id: webinar.id,
+              clientId: webinar.clientId,
+              title: webinar.webinarTitle,
+              description: webinar.description ?? undefined,
+              eventDate: webinar.eventDate,
+              thumbnail: webinar.thumbnail ?? undefined,
+              videoUrl: webinar.videoUrl,
+              // No videoFileUrl: the list request omits the base64 payload, so the
+              // card fetches a video's file on demand when play is pressed.
+              hasVideoFile: Boolean(webinar.hasVideoFile),
+              language: guessLanguageFromWebinar(webinar),
+              // Optional: calculate duration if available
+              // duration: webinar.duration || "N/A",
+            }),
+          );
 
           setWebinarReplays(transformed);
         } else {
@@ -1002,7 +1059,12 @@ export function WebinarsSection({
 
   // Notify parent when all sections have finished loading
   useEffect(() => {
-    if (!isLoading && !isLoadingReplays && onLoadComplete && !loadCompleteCalled.current) {
+    if (
+      !isLoading &&
+      !isLoadingReplays &&
+      onLoadComplete &&
+      !loadCompleteCalled.current
+    ) {
       loadCompleteCalled.current = true;
       onLoadComplete();
     }
@@ -1011,11 +1073,12 @@ export function WebinarsSection({
   return (
     <div className="bg-white pt-16 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto space-y-16">
-
         {/* Upcoming Meetings & Webinars Section */}
         <div className="space-y-8">
-          <h2 className="font-dm-serif text-center text-2xl sm:text-[40px] font-normal leading-tight"
-              style={{ color: brandColor }}>
+          <h2
+            className="font-dm-serif text-center text-2xl sm:text-[40px] font-normal leading-tight"
+            style={{ color: brandColor }}
+          >
             Upcoming Meetings & Webinars
           </h2>
           {isLoading && (
@@ -1045,8 +1108,10 @@ export function WebinarsSection({
 
         {/* Past plan meetings */}
         <div className="space-y-8">
-          <h2 className="font-dm-serif text-center text-2xl sm:text-[40px] font-normal leading-tight"
-              style={{ color: brandColor }}>
+          <h2
+            className="font-dm-serif text-center text-2xl sm:text-[40px] font-normal leading-tight"
+            style={{ color: brandColor }}
+          >
             Past Meetings
           </h2>
           {isLoading && (
@@ -1077,8 +1142,10 @@ export function WebinarsSection({
 
         {/* Webinar Replays Section */}
         <div className="space-y-8">
-          <h2 className="font-dm-serif text-center text-2xl sm:text-[40px] font-normal leading-tight"
-              style={{ color: brandColor }}>
+          <h2
+            className="font-dm-serif text-center text-2xl sm:text-[40px] font-normal leading-tight"
+            style={{ color: brandColor }}
+          >
             Webinar Replays
           </h2>
 

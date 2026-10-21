@@ -6,7 +6,7 @@ It covers the server-side organization-category resolution, the client plan pick
 
 ## Summary
 
-- **Dedicated unit tests:** 174 passing in 13 files.
+- **Dedicated unit tests:** 176 passing in 13 files.
 - **Indirect unit coverage:** 3 additional suites touch adjacent behaviour (service-category mapping, `/benefits` middleware redirect, Benefits nav gating).
 - **Dedicated E2E:** 6 Playwright tests in [`e2e/benefits.spec.ts`](../../e2e/benefits.spec.ts:1), env-gated.
 - **Runner:** Vitest + React Testing Library + jsdom; Playwright for E2E.
@@ -16,7 +16,7 @@ The page changed shape in a way the suites pin: the "Your organization offers" s
 ## Running these tests
 
 ```bash
-pnpm test:benefits           # every Browse Benefits suite (174 tests)
+pnpm test:benefits           # every Browse Benefits suite (176 tests)
 pnpm test:benefits:watch     # watch mode
 pnpm test:benefits:coverage  # suite + V8 coverage
 ```
@@ -52,7 +52,7 @@ pnpm test:e2e e2e/benefits.spec.ts
 | #   | Suite                                                                 |      Tests | Status      | Focus                                                                                                              |
 | --- | --------------------------------------------------------------------- | ---------: | ----------- | ------------------------------------------------------------------------------------------------------------------ |
 | 1   | `app/(dashboard)/benefits/__tests__/page.test.tsx`                    |         15 | Implemented | Session lookup, own-category precedence, wizard-session fallback, organization-owner fallback, failure degradation |
-| 2   | `components/pages/benefits/__tests__/benefits-list.test.tsx`          |         51 | Implemented | SWR keys, plan selection, state ladder, rows, drafts, toggles, roles, assignees, empty/failure states              |
+| 2   | `components/pages/benefits/__tests__/benefits-list.test.tsx`          |         53 | Implemented | SWR keys, plan selection, state ladder, rows, drafts, toggles (incl. overlapping rows and a missing map), roles    |
 | 3   | `components/pages/benefits/__tests__/org-service-categories.test.tsx` |          5 | Implemented | Chips, empty copy, Settings edit/add affordance, server-fed rendering                                              |
 | 4   | `components/plan-selector/__tests__/plan-search-bar.test.tsx`         |         14 | Implemented | Active-only filtering, Draft retention for collaborators, recents, search, keyboard, portal link                   |
 | 5   | `app/api/benefits/__tests__/route.test.ts`                            |         20 | Implemented | Auth, accessible-plan scoping, category scoping, row shape, visibility, completeness, 500                          |

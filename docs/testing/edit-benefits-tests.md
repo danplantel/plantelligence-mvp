@@ -6,9 +6,15 @@ The route is deliberately small. It decides between the restricted notice, a loa
 
 ## Summary
 
-- **Unit tests:** 82 passing across 3 files.
+- **Unit tests:** 206 passing across 9 files.
   - route gate: 26
   - editor: 42
+  - Preview tab (`EditBenefitPreviewSection`): 13
+  - shared Step 1: 18
+  - shared Step 3 (Contacts / FAQs tabs): 32
+  - shared Step 4 (Documents tab): 23
+  - shared Step 5 (Disclaimers tab): 19
+  - `InviteCollaboratorDialog`: 19
   - benefit-category API: 14
 - **E2E:** none dedicated; the route/editor have no Playwright spec yet.
 - **Runner:** Vitest + React Testing Library + jsdom.
@@ -17,12 +23,12 @@ The route is deliberately small. It decides between the restricted notice, a loa
 ## Running these tests
 
 ```bash
-pnpm test:edit-benefit           # route + editor + API (82 tests)
+pnpm test:edit-benefit           # route + editor + preview + steps + API (206 tests)
 pnpm test:edit-benefit:watch     # watch mode
 pnpm test:edit-benefit:coverage  # suite + V8 coverage
 ```
 
-These are backed by [`vitest.edit-benefit.config.mts`](../../vitest.edit-benefit.config.mts) and [`scripts/tests/run-edit-benefit-tests.mjs`](../../scripts/tests/run-edit-benefit-tests.mjs), which list the three suites explicitly so the command cannot pick up unrelated tests.
+These are backed by [`vitest.edit-benefit.config.mts`](../../vitest.edit-benefit.config.mts) and [`scripts/tests/run-edit-benefit-tests.mjs`](../../scripts/tests/run-edit-benefit-tests.mjs), which list the nine suites explicitly so the command cannot pick up unrelated tests.
 
 All tests:
 
@@ -34,11 +40,17 @@ pnpm test:coverage
 
 ## Test inventory
 
-| #   | Suite                                                                      | Tests | Focus                                                                              |
-| --- | -------------------------------------------------------------------------- | ----: | ---------------------------------------------------------------------------------- |
-| 1   | `app/(dashboard)/edit-benefit/[planId]/[category]/__tests__/page.test.tsx` |    26 | Params, slug decoding, access lookup, loading/denied/allowed, extra gate cases     |
-| 2   | `components/pages/benefits/__tests__/benefit-edit-page.test.tsx`           |    42 | Hydration/chrome, tabs, Custom name, save, delete, portal link, preview layout     |
-| 3   | `app/api/clients/[id]/benefits/[category]/__tests__/route.test.ts`         |    14 | GET/PUT/DELETE auth, updateOnly, R2 signing, soft-disable, purge, dual-write, 500s |
+| #   | Suite                                                                       | Tests | Focus                                                                              |
+| --- | --------------------------------------------------------------------------- | ----: | ---------------------------------------------------------------------------------- |
+| 1   | `app/(dashboard)/edit-benefit/[planId]/[category]/__tests__/page.test.tsx`  |    26 | Params, slug decoding, access lookup, loading/denied/allowed, extra gate cases     |
+| 2   | `components/pages/benefits/__tests__/benefit-edit-page.test.tsx`            |    42 | Hydration/chrome, tabs, Custom name, save, delete, portal link, preview layout     |
+| 3   | `components/pages/benefits/__tests__/edit-benefit-preview-section.test.tsx` |    13 | Editor auto-open/toggle, header events, desktop/mobile, plan fallback, typography  |
+| 4   | `components/wizard/benefits-steps/__tests__/step-1.test.tsx`                |    18 | Plan gate, edit-mode picker hiding, messaging, signature, primary contact          |
+| 5   | `components/wizard/benefits-steps/__tests__/step-3.test.tsx`                |    32 | Contact roster/cap/writes, collaborators, FAQ add/edit/remove/save, section tabs   |
+| 6   | `components/wizard/benefits-steps/__tests__/step-4.test.tsx`                |    23 | Document load/merge, filters, upload, delete branches, inline edit, reorder, sort  |
+| 7   | `components/wizard/benefits-steps/__tests__/step-5.test.tsx`                |    19 | Disclosure seeding, category mapping, debounced saves, apply-all, timer cleanup    |
+| 8   | `components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx`   |    19 | Scope chips, submit payload, domain suggestion, existing search, toast branches    |
+| 9   | `app/api/clients/[id]/benefits/[category]/__tests__/route.test.ts`          |    14 | GET/PUT/DELETE auth, updateOnly, R2 signing, soft-disable, purge, dual-write, 500s |
 
 ## Route gate inventory
 
@@ -235,21 +247,15 @@ The wizard store, steps, preview, delete dialog, save/purge helpers, router and 
 
 1. **The real `usePlanAccess` fetch is not exercised.** The route suite mocks the hook; its abort/lookup-failure behavior belongs to the hook's own coverage.
 2. **The real `NoAccessNotice` actions are not clicked.** The stub verifies props; “Go to section” and “Message Organization” are outside this route's suite.
-3. **Step screens and the preview panel are stubbed in the editor suite.** `BenefitsStep1`, Step 3/4/5 and `EditBenefitPreviewSection` still need their own suites.
-4. **`InviteCollaboratorDialog` is untested.** Its search, domain suggestion, submit payload and error states are a separate surface.
-5. **The API suite mocks `resolveClient`'s dependencies**, so the portal/dev-loopback branches are not exercised here.
-6. **No E2E.** The route segment, access cookie and editor requests are not proven together in a browser.
+3. **`BenefitsEditorPanel` internals are stubbed.** `EditBenefitPreviewSection` is covered, but the panel's field wiring, validation scroll targets, image editing and help-card editor are not driven here.
+4. **The API suite mocks `resolveClient`'s dependencies**, so the portal/dev-loopback and inline-image R2 branches are not exercised here.
+5. **No E2E.** The route segment, access cookie and editor requests are not proven together in a browser.
 
 ## Future coverage
 
 ### Editor and subcomponents
 
-- `BenefitsStep1 mode="edit"` prefill, logo edits and deferred autosave
-- `BenefitsStep3` contact/FAQ loading and save guards
-- `BenefitsStep4` document upload/remove
-- `BenefitsStep5` disclosure defaults/custom copy
-- `EditBenefitPreviewSection` and `BenefitsEditorPanel` field wiring, validation and image editing
-- `InviteCollaboratorDialog` search, domain suggestion, submit and failures
+- `BenefitsEditorPanel` field wiring, validation scroll targets, image editing and help-card editing
 - the 2.5s `Saved` timer cleanup on unmount (currently not cleared)
 
 ### API

@@ -1,7 +1,5 @@
 "use client";
 
-import { HaveQuestionsSection } from "./have-questions-section";
-import { DocumentsSection } from "./documents-section";
 import { WebinarsSection } from "./webinars-section";
 
 interface WebinarsDashboardProps {
@@ -19,7 +17,11 @@ export function WebinarsDashboard({
 }: WebinarsDashboardProps) {
   return (
     <>
-      <WebinarsSection brandColor={brandColor} secondaryColor={secondaryColor} clientId={clientId} />
+      <WebinarsSection
+        brandColor={brandColor}
+        secondaryColor={secondaryColor}
+        clientId={clientId}
+      />
     </>
   );
 }

@@ -24,8 +24,9 @@ export function NewsEventsHeader({
 }: NewsEventsHeaderProps) {
   return (
     <section className="relative h-[280px] sm:h-[350px] lg:h-[400px] w-full overflow-hidden">
-      {/* Background Image */}
-      {backgroundImage && (
+      {/* Background Image — a whitespace-only value is treated as "none",
+          otherwise the browser requests the page itself as an image. */}
+      {backgroundImage?.trim() && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src={backgroundImage}

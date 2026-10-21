@@ -23,8 +23,16 @@ export default function NewsEventsPage() {
   // Resolved through useBrandingImageUrl because the stored value can be an R2
   // key (`org/…`) as well as an absolute/data URL; a bare key would otherwise be
   // requested as the relative path /org/… and 404.
+  //
+  // The value is typed as a string but arrives from the API as `unknown`; a
+  // number here used to throw on `.trim()` and blank the whole route, so only a
+  // string is considered at all.
+  const storedBanner =
+    typeof clientData?.secondaryBannerImg === "string"
+      ? clientData.secondaryBannerImg.trim()
+      : "";
   const { url: resolvedSecondaryBannerUrl } = useBrandingImageUrl(
-    (clientData?.secondaryBannerImg || "").trim() || null,
+    storedBanner || null,
   );
 
   return (
