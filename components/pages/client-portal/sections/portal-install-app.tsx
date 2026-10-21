@@ -141,6 +141,28 @@ export function PortalInstallApp() {
     const previousAppleHref = appleLink.getAttribute("href");
     appleLink.setAttribute("href", iconHref);
 
+    // The installed app's NAME. Android/desktop read the manifest; iOS reads
+    // `apple-mobile-web-app-title` when adding to the home screen. Both must
+    // name the plan, since neither necessarily refetches after the client data
+    // (and therefore the real company name) arrives.
+    const metaUpdates = [
+      "apple-mobile-web-app-title",
+      "application-name",
+    ].map((metaName) => {
+      let meta = document.head.querySelector<HTMLMetaElement>(
+        `meta[name="${metaName}"]`,
+      );
+      const created = !meta;
+      if (!meta) {
+        meta = document.createElement("meta");
+        meta.setAttribute("name", metaName);
+        document.head.appendChild(meta);
+      }
+      const previous = meta.getAttribute("content");
+      meta.setAttribute("content", appName);
+      return { meta, created, previous };
+    });
+
     // Leaving the portal restores the app-level manifest rather than leaving this plan's on a
     // dashboard page the browser may keep open.
     return () => {
@@ -153,6 +175,13 @@ export function PortalInstallApp() {
         appleLink?.remove();
       } else if (previousAppleHref) {
         appleLink?.setAttribute("href", previousAppleHref);
+      }
+      for (const { meta, created, previous } of metaUpdates) {
+        if (created) {
+          meta.remove();
+        } else if (previous !== null) {
+          meta.setAttribute("content", previous);
+        }
       }
     };
   }, [slug, appName]);

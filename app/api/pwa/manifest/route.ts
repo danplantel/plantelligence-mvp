@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+import prisma from "@/lib/prisma";
+import { planIdOrSlug } from "@/lib/plan-lookup";
 
 /**
  * The web app manifest, resolved PER PLAN.
@@ -11,9 +13,9 @@ import { NextRequest, NextResponse } from "next/server";
  *  2. The `Referer` header — the browser sends the portal page's URL when it fetches a same-origin
  *     manifest, so even the FIRST fetch (before the client has updated the link) resolves the plan.
  *
- * With neither, the manifest is the brand-level one (start at `/`). That keeps the file safe to
- * serve to any caller: nothing here reads the database, and the only input that survives validation
- * is a slug-shaped path segment and a sanitised display name.
+ * With neither, the manifest is the brand-level one (start at `/`). With a plan, the display name
+ * is read from `Client.companyName` — the query-string `name` is only a fallback, because the very
+ * first manifest fetch can happen before the portal's client data has loaded.
  */
 
 /**
@@ -82,14 +84,32 @@ function slugFromReferer(request: NextRequest): string | null {
   }
 }
 
-export function GET(request: NextRequest) {
+export async function GET(request: NextRequest) {
   const explicitSlug = request.nextUrl.searchParams.get("slug");
   const slug =
     explicitSlug && SLUG_PATTERN.test(explicitSlug)
       ? explicitSlug
       : slugFromReferer(request);
 
+  // The installed app is named after the PLAN, not the platform. Read it from
+  // the row rather than trusting the URL: the browser's first manifest fetch can
+  // arrive before PortalInstallApp has learned the company name, and an install
+  // prompt captured at that moment would keep "PlanTelligence" as the name.
+  let planName: string | null = null;
+  if (slug) {
+    try {
+      const client = await prisma.client.findFirst({
+        where: planIdOrSlug(slug),
+        select: { companyName: true },
+      });
+      planName = sanitizeName(client?.companyName || null);
+    } catch (error) {
+      console.error("[pwa/manifest] plan name lookup failed", error);
+    }
+  }
+
   const name =
+    planName ||
     sanitizeName(request.nextUrl.searchParams.get("name")) ||
     "PlanTelligence Benefits";
 
