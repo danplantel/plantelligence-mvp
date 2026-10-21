@@ -90,6 +90,8 @@ interface BrandImageUploadProps {
   previewObjectFit?: React.CSSProperties["objectFit"];
   /** Optional action rendered on the right side of the header/title row. */
   headerAction?: React.ReactNode;
+  /** Render a red asterisk after the slot title to mark it required. */
+  showRequiredMark?: boolean;
   /** When true, shows a loading overlay on the upload area (e.g. while an R2 upload is in flight). */
   isUploading?: boolean;
   /** Called when the rendered preview <img> finishes loading (the image is fully decoded/displayable). */
@@ -120,6 +122,7 @@ export function BrandImageUpload({
   onFocus,
   previewObjectFit = "contain",
   headerAction,
+  showRequiredMark = false,
   isUploading = false,
   onPreviewLoaded,
 }: BrandImageUploadProps) {
@@ -489,6 +492,9 @@ export function BrandImageUpload({
           {slot.title ? (
             <h4 className="font-medium text-sm dark:text-gray-100">
               {slot.title}
+              {showRequiredMark ? (
+                <span className="ml-0.5 text-red-500">*</span>
+              ) : null}
             </h4>
           ) : null}
           {editableDescription ? (

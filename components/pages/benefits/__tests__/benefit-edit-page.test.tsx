@@ -32,6 +32,9 @@ const mocks = vi.hoisted(() => {
           planId: "plan-1",
           benefitCategory: "Retirement",
           benefitTitle: "Retirement Plan Benefits",
+          // The Landing Page Card is required, so the base draft carries it.
+          landingCardImage: { url: "https://cdn.test/landing.png" },
+          landingCardBody: "A short landing card body.",
           selectedPlan: { companyName: "Acme Corp", slug: "acme" },
         },
       },

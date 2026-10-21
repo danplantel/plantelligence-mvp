@@ -307,6 +307,9 @@ function completeStep1(overrides: Record<string, any> = {}) {
     companyLogo: { url: "https://cdn.test/logo.png" },
     benefitTitle: "Retirement Plan Benefits",
     shortDescription: "Plan for retirement.",
+    // The Landing Page Card is required.
+    landingCardImage: { url: "https://cdn.test/landing.png" },
+    landingCardBody: "A short landing card body.",
     contactId: "contact-1",
     ...overrides,
   };
@@ -649,6 +652,8 @@ describe("NewBenefitsPage step validation", () => {
       "companyLogo",
       "benefitTitle",
       "shortDescription",
+      "landingCardImage",
+      "landingCardBody",
       "contactId",
     ]);
     expect(mocks.toastError).toHaveBeenCalledWith(
@@ -1455,6 +1460,8 @@ describe("NewBenefitsPage validation edge cases", () => {
       "companyLogo",
       "benefitTitle",
       "shortDescription",
+      "landingCardImage",
+      "landingCardBody",
       "contactId",
     ]);
     window.removeEventListener("benefitsStep1ValidationError", listener);

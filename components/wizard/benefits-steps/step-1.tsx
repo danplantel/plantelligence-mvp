@@ -58,6 +58,7 @@ import {
   Mail,
   Info,
   Layout,
+  GalleryHorizontalEnd,
   AlertCircle,
   ExternalLink,
 } from "lucide-react";
@@ -272,6 +273,10 @@ export function BenefitsStep1({
         return !(currentStepData.benefitCategory || "").trim();
       case "companyLogo":
         return !currentStepData.companyLogo?.url;
+      case "landingCardImage":
+        return !(currentStepData.landingCardImage?.url || "").trim();
+      case "landingCardBody":
+        return !(currentStepData.landingCardBody || "").trim();
       case "benefitTitle":
         return !(currentStepData.benefitTitle || "").trim();
       case "shortDescription":
@@ -441,6 +446,8 @@ export function BenefitsStep1({
         "companyLogo",
         "benefitTitle",
         "shortDescription",
+        "landingCardImage",
+        "landingCardBody",
         "contactId",
       ];
       const firstMissing = step1Fields.find((f) => fields.includes(f));
@@ -452,6 +459,8 @@ export function BenefitsStep1({
         companyLogo: "branding",
         benefitTitle: "messaging",
         shortDescription: "messaging",
+        landingCardImage: "landing-card",
+        landingCardBody: "landing-card",
         contactId: "contacts",
       };
       const accordion = accordionForField[firstMissing];
@@ -1439,13 +1448,22 @@ export function BenefitsStep1({
     // these columns existed.
     const rowLandingCardImage = benefit?.landingCardImage || "";
     const rowLandingCardBody = benefit?.landingCardBody || "";
+    const defaultLandingCardBody = getDefaultLandingCardBody(cat);
     const draftHasLandingCardImage = !!currentStepData.landingCardImage?.url;
     const draftHasLandingCardBody = !!(
       currentStepData.landingCardBody || ""
     ).trim();
+    // The body copy is an actual value, not a placeholder. When neither the row
+    // nor the draft has one, seed the category default so the textarea renders
+    // text the advisor can edit rather than an empty field.
+    const needsDefaultLandingCardBody =
+      !draftHasLandingCardBody &&
+      !rowLandingCardBody &&
+      !!defaultLandingCardBody;
     const healingLandingCard =
       (!draftHasLandingCardImage && !!rowLandingCardImage) ||
-      (!draftHasLandingCardBody && !!rowLandingCardBody);
+      (!draftHasLandingCardBody && !!rowLandingCardBody) ||
+      needsDefaultLandingCardBody;
 
     // User-profile defaults for the advisor's primary service categories.
     const profile = (profileData as any) || {};
@@ -1572,7 +1590,9 @@ export function BenefitsStep1({
         : getDefaultIntroHeadline(cat);
       next.shortDescription = getDefaultIntroMessage();
       next.landingCardImage = null;
-      next.landingCardBody = "";
+      // The body copy is not a placeholder: the category's default is the actual
+      // starting value, so the advisor only has to add the card image.
+      next.landingCardBody = getDefaultLandingCardBody(cat);
       // NOTE: contactId (Key Contact selection) is deliberately NOT cleared here — it is
       // managed by the contact-prefill effect / prefillContact, so clearing it on a different
       // render would wipe the pre-selected Primary Contact for every category.
@@ -1612,6 +1632,8 @@ export function BenefitsStep1({
     }
     if (rowLandingCardBody) {
       next.landingCardBody = rowLandingCardBody;
+    } else if (needsDefaultLandingCardBody) {
+      next.landingCardBody = defaultLandingCardBody;
     }
     if (savedLogo && (!logoEditedLocally || applyOrgLogo)) {
       next.companyLogo = {
@@ -2481,7 +2503,9 @@ export function BenefitsStep1({
             warnings: [],
           } as CompanyLogoData)
         : null,
-      landingCardBody: existingBenefit?.landingCardBody || "",
+      landingCardBody:
+        existingBenefit?.landingCardBody ||
+        getDefaultLandingCardBody(normalizedCategory),
       planVideo: existingBenefit?.planVideo || undefined,
       planVideoFileName: existingBenefit?.planVideoFileName || undefined,
       planVideoRemoved: false,
@@ -2831,6 +2855,14 @@ export function BenefitsStep1({
   const landingCardBodyEffective =
     (currentStepData.landingCardBody || "").trim() ||
     getDefaultLandingCardBody(currentStepData.benefitCategory);
+
+  // The Landing Page Card is REQUIRED: the advisor must pick/upload the card
+  // image and confirm the body copy. The default copy above is only a hint, not
+  // a substitute for an explicit value.
+  const landingCardComplete = Boolean(
+    (currentStepData.landingCardImage?.url || "").trim() &&
+      (currentStepData.landingCardBody || "").trim(),
+  );
 
   /**
    * Hand a picked default photo to the cropper at its ORIGINAL resolution.
@@ -3503,7 +3535,8 @@ export function BenefitsStep1({
                   <div className="flex items-center justify-between w-full pr-4 text-left">
                     <div className="flex items-center gap-3">
                       <div className="p-2 rounded-lg transition-colors bg-teal-50 text-accent-blue dark:bg-teal-900/30 dark:text-teal-400">
-                        <Layout className="w-5 h-5" />
+                        {/* A card/gallery glyph, distinct from Messaging's layout icon. */}
+                        <GalleryHorizontalEnd className="w-5 h-5" />
                       </div>
                       <div>
                         <h3 className="text-lg font-bold text-foreground group-hover:text-[#23919C]">
@@ -3516,34 +3549,41 @@ export function BenefitsStep1({
                         </p>
                       </div>
                     </div>
-                    <Badge
-                      variant="outline"
-                      className="text-gray-500 border-gray-200 bg-gray-50 font-bold dark:text-gray-400 dark:border-gray-700 dark:bg-gray-800"
-                    >
-                      OPTIONAL
-                    </Badge>
+                    {landingCardComplete ? (
+                      <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none px-3 font-bold dark:bg-green-900/40 dark:text-green-400">
+                        COMPLETED
+                      </Badge>
+                    ) : (
+                      <Badge
+                        variant="outline"
+                        className="text-amber-600 border-amber-200 bg-amber-50 font-bold dark:text-amber-400 dark:border-amber-700 dark:bg-amber-900/30"
+                      >
+                        INCOMPLETE
+                      </Badge>
+                    )}
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="p-6 space-y-6">
-                  <div className="space-y-4" data-field="landingCardImage">
-                    <div>
-                      <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
-                        Card Image
-                      </Label>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        Shown at the top of the card. Leave empty to use the
-                        default category image.
-                      </p>
-                    </div>
+                  <div
+                    className={cn(
+                      "space-y-4 rounded-xl transition-all duration-300",
+                      isFieldInvalid("landingCardImage") &&
+                        "ring-2 ring-red-500 ring-offset-2 ring-offset-background p-2 -m-2",
+                    )}
+                    data-field="landingCardImage"
+                  >
+                    {/* One heading for the slot: the upload card already renders
+                        its own title and description, so a second Label above it
+                        only repeated the same instruction. */}
                     <BrandImageUpload
                       slotKey="landingCardImage"
                       slot={{
-                        title: "Landing Page Card Image",
+                        title: "Card Image",
                         description:
-                          "Landscape image shown on the Benefits at a Glance card.",
+                          "Required. Landscape image shown at the top of the Benefits at a Glance card.",
                         recommendedSize: `${LANDING_CARD_IMAGE_WIDTH}×${LANDING_CARD_IMAGE_HEIGHT} px`,
                         accept: ".png,.jpg,.jpeg,.webp",
-                        required: false,
+                        required: true,
                         previewAspectRatio: 1.5,
                         previewLabel: "Card preview",
                         defaultPhoteButton: true,
@@ -3564,12 +3604,20 @@ export function BenefitsStep1({
                         })
                       }
                       onDefaultPhotoClick={() => setLandingGalleryOpen(true)}
+                      showRequiredMark
                     />
                   </div>
 
-                  <div className="space-y-2" data-field="landingCardBody">
+                  <div
+                    className={cn(
+                      "space-y-2 rounded-xl transition-all duration-300",
+                      isFieldInvalid("landingCardBody") &&
+                        "ring-2 ring-red-500 ring-offset-2 ring-offset-background p-2 -m-2",
+                    )}
+                    data-field="landingCardBody"
+                  >
                     <Label className="text-sm font-bold text-gray-700 dark:text-gray-100">
-                      Body Text
+                      Body Text <span className="text-red-500">*</span>
                     </Label>
                     <Textarea
                       value={currentStepData.landingCardBody || ""}
@@ -3592,8 +3640,7 @@ export function BenefitsStep1({
                     />
                     <div className="flex items-center justify-between gap-3">
                       <p className="text-xs text-muted-foreground">
-                        Leave empty to use the default for this benefit. The
-                        card shows at most 75 characters.
+                        Required. The card shows at most 75 characters.
                       </p>
                       <span className="text-[11px] text-muted-foreground tabular-nums">
                         {landingCardBodyEffective.length}/75

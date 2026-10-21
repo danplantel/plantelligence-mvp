@@ -21,6 +21,11 @@ const DEFAULT_LANDING_CARD_BODY: Record<string, string> = {
   "life insurance":
     "Life and disability insurance to protect your income and your family.",
   life: "Life and disability insurance to protect your income and your family.",
+  "company / plan sponsor":
+    "Programs that support your health, mind, and financial well-being.",
+  custom: "Programs that support your health, mind, and financial well-being.",
+  wellness: "Programs that support your health, mind, and financial well-being.",
+  other: "Additional benefits and resources to support your well-being.",
 };
 
 /** The card body to show for a category when no custom copy is saved. */

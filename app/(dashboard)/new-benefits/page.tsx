@@ -609,6 +609,11 @@ function NewBenefitsPageInner() {
       if (!step1Data?.benefitTitle?.trim()) missingFields.push("benefitTitle");
       if (!step1Data?.shortDescription?.trim())
         missingFields.push("shortDescription");
+      // The Landing Page Card is required, not optional.
+      if (!step1Data?.landingCardImage?.url?.trim())
+        missingFields.push("landingCardImage");
+      if (!step1Data?.landingCardBody?.trim())
+        missingFields.push("landingCardBody");
       if (!step1Data?.contactId) missingFields.push("contactId");
 
       if (missingFields.length > 0) {
@@ -626,7 +631,7 @@ function NewBenefitsPageInner() {
         }
         toast.error("Please fill in all required fields", {
           description:
-            "Select a plan, category, contact, upload a logo, and complete the Intro Headline & Message.",
+            "Select a plan, category, contact, upload a logo, complete the Intro Headline & Message, and add the Landing Page Card image and text.",
         });
         return;
       }
