@@ -351,6 +351,56 @@ describe("HowCanWeHelpSection expansion", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders a second-row panel right below the phone line it belongs to", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    // Financial Planning is the first of the two cards sharing row 2's first phone
+    // line, so the panel goes between that pair and the next pair.
+    await user.click(tile(container, "financial-planning"));
+
+    const grid = tile(container, "financial-planning").parentElement;
+    expect(grid).not.toBeNull();
+    const children = Array.from(grid!.children);
+    const panel = screen
+      .getByRole("region", { name: "Financial Planning" })
+      .closest('[id^="help-card-"]');
+    const panelIndex = children.indexOf(panel as Element);
+
+    expect(panelIndex).toBeGreaterThan(-1);
+    expect(children[panelIndex - 1]).toBe(tile(container, "social-security"));
+    expect(children[panelIndex + 1]).toBe(tile(container, "medicare"));
+  });
+
+  it("puts a last-pair second-row panel after those cards", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    await user.click(tile(container, "savings"));
+
+    const grid = tile(container, "savings").parentElement;
+    const children = Array.from(grid!.children);
+    const panel = screen
+      .getByRole("region", { name: "How Much Should I Save?" })
+      .closest('[id^="help-card-"]');
+
+    expect(children[children.length - 1]).toBe(panel);
+  });
+
+  it("marks a second-row panel to move below the whole row on desktop", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    await user.click(tile(container, "financial-planning"));
+
+    const panel = screen
+      .getByRole("region", { name: "Financial Planning" })
+      .closest('[id^="help-card-"]') as HTMLElement;
+
+    expect(panel.className).toContain("col-span-2");
+    expect(panel.className).toContain("lg:order-last");
+  });
+
   it("keeps one caret that follows the selected card", async () => {
     const user = userEvent.setup();
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
