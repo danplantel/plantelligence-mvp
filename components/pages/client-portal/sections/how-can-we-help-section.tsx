@@ -8,6 +8,7 @@ import { readableColor } from "polished";
 import { Button } from "@/components/ui/button";
 import { useOptionalClientPortal } from "@/contexts/client-portal-context";
 import { formatPhoneWithExtension } from "@/lib/phone-utils";
+import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
 import type { ProviderContact } from "@/types/benefit";
 import { cn } from "@/lib/utils";
 
@@ -242,6 +243,187 @@ function resolveCardHref(
   return { href: `https://${trimmed}`, external: true };
 }
 
+/** Matches the Rollovers topic so its panel can render its own body. */
+const ROLLOVER_CARD_PATTERN = /rollover/i;
+
+interface RolloverOption {
+  id: string;
+  title: string;
+  pros: string;
+  cons: string;
+}
+
+/**
+ * The four things a participant can do with an old employer plan, in the order the
+ * Rollovers panel numbers them.
+ */
+const ROLLOVER_OPTIONS: RolloverOption[] = [
+  {
+    id: "new-employer-plan",
+    title: "New Employer Plan",
+    pros: "One account to manage, and your new plan may offer a loan.",
+    cons: "You are limited to that plan's investment menu and fees.",
+  },
+  {
+    id: "ira",
+    title: "Roll Into an IRA",
+    pros: "The widest choice of investments, and it stays with you when you change jobs.",
+    cons: "You manage it yourself and cover the account fees.",
+  },
+  {
+    id: "leave-in-plan",
+    title: "Leave It in the Old Plan",
+    pros: "Keeps your current investments and any institutional pricing.",
+    cons: "A limited investment menu, and the account is easy to lose track of.",
+  },
+  {
+    id: "cash",
+    title: "Cash Out",
+    pros: "Immediate access to the money.",
+    cons: "Ordinary income tax, plus a 10% penalty before age 59½ in most cases.",
+  },
+];
+
+/**
+ * The Rollovers & Distributions body: the four options, the pros/cons of whichever
+ * one is selected, and the "talk it through" CTA.
+ */
+function RolloversDetail({
+  brandColor,
+  secondaryColor,
+  contactName,
+  onTalkThrough,
+}: {
+  brandColor: string;
+  secondaryColor: string;
+  contactName?: string;
+  onTalkThrough?: () => void;
+}) {
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selected =
+    ROLLOVER_OPTIONS.find((option) => option.id === selectedId) ?? null;
+
+  return (
+    <div className="mt-1">
+      <h4
+        className="font-dm-serif text-2xl leading-tight sm:text-3xl"
+        style={{ color: brandColor }}
+      >
+        Changing jobs? You have 4 options
+      </h4>
+
+      {/* The four options. Each carries its text top-left and its number bottom-right. */}
+      <div
+        data-testid="rollover-options"
+        className="mt-4 grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4"
+      >
+        {ROLLOVER_OPTIONS.map((option, index) => {
+          const isSelected = option.id === selectedId;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              aria-pressed={isSelected}
+              onClick={() =>
+                setSelectedId((prev) =>
+                  prev === option.id ? null : option.id,
+                )
+              }
+              className={cn(
+                "flex min-h-[92px] flex-col justify-between gap-3 rounded-xl border bg-white p-3 text-left transition-all duration-200 hover:shadow-sm",
+                isSelected
+                  ? "border-transparent"
+                  : "border-neutral-200 hover:border-neutral-300",
+              )}
+              style={
+                isSelected
+                  ? { boxShadow: `0 0 0 2px ${brandColor}` }
+                  : undefined
+              }
+            >
+              <span
+                className="font-red-hat text-[13px] font-semibold leading-snug"
+                style={{ color: brandColor }}
+              >
+                {option.title}
+              </span>
+              <span
+                // 50% larger than the option copy, per the design.
+                className="self-end font-dm-serif text-[27px] font-semibold leading-none tabular-nums"
+                style={{ color: isSelected ? brandColor : "#D4D4D4" }}
+              >
+                {String(index + 1).padStart(2, "0")}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Pros and cons — only while an option is selected. */}
+      {selected && (
+        <div
+          data-testid="rollover-detail"
+          className="mt-3 grid gap-3 sm:grid-cols-2"
+        >
+          {[
+            {
+              label: "Pros",
+              body: selected.pros,
+              emoji: "👍",
+              tone: "text-emerald-600",
+            },
+            {
+              label: "Cons",
+              body: selected.cons,
+              emoji: "👎",
+              tone: "text-red-600",
+            },
+          ].map(({ label, body, emoji, tone }) => (
+            <div
+              key={label}
+              className="rounded-xl border border-neutral-200 bg-white p-4"
+            >
+              {/* Green for pros, red for cons, each with its thumb. */}
+              <p
+                className={cn(
+                  "flex items-center gap-1.5 font-red-hat text-[10px] font-semibold uppercase tracking-[0.14em]",
+                  tone,
+                )}
+              >
+                <span aria-hidden className="text-[13px] leading-none">
+                  {emoji}
+                </span>
+                {label}
+              </p>
+              <p className="mt-1 font-red-hat text-[14px] leading-relaxed text-neutral-700">
+                {body}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <Button
+          type="button"
+          data-testid="rollover-talk-cta"
+          onClick={onTalkThrough}
+          className="gap-2 rounded-lg px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.08em] shadow-sm hover:opacity-90"
+          style={{
+            backgroundColor: secondaryColor,
+            color: readableColor(secondaryColor),
+          }}
+        >
+          Talk through my options
+        </Button>
+        <span className="font-red-hat text-[13px] text-neutral-600">
+          Free call with {contactName || "your advisor"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /**
  * The wide Account Access card.
  *
@@ -363,13 +545,22 @@ function HelpCardPanel({
   secondaryColor,
   basePath,
   onClose,
+  contactName,
+  onTalkThrough,
 }: {
   card: HelpCardData;
   brandColor: string;
   secondaryColor: string;
   basePath: string;
   onClose: () => void;
+  /** Full name of the plan's primary key contact, for the Rollovers "free call" line. */
+  contactName?: string;
+  /** Opens the plan's appointment link, when one is configured. */
+  onTalkThrough?: () => void;
 }) {
+  // The Rollovers topic has its own body (options, pros/cons, CTA) instead of the
+  // paragraph copy every other topic uses.
+  const isRollovers = ROLLOVER_CARD_PATTERN.test(`${card.id} ${card.title}`);
   const resolved = card.href ? resolveCardHref(card.href, basePath) : null;
   const ctaLabel = card.cta?.trim() ? card.cta : "";
   const ctaStyle = {
@@ -391,7 +582,11 @@ function HelpCardPanel({
     >
       <div className="flex items-start justify-between gap-4">
         <h3
-          className="font-dm-serif text-xl leading-snug sm:text-2xl"
+          // Rollovers keeps a small title: its own larger header sits underneath.
+          className={cn(
+            "font-dm-serif leading-snug",
+            isRollovers ? "text-base sm:text-lg" : "text-xl sm:text-2xl",
+          )}
           style={{ color: brandColor }}
         >
           {card.title}
@@ -406,19 +601,30 @@ function HelpCardPanel({
         </button>
       </div>
 
-      {card.introBold && (
-        <p className="mt-3 text-[15px] font-semibold text-neutral-900">
-          {card.introBold}
-        </p>
-      )}
+      {isRollovers ? (
+        <RolloversDetail
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          contactName={contactName}
+          onTalkThrough={onTalkThrough}
+        />
+      ) : (
+        <>
+          {card.introBold && (
+            <p className="mt-3 text-[15px] font-semibold text-neutral-900">
+              {card.introBold}
+            </p>
+          )}
 
-      <div className="mt-2 space-y-2 text-[15px] leading-relaxed text-neutral-700">
-        {(card.paragraphs ?? [])
-          .filter((paragraph) => paragraph && paragraph.trim())
-          .map((paragraph, index) => (
-            <p key={index}>{paragraph}</p>
-          ))}
-      </div>
+          <div className="mt-2 space-y-2 text-[15px] leading-relaxed text-neutral-700">
+            {(card.paragraphs ?? [])
+              .filter((paragraph) => paragraph && paragraph.trim())
+              .map((paragraph, index) => (
+                <p key={index}>{paragraph}</p>
+              ))}
+          </div>
+        </>
+      )}
 
       {ctaLabel && (
         <div className="mt-5">
@@ -499,6 +705,22 @@ export function HowCanWeHelpSection({
     .filter(Boolean)
     .join(" · ");
 
+  // The person the Rollovers panel offers a free call with. Resolved with the SAME
+  // helper the welcome banner uses (`resolvePortalPrimaryContact`) and the same
+  // category, so the two always name the same person for this benefit.
+  const bannerPrimaryContact = resolvePortalPrimaryContact(
+    (portal.clientData as any)?.keyContacts,
+    category,
+  );
+  const benefitContactName = String(
+    bannerPrimaryContact?.fullName || bannerPrimaryContact?.name || "",
+  ).trim();
+
+  // Where "Talk through my options" goes — the plan's own appointment link.
+  const appointmentLink = String(
+    (portal.clientData as any)?.appointmentLink || "",
+  ).trim();
+
   // Resolve `[Benefit Category]` once per card set, so the default topics and any
   // advisor-configured card read the same way.
   const resolvedCards = useMemo(() => {
@@ -524,7 +746,7 @@ export function HowCanWeHelpSection({
 
   const defaultOpenCardId =
     resolvedCards.find((card) =>
-      /rollover/i.test(`${card.id} ${card.title}`),
+      ROLLOVER_CARD_PATTERN.test(`${card.id} ${card.title}`),
     )?.id ?? null;
   const activeCardId = openCardId === undefined ? defaultOpenCardId : openCardId;
 
@@ -711,7 +933,8 @@ export function HowCanWeHelpSection({
                       color: readableColor(secondaryColor),
                     }}
                   >
-                    Learn more
+                    {/* The open card tells the reader where its content went. */}
+                    {isOpen ? "Showing Below" : "Learn more"}
                     <ChevronDown
                       className={cn(
                         "h-3.5 w-3.5 transition-transform duration-200",
@@ -747,6 +970,15 @@ export function HowCanWeHelpSection({
                   brandColor={brandColor}
                   secondaryColor={secondaryColor}
                   basePath={basePath}
+                  contactName={benefitContactName}
+                  onTalkThrough={() => {
+                    if (!appointmentLink) return;
+                    window.open(
+                      appointmentLink,
+                      "_blank",
+                      "noopener,noreferrer",
+                    );
+                  }}
                   onClose={() => setOpenCardId(null)}
                 />
               </div>

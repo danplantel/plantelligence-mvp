@@ -218,9 +218,37 @@ describe("HowCanWeHelpSection tiles", () => {
 
     expect(topicTiles).toHaveLength(6);
     for (const element of topicTiles) {
-      const button = within(element).getByRole("button", { name: /Learn more/ });
+      // The open card reads "Showing Below"; every other tile reads "Learn more".
+      const button = within(element).getByRole("button", {
+        name: /Learn more|Showing Below/,
+      });
       expect(button).toHaveStyle({ backgroundColor: "#654321" });
     }
+  });
+
+  it("tells the reader the open card's content is below", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    // Rollovers is open on first paint.
+    expect(
+      within(tile(container, "rollovers-distributions")).getByRole("button", {
+        name: /Showing Below/,
+      }),
+    ).toBeInTheDocument();
+
+    await user.click(tile(container, "medicare"));
+
+    expect(
+      within(tile(container, "medicare")).getByRole("button", {
+        name: /Showing Below/,
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(tile(container, "rollovers-distributions")).getByRole("button", {
+        name: /Learn more/,
+      }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -346,8 +374,11 @@ describe("HowCanWeHelpSection expansion", () => {
     expect(
       screen.getByRole("region", { name: "Rollovers & Distributions" }),
     ).toBeInTheDocument();
+    // Rollovers renders its own body rather than the generic paragraph copy.
     expect(
-      screen.getByText("Transitioning to a new employer?"),
+      screen.getByRole("heading", {
+        name: "Changing jobs? You have 4 options",
+      }),
     ).toBeInTheDocument();
   });
 
@@ -524,19 +555,102 @@ describe("HowCanWeHelpSection expansion", () => {
     await user.click(tile(container, "two"));
 
     expect(
-      within(tile(container, "two")).getByRole("button", { name: /Learn more/ }),
+      within(tile(container, "two")).getByRole("button", {
+        name: /Showing Below/,
+      }),
     ).toHaveAttribute("aria-expanded", "true");
   });
 });
 
+/**
+ * Rollovers & Distributions has its own panel body: the four options, the pros and
+ * cons of the selected option, and the "talk it through" CTA. It is open on first
+ * paint, so most of these assertions need no interaction.
+ */
+describe("HowCanWeHelpSection rollovers panel", () => {
+  it("lists the four options in order, numbered 01–04", () => {
+    render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    const options = within(
+      screen.getByTestId("rollover-options"),
+    ).getAllByRole("button");
+
+    expect(options).toHaveLength(4);
+    [
+      ["New Employer Plan", "01"],
+      ["Roll Into an IRA", "02"],
+      ["Leave It in the Old Plan", "03"],
+      ["Cash Out", "04"],
+    ].forEach(([title, number], index) => {
+      expect(options[index]).toHaveTextContent(title);
+      expect(options[index]).toHaveTextContent(number);
+    });
+  });
+
+  it("hides the pros and cons until an option is selected", async () => {
+    const user = userEvent.setup();
+    render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    expect(screen.queryByTestId("rollover-detail")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Roll Into an IRA/ }));
+
+    const detail = screen.getByTestId("rollover-detail");
+    expect(within(detail).getByText("Pros")).toBeInTheDocument();
+    expect(within(detail).getByText("Cons")).toBeInTheDocument();
+    expect(
+      within(detail).getByText(/widest choice of investments/),
+    ).toBeInTheDocument();
+  });
+
+  it("closes the pros and cons when the selected option is clicked again", async () => {
+    const user = userEvent.setup();
+    render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    const option = screen.getByRole("button", { name: /Cash Out/ });
+    await user.click(option);
+    expect(screen.getByTestId("rollover-detail")).toBeInTheDocument();
+
+    await user.click(option);
+    expect(screen.queryByTestId("rollover-detail")).not.toBeInTheDocument();
+  });
+
+  it("offers a free call with the banner's key contact", () => {
+    render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    expect(
+      screen.getByRole("button", { name: "Talk through my options" }),
+    ).toBeInTheDocument();
+    // No portal provider in this test, so the fallback copy is used.
+    expect(
+      screen.getByText("Free call with your advisor"),
+    ).toBeInTheDocument();
+  });
+});
+
 describe("HowCanWeHelpSection CTAs", () => {
-  it("prefixes an internal link with the plan path", () => {
-    render(
+  /** Opens a non-Rollovers topic, whose panel still renders the card's own CTA. */
+  async function openFinancialPlanning(overrides: Partial<HelpCardData> = {}) {
+    const user = userEvent.setup();
+    const utils = render(
       <HowCanWeHelpSection
         clientId="plan-1"
-        cards={[card({ cta: "Learn more", href: "/retirement" })]}
+        cards={[
+          card({ id: "account-access", title: "Account Access" }),
+          card({
+            id: "financial-planning",
+            title: "Financial Planning",
+            ...overrides,
+          }),
+        ]}
       />,
     );
+    await user.click(tile(utils.container, "financial-planning"));
+    return utils;
+  }
+
+  it("prefixes an internal link with the plan path", async () => {
+    await openFinancialPlanning({ cta: "Learn more", href: "/retirement" });
 
     expect(screen.getByRole("link", { name: "Learn more" })).toHaveAttribute(
       "href",
@@ -544,13 +658,8 @@ describe("HowCanWeHelpSection CTAs", () => {
     );
   });
 
-  it("opens an external link in a new tab and adds the scheme", () => {
-    render(
-      <HowCanWeHelpSection
-        clientId="plan-1"
-        cards={[card({ cta: "Visit", href: "acme.test/planning" })]}
-      />,
-    );
+  it("opens an external link in a new tab and adds the scheme", async () => {
+    await openFinancialPlanning({ cta: "Visit", href: "acme.test/planning" });
 
     const link = screen.getByRole("link", { name: "Visit" });
     expect(link).toHaveAttribute("href", "https://acme.test/planning");
@@ -558,18 +667,11 @@ describe("HowCanWeHelpSection CTAs", () => {
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 
-  it("renders an inert button when the CTA has no link", () => {
-    render(
-      <HowCanWeHelpSection
-        clientId="plan-1"
-        cards={[card({ cta: "Learn more" })]}
-      />,
-    );
+  it("renders an inert button when the CTA has no link", async () => {
+    await openFinancialPlanning({ cta: "Learn more" });
 
     // Scoped to the panel: the tile has its own "Learn more" button.
-    const panel = screen.getByRole("region", {
-      name: "Rollovers & Distributions",
-    });
+    const panel = screen.getByRole("region", { name: "Financial Planning" });
     expect(
       within(panel).getByRole("button", { name: "Learn more" }),
     ).toBeInTheDocument();
