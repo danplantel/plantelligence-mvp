@@ -391,8 +391,10 @@ export function PortalHeader({
               the hamburger can never be stranded mid-header — which is what happens in
               the scaled editing previews, where `md:` measures the panel, not referenceWidth. */}
             <div className="flex items-center gap-3 md:gap-6">
-              {/* Mobile hamburger button */}
-              <div className="md:hidden">
+              {/* Mobile hamburger button. Sits AFTER the Ask CTA on mobile (see the
+                  `order-*` utilities below) and is pulled back to its original place
+                  from `md:` up, where the desktop nav sits between it and the CTA. */}
+              <div className="order-2 md:order-1 md:hidden">
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(true)}
@@ -573,10 +575,11 @@ export function PortalHeader({
                 </div>
               </nav>
 
-              {/* Ask a question — UI only for now; the flow will be wired later */}
+              {/* Ask a question — UI only for now; the flow will be wired later.
+                  First in the cluster on mobile (hamburger follows it), last from `md:`. */}
               <Button
                 type="button"
-                className="gap-2 rounded-full px-4 text-xs font-medium text-white shadow-sm transition-opacity hover:opacity-90 sm:px-5 sm:text-sm"
+                className="order-1 gap-2 rounded-full px-4 text-xs font-medium text-white shadow-sm transition-opacity hover:opacity-90 sm:px-5 sm:text-sm md:order-2"
                 style={{ background: secondaryColor }}
               >
                 <Search className="h-4 w-4 shrink-0" />
