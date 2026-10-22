@@ -57,17 +57,6 @@ function sanitizeName(raw: string | null): string | null {
   return cleaned || null;
 }
 
-/**
- * A short label for the home screen. Chrome truncates long ones mid-word, so prefer the FIRST word
- * ("Ayres Hotels" → "Ayres") over a cut. A single long word is ellipsised rather than clipped.
- */
-function toShortName(name: string): string {
-  if (name.length <= 12) return name;
-  const firstWord = name.split(" ")[0] || name;
-  if (firstWord.length <= 16) return firstWord;
-  return `${firstWord.slice(0, 15)}…`;
-}
-
 function slugFromReferer(request: NextRequest): string | null {
   // A client can suppress this header; missing simply means "no plan hint".
   const referer = request.headers.get("referer");
@@ -124,7 +113,10 @@ export async function GET(request: NextRequest) {
     // home screen from overwriting each other.
     id: slug ? `/pwa/${slug}` : "/",
     name,
-    short_name: toShortName(name),
+    // The home-screen label is the FULL company name, not just its first word.
+    // Chrome truncates visually when space runs out; taking "Team" out of
+    // "Team Seat LLC" would be a different app name.
+    short_name: name,
     description: `${name} — your benefits portal, on your home screen.`,
     start_url: slug ? `/${slug}` : "/",
     scope: "/",
