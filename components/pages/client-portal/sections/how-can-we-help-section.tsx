@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronDown, X } from "lucide-react";
+import { motion } from "framer-motion";
 import { readableColor } from "polished";
 import { Button } from "@/components/ui/button";
 import { useOptionalClientPortal } from "@/contexts/client-portal-context";
@@ -187,6 +188,17 @@ export const HELP_TOPIC_CARDS: HelpCardData[] = [
 /** Row 1 holds the wide slot plus two cards; later rows fill four across. */
 const FIRST_ROW_CARDS = 3;
 const ROW_CAPACITY = 4;
+/** Cards that share one line of the 2-column phone grid. */
+const MOBILE_ROW_CAPACITY = 2;
+
+/** Split a row into the groups of cards that share a line on a phone. */
+function chunkCards(cards: HelpCardData[], size: number): HelpCardData[][] {
+  const chunks: HelpCardData[][] = [];
+  for (let index = 0; index < cards.length; index += size) {
+    chunks.push(cards.slice(index, index + size));
+  }
+  return chunks;
+}
 
 /**
  * Split the cards into the layout's rows: `[wide, narrow, narrow]` first, then
@@ -369,7 +381,10 @@ function HelpCardPanel({
 
   return (
     <div
-      className="animate-in fade-in-0 slide-in-from-top-1 rounded-2xl border border-neutral-200 bg-neutral-50/70 p-5 shadow-sm duration-200 sm:p-7"
+      // Opaque (not /70) so the caret's fill matches it exactly. The border takes the
+      // plan's brand colour, matching the ring on the card that opened it.
+      className="animate-in fade-in-0 slide-in-from-top-1 rounded-2xl border bg-neutral-50 p-5 shadow-sm duration-200 sm:p-7"
+      style={{ borderColor: brandColor }}
       // The panel belongs to the tile that opened it.
       role="region"
       aria-label={card.title}
@@ -520,6 +535,53 @@ export function HowCanWeHelpSection({
     onCardEdit?.(cardId);
   };
 
+  // ── The caret that points from the panel back to the card that opened it ──
+  // It lives ONCE at the section level (not inside the panel) so selecting another
+  // card keeps the same node and framer-motion animates it across the grid instead
+  // of a new caret appearing in a new place.
+  const rowsContainerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const tileRefs = useRef(new Map<string, HTMLElement>());
+  const [caretPosition, setCaretPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
+  /** Card ids in order — a stable dependency for the measuring effect. */
+  const cardOrderKey = resolvedCards.map((card) => card.id).join("|");
+
+  useEffect(() => {
+    const measure = () => {
+      const container = rowsContainerRef.current;
+      const tile = activeCardId
+        ? tileRefs.current.get(activeCardId)
+        : undefined;
+      const panel = panelRef.current;
+      if (!container || !tile || !panel) {
+        setCaretPosition((prev) => (prev === null ? prev : null));
+        return;
+      }
+
+      const containerBox = container.getBoundingClientRect();
+      const tileBox = tile.getBoundingClientRect();
+      const panelBox = panel.getBoundingClientRect();
+      // Aim at the tile's centre and the panel's actual top border — the panel can
+      // sit between two phone lines or under the whole row on desktop, so its
+      // bounding box is the only reliable reference.
+      const next = {
+        x: tileBox.left - containerBox.left + tileBox.width / 2,
+        y: panelBox.top - containerBox.top,
+      };
+      setCaretPosition((prev) =>
+        prev && prev.x === next.x && prev.y === next.y ? prev : next,
+      );
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [activeCardId, cardOrderKey]);
+
   return (
     <section className="flex min-h-screen w-full flex-col justify-center bg-white py-16 lg:py-20">
       <h2
@@ -529,123 +591,191 @@ export function HowCanWeHelpSection({
         How Can We Help You Today?
       </h2>
 
-      <div className="mx-auto w-full max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8">
+      <div
+        ref={rowsContainerRef}
+        className="relative mx-auto w-full max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8"
+      >
+        {/* Caret — a rotated square straddling the open panel's top border, aimed at
+            the card that opened it. It is ONE element for the whole section, so
+            framer-motion animates it from card to card instead of it popping up in a
+            new place. Hidden from assistive tech: the panel is labelled by its own
+            heading. */}
+        <motion.span
+          aria-hidden
+          data-testid="help-card-caret"
+          className="pointer-events-none absolute left-0 top-0 z-10 h-3.5 w-3.5 rounded-[2px] border-l border-t bg-neutral-50"
+          animate={{
+            x: (caretPosition?.x ?? 0) - 7,
+            y: (caretPosition?.y ?? 0) - 7,
+            rotate: 45,
+            opacity: caretPosition ? 1 : 0,
+          }}
+          transition={{ type: "spring", stiffness: 500, damping: 35 }}
+          style={{ borderColor: brandColor }}
+        />
+
         {rows.map((row, rowIndex) => {
+          const isFirstRow = rowIndex === 0;
           const openCard =
             row.find((card) => card.id === activeCardId) ?? null;
+
+          const renderCard = (
+            card: HelpCardData,
+            cardIndex: number,
+          ): React.ReactNode => {
+            const isWide = isFirstRow && cardIndex === 0;
+            const description = (card.paragraphs ?? []).find(
+              (paragraph) => paragraph && paragraph.trim(),
+            );
+
+            // The wide card is the account-access card — it mirrors the materials
+            // hero and never opens a detail panel.
+            if (isWide) {
+              return (
+                <AccountAccessCard
+                  key={card.id}
+                  title={card.title}
+                  description={description}
+                  brandColor={brandColor}
+                  secondaryColor={secondaryColor}
+                  planIdLabel={resolvedPlanIdLabel || undefined}
+                  providerName={resolvedProviderName || undefined}
+                  providerDetailLine={resolvedProviderDetail || undefined}
+                  loginUrl={resolvedLoginUrl}
+                />
+              );
+            }
+
+            const isOpen = card.id === activeCardId;
+
+            return (
+              <div
+                key={card.id}
+                data-help-card={card.id}
+                // Measured by the section-level caret, so it can animate to whichever
+                // card is open.
+                ref={(element) => {
+                  if (element) tileRefs.current.set(card.id, element);
+                  else tileRefs.current.delete(card.id);
+                }}
+                onClick={() => toggleCard(card.id)}
+                className={cn(
+                  // Same height floor as the Account Access card, so row 2 is
+                  // exactly as tall as row 1.
+                  "group flex h-full min-h-[180px] w-full cursor-pointer flex-col items-start gap-2 rounded-2xl border bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md lg:min-h-[210px]",
+                  "col-span-1",
+                  isOpen
+                    ? "border-transparent"
+                    : "border-neutral-200 hover:border-neutral-300",
+                )}
+                style={
+                  isOpen
+                    ? { boxShadow: `0 0 0 2px ${brandColor}` }
+                    : undefined
+                }
+              >
+                <h3
+                  // Topic titles run a step larger than the Account Access card's,
+                  // since those cards carry far less content.
+                  className="font-dm-serif text-lg font-semibold leading-snug sm:text-xl"
+                  style={{ color: brandColor }}
+                >
+                  {card.title}
+                </h3>
+
+                {/* Body text — the short supporting line on the card itself. */}
+                {card.body && (
+                  <p className="text-[15px] leading-snug text-neutral-600">
+                    {card.body}
+                  </p>
+                )}
+
+                {/* `w-full`: the tile is a flex column with `items-start`, so without
+                    it this wrapper shrinks to the button's content and the CTA only
+                    spans half the card. */}
+                <div className="mt-auto w-full pt-2">
+                  <Button
+                    type="button"
+                    aria-expanded={isOpen}
+                    aria-controls={`help-card-${card.id}`}
+                    // The whole tile is clickable, so stop this click from bubbling
+                    // back up and toggling the panel twice.
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      toggleCard(card.id);
+                    }}
+                    // Nearly the full card width, like the Account Access CTA.
+                    className="w-full justify-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] shadow-sm hover:opacity-90"
+                    style={{
+                      backgroundColor: secondaryColor,
+                      color: readableColor(secondaryColor),
+                    }}
+                  >
+                    Learn more
+                    <ChevronDown
+                      className={cn(
+                        "h-3.5 w-3.5 transition-transform duration-200",
+                        isOpen && "rotate-180",
+                      )}
+                    />
+                  </Button>
+                </div>
+              </div>
+            );
+          };
+
+          /**
+           * The open card's panel.
+           *
+           * `inGrid` places it INSIDE the row grid, spanning both phone columns, so on
+           * a phone it lands directly under the cards it belongs to instead of after
+           * the whole row. `lg:order-last` moves it back below all four cards on
+           * desktop, where the row is a single line.
+           */
+          const panelNode = (inGrid: boolean) =>
+            openCard ? (
+              <div
+                key={`panel-${openCard.id}`}
+                id={`help-card-${openCard.id}`}
+                ref={panelRef}
+                className={
+                  inGrid ? "col-span-2 lg:col-span-4 lg:order-last" : undefined
+                }
+              >
+                <HelpCardPanel
+                  card={openCard}
+                  brandColor={brandColor}
+                  secondaryColor={secondaryColor}
+                  basePath={basePath}
+                  onClose={() => setOpenCardId(null)}
+                />
+              </div>
+            ) : null;
 
           return (
             <div key={rowIndex} className="space-y-4">
               {/* Row 1 is 2/4 + 1/4 + 1/4; every later row is 4 × 1/4. */}
               <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-                {row.map((card, cardIndex) => {
-                  const isWide = rowIndex === 0 && cardIndex === 0;
-                  const description = (card.paragraphs ?? []).find(
-                    (paragraph) => paragraph && paragraph.trim(),
-                  );
-
-                  // The wide card is the account-access card — it mirrors the
-                  // materials hero and never opens a detail panel.
-                  if (isWide) {
-                    return (
-                      <AccountAccessCard
-                        key={card.id}
-                        title={card.title}
-                        description={description}
-                        brandColor={brandColor}
-                        secondaryColor={secondaryColor}
-                        planIdLabel={resolvedPlanIdLabel || undefined}
-                        providerName={resolvedProviderName || undefined}
-                        providerDetailLine={resolvedProviderDetail || undefined}
-                        loginUrl={resolvedLoginUrl}
-                      />
-                    );
-                  }
-
-                  const isOpen = card.id === activeCardId;
-
-                  return (
-                    <div
-                      key={card.id}
-                      data-help-card={card.id}
-                      onClick={() => toggleCard(card.id)}
-                      className={cn(
-                        // Same height floor as the Account Access card, so row 2 is
-                        // exactly as tall as row 1.
-                        "group flex h-full min-h-[180px] w-full cursor-pointer flex-col items-start gap-2 rounded-2xl border bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md lg:min-h-[210px]",
-                        "col-span-1",
-                        isOpen
-                          ? "border-transparent"
-                          : "border-neutral-200 hover:border-neutral-300",
-                      )}
-                      style={
-                        isOpen
-                          ? { boxShadow: `0 0 0 2px ${brandColor}` }
-                          : undefined
-                      }
-                    >
-                      <h3
-                        // Topic titles run a step larger than the Account Access
-                        // card's, since those cards carry far less content.
-                        className="font-dm-serif text-lg font-semibold leading-snug sm:text-xl"
-                        style={{ color: brandColor }}
-                      >
-                        {card.title}
-                      </h3>
-
-                      {/* Body text — the short supporting line on the card itself. */}
-                      {card.body && (
-                        <p className="text-[15px] leading-snug text-neutral-600">
-                          {card.body}
-                        </p>
-                      )}
-
-                      {/* `w-full`: the tile is a flex column with `items-start`, so
-                          without it this wrapper shrinks to the button's content and
-                          the CTA only spans half the card. */}
-                      <div className="mt-auto w-full pt-2">
-                        <Button
-                          type="button"
-                          aria-expanded={isOpen}
-                          aria-controls={`help-card-${card.id}`}
-                          // The whole tile is clickable, so stop this click from
-                          // bubbling back up and toggling the panel twice.
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            toggleCard(card.id);
-                          }}
-                          // Nearly the full card width, like the Account Access CTA.
-                          className="w-full justify-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] shadow-sm hover:opacity-90"
-                          style={{
-                            backgroundColor: secondaryColor,
-                            color: readableColor(secondaryColor),
-                          }}
-                        >
-                          Learn more
-                          <ChevronDown
-                            className={cn(
-                              "h-3.5 w-3.5 transition-transform duration-200",
-                              isOpen && "rotate-180",
-                            )}
-                          />
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
+                {isFirstRow
+                  ? row.map(renderCard)
+                  : chunkCards(row, MOBILE_ROW_CAPACITY).map(
+                      (chunk, chunkIndex) => (
+                        <Fragment key={chunkIndex}>
+                          {chunk.map((card, index) =>
+                            renderCard(card, chunkIndex * MOBILE_ROW_CAPACITY + index),
+                          )}
+                          {/* Below the phone line the open card sits on — and below
+                              everything on desktop, via `lg:order-last`. */}
+                          {chunk.some((card) => card.id === activeCardId)
+                            ? panelNode(true)
+                            : null}
+                        </Fragment>
+                      ),
+                    )}
               </div>
 
-              {openCard && (
-                <div id={`help-card-${openCard.id}`}>
-                  <HelpCardPanel
-                    card={openCard}
-                    brandColor={brandColor}
-                    secondaryColor={secondaryColor}
-                    basePath={basePath}
-                    onClose={() => setOpenCardId(null)}
-                  />
-                </div>
-              )}
+              {/* Row 1 keeps its panel under the whole row. */}
+              {isFirstRow ? panelNode(false) : null}
             </div>
           );
         })}

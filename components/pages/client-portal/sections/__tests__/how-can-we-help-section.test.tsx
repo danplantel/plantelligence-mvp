@@ -351,6 +351,34 @@ describe("HowCanWeHelpSection expansion", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps one caret that follows the selected card", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    const caret = screen.getByTestId("help-card-caret");
+    expect(caret).toHaveAttribute("aria-hidden", "true");
+    // The caret takes the same brand border as the open card and its panel.
+    expect(caret.getAttribute("style")).toMatch(/rgb\(0,\s*43,\s*91\)/);
+
+    await user.click(tile(container, "financial-planning"));
+
+    // The SAME node is reused — that is what lets framer-motion animate it from
+    // one card to the next instead of a new caret appearing in a new place.
+    expect(screen.getByTestId("help-card-caret")).toBe(caret);
+    expect(
+      screen.getByRole("region", { name: "Financial Planning" }),
+    ).toBeInTheDocument();
+  });
+
+  it("marks the panel's own border with the brand colour", () => {
+    render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    const panel = screen.getByRole("region", {
+      name: "Rollovers & Distributions",
+    });
+    expect(panel.getAttribute("style")).toMatch(/rgb\(0,\s*43,\s*91\)/);
+  });
+
   it("moves the panel to the card that was clicked", async () => {
     const user = userEvent.setup();
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
