@@ -936,6 +936,9 @@ model Benefit {
   planVideoLabel     String?
   // Poster image: an uploaded image, a frame captured from the video, or an external URL.
   planVideoThumbnail String?
+  // Editor's "Show on page" toggle: false hides the whole video section on the
+  // portal. Defaults to true so existing rows keep their video.
+  planVideoVisible Boolean @default(true)
 
   // Branding
   partnerLogo     String?

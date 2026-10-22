@@ -463,6 +463,17 @@ export function BenefitsEditorPanel({
     saveStepData(1, { ...step1Data, planVideoLabel: label });
   };
 
+  /**
+   * "Show on page" — whether the video section appears on the portal at all.
+   *
+   * Stored on the Benefit row (`planVideoVisible`) and read by the hub pages, which
+   * skip the whole section when it is false. Absent means visible, so rows saved
+   * before this toggle existed keep their video.
+   */
+  const handlePlanVideoVisibilityChange = (visible: boolean) => {
+    saveStepData(1, { ...step1Data, planVideoVisible: visible });
+  };
+
   // ── Thumbnail (uploaded image or a captured video frame) ──
   const applyThumbnail = async (dataUrl: string) => {
     try {
@@ -1249,6 +1260,28 @@ export function BenefitsEditorPanel({
 
           {/* 4a — Video Source: upload a file or paste a URL. */}
           <div className="space-y-4 mb-6 p-4 border border-muted rounded-lg bg-white dark:bg-gray-800">
+            {/* Show on page — hides the whole video section on the portal when off. */}
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-muted pb-3">
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="plan-video-visible"
+                  checked={step1Data.planVideoVisible !== false}
+                  onCheckedChange={handlePlanVideoVisibilityChange}
+                />
+                <Label
+                  htmlFor="plan-video-visible"
+                  className="cursor-pointer text-xs font-bold text-foreground"
+                >
+                  Show on page
+                </Label>
+              </div>
+              <span className="text-[11px] text-muted-foreground">
+                {step1Data.planVideoVisible !== false
+                  ? "The video section is visible on the portal."
+                  : "The video section is hidden on the portal."}
+              </span>
+            </div>
+
             <div className="flex flex-wrap items-center justify-between gap-3">
               <Label className="text-xs font-bold text-foreground">
                 Video Source

@@ -181,28 +181,31 @@ export default function HealthInsurancePage() {
           cards={(benefitData as any)?.helpCards ?? undefined}
         />
 
-        <BenefitsVideoSection
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          keyContacts={clientData?.keyContacts}
-          category="Group Health"
-          videoLabel={benefitData?.planVideoLabel ?? undefined}
-          videoThumbnail={benefitData?.planVideoThumbnail ?? undefined}
-          mainTitle={
-            (benefitData as any)?.journeyHeader ||
-            "Understanding Your Health Benefits"
-          }
-          subtitle={
-            (benefitData as any)?.journeySubtitle ||
-            "Navigate your coverage with confidence."
-          }
-          description={
-            (benefitData as any)?.journeyBodyText ||
-            "Your health and well-being are our priority. Explore our health insurance resources to understand your coverage options, maximize your benefits, and make informed decisions about your medical, dental, and vision care for you and your family."
-          }
-          planVideoUrl={benefitData?.planVideo as string | undefined}
-          planVideoFallbackImage={HEALTH_INSURANCE_FALLBACK_IMAGE}
-        />
+        {/* Hidden entirely when the editor's "Show on page" toggle is off. */}
+        {benefitData?.planVideoVisible !== false && (
+          <BenefitsVideoSection
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            keyContacts={clientData?.keyContacts}
+            category="Group Health"
+            videoLabel={benefitData?.planVideoLabel ?? undefined}
+            videoThumbnail={benefitData?.planVideoThumbnail ?? undefined}
+            mainTitle={
+              (benefitData as any)?.journeyHeader ||
+              "Understanding Your Health Benefits"
+            }
+            subtitle={
+              (benefitData as any)?.journeySubtitle ||
+              "Navigate your coverage with confidence."
+            }
+            description={
+              (benefitData as any)?.journeyBodyText ||
+              "Your health and well-being are our priority. Explore our health insurance resources to understand your coverage options, maximize your benefits, and make informed decisions about your medical, dental, and vision care for you and your family."
+            }
+            planVideoUrl={benefitData?.planVideo as string | undefined}
+            planVideoFallbackImage={HEALTH_INSURANCE_FALLBACK_IMAGE}
+          />
+        )}
 
         {/* Videos published to this page from Communications → Webinars. */}
         <BenefitsHubWebinarsSection

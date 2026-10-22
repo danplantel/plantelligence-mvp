@@ -80,6 +80,12 @@ export interface BenefitData {
   planVideoLabel?: string | null;
   /** Poster image (R2 key, external URL, or data URL) */
   planVideoThumbnail?: string | null;
+  /**
+   * Editor's "Show on page" toggle. `false` hides the whole video section on the
+   * portal; absent/`true` shows it (a row saved before the toggle existed keeps
+   * playing its video).
+   */
+  planVideoVisible?: boolean | null;
 
   // Branding
   partnerLogo?: string | null;

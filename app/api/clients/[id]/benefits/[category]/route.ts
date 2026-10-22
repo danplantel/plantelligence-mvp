@@ -328,6 +328,8 @@ export async function PUT(
         planVideoFileName: body.planVideoFileName ?? null,
         planVideoLabel: body.planVideoLabel ?? null,
         planVideoThumbnail: planVideoThumbnail ?? null,
+        // A new row defaults to visible unless the editor explicitly hid it.
+        planVideoVisible: body.planVideoVisible ?? true,
         partnerLogo: partnerLogo ?? null,
         backgroundImage: backgroundImage ?? null,
         landingCardImage: landingCardImage ?? null,
@@ -381,6 +383,11 @@ export async function PUT(
         planVideoLabel:
           body.planVideoLabel !== undefined ? body.planVideoLabel : undefined,
         planVideoThumbnail: planVideoThumbnail,
+        // Patch semantics: an omitted flag leaves the stored value alone.
+        planVideoVisible:
+          body.planVideoVisible !== undefined
+            ? Boolean(body.planVideoVisible)
+            : undefined,
         partnerLogo: partnerLogo,
         backgroundImage: backgroundImage,
         landingCardImage: landingCardImage,
@@ -507,6 +514,9 @@ export async function PUT(
           planVideoFileName: b.planVideoFileName,
           planVideoLabel: b.planVideoLabel,
           planVideoThumbnail: b.planVideoThumbnail,
+          // Editor's "Show on page" toggle (the hub hides the whole video section
+          // when this is false).
+          planVideoVisible: b.planVideoVisible,
           partnerLogo: b.partnerLogo,
           // Legacy consumers (portal-welcome-banner, completeness check) read the
           // header background from `image`; the new Benefit model calls it

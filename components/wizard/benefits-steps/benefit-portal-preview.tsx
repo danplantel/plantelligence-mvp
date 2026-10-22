@@ -589,6 +589,8 @@ export function BenefitPortalPreview({
           />
         </div>
 
+        {/* Mirrors the live hub: "Show on page" off removes the whole section. */}
+        {step1Data?.planVideoVisible !== false && (
         <div className={mobile ? "force-visible relative" : "relative"}>
           <BenefitsVideoSection
             brandColor={brandColor}
@@ -654,6 +656,7 @@ export function BenefitPortalPreview({
             onVideoClick={() => handleEdit("planVideo")}
           />
         </div>
+        )}
 
         {/* Videos published to this page from Communications → Webinars. */}
         <BenefitsHubWebinarsSection

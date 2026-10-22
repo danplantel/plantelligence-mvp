@@ -802,6 +802,9 @@ export function BenefitsStep1({
           planVideo: currentStepData.planVideo || null,
           planVideoFileName: currentStepData.planVideoFileName || null,
           planVideoLabel: currentStepData.planVideoLabel || null,
+          // "Show on page" toggle from the Video Source editor. Undefined leaves the
+          // stored value alone (see the Benefit API's patch semantics).
+          planVideoVisible: currentStepData.planVideoVisible,
           // The thumbnail is deliberately omitted: it can be a freshly captured
           // data URL, and re-sending it on every debounce would re-upload it each
           // time. `saveBenefit()` persists it on completion / edit save, and the

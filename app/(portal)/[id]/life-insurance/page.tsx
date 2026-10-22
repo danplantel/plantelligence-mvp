@@ -182,28 +182,31 @@ export default function LifeInsurancePage() {
           cards={(benefitData as any)?.helpCards ?? undefined}
         />
 
-        <BenefitsVideoSection
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          keyContacts={clientData?.keyContacts}
-          category="Group Life"
-          videoLabel={benefitData?.planVideoLabel ?? undefined}
-          videoThumbnail={benefitData?.planVideoThumbnail ?? undefined}
-          mainTitle={
-            (benefitData as any)?.journeyHeader ||
-            "Life Insurance: Protecting What Matters Most"
-          }
-          subtitle={
-            (benefitData as any)?.journeySubtitle ||
-            "Secure your family's financial future with the right coverage."
-          }
-          description={
-            (benefitData as any)?.journeyBodyText ||
-            "Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."
-          }
-          planVideoUrl={benefitData?.planVideo as string | undefined}
-          planVideoFallbackImage={LIFE_INSURANCE_FALLBACK_IMAGE}
-        />
+        {/* Hidden entirely when the editor's "Show on page" toggle is off. */}
+        {benefitData?.planVideoVisible !== false && (
+          <BenefitsVideoSection
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            keyContacts={clientData?.keyContacts}
+            category="Group Life"
+            videoLabel={benefitData?.planVideoLabel ?? undefined}
+            videoThumbnail={benefitData?.planVideoThumbnail ?? undefined}
+            mainTitle={
+              (benefitData as any)?.journeyHeader ||
+              "Life Insurance: Protecting What Matters Most"
+            }
+            subtitle={
+              (benefitData as any)?.journeySubtitle ||
+              "Secure your family's financial future with the right coverage."
+            }
+            description={
+              (benefitData as any)?.journeyBodyText ||
+              "Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."
+            }
+            planVideoUrl={benefitData?.planVideo as string | undefined}
+            planVideoFallbackImage={LIFE_INSURANCE_FALLBACK_IMAGE}
+          />
+        )}
 
         {/* Videos published to this page from Communications → Webinars. */}
         <BenefitsHubWebinarsSection

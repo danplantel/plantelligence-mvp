@@ -171,6 +171,11 @@ export function mergeUserBenefitWithHubDefaults(
     ...(nonEmptyString(p.planVideoThumbnail)
       ? { planVideoThumbnail: p.planVideoThumbnail }
       : {}),
+    // "Show on page" toggle — only when the editor set it, so a row saved before
+    // the toggle existed keeps defaulting to visible.
+    ...(p.planVideoVisible !== undefined
+      ? { planVideoVisible: p.planVideoVisible }
+      : {}),
     // Preserve the landing page card's dedicated image/body (Benefits at a Glance).
     ...(nonEmptyString(p.landingCardImage)
       ? { landingCardImage: p.landingCardImage }

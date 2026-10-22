@@ -235,6 +235,32 @@ describe("PUT /api/clients/[id]/benefits/[category]", () => {
     );
   });
 
+  it("patches the Show on page toggle when it is sent", async () => {
+    await PUT(request("PUT", undefined, { planVideoVisible: false }), {
+      params,
+    });
+
+    expect(mocks.prisma.benefit.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({ planVideoVisible: false }),
+      }),
+    );
+  });
+
+  it("leaves the toggle alone when the request omits it", async () => {
+    await PUT(request("PUT", undefined, { title: "Updated" }), { params });
+
+    const upsertArgs = mocks.prisma.benefit.upsert.mock.calls[0][0] as any;
+    expect(upsertArgs.update.planVideoVisible).toBeUndefined();
+  });
+
+  it("defaults a new row to visible", async () => {
+    await PUT(request("PUT", undefined, { title: "New" }), { params });
+
+    const upsertArgs = mocks.prisma.benefit.upsert.mock.calls[0][0] as any;
+    expect(upsertArgs.create.planVideoVisible).toBe(true);
+  });
+
   it("writes isEnabled false and mirrors the rows", async () => {
     mocks.prisma.benefit.findMany.mockResolvedValue([
       benefit({ isEnabled: false }),

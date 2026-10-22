@@ -209,19 +209,22 @@ export default function CustomBenefitPage() {
           cards={(benefitData as any)?.helpCards ?? undefined}
         />
 
-        <BenefitsVideoSection
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          keyContacts={clientData?.keyContacts}
-          category="Company / Plan Sponsor"
-          videoLabel={benefitData?.planVideoLabel ?? undefined}
-          videoThumbnail={benefitData?.planVideoThumbnail ?? undefined}
-          mainTitle={(benefitData as any)?.journeyHeader || "Whole-Person Wellness Programs"}
-          subtitle={(benefitData as any)?.journeySubtitle || "Supporting your health, mind, and financial well-being."}
-          description={(benefitData as any)?.journeyBodyText || "Your well-being goes beyond traditional benefits. Discover programs designed to support your physical, mental, and financial health—from fitness stipends and nutrition coaching to mental health resources and financial wellness tools. Thrive at work and at home."}
-          planVideoUrl={benefitData?.planVideo as string | undefined}
-          planVideoFallbackImage={WELLNESS_FALLBACK_IMAGE}
-        />
+        {/* Hidden entirely when the editor's "Show on page" toggle is off. */}
+        {benefitData?.planVideoVisible !== false && (
+          <BenefitsVideoSection
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            keyContacts={clientData?.keyContacts}
+            category="Company / Plan Sponsor"
+            videoLabel={benefitData?.planVideoLabel ?? undefined}
+            videoThumbnail={benefitData?.planVideoThumbnail ?? undefined}
+            mainTitle={(benefitData as any)?.journeyHeader || "Whole-Person Wellness Programs"}
+            subtitle={(benefitData as any)?.journeySubtitle || "Supporting your health, mind, and financial well-being."}
+            description={(benefitData as any)?.journeyBodyText || "Your well-being goes beyond traditional benefits. Discover programs designed to support your physical, mental, and financial health—from fitness stipends and nutrition coaching to mental health resources and financial wellness tools. Thrive at work and at home."}
+            planVideoUrl={benefitData?.planVideo as string | undefined}
+            planVideoFallbackImage={WELLNESS_FALLBACK_IMAGE}
+          />
+        )}
 
         {/* Videos published to this page from Communications → Webinars. The key stays
             "wellness-programs" — it is the stored placement value on every saved row. */}

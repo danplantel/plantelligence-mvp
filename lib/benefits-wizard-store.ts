@@ -103,6 +103,11 @@ export interface BenefitsStep1Data {
   planVideoLabel?: string;
   /** Poster image: uploaded image, captured video frame, or external URL. */
   planVideoThumbnail?: string;
+  /**
+   * "Show on page" toggle in the Video Source editor. `false` hides the whole
+   * video section on the portal; absent means shown.
+   */
+  planVideoVisible?: boolean;
   /** When true, the user explicitly removed the video — overrides persisted categoryBenefit.planVideo */
   planVideoRemoved?: boolean;
   /** Journey section main header override */
