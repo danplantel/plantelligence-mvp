@@ -34,6 +34,13 @@ export interface BenefitContactCardProps {
   placement?: ContactPlacement;
   /** Explicit compact override; wins over the placement default. */
   compact?: boolean;
+  /**
+   * Phone-sized card design, set only by the mobile layouts (My Benefits Team and
+   * the Step 3 / Contacts mobile preview): `wide` for a full-width card, `compact`
+   * for one that shares a row in the 2-column grid. Ignored by the large
+   * `PrimaryContactCard`, which only renders on desktop.
+   */
+  mobileVariant?: "wide" | "compact";
 }
 
 /**
@@ -76,6 +83,7 @@ export function BenefitContactCard({
   asPrimary = false,
   placement = "team",
   compact,
+  mobileVariant,
 }: BenefitContactCardProps) {
   // Category pages are content-dense, so their cards default to the compact
   // variant; the team page keeps whatever its layout asks for.
@@ -116,6 +124,7 @@ export function BenefitContactCard({
       disableAnimation={disableAnimation}
       baselineBackgroundColor={baselineBackgroundColor}
       compact={isCompact}
+      mobileVariant={mobileVariant}
       categoryLabel={categoryLabel}
       categoryList={categoryList}
     />

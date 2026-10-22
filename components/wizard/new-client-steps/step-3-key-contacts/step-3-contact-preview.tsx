@@ -277,6 +277,7 @@ function RenderCardBySlot({
   baselineBackgroundColor,
   compact,
   hideCategoryBadge = false,
+  mobileVariant,
 }: {
   slot: CardSlot;
   contact: any;
@@ -291,6 +292,8 @@ function RenderCardBySlot({
   compact?: boolean;
   /** When true, skips the absolute-positioned category badge overlay (mobile preview shows it in the header bar instead) */
   hideCategoryBadge?: boolean;
+  /** Phone card design — same prop the live My Benefits Team mobile layouts pass. */
+  mobileVariant?: "wide" | "compact";
 }) {
   // Use index to determine visual primary status (first item is always primary)
   const isPrimaryContact = index === 0;
@@ -363,6 +366,7 @@ function RenderCardBySlot({
             disableAnimation={true}
             baselineBackgroundColor={baselineBackgroundColor}
             compact={compact}
+            mobileVariant={mobileVariant}
             disableContactFormButton
           />
         </div>
@@ -1401,6 +1405,20 @@ export function NewClientStep3d({
         // Hero + Grid layout. Also use compact when large cards are converted.
         const isCompact = previewMode === "mobile" || largeAsCompact;
 
+        // Phone card design, mirroring the live page's MobileLayout exactly:
+        // Stacked = every card full width; 2-Column = all narrow; Hero + Grid = a
+        // full-width hero followed by narrow cards.
+        const mobileVariant: "wide" | "compact" | undefined =
+          previewMode !== "mobile"
+            ? undefined
+            : mobileLayoutStyle === 1
+              ? "compact"
+              : mobileLayoutStyle === 2
+                ? index === 0
+                  ? "wide"
+                  : "compact"
+                : "wide";
+
         return (
           <SortablePreviewCard
             key={contact.id}
@@ -1430,6 +1448,7 @@ export function NewClientStep3d({
               baselineBackgroundColor={globalBackgroundColor}
               compact={isCompact}
               hideCategoryBadge={previewMode === "mobile"}
+              mobileVariant={mobileVariant}
             />
           </SortablePreviewCard>
         );

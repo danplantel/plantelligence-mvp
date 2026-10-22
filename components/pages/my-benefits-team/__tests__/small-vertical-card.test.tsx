@@ -509,3 +509,111 @@ describe("SmallVerticalCard visuals", () => {
     expect(screen.queryByText("[Headshot]")).not.toBeInTheDocument();
   });
 });
+
+/**
+ * The phone designs (`mobileVariant`), used by My Benefits Team and both Key
+ * Contacts previews.
+ *
+ * The old mobile card was a centred vertical stack — logo, avatar, name, title,
+ * company, contact lines, buttons — so a full-width card wasted most of its width
+ * and grew very tall. `wide` puts identity in a left column beside the details;
+ * `compact` keeps the vertical order at a grid width but far tighter.
+ */
+describe("SmallVerticalCard mobile variants", () => {
+  const CONTACT = {
+    firstName: "Ada",
+    lastName: "Lovelace",
+    title: "Benefits Advisor",
+    companyName: "Acme",
+    email: "ada@acme.test",
+    phone: "(305) 555-0100",
+  };
+
+  function mobileCard(props: Partial<CardProps>) {
+    return renderCard(CONTACT, { compact: true, ...props });
+  }
+
+  it("renders the wide design for a full-width phone card", () => {
+    const { container } = mobileCard({ mobileVariant: "wide" });
+
+    expect(
+      container.querySelector('[data-mobile-variant="wide"]'),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
+    expect(screen.getByText("Benefits Advisor")).toBeInTheDocument();
+    expect(screen.getByText("Acme")).toBeInTheDocument();
+    expect(screen.getByText("ada@acme.test")).toBeInTheDocument();
+    expect(screen.getByText("(305) 555-0100")).toBeInTheDocument();
+  });
+
+  it("renders the compact design for a card sharing a grid row", () => {
+    const { container } = mobileCard({ mobileVariant: "compact" });
+
+    expect(
+      container.querySelector('[data-mobile-variant="compact"]'),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Ada Lovelace")).toBeInTheDocument();
+    expect(screen.getByText("Benefits Advisor")).toBeInTheDocument();
+    expect(screen.getByText("ada@acme.test")).toBeInTheDocument();
+  });
+
+  it("puts the identity column beside the details on the wide card", () => {
+    const { container } = mobileCard({ mobileVariant: "wide" });
+
+    // One two-column row: the avatar's column is a sibling of the details column,
+    // so the details never stack under the photo.
+    const row = container.querySelector('[data-mobile-variant="wide"] > div');
+    expect(row?.children).toHaveLength(2);
+    expect(row?.children[0].contains(screen.getByTestId("contact-avatar"))).toBe(
+      true,
+    );
+    expect(
+      row?.children[1].contains(screen.getByText("Ada Lovelace")),
+    ).toBe(true);
+  });
+
+  it("draws the actions outside the two-column row", () => {
+    const { container } = mobileCard({ mobileVariant: "wide" });
+
+    const root = container.querySelector('[data-mobile-variant="wide"]');
+    const buttons = screen.getByRole("button", { name: "Schedule Appt." });
+    expect(root?.children[1].contains(buttons)).toBe(true);
+  });
+
+  it("keeps every preview placeholder in both designs", () => {
+    const wide = renderCard({}, { compact: true, mobileVariant: "wide", previewPlaceholders: true });
+    expect(screen.getByText("[First & Last Name]")).toBeInTheDocument();
+    expect(screen.getByText("[Job Title]")).toBeInTheDocument();
+    expect(screen.getByText("[Company / Organization]")).toBeInTheDocument();
+    expect(screen.getByText("[Email]")).toBeInTheDocument();
+    expect(screen.getByText("[Phone]")).toBeInTheDocument();
+    expect(screen.getByText("[Logo]")).toBeInTheDocument();
+    wide.unmount();
+
+    renderCard({}, { compact: true, mobileVariant: "compact", previewPlaceholders: true });
+    expect(screen.getByText("[First & Last Name]")).toBeInTheDocument();
+    expect(screen.getByText("[Email]")).toBeInTheDocument();
+  });
+
+  it("hides the role line for a support line in both designs", () => {
+    const wide = renderCard(
+      { contactType: "team_support", displayName: "Help Desk" },
+      { compact: true, mobileVariant: "wide" },
+    );
+    expect(screen.getByText("Help Desk")).toBeInTheDocument();
+    expect(screen.queryByText("Benefits Advisor")).not.toBeInTheDocument();
+    wide.unmount();
+
+    renderCard(
+      { contactType: "team_support", displayName: "Help Desk" },
+      { compact: true, mobileVariant: "compact" },
+    );
+    expect(screen.getByText("Help Desk")).toBeInTheDocument();
+  });
+
+  it("keeps the existing card when no mobile variant is requested", () => {
+    const { container } = renderCard(CONTACT, { compact: true });
+
+    expect(container.querySelector("[data-mobile-variant]")).toBeNull();
+  });
+});

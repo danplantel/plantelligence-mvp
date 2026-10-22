@@ -383,7 +383,18 @@ export default function MyBenefitsTeamPage() {
     planCompanyLogo,
   ]);
 
+  // The Main Contact is the page's headline card, and its company logo must never be
+  // blank: a row seeded before the advisor uploaded a logo carries none of its own,
+  // while every Company / Plan Sponsor card already falls back to the plan's logo.
+  // Applying the same fallback to the primary card (only) keeps the headline card
+  // complete without relabelling anybody else's company.
   const primaryContact = visibleContacts[0];
+  if (primaryContact && planCompanyLogo) {
+    if (!primaryContact.companyLogo && !primaryContact.logo) {
+      primaryContact.companyLogo = planCompanyLogo;
+      primaryContact.logo = planCompanyLogo;
+    }
+  }
   const rest = visibleContacts.slice(1);
 
   // Mark primary contact visually
@@ -782,8 +793,16 @@ function MobileLayout({
     isPrimary: index === 0,
   }));
 
-  // All mobile cards render as compact vertical cards (matches step-3d mobile preview).
-  const cards = toRender.map((contact, index) => (
+  /**
+   * One mobile card. `variant` picks the phone design inside the shared card:
+   * `wide` for a card that owns the full width of the screen, `compact` for the
+   * cards that share a row in the 2-column grid.
+   */
+  const renderCard = (
+    contact: Contact,
+    index: number,
+    variant: "wide" | "compact",
+  ) => (
     <BenefitContactCard
       key={contact.id || index}
       contact={contact}
@@ -793,38 +812,44 @@ function MobileLayout({
       companyName={companyName}
       index={index}
       compact={true}
+      mobileVariant={variant}
       baselineBackgroundColor={baselineBackgroundColor}
       placement="team"
     />
-  ));
+  );
 
   if (mobileDisplayStyle === 1) {
-    // 2-Column Grid
+    // 2-Column Grid — every card shares a row, so all use the narrow variant.
     return (
       <div className="grid w-full min-w-0 grid-cols-2 gap-2 [&>*]:min-w-0">
-        {cards}
+        {toRender.map((contact, index) => renderCard(contact, index, "compact"))}
       </div>
     );
   }
 
   if (mobileDisplayStyle === 2) {
     // Hero + Grid: first card full-width, remaining in 2-column grid
-    const hero = cards[0];
-    const gridCards = cards.slice(1);
+    const [hero, ...gridContacts] = toRender;
     return (
       <div className="w-full min-w-0 max-w-none space-y-2">
-        {hero && <div className="w-full min-w-0">{hero}</div>}
-        {gridCards.length > 0 && (
+        {hero && <div className="w-full min-w-0">{renderCard(hero, 0, "wide")}</div>}
+        {gridContacts.length > 0 && (
           <div className="grid w-full min-w-0 grid-cols-2 gap-2 [&>*]:min-w-0">
-            {gridCards}
+            {gridContacts.map((contact, index) =>
+              renderCard(contact, index + 1, "compact"),
+            )}
           </div>
         )}
       </div>
     );
   }
 
-  // 0 (default): Stacked — all cards in a single column
-  return <div className="w-full min-w-0 max-w-none space-y-2">{cards}</div>;
+  // 0 (default): Stacked — each card owns the full width, so all use the wide variant.
+  return (
+    <div className="w-full min-w-0 max-w-none space-y-2">
+      {toRender.map((contact, index) => renderCard(contact, index, "wide"))}
+    </div>
+  );
 }
 
 /* ---------- Skeleton shown while clientData is loading ---------- */

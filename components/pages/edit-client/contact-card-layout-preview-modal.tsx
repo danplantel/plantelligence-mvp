@@ -80,6 +80,7 @@ function RenderCardBySlot({
   index,
   compact,
   companyName,
+  mobileVariant,
 }: {
   slot: CardSlot;
   contact: any;
@@ -89,6 +90,8 @@ function RenderCardBySlot({
   compact?: boolean;
   /** Plan/company name fallback shown under the title when the contact has none */
   companyName?: string;
+  /** Phone card design — the same prop the live My Benefits Team mobile layouts pass. */
+  mobileVariant?: "wide" | "compact";
 }) {
   const contactWithProps = {
     ...contact,
@@ -137,6 +140,7 @@ function RenderCardBySlot({
           index={index}
           disableAnimation={true}
           compact={compact}
+          mobileVariant={mobileVariant}
           disableContactFormButton
         />
       );
@@ -489,6 +493,20 @@ export function ContactCardLayoutPreviewModal({
 
         const isCompact = previewMode === "mobile" || largeAsCompact;
 
+        // Phone card design, matching the live page's MobileLayout: Stacked = every
+        // card full width; 2-Column = all narrow; Hero + Grid = a full-width hero
+        // followed by narrow cards.
+        const mobileVariant: "wide" | "compact" | undefined =
+          previewMode !== "mobile"
+            ? undefined
+            : selectedMobileLayout === 1
+              ? "compact"
+              : selectedMobileLayout === 2
+                ? index === 0
+                  ? "wide"
+                  : "compact"
+                : "wide";
+
         return (
           <div key={contact.id} className="w-full min-w-0">
             <RenderCardBySlot
@@ -499,6 +517,7 @@ export function ContactCardLayoutPreviewModal({
               index={index}
               compact={isCompact}
               companyName={companyName || ""}
+              mobileVariant={mobileVariant}
             />
           </div>
         );

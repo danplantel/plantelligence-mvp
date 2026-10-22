@@ -93,6 +93,18 @@ interface SmallVerticalCardProps {
    */
   disableContactFormButton?: boolean;
   /**
+   * Phone-sized card design. Set ONLY by the mobile layouts (My Benefits Team's
+   * mobile renderer and the Step 3 / Contacts mobile preview), which are the two
+   * surfaces that must stay in lockstep:
+   *
+   *  - `wide`    — the full-width card in the Stacked and Hero mobile layouts;
+   *  - `compact` — the narrower card in the 2-column (and Hero + Grid) mobile layouts.
+   *
+   * Undefined keeps the existing compact/regular card, which is what the benefit
+   * hub pages and every desktop layout render.
+   */
+  mobileVariant?: "wide" | "compact";
+  /**
    * Benefit category this contact speaks for, shown as a tag at the top of the card.
    * Supplied by `BenefitContactCard` on the My Benefits Team page; omitted (undefined)
    * on the benefit category pages and in the wizard previews, where the surrounding
@@ -122,6 +134,7 @@ export function SmallVerticalCard({
   compact = false,
   previewPlaceholders = false,
   disableContactFormButton = false,
+  mobileVariant,
   categoryLabel,
   categoryList,
 }: SmallVerticalCardProps) {
@@ -168,7 +181,16 @@ export function SmallVerticalCard({
       : defaultActionButtonOrder
     : defaultActionButtonOrder;
 
-  const buttons = [];
+  // Explicitly typed: the list is read inside nested render helpers below, and an
+  // evolving `any[]` cannot be inferred through a closure.
+  type CardActionButton = {
+    type: "schedule" | "website" | "call" | "email";
+    label: string;
+    url: string;
+    /** Marks the first-party Contact Form CTA (drawn inert in previews). */
+    isContactForm?: boolean;
+  };
+  const buttons: CardActionButton[] = [];
   let primaryIndex = -1;
   const isTeamSupport = contact.contactType === "team_support";
   // Team / Support Line cards show an advisor-selected icon in the badge slot.
@@ -303,6 +325,463 @@ export function SmallVerticalCard({
   // Computed AFTER the legacy fallback: the rendered button list is gated on
   // this flag, so computing it first silently dropped the fallback button.
   const hasAnyButton = buttons.some((b) => !!b.url);
+
+  /**
+   * PHONE CARD DESIGN — see `mobileVariant`.
+   *
+   * A full-width phone card used to be a centred vertical stack (logo, avatar,
+   * name, title, company, two contact lines, then buttons), so most of the card's
+   * width was empty and the card grew very tall. Here the identity (logo + photo)
+   * sits in a fixed left column and the details fill the rest, with the actions
+   * along the bottom — the same content at roughly half the height.
+   *
+   * The 2-column card has no room for two columns at ~150px, so it keeps the
+   * vertical order but drops the desktop spacing that made it read as sparse.
+   */
+  if (mobileVariant) {
+    const isWide = mobileVariant === "wide";
+
+    /** Designation pills — one row, acronyms only, as on every other variant. */
+    const designationChips = (sizeClass: string) =>
+      !isTeamSupport &&
+      (contact.designations || []).some((value) => value && value.trim()) ? (
+        <div className="w-full min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div
+            className={cn(
+              "flex w-max items-center gap-px",
+              !isWide && "mx-auto",
+            )}
+          >
+            {(contact.designations || [])
+              .filter((value) => value && value.trim())
+              .map((value, chipIndex) => (
+                <span
+                  key={chipIndex}
+                  className={cn(
+                    "inline-block shrink-0 whitespace-nowrap rounded-full py-px text-center leading-none tracking-tight",
+                    sizeClass,
+                  )}
+                  style={{
+                    color: textColor || "#4B5563",
+                    backgroundColor: textColor
+                      ? "rgba(255,255,255,0.16)"
+                      : "#F3F4F6",
+                  }}
+                >
+                  {designationAcronym(value)}
+                </span>
+              ))}
+          </div>
+        </div>
+      ) : null;
+
+    /** Email / phone / support hours, at the size the variant can afford. */
+    const contactRows = (iconSize: number, alignCenter: boolean) => (
+      <>
+        {contactInfoOrder.map((infoType: ContactInfoType) => {
+          if (infoType === "email") {
+            if (contact.displayEmail === false) return null;
+            if (!contact.email && !showPlaceholders) return null;
+            return (
+              <p
+                key="email"
+                className={cn(
+                  "flex min-w-0 items-center gap-1.5",
+                  alignCenter && "justify-center",
+                )}
+              >
+                <Mail
+                  size={iconSize}
+                  strokeWidth={1.5}
+                  className="shrink-0"
+                  style={{ color: effectiveSecondaryColor }}
+                />
+                {contact.email ? (
+                  <a
+                    href={`mailto:${contact.email}`}
+                    className="truncate"
+                    style={{ color: textColor || "#4B5563" }}
+                  >
+                    {contact.email}
+                  </a>
+                ) : (
+                  <span className="truncate italic text-gray-400">[Email]</span>
+                )}
+              </p>
+            );
+          }
+          if (infoType === "phone") {
+            if (contact.displayPhone === false) return null;
+            if (!contact.phone && !showPlaceholders) return null;
+            return (
+              <p
+                key="phone"
+                className={cn(
+                  "flex min-w-0 items-center gap-1.5",
+                  alignCenter && "justify-center",
+                )}
+              >
+                <Phone
+                  size={iconSize}
+                  strokeWidth={1.5}
+                  className="shrink-0"
+                  style={{ color: effectiveSecondaryColor }}
+                />
+                {contact.phone ? (
+                  <a
+                    href={getBasePhoneForDialing(contact.phone)}
+                    className="truncate"
+                    style={{ color: textColor || "#4B5563" }}
+                  >
+                    {formatPhoneWithExtension(
+                      contact.phone,
+                      contact.phoneExtension,
+                    )}
+                  </a>
+                ) : (
+                  <span className="truncate italic text-gray-400">[Phone]</span>
+                )}
+              </p>
+            );
+          }
+          return null;
+        })}
+        {isTeamSupport && contact.supportHours && (
+          <p
+            className={cn(
+              "flex min-w-0 items-center gap-1.5",
+              alignCenter && "justify-center",
+            )}
+            style={{ color: textColor || "#6B7280" }}
+          >
+            <Clock
+              size={iconSize}
+              strokeWidth={1.5}
+              className="shrink-0"
+              style={{ color: textColor || effectiveSecondaryColor }}
+            />
+            <span className="truncate">{contact.supportHours}</span>
+          </p>
+        )}
+      </>
+    );
+
+    /** Actions: side by side on the wide card, stacked on the narrow one. */
+    const actionButtons = (opts: {
+      twoUp: boolean;
+      text: string;
+      pad: string;
+    }) => {
+      if (!hasAnyButton) return null;
+      return (
+        <div
+          className={cn(
+            "grid w-full gap-1.5",
+            opts.twoUp && buttons.length > 1 ? "grid-cols-2" : "grid-cols-1",
+          )}
+        >
+          {buttons.map((button, idx) => {
+            const isPrimaryButton = idx === primaryIndex;
+            const buttonBg = isPrimaryButton
+              ? effectiveSecondaryColor
+              : isPrimary
+                ? mix(0.2, "#ffffff", effectiveBrandColor)
+                : "#F3F4F6";
+            const buttonColor = isPrimaryButton
+              ? "#ffffff"
+              : readableColor(buttonBg);
+            const contactFormInert =
+              disableContactFormButton && button.isContactForm === true;
+            const actionClassName = cn(
+              "inline-flex w-full items-center justify-center rounded-lg text-center leading-tight font-semibold uppercase tracking-wide font-red-hat",
+              opts.text,
+              opts.pad,
+            );
+            const actionStyle = {
+              backgroundColor: buttonBg,
+              color: buttonColor,
+              border: isPrimaryButton ? "none" : "1px solid #E5E7EB",
+            };
+
+            if (contactFormInert) {
+              return (
+                <span
+                  key={idx}
+                  className={cn(actionClassName, "cursor-default")}
+                  style={actionStyle}
+                >
+                  {button.label}
+                </span>
+              );
+            }
+
+            return (
+              <Button
+                key={idx}
+                className={actionClassName}
+                style={actionStyle}
+                onClick={async () => {
+                  if (
+                    button.type === "schedule" ||
+                    button.type === "website" ||
+                    button.type === "call" ||
+                    button.type === "email"
+                  ) {
+                    const target =
+                      button.type === "website"
+                        ? await resolveContactFormUrl(button.url, contact)
+                        : button.url;
+                    window.open(target, "_blank");
+                  }
+                }}
+              >
+                {button.label}
+              </Button>
+            );
+          })}
+        </div>
+      );
+    };
+
+    const logoScaleValue = contact.logoScale || baselineLogoScale || 1;
+
+    if (isWide) {
+      return (
+        <motion.div
+          initial={disableAnimation ? false : { opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            duration: 0.35,
+            delay: disableAnimation ? 0 : index * 0.06,
+            ease: "easeOut",
+          }}
+          className={cn(
+            cardWidth,
+            "flex h-full flex-col rounded-xl border border-[#E5E5E5] shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md",
+          )}
+          style={{ backgroundColor }}
+          data-mobile-variant="wide"
+        >
+          <div className="flex min-w-0 items-start gap-3 p-3">
+            {/* IDENTITY COLUMN — logo above a photo. Slightly narrower than the photo
+                so the details column keeps most of the card's width. */}
+            <div className="flex w-[104px] shrink-0 flex-col items-center gap-1.5">
+              {(contact.companyLogo || contact.logo) && (
+                <BrandingImage
+                  src={contact.companyLogo || contact.logo || ""}
+                  alt="Logo"
+                  className="w-auto max-w-full object-contain"
+                  style={{ height: `${28 * logoScaleValue}px` }}
+                />
+              )}
+              {showPlaceholders && !(contact.companyLogo || contact.logo) && (
+                <div className="flex h-6 w-full items-center justify-center rounded border border-dashed border-gray-200 bg-gray-50 px-1">
+                  <span className="text-center text-[8px] font-medium leading-none text-gray-400">
+                    [Logo]
+                  </span>
+                </div>
+              )}
+              <div
+                className={cn(
+                  "relative h-[84px] w-[84px] overflow-hidden rounded-full",
+                  showAvatarPlaceholder &&
+                    "flex items-center justify-center bg-gray-50",
+                )}
+              >
+                {showHeadshotPlaceholder ? (
+                  <span className="text-[8px] font-medium italic text-gray-400">
+                    [Headshot]
+                  </span>
+                ) : isTeamSupport ? (
+                  <div className="flex h-full w-full items-center justify-center">
+                    <SupportIcon
+                      className="h-1/2 w-1/2"
+                      style={{ color: effectiveBrandColor }}
+                    />
+                  </div>
+                ) : (
+                  <ContactAvatar contact={contact} />
+                )}
+              </div>
+            </div>
+
+            {/* DETAILS COLUMN */}
+            <div className="min-w-0 flex-1">
+              <ContactCategoryBadge
+                categories={categoryListValues}
+                className="mb-1 text-[9px] px-1.5 py-0"
+              />
+              <h3
+                className="truncate font-dm-serif text-sm font-semibold leading-tight"
+                style={{
+                  color:
+                    showPlaceholders && !resolvedCardName
+                      ? "#9CA3AF"
+                      : effectiveBrandColor,
+                }}
+              >
+                {displayNameText}
+              </h3>
+              {designationChips("text-[7px] px-1")}
+              {!isTeamSupport && (
+                <p
+                  className="truncate text-[11px] font-medium leading-snug font-red-hat"
+                  style={{
+                    color:
+                      showPlaceholders && !resolvedCardTitle
+                        ? "#9CA3AF"
+                        : textColor || "#374151",
+                  }}
+                >
+                  {displayTitleText}
+                </p>
+              )}
+              {(resolvedCardCompany || showPlaceholders) && (
+                <p
+                  className="truncate text-[11px] font-semibold leading-snug font-dm-serif"
+                  style={{
+                    color:
+                      showPlaceholders && !resolvedCardCompany
+                        ? "#9CA3AF"
+                        : effectiveBrandColor,
+                  }}
+                >
+                  {displayCompanyText}
+                </p>
+              )}
+              <div
+                className="mt-1.5 space-y-0.5 text-[11px] font-red-hat"
+                style={{ color: textColor || "#374151" }}
+              >
+                {contactRows(13, false)}
+              </div>
+            </div>
+          </div>
+
+          {hasAnyButton && (
+            <div className="mt-auto px-3 pb-3">
+              {actionButtons({ twoUp: true, text: "text-[9px]", pad: "py-1.5" })}
+            </div>
+          )}
+        </motion.div>
+      );
+    }
+
+    // 2-column ("compact") card — every row tightened, one action per line.
+    return (
+      <motion.div
+        initial={disableAnimation ? false : { opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{
+          duration: 0.35,
+          delay: disableAnimation ? 0 : index * 0.06,
+          ease: "easeOut",
+        }}
+        className={cn(
+          cardWidth,
+          "flex h-full flex-col rounded-xl border border-[#E5E5E5] p-2 shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md",
+        )}
+        style={{ backgroundColor }}
+        data-mobile-variant="compact"
+      >
+        <ContactCategoryBadge
+          categories={categoryListValues}
+          className="mb-1 self-center text-[8px] px-1.5 py-0"
+        />
+
+        {(contact.companyLogo || contact.logo) && (
+          <BrandingImage
+            src={contact.companyLogo || contact.logo || ""}
+            alt="Logo"
+            className="mx-auto w-auto max-w-full object-contain"
+            style={{ height: `${18 * logoScaleValue}px` }}
+          />
+        )}
+        {showPlaceholders && !(contact.companyLogo || contact.logo) && (
+          <div className="mx-auto flex h-4 w-full items-center justify-center rounded border border-dashed border-gray-200 bg-gray-50 px-1">
+            <span className="text-center text-[8px] font-medium leading-none text-gray-400">
+              [Logo]
+            </span>
+          </div>
+        )}
+
+        <div
+          className={cn(
+            "relative mx-auto mt-1 h-[46px] w-[46px] overflow-hidden rounded-full",
+            showAvatarPlaceholder &&
+              "flex items-center justify-center bg-gray-50",
+          )}
+        >
+          {showHeadshotPlaceholder ? (
+            <span className="text-[8px] font-medium italic text-gray-400">
+              [Headshot]
+            </span>
+          ) : isTeamSupport ? (
+            <div className="flex h-full w-full items-center justify-center">
+              <SupportIcon
+                className="h-1/2 w-1/2"
+                style={{ color: effectiveBrandColor }}
+              />
+            </div>
+          ) : (
+            <ContactAvatar contact={contact} />
+          )}
+        </div>
+
+        <h3
+          className="mt-1 w-full truncate text-center font-dm-serif text-[11px] font-semibold leading-tight"
+          style={{
+            color:
+              showPlaceholders && !resolvedCardName
+                ? "#9CA3AF"
+                : effectiveBrandColor,
+          }}
+        >
+          {displayNameText}
+        </h3>
+        {designationChips("text-[6px] px-1")}
+        {!isTeamSupport && (
+          <p
+            className="w-full truncate text-center text-[9px] font-medium leading-snug font-red-hat"
+            style={{
+              color:
+                showPlaceholders && !resolvedCardTitle
+                  ? "#9CA3AF"
+                  : textColor || "#374151",
+            }}
+          >
+            {displayTitleText}
+          </p>
+        )}
+        {(resolvedCardCompany || showPlaceholders) && (
+          <p
+            className="w-full truncate text-center text-[9px] font-semibold leading-snug font-dm-serif"
+            style={{
+              color:
+                showPlaceholders && !resolvedCardCompany
+                  ? "#9CA3AF"
+                  : effectiveBrandColor,
+            }}
+          >
+            {displayCompanyText}
+          </p>
+        )}
+
+        <div
+          className="mt-1 space-y-0.5 text-[9px] font-red-hat"
+          style={{ color: textColor || "#374151" }}
+        >
+          {contactRows(10, true)}
+        </div>
+
+        {hasAnyButton && (
+          <div className="mt-auto pt-1.5">
+            {actionButtons({ twoUp: false, text: "text-[8px]", pad: "py-1" })}
+          </div>
+        )}
+      </motion.div>
+    );
+  }
 
   if (disableAnimation) {
     const cardPadding = compact
