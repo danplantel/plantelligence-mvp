@@ -43,9 +43,11 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 | `pnpm test:auth:coverage`           | Auth unit tests + coverage                        |
 | `pnpm test:auth:e2e`                | Auth Playwright journeys only                     |
 | `pnpm test:auth:all`                | Auth unit + E2E                                   |
-| `pnpm test:settings`                | Every Settings unit suite (1 file, 87 tests)      |
+| `pnpm test:settings`                | Every Settings unit suite (1 file, 91 tests)      |
 | `pnpm test:settings:watch`          | Settings unit tests in watch mode                 |
 | `pnpm test:settings:coverage`       | Settings unit tests + coverage                    |
+| `pnpm test:settings:e2e`            | Settings Playwright journeys only                 |
+| `pnpm test:settings:all`            | Settings unit + E2E                               |
 | `pnpm test:header-sidebar`          | Header + Sidebar suites (2 files, 52 tests)       |
 | `pnpm test:header-sidebar:watch`    | Header/Sidebar tests in watch mode                |
 | `pnpm test:header-sidebar:coverage` | Header/Sidebar tests + coverage                   |
@@ -359,9 +361,9 @@ The E2E suite lives in `e2e/` and is driven by environment variables:
 - `E2E_BASE_URL` — an already-running app (default `http://localhost:3000`);
 - `E2E_START_SERVER=1` — let Playwright run `pnpm dev` itself;
 - `E2E_EMAIL` / `E2E_PASSWORD` — an account for the dashboard, documents,
-  communications, and header/sidebar journeys. The **onboarding and auth**
-  specs ignore these: each provisions its own throwaway account through
-  `/signup` and deletes it afterwards;
+  communications, and header/sidebar journeys. The **onboarding, auth and
+  settings** specs ignore these: each provisions its own throwaway account
+  through `/signup` and deletes it afterwards;
 - `E2E_KEEP_USER=1` — keep that throwaway account and print its credentials
   instead of deleting it;
 - `E2E_PLAN_ID` — an active plan id or slug for the plan-scoped Documents
@@ -408,6 +410,17 @@ Covered auth journeys (`e2e/auth.spec.ts`, 12 tests):
   returns a neutral response for unknown emails;
 - with its own provisioned account, a valid sign-in leaves `/signin`, honours a
   `callbackUrl` deep link, and an already signed-in visitor skips the form.
+
+Covered settings journeys (`e2e/settings.spec.ts`, 7 tests):
+
+- an anonymous `/settings` visit lands on `/signin` with the original path in
+  `callbackUrl`;
+- an owner sees all five tabs and the owner-only Billing placeholder;
+- `?tab=members` opens People & Access and an unknown `?tab=` is ignored;
+- editing and saving the Profile tab persists across a reload;
+- leaving a dirty Profile tab prompts, Cancel keeps the edit, Discard reverts it;
+- Save & Continue stays on the tab when the save cannot validate;
+- the Delete Profile dialog stays locked until the confirmation phrase is typed.
 
 Covered documents journeys (`e2e/documents.spec.ts`):
 

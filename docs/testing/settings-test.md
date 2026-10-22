@@ -1,21 +1,23 @@
 # Settings Testing
 
-This document is the test inventory for [`app/(dashboard)/settings/page.tsx`](../../app/(dashboard)/settings/page.tsx). It covers the tab shell, every Settings section (Profile, Branding, Organization, People & Access, Billing), the unsaved-changes guard, and the Delete Profile flow.
+This document is the test inventory for [`app/(dashboard)/settings/page.tsx`](<../../app/(dashboard)/settings/page.tsx>). It covers the tab shell, every Settings section (Profile, Branding, Organization, People & Access, Billing), the unsaved-changes guard, and the Delete Profile flow.
 
 ## Summary
 
-- **Unit tests:** 87 passing in 1 file
-- **Runner:** Vitest + React Testing Library + jsdom
-- **E2E:** none yet — see [End-to-end tests](#end-to-end-tests)
+- **Unit tests:** 91 passing in 1 file
+- **E2E:** 7 Playwright journeys in [`e2e/settings.spec.ts`](../../e2e/settings.spec.ts) — they need only a reachable app and provision their own account
+- **Runner:** Vitest + React Testing Library + jsdom, and Playwright + Chromium
 
 ## Running these tests
 
 Settings-only commands:
 
 ```bash
-pnpm test:settings           # all Settings unit suites (87 tests)
+pnpm test:settings           # all Settings unit suites (91 tests)
 pnpm test:settings:watch     # Settings unit tests in watch mode
 pnpm test:settings:coverage  # Settings unit tests + V8 coverage
+pnpm test:settings:e2e       # the 7 Playwright Settings journeys
+pnpm test:settings:all       # Settings unit + E2E
 ```
 
 These are backed by `vitest.settings.config.mts` and
@@ -36,19 +38,62 @@ pnpm test:e2e:ui          # Playwright UI mode
 
 ## End-to-end tests
 
-There is no `e2e/settings.spec.ts` yet. The page-level suite covers the orchestration; the journeys still worth adding against a live app are:
+File: `e2e/settings.spec.ts`
 
-- an owner edits Profile, Branding, and Organization and sees the changes persist after reload;
-- a Collaborator sees only the Profile tab and cannot reach another tab by URL;
-- a Viewer cannot reach Branding or Organization, including through `?tab=` deep links;
-- an owner hands the organization to a successor and is signed out;
-- an owner with no successor sees the deletion warning and its counts.
+These require only an app: `E2E_BASE_URL`, or `E2E_START_SERVER=1` to let
+Playwright start `pnpm dev`. They skip cleanly when neither is set, and an
+all-skipped run exits 0. No credentials are needed.
+
+**Self-provisioning.** `beforeAll` creates a unique account through `/signup`
+(`settings-e2e+<stamp>@plantelligence.test`) and then completes onboarding
+through the wizard's own API — `POST /api/onboarding-wizard/session` followed by
+`POST /api/onboarding-wizard/complete`. That is what opens the middleware's
+gate: `/settings` only renders for a user with a completed `WizardSession`, and
+the next sign-in recomputes the `onboardingComplete` JWT latch from the
+database. `afterAll` signs in and calls
+`DELETE /api/profile/delete?confirmOrganization=true`. Set `E2E_KEEP_USER=1` to
+keep the account for inspection.
+
+**Early Access gate.** Every page is behind
+[`InviteCodeProvider`](../../components/providers/invite-code-provider.tsx:15),
+which accepts the code **`22222`**. `enterEarlyAccessCode(page, ready)` takes
+the locator the destination shows once the app is past the gate — the email
+field on `/signin`, the tab bar on `/settings` — and races it against the modal,
+so a page that is already past the gate does not wait out both timeouts.
+
+**Two Playwright traps this suite documents.** `getByText` is a substring match,
+so "Unsaved Changes" and "Delete Your Profile?" each also match the dialog's
+description; the journeys scope those to `getByRole("heading")`. And
+`waitForURL` waits for the navigation's `load` event, which the dev server can
+leave pending after the URL already matches, so the sign-in helper asserts with
+`expect(page).toHaveURL` instead.
+
+```powershell
+cd "C:\Users\eddie\OneDrive\Desktop\Upwork Projects\plantelligence-dev"
+$env:E2E_START_SERVER = "1"
+pnpm test:settings:e2e
+```
+
+- **settings access**
+  - an anonymous settings visit is sent to sign-in with a `callbackUrl`
+- **settings**
+  - an owner sees every tab and the Billing placeholder
+  - a tab deep link opens that tab and an unknown one is ignored
+  - saving the Profile tab persists across a reload
+  - leaving a dirty Profile tab prompts, and Discard reverts the edit
+  - Save & Continue stays on the tab when the save cannot validate
+  - the Delete Profile dialog stays locked until the phrase is typed
+
+Still uncovered, because they need accounts this spec cannot mint on its own: a
+Collaborator (one Profile surface, no tab bar), a Viewer (no Branding or
+Organization tab, including via `?tab=`), the successor handover, and the
+owner-without-successor warning with its live counts.
 
 ## Test inventory
 
-| # | Suite | Tests | Focus |
-| - | ----- | ----: | ----- |
-| 1 | `app/(dashboard)/settings/__tests__/page.test.tsx` | 87 | Tab shell and role gating, Profile/Branding/Organization population and saves, disclosures fan-out, tab caching, portal wiring, unsaved-changes guard, People & Access lazy mount, Billing placeholder and deep-link guard, Delete Profile dialogs and in-flight states |
+| #   | Suite                                              | Tests | Focus                                                                                                                                                                                                                                                                                                                                                                                     |
+| --- | -------------------------------------------------- | ----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | `app/(dashboard)/settings/__tests__/page.test.tsx` |    91 | Tab shell and role gating, Profile/Branding/Organization population and saves, disclosures fan-out, tab caching, portal wiring, unsaved-changes guard (including failed saves that must not switch tabs), discard-to-baseline for seat- and organization-sourced values, People & Access lazy mount, Billing placeholder and deep-link guard, Delete Profile dialogs and in-flight states |
 
 ## Unit test inventory
 
@@ -120,6 +165,8 @@ There is no `e2e/settings.spec.ts` yet. The page-level suite covers the orchestr
 - Save & Continue saves Branding before switching
 - Save & Continue validates and saves disclosures, then organization
 - keeps the user on Organization when disclosure validation fails
+- keeps the user on Profile when Save & Continue cannot validate it
+- keeps the user on Organization when Save & Continue is rejected
 
 **People & Access section**
 
@@ -173,7 +220,9 @@ There is no `e2e/settings.spec.ts` yet. The page-level suite covers the orchestr
 
 **Unsaved-changes edge cases**
 
-- Discard restores Branding from the store
+- Discard restores Branding to the loaded baseline
+- Discard keeps the organization's branding for a teammate
+- Discard keeps an invited teammate's seat values on Profile
 - Discard restores Organization and resets disclosures
 - reports a thrown save when leaving with Save & Continue
 
@@ -201,20 +250,33 @@ There is no `e2e/settings.spec.ts` yet. The page-level suite covers the orchestr
 
 ## Remaining test gaps
 
-| Candidate | Why it matters |
-| --------- | -------------- |
-| `components/pages/settings/profile-settings-section.tsx` | Passes `headshotFirst`, `emailChangeMode`, `alwaysShowDesignations`, and the collaborator's `hideDesignations` into `UserSetupSection`; assert those contracts directly. |
-| `components/pages/settings/branding-settings-section.tsx` | Logo/background upload, R2 deletion, color extraction, and the preview wiring. |
-| `components/pages/settings/organization-settings-section.tsx` | Organization type / team size / primary service categories controls and their blur validation. |
-| `components/pages/settings/disclaimers-settings-section.tsx` | Recommended vs. custom disclosures, character limits, dirty state, `save(validate)`, attestation, and the ledger refresh. |
-| `components/pages/settings/team-members-section.tsx` | Roster load, seat meter, invite/edit/deactivate/remove dialogs, and permission gating — the largest remaining surface. |
-| `components/settings/ownership-successor-dialog.tsx` | Selection reset on close, blocked dismissal while submitting, and confirm payload. |
-| `/api/profile`, `/api/profile/update-profile`, `/api/profile/delete`, `/api/profile/delete-impact` | Route-handler tests with mocked Prisma/session, mirroring the onboarding and auth API suites. |
-| Settings Playwright journeys | Persistence across reloads, role-based tab visibility, and the owner deletion handover. |
+| Candidate                                                                                          | Why it matters                                                                                                                                                                                                        |
+| -------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `components/pages/settings/profile-settings-section.tsx`                                           | Passes `headshotFirst`, `emailChangeMode`, `alwaysShowDesignations`, and the collaborator's `hideDesignations` into `UserSetupSection`; assert those contracts directly.                                              |
+| `components/pages/settings/branding-settings-section.tsx`                                          | Logo/background upload, R2 deletion, color extraction, and the preview wiring.                                                                                                                                        |
+| `components/pages/settings/organization-settings-section.tsx`                                      | Organization type / team size / primary service categories controls and their blur validation.                                                                                                                        |
+| `components/pages/settings/disclaimers-settings-section.tsx`                                       | Recommended vs. custom disclosures, character limits, dirty state, `save(validate)`, attestation, and the ledger refresh.                                                                                             |
+| `components/pages/settings/team-members-section.tsx`                                               | Roster load, seat meter, invite/edit/deactivate/remove dialogs, and permission gating — the largest remaining surface.                                                                                                |
+| `components/settings/ownership-successor-dialog.tsx`                                               | Selection reset on close, blocked dismissal while submitting, and confirm payload.                                                                                                                                    |
+| `/api/profile`, `/api/profile/update-profile`, `/api/profile/delete`, `/api/profile/delete-impact` | Route-handler tests with mocked Prisma/session, mirroring the onboarding and auth API suites.                                                                                                                         |
+| Settings Playwright roles                                                                          | The owner journeys are covered by `e2e/settings.spec.ts`; a Collaborator (single Profile surface), a Viewer (no organization-level tabs) and the successor handover still need accounts the spec cannot create alone. |
 
 ## Closed gaps
 
 - **Billing deep link** — `activeTab` is now forced back to Profile whenever the profile has answered and the viewer is not the organization owner. Covered by non-owner, owner, and profile-less deep-link tests.
 - **Post-delete redirect** — the 3-second callback now calls the extracted `redirectToSignIn()` helper, so the destination is asserted directly.
+- **Save & Continue after a failed save** — the three save handlers now return a boolean, and the dialog only switches tabs when the active tab actually saved. Previously a validation failure or a rejected request toasted and returned, the dialog still switched, and returning to Profile re-populated the form from the server — silently dropping the edit. Covered by the Profile-validation and Organization-rejection tests.
+- **Discard reverting to the wrong source** — Discard now restores `initialUserSetup` / `initialBranding`, the same snapshot `Reset` uses, instead of the wizard store. The Organization branch already worked this way; Profile and Branding still read the store, so for an invited teammate (whose values come from the seat and the organization source, not the store) Discard blanked phone, title, designations, photo, and the organization's branding. Covered by the two teammate discard tests.
+
+## Open findings
+
+Behaviour the audit found but deliberately did not change — each needs a product call first.
+
+| Finding                                                                                        | Why it is not simply a bug                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Designations and primary service categories cannot be cleared to empty for an invited teammate | `firstNonEmptyList` skips `[]`, so after the teammate saves an empty list the seat's original designations come back. Making an empty array authoritative is right for their own row, but it would also let an onboarding draft of `[]` hide real values on the row, which is the case the helper was written for. Needs a precedence decision. |
+| `onSave` / `isSaving` are still passed to the three section components                         | The sticky bar owns saving, so the sections no longer render a save control and `onSave={noopSave}` is decorative (the page even admits it is "kept for compatibility but unused by UI"). Removing the props touches four files for no behavioural gain, so it is cleanup rather than a defect.                                                 |
+| The Organization panel is force-mounted on first paint                                         | Deliberate: it stops the Disclosures editor showing its skeleton on arrival. The side effect is that its `/api/profile` read also runs for a read-only Viewer, whose tab entry is removed. Cheap, and the alternative is the skeleton it was added to remove.                                                                                   |
+| The post-delete redirect timer is never cleared                                                | It only ever fires 3 seconds after a successful account deletion, when the page is being left. Worth clearing if the success screen ever becomes cancelable.                                                                                                                                                                                    |
 
 See [`testing.md`](testing.md) for shared conventions, [`onboarding-tests.md`](onboarding-tests.md) for the onboarding inventory, and [`auth-testing.md`](auth-testing.md) for the auth inventory.

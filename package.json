@@ -28,6 +28,8 @@
     "test:settings": "node scripts/tests/run-settings-tests.mjs",
     "test:settings:watch": "node scripts/tests/run-settings-tests.mjs --watch",
     "test:settings:coverage": "node scripts/tests/run-settings-tests.mjs --coverage",
+    "test:settings:e2e": "node scripts/tests/run-settings-tests.mjs --e2e-only",
+    "test:settings:all": "node scripts/tests/run-settings-tests.mjs --e2e",
     "test:header-sidebar": "node scripts/tests/run-header-sidebar-tests.mjs",
     "test:header-sidebar:watch": "node scripts/tests/run-header-sidebar-tests.mjs --watch",
     "test:header-sidebar:coverage": "node scripts/tests/run-header-sidebar-tests.mjs --coverage",

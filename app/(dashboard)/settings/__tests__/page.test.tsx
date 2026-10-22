@@ -192,9 +192,7 @@ vi.mock("@/components/pages/settings/branding-settings-section", () => ({
         <span data-testid="branding-primary">{values.primaryColor}</span>
         <span data-testid="branding-secondary">{values.secondaryColor}</span>
         <span data-testid="branding-mission">{values.missionStatement}</span>
-        <span data-testid="branding-background">
-          {values.backgroundImage}
-        </span>
+        <span data-testid="branding-background">{values.backgroundImage}</span>
         <span data-testid="branding-avatar">{values.aiAvatar}</span>
         <button
           type="button"
@@ -374,14 +372,16 @@ function bodyOf(call: unknown[] | undefined) {
  */
 function suppressRedirectTimer() {
   const realSetTimeout = globalThis.setTimeout;
-  return vi.spyOn(globalThis, "setTimeout").mockImplementation(((
-    callback: (...args: any[]) => void,
-    delay?: number,
-    ...args: any[]
-  ) =>
-    (delay ?? 0) >= 3000
-      ? 0
-      : realSetTimeout(callback, delay, ...args)) as any);
+  return vi
+    .spyOn(globalThis, "setTimeout")
+    .mockImplementation(((
+      callback: (...args: any[]) => void,
+      delay?: number,
+      ...args: any[]
+    ) =>
+      (delay ?? 0) >= 3000
+        ? 0
+        : realSetTimeout(callback, delay, ...args)) as any);
 }
 
 /**
@@ -605,7 +605,9 @@ describe("Settings page shell", () => {
 
     await renderLoaded();
 
-    expect(screen.queryByRole("tab", { name: /Billing/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: /Billing/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("hides Billing until ownership resolves", async () => {
@@ -613,7 +615,9 @@ describe("Settings page shell", () => {
 
     await renderLoaded();
 
-    expect(screen.queryByRole("tab", { name: /Billing/ })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: /Billing/ }),
+    ).not.toBeInTheDocument();
   });
 
   it("hides organization-level tabs for a read-only viewer and returns to Profile", async () => {
@@ -626,7 +630,9 @@ describe("Settings page shell", () => {
 
     await renderLoaded();
 
-    expect(screen.queryByRole("tab", { name: "Branding" })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("tab", { name: "Branding" }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole("tab", { name: "Organization" }),
     ).not.toBeInTheDocument();
@@ -651,7 +657,9 @@ describe("Settings page shell", () => {
 
     await renderLoaded();
 
-    expect(screen.queryByTestId("team-members-section")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("team-members-section"),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("profile-section")).toBeInTheDocument();
   });
 
@@ -701,7 +709,9 @@ describe("Settings page shell", () => {
         "false",
       ),
     );
-    expect(screen.getByTestId("profile-name")).toHaveTextContent("Loaded Later");
+    expect(screen.getByTestId("profile-name")).toHaveTextContent(
+      "Loaded Later",
+    );
   });
 
   it("toasts when the profile cannot be loaded", async () => {
@@ -774,9 +784,7 @@ describe("Profile section", () => {
     await renderLoaded();
 
     await waitFor(() =>
-      expect(screen.getByTestId("profile-phone")).toHaveTextContent(
-        "222-3333",
-      ),
+      expect(screen.getByTestId("profile-phone")).toHaveTextContent("222-3333"),
     );
     expect(screen.getByTestId("profile-title")).toHaveTextContent("Planner");
     expect(screen.getByTestId("profile-designations")).toHaveTextContent(
@@ -813,7 +821,9 @@ describe("Profile section", () => {
 
     expect(saveBar()).not.toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("button", { name: "edit-profile-name" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-profile-name" }),
+    );
 
     expect(screen.getByTestId("profile-name")).toHaveTextContent("Edited Name");
     expect(saveBar()).toBeInTheDocument();
@@ -822,7 +832,9 @@ describe("Profile section", () => {
   it("saves the profile to the wizard session and the User row", async () => {
     await renderLoaded();
 
-    await userEvent.click(screen.getByRole("button", { name: "edit-profile-name" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-profile-name" }),
+    );
     await userEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() =>
@@ -852,7 +864,9 @@ describe("Profile section", () => {
   it("requires an organization email before saving", async () => {
     await renderLoaded();
 
-    await userEvent.click(screen.getByRole("button", { name: "clear-org-email" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "clear-org-email" }),
+    );
     await userEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     expect(mocks.toastError).toHaveBeenCalledWith(
@@ -865,7 +879,9 @@ describe("Profile section", () => {
   it("rejects a malformed organization email", async () => {
     await renderLoaded();
 
-    await userEvent.click(screen.getByRole("button", { name: "bad-org-email" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "bad-org-email" }),
+    );
     await userEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     expect(mocks.toastError).toHaveBeenCalledWith(
@@ -878,7 +894,9 @@ describe("Profile section", () => {
     mocks.store.saveStepDataToServer.mockResolvedValue(false);
     await renderLoaded();
 
-    await userEvent.click(screen.getByRole("button", { name: "edit-profile-name" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-profile-name" }),
+    );
     await userEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() =>
@@ -892,7 +910,9 @@ describe("Profile section", () => {
     mocks.profileWriteOk = false;
     await renderLoaded();
 
-    await userEvent.click(screen.getByRole("button", { name: "edit-profile-name" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-profile-name" }),
+    );
     await userEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() =>
@@ -906,10 +926,14 @@ describe("Profile section", () => {
   it("resets the profile back to the loaded baseline", async () => {
     await renderLoaded();
 
-    await userEvent.click(screen.getByRole("button", { name: "edit-profile-name" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-profile-name" }),
+    );
     await userEvent.click(screen.getByRole("button", { name: "Reset" }));
 
-    expect(screen.getByTestId("profile-name")).toHaveTextContent("Ada Lovelace");
+    expect(screen.getByTestId("profile-name")).toHaveTextContent(
+      "Ada Lovelace",
+    );
     expect(mocks.toastInfo).toHaveBeenCalledWith("Changes reverted");
     expect(saveBar()).not.toBeInTheDocument();
   });
@@ -1049,7 +1073,9 @@ describe("Branding section", () => {
     mocks.cachedProfile = {
       ...mocks.cachedProfile,
       wizardSessions: [
-        { branding: { organizationName: "Brand Co", backgroundImage: "bg-key" } },
+        {
+          branding: { organizationName: "Brand Co", backgroundImage: "bg-key" },
+        },
       ],
     };
 
@@ -1076,7 +1102,9 @@ describe("Branding section", () => {
     mocks.cachedProfile = {
       ...mocks.cachedProfile,
       wizardSessions: [
-        { branding: { organizationName: "Brand Co", backgroundImage: "bg-key" } },
+        {
+          branding: { organizationName: "Brand Co", backgroundImage: "bg-key" },
+        },
       ],
     };
 
@@ -1200,9 +1228,7 @@ describe("Organization section", () => {
     await waitFor(() =>
       expect(screen.getByTestId("org-type")).toHaveTextContent("other"),
     );
-    expect(screen.getByTestId("org-custom")).toHaveTextContent(
-      "Family office",
-    );
+    expect(screen.getByTestId("org-custom")).toHaveTextContent("Family office");
     expect(screen.getByTestId("org-team-size")).toHaveTextContent("team-5");
     expect(screen.getByTestId("org-categories")).toHaveTextContent(
       "Group Health",
@@ -1261,7 +1287,9 @@ describe("Organization section", () => {
     await renderLoaded();
     await openTab("Organization");
 
-    await userEvent.click(screen.getByRole("button", { name: "edit-team-size" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-team-size" }),
+    );
     await userEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() =>
@@ -1289,7 +1317,9 @@ describe("Organization section", () => {
     await renderLoaded();
     await openTab("Organization");
 
-    await userEvent.click(screen.getByRole("button", { name: "edit-team-size" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-team-size" }),
+    );
     await userEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     expect(mocks.toastError).toHaveBeenCalledWith(
@@ -1307,12 +1337,12 @@ describe("Organization section", () => {
     await renderLoaded();
     await openTab("Organization");
 
-    await userEvent.click(screen.getByRole("button", { name: "edit-team-size" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-team-size" }),
+    );
     await userEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
-    await waitFor(() =>
-      expect(mocks.toastError).toHaveBeenCalledWith("Nope"),
-    );
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith("Nope"));
   });
 
   it("shows a generic error when the organization request throws", async () => {
@@ -1324,7 +1354,9 @@ describe("Organization section", () => {
     await renderLoaded();
     await openTab("Organization");
 
-    await userEvent.click(screen.getByRole("button", { name: "edit-team-size" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-team-size" }),
+    );
     await userEvent.click(screen.getByRole("button", { name: "Save Changes" }));
 
     await waitFor(() =>
@@ -1351,7 +1383,9 @@ describe("Organization section", () => {
     await renderLoaded();
     await openTab("Organization");
 
-    await userEvent.click(screen.getByRole("button", { name: "edit-team-size" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-team-size" }),
+    );
     await userEvent.click(
       screen.getByRole("button", { name: "make-disclaimers-dirty" }),
     );
@@ -1382,7 +1416,9 @@ describe("Organization section", () => {
     await renderLoaded();
     await openTab("Organization");
 
-    await userEvent.click(screen.getByRole("button", { name: "edit-team-size" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-team-size" }),
+    );
     await userEvent.click(
       screen.getByRole("button", { name: "make-disclaimers-dirty" }),
     );
@@ -1408,7 +1444,9 @@ describe("Unsaved-changes guard", () => {
   it("prompts before leaving a dirty Profile tab", async () => {
     await renderLoaded();
 
-    await userEvent.click(screen.getByRole("button", { name: "edit-profile-name" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-profile-name" }),
+    );
     await openTab("Branding");
 
     expect(screen.getByText("Unsaved Changes")).toBeInTheDocument();
@@ -1420,7 +1458,9 @@ describe("Unsaved-changes guard", () => {
   it("Cancel keeps the user on the current tab", async () => {
     await renderLoaded();
 
-    await userEvent.click(screen.getByRole("button", { name: "edit-profile-name" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-profile-name" }),
+    );
     await openTab("Branding");
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
@@ -1431,7 +1471,9 @@ describe("Unsaved-changes guard", () => {
   it("Discard reverts the edits and switches tabs", async () => {
     await renderLoaded();
 
-    await userEvent.click(screen.getByRole("button", { name: "edit-profile-name" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-profile-name" }),
+    );
     await openTab("Branding");
     await userEvent.click(
       screen.getByRole("button", { name: "Discard & Leave" }),
@@ -1441,13 +1483,17 @@ describe("Unsaved-changes guard", () => {
     expect(saveBar()).not.toBeInTheDocument();
 
     await openTab("Profile");
-    expect(screen.getByTestId("profile-name")).toHaveTextContent("Ada Lovelace");
+    expect(screen.getByTestId("profile-name")).toHaveTextContent(
+      "Ada Lovelace",
+    );
   });
 
   it("Save & Continue saves the Profile tab before switching", async () => {
     await renderLoaded();
 
-    await userEvent.click(screen.getByRole("button", { name: "edit-profile-name" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-profile-name" }),
+    );
     await openTab("Branding");
     await userEvent.click(
       screen.getByRole("button", { name: "Save & Continue" }),
@@ -1490,7 +1536,9 @@ describe("Unsaved-changes guard", () => {
     await renderLoaded();
     await openTab("Organization");
 
-    await userEvent.click(screen.getByRole("button", { name: "edit-team-size" }));
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-team-size" }),
+    );
     await userEvent.click(
       screen.getByRole("button", { name: "make-disclaimers-dirty" }),
     );
@@ -1532,6 +1580,57 @@ describe("Unsaved-changes guard", () => {
     await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(tab("Organization")).toHaveAttribute("aria-selected", "true");
   });
+
+  it("keeps the user on Profile when Save & Continue cannot validate it", async () => {
+    await renderLoaded();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "clear-org-email" }),
+    );
+    await openTab("Branding");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Save & Continue" }),
+    );
+
+    await waitFor(() =>
+      expect(mocks.toastError).toHaveBeenCalledWith(
+        "Organization email is required",
+      ),
+    );
+    // Nothing was written, so the dialog stays open and the tab does not move:
+    // continuing would have discarded the edit it just failed to save. The modal
+    // marks the page aria-hidden, so assert the retained content (the doc's
+    // standing rule for this dialog) and query the tab only after Cancel.
+    expect(screen.getByText("Unsaved Changes")).toBeInTheDocument();
+    // The cleared email is still in the form, so the edit survived the failure.
+    expect(screen.getByTestId("profile-org-email").textContent).toBe("");
+    expect(saveBar()).toBeInTheDocument();
+    expect(mocks.store.saveStepDataToServer).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(tab("Profile")).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("keeps the user on Organization when Save & Continue is rejected", async () => {
+    mocks.profileWriteOk = false;
+    await renderLoaded();
+    await openTab("Organization");
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-team-size" }),
+    );
+    await openTab("Branding");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Save & Continue" }),
+    );
+
+    await waitFor(() => expect(mocks.toastError).toHaveBeenCalledWith("Nope"));
+    expect(screen.getByText("Unsaved Changes")).toBeInTheDocument();
+    expect(screen.getByTestId("org-team-size")).toHaveTextContent("team-10");
+
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(tab("Organization")).toHaveAttribute("aria-selected", "true");
+  });
 });
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -1539,7 +1638,9 @@ describe("People & Access section", () => {
   it("does not mount the roster until the tab is first opened", async () => {
     await renderLoaded();
 
-    expect(screen.queryByTestId("team-members-section")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("team-members-section"),
+    ).not.toBeInTheDocument();
   });
 
   it("mounts the roster when the tab is opened", async () => {
@@ -1641,7 +1742,9 @@ describe("Delete Profile", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByText("Successfully Deleted Profile")).toBeInTheDocument(),
+      expect(
+        screen.getByText("Successfully Deleted Profile"),
+      ).toBeInTheDocument(),
     );
     const call = fetchCalls("/api/profile/delete")[0];
     expect((call?.[1] as RequestInit)?.method).toBe("DELETE");
@@ -1688,9 +1791,7 @@ describe("Delete Profile", () => {
       "Bob Builder",
     );
 
-    fireEvent.click(
-      screen.getByRole("button", { name: "confirm-successor" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "confirm-successor" }));
 
     await waitFor(() =>
       expect(
@@ -1728,12 +1829,12 @@ describe("Delete Profile", () => {
     );
 
     await waitFor(() =>
-      expect(
-        screen.getByText(/Nobody can take over/),
-      ).toBeInTheDocument(),
+      expect(screen.getByText(/Nobody can take over/)).toBeInTheDocument(),
     );
     expect(screen.getByText(/2 plans and every document/)).toBeInTheDocument();
-    expect(screen.getByText(/3 team members and 1 collaborator/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/3 team members and 1 collaborator/),
+    ).toBeInTheDocument();
 
     fireEvent.click(
       screen.getByRole("button", {
@@ -2011,9 +2112,7 @@ describe("Settings page in-flight states", () => {
       screen.getByRole("button", { name: "Yes, Delete My Profile" }),
     );
 
-    expect(
-      screen.getByRole("button", { name: "Checking..." }),
-    ).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Checking..." })).toBeDisabled();
 
     await act(async () => {
       impact.resolve(json(defaultImpact()));
@@ -2047,7 +2146,9 @@ describe("Settings page in-flight states", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Deleting..." })).toBeDisabled(),
+      expect(
+        screen.getByRole("button", { name: "Deleting..." }),
+      ).toBeDisabled(),
     );
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
     expect(screen.getByPlaceholderText("delete profile")).toBeDisabled();
@@ -2187,7 +2288,7 @@ describe("Delete Profile edge cases", () => {
 
 // ══════════════════════════════════════════════════════════════════════════
 describe("Unsaved-changes edge cases", () => {
-  it("Discard restores Branding from the store", async () => {
+  it("Discard restores Branding to the loaded baseline", async () => {
     mocks.store.stepData.branding = { organizationName: "Brand Co" };
     await renderLoaded();
     await openTab("Branding");
@@ -2206,6 +2307,72 @@ describe("Unsaved-changes edge cases", () => {
     await openTab("Branding");
     expect(screen.getByTestId("branding-org-name")).toHaveTextContent(
       "Brand Co",
+    );
+  });
+
+  it("Discard keeps the organization's branding for a teammate", async () => {
+    mocks.store.stepData = {};
+    mocks.cachedProfile = {
+      ...mocks.cachedProfile,
+      wizardSessions: [],
+      organization: {
+        viewerIsOwner: false,
+        source: {
+          organizationName: "Org Brand",
+          website: "https://org.example",
+        },
+      },
+    };
+    await renderLoaded();
+    await openTab("Branding");
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-branding-name" }),
+    );
+    await openTab("Profile");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Discard & Leave" }),
+    );
+    await openTab("Branding");
+
+    // The tab filled from the organization source, not the store, so a discard
+    // has to restore that source rather than blank the fields.
+    expect(screen.getByTestId("branding-org-name")).toHaveTextContent(
+      "Org Brand",
+    );
+  });
+
+  it("Discard keeps an invited teammate's seat values on Profile", async () => {
+    mocks.store.stepData = {};
+    mocks.cachedProfile = {
+      ...mocks.cachedProfile,
+      wizardSessions: [],
+      seat: {
+        phone: "222-3333",
+        jobTitle: "Planner",
+        designations: ["CFA"],
+        headshot: "seat-photo",
+      },
+    };
+    await renderLoaded();
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "edit-profile-name" }),
+    );
+    await openTab("Branding");
+    await userEvent.click(
+      screen.getByRole("button", { name: "Discard & Leave" }),
+    );
+    await openTab("Profile");
+
+    expect(screen.getByTestId("profile-name")).toHaveTextContent(
+      "Ada Lovelace",
+    );
+    expect(screen.getByTestId("profile-phone")).toHaveTextContent("222-3333");
+    expect(screen.getByTestId("profile-title")).toHaveTextContent("Planner");
+    expect(screen.getByTestId("profile-designations")).toHaveTextContent("CFA");
+    expect(screen.getByTestId("profile-headshot")).toHaveTextContent(
+      "seat-photo",
     );
   });
 
@@ -2243,9 +2410,7 @@ describe("Unsaved-changes edge cases", () => {
     );
 
     await waitFor(() =>
-      expect(mocks.toastError).toHaveBeenCalledWith(
-        "Failed to save changes",
-      ),
+      expect(mocks.toastError).toHaveBeenCalledWith("Failed to save changes"),
     );
     expect(screen.getByText("Unsaved Changes")).toBeInTheDocument();
     expect(screen.getByTestId("org-team-size")).toBeInTheDocument();

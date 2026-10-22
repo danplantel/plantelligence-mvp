@@ -15,7 +15,13 @@ import { useViewerAccess } from "@/hooks/useViewerAccess";
 import { useOnboardingWizardStore } from "@/lib/onboarding-wizard-store";
 import { fetchProfileOnce, invalidateProfileCache } from "@/lib/fetch-profile";
 import { step2ServicesToCategories } from "@/lib/service-categories";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -173,7 +179,13 @@ export default function SettingsPage() {
     if (isCollaborator) return;
     const requested = new URLSearchParams(window.location.search).get("tab");
     if (!requested) return;
-    const knownTabs = ["profile", "branding", "organization", "members", "billing"];
+    const knownTabs = [
+      "profile",
+      "branding",
+      "organization",
+      "members",
+      "billing",
+    ];
     if (knownTabs.includes(requested)) setActiveTab(requested);
   }, [isCollaborator]);
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] =
@@ -195,7 +207,9 @@ export default function SettingsPage() {
    * somebody is about to delete their account, and it names people who may have been promoted or
    * deactivated since this page loaded.
    */
-  const [deletionImpact, setDeletionImpact] = useState<DeletionImpact | null>(null);
+  const [deletionImpact, setDeletionImpact] = useState<DeletionImpact | null>(
+    null,
+  );
   const [isLoadingImpact, setIsLoadingImpact] = useState(false);
   const [successorDialogOpen, setSuccessorDialogOpen] = useState(false);
   const [deletionWarningOpen, setDeletionWarningOpen] = useState(false);
@@ -233,19 +247,17 @@ export default function SettingsPage() {
    * still exists. The route runs the handover BEFORE any destructive step and refuses the whole
    * request if it fails.
    */
-  const performDeletion = async (
-    {
-      transferToProfileId = null,
-      acknowledgedOrganization = false,
-      successorName = null,
-    }: {
-      /** Hand the organization to this person before deleting. */
-      transferToProfileId?: string | null;
-      /** The warning was shown and accepted — see `requireOrganizationDeletionAcknowledged`. */
-      acknowledgedOrganization?: boolean;
-      successorName?: string | null;
-    } = {},
-  ) => {
+  const performDeletion = async ({
+    transferToProfileId = null,
+    acknowledgedOrganization = false,
+    successorName = null,
+  }: {
+    /** Hand the organization to this person before deleting. */
+    transferToProfileId?: string | null;
+    /** The warning was shown and accepted — see `requireOrganizationDeletionAcknowledged`. */
+    acknowledgedOrganization?: boolean;
+    successorName?: string | null;
+  } = {}) => {
     setIsDeleting(true);
     try {
       // The route insists on being TOLD which consequence the caller showed — `transferTo` for a
@@ -257,9 +269,12 @@ export default function SettingsPage() {
       if (acknowledgedOrganization) params.set("confirmOrganization", "true");
       const query = params.toString();
 
-      const res = await fetch(`/api/profile/delete${query ? `?${query}` : ""}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(
+        `/api/profile/delete${query ? `?${query}` : ""}`,
+        {
+          method: "DELETE",
+        },
+      );
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
         toast.error(
@@ -432,7 +447,11 @@ export default function SettingsPage() {
   const { data: cachedProfile, mutate: mutateProfile } = useSWR(
     "/api/profile",
     () => fetchProfileOnce(),
-    { keepPreviousData: true, dedupingInterval: 60_000, revalidateOnFocus: false },
+    {
+      keepPreviousData: true,
+      dedupingInterval: 60_000,
+      revalidateOnFocus: false,
+    },
   );
 
   // Mirror the resolved profile into state on every change.
@@ -527,9 +546,8 @@ export default function SettingsPage() {
    * moment's absence for the Owner, and the alternative — showing it until the answer arrives —
    * would flash a page a member cannot open and then take it back.
    */
-  const viewerIsOrganizationOwner = cachedProfile?.organization?.viewerIsOwner as
-    | boolean
-    | undefined;
+  const viewerIsOrganizationOwner = cachedProfile?.organization
+    ?.viewerIsOwner as boolean | undefined;
 
   /**
    * Billing is owner-only, and hiding its tab trigger is not enough: `?tab=billing`
@@ -586,7 +604,9 @@ export default function SettingsPage() {
   const loadTabData = async (tab: string) => {
     if (loadedTabs.has(tab) && tab !== "profile") return;
 
-    const hasExistingData = Boolean(useOnboardingWizardStore.getState().stepData?.userSetup);
+    const hasExistingData = Boolean(
+      useOnboardingWizardStore.getState().stepData?.userSetup,
+    );
     try {
       if (!hasExistingData) setIsLoading(true);
       switch (tab) {
@@ -622,22 +642,28 @@ export default function SettingsPage() {
               profileFallback?.organizationEmail ||
               profileFallback?.organization?.organizationEmail ||
               "",
-            phone: userSetup.phone || seat?.phone || profileFallback?.phone || "",
+            phone:
+              userSetup.phone || seat?.phone || profileFallback?.phone || "",
             phoneExtension:
               userSetup.phoneExtension ||
               seat?.phoneExtension ||
               profileFallback?.phoneExtension ||
               "",
-            title: userSetup.title || seat?.jobTitle || profileFallback?.title || "",
+            title:
+              userSetup.title || seat?.jobTitle || profileFallback?.title || "",
             designations: firstNonEmptyList<string>(
               userSetup.designations,
               seat?.designations,
               profileFallback?.designations,
             ),
             headshot:
-              userSetup.headshot || seat?.headshot || profileFallback?.headshot || "",
+              userSetup.headshot ||
+              seat?.headshot ||
+              profileFallback?.headshot ||
+              "",
             headshotFileName: userSetup.headshotFileName || "",
-            headshotData: userSetup.headshotData || profileFallback?.headshotData || null,
+            headshotData:
+              userSetup.headshotData || profileFallback?.headshotData || null,
             backgroundImage: userSetup.backgroundImage || "",
             backgroundFileName: userSetup.backgroundFileName || "",
             saveAsContact: userSetup.saveAsContact ?? true,
@@ -754,9 +780,11 @@ export default function SettingsPage() {
           );
           if (primaryServiceCategories.length === 0) {
             const servicesArray =
-              useOnboardingWizardStore.getState().stepData?.services?.services ?? [];
+              useOnboardingWizardStore.getState().stepData?.services
+                ?.services ?? [];
             if (servicesArray.length > 0) {
-              primaryServiceCategories = step2ServicesToCategories(servicesArray);
+              primaryServiceCategories =
+                step2ServicesToCategories(servicesArray);
             }
           }
 
@@ -984,7 +1012,7 @@ export default function SettingsPage() {
     organizationForm.reset(orgData, { keepDirtyValues: false });
     setInitialOrganization(JSON.parse(JSON.stringify(orgData)));
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepData, isLoading, userProfile]);
 
   // ── After BrandingSetupCard initializes, re-sync the baseline snapshot ──
@@ -995,9 +1023,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (activeTab !== "branding" || !initialBranding) return;
     const id = setTimeout(() => {
-      setInitialBranding(
-        JSON.parse(JSON.stringify(brandingForm.getValues())),
-      );
+      setInitialBranding(JSON.parse(JSON.stringify(brandingForm.getValues())));
     }, 0);
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1008,7 +1034,14 @@ export default function SettingsPage() {
   // initial reset. That value now reaches the Organization tab through its own load, so there is
   // no second writer to race.
 
-  const handleSaveUserSetup = async () => {
+  /**
+   * Save the Profile tab. Returns whether the save actually happened.
+   *
+   * The boolean exists for `handleSaveAndContinue`: a validation failure or a
+   * rejected request has to stop the tab switch, otherwise the dialog would
+   * take "Save & Continue" at its word and abandon the edits it failed to save.
+   */
+  const handleSaveUserSetup = async (): Promise<boolean> => {
     setIsSaving(true);
     try {
       const data = userSetupForm.getValues();
@@ -1022,7 +1055,7 @@ export default function SettingsPage() {
           message: "Organization email is required",
         });
         toast.error("Organization email is required");
-        return;
+        return false;
       }
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(orgEmail)) {
         userSetupForm.setError("organizationEmail", {
@@ -1030,7 +1063,7 @@ export default function SettingsPage() {
           message: "Please enter a valid organization email",
         });
         toast.error("Please enter a valid organization email");
-        return;
+        return false;
       }
       userSetupForm.clearErrors("organizationEmail");
 
@@ -1059,7 +1092,9 @@ export default function SettingsPage() {
               // Designations are a `User` column, so they are written on this request rather than
               // only into the wizard session — otherwise the Profile tab showed the new value (it
               // reads the session first) while the portal and the benefit pages kept the old one.
-              designations: Array.isArray(data.designations) ? data.designations : [],
+              designations: Array.isArray(data.designations)
+                ? data.designations
+                : [],
               // `primaryServiceCategories` is NOT sent from here any more — it belongs to the
               // Organization tab's save. Sending the Profile form's (absent) value would have
               // cleared the organization's categories on every profile save.
@@ -1089,22 +1124,31 @@ export default function SettingsPage() {
           useOnboardingWizardStore.getState().stepData?.userSetup || {};
         await saveStepDataLocally("userSetup", { ...localUserSetup, ...data });
       } catch (localError) {
-        console.warn("Failed to sync user setup to the wizard store", localError);
+        console.warn(
+          "Failed to sync user setup to the wizard store",
+          localError,
+        );
       }
 
       await refreshProfile();
       userSetupForm.reset(data, { keepDirtyValues: false });
       setInitialUserSetup(JSON.parse(JSON.stringify(data)));
       toast.success("User profile updated successfully!");
+      return true;
     } catch (error) {
       console.error("Error saving user setup:", error);
       toast.error("Failed to save user profile");
+      return false;
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleSaveBranding = async () => {
+  /**
+   * Save the Branding tab. Returns false only when the whole save threw: the two
+   * best-effort writes inside it warn instead, by design.
+   */
+  const handleSaveBranding = async (): Promise<boolean> => {
     setIsSaving(true);
     try {
       const data = brandingForm.getValues();
@@ -1168,7 +1212,10 @@ export default function SettingsPage() {
           console.warn("Failed to save branding to wizard session");
         }
       } catch (brandingError) {
-        console.error("Error saving branding to wizard session:", brandingError);
+        console.error(
+          "Error saving branding to wizard session:",
+          brandingError,
+        );
       }
 
       // When the branding background is removed, also clear the wizard userSetup
@@ -1210,15 +1257,18 @@ export default function SettingsPage() {
       brandingForm.reset(brandingPayload, { keepDirtyValues: false });
       setInitialBranding(JSON.parse(JSON.stringify(brandingPayload)));
       toast.success("Branding settings updated successfully!");
+      return true;
     } catch (error) {
       console.error("Error saving branding:", error);
       toast.error("Failed to save branding settings");
+      return false;
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handleSaveOrganization = async () => {
+  /** Save the Organization tab. Returns whether the write succeeded. */
+  const handleSaveOrganization = async (): Promise<boolean> => {
     setIsSaving(true);
     try {
       const formData = organizationForm.getValues();
@@ -1236,7 +1286,7 @@ export default function SettingsPage() {
       const userId = userProfile?.id || cachedProfile?.id;
       if (!userId) {
         toast.error("Could not identify your account. Reload and try again.");
-        return;
+        return false;
       }
 
       const response = await fetch("/api/profile", {
@@ -1256,16 +1306,18 @@ export default function SettingsPage() {
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         toast.error(body?.error || "Failed to save organization settings");
-        return;
+        return false;
       }
 
       await refreshProfile();
       organizationForm.reset(formData, { keepDirtyValues: false });
       setInitialOrganization(JSON.parse(JSON.stringify(formData)));
       toast.success("Organization settings updated successfully!");
+      return true;
     } catch (error) {
       console.error("Error saving organization:", error);
       toast.error("Failed to save organization settings");
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -1371,12 +1423,18 @@ export default function SettingsPage() {
 
     setIsSaving(true);
     try {
+      // "Save & Continue" must not continue after a failed save. The handlers
+      // report failure instead of throwing (they toast and return), so without
+      // this the dialog switched tabs on top of edits that were never written —
+      // and returning to Profile then re-populated the form from the server,
+      // silently dropping them.
+      let saved = true;
       switch (activeTab) {
         case "profile":
-          await handleSaveUserSetup();
+          saved = await handleSaveUserSetup();
           break;
         case "branding":
-          await handleSaveBranding();
+          saved = await handleSaveBranding();
           break;
         case "organization": {
           const orgDirty = initialOrganization
@@ -1387,10 +1445,12 @@ export default function SettingsPage() {
             const ok = await disclaimersRef.current.save(true);
             if (ok === false) return; // validation failed — stay on this tab
           }
-          if (orgDirty) await handleSaveOrganization();
+          if (orgDirty) saved = await handleSaveOrganization();
           break;
         }
       }
+      // Leave the dialog open so the user can retry, discard, or cancel.
+      if (!saved) return;
       setActiveTab(pendingTab);
       setPendingTab(null);
       setShowUnsavedChangesDialog(false);
@@ -1406,15 +1466,23 @@ export default function SettingsPage() {
   const handleDiscardChanges = () => {
     if (pendingTab) {
       switch (activeTab) {
-        case "profile":
+        case "profile": {
+          // Revert to the snapshot this tab last LOADED or SAVED — the same one
+          // `Reset` uses, and the same rule the Organization branch below already
+          // follows. Reading the wizard store instead meant a discard could blank
+          // an invited teammate's phone, title, designations and photo, because
+          // those were filled from their profile (the seat fallback), never from
+          // the store. The store is only a fallback for a first render that has
+          // no snapshot yet.
+          if (initialUserSetup) {
+            userSetupForm.reset(initialUserSetup);
+            break;
+          }
           const userSetup = stepData.userSetup || ({} as any);
           userSetupForm.reset({
             name: userSetup.name || "",
             email: userSetup.email || "",
-            organizationEmail:
-              userSetup.organizationEmail ||
-              initialUserSetup?.organizationEmail ||
-              "",
+            organizationEmail: userSetup.organizationEmail || "",
             phone: userSetup.phone || "",
             phoneExtension: userSetup.phoneExtension || "",
             title: userSetup.title || "",
@@ -1424,9 +1492,18 @@ export default function SettingsPage() {
             headshotData: userSetup.headshotData || null,
             backgroundImage: userSetup.backgroundImage || "",
             backgroundFileName: userSetup.backgroundFileName || "",
+            saveAsContact: userSetup.saveAsContact ?? true,
           });
           break;
+        }
         case "branding": {
+          // Same rule as Profile above: the loaded/saved snapshot, not the wizard
+          // store, which holds nothing for a teammate and would blank the
+          // organization's own branding values this tab filled from.
+          if (initialBranding) {
+            brandingForm.reset(initialBranding);
+            break;
+          }
           const branding = stepData.branding || ({} as any);
           brandingForm.reset({
             organizationName: branding.organizationName || "",
@@ -1566,23 +1643,23 @@ export default function SettingsPage() {
         // A Viewer is read-only, so the organization-level tabs are removed rather than denied.
         .filter((tab) => !(tab.viewerHidden && readOnlyViewer))
         .map(({ value, label, Icon, dirty }) => (
-        <TabsTrigger
-          key={value}
-          value={value}
-          className={HEADER_TAB_TRIGGER_CLASS}
-        >
-          {/* Sized by the shared recipe's `[&_svg]` rules, so the glyph follows
+          <TabsTrigger
+            key={value}
+            value={value}
+            className={HEADER_TAB_TRIGGER_CLASS}
+          >
+            {/* Sized by the shared recipe's `[&_svg]` rules, so the glyph follows
               the label down below `xl` and back up again at `xl`/`2xl`. */}
-          <Icon className="shrink-0" />
-          {label}
-          {dirty && (
-            // Inset rather than hanging outside the trigger: the strip is a horizontal
-            // scroll container, so a dot at `-top-1 -right-1` would fall outside its
-            // clip box.
-            <Circle className="absolute right-1 top-1 h-2 w-2 fill-amber-500 text-amber-500" />
-          )}
-        </TabsTrigger>
-      ))}
+            <Icon className="shrink-0" />
+            {label}
+            {dirty && (
+              // Inset rather than hanging outside the trigger: the strip is a horizontal
+              // scroll container, so a dot at `-top-1 -right-1` would fall outside its
+              // clip box.
+              <Circle className="absolute right-1 top-1 h-2 w-2 fill-amber-500 text-amber-500" />
+            )}
+          </TabsTrigger>
+        ))}
     </TabsList>
   );
 
@@ -1639,9 +1716,9 @@ export default function SettingsPage() {
                         {organizationName ? (
                           <>
                             {" "}
-                            Because you own {organizationName}, you will first be
-                            asked who should take it over — or told what is lost
-                            if nobody can.
+                            Because you own {organizationName}, you will first
+                            be asked who should take it over — or told what is
+                            lost if nobody can.
                           </>
                         ) : null}
                       </p>
@@ -1747,7 +1824,8 @@ export default function SettingsPage() {
                     </Badge>
                   </div>
                   <CardDescription className="mt-1">
-                    Manage your organization&rsquo;s subscription, seats and payment details.
+                    Manage your organization&rsquo;s subscription, seats and
+                    payment details.
                   </CardDescription>
                 </div>
               </CardHeader>
@@ -1756,14 +1834,14 @@ export default function SettingsPage() {
                   <CreditCard className="h-6 w-6 text-accent-blue" />
                 </div>
                 <p className="max-w-md text-sm text-muted-foreground">
-                  Billing isn&rsquo;t available yet. Seats, invoices and payment details will live
-                  here — there is nothing to set up in the meantime, and it will be switched on for
-                  your organization when it&rsquo;s ready.
+                  Billing isn&rsquo;t available yet. Seats, invoices and payment
+                  details will live here — there is nothing to set up in the
+                  meantime, and it will be switched on for your organization
+                  when it&rsquo;s ready.
                 </p>
               </CardContent>
             </Card>
           </TabsContent>
-
         </Tabs>
 
         {/* ── Sticky Bottom Save Bar ──────────────────────────────────────── */}
@@ -1838,7 +1916,9 @@ export default function SettingsPage() {
                 {deletionOutcome?.transferred
                   ? `Your profile has been permanently deleted, and ${
                       deletionOutcome.successorName ?? "your teammate"
-                    } is now the owner of ${deletionImpact?.organizationName ?? "your organization"}. You no longer have access to it.`
+                    } is now the owner of ${
+                      deletionImpact?.organizationName ?? "your organization"
+                    }. You no longer have access to it.`
                   : "Your profile and all associated data have been permanently deleted."}
               </AlertDialogDescription>
             </div>
@@ -1859,9 +1939,15 @@ export default function SettingsPage() {
                     permanently remove:
                   </p>
                   <ul className="list-disc pl-5 text-left text-sm space-y-1">
-                    <li className="text-left">Your account and login credentials</li>
-                    <li className="text-left">All wizard sessions and onboarding data</li>
-                    <li className="text-left">All plans, clients, and documents</li>
+                    <li className="text-left">
+                      Your account and login credentials
+                    </li>
+                    <li className="text-left">
+                      All wizard sessions and onboarding data
+                    </li>
+                    <li className="text-left">
+                      All plans, clients, and documents
+                    </li>
                     <li className="text-left">All branding and settings</li>
                   </ul>
                   <p className="font-semibold text-red-600 dark:text-red-400">
@@ -1913,7 +1999,9 @@ export default function SettingsPage() {
                   // and the answer decides which dialog comes next.
                   onClick={() => void handleDeleteProfileClick()}
                   // Locked until the phrase is typed — see the gate above the footer.
-                  disabled={isDeleting || isLoadingImpact || !isDeleteProfileConfirmed}
+                  disabled={
+                    isDeleting || isLoadingImpact || !isDeleteProfileConfirmed
+                  }
                   variant="destructive"
                   className="flex-1 bg-red-600 text-white hover:bg-red-700"
                 >
@@ -1923,8 +2011,8 @@ export default function SettingsPage() {
                   {isLoadingImpact
                     ? "Checking..."
                     : isDeleting
-                      ? "Deleting..."
-                      : "Yes, Delete My Profile"}
+                    ? "Deleting..."
+                    : "Yes, Delete My Profile"}
                 </Button>
               </AlertDialogFooter>
             </>
@@ -1962,17 +2050,17 @@ export default function SettingsPage() {
             <AlertDialogDescription className="text-left text-gray-600 text-muted-foreground space-y-3">
               {organizationIsEmpty ? (
                 <p>
-                  No one else can own this organization, and there is nothing in it
-                  yet — no plans and no teammates. Deleting your profile deletes the
-                  organization with it. This cannot be undone.
+                  No one else can own this organization, and there is nothing in
+                  it yet — no plans and no teammates. Deleting your profile
+                  deletes the organization with it. This cannot be undone.
                 </p>
               ) : (
                 <>
                   <p>
-                    No one else can own this organization — only teammates who have
-                    accepted their invitation and signed in can. Deleting your profile
-                    therefore deletes the whole organization. This will permanently
-                    remove:
+                    No one else can own this organization — only teammates who
+                    have accepted their invitation and signed in can. Deleting
+                    your profile therefore deletes the whole organization. This
+                    will permanently remove:
                   </p>
                   <ul className="list-disc pl-5 text-left text-sm space-y-1">
                     <li className="text-left">
@@ -1987,11 +2075,15 @@ export default function SettingsPage() {
                     </li>
                     <li className="text-left">
                       Access for {deletionImpact?.teamMembers ?? 0} team member
-                      {(deletionImpact?.teamMembers ?? 0) === 1 ? "" : "s"} and{" "}
-                      {deletionImpact?.collaborators ?? 0} collaborator
+                      {(deletionImpact?.teamMembers ?? 0) === 1
+                        ? ""
+                        : "s"} and {deletionImpact?.collaborators ?? 0}{" "}
+                      collaborator
                       {(deletionImpact?.collaborators ?? 0) === 1 ? "" : "s"}
                     </li>
-                    <li className="text-left">Your account and login credentials</li>
+                    <li className="text-left">
+                      Your account and login credentials
+                    </li>
                   </ul>
                   <p className="font-semibold text-red-600 dark:text-red-400">
                     This action cannot be undone.
@@ -2020,9 +2112,7 @@ export default function SettingsPage() {
               className="flex-1 bg-red-600 text-white hover:bg-red-700"
             >
               {isDeleting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              {isDeleting
-                ? "Deleting..."
-                : "Delete everything and my profile"}
+              {isDeleting ? "Deleting..." : "Delete everything and my profile"}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2034,7 +2124,9 @@ export default function SettingsPage() {
       <OwnershipSuccessorDialog
         open={successorDialogOpen}
         onOpenChange={setSuccessorDialogOpen}
-        organizationName={deletionImpact?.organizationName ?? "your organization"}
+        organizationName={
+          deletionImpact?.organizationName ?? "your organization"
+        }
         successors={deletionImpact?.successors ?? []}
         isSubmitting={isTransferring}
         onConfirm={(profileId) => {
