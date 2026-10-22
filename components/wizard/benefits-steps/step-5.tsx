@@ -27,6 +27,7 @@ import {
   ensurePlanTelligenceTrademark,
   stripDisclaimerCopyright,
 } from "@/lib/disclaimer-constants";
+import { parseFooterBackgroundPreference } from "@/lib/portal-footer-color";
 import { Footer } from "@/components/layout/footer";
 import {
   DisclosureFooterEditor,
@@ -613,9 +614,14 @@ export function BenefitsStep5() {
       }, {});
       // Only persist `byCategory` — each category keeps its own disclaimer and no
       // flattened `disclaimers` array is written (avoids duplicating the data).
-      const disclaimersData: DisclaimersData & { footerBackground?: { mode: string; customColor: string } } = {
+      //
+      // `footerBackground` is deliberately NOT sent here: it belongs to
+      // `persistFooterBg`, which writes it when the advisor actually picks a colour.
+      // Re-sending the Step 1 snapshot's value on every text edit would overwrite a
+      // preference saved from Edit Client (the snapshot can be older than the live
+      // row) and repaint the footer on every portal page.
+      const disclaimersData: DisclaimersData = {
         byCategory: cleanByCategory,
-        footerBackground: { mode: footerBgMode, customColor: footerBgCustomColor },
       };
       // Include Step 1 branding data so the uploaded header background image is persisted
       const step1Data = stepData.step1;
@@ -772,15 +778,10 @@ export function BenefitsStep5() {
     (selectedPlan as any)?.secondaryColor || "#6B7280";
 
   // ── Footer background colour (persisted alongside disclaimers) ──
-  const storedFooterBg = (() => {
-    try {
-      const raw = (selectedPlan as any)?.disclaimers;
-      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-      return (parsed?.footerBackground as { mode?: string; customColor?: string }) ?? {};
-    } catch {
-      return {};
-    }
-  })();
+  // The preference is plan-wide — it paints the footer on EVERY portal page — so it
+  // is read with the shared helper instead of a local copy of the rule.
+  const storedFooterBg =
+    parseFooterBackgroundPreference((selectedPlan as any)?.disclaimers) ?? {};
   const [footerBgMode, setFooterBgMode] = useState<"primary" | "secondary" | "custom">(
     (storedFooterBg.mode as "primary" | "secondary" | "custom") || "primary",
   );

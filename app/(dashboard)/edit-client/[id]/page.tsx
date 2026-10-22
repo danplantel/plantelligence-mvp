@@ -236,6 +236,7 @@ import { EditPlanPreviewSection } from "@/components/wizard/new-client-steps/sec
 import { BrandColorsSection } from "@/components/wizard/new-client-steps/sections/brand-colors-section";
 import { CardSelectionModal } from "@/components/ui/card-selection-modal";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
+import { parseFooterBackgroundPreference } from "@/lib/portal-footer-color";
 import { uploadBrandingToR2 } from "@/lib/branding-r2";
 import { lightSurfaceTextColor } from "@/lib/color-utils";
 import {
@@ -3593,24 +3594,20 @@ export default function EditClientPage() {
   }, []);
 
   // ── Footer background color state ──
-  // Read from the disclaimers envelope first — that is where the portal reads it — and
-  // fall back to company basics for a preference saved by an older build.
+  // Read from the disclaimers envelope first — that is where the portal reads it — with
+  // the SAME parser the portal uses, and fall back to company basics for a preference
+  // saved by an older build.
   const storedFooterBg = (() => {
     const fromCompany = (companyData as any)?.footerBackground as
       | { mode?: string; customColor?: string }
       | undefined;
     if (fromCompany?.mode) return fromCompany;
-    const raw = (client as any)?.disclaimers;
-    try {
-      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-      const fb = parsed?.footerBackground;
-      if (fb && typeof fb === "object") {
-        return fb as { mode?: string; customColor?: string };
-      }
-    } catch {
-      // Plain-text disclaimers — no footer preference stored yet.
-    }
-    return {} as { mode?: string; customColor?: string };
+    return (
+      parseFooterBackgroundPreference((client as any)?.disclaimers) ?? ({} as {
+        mode?: string;
+        customColor?: string;
+      })
+    );
   })();
   const [footerBgMode, setFooterBgMode] = useState<
     "primary" | "secondary" | "custom"

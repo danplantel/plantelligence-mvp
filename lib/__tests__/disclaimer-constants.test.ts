@@ -4,6 +4,7 @@ import {
   DEFAULT_DISCLOSURES_TEXT,
   ensurePlanTelligenceTrademark,
   getFlyerCategoryDisclaimer,
+  mergeDisclaimersPayload,
   resolveDefaultDisclosuresText,
   resolveDisclaimerText,
   resolveOrgOnlyDisclaimerText,
@@ -198,5 +199,81 @@ describe("getFlyerCategoryDisclaimer", () => {
 
   it("returns null for an unmapped category", () => {
     expect(getFlyerCategoryDisclaimer("Pet Insurance")).toBeNull();
+  });
+});
+
+/**
+ * Each editor only knows its own slice of the `Client.disclaimers` envelope:
+ * Edit Plan writes the text, Benefits Step 5 and Publish write `byCategory`, and
+ * the footer colour controls write `footerBackground`. A replace dropped the keys
+ * the caller never sent — which is how a footer background picked in one place
+ * reverted to the primary colour after an unrelated save.
+ */
+describe("mergeDisclaimersPayload", () => {
+  const stored = {
+    disclosuresText: "Stored text",
+    byCategory: { Retirement: { text: "Retirement row" } },
+    footerBackground: { mode: "custom", customColor: "#abcdef" },
+  };
+
+  it("keeps every stored key the incoming payload does not mention", () => {
+    expect(
+      mergeDisclaimersPayload(stored, { byCategory: { Retirement: null } }),
+    ).toEqual({
+      ...stored,
+      byCategory: { Retirement: null },
+    });
+  });
+
+  it("lets the incoming keys win", () => {
+    expect(
+      mergeDisclaimersPayload(stored, {
+        footerBackground: { mode: "secondary", customColor: "" },
+      }),
+    ).toMatchObject({
+      disclosuresText: "Stored text",
+      footerBackground: { mode: "secondary", customColor: "" },
+    });
+  });
+
+  it("preserves the footer background when only byCategory is written", () => {
+    const merged = mergeDisclaimersPayload(stored, {
+      byCategory: { "Group Health": { text: "Health row" } },
+    }) as Record<string, any>;
+
+    expect(merged.footerBackground).toEqual({
+      mode: "custom",
+      customColor: "#abcdef",
+    });
+  });
+
+  it("merges into a stored JSON string envelope", () => {
+    const merged = mergeDisclaimersPayload(JSON.stringify(stored), {
+      byCategory: {},
+    }) as Record<string, any>;
+
+    expect(merged.footerBackground).toEqual({
+      mode: "custom",
+      customColor: "#abcdef",
+    });
+    expect(merged.byCategory).toEqual({});
+  });
+
+  it("replaces legacy plain text instead of merging into it", () => {
+    expect(mergeDisclaimersPayload("Old plain text", { byCategory: {} })).toEqual(
+      { byCategory: {} },
+    );
+  });
+
+  it("returns legacy plain-text payloads unchanged", () => {
+    expect(mergeDisclaimersPayload(stored, "New plain text")).toBe(
+      "New plain text",
+    );
+  });
+
+  it("treats an unparseable stored string as no envelope", () => {
+    expect(mergeDisclaimersPayload("{not json", { footerBackground: {} })).toEqual(
+      { footerBackground: {} },
+    );
   });
 });

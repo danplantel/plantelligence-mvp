@@ -14,6 +14,7 @@ import {
 import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import { KeyContact } from "@/types/new-client-wizard";
+import { resolveFooterBackgroundColor } from "@/lib/portal-footer-color";
 
 interface CompanyData {
   companyName?: string;
@@ -176,16 +177,14 @@ export function ClientPortal({
   const brandColor = companyData?.brandColor || "#1F3A60";
   const secondaryColor = companyData?.secondaryColor || "#6B7280";
 
-  // Resolve footer background color from footerBackground preference,
-  // falling back to brandColor (primary) when not set.
-  const footerBgColor = (() => {
-    const fb = companyData?.footerBackground;
-    if (!fb) return brandColor;
-    if (fb.mode === "secondary") return secondaryColor;
-    if (fb.mode === "custom" && fb.customColor?.trim())
-      return fb.customColor.trim();
-    return brandColor;
-  })();
+  // Resolve footer background color from the plan's footerBackground preference,
+  // using the shared rule the portal layout applies, so a preview and the live
+  // portal paint the same colour.
+  const footerBgColor = resolveFooterBackgroundColor(
+    companyData?.footerBackground,
+    brandColor,
+    secondaryColor,
+  );
 
   const fadeLeft = {
     hidden: { opacity: 0, x: -40 },

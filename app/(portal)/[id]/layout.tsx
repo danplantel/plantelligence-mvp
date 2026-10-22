@@ -31,6 +31,7 @@ import {
   isPlaceholderBenefitName,
 } from "@/lib/benefit-custom-name";
 import { getPortalCountdown, normalizePortalCtaUrl } from "@/lib/portal-banner";
+import { resolvePortalFooterColor } from "@/lib/portal-footer-color";
 
 interface BannerAsset {
   id: string;
@@ -79,20 +80,14 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   // Unset/unknown values resolve to Classic inside getTypographyCssVars.
   const typographyTheme = clientData?.typographyTheme;
 
-  // Resolve portal footer background color from the plan's footerBackground
-  // preference (selected during plan creation wizard Step 5a). Falls back to
-  // brandColor (primary) when no custom footer background is configured.
-  const footerBgColor = (() => {
-    try {
-      const raw = (clientData as any)?.disclaimers;
-      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-      const fb = parsed?.footerBackground;
-      if (!fb) return brandColor;
-      if (fb.mode === "secondary") return secondaryColor;
-      if (fb.mode === "custom" && fb.customColor?.trim()) return fb.customColor.trim();
-    } catch { /* ignore parse errors */ }
-    return brandColor;
-  })();
+  // Portal footer background color — the plan's `footerBackground` preference,
+  // resolved by the SAME helper every other portal surface uses so the Landing page,
+  // the Benefit Hubs, My Benefits Team and News & Events can never disagree.
+  const footerBgColor = resolvePortalFooterColor(
+    (clientData as any)?.disclaimers,
+    brandColor,
+    secondaryColor,
+  );
   const organizationName =
     (clientData as any)?.branding?.organizationName ||
     session?.user?.organizationName ||

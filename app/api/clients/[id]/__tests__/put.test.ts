@@ -354,6 +354,48 @@ describe("PUT /api/clients/[id] payload", () => {
     expect(updateData().disclaimers).toBe("plain footer text");
   });
 
+  it("merges a slice write into the stored envelope", async () => {
+    // Benefits Step 5 and Publish only know about `byCategory`; the footer
+    // background picked in Edit Plan must survive their save.
+    mocks.prisma.client.findFirst.mockResolvedValue(
+      ownedPlan({
+        disclaimers: JSON.stringify({
+          disclosuresText: "Stored text",
+          footerBackground: { mode: "custom", customColor: "#abcdef" },
+        }),
+      }),
+    );
+
+    await callPut({ disclaimers: { byCategory: { Retirement: null } } });
+
+    expect(updateData().disclaimers).toEqual({
+      disclosuresText: "Stored text",
+      footerBackground: { mode: "custom", customColor: "#abcdef" },
+      byCategory: { Retirement: null },
+    });
+  });
+
+  it("merges an incoming JSON-string envelope into the stored one", async () => {
+    mocks.prisma.client.findFirst.mockResolvedValue(
+      ownedPlan({
+        disclaimers: {
+          byCategory: { Retirement: { text: "Retirement row" } },
+        },
+      }),
+    );
+
+    await callPut({
+      disclaimers: JSON.stringify({
+        footerBackground: { mode: "secondary", customColor: "" },
+      }),
+    });
+
+    expect(updateData().disclaimers).toEqual({
+      byCategory: { Retirement: { text: "Retirement row" } },
+      footerBackground: { mode: "secondary", customColor: "" },
+    });
+  });
+
   it("keeps the stored disclaimer when the request omits it", async () => {
     await callPut({ companyName: "Acme" });
 

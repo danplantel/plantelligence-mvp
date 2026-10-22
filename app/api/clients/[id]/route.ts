@@ -37,6 +37,7 @@ import { normalizeContactImagesToR2 } from "@/lib/branding-r2";
 import { getOrCreateOrganizationForUser } from "@/lib/organization";
 import { buildPortalKeyContacts } from "@/lib/teammates/hub-contacts.server";
 import { mirrorPlanContacts } from "@/lib/teammates/contact-mirror.server";
+import { mergeDisclaimersPayload } from "@/lib/disclaimer-constants";
 
 /**
  * Convert the advisor's User.disclaimer into a single display string for the
@@ -850,49 +851,40 @@ export async function PUT(
         (body as any).categoryPortalVisibility !== undefined
           ? getCategoryPortalVisibility((body as any).categoryPortalVisibility)
           : (existingClient as any).categoryPortalVisibility,
-      // Handle disclaimers: support both old format (string) and new DisclaimersData format (JSON object)
+      // Handle disclaimers: support both old format (string) and new DisclaimersData
+      // format (JSON object).
+      //
+      // Each editor writes only the slice it owns — Edit Plan the text, Benefits Step 5
+      // `byCategory` + `footerBackground`, Buy/Publish `byCategory` — so the incoming
+      // object is MERGED over the stored envelope rather than replacing it. A blind
+      // replace dropped every key the caller did not know about, which is how the
+      // portal's footer background (and the per-category disclosures) reverted after an
+      // unrelated save. Legacy plain text still replaces, as it always did.
       disclaimers: (() => {
         // If disclaimersData is provided (new format), save as JSON object
         if (disclaimersData) {
-          console.log("=== Saving disclaimersData to client ===", {
-            clientId,
+          return mergeDisclaimersPayload(
+            existingClient.disclaimers,
             disclaimersData,
-          });
-          return disclaimersData as any;
+          ) as any;
         }
-        // If disclaimers is provided, try to parse if it's a string, otherwise use as is
         if (disclaimers !== undefined) {
-          // If it's a string, try to parse it as JSON
           if (typeof disclaimers === "string") {
             try {
               const parsed = JSON.parse(disclaimers);
-              console.log(
-                "=== Parsed and saving disclaimers (from string) to client ===",
-                {
-                  clientId,
-                  parsed,
-                },
+              return mergeDisclaimersPayload(
+                existingClient.disclaimers,
+                parsed,
               );
-              return parsed;
-            } catch (e) {
-              // If parsing fails, it's probably old format - keep as string for backward compatibility
-              console.log(
-                "=== Saving disclaimers (string, old format) to client ===",
-                {
-                  clientId,
-                  disclaimers,
-                },
-              );
+            } catch {
+              // Unparseable string is the legacy plain-text shape — keep as text.
               return disclaimers;
             }
-          } else {
-            // Already an object
-            console.log("=== Saving disclaimers (object) to client ===", {
-              clientId,
-              disclaimers,
-            });
-            return disclaimers as any;
           }
+          return mergeDisclaimersPayload(
+            existingClient.disclaimers,
+            disclaimers,
+          ) as any;
         }
         // Otherwise, keep existing
         return existingClient.disclaimers;

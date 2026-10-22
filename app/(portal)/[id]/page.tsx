@@ -7,6 +7,7 @@ import {
   getCategoryPortalVisibility,
   filterContactsByPortalVisibility,
 } from "@/lib/portal-category-visibility";
+import { parseFooterBackgroundPreference } from "@/lib/portal-footer-color";
 
 export default function ViewClientPage() {
   const { clientData, loading } = useClientPortal();
@@ -96,23 +97,12 @@ export default function ViewClientPage() {
   ) as any[];
 
   // The footer background preference is stored in the plan's `disclaimers` JSON (the same
-  // place `app/(portal)/[id]/layout.tsx` reads it). The landing page renders its own footer
-  // through `ClientPortal`, which resolves the colour from `companyData.footerBackground`,
-  // so the preference has to travel with this payload too — without it the home page kept
-  // the primary colour no matter what was saved in Edit Plan → Disclosures.
-  const footerBackground = (() => {
-    try {
-      const raw = (clientData as any)?.disclaimers;
-      const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-      const fb = parsed?.footerBackground;
-      return fb && typeof fb === "object"
-        ? (fb as { mode?: string; customColor?: string })
-        : undefined;
-    } catch {
-      // Plain-text disclaimers — no footer preference configured.
-      return undefined;
-    }
-  })();
+  // place `app/(portal)/[id]/layout.tsx` reads it), and is parsed with the shared helper
+  // so the payload and the layout can never diverge. `ClientPortal` resolves it through
+  // the same rule when it renders a footer of its own.
+  const footerBackground =
+    parseFooterBackgroundPreference((clientData as any)?.disclaimers) ??
+    undefined;
 
   return (
     <>

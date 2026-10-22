@@ -1,6 +1,7 @@
 import { mergeUserBenefitWithHubDefaults } from "@/lib/hub-benefit-defaults";
 import { contactCompanyLogoForCategory } from "@/lib/benefit-contacts";
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
+import { mergeDisclaimersPayload } from "@/lib/disclaimer-constants";
 import {
   fetchClientOnce,
   invalidateClientCache,
@@ -458,11 +459,15 @@ export async function saveBenefit(
         heroUseGradient: step1Data?.heroUseGradient ?? false,
       },
       categoryPortalVisibility: categoryPortalVisibilityForComplete,
+      // Merge over the stored envelope rather than replacing it: `footerBackground`
+      // (and any other slice written from another editor) must survive a publish, or
+      // the portal footer reverts to the primary colour on every page.
       ...(step5ByCategory
         ? {
-            disclaimers: {
-              byCategory: step5ByCategory,
-            },
+            disclaimers: mergeDisclaimersPayload(
+              (client as any).disclaimers,
+              { byCategory: step5ByCategory },
+            ),
           }
         : {}),
     };

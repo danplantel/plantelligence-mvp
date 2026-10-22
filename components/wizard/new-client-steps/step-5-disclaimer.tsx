@@ -24,6 +24,7 @@ import {
   ensurePlanTelligenceTrademark,
   stripDisclaimerCopyright,
 } from "@/lib/disclaimer-constants";
+import { parseFooterBackgroundPreference } from "@/lib/portal-footer-color";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
 import {
   DisclosureFooterEditor,
@@ -385,10 +386,12 @@ export function NewClientStep5({
   const existingDisclaimers = newClientStepData.disclaimers?.disclaimers || [];
 
   // ── Footer background color mode ──
-  // Stored in disclaimers meta so it persists alongside the disclaimer data.
-  const storedFooterBg = (newClientStepData.disclaimers as any)?.footerBackground ?? {};
+  // Stored in disclaimers meta so it persists alongside the disclaimer data, and read
+  // with the same parser the portal uses.
+  const storedFooterBg =
+    parseFooterBackgroundPreference(newClientStepData.disclaimers) ?? {};
   const [footerBgMode, setFooterBgMode] = useState<"primary" | "secondary" | "custom">(
-    storedFooterBg.mode || "primary",
+    (storedFooterBg.mode as "primary" | "secondary" | "custom") || "primary",
   );
   const [footerBgCustomColor, setFooterBgCustomColor] = useState(
     storedFooterBg.customColor || "",

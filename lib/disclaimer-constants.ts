@@ -56,6 +56,53 @@ export function resolveDisclaimerText(raw: unknown): string {
   return "";
 }
 
+/**
+ * Coerce a stored/incoming disclaimers value to an envelope object, or `null` when it
+ * is legacy plain text (or an unparseable JSON string).
+ */
+function toDisclaimersEnvelope(value: unknown): Record<string, unknown> | null {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed.startsWith("{")) return null;
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        return parsed as Record<string, unknown>;
+      }
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Merge an incoming disclaimers payload into the stored envelope.
+ *
+ * `Client.disclaimers` holds several independent slices — `disclaimers`,
+ * `disclosuresText`, `byCategory`, `footerBackground` — and each editor only knows
+ * about the ones it owns: Edit Plan writes the text, Benefits Step 5 writes
+ * `byCategory` and `footerBackground`, Publish writes `byCategory`. A blind replace
+ * meant whichever wizard saved last silently erased the others, which is why a footer
+ * background picked in one place reverted to the primary colour after a save
+ * somewhere else.
+ *
+ * Keys present in `incoming` win; keys it does not mention are preserved. A legacy
+ * plain-text payload keeps its old replace behaviour (there is no envelope to merge).
+ */
+export function mergeDisclaimersPayload(stored: unknown, incoming: unknown): unknown {
+  const incomingEnvelope = toDisclaimersEnvelope(incoming);
+  if (!incomingEnvelope) return incoming;
+
+  const storedEnvelope = toDisclaimersEnvelope(stored);
+  if (!storedEnvelope) return incomingEnvelope;
+
+  return { ...storedEnvelope, ...incomingEnvelope };
+}
+
 // The default disclosure copy lives in config so the wording can change without
 // touching this module or migrating stored data. Re-exported for existing
 // importers (Settings, onboarding wizard).
