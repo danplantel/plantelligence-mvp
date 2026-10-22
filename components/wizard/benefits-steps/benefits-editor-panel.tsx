@@ -19,12 +19,6 @@ import { BrandImageUpload } from "@/components/ui/brand-image-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
   ImageIcon,
   ImagePlus,
   Layout,
@@ -108,12 +102,6 @@ export const DEFAULT_HELP_CARDS: HelpCardData[] = [
   },
 ];
 
-/** Help card "paragraph" length limits — a single paragraph (not multiple) with
- *  min/max character bounds keeps the "How Can We Help You Today?" cards a
- *  consistent height on the portal. */
-const HELP_CARD_PARAGRAPH_MIN = 40;
-const HELP_CARD_PARAGRAPH_MAX = 220;
-
 interface BenefitsEditorPanelProps {
   isOpen: boolean;
   isAnimating: boolean;
@@ -194,7 +182,6 @@ export function BenefitsEditorPanel({
     ?.mobileHeroBackgroundPosition ?? { x: 50, y: 50 };
   const internalScrollRef = useRef<HTMLDivElement>(null);
   const editorScrollContainerRef = externalScrollRef || internalScrollRef;
-  const [openAccordionItems, setOpenAccordionItems] = useState<string[]>([]);
 
   /** Default-photo gallery for the Branding section's Header Background. */
   const [heroGalleryOpen, setHeroGalleryOpen] = useState(false);
@@ -297,22 +284,6 @@ export function BenefitsEditorPanel({
       new CustomEvent("benefitsPreviewScrollTo", { detail: { field } }),
     );
   };
-
-  // Sync highlightedField (cardId) with accordion open state.
-  // Only the clicked card's accordion opens; all others close. Guarded by the
-  // active section so non-help-card field ids (e.g. "insuranceLoginUrl") don't
-  // collapse the cards.
-  useEffect(() => {
-    if (highlightedField && activeSection === "helpCards") {
-      setOpenAccordionItems([highlightedField]);
-    }
-  }, [highlightedField, activeSection]);
-
-  // Resolve help cards from store or defaults
-  const helpCards =
-    step1Data.helpCards && step1Data.helpCards.length > 0
-      ? step1Data.helpCards
-      : DEFAULT_HELP_CARDS;
 
   // Scroll to the requested section — or, when the event carries a field id
   // (e.g. the required Login URL validation), to that specific input.
@@ -594,24 +565,6 @@ export function BenefitsEditorPanel({
       updated.heroUseGradient = settings.useGradient;
     }
     saveStepData(1, updated);
-  };
-
-  // --- Help Cards Logic ---
-  const updateHelpCard = (id: string, updates: Partial<HelpCardData>) => {
-    const updated = helpCards.map((c) =>
-      c.id === id ? { ...c, ...updates } : c,
-    );
-    saveStepData(1, { ...step1Data, helpCards: updated });
-  };
-
-  // A help card has exactly one paragraph — stored as a single-element array so
-  // HelpCardData (paragraphs: string[]) stays unchanged while the UI (and card
-  // heights on the portal) remain consistent.
-  const updateCardParagraph = (cardId: string, value: string) => {
-    const updated = helpCards.map((c) =>
-      c.id === cardId ? { ...c, paragraphs: [value] } : c,
-    );
-    saveStepData(1, { ...step1Data, helpCards: updated });
   };
 
   const SectionHeader = ({
@@ -1260,6 +1213,24 @@ export function BenefitsEditorPanel({
           </div>
         </div>
 
+        {/* Help Cards Section — content removed for the redesign.
+            Section 4 now, ahead of the Video section, so the editor's order matches
+            the portal (the cards follow the welcome banner, before the video). The
+            numbered shell and its scroll/highlight target stay so the new editor can
+            be dropped in here, with the Step 2 preview and the portal section rebuilt
+            together rather than one side at a time. */}
+        <div
+          ref={sectionsRef.helpCards}
+          className={cn(
+            "transition-all duration-500 rounded-xl",
+            highlightedSection === "helpCards"
+              ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800"
+              : "",
+          )}
+        >
+          <SectionHeader number={4} title="How Can We Help You Today?" />
+        </div>
+
         {/* Plan Video Section */}
         <div
           ref={sectionsRef.planVideo}
@@ -1270,7 +1241,7 @@ export function BenefitsEditorPanel({
               : "",
           )}
         >
-          <SectionHeader number={4} title="Video Source" />
+          <SectionHeader number={5} title="Video Source" />
           <p className="text-[13px] text-muted-foreground mb-6">
             Add the video shown in the journey section, say what it covers, and
             choose a poster image. Without a video, the category image is shown.
@@ -1628,141 +1599,6 @@ export function BenefitsEditorPanel({
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Help Cards Section */}
-        <div
-          ref={sectionsRef.helpCards}
-          className={cn(
-            "transition-all duration-500 rounded-xl",
-            highlightedSection === "helpCards"
-              ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800"
-              : "",
-          )}
-        >
-          <SectionHeader number={5} title="How Can We Help You Today?" />
-          <p className="text-[13px] text-muted-foreground mb-6">
-            Customize the three cards that appear in the &ldquo;How Can We Help
-            You Today?&rdquo; section.
-          </p>
-          <Accordion
-            type="multiple"
-            value={openAccordionItems}
-            onValueChange={setOpenAccordionItems}
-            className="space-y-3"
-          >
-            {helpCards.map((card) => (
-              <AccordionItem
-                key={card.id}
-                value={card.id}
-                className="border border-muted rounded-xl px-4 shadow-sm bg-white dark:bg-gray-800 dark:border-gray-600"
-              >
-                <AccordionTrigger className="text-sm font-semibold py-4 hover:no-underline">
-                  {card.title || "Untitled Card"}
-                </AccordionTrigger>
-                <AccordionContent className="space-y-4 pb-4">
-                  <div className="space-y-2">
-                    <Label className="text-[11px] font-bold text-muted-foreground uppercase">
-                      Card Title
-                    </Label>
-                    <Input
-                      value={card.title}
-                      onChange={(e) =>
-                        updateHelpCard(card.id, { title: e.target.value })
-                      }
-                      onFocus={() => focusPreviewField("helpCards")}
-                      className="h-9 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[11px] font-bold text-muted-foreground uppercase">
-                      Intro (optional bold text)
-                    </Label>
-                    <Input
-                      value={card.introBold || ""}
-                      onChange={(e) =>
-                        updateHelpCard(card.id, {
-                          introBold: e.target.value || undefined,
-                        })
-                      }
-                      onFocus={() => focusPreviewField("helpCards")}
-                      className="h-9 text-sm"
-                      placeholder="e.g. Transitioning to a new employer?"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[11px] font-bold text-muted-foreground uppercase">
-                      Paragraph
-                    </Label>
-                    <Textarea
-                      value={card.paragraphs[0] ?? ""}
-                      onChange={(e) =>
-                        updateCardParagraph(card.id, e.target.value)
-                      }
-                      onFocus={() => focusPreviewField("helpCards")}
-                      className="min-h-[80px] text-sm"
-                      placeholder="Enter the card description..."
-                      maxLength={HELP_CARD_PARAGRAPH_MAX}
-                    />
-                    <div className="flex flex-wrap items-center justify-between gap-1">
-                      <span className="text-[11px] text-muted-foreground tabular-nums">
-                        {(card.paragraphs[0] ?? "").length} /{" "}
-                        {HELP_CARD_PARAGRAPH_MAX} characters
-                      </span>
-                      {(card.paragraphs[0] ?? "").trim().length <
-                        HELP_CARD_PARAGRAPH_MIN && (
-                        <span className="text-[11px] text-amber-600">
-                          Minimum {HELP_CARD_PARAGRAPH_MIN} characters
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-[11px] font-bold text-muted-foreground uppercase">
-                      CTA Button Text
-                    </Label>
-                    <Input
-                      value={card.cta}
-                      onChange={(e) =>
-                        updateHelpCard(card.id, { cta: e.target.value })
-                      }
-                      onFocus={() => focusPreviewField("helpCards")}
-                      className="h-9 text-sm"
-                      placeholder="e.g. LEARN MORE →"
-                    />
-                  </div>
-                  {card.cta?.trim() ? (
-                    <div className="space-y-2">
-                      <Label className="text-[11px] font-bold text-muted-foreground uppercase">
-                        Link Path <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        value={card.href || ""}
-                        onChange={(e) =>
-                          updateHelpCard(card.id, {
-                            href: e.target.value || undefined,
-                          })
-                        }
-                        onFocus={() => focusPreviewField("helpCards")}
-                        className={cn(
-                          "h-9 text-sm",
-                          !card.href?.trim() &&
-                            "border-red-400 focus-visible:ring-red-400",
-                        )}
-                        placeholder="e.g. /financial-planning"
-                        required
-                      />
-                      {!card.href?.trim() && (
-                        <p className="text-[11px] text-red-500">
-                          Link path is required when a button text is added.
-                        </p>
-                      )}
-                    </div>
-                  ) : null}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
         </div>
 
         {/* Benefit Access & Materials Section */}
