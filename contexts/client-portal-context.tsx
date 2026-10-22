@@ -81,6 +81,19 @@ export function useClientPortal() {
   return context;
 }
 
+/**
+ * The portal context when one is mounted, or the inert default otherwise.
+ *
+ * Some portal sections are also rendered OUTSIDE `ClientPortalProvider` — the
+ * wizard's Step 2 preview and the marketing flyers re-use them — so a component that
+ * only wants to *read* an optional portal value (e.g. the plan's login URL) must not
+ * blow up there. `clientData` is `null` when no provider is mounted, so callers can
+ * treat that as "not available".
+ */
+export function useOptionalClientPortal(): ClientPortalContextType {
+  return useContext(ClientPortalContext);
+}
+
 export function ClientPortalProvider({
   children,
 }: {

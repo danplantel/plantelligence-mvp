@@ -175,6 +175,9 @@ export default function HealthInsurancePage() {
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           clientId={clientId}
+          category="Group Health"
+          // Same provider the Access & Materials hero shows for this category.
+          provider={benefitData?.providerContact ?? null}
           cards={(benefitData as any)?.helpCards ?? undefined}
         />
 

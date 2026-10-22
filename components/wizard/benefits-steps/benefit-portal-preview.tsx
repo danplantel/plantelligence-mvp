@@ -64,7 +64,6 @@ import {
   DEFAULT_WELCOME_BG,
 } from "@/lib/portal-category-hero-background";
 import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
-import { DEFAULT_HELP_CARDS } from "./benefits-editor-panel";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
 
 export function BenefitPortalPreview({
@@ -574,10 +573,17 @@ export function BenefitPortalPreview({
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             clientId={step1Data?.planId}
+            // Fills `[Benefit Category]` in the default copy, so the preview reads
+            // exactly like the live hub ("Retirement Account Access").
+            category={step1Data?.benefitCategory || undefined}
+            // The Account Access card mirrors the Access & Materials hero, so it gets
+            // the same login URL and provider the preview's hero below shows.
+            accountAccessHref={step1Data?.insuranceLoginUrl || undefined}
+            provider={step1Data?.providerContact ?? null}
+            // Undefined lets the section use its own default topics — the same set
+            // the live hub falls back to, so the preview cannot drift from the portal.
             cards={
-              step1Data?.helpCards?.length
-                ? step1Data.helpCards
-                : DEFAULT_HELP_CARDS
+              step1Data?.helpCards?.length ? step1Data.helpCards : undefined
             }
             onCardEdit={(cardId) => handleEdit("helpCards", cardId)}
           />

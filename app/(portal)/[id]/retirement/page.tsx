@@ -184,6 +184,9 @@ export default function RetirementPage() {
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           clientId={clientId}
+          category="Retirement"
+          // Same provider the Access & Materials hero shows for this category.
+          provider={benefitData?.providerContact ?? null}
           cards={(benefitData as any)?.helpCards ?? undefined}
         />
 

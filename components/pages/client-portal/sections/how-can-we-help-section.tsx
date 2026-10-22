@@ -1,23 +1,57 @@
 "use client";
 
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowRight, ChevronDown, X } from "lucide-react";
+import { readableColor } from "polished";
+import { Button } from "@/components/ui/button";
+import { useOptionalClientPortal } from "@/contexts/client-portal-context";
+import { formatPhoneWithExtension } from "@/lib/phone-utils";
+import type { ProviderContact } from "@/types/benefit";
+import { cn } from "@/lib/utils";
+
 /**
- * "How Can We Help You Today?" — heading only, for now.
+ * "How Can We Help You Today?" — a topic grid with an expand-in-place detail panel.
  *
- * The three-card body that used to live here (title, optional bold intro, a
- * paragraph and a CTA button) is being redesigned, and its editor counterpart in
- * `components/wizard/benefits-steps/benefits-editor-panel.tsx` has been emptied at
- * the same time so the two sides cannot drift. The new design will be dropped into
- * both. Every portal surface still renders this section, so the heading and its
- * spacing stay exactly where they were.
+ * Layout contract:
+ *  - The section fills the viewport (`min-h-screen`), so it owns a whole screen
+ *    between the welcome banner and the video section.
+ *  - Row 1 is `2/4 + 1/4 + 1/4`: the first card (Account Access) takes the wide slot
+ *    and the next two sit beside it.
+ *  - Every row after that is `4 × 1/4`.
+ *  - Opening a card renders its detail panel directly BENEATH the row it belongs to,
+ *    so the rest of the grid moves down instead of the page jumping to a modal.
+ *    Rollovers & Distributions is open on first paint.
+ *  - Every tile ends in a "Learn more" Button in the plan's SECONDARY colour; the
+ *    whole tile is also clickable, so a tap anywhere on the card opens it.
  *
- * `HelpCardData` and the card/CTA props are kept so the call sites (the four benefit
- * hubs, the custom hub, and the wizard previews) keep compiling unchanged while the
- * body is rebuilt.
+ * `cards` comes from the Benefit row (`helpCards`). A plan that has not configured
+ * any yet still gets the full set below, because the section is a fixed part of every
+ * hub page.
+ *
+ * The WIDE tile is the account-access card, not a topic: it mirrors the Insurance
+ * Benefits Access & Materials hero — plan / group ID, the provider administering the
+ * benefit, what the participant can do there, and a "Register or Login Here →" button
+ * that opens the plan's login URL in a new tab. It never opens a detail panel; the
+ * topics below it do.
+ *
+ * `[Benefit Category]` is a merge token in the default copy, resolved from the
+ * `category` prop each hub passes ("Retirement", "Group Health", …) — so the wide
+ * card reads "Retirement Account Access". It is resolved in ANY card, configured by
+ * the advisor or not; when no category is known the token is dropped rather than
+ * shown to a participant. `[Company Name]` / `[Advisor Name]` follow the same
+ * convention used across the portal's default copy.
  */
 
 export interface HelpCardData {
   id: string;
   title: string;
+  /**
+   * The tile's supporting line — the one or two sentences shown under the title on
+   * the CARD itself. Optional: a tile without it is just the title and its button.
+   * (The expanded panel reads `paragraphs`.)
+   */
+  body?: string;
   introBold?: string;
   paragraphs: string[];
   cta: string;
@@ -28,23 +62,594 @@ interface HowCanWeHelpSectionProps {
   brandColor?: string;
   secondaryColor?: string;
   clientId?: string;
-  /** Custom cards from the wizard. */
+  /**
+   * The hub's benefit category — "Retirement", "Group Health", "Group Life", or the
+   * advisor's custom hub name. Fills the `[Benefit Category]` token in the copy.
+   */
+  category?: string;
+  /**
+   * Destination for the Account Access card's "Register or Login Here" button.
+   * Defaults to the plan's `employeePortalPreview.insuranceLoginUrl` when the section
+   * is rendered inside the portal; callers outside that provider (the wizard preview)
+   * pass it explicitly.
+   */
+  accountAccessHref?: string;
+  /**
+   * The plan / group ID line, e.g. "PLAN / GROUP ID: 1234-5678". Defaults to
+   * `employeePortalPreview.insurancePlanId`, the value the hero reads.
+   */
+  planIdLabel?: string;
+  /**
+   * The provider / recordkeeper administering this benefit. Hub pages pass their
+   * category's `Benefit.providerContact`, exactly as they do to the hero; the portal
+   * context's plan-level copy is the fallback.
+   */
+  provider?: ProviderContact | null;
+  /** Custom cards from the wizard. Falls back to the set below when omitted. */
   cards?: HelpCardData[];
   /** Click handler for editing a specific card. Receives the card's ID. */
   onCardEdit?: (cardId: string) => void;
 }
 
+/** Merge token in the default copy, replaced by `category`. */
+const BENEFIT_CATEGORY_TOKEN = "[Benefit Category]";
+
+/**
+ * Replace the `[Benefit Category]` token. With no category known the token is
+ * removed (and the leftover spacing tidied) so a participant never sees a
+ * placeholder on a live page.
+ */
+function fillBenefitCategory(text: string, category?: string): string {
+  if (!text || !text.includes(BENEFIT_CATEGORY_TOKEN)) return text;
+  const label = (category || "").trim();
+  if (label) return text.split(BENEFIT_CATEGORY_TOKEN).join(label);
+  return text
+    .split(BENEFIT_CATEGORY_TOKEN)
+    .join("")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/**
+ * The seven topics, in the order the grid lays them out:
+ * row 1 — Account Access (wide), Rollovers & Distributions, Update My Beneficiaries;
+ * row 2 — Financial Planning, When to Claim Social Security, Turning 65: Medicare,
+ *         How Much Should I Save?
+ */
+export const HELP_TOPIC_CARDS: HelpCardData[] = [
+  {
+    id: "account-access",
+    title: "[Benefit Category] Account Access",
+    paragraphs: [
+      "View your balances, plan documents, and investment details in one place.",
+      "Take charge of your account and stay on top of your progress anytime.",
+    ],
+    cta: "",
+  },
+  {
+    id: "rollovers-distributions",
+    title: "Rollovers & Distributions",
+    body: "Changing jobs? Compare your 4 options side by side.",
+    introBold: "Transitioning to a new employer?",
+    paragraphs: [
+      "Understand your options for managing the savings you have already built. The decision you make now can have a lasting impact on your retirement lifestyle.",
+    ],
+    cta: "",
+  },
+  {
+    id: "beneficiaries",
+    title: "Update My Beneficiaries",
+    body: "Update your 401(k) and life insurance beneficiaries in one place.",
+    paragraphs: [
+      "Keep your beneficiary designations current so your benefits go to the people you intend.",
+    ],
+    cta: "",
+  },
+  {
+    id: "financial-planning",
+    title: "Financial Planning",
+    body: "Exclusive benefits for [Company Name] plan participants.",
+    paragraphs: [
+      "Exclusive benefits for [Company Name] plan participants.",
+      "Elevate your financial journey with personalized planning through [Advisor Name], integrated with your benefits.",
+    ],
+    cta: "",
+  },
+  {
+    id: "social-security",
+    title: "When to Claim Social Security",
+    body: "See how your claiming age changes your monthly benefit.",
+    paragraphs: [
+      "See how your claiming age changes your monthly benefit, and what to weigh before you file.",
+    ],
+    cta: "",
+  },
+  {
+    id: "medicare",
+    title: "Turning 65: Medicare",
+    body: "How Medicare works with your employer coverage, and when to enroll.",
+    paragraphs: [
+      "Understand how Medicare works with your employer coverage and when to enroll so there are no gaps or penalties.",
+    ],
+    cta: "",
+  },
+  {
+    id: "savings",
+    title: "How Much Should I Save?",
+    body: "See how your contribution rate shapes your retirement income.",
+    paragraphs: [
+      "Find out how your contribution rate today shapes your income in retirement — and how to close the gap.",
+    ],
+    cta: "",
+  },
+];
+
+/** Row 1 holds the wide slot plus two cards; later rows fill four across. */
+const FIRST_ROW_CARDS = 3;
+const ROW_CAPACITY = 4;
+
+/**
+ * Split the cards into the layout's rows: `[wide, narrow, narrow]` first, then
+ * chunks of four. A plan with fewer cards simply ends early instead of leaving
+ * empty cells.
+ */
+function groupIntoRows(cards: HelpCardData[]): HelpCardData[][] {
+  const rows: HelpCardData[][] = [];
+  const first = cards.slice(0, FIRST_ROW_CARDS);
+  if (first.length > 0) rows.push(first);
+  const rest = cards.slice(FIRST_ROW_CARDS);
+  for (let i = 0; i < rest.length; i += ROW_CAPACITY) {
+    rows.push(rest.slice(i, i + ROW_CAPACITY));
+  }
+  return rows;
+}
+
+/** Resolve a card link. Internal paths stay in the portal; everything else is external. */
+function resolveCardHref(
+  href: string,
+  basePath: string,
+): { href: string; external: boolean } {
+  const trimmed = href.trim();
+  if (!trimmed) return { href: "", external: false };
+  if (trimmed.startsWith("/")) {
+    return { href: `${basePath}${trimmed}`, external: false };
+  }
+  if (
+    trimmed.startsWith("//") ||
+    /^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(trimmed)
+  ) {
+    return { href: trimmed, external: true };
+  }
+  if (
+    trimmed.startsWith("#") ||
+    trimmed.startsWith("mailto:") ||
+    trimmed.startsWith("tel:")
+  ) {
+    return { href: trimmed, external: false };
+  }
+  return { href: `https://${trimmed}`, external: true };
+}
+
+/**
+ * The wide Account Access card.
+ *
+ * This is the Insurance Benefits Access & Materials hero, condensed into a tile:
+ * the heading, the plan / group ID, who administers the benefit, what the participant
+ * can do once they are in, and the Register / Login CTA. The destination and the
+ * provider come from the same sources the hero uses, so the two can never point at
+ * different places.
+ */
+function AccountAccessCard({
+  title,
+  description,
+  brandColor,
+  secondaryColor,
+  planIdLabel,
+  providerName,
+  providerDetailLine,
+  loginUrl,
+}: {
+  title: string;
+  description?: string;
+  brandColor: string;
+  secondaryColor: string;
+  planIdLabel?: string;
+  providerName?: string;
+  providerDetailLine?: string;
+  loginUrl?: string;
+}) {
+  // The hero's own feature list — what the login gets the participant.
+  const bullets = ["See coverage", "Get ID cards", "Make changes", "Update dependents"];
+  const ctaColor = secondaryColor || brandColor;
+
+  return (
+    <div
+      data-help-card="account-access"
+      // The height floor is what makes every row in the grid the same height: the
+      // topic tiles below use the identical `min-h`, so row 2 matches row 1 even
+      // though its cards carry far less content.
+      className="group col-span-2 flex h-full min-h-[180px] flex-col rounded-2xl border border-neutral-200 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-md sm:p-5 lg:min-h-[210px]"
+    >
+      <h3
+        // Matches the topic titles, so every card in the grid reads at one size.
+        className="font-dm-serif text-lg font-semibold leading-snug sm:text-xl"
+        style={{ color: brandColor }}
+      >
+        {title}
+      </h3>
+
+      {description && (
+        <p className="mt-0.5 line-clamp-1 text-[15px] leading-snug text-neutral-600">
+          {description}
+        </p>
+      )}
+
+      {planIdLabel && (
+        <div className="mt-2">
+          <span
+            className="inline-block rounded-md px-2 py-1 font-red-hat text-[13px] font-semibold leading-tight"
+            style={{ backgroundColor: `${brandColor}14`, color: brandColor }}
+          >
+            {planIdLabel}
+          </span>
+        </div>
+      )}
+
+      {providerName && (
+        <div className="mt-1.5">
+          <p className="font-red-hat text-[13px] leading-tight text-neutral-500">
+            Administered by{" "}
+            <span className="font-semibold" style={{ color: brandColor }}>
+              {providerName}
+            </span>
+            {providerDetailLine ? ` · ${providerDetailLine}` : ""}
+          </p>
+        </div>
+      )}
+
+      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5">
+        {bullets.map((item) => (
+          <div key={item} className="flex items-center">
+            <span
+              className="mr-1.5 h-1 w-1 flex-shrink-0 rounded-full"
+              style={{ background: brandColor }}
+            />
+            <span className="font-red-hat text-[13px] leading-tight text-neutral-700">
+              {item}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-auto pt-3">
+        <Button
+          type="button"
+          data-testid="account-access-cta"
+          // Same destination and same new-tab behaviour as the hero's CTA; with no
+          // URL configured the button is drawn but inert, exactly like the hero.
+          onClick={() => {
+            if (!loginUrl) return;
+            window.open(loginUrl, "_blank", "noopener,noreferrer");
+          }}
+          className="h-auto w-full gap-2 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] shadow-sm hover:opacity-90"
+          style={{
+            backgroundColor: ctaColor,
+            color: readableColor(ctaColor),
+          }}
+        >
+          Register or Login Here
+          <ArrowRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function HelpCardPanel({
+  card,
+  brandColor,
+  secondaryColor,
+  basePath,
+  onClose,
+}: {
+  card: HelpCardData;
+  brandColor: string;
+  secondaryColor: string;
+  basePath: string;
+  onClose: () => void;
+}) {
+  const resolved = card.href ? resolveCardHref(card.href, basePath) : null;
+  const ctaLabel = card.cta?.trim() ? card.cta : "";
+  const ctaStyle = {
+    borderColor: secondaryColor,
+    color: secondaryColor,
+  } as React.CSSProperties;
+  const ctaClass =
+    "inline-flex min-h-11 items-center justify-center rounded-md border bg-white px-6 text-sm font-red-hat uppercase tracking-[0.15em] transition-all duration-300 hover:opacity-90";
+
+  return (
+    <div
+      className="animate-in fade-in-0 slide-in-from-top-1 rounded-2xl border border-neutral-200 bg-neutral-50/70 p-5 shadow-sm duration-200 sm:p-7"
+      // The panel belongs to the tile that opened it.
+      role="region"
+      aria-label={card.title}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <h3
+          className="font-dm-serif text-xl leading-snug sm:text-2xl"
+          style={{ color: brandColor }}
+        >
+          {card.title}
+        </h3>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label={`Close ${card.title}`}
+          className="shrink-0 rounded-full p-1.5 text-neutral-500 transition-colors hover:bg-white hover:text-neutral-800"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+
+      {card.introBold && (
+        <p className="mt-3 text-[15px] font-semibold text-neutral-900">
+          {card.introBold}
+        </p>
+      )}
+
+      <div className="mt-2 space-y-2 text-[15px] leading-relaxed text-neutral-700">
+        {(card.paragraphs ?? [])
+          .filter((paragraph) => paragraph && paragraph.trim())
+          .map((paragraph, index) => (
+            <p key={index}>{paragraph}</p>
+          ))}
+      </div>
+
+      {ctaLabel && (
+        <div className="mt-5">
+          {resolved && resolved.external ? (
+            <a
+              href={resolved.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={ctaClass}
+              style={ctaStyle}
+            >
+              {ctaLabel}
+            </a>
+          ) : resolved ? (
+            <Link href={resolved.href} className={ctaClass} style={ctaStyle}>
+              {ctaLabel}
+            </Link>
+          ) : (
+            <button type="button" className={ctaClass} style={ctaStyle}>
+              {ctaLabel}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function HowCanWeHelpSection({
   brandColor = "#002B5B",
+  secondaryColor = "#E6C47A",
+  clientId,
+  category,
+  accountAccessHref,
+  planIdLabel,
+  provider,
+  cards,
+  onCardEdit,
 }: HowCanWeHelpSectionProps) {
+  const basePath = clientId ? `/${clientId}` : "";
+
+  // ── Account Access: the same inputs the Insurance Benefits Access & Materials
+  // hero reads ──
+  // The section is also rendered inside the portal, so the plan-level values come
+  // from the portal context (the hero's own source). Callers outside that provider
+  // pass the values explicitly.
+  const portal = useOptionalClientPortal();
+  const epp = (portal.clientData as any)?.employeePortalPreview as
+    | Record<string, any>
+    | undefined;
+
+  const loginUrlFromContext = String(epp?.insuranceLoginUrl || "").trim();
+  const resolvedLoginUrl = (accountAccessHref || loginUrlFromContext).trim();
+
+  const planIdFromContext = String(epp?.insurancePlanId || "").trim();
+  const resolvedPlanIdLabel =
+    planIdLabel ||
+    (planIdFromContext && !planIdFromContext.includes("[Not Set]")
+      ? `PLAN / GROUP ID: ${planIdFromContext}`
+      : "");
+
+  const providerContact = provider ?? (epp?.providerContact as ProviderContact | undefined) ?? null;
+  const legacyRecordkeeper = String(
+    (portal.clientData as any)?.recordkeeper || "",
+  ).trim();
+  // Same rule as the hero: the category's own provider first, and the legacy
+  // plan-level recordkeeper only ever described retirement services.
+  const resolvedProviderName =
+    (providerContact?.companyName || "").trim() ||
+    (category === "Retirement" ? legacyRecordkeeper : "");
+  const resolvedProviderDetail = [
+    providerContact?.contactName,
+    providerContact?.phone
+      ? formatPhoneWithExtension(providerContact.phone)
+      : "",
+  ]
+    .map((value) => (value || "").trim())
+    .filter(Boolean)
+    .join(" · ");
+
+  // Resolve `[Benefit Category]` once per card set, so the default topics and any
+  // advisor-configured card read the same way.
+  const resolvedCards = useMemo(() => {
+    const source = cards && cards.length > 0 ? cards : HELP_TOPIC_CARDS;
+    return source.map((card) => ({
+      ...card,
+      title: fillBenefitCategory(card.title, category),
+      body: card.body ? fillBenefitCategory(card.body, category) : undefined,
+      introBold: card.introBold
+        ? fillBenefitCategory(card.introBold, category)
+        : undefined,
+      paragraphs: (card.paragraphs ?? []).map((paragraph) =>
+        fillBenefitCategory(paragraph, category),
+      ),
+    }));
+  }, [cards, category]);
+
+  // `undefined` = untouched, so the default open card is used; `null` = the reader
+  // closed it and it must stay closed.
+  const [openCardId, setOpenCardId] = useState<string | null | undefined>(
+    undefined,
+  );
+
+  const defaultOpenCardId =
+    resolvedCards.find((card) =>
+      /rollover/i.test(`${card.id} ${card.title}`),
+    )?.id ?? null;
+  const activeCardId = openCardId === undefined ? defaultOpenCardId : openCardId;
+
+  const rows = groupIntoRows(resolvedCards);
+
+  const toggleCard = (cardId: string) => {
+    setOpenCardId(activeCardId === cardId ? null : cardId);
+    onCardEdit?.(cardId);
+  };
+
   return (
-    <section className="bg-white py-16 lg:py-20">
+    <section className="flex min-h-screen w-full flex-col justify-center bg-white py-16 lg:py-20">
       <h2
         className="mb-14 text-center text-2xl font-dm-serif sm:text-2xl lg:text-5xl"
         style={{ color: brandColor }}
       >
         How Can We Help You Today?
       </h2>
+
+      <div className="mx-auto w-full max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8">
+        {rows.map((row, rowIndex) => {
+          const openCard =
+            row.find((card) => card.id === activeCardId) ?? null;
+
+          return (
+            <div key={rowIndex} className="space-y-4">
+              {/* Row 1 is 2/4 + 1/4 + 1/4; every later row is 4 × 1/4. */}
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+                {row.map((card, cardIndex) => {
+                  const isWide = rowIndex === 0 && cardIndex === 0;
+                  const description = (card.paragraphs ?? []).find(
+                    (paragraph) => paragraph && paragraph.trim(),
+                  );
+
+                  // The wide card is the account-access card — it mirrors the
+                  // materials hero and never opens a detail panel.
+                  if (isWide) {
+                    return (
+                      <AccountAccessCard
+                        key={card.id}
+                        title={card.title}
+                        description={description}
+                        brandColor={brandColor}
+                        secondaryColor={secondaryColor}
+                        planIdLabel={resolvedPlanIdLabel || undefined}
+                        providerName={resolvedProviderName || undefined}
+                        providerDetailLine={resolvedProviderDetail || undefined}
+                        loginUrl={resolvedLoginUrl}
+                      />
+                    );
+                  }
+
+                  const isOpen = card.id === activeCardId;
+
+                  return (
+                    <div
+                      key={card.id}
+                      data-help-card={card.id}
+                      onClick={() => toggleCard(card.id)}
+                      className={cn(
+                        // Same height floor as the Account Access card, so row 2 is
+                        // exactly as tall as row 1.
+                        "group flex h-full min-h-[180px] w-full cursor-pointer flex-col items-start gap-2 rounded-2xl border bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md lg:min-h-[210px]",
+                        "col-span-1",
+                        isOpen
+                          ? "border-transparent"
+                          : "border-neutral-200 hover:border-neutral-300",
+                      )}
+                      style={
+                        isOpen
+                          ? { boxShadow: `0 0 0 2px ${brandColor}` }
+                          : undefined
+                      }
+                    >
+                      <h3
+                        // Topic titles run a step larger than the Account Access
+                        // card's, since those cards carry far less content.
+                        className="font-dm-serif text-lg font-semibold leading-snug sm:text-xl"
+                        style={{ color: brandColor }}
+                      >
+                        {card.title}
+                      </h3>
+
+                      {/* Body text — the short supporting line on the card itself. */}
+                      {card.body && (
+                        <p className="text-[15px] leading-snug text-neutral-600">
+                          {card.body}
+                        </p>
+                      )}
+
+                      {/* `w-full`: the tile is a flex column with `items-start`, so
+                          without it this wrapper shrinks to the button's content and
+                          the CTA only spans half the card. */}
+                      <div className="mt-auto w-full pt-2">
+                        <Button
+                          type="button"
+                          aria-expanded={isOpen}
+                          aria-controls={`help-card-${card.id}`}
+                          // The whole tile is clickable, so stop this click from
+                          // bubbling back up and toggling the panel twice.
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleCard(card.id);
+                          }}
+                          // Nearly the full card width, like the Account Access CTA.
+                          className="w-full justify-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] shadow-sm hover:opacity-90"
+                          style={{
+                            backgroundColor: secondaryColor,
+                            color: readableColor(secondaryColor),
+                          }}
+                        >
+                          Learn more
+                          <ChevronDown
+                            className={cn(
+                              "h-3.5 w-3.5 transition-transform duration-200",
+                              isOpen && "rotate-180",
+                            )}
+                          />
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {openCard && (
+                <div id={`help-card-${openCard.id}`}>
+                  <HelpCardPanel
+                    card={openCard}
+                    brandColor={brandColor}
+                    secondaryColor={secondaryColor}
+                    basePath={basePath}
+                    onClose={() => setOpenCardId(null)}
+                  />
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }

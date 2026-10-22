@@ -202,6 +202,10 @@ export default function CustomBenefitPage() {
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           clientId={clientId}
+          // The Custom hub's category label is the advisor's own name for it.
+          category={benefitData?.title?.trim() || undefined}
+          // Same provider the Access & Materials hero shows for this category.
+          provider={benefitData?.providerContact ?? null}
           cards={(benefitData as any)?.helpCards ?? undefined}
         />
 

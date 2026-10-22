@@ -176,6 +176,9 @@ export default function LifeInsurancePage() {
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           clientId={clientId}
+          category="Group Life"
+          // Same provider the Access & Materials hero shows for this category.
+          provider={benefitData?.providerContact ?? null}
           cards={(benefitData as any)?.helpCards ?? undefined}
         />
 
