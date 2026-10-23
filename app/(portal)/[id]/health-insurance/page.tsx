@@ -190,14 +190,9 @@ export default function HealthInsurancePage() {
             category="Group Health"
             videoLabel={benefitData?.planVideoLabel ?? undefined}
             videoThumbnail={benefitData?.planVideoThumbnail ?? undefined}
-            mainTitle={
-              (benefitData as any)?.journeyHeader ||
-              "Understanding Your Health Benefits"
-            }
-            subtitle={
-              (benefitData as any)?.journeySubtitle ||
-              "Navigate your coverage with confidence."
-            }
+            // No plan copy → the section's Group Health defaults fill these in.
+            mainTitle={(benefitData as any)?.journeyHeader || undefined}
+            subtitle={(benefitData as any)?.journeySubtitle || undefined}
             description={
               (benefitData as any)?.journeyBodyText ||
               "Your health and well-being are our priority. Explore our health insurance resources to understand your coverage options, maximize your benefits, and make informed decisions about your medical, dental, and vision care for you and your family."

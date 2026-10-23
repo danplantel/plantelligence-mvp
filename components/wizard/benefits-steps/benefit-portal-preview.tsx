@@ -597,30 +597,10 @@ export function BenefitPortalPreview({
             secondaryColor={secondaryColor}
             keyContacts={previewKeyContacts}
             category={category}
-            mainTitle={
-              step1Data?.journeyHeader ||
-              (() => {
-                const map: Record<string, string> = {
-                  Retirement: "Your Retirement Journey Starts Here",
-                  "Group Health": "Your Health Benefits Journey Starts Here",
-                  "Group Life": "Your Life Insurance Journey Starts Here",
-                  "Company / Plan Sponsor": "Whole-Person Wellness Programs",
-                };
-                return map[category] || map["Retirement"];
-              })()
-            }
-            subtitle={
-              step1Data?.journeySubtitle ||
-              (() => {
-                const map: Record<string, string> = {
-                  Retirement: "Build your future with confidence.",
-                  "Group Health": "Your health, your way.",
-                  "Group Life": "Protecting what matters most.",
-                  "Company / Plan Sponsor": "Thrive in every aspect of life.",
-                };
-                return map[category] || map["Retirement"];
-              })()
-            }
+            // Omitted → the section fills in its per-category default headline and
+            // subhead, the same strings the live hub shows.
+            mainTitle={step1Data?.journeyHeader || undefined}
+            subtitle={step1Data?.journeySubtitle || undefined}
             description={
               step1Data?.journeyBodyText ||
               (() => {

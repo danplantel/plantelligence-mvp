@@ -199,14 +199,9 @@ export default function RetirementPage() {
             category="Retirement"
             videoLabel={benefitData?.planVideoLabel ?? undefined}
             videoThumbnail={benefitData?.planVideoThumbnail ?? undefined}
-            mainTitle={
-              (benefitData as any)?.journeyHeader ||
-              "Your Retirement Journey Starts Here"
-            }
-            subtitle={
-              (benefitData as any)?.journeySubtitle ||
-              "Build your future with confidence."
-            }
+            // No plan copy → the section's Retirement defaults fill these in.
+            mainTitle={(benefitData as any)?.journeyHeader || undefined}
+            subtitle={(benefitData as any)?.journeySubtitle || undefined}
             description={
               (benefitData as any)?.journeyBodyText ||
               "Take control of your financial future with our comprehensive retirement planning resources. Whether you're just starting your career or preparing for the next chapter, we provide the tools and guidance you need to build a secure retirement."

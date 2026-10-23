@@ -191,14 +191,9 @@ export default function LifeInsurancePage() {
             category="Group Life"
             videoLabel={benefitData?.planVideoLabel ?? undefined}
             videoThumbnail={benefitData?.planVideoThumbnail ?? undefined}
-            mainTitle={
-              (benefitData as any)?.journeyHeader ||
-              "Life Insurance: Protecting What Matters Most"
-            }
-            subtitle={
-              (benefitData as any)?.journeySubtitle ||
-              "Secure your family's financial future with the right coverage."
-            }
+            // No plan copy → the section's Group Life defaults fill these in.
+            mainTitle={(benefitData as any)?.journeyHeader || undefined}
+            subtitle={(benefitData as any)?.journeySubtitle || undefined}
             description={
               (benefitData as any)?.journeyBodyText ||
               "Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."

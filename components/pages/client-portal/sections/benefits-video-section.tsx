@@ -15,11 +15,48 @@ function formatVideoDuration(seconds: number): string {
   return `${minutes}:${String(remainder).padStart(2, "0")}`;
 }
 
+/**
+ * Default headline / subhead per benefit category, used when the plan has not
+ * written its own (no `journeyHeader` / `journeySubtitle` override). The Custom hub
+ * is stored under "Company / Plan Sponsor".
+ */
+const VIDEO_TITLE_DEFAULTS: Record<
+  string,
+  { title: string; subtitle: string }
+> = {
+  Retirement: {
+    title: "Your Retirement Journey Starts Here",
+    subtitle: "Build your financial future with confidence.",
+  },
+  "Group Health": {
+    title: "Get the Most From Your Health Plan",
+    subtitle: "Care, coverage, and costs, explained.",
+  },
+  "Group Life": {
+    title: "Protect What Matters Most",
+    subtitle: "Coverage for you and the people who count on you.",
+  },
+  "Company / Plan Sponsor": {
+    title: "Everything You Need, Explained",
+    subtitle: "Quick videos on the benefits and resources available to you.",
+  },
+};
+
+/** The default copy for a category, falling back to Retirement's. */
+function defaultCopyFor(category?: string) {
+  return (
+    (category && VIDEO_TITLE_DEFAULTS[category]) ||
+    VIDEO_TITLE_DEFAULTS.Retirement
+  );
+}
+
 interface BenefitsVideoSectionProps {
   brandColor?: string;
   /** Accent colour for the subtitle and the Watch Now CTA. */
   secondaryColor?: string;
+  /** Headline. Defaults to the category's copy when omitted. */
   mainTitle?: string;
+  /** Subhead. Defaults to the category's copy when omitted. */
   subtitle?: string;
   description?: string;
   /** When provided, a <video> element replaces the right-column featured image */
@@ -52,8 +89,8 @@ interface BenefitsVideoSectionProps {
 export function BenefitsVideoSection({
   brandColor = "#0FB879",
   secondaryColor = "#C89B5B",
-  mainTitle = "Your Retirement Journey Starts Here",
-  subtitle = "Build your future with confidence.",
+  mainTitle,
+  subtitle,
   description,
   planVideoUrl,
   planVideoFallbackImage,
@@ -68,6 +105,14 @@ export function BenefitsVideoSection({
 }: BenefitsVideoSectionProps) {
   const sectionRef = useRef(null);
   const isInView = useInView(sectionRef, { once: true, margin: "-80px" });
+
+  // A plan's own copy wins; otherwise the category default fills the heading and
+  // subhead, so every hub reads correctly without each page repeating the strings.
+  const categoryCopy = defaultCopyFor(category);
+  const resolvedMainTitle = mainTitle?.trim()
+    ? mainTitle
+    : categoryCopy.title;
+  const resolvedSubtitle = subtitle?.trim() ? subtitle : categoryCopy.subtitle;
 
   const textVariants = {
     hidden: { opacity: 0, x: -80 },
@@ -165,7 +210,7 @@ export function BenefitsVideoSection({
                 <EditPencil label="Edit header" />
               )}
               <h1 className="mb-4 mt-[2em] lg:mt-0 font-unna font-dm-serif text-white text-[28px] font-normal leading-tight sm:text-3xl md:text-4xl lg:text-[40px]">
-                {mainTitle}
+                {resolvedMainTitle}
               </h1>
             </div>
             <div
@@ -189,24 +234,29 @@ export function BenefitsVideoSection({
                 className="mb-3 text-lg font-medium font-dm-serif sm:text-xl md:text-2xl lg:text-[24px]"
                 style={{ color: secondaryColor }}
               >
-                {subtitle}
+                {resolvedSubtitle}
               </h2>
             </div>
 
-            {/* Video meta — runtime + content label, directly under the subtitle. */}
-            <div className="mb-5 flex flex-wrap items-center gap-3">
-              {planVideoUrl && (
+            {/* Video meta — runtime + content label, directly under the subtitle.
+                Both only describe a video, so with no video there is nothing to say
+                and the whole row is dropped (the label would otherwise sit on the
+                page implying a video that isn't there). */}
+            {planVideoUrl && (
+              <div className="mb-5 flex flex-wrap items-center gap-3">
                 <span className="inline-flex items-center gap-1.5 text-sm font-red-hat text-white/70">
                   <Clock className="h-4 w-4" aria-hidden="true" />
                   {videoDurationSec != null
                     ? formatVideoDuration(videoDurationSec)
                     : "--:--"}
                 </span>
-              )}
-              <span className="inline-flex items-center rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/80">
-                {videoLabel}
-              </span>
-            </div>
+                {videoLabel?.trim() ? (
+                  <span className="inline-flex items-center rounded-full border border-white/20 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/80">
+                    {videoLabel}
+                  </span>
+                ) : null}
+              </div>
+            )}
 
             <div
               className={`relative ${
