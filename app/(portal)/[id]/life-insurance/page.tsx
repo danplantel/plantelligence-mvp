@@ -9,10 +9,12 @@ import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { buildFaqSupportContacts } from "@/lib/faq-support-contacts";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
-import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
 import { BenefitsVideoSection } from "@/components/pages/client-portal/sections/benefits-video-section";
 import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
-import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
+import {
+  HowCanWeHelpSection,
+  formatPlanGroupIdLabel,
+} from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import {
   BenefitDocumentSection,
   RetirementDocumentItem,
@@ -61,6 +63,11 @@ export default function LifeInsurancePage() {
       "Group Life",
     );
   }, [benefitFromApi, clientData]);
+
+  // Account-access values from the benefit editor (Plan / Group ID + login URL),
+  // shared by the Account Access card and the Access & Materials hero.
+  const planGroupIdLabel = formatPlanGroupIdLabel(benefitData?.insurancePlanId);
+  const accountAccessHref = benefitData?.insuranceLoginUrl || undefined;
 
   /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
   const documentsSig = useMemo(() => {
@@ -175,8 +182,11 @@ export default function LifeInsurancePage() {
           secondaryColor={secondaryColor}
           clientId={clientId}
           category="Group Life"
-          // Same provider the Access & Materials hero shows for this category.
+          // Plan / Group ID, login URL and provider — the same three fields the
+          // editor panel writes — so the card matches the hero below.
           provider={benefitData?.providerContact ?? null}
+          planIdLabel={planGroupIdLabel || undefined}
+          accountAccessHref={accountAccessHref}
           cards={(benefitData as any)?.helpCards ?? undefined}
         />
 
@@ -217,14 +227,6 @@ export default function LifeInsurancePage() {
           secondaryColor={secondaryColor}
           faqs={faqsForCategory}
           contacts={supportContactsForFAQ}
-        />
-
-        <PortalMaterialsHero
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          cardHeading="Group Life Insurance Account Access"
-          category="Group Life"
-          provider={benefitData?.providerContact ?? null}
         />
 
         <BenefitDocumentSection

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Monitor, Smartphone, X } from "lucide-react";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
 import { BenefitPortalPreview } from "@/components/wizard/benefits-steps/benefit-portal-preview";
+import { ACCOUNT_ACCESS_CARD_ID } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import { BenefitsEditorPanel } from "@/components/wizard/benefits-steps/benefits-editor-panel";
 import { MobilePreviewFrame } from "@/components/wizard/benefits-steps/step-2";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
@@ -348,17 +349,37 @@ export function EditBenefitPreviewSection({
   // carries `data-preview-scroll-container` and `BenefitPortalPreview` the
   // matching `data-preview-field` markers.
   useEffect(() => {
+    // Fields edited on a CARD inside a section rather than at section level: the
+    // Account Access card in "How Can We Help You Today?".
+    const cardTargets: Record<string, string> = {
+      insurancePlanId: ACCOUNT_ACCESS_CARD_ID,
+      insuranceLoginUrl: ACCOUNT_ACCESS_CARD_ID,
+      providerContact: ACCOUNT_ACCESS_CARD_ID,
+    };
+
     const handlePreviewScroll = (e: Event) => {
       const field = (e as CustomEvent<{ field?: string }>).detail?.field;
       if (!field) return;
-      const container = document.querySelector(
-        "[data-preview-scroll-container]",
-      ) as HTMLElement | null;
-      if (!container) return;
+      const cardId = cardTargets[field];
 
       requestAnimationFrame(() => {
-        const el = document.querySelector(`[data-preview-field="${field}"]`);
+        const el = cardId
+          ? document.querySelector(`[data-help-card="${cardId}"]`)
+          : document.querySelector(`[data-preview-field="${field}"]`);
         if (!el) return;
+
+        // Resolve the container FROM the element: the Edit page mounts two previews
+        // (desktop + phone frame), so the first container in the document may belong
+        // to the other one — measuring against it clamped the scroll to its end.
+        const container =
+          (el.closest(
+            "[data-preview-scroll-container]",
+          ) as HTMLElement | null) ??
+          (document.querySelector(
+            "[data-preview-scroll-container]",
+          ) as HTMLElement | null);
+        if (!container) return;
+
         const elRect = el.getBoundingClientRect();
         const containerRect = container.getBoundingClientRect();
         const elCenter = elRect.top + elRect.height / 2;

@@ -77,8 +77,10 @@ interface HowCanWeHelpSectionProps {
    */
   accountAccessHref?: string;
   /**
-   * The plan / group ID line, e.g. "PLAN / GROUP ID: 1234-5678". Defaults to
-   * `employeePortalPreview.insurancePlanId`, the value the hero reads.
+   * The plan / group ID line, already formatted with `formatPlanGroupIdLabel`
+   * (e.g. "PLAN / GROUP ID: 1234-5678"). Hub pages pass their category's
+   * `Benefit.insurancePlanId`; when omitted the section falls back to the legacy
+   * plan-level `employeePortalPreview.insurancePlanId`, which the hero also reads.
    */
   planIdLabel?: string;
   /**
@@ -95,6 +97,32 @@ interface HowCanWeHelpSectionProps {
 
 /** Merge token in the default copy, replaced by `category`. */
 const BENEFIT_CATEGORY_TOKEN = "[Benefit Category]";
+
+/**
+ * `data-help-card` id of the wide Account Access card.
+ *
+ * The card is not a topic tile — it carries no panel — but it IS the marker the
+ * editor's Plan / Group ID, login URL and Provider inputs scroll the preview to,
+ * so the id lives here (next to the card that renders it) and is imported by both
+ * preview scroll bridges instead of being repeated as a string literal.
+ */
+export const ACCOUNT_ACCESS_CARD_ID = "account-access";
+
+/**
+ * The "PLAN / GROUP ID: 1234-5678" line the Access & Materials hero and the Account
+ * Access card both print, built from the value the advisor typed in the benefit
+ * editor (`Benefit.insurancePlanId`, or the legacy plan-level
+ * `employeePortalPreview.insurancePlanId`).
+ *
+ * Returns "" for an unset value and for the "[Not Set]" placeholder, so callers can
+ * simply hide the line. Exported because the hub pages feed the same string to the
+ * hero below, and the two must never disagree about the plan's ID.
+ */
+export function formatPlanGroupIdLabel(value?: string | null): string {
+  const raw = (value || "").trim();
+  if (!raw || raw.includes("[Not Set]")) return "";
+  return `PLAN / GROUP ID: ${raw}`;
+}
 
 /**
  * Replace the `[Benefit Category]` token. With no category known the token is
@@ -458,7 +486,7 @@ function AccountAccessCard({
 
   return (
     <div
-      data-help-card="account-access"
+      data-help-card={ACCOUNT_ACCESS_CARD_ID}
       // The height floor is what makes every row in the grid the same height: the
       // topic tiles below use the identical `min-h`, so row 2 matches row 1 even
       // though its cards carry far less content.
@@ -679,12 +707,11 @@ export function HowCanWeHelpSection({
   const loginUrlFromContext = String(epp?.insuranceLoginUrl || "").trim();
   const resolvedLoginUrl = (accountAccessHref || loginUrlFromContext).trim();
 
-  const planIdFromContext = String(epp?.insurancePlanId || "").trim();
+  // The benefit's own value (passed by the hub) wins; the legacy plan-level copy is
+  // the fallback for any caller that has not been wired yet.
   const resolvedPlanIdLabel =
-    planIdLabel ||
-    (planIdFromContext && !planIdFromContext.includes("[Not Set]")
-      ? `PLAN / GROUP ID: ${planIdFromContext}`
-      : "");
+    (planIdLabel || "").trim() ||
+    formatPlanGroupIdLabel(epp?.insurancePlanId as string | undefined);
 
   const providerContact = provider ?? (epp?.providerContact as ProviderContact | undefined) ?? null;
   const legacyRecordkeeper = String(

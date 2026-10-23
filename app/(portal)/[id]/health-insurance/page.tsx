@@ -11,8 +11,10 @@ import { HaveQuestions } from "@/components/pages/client-portal/sections/have-qu
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import { BenefitsVideoSection } from "@/components/pages/client-portal/sections/benefits-video-section";
 import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
-import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
-import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
+import {
+  HowCanWeHelpSection,
+  formatPlanGroupIdLabel,
+} from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import { CompletenessAutoTrigger } from "@/components/pages/client-portal/sections/completeness-auto-trigger";
 import {
   BenefitDocumentSection,
@@ -61,6 +63,11 @@ export default function HealthInsurancePage() {
       "Group Health",
     );
   }, [benefitFromApi, clientData]);
+
+  // Account-access values from the benefit editor (Plan / Group ID + login URL),
+  // shared by the Account Access card and the Access & Materials hero.
+  const planGroupIdLabel = formatPlanGroupIdLabel(benefitData?.insurancePlanId);
+  const accountAccessHref = benefitData?.insuranceLoginUrl || undefined;
 
   /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
   const documentsSig = useMemo(() => {
@@ -174,8 +181,11 @@ export default function HealthInsurancePage() {
           secondaryColor={secondaryColor}
           clientId={clientId}
           category="Group Health"
-          // Same provider the Access & Materials hero shows for this category.
+          // Plan / Group ID, login URL and provider — the same three fields the
+          // editor panel writes — so the card matches the hero below.
           provider={benefitData?.providerContact ?? null}
+          planIdLabel={planGroupIdLabel || undefined}
+          accountAccessHref={accountAccessHref}
           cards={(benefitData as any)?.helpCards ?? undefined}
         />
 
@@ -216,14 +226,6 @@ export default function HealthInsurancePage() {
           secondaryColor={secondaryColor}
           faqs={faqsForCategory}
           contacts={supportContactsForFAQ}
-        />
-
-        <PortalMaterialsHero
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          cardHeading="Group Health Insurance Account Access"
-          category="Group Health"
-          provider={benefitData?.providerContact ?? null}
         />
 
         <BenefitDocumentSection

@@ -15,7 +15,6 @@ import { ModalGallery } from "@/components/ui/modalGallery";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
 import { BrandImageUpload } from "@/components/ui/brand-image-upload";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -194,12 +193,12 @@ export function BenefitsEditorPanel({
     messaging: useRef<HTMLDivElement>(null),
     planVideo: useRef<HTMLDivElement>(null),
     helpCards: useRef<HTMLDivElement>(null),
-    insurance: useRef<HTMLDivElement>(null),
   };
 
   // Field-level refs so a validation error (e.g. the required Login URL) can
   // scroll the editor straight to the offending input instead of just the
-  // top of its section.
+  // top of its section. The login URL now lives on the Account Access card in
+  // Section 4, so that is where this points.
   const insuranceLoginUrlRef = useRef<HTMLDivElement>(null);
   const companyLogoRef = useRef<HTMLDivElement>(null);
   const brandImagesHeaderRef = useRef<HTMLDivElement>(null);
@@ -1290,12 +1289,13 @@ export function BenefitsEditorPanel({
           </div>
         </div>
 
-        {/* Help Cards Section — content removed for the redesign.
-            Section 4 now, ahead of the Video section, so the editor's order matches
-            the portal (the cards follow the welcome banner, before the video). The
-            numbered shell and its scroll/highlight target stay so the new editor can
-            be dropped in here, with the Step 2 preview and the portal section rebuilt
-            together rather than one side at a time. */}
+        {/* Help Cards Section.
+            Section 4 sits ahead of the Video section so the editor's order matches the
+            portal (the cards follow the welcome banner, before the video). Its wide
+            Account Access card is driven by the three fields below — the SAME stored
+            values Benefit Access & Materials edits (`insurancePlanId`,
+            `insuranceLoginUrl` and `providerContact`), so the card and that section
+            cannot disagree. */}
         <div
           ref={sectionsRef.helpCards}
           className={cn(
@@ -1306,6 +1306,150 @@ export function BenefitsEditorPanel({
           )}
         >
           <SectionHeader number={4} title="How Can We Help You Today?" />
+          <p className="text-[13px] text-muted-foreground mb-6">
+            The wide Account Access card in this section shows the Plan / Group
+            ID, where the &ldquo;Register or Login Here&rdquo; button sends
+            participants, and who administers the benefit.
+          </p>
+
+          <div className="space-y-4 rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
+            {/* Plan / Group ID — printed as "PLAN / GROUP ID: …" on the card. */}
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-foreground">
+                Plan / Group ID
+              </Label>
+              <Input
+                value={step1Data.insurancePlanId || ""}
+                onChange={(e) => {
+                  // The same xxxx-xxxx-xxxx formatting the Section 6 field applies,
+                  // so both views of this one value always look identical.
+                  const raw = e.target.value
+                    .replace(/[^a-zA-Z0-9]/g, "")
+                    .toUpperCase()
+                    .slice(0, 12);
+                  const groups: string[] = [];
+                  for (let i = 0; i < raw.length; i += 4) {
+                    groups.push(raw.slice(i, i + 4));
+                  }
+                  saveStepData(1, {
+                    ...step1Data,
+                    insurancePlanId: groups.join("-"),
+                  });
+                }}
+                onFocus={() => focusPreviewField("insurancePlanId")}
+                placeholder="xxxx-xxxx-xxxx"
+                className="h-11 shadow-sm border-muted font-mono tracking-wider"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                This appears as &ldquo;PLAN / GROUP ID: [value]&rdquo; on the
+                Account Access card.
+              </p>
+            </div>
+
+            {/* Required — the card's CTA destination. This is the element the
+                required-field validation scrolls to. */}
+            <div
+              className="space-y-2"
+              ref={insuranceLoginUrlRef}
+              data-field="insuranceLoginUrl"
+            >
+              <Label className="text-xs font-bold text-foreground">
+                Register or Login Here Button URL{" "}
+                <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                value={step1Data.insuranceLoginUrl || ""}
+                onChange={(e) =>
+                  saveStepData(1, {
+                    ...step1Data,
+                    insuranceLoginUrl: e.target.value,
+                  })
+                }
+                onFocus={() => focusPreviewField("insuranceLoginUrl")}
+                placeholder="e.g. https://portal.empower.com/auth/login"
+                destructive={isFieldInvalid("insuranceLoginUrl")}
+                data-field="insuranceLoginUrl"
+                type="url"
+                className={cn(
+                  "h-11 shadow-sm border-muted",
+                  isFieldInvalid("insuranceLoginUrl") &&
+                    "border-red-500 dark:border-red-500",
+                )}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Required. Where the &ldquo;Register or Login Here&rdquo; button
+                sends participants.
+              </p>
+            </div>
+
+            {/* Provider / Recordkeeper — the "Administered by …" line. */}
+            <div className="space-y-3 border-t pt-4">
+              <div>
+                <Label className="text-xs font-bold text-foreground">
+                  Provider / Recordkeeper
+                </Label>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  The company that administers this benefit — the card shows it as
+                  &ldquo;Administered by …&rdquo;.
+                </p>
+              </div>
+              <Input
+                value={step1Data.providerContact?.companyName || ""}
+                onChange={(e) =>
+                  saveStepData(1, {
+                    ...step1Data,
+                    providerContact: {
+                      ...(step1Data.providerContact || {}),
+                      companyName: e.target.value,
+                    },
+                  })
+                }
+                // "Administered by …" on the card — the preview scrolls to it.
+                onFocus={() => focusPreviewField("providerContact")}
+                placeholder="e.g. Voya, Empower, Principal, Fidelity"
+                className="h-11 shadow-sm border-muted"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  value={step1Data.providerContact?.contactName || ""}
+                  onChange={(e) =>
+                    saveStepData(1, {
+                      ...step1Data,
+                      providerContact: {
+                        ...(step1Data.providerContact || {}),
+                        contactName: e.target.value,
+                      },
+                    })
+                  }
+                  onFocus={() => focusPreviewField("providerContact")}
+                  placeholder="Provider contact (optional)"
+                  className="h-11 shadow-sm border-muted"
+                />
+                <Input
+                  type="tel"
+                  // Capped at a formatted 10-digit US number.
+                  maxLength={14}
+                  value={formatPhoneNumber(
+                    step1Data.providerContact?.phone || "",
+                  )}
+                  onChange={(e) => {
+                    const digits = normalizePhoneNumber(e.target.value);
+                    if (digits.length > 10) return;
+                    saveStepData(1, {
+                      ...step1Data,
+                      providerContact: {
+                        ...(step1Data.providerContact || {}),
+                        phone: digits,
+                      },
+                    });
+                  }}
+                  onFocus={() => focusPreviewField("providerContact")}
+                  placeholder="Provider phone (optional)"
+                  className="h-11 shadow-sm border-muted"
+                />
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Plan Video Section */}
@@ -1784,302 +1928,6 @@ export function BenefitsEditorPanel({
           </div>
         </div>
 
-        {/* Benefit Access & Materials Section */}
-        <div
-          ref={sectionsRef.insurance}
-          className={cn(
-            "transition-all duration-500 rounded-xl",
-            highlightedSection === "insurance"
-              ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800"
-              : "",
-          )}
-        >
-          <SectionHeader number={6} title="Benefit Access & Materials" />
-          <p className="text-[13px] text-muted-foreground mb-6">
-            Configure the plan ID and login button shown in the Insurance
-            Benefits Access & Materials section.
-          </p>
-          <div className="space-y-6">
-            <div
-              className="space-y-4"
-              onMouseDown={() => focusPreviewField("insuranceBackgroundImage")}
-            >
-              <Label className="text-xs font-bold text-foreground">
-                Background Image
-              </Label>
-              <BrandImageUpload
-                slotKey="insuranceBg"
-                slot={{
-                  title: "",
-                  description:
-                    "This image displays behind the Insurance Benefits Access & Materials section heading.",
-                  recommendedSize: "1920×1080 px",
-                  accept: ".png,.jpg,.jpeg",
-                  required: false,
-                  previewAspectRatio: 2.75,
-                  previewLabel: "Insurance Background Preview",
-                  defaultPhoteButton: true,
-                }}
-                currentImage={
-                  step1Data.insuranceBackgroundImage
-                    ? ({
-                        url: step1Data.insuranceBackgroundImage,
-                        fileName: "insurance-bg.png",
-                        fileSize: 0,
-                        width: 0,
-                        height: 0,
-                        recommendedSize: "1920×1080",
-                        status: "ok",
-                        warnings: [],
-                      } as BrandImageData)
-                    : undefined
-                }
-                onImageChange={(imageData) =>
-                  saveStepData(1, {
-                    ...step1Data,
-                    insuranceBackgroundImage: imageData.url,
-                  })
-                }
-                onImageRemove={() =>
-                  saveStepData(1, {
-                    ...step1Data,
-                    insuranceBackgroundImage: undefined,
-                  })
-                }
-                onDefaultPhotoClick={() => {
-                  const defaultBgs: Record<string, string> = {
-                    Retirement:
-                      "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?w=1920&q=80",
-                    "Group Health":
-                      "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=1920&q=80",
-                    "Group Life":
-                      "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=1920&q=80",
-                    "Company / Plan Sponsor":
-                      "https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=1920&q=80",
-                  };
-                  const defaultBg =
-                    defaultBgs[step1Data?.benefitCategory || "Retirement"];
-                  saveStepData(1, {
-                    ...step1Data,
-                    insuranceBackgroundImage: defaultBg,
-                  });
-                }}
-                hideButtons={true}
-                useUniversalModal={true}
-                universalModalType="normalizer"
-                // 1920×1080 section background, not a logo.
-                universalModalAllowBackgroundRemoval={false}
-                universalModalCustomConfig={{
-                  modalTitle: "Background Image",
-                  modalDescription:
-                    "This image displays behind the Insurance Benefits Access & Materials section heading.",
-                  // Not a logo — keep the size-based hint instead of
-                  // the logo guidance inherited from `normalizer`.
-                  recommendedText: undefined,
-                }}
-              />
-            </div>
-
-            {/* Insurance Overlay Settings — only Container Opacity */}
-            <div className="space-y-4">
-              <Label className="text-xs font-bold text-foreground">
-                Overlay Darkness
-              </Label>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted-foreground">
-                    {Math.round(
-                      (step1Data.insuranceContainerBlockOpacity ?? 0.8) * 100,
-                    )}
-                    % opacity
-                  </span>
-                </div>
-                <Slider
-                  value={[step1Data.insuranceContainerBlockOpacity ?? 0.8]}
-                  onValueChange={([value]) =>
-                    saveStepData(1, {
-                      ...step1Data,
-                      insuranceContainerBlockOpacity: value,
-                    })
-                  }
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  className="w-full"
-                />
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Controls how dark the overlay is over the background image.
-                Higher values = darker overlay.
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-foreground">
-                Plan / Group ID
-              </Label>
-              <Input
-                value={step1Data.insurancePlanId || ""}
-                onMouseDown={() => focusPreviewField("insurancePlanId")}
-                onFocus={() => focusPreviewField("insurancePlanId")}
-                onChange={(e) => {
-                  // Auto-format to xxxx-xxxx-xxxx pattern
-                  const raw = e.target.value
-                    .replace(/[^a-zA-Z0-9]/g, "")
-                    .toUpperCase()
-                    .slice(0, 12);
-                  const groups = [];
-                  for (let i = 0; i < raw.length; i += 4) {
-                    groups.push(raw.slice(i, i + 4));
-                  }
-                  const formatted = groups.join("-");
-                  saveStepData(1, { ...step1Data, insurancePlanId: formatted });
-                }}
-                placeholder="xxxx-xxxx-xxxx"
-                className="h-11 shadow-sm border-muted font-mono tracking-wider"
-              />
-              <div className="flex items-center justify-between">
-                <p className="text-[11px] text-muted-foreground">
-                  This appears as &ldquo;PLAN / GROUP ID: [value]&rdquo; on the
-                  Insurance Benefits card.
-                </p>
-                <span className="text-[11px] text-muted-foreground tabular-nums">
-                  {(step1Data.insurancePlanId || "").replace(/-/g, "").length}
-                  /12
-                </span>
-              </div>
-            </div>
-            <div
-              className="space-y-2"
-              ref={insuranceLoginUrlRef}
-              data-field="insuranceLoginUrl"
-            >
-              <Label className="text-xs font-bold text-foreground">
-                Register or Login Here Button URL{" "}
-                <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                value={step1Data.insuranceLoginUrl || ""}
-                onChange={(e) =>
-                  saveStepData(1, {
-                    ...step1Data,
-                    insuranceLoginUrl: e.target.value,
-                  })
-                }
-                onMouseDown={() => focusPreviewField("insuranceLoginUrl")}
-                onFocus={() => focusPreviewField("insuranceLoginUrl")}
-                placeholder="e.g. https://portal.empower.com/auth/login"
-                destructive={isFieldInvalid("insuranceLoginUrl")}
-                data-field="insuranceLoginUrl"
-                className={cn(
-                  "h-11 shadow-sm border-muted",
-                  isFieldInvalid("insuranceLoginUrl") &&
-                    "border-red-500 dark:border-red-500",
-                )}
-                type="url"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Full URL for the &ldquo;REGISTER OR LOGIN HERE&rdquo; button.
-              </p>
-            </div>
-
-            {/* Provider / Recordkeeper — the company that administers this
-                            benefit. Shown beside the REGISTER OR LOGIN button on the
-                            portal; its logo is the Benefit Logo above (`partnerLogo`). */}
-            <div className="space-y-4 border-t pt-4">
-              <div>
-                <Label className="text-xs font-bold text-foreground">
-                  Provider / Recordkeeper
-                </Label>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  The company that administers this benefit — for example a
-                  retirement recordkeeper or an insurance carrier. It is shown
-                  next to the &ldquo;REGISTER OR LOGIN HERE&rdquo; button.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-[11px] text-muted-foreground">
-                  Provider name
-                </Label>
-                {/* Free text — the `list`/`<datalist>` pair that used to
-                                    be here rendered a suggestion dropdown, which read as
-                                    a fixed picker. Any recordkeeper or carrier name can
-                                    be typed; the examples live in the placeholder only. */}
-                <Input
-                  value={step1Data.providerContact?.companyName || ""}
-                  onChange={(e) =>
-                    saveStepData(1, {
-                      ...step1Data,
-                      providerContact: {
-                        ...(step1Data.providerContact || {}),
-                        companyName: e.target.value,
-                      },
-                    })
-                  }
-                  placeholder="e.g. Voya, Empower, Principal, Fidelity"
-                  className="h-11 shadow-sm border-muted"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label className="text-[11px] text-muted-foreground">
-                    Provider contact (optional)
-                  </Label>
-                  <Input
-                    value={step1Data.providerContact?.contactName || ""}
-                    onChange={(e) =>
-                      saveStepData(1, {
-                        ...step1Data,
-                        providerContact: {
-                          ...(step1Data.providerContact || {}),
-                          contactName: e.target.value,
-                        },
-                      })
-                    }
-                    placeholder="e.g. Jane Doe"
-                    className="h-11 shadow-sm border-muted"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label className="text-[11px] text-muted-foreground">
-                    Provider phone (optional)
-                  </Label>
-                  <Input
-                    type="tel"
-                    // "(800) 555-1212" is exactly 14 characters, so
-                    // this caps the field at a formatted 10-digit US
-                    // number — the same limit the handler below stores.
-                    maxLength={14}
-                    // Digits are stored; the value is formatted on the
-                    // way in so the advisor sees (800) 555-1212 rather
-                    // than a raw 8005551212 (and existing saved values
-                    // with punctuation render formatted too).
-                    value={formatPhoneNumber(
-                      step1Data.providerContact?.phone || "",
-                    )}
-                    onChange={(e) => {
-                      const digits = normalizePhoneNumber(e.target.value);
-                      // Ignore an 11th digit instead of silently
-                      // dropping it at display time.
-                      if (digits.length > 10) return;
-                      saveStepData(1, {
-                        ...step1Data,
-                        providerContact: {
-                          ...(step1Data.providerContact || {}),
-                          phone: digits,
-                        },
-                      });
-                    }}
-                    placeholder="e.g. (800) 555-1212"
-                    className="h-11 shadow-sm border-muted"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Default-image gallery for the journey section's no-video image. Its

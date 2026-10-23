@@ -22,6 +22,9 @@ const editBenefitTests = [
   "components/wizard/benefits-steps/__tests__/step-3.test.tsx",
   "components/wizard/benefits-steps/__tests__/step-4.test.tsx",
   "components/wizard/benefits-steps/__tests__/step-5.test.tsx",
+  // The editor panel itself: Section 4's Account Access fields and Section 5's
+  // video / default-image controls
+  "components/wizard/benefits-steps/__tests__/benefits-editor-panel.test.tsx",
   // Contacts-tab invite surface
   "components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx",
   // GET/PUT/DELETE /api/clients/[id]/benefits/[category]

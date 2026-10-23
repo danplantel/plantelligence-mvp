@@ -488,7 +488,9 @@ export function BenefitsStep2() {
                 "brandImages.header": "branding",
                 benefitTitle: "messaging",
                 shortDescription: "messaging",
-                insuranceLoginUrl: "insurance",
+                // The required login URL now lives on the Account Access card in
+                // Section 4 ("How Can We Help You Today?").
+                insuranceLoginUrl: "helpCards",
             };
             const firstMissing = step2Fields.find((f) => fields.includes(f));
             if (!firstMissing) return;

@@ -410,5 +410,96 @@ describe("EditBenefitPreviewSection", () => {
 
       expect(scrollTo).toHaveBeenCalled();
     });
+
+    it("scrolls to the Account Access card for the account fields", () => {
+      // These nodes are appended by hand (RTL only cleans up its own render root),
+      // so clear any left by an earlier case before adding this one.
+      document
+        .querySelectorAll(
+          '[data-help-card="account-access"], [data-preview-scroll-container]',
+        )
+        .forEach((node) => node.remove());
+
+      const scrollTo = vi.fn();
+      const container = document.createElement("div");
+      container.setAttribute("data-preview-scroll-container", "");
+      Object.defineProperty(container, "scrollTo", { value: scrollTo });
+      Object.defineProperty(container, "clientHeight", { value: 400 });
+      Object.defineProperty(container, "scrollHeight", { value: 800 });
+      container.getBoundingClientRect = () =>
+        ({ top: 0, height: 400, bottom: 400 }) as DOMRect;
+      document.body.appendChild(container);
+
+      // The card the three account fields are edited on.
+      const card = document.createElement("div");
+      card.setAttribute("data-help-card", "account-access");
+      card.getBoundingClientRect = () =>
+        ({ top: 100, height: 200, bottom: 300 }) as DOMRect;
+      container.appendChild(card);
+
+      render(<EditBenefitPreviewSection />);
+
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent("benefitsPreviewScrollTo", {
+            detail: { field: "insuranceLoginUrl" },
+          }),
+        );
+      });
+
+      expect(scrollTo).toHaveBeenCalled();
+      // Centred on the card (100 + 100 - 200), i.e. not clamped to the container end.
+      expect(scrollTo.mock.calls[0][0]).toMatchObject({ top: 0 });
+    });
+
+    it("scrolls the container that holds the marker, not the first one", () => {
+      // Drop the markers the previous case appended — the handler resolves the
+      // marker document-wide, so a stale one would be picked up instead.
+      document
+        .querySelectorAll(
+          '[data-help-card="account-access"], [data-preview-scroll-container]',
+        )
+        .forEach((node) => node.remove());
+
+      const decoyScroll = vi.fn();
+      const decoy = document.createElement("div");
+      decoy.setAttribute("data-preview-scroll-container", "");
+      Object.defineProperty(decoy, "scrollTo", { value: decoyScroll });
+      Object.defineProperty(decoy, "clientHeight", { value: 400 });
+      Object.defineProperty(decoy, "scrollHeight", { value: 4000 });
+      decoy.getBoundingClientRect = () =>
+        ({ top: 0, height: 400, bottom: 400 }) as DOMRect;
+      document.body.appendChild(decoy);
+
+      // The second preview (the phone frame) is the one holding the card.
+      const realScroll = vi.fn();
+      const real = document.createElement("div");
+      real.setAttribute("data-preview-scroll-container", "");
+      Object.defineProperty(real, "scrollTo", { value: realScroll });
+      Object.defineProperty(real, "clientHeight", { value: 400 });
+      Object.defineProperty(real, "scrollHeight", { value: 1200 });
+      real.getBoundingClientRect = () =>
+        ({ top: 0, height: 400, bottom: 400 }) as DOMRect;
+      document.body.appendChild(real);
+
+      const card = document.createElement("div");
+      card.setAttribute("data-help-card", "account-access");
+      card.getBoundingClientRect = () =>
+        ({ top: 500, height: 100, bottom: 600 }) as DOMRect;
+      real.appendChild(card);
+
+      render(<EditBenefitPreviewSection />);
+
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent("benefitsPreviewScrollTo", {
+            detail: { field: "insurancePlanId" },
+          }),
+        );
+      });
+
+      expect(realScroll).toHaveBeenCalled();
+      expect(decoyScroll).not.toHaveBeenCalled();
+    });
   });
 });

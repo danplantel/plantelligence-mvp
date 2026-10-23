@@ -13,10 +13,11 @@ import baseConfig from "./vitest.config.mts";
 const portalHubTests = [
   // The advisor-facing "Incomplete Benefit Setup" trigger on every hub mount
   "components/pages/client-portal/sections/__tests__/completeness-auto-trigger.test.tsx",
+  // The journey section: per-category copy, the no-video image, Watch Now
+  "components/pages/client-portal/sections/__tests__/benefits-video-section.test.tsx",
+  "lib/__tests__/benefits-video-fallback.test.ts",
   // The Webinars band: route-segment fetch, skeleton, empty state
   "components/pages/client-portal/sections/__tests__/benefits-hub-webinars-section.test.tsx",
-  // Account access: plan id, administrator, login, background
-  "components/pages/client-portal/sections/__tests__/portal-materials-hero.test.tsx",
   // The support-people cards
   "components/pages/client-portal/sections/__tests__/have-questions.test.tsx",
   // "How Can We Help You Today?" cards and their CTA shapes

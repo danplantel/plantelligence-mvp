@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   HowCanWeHelpSection,
+  formatPlanGroupIdLabel,
   type HelpCardData,
 } from "../how-can-we-help-section";
 
@@ -364,6 +365,46 @@ describe("HowCanWeHelpSection account access card", () => {
     );
 
     expect(openSpy).not.toHaveBeenCalled();
+  });
+
+  it("hides the plan / group ID line when the benefit has none", () => {
+    const { container } = render(
+      <HowCanWeHelpSection clientId="plan-1" category="Retirement" />,
+    );
+
+    expect(
+      within(tile(container, "account-access")).queryByText(/PLAN \/ GROUP ID/),
+    ).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The Plan / Group ID the benefit editor writes. Hub pages and the Step 2 preview
+ * both format it with this helper and hand the result to the card AND the Access &
+ * Materials hero, so the two can never disagree.
+ */
+describe("formatPlanGroupIdLabel", () => {
+  it("prefixes the value the way the hero prints it", () => {
+    expect(formatPlanGroupIdLabel("1234-5678")).toBe(
+      "PLAN / GROUP ID: 1234-5678",
+    );
+  });
+
+  it("trims the stored value", () => {
+    expect(formatPlanGroupIdLabel("  1234-5678  ")).toBe(
+      "PLAN / GROUP ID: 1234-5678",
+    );
+  });
+
+  it("returns nothing for an unset value", () => {
+    expect(formatPlanGroupIdLabel(undefined)).toBe("");
+    expect(formatPlanGroupIdLabel(null)).toBe("");
+    expect(formatPlanGroupIdLabel("   ")).toBe("");
+  });
+
+  it("drops the [Not Set] placeholder", () => {
+    expect(formatPlanGroupIdLabel("[Not Set]")).toBe("");
+    expect(formatPlanGroupIdLabel("PLAN / GROUP ID: [Not Set]")).toBe("");
   });
 });
 

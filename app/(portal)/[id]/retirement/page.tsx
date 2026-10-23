@@ -11,8 +11,10 @@ import { HaveQuestions } from "@/components/pages/client-portal/sections/have-qu
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import { BenefitsVideoSection } from "@/components/pages/client-portal/sections/benefits-video-section";
 import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
-import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
-import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
+import {
+  HowCanWeHelpSection,
+  formatPlanGroupIdLabel,
+} from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import {
   BenefitDocumentSection,
   RetirementDocumentItem,
@@ -64,6 +66,14 @@ export default function RetirementPage() {
       "Retirement",
     );
   }, [benefitFromApi, clientData]);
+
+  // The two account-access values the advisor sets in the benefit editor's
+  // "Benefit Access & Materials" panel (Plan / Group ID and the required login URL).
+  // The Account Access card in "How Can We Help You Today?" and the Access &
+  // Materials hero below both print them, so they are resolved once here rather
+  // than each reaching into a different source.
+  const planGroupIdLabel = formatPlanGroupIdLabel(benefitData?.insurancePlanId);
+  const accountAccessHref = benefitData?.insuranceLoginUrl || undefined;
 
   /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
   const documentsSig = useMemo(() => {
@@ -183,8 +193,12 @@ export default function RetirementPage() {
           secondaryColor={secondaryColor}
           clientId={clientId}
           category="Retirement"
-          // Same provider the Access & Materials hero shows for this category.
+          // Plan / Group ID, login URL and provider all come from this category's
+          // Benefit row — the same three fields the editor panel writes — so the
+          // card matches the Access & Materials hero below.
           provider={benefitData?.providerContact ?? null}
+          planIdLabel={planGroupIdLabel || undefined}
+          accountAccessHref={accountAccessHref}
           cards={(benefitData as any)?.helpCards ?? undefined}
         />
 
@@ -225,14 +239,6 @@ export default function RetirementPage() {
           secondaryColor={secondaryColor}
           faqs={faqsForCategory}
           contacts={supportContactsForFAQ}
-        />
-
-        <PortalMaterialsHero
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          cardHeading="Retirement Plan Account Access"
-          category="Retirement"
-          provider={benefitData?.providerContact ?? null}
         />
 
         <BenefitDocumentSection

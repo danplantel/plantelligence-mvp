@@ -9,9 +9,11 @@ import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { buildFaqSupportContacts } from "@/lib/faq-support-contacts";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
-import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
 import { CompletenessAutoTrigger } from "@/components/pages/client-portal/sections/completeness-auto-trigger";
-import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
+import {
+  HowCanWeHelpSection,
+  formatPlanGroupIdLabel,
+} from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import {
   BenefitsVideoSection,
 } from "@/components/pages/client-portal/sections/benefits-video-section";
@@ -71,6 +73,11 @@ export default function CustomBenefitPage() {
     if (benefitFromApi) return benefitFromApi;
     return getBenefitFromPreview((clientData as any)?.employeePortalPreview, "Company / Plan Sponsor");
   }, [benefitFromApi, clientData]);
+
+  // Account-access values from the benefit editor (Plan / Group ID + login URL),
+  // shared by the Account Access card and the Access & Materials hero.
+  const planGroupIdLabel = formatPlanGroupIdLabel(benefitData?.insurancePlanId);
+  const accountAccessHref = benefitData?.insuranceLoginUrl || undefined;
 
   /**
    * The segment must resolve to this plan's Custom benefit: either its name's slug, or
@@ -202,8 +209,11 @@ export default function CustomBenefitPage() {
           clientId={clientId}
           // The Custom hub's category label is the advisor's own name for it.
           category={benefitData?.title?.trim() || undefined}
-          // Same provider the Access & Materials hero shows for this category.
+          // Plan / Group ID, login URL and provider — the same three fields the
+          // editor panel writes — so the card matches the hero below.
           provider={benefitData?.providerContact ?? null}
+          planIdLabel={planGroupIdLabel || undefined}
+          accountAccessHref={accountAccessHref}
           cards={(benefitData as any)?.helpCards ?? undefined}
         />
 
@@ -238,14 +248,6 @@ export default function CustomBenefitPage() {
         />
 
         <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
-
-        <PortalMaterialsHero
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          cardHeading="Wellness Program Account Access"
-          category="Company / Plan Sponsor"
-          provider={benefitData?.providerContact ?? null}
-        />
 
         <BenefitDocumentSection
           brandColor={brandColor}

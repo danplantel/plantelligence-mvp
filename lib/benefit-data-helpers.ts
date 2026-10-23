@@ -22,6 +22,13 @@ export interface PortalBenefitData {
   planVideoThumbnail?: string;
   /** Image shown instead of a video (R2 key or external URL). */
   planVideoFallbackImage?: string | null;
+  /**
+   * Plan / group ID printed by the Access & Materials hero and the Account Access
+   * card (the editor's "Plan / Group ID" field).
+   */
+  insurancePlanId?: string | null;
+  /** Required login / registration URL for the "Register or Login Here" button. */
+  insuranceLoginUrl?: string | null;
   /** "Show on page" toggle: `false` hides the video section on the portal. */
   planVideoVisible?: boolean;
   faqs?: any[];

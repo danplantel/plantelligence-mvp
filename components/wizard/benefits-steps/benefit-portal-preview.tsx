@@ -46,8 +46,11 @@ import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import { BenefitsVideoSection } from "@/components/pages/client-portal/sections/benefits-video-section";
 import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
-import { HowCanWeHelpSection } from "@/components/pages/client-portal/sections/how-can-we-help-section";
-import { PortalMaterialsHero } from "@/components/pages/client-portal/sections/portal-materials-hero";
+import {
+  HowCanWeHelpSection,
+  formatPlanGroupIdLabel,
+  ACCOUNT_ACCESS_CARD_ID,
+} from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import { BenefitDocumentSection } from "@/components/pages/client-portal/sections/benefit-document-section";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import {
@@ -359,7 +362,9 @@ export function BenefitPortalPreview({
 
   // ── Scroll the preview to a field when its editor input is focused ──
   useEffect(() => {
-    // Fields whose editor input maps to a section-level preview element
+    // Fields whose editor input maps to a section-level preview element. The three
+    // account-access fields are edited on the wide Account Access card inside the
+    // help section, so they target that card itself rather than the whole section.
     const sectionFallback: Record<string, string> = {
       benefitTitle: "messaging",
       shortDescription: "messaging",
@@ -369,10 +374,9 @@ export function BenefitPortalPreview({
       customSignatureCompany: "messaging",
       companyLogo: "messaging",
       brandImagesHeader: "messaging",
-      insuranceBackgroundImage: "insurance",
-      insuranceContainerBlockOpacity: "insurance",
-      insurancePlanId: "insurance",
-      insuranceLoginUrl: "insurance",
+      insurancePlanId: ACCOUNT_ACCESS_CARD_ID,
+      insuranceLoginUrl: ACCOUNT_ACCESS_CARD_ID,
+      providerContact: ACCOUNT_ACCESS_CARD_ID,
       helpCards: "helpCards",
       journeyHeader: "journeyHeader",
       journeySubtitle: "journeySubtitle",
@@ -385,46 +389,47 @@ export function BenefitPortalPreview({
       const field = (e as CustomEvent<{ field?: string }>).detail?.field;
       if (!field) return;
       const selector = sectionFallback[field] || field;
-      const container = document.querySelector(
-        "[data-preview-scroll-container]",
-      );
-      if (!container) return;
 
       // Queue scroll via rAF so it executes after any pending React re-renders
       // (e.g., from the editor input's onChange auto-formatting).
       requestAnimationFrame(() => {
-        // Insurance is the last section — simply scroll to the bottom.
-        if (selector === "insurance") {
-          const maxScroll =
-            (container as HTMLElement).scrollHeight -
-            (container as HTMLElement).clientHeight;
-          (container as HTMLElement).scrollTo({
-            top: Math.max(0, maxScroll),
-            behavior: "smooth",
-          });
-          return;
-        }
+        // The Account Access card is a marker INSIDE the help section, so it is
+        // looked up by its card id rather than by a section field marker.
+        const el =
+          selector === ACCOUNT_ACCESS_CARD_ID
+            ? document.querySelector(
+                `[data-help-card="${ACCOUNT_ACCESS_CARD_ID}"]`,
+              )
+            : document.querySelector(
+                `[data-preview-field="${selector}"]`,
+              );
+        if (!el) return;
 
-        const el = document.querySelector(`[data-preview-field="${selector}"]`);
-        if (el) {
-          const elRect = el.getBoundingClientRect();
-          const containerRect = container.getBoundingClientRect();
-          const elCenter = elRect.top + elRect.height / 2;
-          const containerCenter =
-            containerRect.top + container.clientHeight / 2;
-          const delta = elCenter - containerCenter;
-          const maxScroll =
-            (container as HTMLElement).scrollHeight -
-            (container as HTMLElement).clientHeight;
-          const targetScroll = Math.min(
-            Math.max(0, (container as HTMLElement).scrollTop + delta),
-            maxScroll,
-          );
-          (container as HTMLElement).scrollTo({
-            top: targetScroll,
-            behavior: "smooth",
-          });
-        }
+        // Resolve the scroll container FROM the element. The Edit page mounts two
+        // previews (desktop + phone frame), so the first container in the document
+        // is not necessarily the one holding this element — measuring against the
+        // wrong viewport produced a huge delta that clamped to its end, which is
+        // what made these fields appear to "jump to the bottom".
+        const container =
+          (el.closest(
+            "[data-preview-scroll-container]",
+          ) as HTMLElement | null) ??
+          (document.querySelector(
+            "[data-preview-scroll-container]",
+          ) as HTMLElement | null);
+        if (!container) return;
+
+        const elRect = el.getBoundingClientRect();
+        const containerRect = container.getBoundingClientRect();
+        const elCenter = elRect.top + elRect.height / 2;
+        const containerCenter = containerRect.top + container.clientHeight / 2;
+        const delta = elCenter - containerCenter;
+        const maxScroll = container.scrollHeight - container.clientHeight;
+        const targetScroll = Math.min(
+          Math.max(0, container.scrollTop + delta),
+          maxScroll,
+        );
+        container.scrollTo({ top: targetScroll, behavior: "smooth" });
       });
     };
     window.addEventListener("benefitsPreviewScrollTo", handlePreviewScroll);
@@ -562,8 +567,12 @@ export function BenefitPortalPreview({
             // exactly like the live hub ("Retirement Account Access").
             category={step1Data?.benefitCategory || undefined}
             // The Account Access card mirrors the Access & Materials hero, so it gets
-            // the same login URL and provider the preview's hero below shows.
+            // the same login URL, Plan / Group ID and provider the preview's hero
+            // below shows — the fields the editor panel edits.
             accountAccessHref={step1Data?.insuranceLoginUrl || undefined}
+            planIdLabel={
+              formatPlanGroupIdLabel(step1Data?.insurancePlanId) || undefined
+            }
             provider={step1Data?.providerContact ?? null}
             // Undefined lets the section use its own default topics — the same set
             // the live hub falls back to, so the preview cannot drift from the portal.
@@ -640,48 +649,8 @@ export function BenefitPortalPreview({
           contacts={faqContacts}
         />
 
-        <div
-          className="relative group cursor-pointer"
-          data-preview-field="insurance"
-          onClick={() => handleEdit("insurance")}
-          onMouseEnter={() => setHoveredSection("insurance")}
-          onMouseLeave={() => setHoveredSection(null)}
-        >
-          {hoveredSection === "insurance" && <EditPencil />}
-          <PortalMaterialsHero
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            category={category}
-            // Live provider / recordkeeper straight from the editor. This prop
-            // was previously omitted, so the "Administered by" block never
-            // appeared in the preview even after the advisor filled the fields
-            // — the portal rendered it, the preview did not.
-            provider={step1Data?.providerContact ?? null}
-            cardHeading={
-              category === "Retirement"
-                ? "Retirement Plan Account Access"
-                : category === "Group Health"
-                ? "Group Health Insurance Account Access"
-                : category === "Group Life"
-                ? "Group Life Insurance Account Access"
-                : category === "Company / Plan Sponsor"
-                ? "Wellness Program Account Access"
-                : "Insurance Benefits Account Access"
-            }
-            backgroundImage={step1Data?.insuranceBackgroundImage || undefined}
-            containerBlockOpacity={
-              step1Data?.insuranceContainerBlockOpacity ?? 0.8
-            }
-            planIdLabel={
-              step1Data?.insurancePlanId
-                ? `PLAN / GROUP ID: ${step1Data.insurancePlanId}`
-                : undefined
-            }
-            buttonLabel="REGISTER OR LOGIN HERE"
-            onPlanIdClick={() => handleEdit("insurance", "planId")}
-          />
-        </div>
-
+        {/* The account-access band is the Account Access card in "How Can We
+            Help You Today?" — there is no separate Access & Materials section. */}
         <BenefitDocumentSection
           brandColor={brandColor}
           accentColor={secondaryColor}
