@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
@@ -10,8 +10,9 @@ import { FAQSection, type DynamicFAQItem } from "../faq-section";
  *
  * Three things are worth pinning:
  *
- *  - **one open item at a time** — the section keeps a single `openIndex`, so
- *    opening the second question closes the first;
+ *  - **one open item at a time** — the section keeps a single `openId`, so
+ *    opening the second question closes the first, on either column;
+ *  - **two columns** — the list is split in reading order at `md` and up;
  *  - **incomplete rows are dropped** — a FAQ needs both a question and an
  *    answer to render, and the pages pass whatever the benefit stored;
  *  - **link normalisation** — `linkHref` gets `https://` only when it has no
@@ -116,6 +117,80 @@ describe("FAQSection accordion", () => {
       }),
     ).toBeInTheDocument();
     expect(screen.queryAllByRole("button")).toHaveLength(0);
+  });
+});
+
+describe("FAQSection layout", () => {
+  it("lays the questions out in two columns, in reading order", () => {
+    const { container } = render(
+      <FAQSection
+        faqs={[
+          faq({ id: "a", question: "A?" }),
+          faq({ id: "b", question: "B?" }),
+          faq({ id: "c", question: "C?" }),
+          faq({ id: "d", question: "D?" }),
+        ]}
+      />,
+    );
+
+    const grid = container.querySelector(".md\\:grid-cols-2") as HTMLElement;
+    expect(grid).not.toBeNull();
+    expect(grid.children).toHaveLength(2);
+
+    const [left, right] = Array.from(grid.children) as HTMLElement[];
+    expect(within(left).getByRole("button", { name: /A\?/ })).toBeInTheDocument();
+    expect(within(left).getByRole("button", { name: /B\?/ })).toBeInTheDocument();
+    expect(within(right).getByRole("button", { name: /C\?/ })).toBeInTheDocument();
+    expect(within(right).getByRole("button", { name: /D\?/ })).toBeInTheDocument();
+  });
+
+  it("keeps the question smaller than the answer", () => {
+    render(<FAQSection faqs={[faq()]} />);
+
+    const question = screen
+      .getByRole("button", { name: /How do I enroll\?/ })
+      .querySelector("span") as HTMLElement;
+    const answer = screen.getByText("Talk to your advisor.");
+
+    // The header is a label; the opened body is the content, so it reads larger.
+    expect(question.className).toContain("text-[13px]");
+    expect(answer.className).toContain("text-[17px]");
+  });
+
+  it("fills a screen on desktop", () => {
+    const { container } = render(<FAQSection faqs={[faq()]} />);
+
+    // Same full-height band as "How Can We Help You Today?" — desktop only, so a
+    // phone does not get a screen of empty space under two questions.
+    expect(container.querySelector("section")?.className).toContain(
+      "lg:min-h-screen",
+    );
+  });
+
+  it("drops the empty column when only one question exists", () => {
+    const { container } = render(<FAQSection faqs={[faq()]} />);
+
+    const grid = container.querySelector(".md\\:grid-cols-2") as HTMLElement;
+    expect(grid.children).toHaveLength(1);
+  });
+
+  it("still opens one question at a time across the two columns", async () => {
+    const user = userEvent.setup();
+    render(
+      <FAQSection
+        faqs={[
+          faq({ id: "a", question: "First?", answer: "First answer" }),
+          faq({ id: "b", question: "Second?", answer: "Second answer" }),
+        ]}
+      />,
+    );
+
+    // One per column, so this also proves the two groups share one open id.
+    await user.click(screen.getByRole("button", { name: /First\?/ }));
+    await user.click(screen.getByRole("button", { name: /Second\?/ }));
+
+    expect(answerRow("First answer").style.gridTemplateRows).toBe("0fr");
+    expect(answerRow("Second answer").style.gridTemplateRows).toBe("1fr");
   });
 });
 

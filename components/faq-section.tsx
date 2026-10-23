@@ -49,39 +49,48 @@ function normalizeHref(href: string): string {
   return `https://${trimmed}`;
 }
 
-/** Renders a group of accordion FAQ items with an independent open state. */
+/**
+ * Renders one column of accordion FAQ items.
+ *
+ * The open item is keyed by the FAQ's id rather than its position, because the
+ * section splits the list across two columns — a positional index would collide
+ * between them and open the wrong question.
+ */
 function FAQAccordionGroup({
   items,
-  openIndex,
+  openId,
   onToggle,
   brandColor,
   secondaryColor,
 }: {
   items: DynamicFAQItem[];
-  openIndex: number | null;
-  onToggle: (index: number) => void;
+  openId: string | null;
+  onToggle: (id: string) => void;
   brandColor: string;
   secondaryColor: string;
 }) {
   return (
     <div className="space-y-3">
       {items.map((item, index) => {
-        const isOpen = openIndex === index;
+        const key = item.id || `faq-${index}`;
+        const isOpen = openId === key;
 
         return (
           <div
-            key={item.id || index}
+            key={key}
             className="border border-gray-200 rounded-lg overflow-hidden transition-shadow duration-200 hover:shadow-sm"
           >
             <button
-              onClick={() => onToggle(index)}
+              onClick={() => onToggle(key)}
               className="w-full px-5 py-4 text-left flex items-center justify-between gap-4 bg-white hover:bg-gray-50/50 transition-colors duration-200"
               style={{
                   backgroundColor: secondaryColor,
                 }}
             >
               <span
-                className="text-base uppercase font-red-hat font-semibold transition-colors duration-200"
+                // A step down from the body copy: the question is a label, the
+                // answer is what the reader came for.
+                className="text-[13px] uppercase font-red-hat font-semibold leading-snug tracking-[0.02em] transition-colors duration-200 sm:text-sm"
                 style={{
                   color:  "#ffffff",
                 }}
@@ -110,7 +119,9 @@ function FAQAccordionGroup({
                     opacity: isOpen ? 1 : 0,
                   }}
                 >
-                  <p className="pt-2 text-base font-red-hat leading-relaxed text-gray-600">
+                  {/* The answer runs a step LARGER than the question — it is the
+                      content the reader opened the accordion for. */}
+                  <p className="pt-2 text-[17px] font-red-hat leading-relaxed text-gray-600 sm:text-lg">
                     {item.answer}
                   </p>
                   {item.linkLabel && item.linkHref && (
@@ -118,7 +129,7 @@ function FAQAccordionGroup({
                       href={normalizeHref(item.linkHref)}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-block mt-3 text-sm font-semibold transition-colors duration-200 hover:underline"
+                      className="inline-block mt-3 text-[15px] font-semibold transition-colors duration-200 hover:underline"
                       style={{ color: secondaryColor }}
                     >
                       {item.linkLabel} ↗
@@ -140,18 +151,27 @@ export function FAQSection({
   faqs,
   contacts,
 }: FAQSectionProps) {
-  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
 
   const items =
     faqs?.filter((faq) => faq.question && faq.answer) ?? [];
 
-  const toggleItem = (index: number) => {
-    setOpenIndex((prev) => (prev === index ? null : index));
+  const toggleItem = (id: string) => {
+    setOpenId((prev) => (prev === id ? null : id));
   };
 
+  // Two columns, filled in reading order: the first half on the left, the rest on
+  // the right. `Math.ceil` keeps the LEFT column the longer one for an odd count,
+  // which is what the eye expects.
+  const splitAt = Math.ceil(items.length / 2);
+  const columns = [items.slice(0, splitAt), items.slice(splitAt)];
+
   return (
-    <section className="px-4 sm:px-6 lg:px-8 py-20 bg-white">
-      <div className="max-w-3xl mx-auto">
+    // Fills a screen on desktop (`lg:min-h-screen`), centred vertically like the
+    // "How Can We Help You Today?" band above it, so the portal reads as a sequence
+    // of full-height sections. Phones keep the natural height.
+    <section className="flex w-full flex-col justify-center bg-white px-4 py-20 sm:px-6 lg:min-h-screen lg:px-8">
+      <div className="mx-auto w-full max-w-6xl">
         <div className="text-center mb-12">
           <h2
             className="text-3xl font-dm-serif mb-4 sm:text-4xl lg:text-[40px]"
@@ -161,14 +181,22 @@ export function FAQSection({
           </h2>
         </div>
 
-        <FAQAccordionGroup
-          items={items}
-          openIndex={openIndex}
-          onToggle={toggleItem}
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-        />
-
+        {/* Two columns at `md` and up; one column on a phone. `items-start` lets the
+            columns keep their own height rather than stretching every card. */}
+        <div className="grid items-start gap-3 md:grid-cols-2 md:gap-4">
+          {columns.map((column, columnIndex) =>
+            column.length > 0 ? (
+              <FAQAccordionGroup
+                key={columnIndex}
+                items={column}
+                openId={openId}
+                onToggle={toggleItem}
+                brandColor={brandColor}
+                secondaryColor={secondaryColor}
+              />
+            ) : null,
+          )}
+        </div>
       </div>
     </section>
   );
