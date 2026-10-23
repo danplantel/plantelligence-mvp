@@ -203,20 +203,6 @@ export default function CustomBenefitPage() {
           category="Company / Plan Sponsor"
         />
 
-        <HowCanWeHelpSection
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          clientId={clientId}
-          // The Custom hub's category label is the advisor's own name for it.
-          category={benefitData?.title?.trim() || undefined}
-          // Plan / Group ID, login URL and provider — the same three fields the
-          // editor panel writes — so the card matches the hero below.
-          provider={benefitData?.providerContact ?? null}
-          planIdLabel={planGroupIdLabel || undefined}
-          accountAccessHref={accountAccessHref}
-          cards={(benefitData as any)?.helpCards ?? undefined}
-        />
-
         {/* Hidden entirely when the editor's "Show on page" toggle is off. */}
         {benefitData?.planVideoVisible !== false && (
           <BenefitsVideoSection
@@ -238,6 +224,22 @@ export default function CustomBenefitPage() {
             }
           />
         )}
+
+        {/* The journey section comes first, then "How Can We Help You Today?" —
+            the header's Login button scrolls to this section. */}
+        <HowCanWeHelpSection
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          clientId={clientId}
+          // The Custom hub's category label is the advisor's own name for it.
+          category={benefitData?.title?.trim() || undefined}
+          // Plan / Group ID, login URL and provider — the same three fields the
+          // editor panel writes.
+          provider={benefitData?.providerContact ?? null}
+          planIdLabel={planGroupIdLabel || undefined}
+          accountAccessHref={accountAccessHref}
+          cards={(benefitData as any)?.helpCards ?? undefined}
+        />
 
         {/* Videos published to this page from Communications → Webinars. The key stays
             "wellness-programs" — it is the stored placement value on every saved row. */}

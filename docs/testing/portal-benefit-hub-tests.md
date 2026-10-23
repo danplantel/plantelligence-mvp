@@ -35,7 +35,7 @@ In render order, each page:
 4. derives the FAQ list — enabled rows first, then `DEFAULT_FAQS[category]`;
 5. resolves support contacts with `buildFaqSupportContacts({ keyContacts, supportContacts })`;
 6. loads documents once per `clientId` + embedded-id signature: `fetchPlanDocumentsForClient` → `mergePlanDocumentRows` → `sortDocumentRowsByCustomOrder` → `mapMergedRowsToBenefitHubItems(rows, hubLabel)`;
-7. renders, in order: `CompletenessAutoTrigger`, `PortalWelcomeBanner`, `HowCanWeHelpSection`, `BenefitsVideoSection`, `BenefitsHubWebinarsSection`, `FAQSection`, `BenefitDocumentSection`, `HaveQuestions`. Account access (plan / group ID, login URL, provider) is the wide card inside `HowCanWeHelpSection`; the old `PortalMaterialsHero` band was removed.
+7. renders, in order: `CompletenessAutoTrigger`, `PortalWelcomeBanner`, `BenefitsVideoSection`, `HowCanWeHelpSection`, `BenefitsHubWebinarsSection`, `FAQSection`, `BenefitDocumentSection`, `HaveQuestions`. Account access (plan / group ID, login URL, provider) is the wide card inside `HowCanWeHelpSection`; the old `PortalMaterialsHero` band was removed, and the header's **Login** button scrolls to that section.
 
 ## Where the four differ
 
