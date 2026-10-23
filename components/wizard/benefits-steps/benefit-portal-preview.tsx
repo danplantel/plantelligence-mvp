@@ -455,7 +455,9 @@ export function BenefitPortalPreview({
                 (useInView / IntersectionObserver may not fire inside the iframe) */}
       {mobile && (
         <style>{`
-                    .force-visible [style*="opacity: 0"] {
+                    /* The help section's caret is positioned by its own transform, so
+                       it must be skipped or it snaps to the corner un-rotated. */
+                    .force-visible [style*="opacity: 0"]:not([data-help-caret]) {
                         opacity: 1 !important;
                         transform: translateY(0) !important;
                     }

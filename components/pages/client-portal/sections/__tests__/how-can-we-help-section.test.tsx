@@ -1,10 +1,11 @@
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { act, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   HowCanWeHelpSection,
+  computeCaretPosition,
   formatPlanGroupIdLabel,
   type HelpCardData,
 } from "../how-can-we-help-section";
@@ -405,6 +406,74 @@ describe("formatPlanGroupIdLabel", () => {
   it("drops the [Not Set] placeholder", () => {
     expect(formatPlanGroupIdLabel("[Not Set]")).toBe("");
     expect(formatPlanGroupIdLabel("PLAN / GROUP ID: [Not Set]")).toBe("");
+  });
+});
+
+/**
+ * The caret's position, as percentages of the grid container.
+ *
+ * Percentages are layout units, so the New / Edit Benefit preview — which renders
+ * this section inside `transform: scale(<1>)` — cannot displace the caret, and no
+ * scale has to be read at runtime.
+ */
+describe("computeCaretPosition", () => {
+  it("centres on the card and the panel's top border", () => {
+    expect(
+      computeCaretPosition({
+        containerRect: { left: 0, top: 0, width: 1000, height: 1000 },
+        tileRect: { left: 100, width: 200 },
+        panelRect: { top: 400 },
+      }),
+    ).toEqual({ xPercent: 20, yPercent: 40 });
+  });
+
+  it("is identical in a scaled preview", () => {
+    // The same layout rendered at 0.5 scale: the rects halve, the ratios do not.
+    expect(
+      computeCaretPosition({
+        containerRect: { left: 50, top: 20, width: 500, height: 500 },
+        tileRect: { left: 150, width: 100 },
+        panelRect: { top: 220 },
+      }),
+    ).toEqual({ xPercent: 30, yPercent: 40 });
+  });
+
+  it("falls back to the centre when the container is not measurable", () => {
+    expect(
+      computeCaretPosition({
+        containerRect: { left: 0, top: 0, width: 0, height: 0 },
+        tileRect: { left: 10, width: 20 },
+        panelRect: { top: 40 },
+      }),
+    ).toEqual({ xPercent: 50, yPercent: 0 });
+  });
+
+  it("writes percentages onto the caret, so a scaled preview cannot shift it", () => {
+    // Every rect reports HALF the layout, as a `transform: scale(0.5)` preview
+    // would: 1000px of layout rendered as 500px.
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+    const caret = screen.getByTestId("help-card-caret");
+    const grid = caret.parentElement as HTMLElement;
+    const openTile = tile(container, "rollovers-distributions");
+    const panel = screen
+      .getByRole("region", { name: /Rollovers & Distributions/ })
+      .closest('[id^="help-card-"]') as HTMLElement;
+
+    grid.getBoundingClientRect = () =>
+      ({ left: 50, top: 20, width: 500, height: 500 }) as DOMRect;
+    openTile.getBoundingClientRect = () =>
+      ({ left: 150, top: 0, width: 100, height: 100 }) as DOMRect;
+    panel.getBoundingClientRect = () =>
+      ({ left: 0, top: 220, width: 500, height: 300 }) as DOMRect;
+
+    act(() => {
+      window.dispatchEvent(new Event("resize"));
+    });
+
+    // tile centre 200 − grid left 50 = 150 → 150/500 = 30%; panel 220 − 20 = 40%.
+    expect(caret.style.left).toBe("30%");
+    expect(caret.style.top).toBe("40%");
+    expect(caret.style.opacity).toBe("1");
   });
 });
 

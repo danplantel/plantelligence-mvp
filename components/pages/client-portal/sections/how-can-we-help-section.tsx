@@ -3,7 +3,6 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronDown, X } from "lucide-react";
-import { motion } from "framer-motion";
 import { readableColor } from "polished";
 import { Button } from "@/components/ui/button";
 import { useOptionalClientPortal } from "@/contexts/client-portal-context";
@@ -269,6 +268,36 @@ function resolveCardHref(
     return { href: trimmed, external: false };
   }
   return { href: `https://${trimmed}`, external: true };
+}
+
+/**
+ * Where the caret sits, as PERCENTAGES of the grid container.
+ *
+ * Percentages are the only measurement that survives the editor preview, which
+ * renders this section inside a `transform: scale(<1>)` wrapper. Pixel offsets
+ * from `getBoundingClientRect()` are screen pixels, and the scale is applied by an
+ * ancestor AFTER mount, so it cannot be read reliably. A ratio of two rect
+ * measurements cancels any uniform scale (and any browser zoom), so the caret
+ * lands on the card in the live portal, the wizard preview and the scaled Edit
+ * Benefit preview alike.
+ */
+export function computeCaretPosition(input: {
+  containerRect: { left: number; top: number; width: number; height: number };
+  tileRect: { left: number; width: number };
+  panelRect: { top: number };
+}): { xPercent: number; yPercent: number } {
+  const { containerRect, tileRect, panelRect } = input;
+  const tileCentre = tileRect.left + tileRect.width / 2;
+  return {
+    xPercent:
+      containerRect.width > 0
+        ? ((tileCentre - containerRect.left) / containerRect.width) * 100
+        : 50,
+    yPercent:
+      containerRect.height > 0
+        ? ((panelRect.top - containerRect.top) / containerRect.height) * 100
+        : 0,
+  };
 }
 
 /** Matches the Rollovers topic so its panel can render its own body. */
@@ -786,14 +815,14 @@ export function HowCanWeHelpSection({
 
   // ── The caret that points from the panel back to the card that opened it ──
   // It lives ONCE at the section level (not inside the panel) so selecting another
-  // card keeps the same node and framer-motion animates it across the grid instead
+  // card moves the same node — a CSS transition slides it across the grid instead
   // of a new caret appearing in a new place.
   const rowsContainerRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const tileRefs = useRef(new Map<string, HTMLElement>());
   const [caretPosition, setCaretPosition] = useState<{
-    x: number;
-    y: number;
+    xPercent: number;
+    yPercent: number;
   } | null>(null);
 
   /** Card ids in order — a stable dependency for the measuring effect. */
@@ -811,24 +840,44 @@ export function HowCanWeHelpSection({
         return;
       }
 
-      const containerBox = container.getBoundingClientRect();
-      const tileBox = tile.getBoundingClientRect();
-      const panelBox = panel.getBoundingClientRect();
       // Aim at the tile's centre and the panel's actual top border — the panel can
       // sit between two phone lines or under the whole row on desktop, so its
-      // bounding box is the only reliable reference.
-      const next = {
-        x: tileBox.left - containerBox.left + tileBox.width / 2,
-        y: panelBox.top - containerBox.top,
-      };
+      // bounding box is the only reliable reference. Expressed as percentages, so
+      // a scaled preview (the editor canvas) needs no correction.
+      const next = computeCaretPosition({
+        containerRect: container.getBoundingClientRect(),
+        tileRect: tile.getBoundingClientRect(),
+        panelRect: panel.getBoundingClientRect(),
+      });
       setCaretPosition((prev) =>
-        prev && prev.x === next.x && prev.y === next.y ? prev : next,
+        prev &&
+        prev.xPercent === next.xPercent &&
+        prev.yPercent === next.yPercent
+          ? prev
+          : next,
       );
     };
 
     measure();
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+
+    // Re-measure while a card is open. The editor preview scales this section with
+    // a CSS transform applied AFTER mount (the scale is computed in an effect), and
+    // a transform changes neither the layout box nor fires `resize` — so without
+    // this the caret keeps the position it measured at scale 1 and sits off the
+    // card. The state setter ignores identical values, so a settled caret costs no
+    // re-renders.
+    let frame = 0;
+    const tick = () => {
+      measure();
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+
+    return () => {
+      window.removeEventListener("resize", measure);
+      cancelAnimationFrame(frame);
+    };
   }, [activeCardId, cardOrderKey]);
 
   return (
@@ -846,21 +895,28 @@ export function HowCanWeHelpSection({
       >
         {/* Caret — a rotated square straddling the open panel's top border, aimed at
             the card that opened it. It is ONE element for the whole section, so
-            framer-motion animates it from card to card instead of it popping up in a
-            new place. Hidden from assistive tech: the panel is labelled by its own
-            heading. */}
-        <motion.span
+            changing cards slides it across the grid instead of popping up a new one.
+            Hidden from assistive tech: the panel is labelled by its own heading.
+
+            Positioned with PERCENTAGES and a CSS transition rather than animated
+            pixels: percentages are layout units, so the editor preview's
+            `transform: scale(<1>)` (and browser zoom) cannot displace it, and the
+            preview's `.force-visible` rule, which forces `transform: none` on
+            framer-animated nodes, no longer applies. */}
+        <span
           aria-hidden
           data-testid="help-card-caret"
-          className="pointer-events-none absolute left-0 top-0 z-10 h-3.5 w-3.5 rounded-[2px] border-l border-t bg-neutral-50"
-          animate={{
-            x: (caretPosition?.x ?? 0) - 7,
-            y: (caretPosition?.y ?? 0) - 7,
-            rotate: 45,
+          data-help-caret
+          className="pointer-events-none absolute z-10 h-3.5 w-3.5 rounded-[2px] border-l border-t bg-neutral-50"
+          style={{
+            left: `${caretPosition?.xPercent ?? 0}%`,
+            top: `${caretPosition?.yPercent ?? 0}%`,
+            transform: "translate(-50%, -50%) rotate(45deg)",
             opacity: caretPosition ? 1 : 0,
+            transition:
+              "left 320ms cubic-bezier(0.22, 1, 0.36, 1), top 320ms cubic-bezier(0.22, 1, 0.36, 1), opacity 200ms ease",
+            borderColor: brandColor,
           }}
-          transition={{ type: "spring", stiffness: 500, damping: 35 }}
-          style={{ borderColor: brandColor }}
         />
 
         {rows.map((row, rowIndex) => {
