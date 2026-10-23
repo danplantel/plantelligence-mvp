@@ -167,6 +167,20 @@ describe("FAQSection layout", () => {
     );
   });
 
+  it("sits on a light grey band, with white cards", () => {
+    const { container } = render(<FAQSection faqs={[faq()]} />);
+
+    const section = container.querySelector("section") as HTMLElement;
+    expect(section.className).toContain("bg-gray-100");
+    expect(section.className).not.toContain("bg-white");
+
+    // The cards stay white so they stand out against the band.
+    expect(
+      screen.getByRole("button", { name: /How do I enroll\?/ }).parentElement
+        ?.className,
+    ).toContain("bg-white");
+  });
+
   it("drops the empty column when only one question exists", () => {
     const { container } = render(<FAQSection faqs={[faq()]} />);
 

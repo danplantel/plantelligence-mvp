@@ -78,7 +78,9 @@ function FAQAccordionGroup({
         return (
           <div
             key={key}
-            className="border border-gray-200 rounded-lg overflow-hidden transition-shadow duration-200 hover:shadow-sm"
+            // The section sits on a light grey band; each card stays white so the
+            // question (secondary colour) and its answer read as raised panels.
+            className="overflow-hidden rounded-lg border border-gray-200 bg-white transition-shadow duration-200 hover:shadow-sm"
           >
             <button
               onClick={() => onToggle(key)}
@@ -170,7 +172,10 @@ export function FAQSection({
     // Fills a screen on desktop (`lg:min-h-screen`), centred vertically like the
     // "How Can We Help You Today?" band above it, so the portal reads as a sequence
     // of full-height sections. Phones keep the natural height.
-    <section className="flex w-full flex-col justify-center bg-white px-4 py-20 sm:px-6 lg:min-h-screen lg:px-8">
+    //
+    // Light grey rather than white: it separates this band from the white sections
+    // around it and gives the white answer cards something to sit against.
+    <section className="flex w-full flex-col justify-center border-y border-black/5 bg-gray-100 px-4 py-20 sm:px-6 lg:min-h-screen lg:px-8">
       <div className="mx-auto w-full max-w-6xl">
         <div className="text-center mb-12">
           <h2

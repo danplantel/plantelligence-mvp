@@ -19,7 +19,9 @@ export function HaveQuestions({
   if (!contacts || contacts.length === 0) return null;
 
   return (
-    <section className="px-4 sm:px-6 lg:px-8 py-20 bg-white">
+    // The same light grey band as the FAQ section above it: it separates this block
+    // from the white sections around it, and the white cards sit against it.
+    <section className="w-full border-y border-black/5 bg-gray-100 px-4 py-20 sm:px-6 lg:px-8">
       {/* Wide enough for the four support cards side by side (`lg` and up); the
           heading below keeps its own narrower measure. */}
       <div className="max-w-6xl mx-auto">
@@ -44,7 +46,8 @@ export function HaveQuestions({
           {contacts.map((contact) => (
             <div
               key={contact.id}
-              className="text-center h-[327px] p-6 border flex flex-col justify-between border-gray-200 rounded-lg hover:shadow-lg transition-shadow w-full sm:w-auto sm:flex-1 sm:min-w-[240px] sm:max-w-[340px] lg:w-[calc((100%-4.5rem)/4)] lg:flex-none"
+              // White cards on the grey band, matching the FAQ accordion.
+              className="text-center h-[327px] p-6 border flex flex-col justify-between border-gray-200 rounded-lg bg-white hover:shadow-lg transition-shadow w-full sm:w-auto sm:flex-1 sm:min-w-[240px] sm:max-w-[340px] lg:w-[calc((100%-4.5rem)/4)] lg:flex-none"
             >
               <div>
                 <div

@@ -46,6 +46,19 @@ describe("HaveQuestions", () => {
     expect(render(<HaveQuestions />).container).toBeEmptyDOMElement();
   });
 
+  it("sits on a light grey band, with white cards", () => {
+    const { container } = render(<HaveQuestions contacts={[contact()]} />);
+
+    // Matches the FAQ panel above it, so the two read as one closing pair.
+    const section = container.querySelector("section") as HTMLElement;
+    expect(section.className).toContain("bg-gray-100");
+    expect(section.className).toContain("border-y");
+    expect(section.className).not.toContain("bg-white");
+
+    const card = screen.getByText("Ada Advisor").closest("div.bg-white");
+    expect(card).not.toBeNull();
+  });
+
   it("renders the heading and one card per contact", () => {
     render(
       <HaveQuestions
