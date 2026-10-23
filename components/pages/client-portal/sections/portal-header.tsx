@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { X, ChevronDown, Calendar, Pencil, Menu } from "lucide-react";
+import { X, ChevronDown, Calendar, Pencil, Menu, LogIn } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -22,6 +22,8 @@ import {
   isPlaceholderBenefitName,
 } from "@/lib/benefit-custom-name";
 import { BrandingImage } from "@/components/ui/branding-image";
+import { readableColor } from "polished";
+import { HOW_CAN_WE_HELP_SECTION_ID } from "@/lib/portal-section-anchors";
 import {
   HEADER_LOGO_BAND_PX,
   HEADER_LOGO_MAX_WIDTH_PX,
@@ -578,6 +580,30 @@ export function PortalHeader({
               {/* "Ask a question" is no longer a header button — it is the portal's
                   floating chatbot action in the bottom-right corner (see
                   portal-chatbot.tsx), so it is reachable on every page size. */}
+
+              {/* Login — Benefit Hub pages only. Scrolls to that hub's "How Can We
+                  Help You Today?" section, which holds the Account Access card
+                  (plan / group ID, administering provider and the Register or Login
+                  Here button). Ordered before the mobile hamburger so the two sit
+                  [Login][☰] on a phone and [nav][Login] from `md:` up. */}
+              {isBenefitsActive && (
+                <Button
+                  type="button"
+                  onClick={() => {
+                    document
+                      .getElementById(HOW_CAN_WE_HELP_SECTION_ID)
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  }}
+                  className="order-1 gap-2 rounded-full px-4 text-xs font-semibold shadow-sm transition-opacity hover:opacity-90 sm:text-sm md:order-2"
+                  style={{
+                    backgroundColor: secondaryColor,
+                    color: readableColor(secondaryColor),
+                  }}
+                >
+                  <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  Login
+                </Button>
+              )}
             </div>
           </div>
         </div>

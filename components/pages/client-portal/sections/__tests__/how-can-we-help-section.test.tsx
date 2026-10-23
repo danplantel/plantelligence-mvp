@@ -61,6 +61,15 @@ describe("HowCanWeHelpSection layout", () => {
     ).toHaveStyle({ color: "#123456" });
   });
 
+  it("exposes the anchor the header's Login button scrolls to", () => {
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    expect(container.querySelector("section")).toHaveAttribute(
+      "id",
+      "how-can-we-help",
+    );
+  });
+
   it("fills the viewport", () => {
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
 

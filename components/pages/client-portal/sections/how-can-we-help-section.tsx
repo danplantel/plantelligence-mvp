@@ -4,6 +4,7 @@ import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, ChevronDown, X } from "lucide-react";
 import { readableColor } from "polished";
+import { HOW_CAN_WE_HELP_SECTION_ID } from "@/lib/portal-section-anchors";
 import { Button } from "@/components/ui/button";
 import { useOptionalClientPortal } from "@/contexts/client-portal-context";
 import { formatPhoneWithExtension } from "@/lib/phone-utils";
@@ -881,7 +882,12 @@ export function HowCanWeHelpSection({
   }, [activeCardId, cardOrderKey]);
 
   return (
-    <section className="flex min-h-screen w-full flex-col justify-center bg-white py-16 lg:py-20">
+    // `id` + scroll margin: the header's Login button scrolls here, and the margin
+    // keeps the heading clear of the fixed portal header.
+    <section
+      id={HOW_CAN_WE_HELP_SECTION_ID}
+      className="flex min-h-screen w-full scroll-mt-24 flex-col justify-center bg-white py-16 sm:scroll-mt-28 lg:py-20 lg:scroll-mt-32"
+    >
       <h2
         className="mb-14 text-center text-2xl font-dm-serif sm:text-2xl lg:text-5xl"
         style={{ color: brandColor }}
