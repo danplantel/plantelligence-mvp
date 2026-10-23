@@ -557,10 +557,35 @@ export function BenefitPortalPreview({
             How Can We Help → Video → Webinars → FAQs → Account Access →
             Documents → Have Questions. */}
 
+        {/* Hover shows the blue edit pencil and a click opens the Editing Panel at
+            this section — the same affordance every other preview section offers. */}
         <div
-          className={mobile ? "force-visible relative" : "relative"}
+          className={cn(
+            mobile ? "force-visible relative" : "relative",
+            "group cursor-pointer",
+          )}
           data-preview-field="helpCards"
+          onClick={(event) => {
+            const target = event.target as HTMLElement;
+            // Links and buttons (the login CTA, a panel's close button) act on
+            // their own.
+            if (target.closest("a, button")) return;
+            const card = target.closest("[data-help-card]");
+            // Topic tiles report themselves through `onCardEdit`; the Account
+            // Access card has no panel of its own, so clicking it edits the
+            // section its fields live in.
+            if (
+              card &&
+              card.getAttribute("data-help-card") !== ACCOUNT_ACCESS_CARD_ID
+            ) {
+              return;
+            }
+            handleEdit("helpCards");
+          }}
+          onMouseEnter={() => setHoveredSection("helpCards")}
+          onMouseLeave={() => setHoveredSection(null)}
         >
+          {hoveredSection === "helpCards" && <EditPencil />}
           <HowCanWeHelpSection
             brandColor={brandColor}
             secondaryColor={secondaryColor}

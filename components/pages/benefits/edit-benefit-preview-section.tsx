@@ -65,6 +65,13 @@ export function EditBenefitPreviewSection({
   const [isEditorAnimating, setIsEditorAnimating] = useState(false);
   const editorIsOpen = isEditorOpen || isEditorAnimating;
 
+  // Which section the panel should scroll to. The preview's edit pencils dispatch
+  // `openBenefitsEditor` (the same event the wizard's Step 2 handles via
+  // `useBenefitsEditorState`); this page owns its panel state, so it subscribes
+  // here — without this nothing happened when a preview section was clicked.
+  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [highlightedField, setHighlightedField] = useState<string | null>(null);
+
   // Auto-open the Editing Panel when the Preview tab mounts so the advisor lands
   // straight in the editor — matching Edit Plan's Preview tab and the Create
   // Benefits wizard's Step 2. The panel fades in only once `isAnimating` flips,
@@ -329,6 +336,39 @@ export function EditBenefitPreviewSection({
   const handleCloseEditor = useCallback(() => {
     setIsEditorAnimating(false);
     setIsEditorOpen(false);
+    setActiveSection(null);
+    setHighlightedField(null);
+  }, []);
+
+  /**
+   * Open the panel at a requested section (and field), from a preview edit pencil
+   * or a click on the section itself.
+   *
+   * The section is reset first and re-applied on the next tick so the panel's
+   * scroll effect re-runs even when the same section is requested twice — the
+   * behaviour `useBenefitsEditorState` gives the wizard.
+   */
+  useEffect(() => {
+    const handleOpenEditorEvent = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ sectionId?: string; fieldId?: string }>
+      ).detail;
+      const sectionId = detail?.sectionId || null;
+      const fieldId = detail?.fieldId || null;
+
+      setActiveSection(null);
+      setHighlightedField(null);
+      setTimeout(() => {
+        setActiveSection(sectionId);
+        setHighlightedField(fieldId);
+      }, 0);
+      setIsEditorOpen(true);
+      setTimeout(() => setIsEditorAnimating(true), 10);
+    };
+
+    window.addEventListener("openBenefitsEditor", handleOpenEditorEvent);
+    return () =>
+      window.removeEventListener("openBenefitsEditor", handleOpenEditorEvent);
   }, []);
 
   const handleOpenEditor = useCallback(() => {
@@ -620,6 +660,8 @@ export function EditBenefitPreviewSection({
             isOpen={isEditorOpen}
             isAnimating={isEditorAnimating}
             onClose={handleCloseEditor}
+            activeSection={activeSection}
+            highlightedField={highlightedField}
             planCompanyName={planCompanyName}
             companyWebsite={companyWebsite}
           />

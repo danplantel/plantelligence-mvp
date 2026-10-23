@@ -116,6 +116,9 @@ vi.mock("@/components/wizard/benefits-steps/benefits-editor-panel", () => ({
       data-animating={String(props.isAnimating)}
       data-company={props.planCompanyName}
       data-website={props.companyWebsite}
+      // Section the preview asked the panel to scroll to.
+      data-section={props.activeSection ?? ""}
+      data-field={props.highlightedField ?? ""}
     >
       <button type="button" onClick={props.onClose}>
         stub-close
@@ -378,6 +381,44 @@ describe("EditBenefitPreviewSection", () => {
 
       expect(cleanup).toHaveBeenCalled();
     });
+  });
+
+  describe("open at a section", () => {
+    it("scrolls the panel to the section a preview edit pencil asks for", async () => {
+      render(<EditBenefitPreviewSection />);
+
+      await act(async () => {
+        window.dispatchEvent(
+          new CustomEvent("openBenefitsEditor", {
+            detail: { sectionId: "helpCards" },
+          }),
+        );
+      });
+
+      const panel = screen.getByTestId("editor-panel");
+      expect(panel).toHaveAttribute("data-open", "true");
+      await waitFor(() =>
+        expect(panel).toHaveAttribute("data-section", "helpCards"),
+      );
+    });
+
+    it("forwards a field id from a card-level edit request", async () => {
+      render(<EditBenefitPreviewSection />);
+
+      await act(async () => {
+        window.dispatchEvent(
+          new CustomEvent("openBenefitsEditor", {
+            detail: { sectionId: "helpCards", fieldId: "financial-planning" },
+          }),
+        );
+      });
+
+      const panel = screen.getByTestId("editor-panel");
+      await waitFor(() =>
+        expect(panel).toHaveAttribute("data-field", "financial-planning"),
+      );
+    });
+
   });
 
   describe("preview scroll bridge", () => {
