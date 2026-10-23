@@ -16,6 +16,10 @@ import {
   formatPlanGroupIdLabel,
 } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import {
+  HAVE_QUESTIONS_SECTION_ID,
+  scrollToPortalSection,
+} from "@/lib/portal-section-anchors";
+import {
   BenefitDocumentSection,
   RetirementDocumentItem,
 } from "@/components/pages/client-portal/sections/benefit-document-section";
@@ -186,6 +190,11 @@ export default function RetirementPage() {
           customHeadline={benefitData?.title}
           customDescription={benefitData?.shortDescription ?? undefined}
           category="Retirement"
+          // "Schedule with …" scrolls to the key contact's card below instead of
+          // opening the scheduling URL in another tab.
+          onScheduleClick={() =>
+            scrollToPortalSection(HAVE_QUESTIONS_SECTION_ID)
+          }
         />
 
         {/* Hidden entirely when the editor's "Show on page" toggle is off. */}
@@ -209,6 +218,11 @@ export default function RetirementPage() {
             // category's stock image (lib/benefits-video-fallback.ts).
             planVideoFallbackImage={
               benefitData?.planVideoFallbackImage ?? undefined
+            }
+            // "Schedule with …" scrolls to this contact's card in "Have Questions?"
+            // rather than opening another tab.
+            onScheduleClick={() =>
+              scrollToPortalSection(HAVE_QUESTIONS_SECTION_ID)
             }
           />
         )}

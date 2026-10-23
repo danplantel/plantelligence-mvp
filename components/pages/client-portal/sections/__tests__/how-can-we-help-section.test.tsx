@@ -745,6 +745,29 @@ describe("HowCanWeHelpSection rollovers panel", () => {
       screen.getByText("Free call with your advisor"),
     ).toBeInTheDocument();
   });
+
+  it("scrolls to the Have Questions band from Talk through my options", async () => {
+    const user = userEvent.setup();
+    const support = document.createElement("section");
+    support.id = "have-questions";
+    support.scrollIntoView = vi.fn();
+    document.body.appendChild(support);
+
+    render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Talk through my options" }),
+    );
+
+    expect(support.scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "start",
+    });
+    // It must no longer open the plan's appointment link.
+    expect(openSpy).not.toHaveBeenCalled();
+
+    support.remove();
+  });
 });
 
 describe("HowCanWeHelpSection CTAs", () => {

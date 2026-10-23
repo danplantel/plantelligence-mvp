@@ -4,6 +4,7 @@ import { Phone, Mail } from "lucide-react";
 import { Headshot } from "@/components/ui/headshot";
 import type { FAQContact } from "@/components/faq-section";
 import { designationAcronym } from "@/config/onboarding/designations";
+import { HAVE_QUESTIONS_SECTION_ID } from "@/lib/portal-section-anchors";
 
 interface HaveQuestionsProps {
   brandColor?: string;
@@ -21,7 +22,12 @@ export function HaveQuestions({
   return (
     // The same light grey band as the FAQ section above it: it separates this block
     // from the white sections around it, and the white cards sit against it.
-    <section className="w-full border-y border-black/5 bg-gray-100 px-4 py-20 sm:px-6 lg:px-8">
+    // `id` + scroll margin: the journey section's "Schedule with …" buttons scroll
+    // here, and the margin keeps the heading clear of the fixed portal header.
+    <section
+      id={HAVE_QUESTIONS_SECTION_ID}
+      className="w-full scroll-mt-24 border-y border-black/5 bg-gray-100 px-4 py-20 sm:scroll-mt-28 sm:px-6 lg:scroll-mt-32 lg:px-8"
+    >
       {/* Wide enough for the four support cards side by side (`lg` and up); the
           heading below keeps its own narrower measure. */}
       <div className="max-w-6xl mx-auto">

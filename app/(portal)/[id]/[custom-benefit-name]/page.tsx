@@ -15,6 +15,10 @@ import {
   formatPlanGroupIdLabel,
 } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import {
+  HAVE_QUESTIONS_SECTION_ID,
+  scrollToPortalSection,
+} from "@/lib/portal-section-anchors";
+import {
   BenefitsVideoSection,
 } from "@/components/pages/client-portal/sections/benefits-video-section";
 import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
@@ -201,6 +205,11 @@ export default function CustomBenefitPage() {
           customHeadline={benefitData?.title}
           customDescription={benefitData?.shortDescription ?? undefined}
           category="Company / Plan Sponsor"
+          // "Schedule with …" scrolls to the key contact's card below instead of
+          // opening the scheduling URL in another tab.
+          onScheduleClick={() =>
+            scrollToPortalSection(HAVE_QUESTIONS_SECTION_ID)
+          }
         />
 
         {/* Hidden entirely when the editor's "Show on page" toggle is off. */}
@@ -221,6 +230,11 @@ export default function CustomBenefitPage() {
             // category's stock image (lib/benefits-video-fallback.ts).
             planVideoFallbackImage={
               benefitData?.planVideoFallbackImage ?? undefined
+            }
+            // "Schedule with …" scrolls to this contact's card in "Have Questions?"
+            // rather than opening another tab.
+            onScheduleClick={() =>
+              scrollToPortalSection(HAVE_QUESTIONS_SECTION_ID)
             }
           />
         )}

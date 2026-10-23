@@ -46,6 +46,15 @@ describe("HaveQuestions", () => {
     expect(render(<HaveQuestions />).container).toBeEmptyDOMElement();
   });
 
+  it("exposes the anchor the journey section's Schedule button scrolls to", () => {
+    const { container } = render(<HaveQuestions contacts={[contact()]} />);
+
+    expect(container.querySelector("section")).toHaveAttribute(
+      "id",
+      "have-questions",
+    );
+  });
+
   it("sits on a light grey band, with white cards", () => {
     const { container } = render(<HaveQuestions contacts={[contact()]} />);
 

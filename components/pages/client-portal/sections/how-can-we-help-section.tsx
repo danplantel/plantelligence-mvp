@@ -9,6 +9,10 @@ import { Button } from "@/components/ui/button";
 import { useOptionalClientPortal } from "@/contexts/client-portal-context";
 import { formatPhoneWithExtension } from "@/lib/phone-utils";
 import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
+import {
+  HAVE_QUESTIONS_SECTION_ID,
+  scrollToPortalSection,
+} from "@/lib/portal-section-anchors";
 import type { ProviderContact } from "@/types/benefit";
 import { cn } from "@/lib/utils";
 
@@ -613,7 +617,7 @@ function HelpCardPanel({
   onClose: () => void;
   /** Full name of the plan's primary key contact, for the Rollovers "free call" line. */
   contactName?: string;
-  /** Opens the plan's appointment link, when one is configured. */
+  /** Scrolls to the "Have Questions?" band, where the contact's card lives. */
   onTalkThrough?: () => void;
 }) {
   // The Rollovers topic has its own body (options, pros/cons, CTA) instead of the
@@ -771,11 +775,6 @@ export function HowCanWeHelpSection({
   );
   const benefitContactName = String(
     bannerPrimaryContact?.fullName || bannerPrimaryContact?.name || "",
-  ).trim();
-
-  // Where "Talk through my options" goes — the plan's own appointment link.
-  const appointmentLink = String(
-    (portal.clientData as any)?.appointmentLink || "",
   ).trim();
 
   // Resolve `[Benefit Category]` once per card set, so the default topics and any
@@ -1060,14 +1059,12 @@ export function HowCanWeHelpSection({
                   secondaryColor={secondaryColor}
                   basePath={basePath}
                   contactName={benefitContactName}
-                  onTalkThrough={() => {
-                    if (!appointmentLink) return;
-                    window.open(
-                      appointmentLink,
-                      "_blank",
-                      "noopener,noreferrer",
-                    );
-                  }}
+                  // Sends the reader to the contact's card in "Have Questions?"
+                  // rather than opening the scheduling URL in another tab — the
+                  // person (and their email / phone) is right there.
+                  onTalkThrough={() =>
+                    scrollToPortalSection(HAVE_QUESTIONS_SECTION_ID)
+                  }
                   onClose={() => setOpenCardId(null)}
                 />
               </div>

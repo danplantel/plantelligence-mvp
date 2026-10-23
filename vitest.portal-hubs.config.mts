@@ -20,6 +20,8 @@ const portalHubTests = [
   "components/pages/client-portal/sections/__tests__/benefits-hub-webinars-section.test.tsx",
   // The support-people cards
   "components/pages/client-portal/sections/__tests__/have-questions.test.tsx",
+  // The welcome banner's "Schedule with …" CTA (scrolls to Have Questions)
+  "components/pages/client-portal/sections/__tests__/portal-welcome-banner-schedule.test.tsx",
   // "How Can We Help You Today?" cards and their CTA shapes
   "components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx",
   // The FAQ accordion

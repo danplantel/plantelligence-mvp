@@ -23,7 +23,10 @@ import {
 } from "@/lib/benefit-custom-name";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { readableColor } from "polished";
-import { HOW_CAN_WE_HELP_SECTION_ID } from "@/lib/portal-section-anchors";
+import {
+  HOW_CAN_WE_HELP_SECTION_ID,
+  scrollToPortalSection,
+} from "@/lib/portal-section-anchors";
 import {
   HEADER_LOGO_BAND_PX,
   HEADER_LOGO_MAX_WIDTH_PX,
@@ -589,11 +592,9 @@ export function PortalHeader({
               {isBenefitsActive && (
                 <Button
                   type="button"
-                  onClick={() => {
-                    document
-                      .getElementById(HOW_CAN_WE_HELP_SECTION_ID)
-                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
-                  }}
+                  onClick={() =>
+                    scrollToPortalSection(HOW_CAN_WE_HELP_SECTION_ID)
+                  }
                   className="order-1 gap-2 rounded-full px-4 text-xs font-semibold shadow-sm transition-opacity hover:opacity-90 sm:text-sm md:order-2"
                   style={{
                     backgroundColor: secondaryColor,

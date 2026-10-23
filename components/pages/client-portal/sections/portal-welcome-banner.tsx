@@ -44,6 +44,12 @@ interface PortalWelcomeBannerProps {
     }[];
   } | null;
   category?: string;
+  /**
+   * When set, "Schedule with …" becomes a button that runs this instead of opening
+   * the contact's scheduling URL. The hub pages use it to scroll to the
+   * "Have Questions?" band, where that contact's card lives.
+   */
+  onScheduleClick?: () => void;
   brandColor?: string;
   secondaryColor?: string;
   // Custom content overrides
@@ -103,6 +109,7 @@ export function PortalWelcomeBanner({
   customImage,
   customImageAlt,
   category,
+  onScheduleClick,
   backgroundOpacity = 1.0,
   containerBlockOpacity = 0.67,
   containerInverted = false,
@@ -585,7 +592,16 @@ export function PortalWelcomeBanner({
 
               {/* CTA row — side by side at the bottom of the info column. */}
               <div className="mt-auto flex flex-row gap-3 pt-8">
-                {scheduleHref ? (
+                {onScheduleClick ? (
+                  <button
+                    type="button"
+                    onClick={onScheduleClick}
+                    className="inline-flex flex-1 items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
+                    style={{ background: secondaryColor }}
+                  >
+                    {scheduleLabel}
+                  </button>
+                ) : scheduleHref ? (
                   <a
                     href={scheduleHref}
                     target="_blank"

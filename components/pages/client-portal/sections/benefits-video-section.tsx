@@ -79,6 +79,12 @@ interface BenefitsVideoSectionProps {
   keyContacts?: unknown;
   /** Benefit category used to pick the key contact. */
   category?: string;
+  /**
+   * When set, "Schedule with …" becomes a button that runs this instead of opening
+   * the contact's scheduling URL. The hub pages use it to scroll to the
+   * "Have Questions?" band, where that contact's card (and its links) live.
+   */
+  onScheduleClick?: () => void;
 
   // ── Optional edit hooks (used by the Benefits wizard preview) ──
   /** When set, clicking the main title opens the editor and a pencil shows on hover */
@@ -103,6 +109,7 @@ export function BenefitsVideoSection({
   videoLabel = "This benefit",
   keyContacts,
   category,
+  onScheduleClick,
   onMainTitleClick,
   onSubtitleClick,
   onDescriptionClick,
@@ -313,7 +320,15 @@ export function BenefitsVideoSection({
                 </button>
               )}
 
-              {scheduleHref ? (
+              {onScheduleClick ? (
+                <button
+                  type="button"
+                  onClick={onScheduleClick}
+                  className="inline-flex items-center justify-center rounded-lg border border-white/30 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/10"
+                >
+                  {scheduleLabel}
+                </button>
+              ) : scheduleHref ? (
                 <a
                   href={scheduleHref}
                   target="_blank"

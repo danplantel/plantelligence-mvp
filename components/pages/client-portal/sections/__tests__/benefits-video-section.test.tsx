@@ -1,6 +1,7 @@
 import React from "react";
 
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { BenefitsVideoSection } from "../benefits-video-section";
@@ -140,6 +141,47 @@ describe("BenefitsVideoSection default copy", () => {
         name: DEFAULTS["Group Health"][1],
       }),
     ).toBeInTheDocument();
+  });
+});
+
+/**
+ * "Schedule with <name>" either opens the contact's scheduling URL or, on the hub
+ * pages, scrolls to the "Have Questions?" band where that contact's card lives.
+ */
+describe("BenefitsVideoSection schedule CTA", () => {
+  const contacts = [
+    { fullName: "Dana Reed", schedulingUrl: "https://cal.test" },
+  ];
+
+  it("calls the handler instead of opening the scheduling URL", async () => {
+    const user = userEvent.setup();
+    const onScheduleClick = vi.fn();
+    render(
+      <BenefitsVideoSection
+        category="Retirement"
+        keyContacts={contacts}
+        onScheduleClick={onScheduleClick}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /schedule with dana/i }),
+    );
+
+    expect(onScheduleClick).toHaveBeenCalledTimes(1);
+    expect(
+      screen.queryByRole("link", { name: /schedule with dana/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the scheduling link when no handler is given", () => {
+    render(
+      <BenefitsVideoSection category="Retirement" keyContacts={contacts} />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: /schedule with dana/i }),
+    ).toHaveAttribute("href", "https://cal.test");
   });
 });
 
