@@ -936,6 +936,10 @@ model Benefit {
   planVideoLabel     String?
   // Poster image: an uploaded image, a frame captured from the video, or an external URL.
   planVideoThumbnail String?
+  // Image shown in the journey section INSTEAD of a video — an upload or a gallery
+  // pick from the editor's "Default Image" card. Null means the category's stock
+  // image is used (see lib/benefits-video-fallback.ts).
+  planVideoFallbackImage String?
   // Editor's "Show on page" toggle: false hides the whole video section on the
   // portal. Defaults to true so existing rows keep their video.
   planVideoVisible Boolean @default(true)

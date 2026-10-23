@@ -33,8 +33,6 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 /** Same hub label as Create Benefits → Retirement card (`resolvePersistedDocumentCategory("Document", "Retirement")`). */
 const RETIREMENT_DOCUMENT_HUB = benefitCategoryToDocumentHubLabel("Retirement");
 
-const RETIREMENT_FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?w=800&q=80";
 
 export default function RetirementPage() {
   const { clientData, profile } = useClientPortal();
@@ -207,7 +205,11 @@ export default function RetirementPage() {
               "Take control of your financial future with our comprehensive retirement planning resources. Whether you're just starting your career or preparing for the next chapter, we provide the tools and guidance you need to build a secure retirement."
             }
             planVideoUrl={benefitData?.planVideo as string | undefined}
-            planVideoFallbackImage={RETIREMENT_FALLBACK_IMAGE}
+            // The plan's own no-video image; when unset the section uses the
+            // category's stock image (lib/benefits-video-fallback.ts).
+            planVideoFallbackImage={
+              benefitData?.planVideoFallbackImage ?? undefined
+            }
           />
         )}
 

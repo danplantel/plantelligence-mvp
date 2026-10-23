@@ -20,6 +20,8 @@ export interface PortalBenefitData {
   planVideoLabel?: string;
   /** Poster image (R2 key, external URL, or data URL) */
   planVideoThumbnail?: string;
+  /** Image shown instead of a video (R2 key or external URL). */
+  planVideoFallbackImage?: string | null;
   /** "Show on page" toggle: `false` hides the video section on the portal. */
   planVideoVisible?: boolean;
   faqs?: any[];

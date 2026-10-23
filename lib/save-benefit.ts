@@ -571,6 +571,9 @@ export async function saveBenefit(
             planVideoFileName: step1Data?.planVideoFileName || null,
             planVideoLabel: step1Data?.planVideoLabel || null,
             planVideoThumbnail: step1Data?.planVideoThumbnail || null,
+            // Image shown instead of a video (editor's "Default Image" card). Null
+            // clears it back to the category's stock image.
+            planVideoFallbackImage: step1Data?.planVideoFallbackImage || null,
             // "Show on page" — `undefined` leaves the stored value alone, so a save
             // from a step that never touched the toggle cannot flip it off.
             planVideoVisible: step1Data?.planVideoVisible,

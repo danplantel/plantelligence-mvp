@@ -35,8 +35,6 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 const WELLNESS_DOCUMENT_HUB = benefitCategoryToDocumentHubLabel("Company / Plan Sponsor");
 
-const WELLNESS_FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=1600&q=80";
 
 /**
  * The Custom benefit's portal page.
@@ -223,7 +221,11 @@ export default function CustomBenefitPage() {
             subtitle={(benefitData as any)?.journeySubtitle || undefined}
             description={(benefitData as any)?.journeyBodyText || "Your well-being goes beyond traditional benefits. Discover programs designed to support your physical, mental, and financial health—from fitness stipends and nutrition coaching to mental health resources and financial wellness tools. Thrive at work and at home."}
             planVideoUrl={benefitData?.planVideo as string | undefined}
-            planVideoFallbackImage={WELLNESS_FALLBACK_IMAGE}
+            // The plan's own no-video image; when unset the section uses the
+            // category's stock image (lib/benefits-video-fallback.ts).
+            planVideoFallbackImage={
+              benefitData?.planVideoFallbackImage ?? undefined
+            }
           />
         )}
 

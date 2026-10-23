@@ -334,21 +334,6 @@ export function BenefitPortalPreview({
     step1Data?.benefitCategory,
   ]);
 
-  // Per-category default image shown when no plan video is uploaded
-  const categoryDefaultImage = useMemo(() => {
-    const map: Record<string, string> = {
-      Retirement:
-        "https://images.unsplash.com/photo-1454496522488-7a8e488e8606?w=800&q=80",
-      "Group Health":
-        "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&q=80",
-      "Group Life":
-        "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=800&q=80",
-      "Company / Plan Sponsor":
-        "https://images.unsplash.com/photo-1545205597-3d9d02c29597?w=1600&q=80",
-    };
-    return map[category] || map["Retirement"];
-  }, [category]);
-
   // The live hub's document band and webinar placement for this category.
   const documentSectionCopy =
     DOCUMENT_SECTION_COPY[canonicalCategory] ||
@@ -618,7 +603,9 @@ export function BenefitPortalPreview({
               })()
             }
             planVideoUrl={planVideoUrl}
-            planVideoFallbackImage={categoryDefaultImage}
+            // The plan's own no-video image; the section fills in the category's
+            // stock image when this is empty (lib/benefits-video-fallback.ts).
+            planVideoFallbackImage={step1Data?.planVideoFallbackImage}
             videoLabel={step1Data?.planVideoLabel}
             videoThumbnail={
               step1Data?.planVideoThumbnail?.startsWith("data:") ||

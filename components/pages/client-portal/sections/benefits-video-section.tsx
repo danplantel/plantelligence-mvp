@@ -6,6 +6,7 @@ import { motion, useInView } from "framer-motion";
 import { Clock, Pencil, Play } from "lucide-react";
 import { toNextImageSrc } from "@/lib/branding-image-url";
 import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
+import { resolveJourneyImage } from "@/lib/benefits-video-fallback";
 
 /** `m:ss` for the video's runtime. */
 function formatVideoDuration(seconds: number): string {
@@ -61,7 +62,11 @@ interface BenefitsVideoSectionProps {
   description?: string;
   /** When provided, a <video> element replaces the right-column featured image */
   planVideoUrl?: string;
-  /** Fallback image shown when no planVideoUrl is set. Expected to be a category-specific placeholder. */
+  /**
+   * Image shown instead of a video — the plan's own "Default Image" upload or
+   * gallery pick (R2 key or URL). When omitted/empty the section uses its
+   * category's stock image, so this is always set on screen.
+   */
   planVideoFallbackImage?: string;
   /** Poster image (uploaded, captured frame, or URL) for the video and its no-video fallback. */
   videoThumbnail?: string;
@@ -113,6 +118,14 @@ export function BenefitsVideoSection({
     ? mainTitle
     : categoryCopy.title;
   const resolvedSubtitle = subtitle?.trim() ? subtitle : categoryCopy.subtitle;
+
+  // What the right-hand panel paints when there is no video: the plan's own
+  // default image, otherwise the category's stock image (see
+  // lib/benefits-video-fallback.ts — the editor previews this same value).
+  const resolvedFallbackImage = resolveJourneyImage(
+    planVideoFallbackImage,
+    category,
+  );
 
   const textVariants = {
     hidden: { opacity: 0, x: -80 },
@@ -280,22 +293,25 @@ export function BenefitsVideoSection({
               </p>
             </div>
 
-            {/* Left-column CTAs: start the plan video and book the key contact. */}
+            {/* Left-column CTAs: start the plan video and book the key contact.
+                "Watch Now" only exists to start a video, so with no video it is
+                dropped rather than shown disabled. */}
             <div className="mt-2 flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={handleWatchNow}
-                disabled={!planVideoUrl}
-                className="inline-flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-                style={{ background: secondaryColor }}
-              >
-                Watch Now
-                <Play
-                  className="h-4 w-4"
-                  fill="currentColor"
-                  aria-hidden="true"
-                />
-              </button>
+              {planVideoUrl && (
+                <button
+                  type="button"
+                  onClick={handleWatchNow}
+                  className="inline-flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
+                  style={{ background: secondaryColor }}
+                >
+                  Watch Now
+                  <Play
+                    className="h-4 w-4"
+                    fill="currentColor"
+                    aria-hidden="true"
+                  />
+                </button>
+              )}
 
               {scheduleHref ? (
                 <a
@@ -368,12 +384,11 @@ export function BenefitsVideoSection({
                   )}
                 </div>
               ) : (
+                // No video → the plan's default image. The poster (`videoThumbnail`)
+                // is deliberately NOT consulted here: it describes a video that no
+                // longer exists, and would mask the image the advisor just chose.
                 <Image
-                  src={
-                    videoThumbnail ||
-                    planVideoFallbackImage ||
-                    "/placeholder.svg"
-                  }
+                  src={resolvedFallbackImage}
                   alt={"Category placeholder image"}
                   fill
                   className="object-cover"

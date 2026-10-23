@@ -10,6 +10,7 @@ import {
   BENEFIT_CATEGORY_GALLERY,
   toCategoryGalleryKey,
 } from "@/lib/benefit-category-gallery";
+import { resolveJourneyImage } from "@/lib/benefits-video-fallback";
 import { ModalGallery } from "@/components/ui/modalGallery";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -243,6 +244,11 @@ export function BenefitsEditorPanel({
   const [isVideoDragOver, setIsVideoDragOver] = useState(false);
   const videoFileInputRef = useRef<HTMLInputElement | null>(null);
 
+  // ── Section 5: Default Image (the no-video image) ──
+  const [fallbackImageBusy, setFallbackImageBusy] = useState(false);
+  const [fallbackGalleryOpen, setFallbackGalleryOpen] = useState(false);
+  const fallbackImageInputRef = useRef<HTMLInputElement | null>(null);
+
   // ── Section 4: Thumbnail ──
   const [thumbnailMode, setThumbnailMode] = useState<"upload" | "frame">(
     "upload",
@@ -258,6 +264,8 @@ export function BenefitsEditorPanel({
     "Our Services",
   ] as const;
   const THUMBNAIL_MAX_EDGE = 640;
+  // The journey image is a wide panel, so allow a larger downscale than a poster.
+  const FALLBACK_IMAGE_MAX_EDGE = 1280;
 
   /** R2 keys load through the authed proxy; absolute URLs load as-is. */
   const resolvedPlanVideoUrl = step1Data.planVideo
@@ -272,6 +280,12 @@ export function BenefitsEditorPanel({
       ? step1Data.planVideoThumbnail
       : `/api/r2/object?key=${encodeURIComponent(step1Data.planVideoThumbnail)}`
     : "";
+  // The plan's own no-video image, else this category's stock image — the exact
+  // value the live hub paints, so "no image chosen" is previewed honestly.
+  const resolvedFallbackImageUrl = resolveJourneyImage(
+    step1Data.planVideoFallbackImage,
+    step1Data.benefitCategory,
+  );
 
   const [highlightedSection, setHighlightedSection] = React.useState<
     string | null
@@ -549,6 +563,58 @@ export function BenefitsEditorPanel({
       planVideoThumbnail: undefined,
       planVideoRemoved: true,
     });
+  };
+
+  // ── Default Image (shown instead of a video) ──
+  //
+  // Kept separate from the thumbnail: a thumbnail is a video's poster, this is
+  // what the journey section shows when there is no video at all. Persisted on
+  // the Benefit row as `planVideoFallbackImage` (a gallery URL or an R2 key —
+  // the PUT uploads a data URL and stores the key).
+  const handleRemoveFallbackImage = () => {
+    saveStepData(1, { ...step1Data, planVideoFallbackImage: undefined });
+  };
+
+  const handleFallbackImageFileChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+  ) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      e.target.value = "";
+      return;
+    }
+    const dataUrl = await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
+    if (!dataUrl) {
+      toast.error("Failed to read that image");
+      e.target.value = "";
+      return;
+    }
+    try {
+      setFallbackImageBusy(true);
+      const compressed = await compressImage(dataUrl, {
+        maxWidth: FALLBACK_IMAGE_MAX_EDGE,
+        maxHeight: FALLBACK_IMAGE_MAX_EDGE,
+        quality: 0.85,
+        mimeType: "image/jpeg",
+      });
+      saveStepData(1, {
+        ...step1Data,
+        planVideoFallbackImage: compressed,
+      });
+    } catch (error) {
+      console.error("Error processing default image:", error);
+      toast.error("Failed to process that image");
+    } finally {
+      setFallbackImageBusy(false);
+      e.target.value = "";
+    }
   };
 
   // Hero overlay settings handler
@@ -1255,7 +1321,8 @@ export function BenefitsEditorPanel({
           <SectionHeader number={5} title="Video Source" />
           <p className="text-[13px] text-muted-foreground mb-6">
             Add the video shown in the journey section, say what it covers, and
-            choose a poster image. Without a video, the category image is shown.
+            choose a poster image. With no video, the Default Image below is
+            shown instead — upload your own or pick one from the gallery.
           </p>
 
           {/* 4a — Video Source: upload a file or paste a URL. */}
@@ -1425,6 +1492,87 @@ export function BenefitsEditorPanel({
             )}
           </div>
 
+          {/* 4b — Default Image: what the journey section shows with NO video.
+              Shown only while there is no video, so the advisor can see exactly
+              what visitors get and change it from here. */}
+          {!step1Data.planVideo && (
+            <div className="space-y-3 mb-6 p-4 border border-muted rounded-lg bg-white dark:bg-gray-800">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Label className="text-xs font-bold text-foreground">
+                  Default Image
+                </Label>
+                <span className="text-[11px] text-muted-foreground">
+                  Shown instead of a video
+                </span>
+              </div>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={resolvedFallbackImageUrl}
+                  alt="Journey section default image"
+                  className="h-20 w-36 shrink-0 rounded-md border border-muted object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">
+                    {step1Data.planVideoFallbackImage
+                      ? "Your image"
+                      : "Category default"}
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-muted-foreground">
+                    Upload your own image, or pick one from the gallery with
+                    &ldquo;Add Default Image&rdquo;. This is the image visitors see
+                    on this benefit page while there is no video.
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={fallbackImageBusy}
+                  onClick={() => fallbackImageInputRef.current?.click()}
+                >
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  {fallbackImageBusy ? "Processing…" : "Upload Image"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setFallbackGalleryOpen(true)}
+                >
+                  <ImagePlus className="mr-1.5 h-3.5 w-3.5" />
+                  Add Default Image
+                </Button>
+                {step1Data.planVideoFallbackImage && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleRemoveFallbackImage}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                    Remove
+                  </Button>
+                )}
+              </div>
+              <input
+                ref={fallbackImageInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleFallbackImageFileChange}
+                className="hidden"
+              />
+            </div>
+          )}
+
+          {/* 4c + 4d describe a video, so they only appear once one is added:
+              without a video there is no runtime to label and no frame to poster.
+              (The portal hides the same label — see BenefitsVideoSection.) */}
+          {resolvedPlanVideoUrl && (
+            <>
           {/* 4b — What's the video about? */}
           <div className="space-y-3 mb-6 p-4 border border-muted rounded-lg bg-white dark:bg-gray-800">
             <Label className="text-xs font-bold text-foreground">
@@ -1568,6 +1716,8 @@ export function BenefitsEditorPanel({
               </div>
             )}
           </div>
+            </>
+          )}
 
           {/* Video Section Overrides */}
           <div className="space-y-4 mb-6 p-4 border border-muted rounded-lg bg-white dark:bg-gray-800">
@@ -1931,6 +2081,22 @@ export function BenefitsEditorPanel({
           </div>
         </div>
       </div>
+
+      {/* Default-image gallery for the journey section's no-video image. Its
+          trigger is the "Add Default Image" button in the Video Source section,
+          so the dialog is mounted with the panel. Same per-category imagery Step
+          1 offers for the header background. */}
+      <ModalGallery
+        open={fallbackGalleryOpen}
+        onOpenChange={setFallbackGalleryOpen}
+        images={heroGalleryImages}
+        onSelect={(url) => {
+          // Stored as chosen; a gallery entry is already a stable path/URL, so
+          // nothing needs uploading. Uploads take the file-input path above.
+          saveStepData(1, { ...step1Data, planVideoFallbackImage: url });
+          setFallbackGalleryOpen(false);
+        }}
+      />
 
       {/* Default-photo gallery for the Header Background. Its trigger lives inside
                 the upload card's empty state, so the dialog is mounted with the panel. */}

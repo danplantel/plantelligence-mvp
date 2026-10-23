@@ -32,8 +32,6 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 const HEALTH_DOCUMENT_HUB = benefitCategoryToDocumentHubLabel("Group Health");
 
-const HEALTH_INSURANCE_FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?w=800&q=80";
 
 export default function HealthInsurancePage() {
   const { clientData, profile } = useClientPortal();
@@ -198,7 +196,11 @@ export default function HealthInsurancePage() {
               "Your health and well-being are our priority. Explore our health insurance resources to understand your coverage options, maximize your benefits, and make informed decisions about your medical, dental, and vision care for you and your family."
             }
             planVideoUrl={benefitData?.planVideo as string | undefined}
-            planVideoFallbackImage={HEALTH_INSURANCE_FALLBACK_IMAGE}
+            // The plan's own no-video image; when unset the section uses the
+            // category's stock image (lib/benefits-video-fallback.ts).
+            planVideoFallbackImage={
+              benefitData?.planVideoFallbackImage ?? undefined
+            }
           />
         )}
 

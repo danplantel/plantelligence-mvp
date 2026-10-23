@@ -261,6 +261,54 @@ describe("PUT /api/clients/[id]/benefits/[category]", () => {
     expect(upsertArgs.create.planVideoVisible).toBe(true);
   });
 
+  it("stores the no-video image on create", async () => {
+    await PUT(
+      request("PUT", undefined, {
+        title: "New",
+        planVideoFallbackImage: "https://cdn.test/fallback.jpg",
+      }),
+      { params },
+    );
+
+    const upsertArgs = mocks.prisma.benefit.upsert.mock.calls[0][0] as any;
+    expect(upsertArgs.create.planVideoFallbackImage).toBe(
+      "https://cdn.test/fallback.jpg",
+    );
+  });
+
+  it("patches the no-video image when it is sent", async () => {
+    await PUT(
+      request("PUT", undefined, {
+        planVideoFallbackImage: "https://cdn.test/fallback.jpg",
+      }),
+      { params },
+    );
+
+    expect(mocks.prisma.benefit.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        update: expect.objectContaining({
+          planVideoFallbackImage: "https://cdn.test/fallback.jpg",
+        }),
+      }),
+    );
+  });
+
+  it("leaves the no-video image alone when the request omits it", async () => {
+    await PUT(request("PUT", undefined, { title: "Updated" }), { params });
+
+    const upsertArgs = mocks.prisma.benefit.upsert.mock.calls[0][0] as any;
+    expect(upsertArgs.update.planVideoFallbackImage).toBeUndefined();
+  });
+
+  it("clears the no-video image when it is sent as null", async () => {
+    await PUT(request("PUT", undefined, { planVideoFallbackImage: null }), {
+      params,
+    });
+
+    const upsertArgs = mocks.prisma.benefit.upsert.mock.calls[0][0] as any;
+    expect(upsertArgs.update.planVideoFallbackImage).toBeNull();
+  });
+
   it("writes isEnabled false and mirrors the rows", async () => {
     mocks.prisma.benefit.findMany.mockResolvedValue([
       benefit({ isEnabled: false }),

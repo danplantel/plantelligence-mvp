@@ -104,6 +104,12 @@ export interface BenefitsStep1Data {
   /** Poster image: uploaded image, captured video frame, or external URL. */
   planVideoThumbnail?: string;
   /**
+   * Image shown in the journey section INSTEAD of a video (the Video Source
+   * editor's "Default Image" card). Absent means the category's stock image is
+   * used (see lib/benefits-video-fallback.ts).
+   */
+  planVideoFallbackImage?: string;
+  /**
    * "Show on page" toggle in the Video Source editor. `false` hides the whole
    * video section on the portal; absent means shown.
    */

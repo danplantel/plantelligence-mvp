@@ -305,6 +305,12 @@ export async function PUT(
       "background",
       "plan-video-thumbnail.png",
     );
+    // The no-video image. Same rule as the thumbnail: store a key, never a data URL.
+    const planVideoFallbackImage = await toR2Key(
+      body.planVideoFallbackImage,
+      "background",
+      "plan-video-fallback.png",
+    );
     const insuranceBackgroundImage = await toR2Key(
       body.insuranceBackgroundImage,
       "background",
@@ -328,6 +334,7 @@ export async function PUT(
         planVideoFileName: body.planVideoFileName ?? null,
         planVideoLabel: body.planVideoLabel ?? null,
         planVideoThumbnail: planVideoThumbnail ?? null,
+        planVideoFallbackImage: planVideoFallbackImage ?? null,
         // A new row defaults to visible unless the editor explicitly hid it.
         planVideoVisible: body.planVideoVisible ?? true,
         partnerLogo: partnerLogo ?? null,
@@ -383,6 +390,7 @@ export async function PUT(
         planVideoLabel:
           body.planVideoLabel !== undefined ? body.planVideoLabel : undefined,
         planVideoThumbnail: planVideoThumbnail,
+        planVideoFallbackImage: planVideoFallbackImage,
         // Patch semantics: an omitted flag leaves the stored value alone.
         planVideoVisible:
           body.planVideoVisible !== undefined
@@ -514,6 +522,7 @@ export async function PUT(
           planVideoFileName: b.planVideoFileName,
           planVideoLabel: b.planVideoLabel,
           planVideoThumbnail: b.planVideoThumbnail,
+          planVideoFallbackImage: b.planVideoFallbackImage,
           // Editor's "Show on page" toggle (the hub hides the whole video section
           // when this is false).
           planVideoVisible: b.planVideoVisible,

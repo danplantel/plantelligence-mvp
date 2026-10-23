@@ -15,7 +15,9 @@ import { BenefitsVideoSection } from "../benefits-video-section";
  */
 
 vi.mock("next/image", () => ({
-  default: ({ alt }: { alt?: string }) => <img alt={alt ?? ""} />,
+  default: ({ alt, src }: { alt?: string; src?: unknown }) => (
+    <img alt={alt ?? ""} src={typeof src === "string" ? src : ""} />
+  ),
 }));
 
 const DEFAULTS: Record<string, [string, string]> = {
@@ -138,5 +140,104 @@ describe("BenefitsVideoSection default copy", () => {
         name: DEFAULTS["Group Health"][1],
       }),
     ).toBeInTheDocument();
+  });
+});
+
+/**
+ * "Watch Now" only exists to start the plan video. Without one there is nothing
+ * to start, so it is dropped rather than shown in a disabled state.
+ */
+describe("BenefitsVideoSection Watch Now CTA", () => {
+  it("hides Watch Now when there is no video", () => {
+    render(<BenefitsVideoSection category="Retirement" />);
+
+    expect(
+      screen.queryByRole("button", { name: /watch now/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows Watch Now once a video is present", () => {
+    render(
+      <BenefitsVideoSection
+        category="Retirement"
+        planVideoUrl="https://cdn.test/video.mp4"
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: /watch now/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the schedule CTA when there is no video", () => {
+    render(
+      <BenefitsVideoSection
+        category="Retirement"
+        keyContacts={[{ fullName: "Dana Reed", schedulingUrl: "https://cal.test" }]}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /watch now/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /schedule with dana/i }),
+    ).toBeInTheDocument();
+  });
+});
+
+/**
+ * With no video the right-hand panel is a still image: the plan's own "Default
+ * Image" (upload / gallery pick) when it has one, otherwise the category's stock
+ * image. The poster is ignored — it describes a video that isn't there.
+ */
+describe("BenefitsVideoSection default image", () => {
+  /** The rendered right-column image. */
+  function panelImage(): HTMLImageElement {
+    return screen.getByRole("img", {
+      name: "Category placeholder image",
+    }) as HTMLImageElement;
+  }
+
+  it("paints the plan's own default image", () => {
+    render(
+      <BenefitsVideoSection
+        category="Retirement"
+        planVideoFallbackImage="https://cdn.test/fallback.jpg"
+      />,
+    );
+
+    expect(panelImage().src).toBe("https://cdn.test/fallback.jpg");
+  });
+
+  it("falls back to the category's stock image", () => {
+    render(<BenefitsVideoSection category="Group Health" />);
+
+    expect(panelImage().src).toContain("photo-1576091160399");
+  });
+
+  it("resolves a stored R2 key through the image proxy", () => {
+    render(
+      <BenefitsVideoSection
+        category="Retirement"
+        planVideoFallbackImage="benefits/plan-1/fallback.png"
+      />,
+    );
+
+    expect(panelImage().src).toContain(
+      "/api/r2/object?key=benefits%2Fplan-1%2Ffallback.png",
+    );
+  });
+
+  it("ignores a stale poster, so the chosen image still shows", () => {
+    render(
+      <BenefitsVideoSection
+        category="Retirement"
+        planVideoFallbackImage="https://cdn.test/fallback.jpg"
+        videoThumbnail="https://cdn.test/poster.jpg"
+      />,
+    );
+
+    expect(panelImage().src).toBe("https://cdn.test/fallback.jpg");
   });
 });

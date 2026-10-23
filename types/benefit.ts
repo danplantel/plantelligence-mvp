@@ -81,6 +81,12 @@ export interface BenefitData {
   /** Poster image (R2 key, external URL, or data URL) */
   planVideoThumbnail?: string | null;
   /**
+   * Image shown in the journey section when the plan has no video — the editor's
+   * "Default Image" upload / gallery pick (R2 key or external URL). Null falls
+   * back to the category's stock image.
+   */
+  planVideoFallbackImage?: string | null;
+  /**
    * Editor's "Show on page" toggle. `false` hides the whole video section on the
    * portal; absent/`true` shows it (a row saved before the toggle existed keeps
    * playing its video).

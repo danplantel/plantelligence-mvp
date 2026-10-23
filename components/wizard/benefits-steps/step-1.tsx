@@ -802,6 +802,10 @@ export function BenefitsStep1({
           planVideo: currentStepData.planVideo || null,
           planVideoFileName: currentStepData.planVideoFileName || null,
           planVideoLabel: currentStepData.planVideoLabel || null,
+          // The no-video image is deliberately omitted for the same reason as the
+          // thumbnail below: a fresh upload is a data URL here, and re-sending it
+          // on every debounce would re-upload it each time. `saveBenefit()`
+          // persists it on completion / edit save; the draft keeps it meanwhile.
           // "Show on page" toggle from the Video Source editor. Undefined leaves the
           // stored value alone (see the Benefit API's patch semantics).
           planVideoVisible: currentStepData.planVideoVisible,
@@ -1610,6 +1614,7 @@ export function BenefitsStep1({
       };
       next.planVideo = undefined;
       next.planVideoFileName = undefined;
+      next.planVideoFallbackImage = undefined;
       next.journeyHeader = undefined;
       next.journeySubtitle = undefined;
       next.journeyBodyText = undefined;
@@ -2511,6 +2516,10 @@ export function BenefitsStep1({
         getDefaultLandingCardBody(normalizedCategory),
       planVideo: existingBenefit?.planVideo || undefined,
       planVideoFileName: existingBenefit?.planVideoFileName || undefined,
+      // The category's own no-video image (or none) — so switching categories
+      // never carries another benefit's default image over.
+      planVideoFallbackImage:
+        existingBenefit?.planVideoFallbackImage || undefined,
       planVideoRemoved: false,
       // Provider / recordkeeper comes from THIS category's own Benefit row (or is
       // cleared), so switching categories never carries another provider over.

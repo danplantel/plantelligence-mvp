@@ -32,8 +32,6 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 const LIFE_DOCUMENT_HUB = benefitCategoryToDocumentHubLabel("Group Life");
 
-const LIFE_INSURANCE_FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1511895426328-dc8714191300?w=800&q=80";
 
 export default function LifeInsurancePage() {
   const { clientData, profile } = useClientPortal();
@@ -199,7 +197,11 @@ export default function LifeInsurancePage() {
               "Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."
             }
             planVideoUrl={benefitData?.planVideo as string | undefined}
-            planVideoFallbackImage={LIFE_INSURANCE_FALLBACK_IMAGE}
+            // The plan's own no-video image; when unset the section uses the
+            // category's stock image (lib/benefits-video-fallback.ts).
+            planVideoFallbackImage={
+              benefitData?.planVideoFallbackImage ?? undefined
+            }
           />
         )}
 
