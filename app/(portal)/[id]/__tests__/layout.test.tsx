@@ -64,6 +64,10 @@ vi.mock("@/components/pages/client-portal/sections/portal-install-app", () => ({
   PortalInstallApp: () => <div data-testid="install-app" />,
 }));
 
+vi.mock("@/components/pages/client-portal/sections/portal-chatbot", () => ({
+  PortalChatbot: () => <div data-testid="portal-chatbot" />,
+}));
+
 vi.mock("@/components/comments/comment-mode-provider", () => ({
   useCommentSurface: (surface: unknown) => {
     mocks.surfaces.push(surface);
@@ -156,6 +160,9 @@ describe("portal layout composition", () => {
     expect(screen.getByTestId("comments-zoom-wrapper")).toBeInTheDocument();
     expect(screen.getByText("page content")).toBeInTheDocument();
     expect(screen.getByTestId("install-app")).toBeInTheDocument();
+    // The floating "Ask a question" action is chrome of its own, mounted beside
+    // the install prompt and outside the comments zoom.
+    expect(screen.getByTestId("portal-chatbot")).toBeInTheDocument();
   });
 
   it("passes the plan's identity and hub set to the header", () => {

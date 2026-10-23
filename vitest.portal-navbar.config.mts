@@ -13,6 +13,8 @@ import baseConfig from "./vitest.config.mts";
 const portalNavbarTests = [
   // The chrome itself: composition, banner, back links, light mode, disclosures
   "app/(portal)/[id]/__tests__/layout.test.tsx",
+  // The floating "Ask a question" chatbot that replaced the header button
+  "components/pages/client-portal/sections/__tests__/portal-chatbot.test.tsx",
   // The portal's own 404, rendered inside this chrome
   "app/(portal)/[id]/not-found/__tests__/page.test.tsx",
   // The three gates that arm the Comments rail

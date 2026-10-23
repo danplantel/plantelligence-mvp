@@ -16,6 +16,7 @@ import {
 import { PortalCommentsRail } from "@/components/comments/portal-comments-rail";
 import { PortalCommentsZoom } from "@/components/comments/portal-comments-zoom";
 import { PortalInstallApp } from "@/components/pages/client-portal/sections/portal-install-app";
+import { PortalChatbot } from "@/components/pages/client-portal/sections/portal-chatbot";
 import { portalCommentsSurface } from "@/lib/comments/portal-surface";
 import { Button } from "@/components/ui/button";
 import { PortalPopUpOverlay } from "@/components/pages/client-portal/sections/portal-popup-overlay";
@@ -629,6 +630,11 @@ export default function ClientViewLayout({
           so the Comments preview must neither scale it nor scroll it away. It arms itself from
           browser APIs and hides on its own when dismissed or already installed. */}
       <PortalInstallApp />
+      {/* The floating "Ask a question" action replaces the old header button. Sits
+          outside the zoom wrapper for the same reason as the install prompt: it is
+          portal chrome, not page content, and must stay full size and pinned to the
+          viewport corner. Reads the plan's colours from the portal context. */}
+      <PortalChatbot />
     </ClientPortalProvider>
   );
 }

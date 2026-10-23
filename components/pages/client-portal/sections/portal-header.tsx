@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { X, ChevronDown, Calendar, Pencil, Menu, Search } from "lucide-react";
+import { X, ChevronDown, Calendar, Pencil, Menu } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
@@ -575,16 +575,9 @@ export function PortalHeader({
                 </div>
               </nav>
 
-              {/* Ask a question — UI only for now; the flow will be wired later.
-                  First in the cluster on mobile (hamburger follows it), last from `md:`. */}
-              <Button
-                type="button"
-                className="order-1 gap-2 rounded-full px-4 text-xs font-medium text-white shadow-sm transition-opacity hover:opacity-90 sm:px-5 sm:text-sm md:order-2"
-                style={{ background: secondaryColor }}
-              >
-                <Search className="h-4 w-4 shrink-0" />
-                Ask a question
-              </Button>
+              {/* "Ask a question" is no longer a header button — it is the portal's
+                  floating chatbot action in the bottom-right corner (see
+                  portal-chatbot.tsx), so it is reachable on every page size. */}
             </div>
           </div>
         </div>
