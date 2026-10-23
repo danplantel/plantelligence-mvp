@@ -312,18 +312,10 @@ export function SmallVerticalCard({
     }
   }
 
-  // Legacy fallback: only show default Schedule button when no CTA system data exists at all
-  if (buttons.length === 0 && contact.enableContactButton === undefined) {
-    buttons.push({
-      type: "schedule",
-      label: "Schedule Appt.",
-      url: appointmentLink,
-    });
-    primaryIndex = 0;
-  }
-
-  // Computed AFTER the legacy fallback: the rendered button list is gated on
-  // this flag, so computing it first silently dropped the fallback button.
+  // No CTA is ever invented: a contact that was never given one (no
+  // `enableContactButton`, no legacy display flag) renders NO button. A default
+  // "Schedule Appt." used to fill that gap, which put a booking button on people
+  // the advisor never configured — the plan's contacts showed one everywhere.
   const hasAnyButton = buttons.some((b) => !!b.url);
 
   /**

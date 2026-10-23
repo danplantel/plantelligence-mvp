@@ -641,8 +641,9 @@ describe("BenefitsStep3", () => {
       renderStep();
 
       fireEvent.click(
+        // The shared Key Contacts card labels this action "Delete this contact".
         screen.getAllByRole("button", {
-          name: "Delete this contact from the plan",
+          name: "Delete this contact",
         })[0],
       );
       const dialog = screen.getByRole("dialog", {
@@ -673,7 +674,7 @@ describe("BenefitsStep3", () => {
 
       fireEvent.click(
         screen.getAllByRole("button", {
-          name: "Delete this contact from the plan",
+          name: "Delete this contact",
         })[0],
       );
       fireEvent.click(screen.getByRole("button", { name: "Yes, delete" }));

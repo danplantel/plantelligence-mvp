@@ -17,10 +17,13 @@ import { HaveQuestions } from "../have-questions";
  */
 
 vi.mock("@/components/ui/headshot", () => ({
-  Headshot: ({ src, alt }: { src: string; alt: string }) => (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={alt} />
-  ),
+  // Mirrors the real component: an image only when there is a source, the
+  // placeholder slot otherwise.
+  Headshot: ({ src, alt }: { src?: string | null; alt: string }) =>
+    src ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={src} alt={alt} />
+    ) : null,
 }));
 
 vi.mock("@/config/onboarding/designations", () => ({
@@ -55,8 +58,13 @@ describe("HaveQuestions", () => {
     );
   });
 
-  it("sits on a light grey band, with white cards", () => {
-    const { container } = render(<HaveQuestions contacts={[contact()]} />);
+  it("sits on a light grey band and renders the shared contact cards", () => {
+    const { container } = render(
+      <HaveQuestions
+        contacts={[contact()]}
+        appointmentLink="https://cal.test"
+      />,
+    );
 
     // Matches the FAQ panel above it, so the two read as one closing pair.
     const section = container.querySelector("section") as HTMLElement;
@@ -64,8 +72,12 @@ describe("HaveQuestions", () => {
     expect(section.className).toContain("border-y");
     expect(section.className).not.toContain("bg-white");
 
-    const card = screen.getByText("Ada Advisor").closest("div.bg-white");
-    expect(card).not.toBeNull();
+    // The card's identity block is the shared one — its own role line included.
+    expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent(
+      "Ada Advisor",
+    );
+    // The plan's appointment link does NOT create a CTA on its own.
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
   it("renders the heading and one card per contact", () => {
@@ -97,10 +109,10 @@ describe("HaveQuestions", () => {
     expect(
       screen.getByRole("link", { name: /ada@acme\.test/ }),
     ).toHaveAttribute("href", "mailto:ada@acme.test");
-    expect(screen.getByRole("link", { name: /305-555-0100/ })).toHaveAttribute(
-      "href",
-      "tel:3055550100",
-    );
+    // The shared card formats the number and dials it with a country code.
+    expect(
+      screen.getByRole("link", { name: /\(305\) 555-0100/ }),
+    ).toHaveAttribute("href", "tel:+13055550100");
   });
 
   it("omits the rows a contact does not have", () => {
@@ -136,23 +148,24 @@ describe("HaveQuestions", () => {
     expect(screen.queryByText("CERTIFIED")).not.toBeInTheDocument();
   });
 
-  it("shows the headshot when there is one and a glyph otherwise", () => {
+  it("shows the headshot when there is one", () => {
     const { container } = render(
       <HaveQuestions
         contacts={[contact({ headshot: "https://cdn.test/a.png" })]}
       />,
     );
-    expect(screen.getByAltText("Ada Advisor")).toHaveAttribute(
+    expect(screen.getByAltText("Avatar")).toHaveAttribute(
       "src",
       "https://cdn.test/a.png",
     );
 
     container.remove();
+    // No headshot → the card draws its placeholder instead of an image.
     const second = render(<HaveQuestions contacts={[contact()]} />);
     expect(second.container.querySelector("img")).toBeNull();
   });
 
-  it("paints the avatar with the brand colour and the name with the accent", () => {
+  it("paints the name in the brand colour", () => {
     render(
       <HaveQuestions
         contacts={[contact()]}
@@ -161,8 +174,72 @@ describe("HaveQuestions", () => {
       />,
     );
 
+    // The shared card titles the name in the plan's brand colour.
     expect(screen.getByText("Ada Advisor").closest("h3")).toHaveStyle({
-      color: "#654321",
+      color: "#123456",
     });
+  });
+
+  it("draws exactly the CTA the advisor configured — and none without one", () => {
+    const { container } = render(
+      <HaveQuestions
+        contacts={[
+          contact({
+            enableContactButton: true,
+            contactButtonType: "calendar",
+            schedulingUrl: "https://book.test/ada",
+          }),
+        ]}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Schedule Appt." }),
+    ).toBeInTheDocument();
+    container.remove();
+
+    // A different configured type draws that type.
+    const second = render(
+      <HaveQuestions
+        contacts={[
+          contact({
+            enableContactButton: true,
+            contactButtonType: "phone",
+            phone: "305-555-0100",
+          }),
+        ]}
+      />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Call Now" }),
+    ).toBeInTheDocument();
+    second.container.remove();
+
+    // A contact with an email and a phone but NO configured CTA draws no button.
+    // Inferring one put "Call Now" on every card the advisor never touched.
+    render(
+      <HaveQuestions
+        contacts={[
+          contact({ phone: "305-555-0100", email: "a@b.test" }),
+        ]}
+      />,
+    );
+    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+  });
+
+  it("shows the plan's company logo on a plan-level contact card", () => {
+    // The plan sponsor's own people carry no company and no category, so their
+    // card is the plan's — it must still show the plan's logo.
+    const { container } = render(
+      <HaveQuestions
+        contacts={[contact({ companyName: "", companyLogo: "", benefitsCategories: [] })]}
+        companyName="Acme Sponsor LLC"
+        companyLogo="https://cdn.test/plan-logo.png"
+      />,
+    );
+
+    expect(screen.getByText("Acme Sponsor LLC")).toBeInTheDocument();
+    expect(
+      container.querySelector('[src="https://cdn.test/plan-logo.png"]'),
+    ).not.toBeNull();
   });
 });

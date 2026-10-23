@@ -14,6 +14,8 @@ export interface DynamicFAQItem {
 
 export interface FAQContact {
   id: string;
+  /** The person's full name. `title` carries it when this is absent (legacy). */
+  name?: string;
   title: string;
   description: string;
   /** Free-text designations, each rendered directly under the job title. */
@@ -22,6 +24,29 @@ export interface FAQContact {
   phone: string;
   phoneExtension?: string;
   headshot?: string;
+  /** Where this contact books meetings — the "Schedule Appt." CTA, when set. */
+  schedulingUrl?: string;
+  /**
+   * The CTA the advisor configured for this person in the Contact editor.
+   *
+   * These travel with the contact so the card renders exactly the button that
+   * was chosen — and NONE when nothing was chosen. The card must never infer a
+   * CTA from whichever fields happen to be populated.
+   */
+  enableContactButton?: boolean;
+  contactButtonType?: "email" | "phone" | "calendar" | "url";
+  /** Company / organization shown on the card (logo bar). */
+  companyName?: string;
+  companyLogo?: string;
+  /**
+   * Every benefit category the person serves. A "Company / Plan Sponsor" card
+   * shows the PLAN's logo, exactly as it does on My Benefits Team — that card
+   * represents the sponsor, so it must never be logo-less just because the
+   * contact row carries no copy.
+   */
+  benefitsCategories?: string[];
+  /** Outbound website or contact-form URL, when the contact has one. */
+  websiteUrl?: string;
 }
 
 interface FAQSectionProps {

@@ -306,16 +306,11 @@ describe("PrimaryContactCard action buttons", () => {
     expect(buttonLabels()).toEqual(["Contact", "Schedule Appt."]);
   });
 
-  it("falls back to a Schedule Appt. button using the plan's appointment link", async () => {
-    const user = userEvent.setup();
+  it("draws no CTA for a contact the advisor never configured", () => {
+    // The plan's appointment link alone used to produce a Schedule button here.
     renderCard({ name: "Ada" });
 
-    await user.click(screen.getByRole("button", { name: "Schedule Appt." }));
-
-    expect(mocks.open).toHaveBeenCalledWith(
-      "https://book.test/schedule",
-      "_blank",
-    );
+    expect(buttonLabels()).toEqual([]);
   });
 
   it("renders no buttons when the CTA is explicitly disabled", () => {

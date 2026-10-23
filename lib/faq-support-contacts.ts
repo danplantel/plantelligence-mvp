@@ -45,6 +45,18 @@ function text(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+const CONTACT_BUTTON_TYPES = ["email", "phone", "calendar", "url"] as const;
+
+/** Narrow a stored CTA type to the four the cards understand. */
+function isContactButtonType(
+  value: unknown,
+): value is (typeof CONTACT_BUTTON_TYPES)[number] {
+  return (
+    typeof value === "string" &&
+    (CONTACT_BUTTON_TYPES as readonly string[]).includes(value)
+  );
+}
+
 /** Normalize a stored designation value into a cleaned list of strings. */
 function textArray(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -91,19 +103,53 @@ export function buildFaqSupportContacts({
     const designations =
       designationList.length > 0 ? designationList : textArray(contact.designation);
 
+    // Which categories this person serves. The "Company / Plan Sponsor" card
+    // shows the plan's logo rather than the row's (see `HaveQuestions`), so the
+    // category has to travel with the contact.
+    const categoryList = textArray(contact.benefitsCategories);
+    const categories =
+      categoryList.length > 0 ? categoryList : textArray(contact.benefitsCategory);
+
     out.push({
       // The contact's own id, so the card key and the tel:/mailto: links agree with the
       // same person on My Benefits Team.
       id: contactId,
-      // The advisor's per-benefit copy wins; otherwise the person's own name/title.
+      // The card shows the person's NAME and, under it, their ROLE. `title` keeps
+      // carrying the name so the pre-refactor shape (and any other reader) still
+      // works; `name` is the explicit field the shared contact card reads.
+      name: name || undefined,
       title: text(entry.title) || name || "Support Contact",
-      description: text(entry.description) || text(contact.customRole) || text(contact.title),
+      // The card's subtitle is the PERSON's role, exactly as on My Benefits Team.
+      // The per-benefit blurb the wizard used to write here ("Contact for any
+      // questions regarding this benefit.") is only a fallback, so a contact with
+      // a job title no longer shows boilerplate instead of their role.
+      description:
+        text(contact.customRole) ||
+        text(contact.title) ||
+        text(entry.description),
       // Each designation renders on its own line under the job title on the card.
       ...(designations.length > 0 ? { designations } : {}),
       email: text(contact.email),
       phone: text(contact.phone),
       phoneExtension: text(contact.phoneExtension) || undefined,
       headshot: text(contact.headshot) || undefined,
+      // The same card as My Benefits Team, so it needs the same affordances: a
+      // booking link, the company that owns the card, and the outbound URL.
+      ...(text(contact.schedulingUrl)
+        ? { schedulingUrl: text(contact.schedulingUrl) }
+        : {}),
+      // The CTA the advisor configured, exactly as stored. Its absence is
+      // meaningful — the card then draws no button instead of inventing one.
+      ...(typeof contact.enableContactButton === "boolean"
+        ? { enableContactButton: contact.enableContactButton }
+        : {}),
+      ...(isContactButtonType(contact.contactButtonType)
+        ? { contactButtonType: contact.contactButtonType }
+        : {}),
+      ...(text(contact.companyName) ? { companyName: text(contact.companyName) } : {}),
+      ...(text(contact.companyLogo) ? { companyLogo: text(contact.companyLogo) } : {}),
+      ...(categories.length > 0 ? { benefitsCategories: categories } : {}),
+      ...(text(contact.websiteUrl) ? { websiteUrl: text(contact.websiteUrl) } : {}),
     });
   }
 

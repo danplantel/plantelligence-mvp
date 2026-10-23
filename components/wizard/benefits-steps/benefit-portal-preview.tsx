@@ -180,6 +180,14 @@ export function BenefitPortalPreview({
     step1Data?.selectedPlan?.brandColor ||
     step1Data?.selectedPlan?.primaryColor ||
     "#1F3A60";
+  // The plan's own logo — what a Company / Plan Sponsor card shows.
+  const planCompanyLogoUrl =
+    step1Data?.companyLogo?.url ||
+    (typeof (step1Data?.selectedPlan as any)?.companyLogo === "object"
+      ? (step1Data?.selectedPlan as any)?.companyLogo?.url
+      : (step1Data?.selectedPlan as any)?.companyLogo) ||
+    "";
+
   const secondaryColor =
     secondaryColorOverride ||
     step1Data?.selectedPlan?.secondaryColor ||
@@ -268,19 +276,37 @@ export function BenefitPortalPreview({
         .filter((sc: any) => sc.enabled !== false)
         .map((sc: any) => {
           const matched = rawContacts.find((c: any) => c.id === sc.contactId);
+          const personName =
+            sc.title ||
+            matched?.name ||
+            `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() ||
+            "Support Contact";
           return {
             id: sc.contactId,
-            title:
-              sc.title ||
-              matched?.name ||
-              `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() ||
-              "Support Contact",
+            // The card shows the name and, under it, the role — the same split
+            // `buildFaqSupportContacts` produces for the live hubs.
+            name: personName,
+            title: personName,
+            // The person's role, matching My Benefits Team — the per-benefit
+            // blurb is only a fallback.
             description:
-              sc.description || matched?.customRole || matched?.title || "",
+              matched?.customRole || matched?.title || sc.description || "",
             email: matched?.email || "",
             phone: matched?.phone || "",
             phoneExtension: matched?.phoneExtension,
             headshot: matched?.headshot || undefined,
+            // Same affordances as the live hub cards: a booking link, the company
+            // that owns the card, and the outbound URL.
+            schedulingUrl: matched?.schedulingUrl || undefined,
+            companyName: matched?.companyName || undefined,
+            companyLogo: matched?.companyLogo || undefined,
+            websiteUrl: matched?.websiteUrl || undefined,
+            // The CTA the advisor configured — passed through, never inferred.
+            enableContactButton: matched?.enableContactButton,
+            contactButtonType: matched?.contactButtonType,
+            // Which categories the person serves, so the plan-sponsor card can
+            // borrow the plan's logo exactly as it does on the live hub.
+            benefitsCategories: matched?.benefitsCategories || undefined,
           } as FAQContact;
         });
 
@@ -691,6 +717,7 @@ export function BenefitPortalPreview({
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           contacts={faqContacts}
+          companyLogo={planCompanyLogoUrl}
         />
       </main>
     </div>

@@ -171,6 +171,10 @@ The fallback every hub depends on during the dual-write transition:
 - keeps the selection's order and de-duplicates
 - returns `[]` when the benefit selected nobody or the plan has no contacts
 - tolerates the `{ contacts }` envelope for `keyContacts`
+- also carries the card-facing fields the Have Questions band needs — `name`, `schedulingUrl`, `companyName`, `companyLogo`, `websiteUrl` — so the band can hand the contact straight to `BenefitContactCard`
+- carries the contact's CTA configuration verbatim (`enableContactButton`, `contactButtonType`). A contact with no configured CTA renders no button: the card never infers one, and the plan's `appointmentLink` alone is not a CTA
+- carries `benefitsCategories` so a Company / Plan Sponsor card — and any plan-level contact with no category of its own — shows the PLAN's logo, the same rule My Benefits Team applies
+- the card's subtitle is the person's role (`customRole`/job title); the old per-benefit blurb is only a fallback
 
 ## H8 — `mergePlanDocumentRows`
 

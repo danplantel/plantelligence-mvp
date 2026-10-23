@@ -55,6 +55,9 @@ import {
 } from "@/components/ui/accordion";
 import { Badge } from "@/components/ui/badge";
 import { InviteCollaboratorDialog } from "@/components/pages/benefits/invite-collaborator-dialog";
+// The plan's Key Contacts card — the SAME card the Edit Client and Create Plan
+// Key Contacts surfaces render, so this roster cannot drift from them.
+import { ContactCard } from "@/components/contacts/contact-card";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -787,7 +790,9 @@ export function BenefitsStep3({
       const newContact: SupportContact = {
         contactId,
         title: contact?.title || "Support Contact",
-        description: "Contact for any questions regarding this benefit.",
+        // No boilerplate: the card's subtitle is the person's job title, and an
+        // empty value lets the resolver read it from the contact.
+        description: "",
         enabled: true,
       };
       saveStepData(3, {
@@ -1155,7 +1160,8 @@ export function BenefitsStep3({
     const newSupportContact: SupportContact = {
       contactId: created.id,
       title: created.title || "Support Contact",
-      description: "Contact for any questions regarding this benefit.",
+      // No boilerplate — see the note on `newContact` above.
+      description: "",
       enabled: true,
     };
     saveStepData(3, {
@@ -1171,21 +1177,38 @@ export function BenefitsStep3({
     if (enabled.length === 0) return undefined;
     return enabled.map((sc) => {
       const matched = planContacts.find((c) => c.id === sc.contactId);
+      const personName =
+        sc.title ||
+        matched?.name ||
+        `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() ||
+        "Support Contact";
       return {
         id: sc.contactId,
-        title:
-          sc.title ||
-          matched?.name ||
-          `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() ||
-          "Support Contact",
+        // The card shows the name and, under it, the role.
+        name: personName,
+        title: personName,
+        // The person's role, matching My Benefits Team. The per-benefit blurb is
+        // only a fallback — it used to win and every card read the same sentence.
         description:
-          sc.description || matched?.customRole || matched?.title || "",
+          matched?.customRole || matched?.title || sc.description || "",
         email: matched?.email || "",
         phone: matched?.phone || "",
+        phoneExtension: matched?.phoneExtension,
         headshot: matched?.headshot || undefined,
         // The pills the advisor gave this contact, so the "Have Questions?" preview
         // shows the same card the portal will.
         designations: matched?.designations,
+        // Everything the shared card renders a button or logo from — copied
+        // verbatim so the preview cannot invent what the portal would not show.
+        schedulingUrl: matched?.schedulingUrl,
+        companyName: matched?.companyName,
+        companyLogo: matched?.companyLogo,
+        websiteUrl: matched?.websiteUrl,
+        enableContactButton: matched?.enableContactButton,
+        contactButtonType: matched?.contactButtonType,
+        // Which categories the person serves, so a Company / Plan Sponsor card
+        // can borrow the plan's logo exactly as it does on the live hub.
+        benefitsCategories: matched?.benefitsCategories,
       } as FAQContact;
     });
   }, [currentStep3Data.supportContacts, planContacts]);
@@ -1198,6 +1221,13 @@ export function BenefitsStep3({
     step1Data?.selectedPlan?.secondaryColor ||
     step1Data?.selectedPlan?.brandColors?.secondary ||
     "#6B7280";
+  /** The plan's own logo — what a Company / Plan Sponsor card shows. */
+  const planCompanyLogoUrl =
+    (step1Data?.selectedPlan as any)?.companyLogo?.url ||
+    (typeof (step1Data?.selectedPlan as any)?.companyLogo === "string"
+      ? (step1Data?.selectedPlan as any)?.companyLogo
+      : "") ||
+    "";
 
   return (
     <>
@@ -1366,22 +1396,11 @@ export function BenefitsStep3({
                             currentStep3Data.supportContacts.some(
                               (sc) => sc.contactId === contact.id,
                             );
-                          const supportConfig =
-                            currentStep3Data.supportContacts.find(
-                              (sc) => sc.contactId === contact.id,
-                            );
-                          // At the cap a contact that is not already selected cannot be added. Dim
-                          // it so the rule is visible before the click — `toggleContact` still
-                          // guards, and says why.
+                          // At the cap a contact that is not already selected cannot be
+                          // added. Dim it so the rule is visible before the click —
+                          // `toggleContact` still guards, and says why.
                           const isBlockedByLimit =
                             !isSelected && atSupportContactLimit;
-                          // `(555) 123-4567`, plus the extension when the contact has one. Key
-                          // Contacts are stored as digits, so the raw value would read as an
-                          // unformatted string on a card meant to preview the portal's own.
-                          const formattedPhone = formatPhoneWithExtension(
-                            contact.phone,
-                            contact.phoneExtension,
-                          );
                           // Email is the only key the plan's contact list and the assignment list
                           // share — a contact carries no profile id and a profile no contact id —
                           // so it is what connects this card to the person the server knows.
@@ -1392,7 +1411,8 @@ export function BenefitsStep3({
                             ? teammateByEmail.get(contactEmail)
                             : undefined;
                           /**
-                           * What replaces the seat button, or `null` when the button is right.
+                           * What the seat control below the card should say, or the seat
+                           * button it offers. See the shared card's own ladder.
                            *
                            * Only `invited` and `active` count as already handled. The T7 contact
                            * mirror creates an assignment for EVERY plan contact, so an ordinary
@@ -1416,323 +1436,84 @@ export function BenefitsStep3({
                               ).toLocaleDateString()
                             : null;
 
+                          const personName =
+                            contact.name ||
+                            `${contact.firstName ?? ""} ${
+                              contact.lastName ?? ""
+                            }`.trim() ||
+                            "Support Contact";
+
+                          // The SAME card the plan's Key Contacts surfaces render
+                          // (`ContactCard`): one identity block, one action cluster,
+                          // one seat ladder. The whole card toggles this benefit's
+                          // inclusion, and every action inside it stops propagation,
+                          // so editing or deleting a person never deselects them.
                           return (
-                            <Card
+                            <div
                               key={contact.id}
-                              className={`overflow-hidden transition-all ${
+                              role="button"
+                              tabIndex={isBlockedByLimit ? -1 : 0}
+                              aria-pressed={isSelected}
+                              aria-label={
                                 isSelected
-                                  ? "border-accent-blue shadow-sm ring-1 ring-accent-blue/20"
-                                  : "border-gray-100 bg-white hover:border-gray-200 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600"
-                              } ${isBlockedByLimit ? "opacity-50" : ""}`}
+                                  ? `Remove ${personName} from this benefit`
+                                  : `Include ${personName} for this benefit`
+                              }
+                              title={
+                                isBlockedByLimit
+                                  ? `This benefit already shows ${MAX_SUPPORT_CONTACTS_PER_BENEFIT} support contacts — deselect one to include ${personName}.`
+                                  : isSelected
+                                  ? "Selected for this benefit — click to remove"
+                                  : "Click to include this contact on the benefit page"
+                              }
+                              onClick={() => toggleContact(contact.id)}
+                              onKeyDown={(event) => {
+                                if (
+                                  event.key === "Enter" ||
+                                  event.key === " "
+                                ) {
+                                  event.preventDefault();
+                                  toggleContact(contact.id);
+                                }
+                              }}
+                              className={`rounded-xl transition-all ${
+                                isSelected ? "ring-2 ring-accent-blue/50" : ""
+                              } ${
+                                isBlockedByLimit
+                                  ? "cursor-not-allowed opacity-50"
+                                  : "cursor-pointer"
+                              }`}
                             >
-                              <CardContent
-                                className={`space-y-2 p-3 ${
-                                  isBlockedByLimit
-                                    ? "cursor-not-allowed"
-                                    : "cursor-pointer"
-                                }`}
-                                onClick={() => toggleContact(contact.id)}
-                              >
-                                {/* Photo and controls only, at opposite ends, so the selection control
-                          reads as the card's top-left corner. The name deliberately is not
-                          in this row — see below. */}
-                                <div className="flex items-center gap-2.5">
-                                  <div
-                                    className={`w-4 h-4 shrink-0 rounded-full border flex items-center justify-center transition-colors ${
+                              <ContactCard
+                                contact={contact}
+                                seatStatus={seatStatus}
+                                seatStatusResolved={seatStatusResolved}
+                                inviteDueDate={inviteDueDate}
+                                onEdit={() => setEditingContact(contact)}
+                                onDelete={() =>
+                                  setContactPendingDelete(contact)
+                                }
+                                onGiveSeat={
+                                  contact.email
+                                    ? () => setContactPendingSeat(contact)
+                                    : undefined
+                                }
+                                actions={
+                                  <span
+                                    className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
                                       isSelected
-                                        ? "bg-accent-blue border-accent-blue text-white"
-                                        : "bg-white border-accent-blue dark:bg-gray-700"
+                                        ? "border-accent-blue bg-accent-blue text-white"
+                                        : "border-accent-blue bg-white dark:bg-gray-700"
                                     }`}
+                                    aria-hidden
                                   >
                                     {isSelected && (
-                                      <Check className="w-3.5 w-3.5" />
+                                      <Check className="h-3 w-3" />
                                     )}
-                                  </div>
-                                  {/* The avatar slot is reserved whether or not there is a photo. It is
-                            32px beside a 16px selection dot, so omitting it halved the top row's
-                            height and made that whole card shorter than its neighbours — the same
-                            raggedness the four-line detail block below is written to avoid. With
-                            no photo the monogram stands in, so the reserved space reads as an
-                            avatar rather than as a gap (and when there is no name either, the
-                            slot simply stays empty — `Headshot` renders nothing rather than a
-                            broken image). */}
-                                  <div className="w-8 h-8 shrink-0 overflow-hidden rounded-full border border-gray-100 dark:border-gray-700">
-                                    <Headshot
-                                      src={contact.headshot}
-                                      alt={contact.name ?? "Contact"}
-                                      monogramName={
-                                        contact.name ??
-                                        `${contact.firstName ?? ""} ${
-                                          contact.lastName ?? ""
-                                        }`.trim()
-                                      }
-                                    />
-                                  </div>
-                                  <div className="ml-auto flex shrink-0 items-center">
-                                    {/* Edit this contact's own details. `stopPropagation` keeps the
-                              card's toggle from firing as well — this is the person's data,
-                              not this benefit's inclusion of them. */}
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      title="Edit this contact"
-                                      aria-label="Edit this contact"
-                                      className="h-7 w-7 shrink-0 text-muted-foreground hover:bg-accent-blue/10 hover:text-accent-blue"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setEditingContact(contact);
-                                      }}
-                                    >
-                                      <Pencil className="h-3.5 w-3.5" />
-                                    </Button>
-                                    {/* Plan-level delete. `stopPropagation` is essential: the card
-                              itself toggles this contact on/off for the benefit, which is
-                              a different (non-destructive) action. */}
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      title="Delete this contact from the plan"
-                                      aria-label="Delete this contact from the plan"
-                                      className="h-7 w-7 shrink-0 text-muted-foreground hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        setContactPendingDelete(contact);
-                                      }}
-                                    >
-                                      <Trash2 className="h-3.5 w-3.5" />
-                                    </Button>
-                                  </div>
-                                </div>
-
-                                {/* Name over title, then the ways to reach them, as one left-aligned
-                          column at the card's full width. Reading the name BESIDE the
-                          headshot left it a strip too narrow at four-up, where it is the one
-                          thing on the card that has to stay legible. `title` carries the
-                          untruncated value on hover. */}
-                                <div className="min-w-0 space-y-0.5">
-                                  <p
-                                    title={
-                                      contact.name ||
-                                      `${contact.firstName} ${contact.lastName}`
-                                    }
-                                    className="truncate text-sm font-semibold leading-tight text-foreground"
-                                  >
-                                    {contact.name ||
-                                      `${contact.firstName} ${contact.lastName}`}
-                                  </p>
-                                  <p
-                                    title={contact.title || "No Title"}
-                                    className="truncate text-xs leading-tight text-muted-foreground"
-                                  >
-                                    {contact.title || "No Title"}
-                                  </p>
-                                  {/* Email and phone are drawn even when the contact has neither, and the
-                            placeholder is the reason: this block is what sets the CARD's height.
-                            An empty email was a collapsed `<p>` and a missing phone was no
-                            element at all, so a contact captured with only a name, title and
-                            number came out a line shorter than one with an address — and with
-                            two selected, the taller card defined the row. Four lines always now
-                            (name, title, email, phone), so the cards sit level whatever the
-                            advisor happened to capture.
-
-                            The placeholders are not just alignment either: a support contact
-                            employees cannot email or call is a gap worth seeing at the moment
-                            they are being chosen. */}
-                                  <p
-                                    title={contact.email || "No email"}
-                                    className="truncate text-xs leading-tight text-muted-foreground"
-                                  >
-                                    {contact.email || "No email"}
-                                  </p>
-                                  {/* Shown in the display format, not the stored digits: the card is a
-                            preview of what employees will read on the benefit page. */}
-                                  <p
-                                    title={formattedPhone || "No phone"}
-                                    className="truncate text-xs leading-tight text-muted-foreground"
-                                  >
-                                    {formattedPhone || "No phone"}
-                                  </p>
-                                </div>
-
-                                {/* Promote this person into a paid Team Member seat — unless a seat
-                          is not theirs to be given. The status stands in the button's place
-                          rather than the button simply vanishing, so the card still says
-                          why: the owner already has everything, and somebody who has been
-                          invited (or has accepted) must not be invited twice.
-
-                          Unresolved comes FIRST. `seatStatus` is null until the assignment
-                          read lands, and null is also the real answer for "no seat, no
-                          invitation" — so rendering the ladder before that read made every
-                          card offer a seat to people who already had one. */}
-                                {!seatStatusResolved ? (
-                                  <div
-                                    className={SEAT_STATUS_PENDING_CLASS}
-                                    title="Checking whether this person already holds a seat…"
-                                  >
-                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                    Checking…
-                                  </div>
-                                ) : seatStatus === "owner" ? (
-                                  <div
-                                    className={SEAT_STATUS_MUTED_CLASS}
-                                    title="This is the organization owner. They already have full access to every plan and every category."
-                                  >
-                                    <BadgeCheck className="h-3.5 w-3.5" />
-                                    Organization owner
-                                  </div>
-                                ) : seatStatus === "invited" ? (
-                                  <div
-                                    className={SEAT_STATUS_DONE_CLASS}
-                                    title={
-                                      inviteDueDate
-                                        ? `Invitation sent · expires ${inviteDueDate}`
-                                        : "Invitation sent"
-                                    }
-                                  >
-                                    <MailCheck className="h-3.5 w-3.5" />
-                                    Invite sent
-                                  </div>
-                                ) : seatStatus === "active" ? (
-                                  <div
-                                    className={SEAT_STATUS_DONE_CLASS}
-                                    title="Already a Team Member of your organization."
-                                  >
-                                    <UserCheck className="h-3.5 w-3.5" />
-                                    Team member
-                                  </div>
-                                ) : seatStatus === "deactivated" ? (
-                                  <div
-                                    className={SEAT_STATUS_MUTED_CLASS}
-                                    title="This person was deactivated. Reactivate them in Settings → People & Access rather than adding them again — the server refuses a re-add for a deactivated address."
-                                  >
-                                    <UserCheck className="h-3.5 w-3.5" />
-                                    Deactivated
-                                  </div>
-                                ) : (
-                                  /* Nothing to describe: they hold no seat and no invitation, so the
-                           action IS the content. It lives inside CardContent, which owns the
-                           on/off toggle for this benefit, so every event is stopped —
-                           otherwise pressing it would also deselect the contact. */
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    className="h-8 w-full gap-1.5 text-xs font-semibold"
-                                    title={
-                                      contact.email
-                                        ? "Give this contact a Team Member seat"
-                                        : "Add an email address for this contact first"
-                                    }
-                                    disabled={!contact.email}
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      setContactPendingSeat(contact);
-                                    }}
-                                    onPointerDown={(e) => e.stopPropagation()}
-                                  >
-                                    <Armchair className="h-3.5 w-3.5" />
-                                    Give Team Seat
-                                  </Button>
-                                )}
-                              </CardContent>
-
-                              {/* The display copy only exists once this contact is selected for the
-                        benefit, so it is the card's footer: the card grows with it instead
-                        of a second block appearing beside a fixed-height row. It sits
-                        outside CardContent, which owns the toggle, so typing in these
-                        fields can never deselect the contact. */}
-                              {isSelected && supportConfig && (
-                                <div className="space-y-2.5 border-t border-gray-100 bg-gray-50 p-3 animate-in slide-in-from-top-1 duration-200 dark:border-gray-700 dark:bg-gray-800/50">
-                                  <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                      Display Title
-                                    </Label>
-                                    <Input
-                                      value={supportConfig.title}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        if (
-                                          val.length <=
-                                          MAX_SUPPORT_CONTACT_TITLE_LENGTH
-                                        ) {
-                                          updateSupportContact(contact.id, {
-                                            title: val,
-                                          });
-                                        }
-                                      }}
-                                      placeholder="e.g. Retirement Plan Advisor"
-                                      maxLength={
-                                        MAX_SUPPORT_CONTACT_TITLE_LENGTH
-                                      }
-                                      className="h-8 text-xs"
-                                    />
-                                    <div className="flex justify-end">
-                                      <span
-                                        className={`text-[10px] font-medium tabular-nums transition-colors duration-200 ${
-                                          supportConfig.title.length >=
-                                          MAX_SUPPORT_CONTACT_TITLE_LENGTH
-                                            ? "text-red-500"
-                                            : "text-muted-foreground"
-                                        }`}
-                                      >
-                                        {supportConfig.title.length}
-                                        <span className="text-muted-foreground/60">
-                                          /{MAX_SUPPORT_CONTACT_TITLE_LENGTH}
-                                        </span>
-                                      </span>
-                                    </div>
-                                  </div>
-                                  <div className="space-y-1.5">
-                                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                                      Display Description
-                                    </Label>
-                                    <Textarea
-                                      rows={5}
-                                      value={supportConfig.description}
-                                      onChange={(e) => {
-                                        const val = e.target.value;
-                                        if (
-                                          val.length <=
-                                          MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH
-                                        ) {
-                                          updateSupportContact(contact.id, {
-                                            description: val,
-                                          });
-                                        }
-                                      }}
-                                      placeholder="Short description..."
-                                      maxLength={
-                                        MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH
-                                      }
-                                      className="min-h-[50px] text-xs py-1.5"
-                                    />
-                                    <div className="flex justify-end">
-                                      <span
-                                        className={`text-[10px] font-medium tabular-nums transition-colors duration-200 ${
-                                          supportConfig.description.length >=
-                                          MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH
-                                            ? "text-red-500"
-                                            : supportConfig.description
-                                                .length >=
-                                              MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH *
-                                                0.9
-                                            ? "text-amber-500"
-                                            : "text-muted-foreground"
-                                        }`}
-                                      >
-                                        {supportConfig.description.length}
-                                        <span className="text-muted-foreground/60">
-                                          /
-                                          {
-                                            MAX_SUPPORT_CONTACT_DESCRIPTION_LENGTH
-                                          }
-                                        </span>
-                                      </span>
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                            </Card>
+                                  </span>
+                                }
+                              />
+                            </div>
                           );
                         })
                       )}
@@ -2209,6 +1990,7 @@ export function BenefitsStep3({
                 brandColor={brandColor}
                 secondaryColor={secondaryColor}
                 contacts={previewContacts}
+                companyLogo={planCompanyLogoUrl}
               />
             ) : (
               <div className="text-center py-12 text-muted-foreground">

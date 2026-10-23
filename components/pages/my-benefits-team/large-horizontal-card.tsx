@@ -191,18 +191,8 @@ export function LargeHorizontalCard({
     }
   }
 
-  // Legacy fallback: only show default Schedule button when no CTA system data exists at all
-  if (buttons.length === 0 && contact.enableContactButton === undefined) {
-    buttons.push({
-      type: "schedule",
-      label: "Schedule Appt.",
-      url: appointmentLink,
-    });
-    primaryIndex = 0;
-  }
-
-  // Computed AFTER the legacy fallback: the rendered button list is gated on
-  // this flag, so computing it first silently dropped the fallback button.
+  // No CTA is ever invented: a contact that was never given one (no
+  // `enableContactButton`, no legacy display flag) renders NO button.
   const hasAnyButton = buttons.some((b) => !!b.url);
 
   const logoScaleEffective = contact.logoScale ?? baselineLogoScale ?? 1;

@@ -379,16 +379,13 @@ describe("SmallVerticalCard action buttons", () => {
     expect(buttonLabels()).toEqual(["Visit Support Site"]);
   });
 
-  it("falls back to a Schedule Appt. button using the plan's appointment link", async () => {
-    const user = userEvent.setup();
+  it("draws no CTA for a contact the advisor never configured", () => {
+    // The plan's appointment link alone used to produce a Schedule button here, so
+    // every unconfigured contact showed a booking CTA. A button is only drawn from
+    // the contact's own CTA config (or an explicit legacy display flag).
     renderCard({ name: "Ada" });
 
-    await user.click(screen.getByRole("button", { name: "Schedule Appt." }));
-
-    expect(mocks.open).toHaveBeenCalledWith(
-      "https://book.test/schedule",
-      "_blank",
-    );
+    expect(buttonLabels()).toEqual([]);
   });
 
   it("renders no action button when the CTA is explicitly disabled", () => {
@@ -573,7 +570,16 @@ describe("SmallVerticalCard mobile variants", () => {
   });
 
   it("draws the actions outside the two-column row", () => {
-    const { container } = mobileCard({ mobileVariant: "wide" });
+    // A contact with a configured CTA, so the action row is actually drawn.
+    const { container } = renderCard(
+      {
+        ...CONTACT,
+        enableContactButton: true,
+        contactButtonType: "calendar",
+        schedulingUrl: "https://cal.test/ada",
+      },
+      { compact: true, mobileVariant: "wide" },
+    );
 
     const root = container.querySelector('[data-mobile-variant="wide"]');
     const buttons = screen.getByRole("button", { name: "Schedule Appt." });
