@@ -22,6 +22,8 @@ const portalHubTests = [
   "components/pages/client-portal/sections/__tests__/have-questions.test.tsx",
   // The welcome banner's "Schedule with …" CTA (scrolls to Have Questions)
   "components/pages/client-portal/sections/__tests__/portal-welcome-banner-schedule.test.tsx",
+  // The banner's circular portrait: chosen image → headshot → placeholder
+  "components/pages/client-portal/sections/__tests__/portal-welcome-banner-portrait.test.tsx",
   // "How Can We Help You Today?" cards and their CTA shapes
   "components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx",
   // The FAQ accordion

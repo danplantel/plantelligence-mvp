@@ -51,6 +51,17 @@ pnpm test:coverage
 | 7   | `components/wizard/benefits-steps/__tests__/step-5.test.tsx`                |    19 | Disclosure seeding, category mapping, debounced saves, apply-all, timer cleanup    |
 | 8   | `components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx`   |    19 | Scope chips, submit payload, domain suggestion, existing search, toast branches    |
 | 9   | `app/api/clients/[id]/benefits/[category]/__tests__/route.test.ts`          |    14 | GET/PUT/DELETE auth, updateOnly, R2 signing, soft-disable, purge, dual-write, 500s |
+| 10  | `components/wizard/shared/__tests__/key-contact-image-card.test.tsx`        |     4 | Key Contact Image: headshot shown while empty, chosen image, Remove, gallery pick |
+
+### Key Contact Image (Section 2 Branding)
+
+The welcome banner's circular portrait is the plan's `heroPortraitImage`. The
+field is an OVERRIDE: empty means "the key contact headshot", and the headshot is
+drawn in the card (and shown by the banner) without ever being written into the
+field. Uploads go to R2 under `key-contact-image/`; Remove writes `""`, which the
+PUT stores as `null`. Because the banner is the plan's, Step 2 writes the value
+straight through to `PUT /api/clients/[id]` rather than waiting for Finish — the
+same pattern Step 2 already uses for the help cards.
 
 ## Route gate inventory
 

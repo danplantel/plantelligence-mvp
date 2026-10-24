@@ -25,6 +25,8 @@ const editBenefitTests = [
   // The editor panel itself: Section 4's Account Access fields and Section 5's
   // video / default-image controls
   "components/wizard/benefits-steps/__tests__/benefits-editor-panel.test.tsx",
+  // The Key Contact Image control both Editing Panels host (Section 2 Branding)
+  "components/wizard/shared/__tests__/key-contact-image-card.test.tsx",
   // Contacts-tab invite surface
   "components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx",
   // GET/PUT/DELETE /api/clients/[id]/benefits/[category]

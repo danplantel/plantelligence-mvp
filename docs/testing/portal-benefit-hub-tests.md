@@ -87,7 +87,9 @@ Every other prop is identical, which is why a shared harness can cover three of 
 
 **Materials hero** — heading/CTA/default bullets; plan id from prop then context, hidden for `[Not Set]`; administrator from the benefit's provider with a `name · phone` line, the legacy `recordkeeper` only for Retirement; the prop handler over the context login URL (opened with `noopener,noreferrer`); background precedence prop → saved → category stock; overlay opacity.
 
-**Have questions** — nothing without contacts; one card per person; `mailto:` and digits-only `tel:`; missing rows omitted; designation acronyms with blanks filtered; headshot vs glyph; brand/accent colours.
+**Have questions** — nothing without contacts; one card per person; `mailto:` and digits-only `tel:`; missing rows omitted; designation acronyms with blanks filtered; headshot vs glyph; brand/accent colours; only the CTA the advisor configured (none without one); the plan's logo on a plan-level / plan-sponsor card; the cards centred in the row for 1–4 contacts.
+
+**Welcome banner portrait** — the key contact headshot is the default; an image chosen in the Editing Panel (`portraitImage` prop, else the plan's `heroPortraitImage`) replaces it, prop first; with neither, the frame's own placeholder is drawn — the per-category "Inner Header Image" stock photo is gone.
 
 **How can we help** — the three fallback cards and their deliberate empty CTAs; configured cards replacing them; bold intro plus paragraphs; internal CTA prefixed with the plan; external CTA new tab with `https://` added; anchor/mailto kept in place (`target` absent); inert button when there is no href; `onCardEdit` receives the card id.
 
