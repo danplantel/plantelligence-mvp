@@ -233,6 +233,7 @@ import type {
   Document,
 } from "@/types/new-client-wizard";
 import { EditPlanPreviewSection } from "@/components/wizard/new-client-steps/sections/edit-plan-preview-section";
+import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
 import { BrandColorsSection } from "@/components/wizard/new-client-steps/sections/brand-colors-section";
 import { CardSelectionModal } from "@/components/ui/card-selection-modal";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
@@ -5182,6 +5183,11 @@ export default function EditClientPage() {
                 useDefaultWelcomeMessage={useDefaultWelcomeMessage}
                 setUseDefaultWelcomeMessage={setUseDefaultWelcomeMessage}
                 clientId={clientId}
+                // Drawn in the Key Contact Image card as the portrait the banner
+                // is using; it is NOT the stored value (which stays empty).
+                keyContactHeadshot={String(
+                  resolvePortalPrimaryContact(keyContacts)?.headshot || "",
+                )}
                 missionHeadline={missionHeadline}
                 missionBody={missionBody}
                 defaultBodyText={defaultBodyText}

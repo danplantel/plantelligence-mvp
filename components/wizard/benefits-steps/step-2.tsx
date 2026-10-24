@@ -402,6 +402,43 @@ export function BenefitsStep2() {
         store.saveStepData(1, { ...latest, typographyTheme: savedTheme });
     }, [planDetails?.typographyTheme]);
 
+    // The welcome banner's chosen portrait is a PLAN-level setting (the banner is
+    // the plan's), so seed it from the plan the same way the theme is seeded, and
+    // write it back below when the advisor changes it here.
+    useEffect(() => {
+        const savedPortrait = (planDetails as any)?.heroPortraitImage;
+        if (!savedPortrait) return;
+        const store = useBenefitsWizardStore.getState();
+        const latest = store.stepData.step1;
+        if (!latest || latest.heroPortraitImage) return;
+        store.saveStepData(1, { ...latest, heroPortraitImage: savedPortrait });
+    }, [(planDetails as any)?.heroPortraitImage]);
+
+    // Persist a change to that portrait straight onto the plan. The wizard's own
+    // draft only carries it until Finish, and the banner renders from the Client
+    // row on every live hub — so without this the advisor would not see their
+    // image on the portal until the whole benefit was published.
+    useEffect(() => {
+        const planId = step1Data?.planId;
+        const portrait = String(step1Data?.heroPortraitImage || "");
+        const savedOnPlan = String((planDetails as any)?.heroPortraitImage || "");
+        if (!planId || portrait === savedOnPlan) return;
+
+        const timer = setTimeout(async () => {
+            try {
+                await fetch(`/api/clients/${planId}`, {
+                    method: "PUT",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ heroPortraitImage: portrait }),
+                });
+            } catch (error) {
+                console.error("Key contact image save error:", error);
+            }
+        }, 600);
+
+        return () => clearTimeout(timer);
+    }, [step1Data?.planId, step1Data?.heroPortraitImage, (planDetails as any)?.heroPortraitImage]);
+
     const resolveCompanyLogo = (p: any): string | undefined => {
         if (!p) return undefined;
         return typeof p.companyLogo === "object"

@@ -20,6 +20,7 @@ import {
 import { HeroBackgroundCard, type HeroSegmentMode } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
 import { WelcomeStatementCard } from "@/components/wizard/new-client-steps/sections/components/welcome-statement-card";
 import { BannerOverlaySettingsCard } from "@/components/wizard/new-client-steps/sections/components/banner-overlay-settings-card";
+import { KeyContactImageCard } from "@/components/wizard/shared/key-contact-image-card";
 import { useHeroOverlaySettings } from "@/components/wizard/new-client-steps/sections/hooks/use-hero-overlay-settings";
 import { TypographySection } from "@/components/wizard/new-client-steps/sections/typography-section";
 import {
@@ -213,6 +214,11 @@ interface EditPlanPreviewSectionProps {
   useDefaultWelcomeMessage: boolean;
   setUseDefaultWelcomeMessage: (checked: boolean) => void;
   clientId?: string;
+  /**
+   * The plan's key contact headshot — drawn in the Key Contact Image card while
+   * the advisor has not chosen their own. Preview only; the field stays empty.
+   */
+  keyContactHeadshot?: string;
   // Mission statement props
   missionHeadline: string;
   missionBody: string;
@@ -261,6 +267,7 @@ export function EditPlanPreviewSection({
   useDefaultWelcomeMessage,
   setUseDefaultWelcomeMessage,
   clientId,
+  keyContactHeadshot,
   missionHeadline,
   missionBody,
   defaultBodyText,
@@ -833,6 +840,26 @@ export function EditPlanPreviewSection({
                 mobilePosition={mobileHeroPosition}
                 onMobilePositionChange={handleMobileHeroPositionChange}
                 onFieldFocus={() => focusPreviewField("banner")}
+              />
+            </CardContent>
+          </Card>
+
+          {/* The welcome banner's circular portrait. Left empty it shows the
+              category's key contact headshot, so this is purely an override. */}
+          <Card className="dark:bg-gray-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm dark:text-gray-100">Key Contact Image</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <KeyContactImageCard
+                value={(companyData as any)?.heroPortraitImage || ""}
+                defaultImage={keyContactHeadshot}
+                onChange={(url) =>
+                  onCompanyDataChange("heroPortraitImage", url)
+                }
+                clientId={clientId}
+                // The Card above already says "Key Contact Image".
+                showTitle={false}
               />
             </CardContent>
           </Card>

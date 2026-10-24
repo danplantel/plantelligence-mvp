@@ -12,7 +12,6 @@ import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
 import {
   DEFAULT_WELCOME_BG,
   CATEGORY_DEFAULT_BGS,
-  CATEGORY_DEFAULT_INNER_IMAGES,
 } from "@/lib/portal-category-hero-background";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
@@ -29,6 +28,8 @@ interface PortalWelcomeBannerProps {
     companyLogo?: string;
     backgroundImg?: string;
     secondaryBannerImg?: string;
+    /** The portrait chosen in the Editing Panel. Falls back to the key contact's headshot. */
+    heroPortraitImage?: string;
     employeePortalPreview?: any;
     keyContacts?: {
       fullName?: string;
@@ -74,6 +75,11 @@ interface PortalWelcomeBannerProps {
   } | null;
   customImage?: string; // Override right-side Benefits Logo
   customImageAlt?: string;
+  /**
+   * An image the advisor chose for the banner's circular portrait. Takes
+   * precedence over the key contact's headshot, which stays the default.
+   */
+  portraitImage?: string;
   // Hero overlay settings
   backgroundOpacity?: number;
   containerBlockOpacity?: number;
@@ -108,6 +114,7 @@ export function PortalWelcomeBanner({
   profile,
   customImage,
   customImageAlt,
+  portraitImage,
   category,
   onScheduleClick,
   backgroundOpacity = 1.0,
@@ -259,22 +266,29 @@ export function PortalWelcomeBanner({
     effectiveOrganizationName ||
     "Company Name";
 
-  // The banner's left-column portrait is the category's key contact headshot.
-  // When the contact has no headshot, fall back to the category's stock image so
-  // the banner keeps its layout. There is no separate custom "Inner Header
-  // Image" any more — the headshot is that image.
-  const categoryDefaultInnerImage =
-    CATEGORY_DEFAULT_INNER_IMAGES[category || ""] ||
-    CATEGORY_DEFAULT_INNER_IMAGES["Retirement"];
+  // The banner's left-column portrait. Two sources, in order:
+  //
+  //  1. the image the advisor chose in the Editing Panel (benefit or plan);
+  //  2. the category's key contact headshot — the DEFAULT.
+  //
+  // There is deliberately no stock-image fallback any more: the old "Inner Header
+  // Image" defaults (one per category) made every banner look alike and hid the
+  // fact that a headshot was missing. With neither source the circular frame shows
+  // its own BENEFITS LOGO placeholder.
+  const chosenPortrait = String(
+    portraitImage || clientData?.heroPortraitImage || "",
+  ).trim();
+  const chosenPortraitUrl = chosenPortrait
+    ? toNextImageSrc(chosenPortrait, "")
+    : "";
   const contactHeadshotUrl = primaryContact?.headshot
     ? toNextImageSrc(String(primaryContact.headshot), "")
     : "";
-  const portraitSrc = contactHeadshotUrl
-    ? contactHeadshotUrl
-    : toNextImageSrc(categoryDefaultInnerImage, categoryDefaultInnerImage);
-  const portraitAlt = contactHeadshotUrl
-    ? String(primaryContact?.fullName || primaryContact?.name || "")
-    : "";
+  const portraitSrc = chosenPortraitUrl || contactHeadshotUrl;
+  const portraitAlt =
+    chosenPortraitUrl || contactHeadshotUrl
+      ? String(primaryContact?.fullName || primaryContact?.name || "")
+      : "";
 
   const wizardStep1Data = useBenefitsWizardStore(
     (s) => s.stepData?.step1 as any,

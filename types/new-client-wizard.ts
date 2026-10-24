@@ -114,6 +114,11 @@ export interface CompanyBasicsData {
    *  When set, the mobile preview uses this position to offset the hero
    *  background so the user can choose which portion is visible on small screens. */
   mobileHeroBackgroundPosition?: MobileHeroPosition;
+  /**
+   * The welcome banner's circular portrait — an R2 key or URL the advisor chose.
+   * Empty means "use the key contact headshot", which stays the default.
+   */
+  heroPortraitImage?: string;
 }
 
 // Step 2: Welcome Statement

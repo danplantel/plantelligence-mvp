@@ -514,6 +514,12 @@ export function BenefitPortalPreview({
                   step1Data?.selectedPlan?.companyName || "Your Company",
                 // Drives the banner's key-contact portrait (headshot).
                 keyContacts: previewKeyContacts,
+                // The portrait chosen in Step 2's Branding section wins; empty
+                // leaves the key contact headshot in place.
+                heroPortraitImage:
+                  step1Data?.heroPortraitImage ||
+                  (step1Data?.selectedPlan as any)?.heroPortraitImage ||
+                  "",
                 // Top-left: use the Provider Logo from the editor panel (Step 2), fall back to plan-level
                 companyLogo:
                   step1Data?.companyLogo?.url ||

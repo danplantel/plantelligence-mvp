@@ -69,6 +69,12 @@ export interface BenefitsStep1Data {
    * provider's logo is the Benefit Logo (`partnerLogo`).
    */
   providerContact?: ProviderContact | null;
+  /**
+   * The welcome banner's circular portrait (R2 key or URL), chosen in Step 2's
+   * Branding section. Empty means "use the key contact headshot", the default.
+   * It is a PLAN-level setting, so Step 2 writes it through to the Client row.
+   */
+  heroPortraitImage?: string;
   /** Hero overlay opacity for the background image */
   heroOverlayOpacity?: number;
   /** Hero background image opacity */

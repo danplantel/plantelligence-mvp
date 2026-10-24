@@ -64,8 +64,10 @@ import {
   HeroBackgroundCard,
   type HeroSegmentMode,
 } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
+import { KeyContactImageCard } from "@/components/wizard/shared/key-contact-image-card";
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
 import { toNextImageSrc } from "@/lib/branding-image-url";
+import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
 import { toast } from "sonner";
 import {
   formatPhoneNumber,
@@ -145,6 +147,21 @@ export function BenefitsEditorPanel({
 }: BenefitsEditorPanelProps & { highlightedField?: string | null }) {
   const { stepData, saveStepData } = useBenefitsWizardStore();
   const step1Data = (stepData.step1 || {}) as BenefitsStep1Data;
+
+  /**
+   * The category's key contact headshot, drawn in the Key Contact Image card
+   * while the advisor has not chosen their own. It is only a preview — the field
+   * itself stays empty, and the banner resolves the same person at render time.
+   */
+  const keyContactHeadshot = (() => {
+    const contacts = (step1Data as any)?.selectedPlan?.keyContacts;
+    const primary = resolvePortalPrimaryContact(
+      contacts,
+      step1Data.benefitCategory,
+    );
+    const shot = primary?.headshot;
+    return shot ? String(shot) : "";
+  })();
   const step3Data = (stepData.step3 || {
     faqs: [],
     supportContacts: [],
@@ -830,6 +847,25 @@ export function BenefitsEditorPanel({
                     mobileHeroBackgroundPosition: pos,
                   } as any);
                 }}
+              />
+            </div>
+            {/* The welcome banner's circular portrait. Empty means the category's
+                key contact headshot, which is the default — this is only an
+                override. Plan-level, so Step 2 writes it through to the plan. */}
+            <div
+              className="space-y-4 rounded-xl transition-all duration-300"
+              onMouseDown={() => focusPreviewField("messaging")}
+            >
+              <KeyContactImageCard
+                value={step1Data.heroPortraitImage || ""}
+                defaultImage={keyContactHeadshot}
+                onChange={(url) =>
+                  saveStepData(1, {
+                    ...step1Data,
+                    heroPortraitImage: url,
+                  } as any)
+                }
+                clientId={step1Data?.planId}
               />
             </div>
             {/* Hero Overlay Settings */}

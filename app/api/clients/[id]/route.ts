@@ -543,6 +543,7 @@ export async function PUT(
       heroUseGradient,
       desktopHeroBackgroundPosition,
       mobileHeroBackgroundPosition,
+      heroPortraitImage,
       employeePortalPreview,
       categoryPortalVisibility,
     } = body;
@@ -813,6 +814,13 @@ export async function PUT(
         (body as any).mobileHeroBackgroundPosition !== undefined
           ? (body as any).mobileHeroBackgroundPosition
           : (existingClient as any)?.mobileHeroBackgroundPosition,
+      // The welcome banner's portrait override. An empty string is a real value —
+      // it is how "go back to the key contact's headshot" is expressed — so the
+      // check is `!== undefined`, not truthiness.
+      heroPortraitImage:
+        heroPortraitImage !== undefined
+          ? heroPortraitImage || null
+          : (existingClient as any)?.heroPortraitImage ?? null,
       // Contact images must be R2 keys, not inline data URLs: `keyContacts` is read by
       // the benefits/portal routes and forwarded to the browser, so a base64 headshot
       // here costs every reader hundreds of KB (measured: 447 KB on one plan). The
