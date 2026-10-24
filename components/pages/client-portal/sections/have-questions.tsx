@@ -77,8 +77,15 @@ export function HaveQuestions({
           </p>
         </div>
 
-        {/* One row of four from `lg`; two across on tablets, stacked on phones. */}
-        <div className="grid w-full grid-cols-1 gap-4 [&>*]:min-w-0 sm:grid-cols-2 sm:gap-6 lg:grid-cols-4">
+        {/* One row of four from `lg`; two across on tablets, stacked on phones.
+            A flex row rather than a grid so a partial row is CENTRED: with one,
+            two or three support contacts the cards sit in the middle of the band
+            instead of hugging the left edge. The widths are the same fourths (and
+            halves) a grid would give them, so a full row is unchanged.
+
+            Each card is wrapped in a sizing div — the card itself is `w-full`, and
+            the wrapper is what carries the column width. */}
+        <div className="flex w-full flex-wrap justify-center gap-4 sm:gap-6">
           {contacts.map((contact, index) => {
             const categories = (contact.benefitsCategories || []).filter(
               Boolean,
@@ -103,42 +110,49 @@ export function HaveQuestions({
               );
 
             return (
-              <BenefitContactCard
+              // Half the row on tablets (one 1.5rem gap), a quarter from `lg`
+              // (three 1.5rem gaps). `min-w-0` keeps a long name from widening
+              // its column and pushing the row off-centre.
+              <div
                 key={contact.id}
-                contact={{
-                  id: contact.id,
-                  // The FAQ contact stores the name in `title`; the shared card
-                  // reads `name` and shows the role underneath.
-                  name: contact.name || contact.title,
-                  title: contact.description || undefined,
-                  email: contact.email,
-                  phone: contact.phone,
-                  phoneExtension: contact.phoneExtension,
-                  headshot: contact.headshot,
-                  designations: contact.designations,
-                  schedulingUrl: contact.schedulingUrl,
-                  companyName: isPlanCompanyCard
-                    ? resolvedCompanyName || contact.companyName
-                    : contact.companyName,
-                  companyLogo: isPlanCompanyCard
-                    ? contact.companyLogo || resolvedCompanyLogo
-                    : contact.companyLogo,
-                  websiteUrl: contact.websiteUrl,
-                  // The advisor's choice, untouched — no inferred CTA.
-                  enableContactButton: contact.enableContactButton,
-                  contactButtonType: contact.contactButtonType,
-                  isPrimary: false,
-                }}
-                brandColor={brandColor}
-                secondaryColor={secondaryColor}
-                appointmentLink={resolvedAppointmentLink}
-                companyName={resolvedCompanyName}
-                index={index}
-                // The category placement renders the compact card: no benefit
-                // tag (the whole page is one benefit) and a denser layout.
-                placement="category"
-                compact
-              />
+                className="w-full min-w-0 sm:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-4.5rem)/4)]"
+              >
+                <BenefitContactCard
+                  contact={{
+                    id: contact.id,
+                    // The FAQ contact stores the name in `title`; the shared card
+                    // reads `name` and shows the role underneath.
+                    name: contact.name || contact.title,
+                    title: contact.description || undefined,
+                    email: contact.email,
+                    phone: contact.phone,
+                    phoneExtension: contact.phoneExtension,
+                    headshot: contact.headshot,
+                    designations: contact.designations,
+                    schedulingUrl: contact.schedulingUrl,
+                    companyName: isPlanCompanyCard
+                      ? resolvedCompanyName || contact.companyName
+                      : contact.companyName,
+                    companyLogo: isPlanCompanyCard
+                      ? contact.companyLogo || resolvedCompanyLogo
+                      : contact.companyLogo,
+                    websiteUrl: contact.websiteUrl,
+                    // The advisor's choice, untouched — no inferred CTA.
+                    enableContactButton: contact.enableContactButton,
+                    contactButtonType: contact.contactButtonType,
+                    isPrimary: false,
+                  }}
+                  brandColor={brandColor}
+                  secondaryColor={secondaryColor}
+                  appointmentLink={resolvedAppointmentLink}
+                  companyName={resolvedCompanyName}
+                  index={index}
+                  // The category placement renders the compact card: no benefit
+                  // tag (the whole page is one benefit) and a denser layout.
+                  placement="category"
+                  compact
+                />
+              </div>
             );
           })}
         </div>

@@ -80,6 +80,41 @@ describe("HaveQuestions", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
+  it("centres the cards in the row whatever the count", () => {
+    // One, two or three contacts used to sit at the start of a four-column grid.
+    // The row centres its cards instead, while each card keeps the width a fourth
+    // (or a half on tablets) would have given it.
+    [1, 2, 3, 4].forEach((count) => {
+      const { container, unmount } = render(
+        <HaveQuestions
+          contacts={Array.from({ length: count }, (_, index) =>
+            contact({
+              id: `c${index}`,
+              title: `Advisor ${index}`,
+              name: `Advisor ${index}`,
+            }),
+          )}
+        />,
+      );
+
+      const row = container.querySelector(".flex.flex-wrap") as HTMLElement;
+      expect(row.className).toContain("justify-center");
+      expect(row.children).toHaveLength(count);
+
+      Array.from(row.children).forEach((column) => {
+        expect(column.className).toContain("w-full");
+        expect(column.className).toContain(
+          "sm:w-[calc((100%-1.5rem)/2)]",
+        );
+        expect(column.className).toContain(
+          "lg:w-[calc((100%-4.5rem)/4)]",
+        );
+      });
+
+      unmount();
+    });
+  });
+
   it("renders the heading and one card per contact", () => {
     render(
       <HaveQuestions
