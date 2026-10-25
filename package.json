@@ -93,6 +93,7 @@
     "gallery:curate": "npx tsx scripts/gallery/curate-default-backgrounds.ts",
     "check:gallery": "npm run gallery:validate",
     "teammates:backfill": "npx tsx scripts/teammates/backfill-organizations.ts",
+    "webinars:backfill-durations": "npx tsx scripts/webinars/backfill-durations.ts",
     "teammates:backfill-contacts": "npx tsx scripts/teammates/backfill-plan-contacts.ts",
     "teammates:verify": "npx tsx scripts/teammates/verify-t1.ts",
     "teammates:verify-backfill": "npx tsx scripts/teammates/verify-backfill.ts",

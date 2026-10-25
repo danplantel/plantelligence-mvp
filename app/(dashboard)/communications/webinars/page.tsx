@@ -148,6 +148,48 @@ function getEmbedUrl(url: string): string | null {
   return null;
 }
 
+/**
+ * Runtime for the badge on the portal's webinar card (`m:ss`, or `h:mm:ss` for a
+ * long recording). Returns `undefined` when the file has no usable duration, so
+ * the caller can omit the field instead of writing a bogus "0:00".
+ */
+function formatRuntimeBadge(seconds: number): string | undefined {
+  if (!Number.isFinite(seconds) || seconds <= 0) return undefined;
+  const total = Math.round(seconds);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return hours > 0
+    ? `${hours}:${pad(minutes)}:${pad(secs)}`
+    : `${minutes}:${pad(secs)}`;
+}
+
+/**
+ * Read the runtime out of the picked file, before it is turned into a base64
+ * document column.
+ *
+ * The portal used to measure this in the browser from the stored payload, which
+ * meant downloading several megabytes of base64 just to print "3:42" — and it
+ * silently printed nothing whenever that fetch was slow or blocked. Measuring at
+ * upload time and storing the string means a list read is enough.
+ */
+function measureVideoRuntime(file: File): Promise<number> {
+  return new Promise((resolve) => {
+    const objectUrl = URL.createObjectURL(file);
+    const probe = document.createElement("video");
+    const finish = (seconds: number) => {
+      URL.revokeObjectURL(objectUrl);
+      probe.removeAttribute("src");
+      resolve(seconds);
+    };
+    probe.preload = "metadata";
+    probe.onloadedmetadata = () => finish(probe.duration || 0);
+    probe.onerror = () => finish(0);
+    probe.src = objectUrl;
+  });
+}
+
 // Field limits for the Upload/Edit Video form, kept in one place so the input
 // caps and the counters can never drift apart.
 const MAX_VIDEO_TITLE_LENGTH = 60;
@@ -705,6 +747,13 @@ export default function WebinarsPage() {
         });
       }
 
+      // Runtime shown on the portal card's badge. Measured from the file being
+      // uploaded, so no portal visitor has to fetch the payload to see it.
+      const measuredDuration =
+        formData.sourceType === "upload" && formData.videoFile
+          ? await measureVideoRuntime(formData.videoFile)
+          : 0;
+
       const url = editingWebinarId
         ? `/api/webinars/${editingWebinarId}`
         : "/api/webinars";
@@ -725,6 +774,13 @@ export default function WebinarsPage() {
           placements: formData.placements,
           eventDate: formData.eventDate?.toISOString(),
           videoFile: videoFileBase64,
+          // `undefined` drops the key, so a PUT that keeps the stored file keeps
+          // its saved runtime; a URL source has no runtime to show, so it clears
+          // whatever the previous upload left behind.
+          duration:
+            formData.sourceType === "upload"
+              ? formatRuntimeBadge(measuredDuration)
+              : null,
           videoUrl: formData.videoUrl,
         }),
       });

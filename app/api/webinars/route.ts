@@ -31,6 +31,8 @@ type WebinarRow = {
   videoFileUrl?: string | null;
   /** Length of the stored base64 video — stored so lists needn't read it. */
   videoSize?: number | null;
+  /** Runtime printed on the card's badge (`m:ss`). */
+  duration?: string | null;
   videoUrl: string | null;
   createdAt: Date;
 };
@@ -65,6 +67,7 @@ function serializeWebinar(
     videoFileUrl: options.includeVideoFiles ? videoFileUrl : null,
     hasVideoFile: Boolean(videoFileUrl) || videoSize > 0,
     videoSize,
+    duration: webinar.duration ?? null,
     videoUrl: webinar.videoUrl,
     createdAt: webinar.createdAt,
   };
@@ -164,6 +167,7 @@ export async function GET(request: NextRequest) {
             sourceType: true,
             videoUrl: true,
             videoSize: true,
+            duration: true,
             createdAt: true,
           },
         });
@@ -323,6 +327,11 @@ export async function POST(request: NextRequest) {
         description: typeof description === "string" && description.trim()
           ? description.trim()
           : null,
+        // Measured by the upload form from the chosen file.
+        duration:
+          typeof body.duration === "string" && body.duration.trim()
+            ? body.duration.trim()
+            : null,
         thumbnail: typeof thumbnail === "string" && thumbnail ? thumbnail : null,
         benefitsCategory:
           typeof benefitsCategory === "string" && benefitsCategory

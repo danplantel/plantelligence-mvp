@@ -50,6 +50,30 @@ const queuedPreloads = new Set<string>();
 const preloadQueue: string[] = [];
 let drainingPreloads = false;
 
+/**
+ * Cards waiting for one endpoint's payload to land.
+ *
+ * A PRELOAD used to leave the payload in the shared cache and tell nobody, so a
+ * card only ever received its file by hovering it or pressing play — which is why
+ * a card could not read its own video's runtime until then. These listeners are
+ * notified the moment the payload arrives (from the cache or the network), so the
+ * runtime badge can be measured with no second request.
+ */
+const preloadListeners = new Map<string, Set<(base64: string) => void>>();
+
+function notifyPreload(endpoint: string, base64: string) {
+  const listeners = preloadListeners.get(endpoint);
+  if (!listeners) return;
+  preloadListeners.delete(endpoint);
+  for (const listener of listeners) {
+    try {
+      listener(base64);
+    } catch {
+      // One card's handler must never break the preload queue.
+    }
+  }
+}
+
 function rememberPayload(endpoint: string, base64: string) {
   payloadCache.delete(endpoint); // Re-insert so the newest entry is the last evicted.
   payloadCache.set(endpoint, base64);
@@ -63,7 +87,10 @@ function rememberPayload(endpoint: string, base64: string) {
 /** One download per URL, shared by the preloader and the hover path. */
 function fetchVideoPayload(endpoint: string): Promise<string> {
   const cached = payloadCache.get(endpoint);
-  if (cached) return Promise.resolve(cached);
+  if (cached) {
+    notifyPreload(endpoint, cached);
+    return Promise.resolve(cached);
+  }
 
   const inFlight = pendingFetches.get(endpoint);
   if (inFlight) return inFlight;
@@ -83,6 +110,7 @@ function fetchVideoPayload(endpoint: string): Promise<string> {
     }
 
     rememberPayload(endpoint, base64);
+    notifyPreload(endpoint, base64);
     return base64;
   })();
 
@@ -288,7 +316,27 @@ export function useWebinarHoverPreview({
         if (subject.videoUrl || subject.videoFileUrl || !subject.hasVideoFile) {
           continue;
         }
-        enqueuePreload(videoFileEndpoint(subject));
+        const endpoint = videoFileEndpoint(subject);
+
+        // Already warm: hand this card its copy now.
+        const cached = payloadCache.get(endpoint);
+        if (cached) {
+          onFilePayloadRef.current?.(subject.id, cached);
+          continue;
+        }
+
+        // Otherwise listen for the preload that is about to run, so the card gets
+        // the file (and can read the video's runtime) without a second request.
+        let listeners = preloadListeners.get(endpoint);
+        if (!listeners) {
+          listeners = new Set();
+          preloadListeners.set(endpoint, listeners);
+        }
+        listeners.add((base64) =>
+          onFilePayloadRef.current?.(subject.id, base64),
+        );
+
+        enqueuePreload(endpoint);
       }
     },
     [videoFileEndpoint],

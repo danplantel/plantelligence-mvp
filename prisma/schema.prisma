@@ -1313,6 +1313,9 @@ model Webinar {
   // Length of videoFileUrl. Stored so list queries can sort by size without
   // reading the multi-MB base64 payload (see the webinars list endpoint).
   videoSize    Int?
+  // Runtime printed on the card's bottom-right badge (`m:ss`). Measured when the
+  // video is uploaded, so a list read carries it without touching the payload.
+  duration     String?
   eventDate    DateTime // Event date
   sourceType   Json     // { upload: boolean, url: boolean }
   videoFileUrl String?  // URL/path if uploaded file

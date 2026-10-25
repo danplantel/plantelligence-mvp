@@ -12,6 +12,7 @@ import {
   Languages,
   MapPin,
   MessageCircle,
+  Play,
   PlayCircle,
   X,
   type LucideIcon,
@@ -567,12 +568,32 @@ export function getEmbedUrl(url: string): string | null {
   return null;
 }
 
+/** `m:ss` (or `h:mm:ss`) for a video's runtime. */
+function formatMediaDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "";
+  const total = Math.round(seconds);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = String(total % 60).padStart(2, "0");
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${secs}`;
+  }
+  return `${minutes}:${secs}`;
+}
+
 export function WebinarReplayCard({
   replay,
   secondaryColor = "#FBBF24",
+  /**
+   * `default` — the full card: 16:9 media, then the title, copy and details.
+   * `poster`  — the card IS the 16:9 media, with the play control top-right and
+   *             the runtime bottom-right. The hub pages' Webinars rail uses this.
+   */
+  variant = "default",
 }: {
   replay: WebinarReplay;
   secondaryColor?: string;
+  variant?: "default" | "poster";
 }) {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   // Uploaded videos are multi-MB base64 strings. The list endpoints deliberately
@@ -581,6 +602,8 @@ export function WebinarReplayCard({
   const [fetchedFileUrl, setFetchedFileUrl] = useState<string | null>(null);
   const [isLoadingVideo, setIsLoadingVideo] = useState(false);
   const [videoError, setVideoError] = useState(false);
+  /** Runtime read from the video's own metadata, when the row carries none. */
+  const [measuredDuration, setMeasuredDuration] = useState<string | null>(null);
 
   const fileUrl = replay.videoFileUrl ?? fetchedFileUrl;
   // `hasVideoFile` is the list payload reporting that a file exists (with its size)
@@ -692,148 +715,219 @@ export function WebinarReplayCard({
   const videoSrc = getVideoSrc();
   const isEmbed = videoSrc ? isEmbedUrl(videoSrc) : false;
 
+  /**
+   * Runtime for the poster's bottom-right badge.
+   *
+   * `replay.duration` is whatever the row carries; otherwise the length is read
+   * from the video's own metadata — a metadata-only request for a URL, or the file
+   * the hover teaser has already preloaded for an upload — so the badge appears
+   * without downloading a whole video.
+   */
+  const durationLabel = replay.duration || measuredDuration;
+  const durationProbeSrc = (() => {
+    if (replay.duration) return null;
+    if (replay.videoUrl && !getEmbedUrl(replay.videoUrl)) return replay.videoUrl;
+    if (!fileUrl) return null;
+    return /^(https?:)?\//.test(fileUrl)
+      ? fileUrl
+      : `data:video/mp4;base64,${fileUrl}`;
+  })();
+  const durationProbe = durationProbeSrc ? (
+    <video
+      src={durationProbeSrc}
+      preload="metadata"
+      muted
+      playsInline
+      aria-hidden
+      className="hidden"
+      onLoadedMetadata={(event) =>
+        setMeasuredDuration(formatMediaDuration(event.currentTarget.duration))
+      }
+    />
+  ) : null;
+
+  // The media itself, with no play chrome: each variant draws its own badge.
+  const mediaNode = replay.thumbnail ? (
+    // The advisor's chosen image (uploaded, or a frame captured from the video)
+    // wins over the video itself. Painting a frame from a base64 <video> forces
+    // the browser to decode the whole file for every card on the page, which is a
+    // large part of why this grid arrived long after the rest of the page.
+    <img
+      src={replay.thumbnail}
+      alt={replay.title}
+      className="h-full w-full object-cover opacity-70"
+    />
+  ) : replay.videoUrl ? (
+    (() => {
+      const embedUrl = getEmbedUrl(replay.videoUrl);
+      if (embedUrl) {
+        // YouTube or Vimeo embed — the provider's poster frame stands in.
+        return (
+          <img
+            src={`https://img.youtube.com/vi/${
+              embedUrl.match(/embed\/([^?]+)/)?.[1] || ""
+            }/maxresdefault.jpg`}
+            alt={replay.title}
+            className="h-full w-full object-cover opacity-90"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = "none";
+            }}
+          />
+        );
+      }
+      // A direct file URL — a muted still is its own thumbnail.
+      return (
+        <video
+          className="absolute left-0 top-0 h-full w-full"
+          controls={false}
+          src={replay.videoUrl}
+          muted
+          playsInline
+        >
+          Your browser does not support the video tag.
+        </video>
+      );
+    })()
+  ) : fileUrl ? (
+    // Base64 uploaded video already in hand (the dashboard fetches full rows, so
+    // it lands here without an extra request).
+    <video
+      className="absolute left-0 top-0 h-full w-full"
+      controls={false}
+      src={`data:video/mp4;base64,${fileUrl}`}
+      muted
+      playsInline
+    >
+      Your browser does not support the video tag.
+    </video>
+  ) : (
+    // Placeholder — also the surface for an uploaded video whose file is fetched
+    // only when play is pressed.
+    <div className="relative z-[2] h-full w-full bg-gray-800" />
+  );
+
   return (
     <>
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow">
-        <div
-          className="relative aspect-video bg-gray-900"
-          onClick={handleVideoClick}
-          {...getHoverProps(hoverSubject)}
-        >
-          {replay.thumbnail ? (
-            // The advisor's chosen image (uploaded, or a frame captured from the
-            // video) wins over the video itself. Painting a frame from a base64
-            // <video> forces the browser to decode the whole file for every card
-            // on the page, which is a large part of why this grid arrived long
-            // after the rest of the page.
-            <>
-              <img
-                src={replay.thumbnail}
-                alt={replay.title}
-                className="w-full h-full object-cover opacity-70"
-              />
-              {/* z-[2] keeps the badge above the teaser (`z-[1]`) so it can fade
-                  out over it rather than being hidden the moment the video
-                  appears. */}
-              <div
+      {variant === "poster" ? (
+        // The card IS the 16:9 frame: play control top-right (white ring, white
+        // icon), runtime bottom-right (black pill, white text).
+        <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-gray-900">
+          <div
+            className="relative h-full w-full cursor-pointer"
+            onClick={handleVideoClick}
+            {...getHoverProps(hoverSubject)}
+          >
+            {mediaNode}
+
+            {/* The teaser sits above the media and below the badges (`z-[3]`),
+                and takes no pointer events, so a click still opens the video. */}
+            <WebinarHoverPreviewLayer
+              preview={previewFor(hoverSubject.id)}
+              title={replay.title}
+              className="z-[1]"
+            />
+
+            {hasVideo && (
+              <button
+                type="button"
+                onClick={handleVideoClick}
+                aria-label={`Play ${replay.title}`}
                 className={cn(
-                  "absolute inset-0 z-[2] flex items-center justify-center transition-opacity duration-300",
+                  "absolute right-3 top-3 z-[3] grid h-10 w-10 place-items-center rounded-full border-2 border-white text-white transition-all duration-300 hover:bg-white/20",
                   isPreviewing && "opacity-0",
                 )}
               >
-                <div className="bg-red-600 rounded-full w-20 h-20 flex items-center justify-center hover:bg-red-700 transition-colors shadow-lg">
-                  <div className="w-0 h-0 border-l-[24px] border-l-white border-t-[15px] border-t-transparent border-b-[15px] border-b-transparent ml-1"></div>
-                </div>
-              </div>
-            </>
-          ) : replay.videoUrl ? (
-            (() => {
-              const embedUrl = getEmbedUrl(replay.videoUrl);
-              if (embedUrl) {
-                // YouTube or Vimeo embed - thumbnail preview
-                return (
-                  <>
-                    <img
-                      src={`https://img.youtube.com/vi/${
-                        embedUrl.match(/embed\/([^?]+)/)?.[1] || ""
-                      }/maxresdefault.jpg`}
-                      alt={replay.title}
-                      className="w-full h-full object-cover opacity-90"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
-                    <div
-                      className={cn(
-                        "absolute inset-0 z-[2] flex items-center justify-center bg-black/20 transition-opacity duration-300",
-                        isPreviewing && "opacity-0",
-                      )}
-                    >
-                      <div className="bg-red-600 rounded-full w-20 h-20 flex items-center justify-center hover:bg-red-700 transition-colors shadow-lg">
-                        <div className="w-0 h-0 border-l-[24px] border-l-white border-t-[15px] border-t-transparent border-b-[15px] border-b-transparent ml-1"></div>
-                      </div>
-                    </div>
-                  </>
-                );
-              } else {
-                // Direct video URL - show video preview
-                return (
-                  <video
-                    className="absolute top-0 left-0 w-full h-full"
-                    controls={false}
-                    src={replay.videoUrl}
-                    muted
-                    playsInline
-                  >
-                    Your browser does not support the video tag.
-                  </video>
-                );
-              }
-            })()
-          ) : fileUrl ? (
-            // Base64 uploaded video already in hand (the dashboard fetches full
-            // rows, so it lands here without an extra request).
-            <video
-              className="absolute top-0 left-0 w-full h-full"
-              controls={false}
-              src={`data:video/mp4;base64,${fileUrl}`}
-              muted
-              playsInline
-            >
-              Your browser does not support the video tag.
-            </video>
-          ) : (
-            // Placeholder — also the surface for an uploaded video whose file is
-            // fetched only when play is pressed.
-            <div
-              className={cn(
-                "relative z-[2] w-full h-full flex items-center justify-center bg-gray-800 transition-opacity duration-300",
-                isPreviewing && "opacity-0",
-              )}
-            >
-              <div className="bg-red-600 rounded-full w-20 h-20 flex items-center justify-center hover:bg-red-700 transition-colors shadow-lg">
-                <div className="w-0 h-0 border-l-[24px] border-l-white border-t-[15px] border-t-transparent border-b-[15px] border-b-transparent ml-1"></div>
-              </div>
-            </div>
-          )}
-
-          {/* Hover teaser — rendered last so it paints over whichever of the media
-              branches above is showing, and stacked beneath the play badge
-              (`z-[2]`) so the badge fades out over it. It takes no pointer events
-              of its own (see `WebinarHoverPreviewLayer`), so a click still opens
-              the video. */}
-          <WebinarHoverPreviewLayer
-            preview={previewFor(hoverSubject.id)}
-            title={replay.title}
-            className="z-[1]"
-          />
-        </div>
-        <div className="p-6 space-y-4">
-          <h3 className="text-2xl font-bold text-[#002B5B] leading-tight">
-            {replay.title}
-          </h3>
-          {/* Advisor-authored copy from the Upload Video modal (200 char cap).
-              Always rendered, at a fixed four lines — four is what the maximum
-              takes at this column width, and reserving the box even when there is
-              no copy is what keeps every card in the grid the same height. */}
-          <p className="h-20 text-sm leading-5 text-gray-600 line-clamp-4">
-            {replay.description}
-          </p>
-          <div className="flex items-center gap-4">
-            {replay.duration && (
-              <div className="flex items-center gap-2 text-gray-600 text-base">
-                <Clock className="w-5 h-5" />
-                <span>{replay.duration}</span>
-              </div>
+                <Play
+                  className="h-4 w-4 translate-x-[1px]"
+                  fill="currentColor"
+                />
+              </button>
             )}
-            {replay.isPopular && (
-              <span className="bg-blue-50 text-blue-700 text-sm px-4 py-1.5 rounded-full font-medium border border-blue-200">
-                Popular
+
+            {/* Bottom-to-top gradient: the title is printed on it, so the copy
+                stays readable over a bright thumbnail. It sits above the media
+                and the teaser but below the title and the runtime. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 bottom-0 z-[2] h-1/2 bg-gradient-to-t from-black/85 via-black/40 to-transparent"
+            />
+
+            {/* Title bottom-left, about half the card wide, wrapping to as many
+                lines as it needs (capped at three) — the right half stays free for
+                the runtime pill. */}
+            <p
+              className="absolute bottom-3 left-3 z-[3] line-clamp-3 w-1/2 text-base font-semibold leading-snug text-white sm:text-lg"
+              title={replay.title}
+            >
+              {replay.title}
+            </p>
+
+            {durationLabel && (
+              <span className="absolute bottom-3 right-3 z-[3] rounded bg-black/80 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-white">
+                {durationLabel}
               </span>
             )}
+
+            {durationProbe}
           </div>
         </div>
-      </div>
+      ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow">
+          <div
+            className="relative aspect-video bg-gray-900"
+            onClick={handleVideoClick}
+            {...getHoverProps(hoverSubject)}
+          >
+            {mediaNode}
+
+            {hasVideo && (
+              <div
+                className={cn(
+                  "absolute inset-0 z-[2] flex items-center justify-center bg-black/20 transition-opacity duration-300",
+                  isPreviewing && "opacity-0",
+                )}
+              >
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-red-600 shadow-lg transition-colors hover:bg-red-700">
+                  <div className="ml-1 h-0 w-0 border-b-[15px] border-l-[24px] border-t-[15px] border-b-transparent border-l-white border-t-transparent" />
+                </div>
+              </div>
+            )}
+
+            <WebinarHoverPreviewLayer
+              preview={previewFor(hoverSubject.id)}
+              title={replay.title}
+              className="z-[1]"
+            />
+
+            {durationProbe}
+          </div>
+          <div className="p-6 space-y-4">
+            <h3 className="text-2xl font-bold text-[#002B5B] leading-tight">
+              {replay.title}
+            </h3>
+            {/* Advisor-authored copy from the Upload Video modal (200 char cap).
+                Always rendered, at a fixed four lines — four is what the maximum
+                takes at this column width, and reserving the box even when there is
+                no copy is what keeps every card in the grid the same height. */}
+            <p className="h-20 text-sm leading-5 text-gray-600 line-clamp-4">
+              {replay.description}
+            </p>
+            <div className="flex items-center gap-4">
+              {replay.duration && (
+                <div className="flex items-center gap-2 text-gray-600 text-base">
+                  <Clock className="w-5 h-5" />
+                  <span>{replay.duration}</span>
+                </div>
+              )}
+              {replay.isPopular && (
+                <span className="bg-blue-50 text-blue-700 text-sm px-4 py-1.5 rounded-full font-medium border border-blue-200">
+                  Popular
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Video Modal — portalled to the body: a transformed ancestor (the scaled
           preview on the Meetings page) would otherwise become the containing
@@ -1030,6 +1124,8 @@ export function WebinarsSection({
               clientId: webinar.clientId,
               title: webinar.webinarTitle,
               description: webinar.description ?? undefined,
+              // Stored runtime, so the badge never depends on reading the file.
+              duration: webinar.duration ?? undefined,
               eventDate: webinar.eventDate,
               thumbnail: webinar.thumbnail ?? undefined,
               videoUrl: webinar.videoUrl,

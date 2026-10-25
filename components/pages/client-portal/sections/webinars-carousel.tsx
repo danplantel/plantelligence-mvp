@@ -97,6 +97,9 @@ export function useHubWebinars(
               clientId: webinar.clientId,
               title: webinar.webinarTitle,
               description: webinar.description ?? undefined,
+              // Stored runtime from the upload form / backfill. The card measures
+              // the file itself only when this is missing.
+              duration: webinar.duration ?? undefined,
               eventDate: webinar.eventDate,
               thumbnail: webinar.thumbnail ?? undefined,
               videoUrl: webinar.videoUrl,
@@ -259,10 +262,22 @@ export function WebinarsCarousel({
               // the card inside never has to guess its own size.
               className="w-[260px] shrink-0 snap-start sm:w-[300px]"
             >
+              {/* The poster variant: the card itself is the 16:9 frame, with the
+                  play control top-right and the title + runtime along the bottom.
+                  The description therefore sits under the card. */}
               <WebinarReplayCard
                 replay={replay}
                 secondaryColor={secondaryColor}
+                variant="poster"
               />
+              {replay.description ? (
+                <p
+                  className="mt-2 line-clamp-2 text-xs leading-snug opacity-80"
+                  style={{ color: headingColor || brandColor }}
+                >
+                  {replay.description}
+                </p>
+              ) : null}
             </div>
           ))
         )}

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
-import { ObjectId } from "mongodb";
 import { resolvePortalAdvisorId } from "@/lib/portal-access";
+import { planIdOrSlug } from "@/lib/plan-lookup";
 import { normalizeWebinarPlacements } from "@/lib/webinar-placements";
 
 /**
@@ -25,6 +25,8 @@ function serializeWebinar(webinar: {
   eventDate: Date;
   sourceType: unknown;
   videoFileUrl: string | null;
+  /** Runtime printed on the card's badge (`m:ss`); null when never measured. */
+  duration?: string | null;
   videoUrl: string | null;
   createdAt: Date;
 }) {
@@ -40,6 +42,7 @@ function serializeWebinar(webinar: {
     eventDate: webinar.eventDate,
     sourceType: webinar.sourceType as { upload: boolean; url: boolean },
     videoFileUrl: webinar.videoFileUrl,
+    duration: webinar.duration ?? null,
     videoUrl: webinar.videoUrl,
     createdAt: webinar.createdAt,
   };
@@ -66,25 +69,22 @@ export async function GET(
       userId = session.user.id;
     }
 
+    // No `ObjectId.isValid` guard here. Webinar ids are cuids on Postgres, and a
+    // 25-character cuid fails that check — which made this route answer 404 for
+    // EVERY row. That is what silently broke the hover teaser and the runtime
+    // badge on the portal (both fetch this endpoint) as well as playback of any
+    // uploaded video. The lookup below is the real gate.
     const webinarId = params.id;
-    if (!ObjectId.isValid(webinarId)) {
-      return NextResponse.json(
-        { error: "Webinar not found" },
-        { status: 404 }
-      );
-    }
 
     const clientIdParam =
       request.nextUrl.searchParams.get("clientId")?.trim() ?? "";
     let planId: string | null = null;
     if (clientIdParam) {
+      // `planIdOrSlug`, not a shape test: plan ids are cuids, so an
+      // `ObjectId.isValid` branch sent every by-id lookup down the slug path and
+      // 404'd the request.
       const plan = await prisma.client.findFirst({
-        where: {
-          userId,
-          ...(ObjectId.isValid(clientIdParam)
-            ? { id: clientIdParam }
-            : { slug: clientIdParam }),
-        },
+        where: { userId, ...planIdOrSlug(clientIdParam) },
         select: { id: true },
       });
       if (!plan) {
@@ -135,13 +135,8 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Webinar ids are cuids — no ObjectId shape test (see GET).
     const webinarId = params.id;
-    if (!ObjectId.isValid(webinarId)) {
-      return NextResponse.json(
-        { error: "Webinar not found" },
-        { status: 404 }
-      );
-    }
 
     const body = await request.json();
     const {
@@ -155,6 +150,7 @@ export async function PUT(
       eventDate,
       videoFile,
       videoUrl,
+      duration,
     } = body;
 
     // Check if webinar exists and user owns it
@@ -225,6 +221,16 @@ export async function PUT(
         ? benefitsCategory
         : null;
 
+    // Runtime follows the same contract as the other optional fields: omitted
+    // keeps the stored value, "" or null clears it. The upload form measures it
+    // from the chosen file; the card's badge is only a fallback when this is null.
+    const nextDuration =
+      duration === undefined
+        ? existingWebinar.duration
+        : typeof duration === "string" && duration.trim()
+        ? duration.trim()
+        : null;
+
     // Placements replace the stored list wholesale — the modal always sends the
     // full set of checked pages — and fall back to the stored list when the key
     // is omitted entirely.
@@ -251,6 +257,7 @@ export async function PUT(
         // Kept in sync with the payload so list queries can sort by size without
         // reading the base64 video.
         videoSize: videoFileUrl ? videoFileUrl.length : 0,
+        duration: nextDuration,
         videoUrl: sourceType?.url ? videoUrl : null,
       },
     });
@@ -279,13 +286,8 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Webinar ids are cuids — no ObjectId shape test (see GET).
     const webinarId = params.id;
-    if (!ObjectId.isValid(webinarId)) {
-      return NextResponse.json(
-        { error: "Webinar not found" },
-        { status: 404 }
-      );
-    }
 
     // Check if webinar exists and user owns it
     const existingWebinar = await prisma.webinar.findFirst({

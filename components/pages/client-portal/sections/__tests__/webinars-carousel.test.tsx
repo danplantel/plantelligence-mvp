@@ -20,16 +20,38 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("../webinars-section", () => ({
-  WebinarReplayCard: ({ replay }: { replay: { title: string } }) => (
-    <div data-testid="webinar-card">{replay.title}</div>
+  WebinarReplayCard: ({
+    replay,
+  }: {
+    replay: { title: string; duration?: string };
+  }) => (
+    // `data-duration` is what the poster card prints in its bottom-right badge.
+    <div data-testid="webinar-card" data-duration={replay.duration ?? ""}>
+      {replay.title}
+    </div>
   ),
   guessLanguageFromWebinar: () => "EN",
 }));
 
 const videos = [
-  { id: "w1", webinarTitle: "Retirement Basics", clientId: "c1" },
-  { id: "w2", webinarTitle: "Catch-up Contributions", clientId: "c1" },
-  { id: "w3", webinarTitle: "Medicare and You", clientId: "c1" },
+  {
+    id: "w1",
+    webinarTitle: "Retirement Basics",
+    description: "What to know in your first year.",
+    clientId: "c1",
+  },
+  {
+    id: "w2",
+    webinarTitle: "Catch-up Contributions",
+    description: "Catching up after 50.",
+    clientId: "c1",
+  },
+  {
+    id: "w3",
+    webinarTitle: "Medicare and You",
+    description: "How the pieces fit together.",
+    clientId: "c1",
+  },
 ];
 
 function mockFetch(payload: unknown, ok = true) {
@@ -52,9 +74,10 @@ describe("WebinarsCarousel request", () => {
 
     render(<WebinarsCarousel placement="retirement" />);
 
+    // The title appears twice: the (stubbed) card and the caption under it.
     await waitFor(() =>
       expect(
-        screen.getByText("Retirement Basics", { exact: false }),
+        screen.getAllByText("Retirement Basics", { exact: false })[0],
       ).toBeInTheDocument(),
     );
 
@@ -105,7 +128,35 @@ describe("WebinarsCarousel rail", () => {
       expect(slide.className).toContain("snap-start");
       expect(slide.className).toContain("shrink-0");
     }
-    expect(screen.getByText("Retirement Basics")).toBeInTheDocument();
+    // The title lives on the poster card; the slide captions it with the
+    // description instead.
+    expect(screen.getAllByText("Retirement Basics")).toHaveLength(1);
+    expect(
+      screen.getByText("What to know in your first year."),
+    ).toBeInTheDocument();
+  });
+
+  it("hands the card the stored runtime for its badge", async () => {
+    // The runtime is a column, not something the browser measures: the list
+    // request omits the video files, so a badge that depended on loading the
+    // video would never appear.
+    mockFetch({
+      success: true,
+      data: [
+        { ...videos[0], duration: "1:01" },
+        // A row uploaded before the column was measured.
+        { ...videos[1], duration: null },
+      ],
+    });
+
+    render(<WebinarsCarousel placement="retirement" />);
+
+    await waitFor(() =>
+      expect(screen.getAllByTestId("webinar-card")).toHaveLength(2),
+    );
+    const [withRuntime, withoutRuntime] = screen.getAllByTestId("webinar-card");
+    expect(withRuntime).toHaveAttribute("data-duration", "1:01");
+    expect(withoutRuntime).toHaveAttribute("data-duration", "");
   });
 
   it("renders nothing for a plan with no videos", async () => {

@@ -327,4 +327,22 @@ describe("useWebinarHoverPreview", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("hands a card the payload its preload fetched", async () => {
+    // The card needs the file to read the video's runtime. A preload used to warm
+    // the shared cache and tell nobody, so the badge stayed empty until a hover.
+    const id = uid();
+    const onFilePayload = vi.fn();
+    const { result } = renderHook(() =>
+      useWebinarHoverPreview({ videoFileEndpoint: endpoint, onFilePayload }),
+    );
+
+    act(() => {
+      result.current.preloadHoverPreviews([{ id, hasVideoFile: true }]);
+    });
+
+    await waitFor(() =>
+      expect(onFilePayload).toHaveBeenCalledWith(id, "BASE64"),
+    );
+  });
 });

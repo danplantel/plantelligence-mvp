@@ -16,8 +16,10 @@ const portalHubTests = [
   // The journey section: per-category copy, the no-video image, Watch Now
   "components/pages/client-portal/sections/__tests__/benefits-video-section.test.tsx",
   "lib/__tests__/benefits-video-fallback.test.ts",
-  // The Webinars rail inside the help section: fetch, skeletons, empty state, paging
+  // The Webinars rail in the journey section: fetch, skeletons, empty state, paging
   "components/pages/client-portal/sections/__tests__/webinars-carousel.test.tsx",
+  // The 16:9 poster card the rail uses: play badge top-right, runtime bottom-right
+  "components/pages/client-portal/sections/__tests__/webinar-replay-card-poster.test.tsx",
   // The support-people cards
   "components/pages/client-portal/sections/__tests__/have-questions.test.tsx",
   // The welcome banner's "Schedule with …" CTA (scrolls to Have Questions)
