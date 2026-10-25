@@ -43,9 +43,9 @@ const DOCUMENT_SECTION_COPY: Record<
 };
 
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
+import { webinarPlacementForCategory } from "@/lib/webinar-placements";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import { BenefitsVideoSection } from "@/components/pages/client-portal/sections/benefits-video-section";
-import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
 import {
   HowCanWeHelpSection,
   formatPlanGroupIdLabel,
@@ -367,14 +367,10 @@ export function BenefitPortalPreview({
   const documentSectionCopy =
     DOCUMENT_SECTION_COPY[canonicalCategory] ||
     DOCUMENT_SECTION_COPY.Retirement;
-  const webinarPlacement =
-    canonicalCategory === "Group Health"
-      ? "health-insurance"
-      : canonicalCategory === "Group Life"
-      ? "life-insurance"
-      : canonicalCategory === "Company / Plan Sponsor"
-      ? "wellness-programs"
-      : "retirement";
+  // Same mapping the hub pages hard-code in their props, from one helper.
+  const webinarPlacement = canonicalCategory
+    ? webinarPlacementForCategory(canonicalCategory)
+    : "retirement";
 
   const [hoveredSection, setHoveredSection] = useState<string | null>(null);
 
@@ -635,6 +631,10 @@ export function BenefitPortalPreview({
             onSubtitleClick={() => handleEdit("planVideo")}
             onDescriptionClick={() => handleEdit("planVideo")}
             onVideoClick={() => handleEdit("planVideo")}
+            // Videos published to this page from Communications → Webinars, as the
+            // closing rail of this section — exactly where the live hub puts them.
+            webinarsPlacement={webinarPlacement}
+            clientId={step1Data?.planId}
           />
         </div>
         )}
@@ -689,14 +689,6 @@ export function BenefitPortalPreview({
             onCardEdit={(cardId) => handleEdit("helpCards", cardId)}
           />
         </div>
-
-        {/* Videos published to this page from Communications → Webinars. */}
-        <BenefitsHubWebinarsSection
-          placement={webinarPlacement}
-          clientId={step1Data?.planId}
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-        />
 
         <FAQSection
           brandColor={brandColor}

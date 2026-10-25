@@ -7,6 +7,8 @@ import { Clock, Pencil, Play } from "lucide-react";
 import { toNextImageSrc } from "@/lib/branding-image-url";
 import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
 import { resolveJourneyImage } from "@/lib/benefits-video-fallback";
+import type { WebinarPlacementKey } from "@/lib/webinar-placements";
+import { WebinarsCarousel } from "./webinars-carousel";
 
 /** `m:ss` for the video's runtime. */
 function formatVideoDuration(seconds: number): string {
@@ -85,6 +87,14 @@ interface BenefitsVideoSectionProps {
    * "Have Questions?" band, where that contact's card (and its links) live.
    */
   onScheduleClick?: () => void;
+  /**
+   * Which portal page's videos the closing rail shows (see
+   * `lib/webinar-placements`). Omitted = no rail, which is how this section
+   * renders where videos are not wanted (the wizard preview before a plan exists).
+   */
+  webinarsPlacement?: WebinarPlacementKey;
+  /** Plan id for the rail's fetch where the route has no `[id]` segment. */
+  clientId?: string;
 
   // ── Optional edit hooks (used by the Benefits wizard preview) ──
   /** When set, clicking the main title opens the editor and a pencil shows on hover */
@@ -110,6 +120,8 @@ export function BenefitsVideoSection({
   keyContacts,
   category,
   onScheduleClick,
+  webinarsPlacement,
+  clientId,
   onMainTitleClick,
   onSubtitleClick,
   onDescriptionClick,
@@ -203,7 +215,9 @@ export function BenefitsVideoSection({
       ref={sectionRef}
       className="relative flex min-h-[50vh] flex-col overflow-hidden bg-[#111828] text-white lg:min-h-screen"
     >
-      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 sm:px-6 lg:px-8">
+      {/* `py-*` on top of the centring: on a short viewport the grid fills the
+          column exactly, so the video sat flush against the section's top edge. */}
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
         <div className="grid w-full max-w-[1280px] items-center gap-6 pb-2 md:gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
           <motion.div
             className="flex h-full max-w-3xl flex-col justify-center"
@@ -413,6 +427,25 @@ export function BenefitsVideoSection({
             </div>
           </motion.div>
         </div>
+
+        {/* The page's videos, as a Netflix-style rail closing this section. The
+            carousel renders nothing when this plan has filed none, so the section
+            keeps its current shape for those plans. */}
+        {webinarsPlacement ? (
+          <div className="w-full max-w-[1280px] pb-8">
+            <WebinarsCarousel
+              placement={webinarsPlacement}
+              // The hubs have the plan in the route; the wizard preview passes it
+              // because it has no `[id]` segment.
+              clientId={clientId}
+              brandColor={brandColor}
+              secondaryColor={secondaryColor}
+              // This section is dark, and the plan's brand colour is usually dark
+              // too — the heading would disappear into the background.
+              headingColor="#ffffff"
+            />
+          </div>
+        ) : null}
       </div>
     </section>
   );

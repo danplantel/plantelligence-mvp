@@ -35,7 +35,7 @@ In render order, each page:
 4. derives the FAQ list — enabled rows first, then `DEFAULT_FAQS[category]`;
 5. resolves support contacts with `buildFaqSupportContacts({ keyContacts, supportContacts })`;
 6. loads documents once per `clientId` + embedded-id signature: `fetchPlanDocumentsForClient` → `mergePlanDocumentRows` → `sortDocumentRowsByCustomOrder` → `mapMergedRowsToBenefitHubItems(rows, hubLabel)`;
-7. renders, in order: `CompletenessAutoTrigger`, `PortalWelcomeBanner`, `BenefitsVideoSection`, `HowCanWeHelpSection`, `BenefitsHubWebinarsSection`, `FAQSection`, `BenefitDocumentSection`, `HaveQuestions`. Account access (plan / group ID, login URL, provider) is the wide card inside `HowCanWeHelpSection`; the old `PortalMaterialsHero` band was removed, and the header's **Login** button scrolls to that section.
+7. renders, in order: `CompletenessAutoTrigger`, `PortalWelcomeBanner`, `BenefitsVideoSection`, `HowCanWeHelpSection`, `FAQSection`, `BenefitDocumentSection`, `HaveQuestions`. Account access (plan / group ID, login URL, provider) is the wide card inside `HowCanWeHelpSection`; the old `PortalMaterialsHero` band was removed, and the header's **Login** button scrolls to that section. The page's videos are the `WebinarsCarousel` rail at the bottom of `BenefitsVideoSection` — the old `BenefitsHubWebinarsSection` band is gone.
 
 ## Where the four differ
 
@@ -59,7 +59,7 @@ Every other prop is identical, which is why a shared harness can cover three of 
 | --- | ------------------------------------------------------------------------------------------ | ----: | ------------------------------------------------------------------------------ |
 | 1   | `app/api/clients/[id]/benefits/[category]/__tests__/portal-get.test.ts`                    |    13 | The anonymous `forPortal=1` read: slug→advisor scoping, 403/404, video signing |
 | 2   | `components/pages/client-portal/sections/__tests__/completeness-auto-trigger.test.tsx`     |     9 | The "Incomplete Benefit Setup" trigger: merged docs, pre-merge pass, refetch   |
-| 3   | `components/pages/client-portal/sections/__tests__/benefits-hub-webinars-section.test.tsx` |    10 | Route-segment fetch, `includeVideoFiles=0`, skeletons, empty state             |
+| 3   | `components/pages/client-portal/sections/__tests__/webinars-carousel.test.tsx`             |     7 | Rail fetch, `includeVideoFiles=0`, skeletons, empty state, paging              |
 | 4   | `components/pages/client-portal/sections/__tests__/benefits-video-section.test.tsx`        |    17 | Journey copy defaults, the no-video image, label + Watch Now gating            |
 | 5   | `components/pages/client-portal/sections/__tests__/have-questions.test.tsx`                |     8 | Support cards, `mailto:`/`tel:` affordances, designations, headshots           |
 | 6   | `components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx`       |     9 | Default vs configured cards and the three CTA shapes                           |
@@ -83,7 +83,7 @@ Every other prop is identical, which is why a shared harness can cover three of 
 
 **Completeness trigger** — opens with `missingInfo`/`category`/`clientId`, stays closed when complete, computes against the merged documents, computes once on the embedded list before the merge (the flash), no fetch without a plan id, re-fetches when embedded ids change but not on an equal signature, closes on a later complete update, and stops after unmount.
 
-**Webinars band** — `/api/webinars?clientId=…&placement=…&includeVideoFiles=0` with `cache: "no-store"`; no fetch without a segment; three skeletons with `aria-busy` while loading; one card per video; nothing for an empty plan, a failed request or `success:false`; the heading default and override; placement change refetches.
+**Webinars rail** — `/api/webinars?clientId=…&placement=…&includeVideoFiles=0` with `cache: "no-store"`, the `clientId` prop winning over the route segment; skeletons with `aria-busy` while loading; one fixed-width slide per video in a `snap-x` / `overflow-x-auto` track; nothing for an empty plan or a failed request; the chevron pages the row by 85% of its width.
 
 **Materials hero** — heading/CTA/default bullets; plan id from prop then context, hidden for `[Not Set]`; administrator from the benefit's provider with a `name · phone` line, the legacy `recordkeeper` only for Retirement; the prop handler over the context login URL (opened with `noopener,noreferrer`); background precedence prop → saved → category stock; overlay opacity.
 

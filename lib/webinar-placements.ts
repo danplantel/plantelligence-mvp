@@ -90,3 +90,25 @@ export function isWebinarPlacementKey(
 ): value is WebinarPlacementKey {
   return typeof value === "string" && PLACEMENT_KEYS.includes(value);
 }
+
+/**
+ * The placement whose videos a benefit hub shows, from the hub's category prop.
+ *
+ * The live hub pages pass their placement explicitly; this exists for the wizard
+ * preview, which only knows the benefit category. Both spellings are accepted
+ * ("Group Health" as the wizard stores it, "Health Insurance" as the hub is
+ * labelled), and anything else — a Custom benefit's own name — is the Custom hub.
+ */
+export function webinarPlacementForCategory(
+  category?: string | null,
+): WebinarPlacementKey {
+  const value = (category || "").trim().toLowerCase();
+  if (value === "retirement") return "retirement";
+  if (value === "group health" || value === "health insurance") {
+    return "health-insurance";
+  }
+  if (value === "group life" || value === "life insurance") {
+    return "life-insurance";
+  }
+  return "wellness-programs";
+}

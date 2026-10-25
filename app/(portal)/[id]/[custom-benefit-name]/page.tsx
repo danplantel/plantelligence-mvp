@@ -21,7 +21,6 @@ import {
 import {
   BenefitsVideoSection,
 } from "@/components/pages/client-portal/sections/benefits-video-section";
-import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
 import {
   BenefitDocumentSection,
   RetirementDocumentItem,
@@ -236,6 +235,10 @@ export default function CustomBenefitPage() {
             onScheduleClick={() =>
               scrollToPortalSection(HAVE_QUESTIONS_SECTION_ID)
             }
+            // Videos published to this page from Communications → Webinars, as the
+            // closing rail of this section. The key stays "wellness-programs" — it
+            // is the stored placement value on every saved row.
+            webinarsPlacement="wellness-programs"
           />
         )}
 
@@ -253,14 +256,6 @@ export default function CustomBenefitPage() {
           planIdLabel={planGroupIdLabel || undefined}
           accountAccessHref={accountAccessHref}
           cards={(benefitData as any)?.helpCards ?? undefined}
-        />
-
-        {/* Videos published to this page from Communications → Webinars. The key stays
-            "wellness-programs" — it is the stored placement value on every saved row. */}
-        <BenefitsHubWebinarsSection
-          placement="wellness-programs"
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
         />
 
         <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />

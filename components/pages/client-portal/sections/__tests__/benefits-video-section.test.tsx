@@ -21,6 +21,14 @@ vi.mock("next/image", () => ({
   ),
 }));
 
+// The rail itself is covered by `webinars-carousel.test.tsx`; here it only has to
+// arrive with the right placement, and only when a placement is passed.
+vi.mock("../webinars-carousel", () => ({
+  WebinarsCarousel: ({ placement }: { placement: string }) => (
+    <div data-testid="webinars-carousel" data-placement={placement} />
+  ),
+}));
+
 const DEFAULTS: Record<string, [string, string]> = {
   Retirement: [
     "Your Retirement Journey Starts Here",
@@ -281,5 +289,24 @@ describe("BenefitsVideoSection default image", () => {
     );
 
     expect(panelImage().src).toBe("https://cdn.test/fallback.jpg");
+  });
+});
+
+describe("BenefitsVideoSection webinars rail", () => {
+  it("closes the section with the page's webinar rail when a placement is passed", () => {
+    render(
+      <BenefitsVideoSection category="Retirement" webinarsPlacement="retirement" />,
+    );
+
+    expect(screen.getByTestId("webinars-carousel")).toHaveAttribute(
+      "data-placement",
+      "retirement",
+    );
+  });
+
+  it("renders no rail without a placement", () => {
+    render(<BenefitsVideoSection category="Retirement" />);
+
+    expect(screen.queryByTestId("webinars-carousel")).not.toBeInTheDocument();
   });
 });

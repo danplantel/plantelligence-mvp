@@ -10,7 +10,6 @@ import { buildFaqSupportContacts } from "@/lib/faq-support-contacts";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import { BenefitsVideoSection } from "@/components/pages/client-portal/sections/benefits-video-section";
-import { BenefitsHubWebinarsSection } from "@/components/pages/client-portal/sections/benefits-hub-webinars-section";
 import {
   HowCanWeHelpSection,
   formatPlanGroupIdLabel,
@@ -213,6 +212,9 @@ export default function LifeInsurancePage() {
             onScheduleClick={() =>
               scrollToPortalSection(HAVE_QUESTIONS_SECTION_ID)
             }
+            // Videos published to this page from Communications → Webinars, as the
+            // closing rail of this section.
+            webinarsPlacement="life-insurance"
           />
         )}
 
@@ -229,13 +231,6 @@ export default function LifeInsurancePage() {
           planIdLabel={planGroupIdLabel || undefined}
           accountAccessHref={accountAccessHref}
           cards={(benefitData as any)?.helpCards ?? undefined}
-        />
-
-        {/* Videos published to this page from Communications → Webinars. */}
-        <BenefitsHubWebinarsSection
-          placement="life-insurance"
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
         />
 
         <FAQSection
