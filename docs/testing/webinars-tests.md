@@ -9,7 +9,7 @@ This document is the test inventory for the Webinars surface:
 
 ## Summary
 
-- **Unit tests:** 139 passing in 6 files
+- **Unit tests:** 145 passing in 6 files
 - **Runner:** Vitest + React Testing Library + jsdom
 - **E2E:** [`e2e/webinars.spec.ts`](../../e2e/webinars.spec.ts) — skips unless `E2E_BASE_URL` (or `E2E_START_SERVER=1`) and `E2E_EMAIL` / `E2E_PASSWORD` are set; plan journeys also need `E2E_PLAN_NAME`.
 
@@ -18,7 +18,7 @@ This document is the test inventory for the Webinars surface:
 Webinars-only commands:
 
 ```bash
-pnpm test:webinars           # all Webinars unit suites (139 tests)
+pnpm test:webinars           # all Webinars unit suites (145 tests)
 pnpm test:webinars:watch     # Webinars unit tests in watch mode
 pnpm test:webinars:coverage  # Webinars unit tests + V8 coverage
 ```
@@ -58,10 +58,10 @@ The live journeys still worth adding: create a URL video → reload → play; up
 | # | Suite | Tests | Focus |
 | - | ----- | ----: | ----- |
 | 1 | `app/(dashboard)/communications/webinars/__tests__/page.test.tsx` | 53 | Client load/skeleton/failure, sticky plan and subtitle, list cards/sorting, add/edit dialog, source switching, thumbnails (upload/frame), placements, uploads, create/update/delete, bulk delete, video preview, frame capture and other edges |
-| 2 | `app/api/webinars/__tests__/routes.test.ts` | 46 | List filtering/projection/placement/sorting, create validation/access, detail get, partial update semantics, delete, bulk delete |
+| 2 | `app/api/webinars/__tests__/routes.test.ts` | 51 | List filtering/projection/placement/sorting, stored runtime, create validation/access, detail get, partial update semantics, delete, bulk delete |
 | 3 | `lib/__tests__/webinar-placements.test.ts` | 7 | Placement constants, normalization, membership, key guard |
 | 4 | `lib/__tests__/webinar-video-embed.test.ts` | 13 | YouTube/Vimeo/direct-URL parsing and hover embed parameters |
-| 5 | `hooks/__tests__/useWebinarHoverPreview.test.tsx` | 12 | Hover intent, in-hand/cached/lazy payloads, in-flight dedupe, stale requests, suspension, failures, preloading, cleanup |
+| 5 | `hooks/__tests__/useWebinarHoverPreview.test.tsx` | 13 | Hover intent, in-hand/cached/lazy payloads, in-flight dedupe, stale requests, suspension, failures, preloading, preload→card hand-off, cleanup |
 | 6 | `components/webinars/__tests__/webinar-hover-preview.test.tsx` | 8 | Null/loading states, base64 video looping, YouTube/Vimeo framing, direct video, empty preview |
 
 ## Unit test inventory
@@ -84,10 +84,10 @@ The live journeys still worth adding: create a URL video → reload → play; up
 
 ### `app/api/webinars/__tests__/routes.test.ts`
 
-- **`GET /api/webinars`** — 401, portal advisor resolution, denied plan → empty, accessible-plan scoping, plan narrowing, `includeVideoFiles=0` projection, payload size fallback, placement filtering, newest-first sorting, 500.
-- **`POST /api/webinars`** — 401, core-field 400, missing `sourceType` 500 (current), source combinations, unknown client 404, marketing-edit 403, 13MB cap, URL create normalization, upload size sync/default placement, 500.
-- **`GET /api/webinars/[id]`** — 401, invalid ObjectId, unknown plan, ownership, placement normalization, 500.
-- **`PUT /api/webinars/[id]`** — 401/404, keep/replace/clear the stored video, omitted-`sourceType` wipe (current), partial description/thumbnail/category/placements semantics, omitted-field/date preservation, unknown client, 500.
+- **`GET /api/webinars`** — 401, portal advisor resolution, denied plan → empty, accessible-plan scoping, plan narrowing, `includeVideoFiles=0` projection (including the stored runtime), payload size fallback, placement filtering, newest-first sorting, 500.
+- **`POST /api/webinars`** — 401, core-field 400, missing `sourceType` 500 (current), source combinations, unknown client 404, marketing-edit 403, 13MB cap, URL create normalization, upload size sync/default placement, measured runtime stored (blank → null), 500.
+- **`GET /api/webinars/[id]`** — 401, an unknown id is a plain 404 by lookup (ids are cuids — no shape check), unknown plan, ownership, placement normalization, stored runtime, 500.
+- **`PUT /api/webinars/[id]`** — 401/404, keep/replace/clear the stored video, omitted-`sourceType` wipe (current), partial description/thumbnail/category/placements semantics, runtime replaced or kept when omitted, omitted-field/date preservation, unknown client, 500.
 - **`DELETE /api/webinars/[id]`** — 401/404, delete, 500.
 - **`POST /api/webinars/bulk-delete`** — 401, empty/non-array, no valid ids, invalid-id filtering + user scoping, count payload, 500.
 
@@ -141,11 +141,29 @@ The live journeys still worth adding: create a URL video → reload → play; up
 - Thumbnails can be uploaded (compressed to 640px JPEG) or captured from a video frame through a canvas.
 - Bulk delete posts the frozen id list, exits select mode, and refreshes.
 
+## Stored runtime (`Webinar.duration`)
+
+The portal's webinar card prints the runtime in its bottom-right badge. That value is a **column**, not something the browser measures:
+
+- the upload form reads `duration / timescale` off the picked file (a hidden `<video preload="metadata">`) and sends it as `duration` (`m:ss`, or `h:mm:ss` past an hour);
+- `POST` stores it, `PUT` replaces it or keeps the stored value when the key is omitted, and `GET` returns it;
+- `useHubWebinars` / `WebinarsSection` map it onto `WebinarReplay.duration`, so the badge appears with the list read — the list deliberately omits the multi-MB video payload, so a badge that depended on loading the file would never render.
+
+Rows uploaded before the column existed are filled by a script that reads the `moov/mvhd` box out of the stored base64 file:
+
+```bash
+pnpm webinars:backfill-durations --dry-run   # report only
+pnpm webinars:backfill-durations             # write the runtimes
+```
+
+Backed by [`scripts/webinars/backfill-durations.ts`](../../scripts/webinars/backfill-durations.ts). Non-MP4 payloads, fragmented files whose `mvhd` duration is 0, and embed URLs are skipped and reported.
+
 ## Findings and hardening backlog
 
 API findings:
 
 - **PUT destroys the stored video on a partial update.** `videoFileUrl`/`videoUrl` are nulled whenever `sourceType` is omitted (`sourceType?.upload` is falsy), so a title-only PUT wipes the video.
+- **Fixed: `ObjectId.isValid` rejected every real id.** Ids are cuids on Postgres, so `GET`/`PUT`/`DELETE /api/webinars/[id]` answered 404 for every row, which is what silently broke the hover teaser, the runtime badge and playback of any uploaded video. The guards are gone; the lookup is the gate.
 - **POST throws a 500 when `sourceType` is missing** instead of returning the intended 400.
 - **PUT/DELETE are owner-only and skip plan permissions.** POST enforces `marketing: edit` and an accessible plan, but PUT/DELETE check only `userId`; PUT’s client lookup is `userId`-scoped rather than accessible-plan-scoped.
 - **Signed-in teammates cannot fetch a single webinar.** The list uses `listAccessiblePlanIds`, but `GET /api/webinars/[id]` filters by `userId`, so their lazy playback 404s.

@@ -77,6 +77,7 @@ function webinarRow(overrides: Record<string, unknown> = {}) {
     sourceType: { upload: true, url: false },
     videoFileUrl: "BASE64",
     videoSize: 6,
+    duration: null,
     videoUrl: null,
     createdAt: new Date("2027-05-01T00:00:00Z"),
     ...overrides,
@@ -172,6 +173,28 @@ describe("GET /api/webinars", () => {
       hasVideoFile: true,
       videoSize: 6,
       placements: ["news-events"],
+    });
+  });
+
+  it("reports the stored runtime without the payload", async () => {
+    // This is the number the portal's poster card prints bottom-right. It has to
+    // arrive with the list read: the list omits the multi-MB video on purpose, so
+    // a card that waited to measure the file itself would never show anything.
+    mocks.prisma.webinar.findMany.mockResolvedValue([
+      webinarRow({ videoFileUrl: undefined, videoSize: 6, duration: "1:01" }),
+    ]);
+
+    const res = await getWebinars(
+      request("/api/webinars?includeVideoFiles=0"),
+    );
+    const json = await res.json();
+
+    expect(mocks.prisma.webinar.findMany.mock.calls[0][0].select).toMatchObject({
+      duration: true,
+    });
+    expect(json.data[0]).toMatchObject({
+      duration: "1:01",
+      videoFileUrl: null,
     });
   });
 
@@ -424,6 +447,42 @@ describe("POST /api/webinars", () => {
     });
   });
 
+  it("stores the runtime the upload form measured", async () => {
+    await postWebinar(
+      request("/api/webinars", {
+        method: "POST",
+        body: {
+          ...base,
+          sourceType: { upload: true, url: false },
+          videoFile: "BASE64",
+          duration: "3:42",
+        },
+      }),
+    );
+
+    expect(mocks.prisma.webinar.create.mock.calls[0][0].data).toMatchObject({
+      duration: "3:42",
+    });
+  });
+
+  it("stores a null runtime when the form could not measure one", async () => {
+    await postWebinar(
+      request("/api/webinars", {
+        method: "POST",
+        body: {
+          ...base,
+          sourceType: { upload: true, url: false },
+          videoFile: "BASE64",
+          duration: "   ",
+        },
+      }),
+    );
+
+    expect(mocks.prisma.webinar.create.mock.calls[0][0].data).toMatchObject({
+      duration: null,
+    });
+  });
+
   it("returns 500 when the create throws", async () => {
     mocks.prisma.webinar.create.mockRejectedValue(new Error("db"));
 
@@ -447,14 +506,17 @@ describe("GET /api/webinars/[id]", () => {
     expect(res.status).toBe(401);
   });
 
-  it("returns 404 for an invalid id", async () => {
+  it("404s an unknown id by looking it up, not by rejecting its shape", async () => {
+    // Ids are cuids, so there is no valid "shape" to test — the old
+    // `ObjectId.isValid` guard 404'd every real row. An id that matches nothing
+    // is a plain not-found, and the lookup is what decides it.
     const res = await getWebinar(
       request("/api/webinars/not-an-id"),
       params("not-an-id"),
     );
 
     expect(res.status).toBe(404);
-    expect(mocks.prisma.webinar.findFirst).not.toHaveBeenCalled();
+    expect(mocks.prisma.webinar.findFirst).toHaveBeenCalled();
   });
 
   it("returns 404 when the named plan is unknown", async () => {
@@ -495,6 +557,19 @@ describe("GET /api/webinars/[id]", () => {
       placements: ["news-events"],
       videoFileUrl: "BASE64",
     });
+  });
+
+  it("returns the stored runtime with the row", async () => {
+    mocks.prisma.webinar.findFirst.mockResolvedValue(
+      webinarRow({ duration: "1:01" }),
+    );
+
+    const res = await getWebinar(
+      request(`/api/webinars/${WEBINAR_ID}`),
+      params(WEBINAR_ID),
+    );
+
+    expect((await res.json()).data.duration).toBe("1:01");
   });
 
   it("returns 500 when the query throws", async () => {
@@ -548,6 +623,24 @@ describe("PUT /api/webinars/[id]", () => {
       videoFileUrl: "BASE64",
       videoSize: 6,
       videoUrl: null,
+    });
+  });
+
+  it("stores a new runtime and keeps the stored one when the key is omitted", async () => {
+    mocks.prisma.webinar.findFirst.mockResolvedValue(
+      webinarRow({ duration: "1:01" }),
+    );
+
+    await put({ sourceType: { upload: true, url: false }, duration: "2:30" });
+    expect(mocks.prisma.webinar.update.mock.calls[0][0].data).toMatchObject({
+      duration: "2:30",
+    });
+
+    // Re-saving without touching the video must not erase the badge.
+    mocks.prisma.webinar.update.mockClear();
+    await put({ sourceType: { upload: true, url: false } });
+    expect(mocks.prisma.webinar.update.mock.calls[0][0].data).toMatchObject({
+      duration: "1:01",
     });
   });
 

@@ -175,14 +175,32 @@ function formatRuntimeBadge(seconds: number): string | undefined {
  * upload time and storing the string means a list read is enough.
  */
 function measureVideoRuntime(file: File): Promise<number> {
+  // No blob URLs (jsdom, a locked-down host) means there is nothing to play the
+  // file back with — resolve 0 rather than leaving a promise that never settles.
+  if (typeof URL?.createObjectURL !== "function") return Promise.resolve(0);
+
+  let objectUrl: string;
+  try {
+    objectUrl = URL.createObjectURL(file);
+  } catch {
+    return Promise.resolve(0);
+  }
+
   return new Promise((resolve) => {
-    const objectUrl = URL.createObjectURL(file);
     const probe = document.createElement("video");
     const finish = (seconds: number) => {
-      URL.revokeObjectURL(objectUrl);
+      window.clearTimeout(timer);
+      try {
+        URL.revokeObjectURL(objectUrl);
+      } catch {
+        // Already revoked, or never created a working URL.
+      }
       probe.removeAttribute("src");
       resolve(seconds);
     };
+    // A file the browser cannot decode never fires an event; the timer keeps the
+    // probe from holding on to the blob forever.
+    const timer = window.setTimeout(() => finish(0), 10000);
     probe.preload = "metadata";
     probe.onloadedmetadata = () => finish(probe.duration || 0);
     probe.onerror = () => finish(0);
@@ -518,6 +536,16 @@ export default function WebinarsPage() {
     }
   };
 
+  /**
+   * Runtime of the file the user just picked, read in the background.
+   *
+   * A ref rather than state: the value is only read once, when the form is
+   * submitted, and re-rendering the modal for it would be noise. Measuring here
+   * (rather than awaiting it at submit time) means saving never waits on the
+   * browser decoding the video.
+   */
+  const measuredRuntimeRef = useRef(0);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -534,6 +562,13 @@ export default function WebinarsPage() {
       handleInputChange("videoFile", file);
       // A new file supersedes the stored one, so the old preview no longer applies.
       setEditVideoPreview(null);
+      // Stored with the row so the portal card can print it without ever
+      // touching the base64 payload. Best-effort: an undecodable file leaves the
+      // badge to whatever the row already had.
+      measuredRuntimeRef.current = 0;
+      void measureVideoRuntime(file).then((seconds) => {
+        measuredRuntimeRef.current = seconds;
+      });
     }
   };
 
@@ -668,6 +703,7 @@ export default function WebinarsPage() {
 
   const openAddWebinar = () => {
     setFormData(blankWebinarForm());
+    measuredRuntimeRef.current = 0;
     setEditingWebinarId(null);
     setEditingHasStoredFile(false);
     setErrors({});
@@ -747,12 +783,10 @@ export default function WebinarsPage() {
         });
       }
 
-      // Runtime shown on the portal card's badge. Measured from the file being
-      // uploaded, so no portal visitor has to fetch the payload to see it.
-      const measuredDuration =
-        formData.sourceType === "upload" && formData.videoFile
-          ? await measureVideoRuntime(formData.videoFile)
-          : 0;
+      // Runtime shown on the portal card's badge, read from the picked file when
+      // it was chosen (see `handleFileChange`) — never awaited here, so saving
+      // does not wait on the browser decoding the video.
+      const measuredDuration = measuredRuntimeRef.current;
 
       const url = editingWebinarId
         ? `/api/webinars/${editingWebinarId}`
@@ -834,6 +868,9 @@ export default function WebinarsPage() {
       videoUrl: webinar.videoUrl || "",
     });
     setEditingWebinarId(webinar.id);
+    // Nothing is measured until a replacement file is chosen, so an edit that
+    // keeps the stored video keeps the runtime the row already carries.
+    measuredRuntimeRef.current = 0;
     // The stored video is kept unless a replacement is chosen (see the PUT
     // handler), so the form must not demand a file just to save a change to the
     // title, description, thumbnail, date or placements.

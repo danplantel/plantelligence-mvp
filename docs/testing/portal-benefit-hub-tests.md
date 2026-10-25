@@ -13,12 +13,12 @@ The first three are the same page with different constants; the fourth adds a UR
 
 ## Summary
 
-- **Unit tests:** 76 passing in 7 files (the sections the four pages render, plus the portal benefit read)
+- **Unit tests:** 155 passing in 11 files (the sections the four pages render, plus the portal benefit read)
 - **E2E:** none yet
 - **Runner:** Vitest + React Testing Library + jsdom
 
 ```bash
-pnpm test:portal-hubs           # the hub sections + portal benefit read (76 tests)
+pnpm test:portal-hubs           # the hub sections + portal benefit read (155 tests)
 pnpm test:portal-hubs:watch
 pnpm test:portal-hubs:coverage
 ```
@@ -59,11 +59,15 @@ Every other prop is identical, which is why a shared harness can cover three of 
 | --- | ------------------------------------------------------------------------------------------ | ----: | ------------------------------------------------------------------------------ |
 | 1   | `app/api/clients/[id]/benefits/[category]/__tests__/portal-get.test.ts`                    |    13 | The anonymous `forPortal=1` read: slug→advisor scoping, 403/404, video signing |
 | 2   | `components/pages/client-portal/sections/__tests__/completeness-auto-trigger.test.tsx`     |     9 | The "Incomplete Benefit Setup" trigger: merged docs, pre-merge pass, refetch   |
-| 3   | `components/pages/client-portal/sections/__tests__/webinars-carousel.test.tsx`             |     7 | Rail fetch, `includeVideoFiles=0`, skeletons, empty state, paging              |
-| 4   | `components/pages/client-portal/sections/__tests__/benefits-video-section.test.tsx`        |    17 | Journey copy defaults, the no-video image, label + Watch Now gating            |
-| 5   | `components/pages/client-portal/sections/__tests__/have-questions.test.tsx`                |     8 | Support cards, `mailto:`/`tel:` affordances, designations, headshots           |
-| 6   | `components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx`       |     9 | Default vs configured cards and the three CTA shapes                           |
-| 7   | `components/__tests__/faq-section.test.tsx`                                                |    13 | Single-open accordion, incomplete rows, link normalisation                     |
+| 3   | `components/pages/client-portal/sections/__tests__/webinars-carousel.test.tsx`             |     8 | Rail fetch, `includeVideoFiles=0`, skeletons, stored runtime, empty, paging    |
+| 4   | `components/pages/client-portal/sections/__tests__/webinar-replay-card-poster.test.tsx`    |     7 | The poster card: 16:9 frame, white-ring play, gradient, title, runtime badge   |
+| 5   | `components/pages/client-portal/sections/__tests__/benefits-video-section.test.tsx`        |    21 | Journey copy defaults, the no-video image, label + Watch Now gating, the rail  |
+| 6   | `components/pages/client-portal/sections/__tests__/have-questions.test.tsx`                |    13 | Support cards, `mailto:`/`tel:` affordances, designations, headshots, centring |
+| 7   | `components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx`       |    51 | Default vs configured cards, the three CTA shapes, layout and rollovers        |
+| 8   | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-portrait.test.tsx` |    5 | The banner portrait: plan override, key-contact headshot default, placeholder  |
+| 9   | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-schedule.test.tsx` |    2 | The banner's Schedule CTA: handler vs scheduling URL                            |
+| 10  | `components/__tests__/faq-section.test.tsx`                                                |    19 | Single-open accordion, incomplete rows, link normalisation                     |
+| 11  | `lib/__tests__/benefits-video-fallback.test.ts`                                            |     7 | Per-category clips, plan video precedence, embed/URL fallbacks                 |
 
 ## Remaining coverage
 
@@ -83,7 +87,7 @@ Every other prop is identical, which is why a shared harness can cover three of 
 
 **Completeness trigger** — opens with `missingInfo`/`category`/`clientId`, stays closed when complete, computes against the merged documents, computes once on the embedded list before the merge (the flash), no fetch without a plan id, re-fetches when embedded ids change but not on an equal signature, closes on a later complete update, and stops after unmount.
 
-**Webinars rail** — `/api/webinars?clientId=…&placement=…&includeVideoFiles=0` with `cache: "no-store"`, the `clientId` prop winning over the route segment; skeletons with `aria-busy` while loading; one fixed-width slide per video in a `snap-x` / `overflow-x-auto` track; nothing for an empty plan or a failed request; the chevron pages the row by 85% of its width. Each slide is `WebinarReplayCard`'s `poster` variant: the card IS the 16:9 frame, with the play control top-right (white ring, white icon) and the runtime bottom-right (black pill, white text); the title is captioned under the card. The runtime comes from `replay.duration`, else from the video's own metadata (`preload="metadata"`, or the file the hover teaser already preloaded), so it appears without downloading a video.
+**Webinars rail** — `/api/webinars?clientId=…&placement=…&includeVideoFiles=0` with `cache: "no-store"`, the `clientId` prop winning over the route segment; skeletons with `aria-busy` while loading; one fixed-width slide per video in a `snap-x` / `overflow-x-auto` track; nothing for an empty plan or a failed request; the chevron pages the row by 85% of its width; the stored `duration` handed to each card for its badge (blank when the row has none). Each slide is `WebinarReplayCard`'s `poster` variant: the card IS the 16:9 frame, with the play control top-right (white ring, white icon), a bottom-to-top black scrim, the title bottom-left (half the card wide, up to three lines) and the runtime bottom-right (black pill, white text); the description is captioned under the card. The runtime is `replay.duration` — a stored column measured at upload — so it appears with the list read; only when a row has none does the card fall back to the video's own metadata.
 
 **Materials hero** — heading/CTA/default bullets; plan id from prop then context, hidden for `[Not Set]`; administrator from the benefit's provider with a `name · phone` line, the legacy `recordkeeper` only for Retirement; the prop handler over the context login URL (opened with `noopener,noreferrer`); background precedence prop → saved → category stock; overlay opacity.
 
