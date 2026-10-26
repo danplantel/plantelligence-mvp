@@ -5,6 +5,7 @@ import { ChevronDown, Pencil, Search } from "lucide-react";
 import { useRef, KeyboardEvent, ReactNode, useState } from "react";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { isR2BrandingKey } from "@/lib/branding-image-url";
+import { portalRadiusValue } from "@/lib/typography-themes";
 
 interface PortalHeroProps {
   companyData?: {
@@ -317,6 +318,7 @@ export function PortalHero({
             aria-hidden="true"
             className="absolute inset-0 rounded-md pointer-events-none"
             style={{
+              borderRadius: portalRadiusValue(),
               background: useGradient
                 ? containerInverted
                   ? `linear-gradient(to bottom, rgb(255, 255, 255), rgba(255, 255, 255, 0.2))`
@@ -547,6 +549,7 @@ export function PortalHero({
               className="relative z-10 mt-6 flex w-full items-center gap-2 rounded-xl bg-white p-1.5 pl-4 shadow-lg"
               onClick={(event) => event.stopPropagation()}
               onSubmit={(event) => event.preventDefault()}
+              style={{ borderRadius: portalRadiusValue(1.5) }}
             >
               <Search
                 className="h-4 w-4 shrink-0 text-gray-500"
@@ -561,7 +564,10 @@ export function PortalHero({
               <Button
                 type="submit"
                 className="h-9 shrink-0 rounded-lg px-5 text-sm font-semibold text-white shadow-none"
-                style={{ background: secondaryColor }}
+                style={{
+                  background: secondaryColor,
+                  borderRadius: portalRadiusValue(),
+                }}
               >
                 Ask
               </Button>

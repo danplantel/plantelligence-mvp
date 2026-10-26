@@ -8,6 +8,7 @@ import {
   filterContactsByPortalVisibility,
 } from "@/lib/portal-category-visibility";
 import { parseFooterBackgroundPreference } from "@/lib/portal-footer-color";
+import { portalRadiusValue } from "@/lib/typography-themes";
 
 export default function ViewClientPage() {
   const { clientData, loading } = useClientPortal();
@@ -31,14 +32,26 @@ export default function ViewClientPage() {
           <div className="max-w-7xl mx-auto px-6 py-12">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="rounded-2xl bg-gray-50 p-6 space-y-4">
-                  <div className="h-12 w-12 rounded-xl bg-gray-200" />
+                // The skeleton mirrors the benefit cards below it, so it wears
+                // the typography theme's corner treatment too.
+                <div
+                  key={i}
+                  className="rounded-2xl bg-gray-50 p-6 space-y-4"
+                  style={{ borderRadius: portalRadiusValue(2) }}
+                >
+                  <div
+                    className="h-12 w-12 rounded-xl bg-gray-200"
+                    style={{ borderRadius: portalRadiusValue(1.5) }}
+                  />
                   <div className="h-5 w-32 bg-gray-200 rounded" />
                   <div className="space-y-2">
                     <div className="h-3 w-full bg-gray-200 rounded" />
                     <div className="h-3 w-3/4 bg-gray-200 rounded" />
                   </div>
-                  <div className="h-10 w-full rounded-lg bg-gray-200" />
+                  <div
+                    className="h-10 w-full rounded-lg bg-gray-200"
+                    style={{ borderRadius: portalRadiusValue() }}
+                  />
                 </div>
               ))}
             </div>

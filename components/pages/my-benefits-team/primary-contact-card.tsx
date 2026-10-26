@@ -16,6 +16,7 @@ import {
 import { withContactFormAvatar } from "@/lib/url-utils";
 import { resolveContactFormUrl } from "@/lib/contact-form-link";
 import { ContactCategoryBadge } from "@/components/ui/contact-category-badge";
+import { portalRadiusValue } from "@/lib/typography-themes";
 
 interface Contact {
   id?: string | number;
@@ -228,7 +229,8 @@ export function PrimaryContactCard({
         ease: "easeOut",
       }}
       className="mt-10 w-full rounded-xl p-6 sm:p-10 shadow-lg relative overflow-hidden"
-      style={{ backgroundColor: backgroundColor }}
+      // The card's corners come from the portal's typography theme.
+      style={{ backgroundColor: backgroundColor, borderRadius: portalRadiusValue(1.5) }}
     >
       <div className="grid gap-8 sm:gap-10 lg:gap-14 grid-cols-1 lg:grid-cols-2 relative z-10">
         {/* LEFT: HEADSHOT */}
@@ -425,6 +427,7 @@ export function PrimaryContactCard({
                       backgroundColor: buttonBg,
                       color: buttonColor,
                       border: isPrimaryButton ? "none" : "1px solid #E5E7EB",
+                      borderRadius: portalRadiusValue(),
                     }}
                     onClick={async () => {
                       if (

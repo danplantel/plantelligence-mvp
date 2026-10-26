@@ -459,6 +459,16 @@ describe("BenefitsVideoSection webinar player", () => {
     );
   });
 
+  it("takes the video frame's corners from the typography theme", () => {
+    render(<BenefitsVideoSection category="Retirement" />);
+
+    // The frame is the journey's biggest surface, so it follows the Typography
+    // Theme picker: squared off for a sharp theme, curved for a round one.
+    expect(
+      screen.getByTestId("journey-video-frame").style.borderRadius,
+    ).toContain("--portal-radius");
+  });
+
   it("keeps the plan's own video silent while a webinar plays", async () => {
     const user = userEvent.setup();
     const pause = vi.fn();

@@ -78,6 +78,17 @@ describe("portal not-found page", () => {
     ).toBeInTheDocument();
   });
 
+  it("wears the portal's corner treatment on the way back", () => {
+    render(<NotFoundPage />);
+
+    // `--portal-radius` is 0px for a sharp theme and the theme's radius for a
+    // round one, so this CTA follows the Typography Theme picker.
+    expect(
+      screen.getByRole("button", { name: "Go to Acme Home Page" }).style
+        .borderRadius,
+    ).toContain("--portal-radius");
+  });
+
   it("paints the CTA with the plan's brand colour", () => {
     render(<NotFoundPage />);
 

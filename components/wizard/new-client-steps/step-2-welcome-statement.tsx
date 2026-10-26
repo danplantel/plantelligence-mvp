@@ -42,6 +42,7 @@ import { TypographySection } from "./sections/typography-section";
 import { usePreviewEditorLayout } from "@/lib/preview-editor-layout";
 import {
   applyTypographyToElement,
+  getPortalShapeCssVars,
   type TypographyThemeId,
 } from "@/lib/typography-themes";
 
@@ -116,6 +117,8 @@ function MobilePreviewFrame({
 
   // Re-sync the root CSS variables (typography theme) into the iframe whenever
   // the theme changes, so the mobile preview updates live without a remount.
+  // The corner radius travels with the theme but NOT with the document root
+  // (that would reshape the dashboard), so it is set here explicitly.
   useEffect(() => {
     const doc = iframeRef.current?.contentDocument;
     if (!doc) return;
@@ -128,6 +131,10 @@ function MobilePreviewFrame({
           rootStyles.getPropertyValue(k),
         ),
       );
+    const shape = getPortalShapeCssVars(themeKey);
+    (Object.entries(shape) as [string, string][]).forEach(([key, value]) => {
+      doc.documentElement.style.setProperty(key, value);
+    });
   }, [themeKey]);
 
   const height = Math.round(width * MOBILE_ASPECT_RATIO);
@@ -1390,9 +1397,16 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
           </div>
         )}
 
+        {/* Preview surface. The theme's corner treatment is scoped here (and in
+            the phone iframe) so buttons/cards match the live portal. */}
         <div
           ref={scrollableRef}
           data-preview-scroll-container
+          style={
+            getPortalShapeCssVars(
+              typographyTheme,
+            ) as unknown as React.CSSProperties
+          }
           className={`flex-1 overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center ${
             previewMode === "mobile" ? "overflow-y-hidden justify-center" : "overflow-y-auto"
           }`}

@@ -22,6 +22,7 @@ import {
 } from "@/lib/portal-category-visibility";
 import { mergeUserBenefitWithHubDefaults } from "@/lib/hub-benefit-defaults";
 import { getCategoryDefaultInnerImageUrl } from "@/lib/portal-category-hero-background";
+import { portalRadiusValue } from "@/lib/typography-themes";
 
 interface PortalBenefitsProps {
   brandColor?: string;
@@ -395,6 +396,8 @@ export function PortalBenefits({
                         ? "cursor-pointer hover:-translate-y-2 hover:shadow-lg"
                         : ""
                     }`}
+                    // Benefit cards wear the typography theme's corners.
+                    style={{ borderRadius: portalRadiusValue(1.5) }}
                     onClick={(e) => {
                       if (hasClientId) {
                         handleBenefitClick(e, benefit);
@@ -436,6 +439,7 @@ export function PortalBenefits({
                         ? "cursor-pointer hover:-translate-y-2 hover:shadow-lg"
                         : "hover:-translate-y-2 hover:shadow-lg"
                     }`}
+                    style={{ borderRadius: portalRadiusValue(1.5) }}
                     onClick={(e) => {
                       if (onEdit) {
                         onEdit(benefit.id);
@@ -443,10 +447,12 @@ export function PortalBenefits({
                     }}
                   >
                     {/* Image Section - Top (Benefits at a Glance card image) */}
+                    {/* The card clips this image, so its top corners come from
+                        the card's themed radius rather than a fixed utility. */}
                     <img
                       src={cardImage}
                       alt={benefit.title}
-                      className="w-full h-[180px] sm:h-[200px] shrink-0 object-cover block rounded-t-xl relative bottom-4"
+                      className="w-full h-[180px] sm:h-[200px] shrink-0 object-cover block relative bottom-4"
                     />
 
                     {/* Content Section - Bottom (White Background) */}
@@ -499,7 +505,10 @@ export function PortalBenefits({
                           <Link
                             href={`${basePath}${benefit.href}`}
                             className="block w-full rounded-md py-2.5 sm:py-3 text-center text-xs sm:text-sm font-semibold tracking-wide text-white transition-all duration-300 hover:opacity-90 hover:scale-105"
-                            style={{ background: secondaryColor }}
+                            style={{
+                              background: secondaryColor,
+                              borderRadius: portalRadiusValue(),
+                            }}
                             onClick={(e) => handleBenefitClick(e, benefit)}
                           >
                             {buttonLabel}
@@ -510,7 +519,10 @@ export function PortalBenefits({
                         ) : (
                           <div
                             className="block w-full rounded-md py-2.5 sm:py-3 text-center text-xs sm:text-sm font-semibold tracking-wide text-white transition-all duration-300 cursor-default"
-                            style={{ background: secondaryColor }}
+                            style={{
+                              background: secondaryColor,
+                              borderRadius: portalRadiusValue(),
+                            }}
                           >
                             {buttonLabel}
                             {hasButtonArrow && (

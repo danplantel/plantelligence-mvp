@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import ClientViewLayout from "../layout";
+import { TYPOGRAPHY_THEMES } from "@/lib/typography-themes";
 
 /**
  * The portal chrome: header, banner, footer, comment surface and the
@@ -481,6 +482,27 @@ describe("portal layout footer", () => {
     const root = container.querySelector(".portal-root") as HTMLElement;
     expect(root.style.getPropertyValue("--font-headline")).not.toBe("");
     expect(root.style.fontFamily).toBe("var(--font-ui)");
+  });
+
+  it("applies the theme's corner treatment alongside its fonts", () => {
+    mocks.clientData = plan({ typographyTheme: "classic" });
+    const sharp = renderLayout().container;
+    expect(
+      (sharp.querySelector(".portal-root") as HTMLElement).style.getPropertyValue(
+        "--portal-radius",
+      ),
+    ).toBe("0px");
+  });
+
+  it("publishes a rounded radius for the rounded themes", () => {
+    mocks.clientData = plan({ typographyTheme: "modern" });
+    const { container } = renderLayout();
+
+    expect(
+      (container.querySelector(".portal-root") as HTMLElement).style.getPropertyValue(
+        "--portal-radius",
+      ),
+    ).toBe(TYPOGRAPHY_THEMES.modern.radius);
   });
 });
 

@@ -8,6 +8,7 @@ import { useClientPortal } from "@/contexts/client-portal-context";
 import { useRouter, useParams } from "next/navigation";
 import Image from "next/image";
 import { PlanMaterialsFooter } from "@/components/pages/client-portal/sections/plan-materials-footer";
+import { portalRadiusValue } from "@/lib/typography-themes";
 
 export default function NotFoundPage() {
   const { clientData } = useClientPortal();
@@ -44,10 +45,12 @@ export default function NotFoundPage() {
             <Button
               onClick={() => router.push(`/${clientId}`)}
               className="h-[50px] rounded-md px-8 text-[16px] font-red-hat uppercase"
+              // The portal's corner treatment, so a sharp theme squares the CTA.
               style={{
                 backgroundColor: brandColor,
                 color: "#000",
                 fontWeight: 600,
+                borderRadius: portalRadiusValue(),
               }}
             >
               Go to {companyName} Home Page

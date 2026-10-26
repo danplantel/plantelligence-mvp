@@ -24,6 +24,7 @@ import {
 } from "@/hooks/useWebinarHoverPreview";
 import { WebinarHoverPreviewLayer } from "@/components/webinars/webinar-hover-preview";
 import { cn } from "@/lib/utils";
+import { portalRadiusValue } from "@/lib/typography-themes";
 
 /**
  * The empty state shared by the three meeting/webinar sections.
@@ -49,7 +50,11 @@ function SectionEmptyState({
   brandColor?: string;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-lg flex-col items-center rounded-2xl border border-gray-100 bg-gray-50/70 px-6 py-10 text-center">
+    <div
+      className="mx-auto flex w-full max-w-lg flex-col items-center rounded-2xl border border-gray-100 bg-gray-50/70 px-6 py-10 text-center"
+      // Empty states match the cards they stand in for.
+      style={{ borderRadius: portalRadiusValue(2) }}
+    >
       <span
         className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-gray-100"
         style={{ color: brandColor }}
@@ -276,7 +281,11 @@ export function UpcomingWebinarCard({
   const hasPlatform = Boolean(webinar.platform?.trim());
 
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full">
+    <div
+      className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden flex flex-col h-full"
+      // Webinar cards wear the typography theme's corners.
+      style={{ borderRadius: portalRadiusValue(1.5) }}
+    >
       {/* Top accent bar */}
       <div
         style={{ backgroundColor: accentColor }}
@@ -838,7 +847,10 @@ export function WebinarReplayCard({
       {variant === "poster" ? (
         // The card IS the 16:9 frame: play control top-right (white ring, white
         // icon), runtime bottom-right (black pill, white text).
-        <div className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-gray-900">
+        <div
+          className="relative aspect-video w-full overflow-hidden rounded-xl border border-white/10 bg-gray-900"
+          style={{ borderRadius: portalRadiusValue(1.5) }}
+        >
           <div
             className="relative h-full w-full cursor-pointer"
             onClick={handleVideoClick}
@@ -905,11 +917,15 @@ export function WebinarReplayCard({
               aria-hidden
               data-testid="video-card-active-border"
               className="pointer-events-none absolute inset-0 z-[4] rounded-xl border-2 border-white"
+              style={{ borderRadius: portalRadiusValue(1.5) }}
             />
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow">
+        <div
+          className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+          style={{ borderRadius: portalRadiusValue(1.5) }}
+        >
           <div
             className="relative aspect-video bg-gray-900"
             onClick={handleVideoClick}
@@ -983,6 +999,7 @@ export function WebinarReplayCard({
           >
             <div
               className="bg-white rounded-lg overflow-hidden max-w-4xl w-full"
+              style={{ borderRadius: portalRadiusValue() }}
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between p-4 border-b bg-white">

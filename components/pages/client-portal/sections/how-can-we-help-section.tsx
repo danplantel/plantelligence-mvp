@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { useOptionalClientPortal } from "@/contexts/client-portal-context";
 import { formatPhoneWithExtension } from "@/lib/phone-utils";
 import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
+import { portalRadiusValue } from "@/lib/typography-themes";
 import {
   ACCOUNT_ACCESS_CARD_ID,
   fillHelpCardTokens,
@@ -362,9 +363,11 @@ function RolloversDetail({
           data-testid="rollover-talk-cta"
           onClick={onTalkThrough}
           className="gap-2 rounded-lg px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.08em] shadow-sm hover:opacity-90"
+          // The CTA wears the theme's corner treatment, like the card around it.
           style={{
             backgroundColor: brandColor,
             color: readableColor(brandColor),
+            borderRadius: portalRadiusValue(),
           }}
         >
           Talk through my options
@@ -531,10 +534,15 @@ function AccountAccessCard({
             primary
               ? // Inverse button: the readable colour as the fill, the primary as
                 // the label. Never the secondary colour.
-                { backgroundColor: onPrimary, color: brandColor }
+                {
+                  backgroundColor: onPrimary,
+                  color: brandColor,
+                  borderRadius: portalRadiusValue(),
+                }
               : {
                   backgroundColor: ctaColor,
                   color: readableColor(ctaColor),
+                  borderRadius: portalRadiusValue(),
                 }
           }
         >
@@ -996,10 +1004,15 @@ export function HowCanWeHelpSection({
                       isPrimary
                         ? // Inverse button on a filled card — never the secondary
                           // colour, which may not contrast with the primary.
-                          { backgroundColor: onPrimary, color: brandColor }
+                          {
+                            backgroundColor: onPrimary,
+                            color: brandColor,
+                            borderRadius: portalRadiusValue(),
+                          }
                         : {
                             backgroundColor: brandColor,
                             color: readableColor(brandColor),
+                            borderRadius: portalRadiusValue(),
                           }
                     }
                   >

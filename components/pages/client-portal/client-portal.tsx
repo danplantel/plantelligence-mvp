@@ -15,6 +15,7 @@ import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import { KeyContact } from "@/types/new-client-wizard";
 import { resolveFooterBackgroundColor } from "@/lib/portal-footer-color";
+import { portalRadiusValue } from "@/lib/typography-themes";
 
 interface CompanyData {
   companyName?: string;
@@ -130,9 +131,11 @@ function SomethingChanged({
               key={label}
               type="button"
               className="group flex min-h-[72px] w-full items-center justify-between gap-3 rounded-xl border px-5 py-4 text-left shadow-sm transition-all duration-200 hover:opacity-90 hover:shadow-md"
+              // Life-event tiles follow the portal's typography theme corners.
               style={{
                 backgroundColor: secondaryColor,
                 borderColor: secondaryColor,
+                borderRadius: portalRadiusValue(1.5),
               }}
             >
               <span className="font-red-hat text-sm font-medium text-white">

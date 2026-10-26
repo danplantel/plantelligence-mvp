@@ -52,6 +52,7 @@ import {
   ACCOUNT_ACCESS_CARD_ID,
 } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import { helpCardCategoryLabel } from "@/lib/help-card-defaults";
+import { getPortalShapeCssVars } from "@/lib/typography-themes";
 import { BenefitDocumentSection } from "@/components/pages/client-portal/sections/benefit-document-section";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import {
@@ -471,7 +472,17 @@ export function BenefitPortalPreview({
   );
 
   return (
-    <div className="min-h-screen bg-black overflow-x-hidden relative w-full preview-portal-container">
+    <div
+      className="min-h-screen bg-black overflow-x-hidden relative w-full preview-portal-container"
+      // The theme's corner treatment, so the preview's buttons/cards square off
+      // (Classic, Contemporary) or round (Modern, Editorial) exactly as the live
+      // portal will. Scoped here — NOT on <html> — so the dashboard is untouched.
+      style={
+        getPortalShapeCssVars(
+          step1Data?.typographyTheme,
+        ) as unknown as React.CSSProperties
+      }
+    >
       {/* Preview CSS overrides */}
       {!mobile && <style>{previewStyles}</style>}
       {/* Mobile mode: force framer-motion animated elements visible

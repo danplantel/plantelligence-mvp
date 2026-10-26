@@ -7,7 +7,10 @@ import { BenefitsEditorPanel } from "./benefits-editor-panel";
 import { useBenefitsEditorState } from "./hooks/use-benefits-editor-state";
 import { useBenefitsLenisScroll } from "./hooks/use-benefits-lenis-scroll";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
-import { applyTypographyToElement } from "@/lib/typography-themes";
+import {
+    applyTypographyToElement,
+    getPortalShapeCssVars,
+} from "@/lib/typography-themes";
 import { fetchClientOnce } from "@/lib/fetch-client";
 import { usePreviewEditorLayout } from "@/lib/preview-editor-layout";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
@@ -87,6 +90,8 @@ export function MobilePreviewFrame({
 
     // Re-sync the root CSS variables (typography theme) into the iframe whenever
     // the theme changes, so the mobile preview updates live without a remount.
+    // The corner radius is set explicitly: it lives on the preview containers,
+    // never on the parent <html>, precisely so it cannot reshape the dashboard.
     useEffect(() => {
         const doc = iframeRef.current?.contentDocument;
         if (!doc) return;
@@ -96,6 +101,10 @@ export function MobilePreviewFrame({
             .forEach((k) =>
                 doc.documentElement.style.setProperty(k, rootStyles.getPropertyValue(k)),
             );
+        const shape = getPortalShapeCssVars(themeKey);
+        (Object.entries(shape) as [string, string][]).forEach(([key, value]) => {
+            doc.documentElement.style.setProperty(key, value);
+        });
     }, [themeKey]);
 
     const height = Math.round(width * MOBILE_ASPECT_RATIO);

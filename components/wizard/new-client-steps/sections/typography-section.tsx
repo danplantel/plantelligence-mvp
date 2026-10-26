@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import {
   TYPOGRAPHY_THEMES,
   TYPOGRAPHY_THEME_LIST,
+  getPortalShapeCssVars,
   getTypographyCssVars,
   isTypographyThemeId,
   resolveTypographyTheme,
@@ -234,8 +235,12 @@ export function TypographySection({
         >
           {TYPOGRAPHY_THEME_LIST.map((theme) => {
             const isSelected = selectedId === theme.id;
-            // Activate this theme's fonts for the preview subtree only.
-            const previewVars = getTypographyCssVars(theme.id);
+            // Activate this theme's fonts AND corner treatment for the preview
+            // subtree only, so the sample below shows the real shape.
+            const previewVars = {
+              ...getTypographyCssVars(theme.id),
+              ...getPortalShapeCssVars(theme.id),
+            };
 
             return (
               <button
@@ -255,10 +260,23 @@ export function TypographySection({
                     : "border-gray-200 bg-white hover:border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500 dark:hover:bg-gray-700/40",
                 )}
               >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
-                    {theme.label}
-                  </span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate text-sm font-semibold text-gray-900 dark:text-gray-100">
+                      {theme.label}
+                    </span>
+                    {/* The theme's corner language, at a glance. */}
+                    <span
+                      className="shrink-0 rounded-full border border-gray-300 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.08em] text-gray-600 dark:border-gray-600 dark:text-gray-300"
+                      title={
+                        theme.shape === "sharp"
+                          ? "Square corners (0 radius)"
+                          : "Subtly rounded corners"
+                      }
+                    >
+                      {theme.shape === "sharp" ? "Sharp" : "Rounded"}
+                    </span>
+                  </div>
                   {isSelected && (
                     <span className="flex h-5 w-5 items-center justify-center rounded-full bg-accent-blue text-white">
                       <Check className="h-3 w-3" />
@@ -306,6 +324,12 @@ export function TypographySection({
                     </span>{" "}
                     {theme.bodyName}
                   </p>
+                  <p className="text-[11px] text-muted-foreground dark:text-gray-400">
+                    <span className="font-medium text-gray-700 dark:text-gray-300">
+                      Corners:
+                    </span>{" "}
+                    {theme.shape === "sharp" ? "Sharp" : "Rounded"}
+                  </p>
                 </div>
               </button>
             );
@@ -314,7 +338,9 @@ export function TypographySection({
 
         <p className="mt-3 text-xs text-muted-foreground dark:text-gray-400">
           Buttons, navigation, form labels, and other interface elements always
-          use Outfit regardless of the selected theme.
+          use Outfit regardless of the selected theme. Each theme also sets the
+          portal&rsquo;s corner style — Classic and Contemporary are sharp, Modern
+          and Editorial are rounded.
         </p>
       </CardContent>
     </Card>

@@ -15,6 +15,7 @@ import {
   getContactCategories as getContactCategoriesFromLib,
   type CategoryPortalVisibility,
 } from "@/lib/portal-category-visibility";
+import { portalRadiusValue } from "@/lib/typography-themes";
 
 /** True if contact should be hidden by Category Display (Show/Hide). Use: fetch → filter by !isHidden → render. */
 function isContactHiddenByCategory(
@@ -861,8 +862,12 @@ function MyBenefitsTeamSkeleton() {
           <Skeleton className="h-10 w-64 mx-auto" />
         </div>
 
-        {/* Default layout skeleton: 1 primary + 4 small */}
-        <Skeleton className="h-52 w-full rounded-xl" />
+        {/* Default layout skeleton: 1 primary + 4 small. It mirrors the loaded
+            cards, so it carries the same typography-theme corners. */}
+        <Skeleton
+          className="h-52 w-full rounded-xl"
+          style={{ borderRadius: portalRadiusValue(1.5) }}
+        />
         <div className="mt-3 w-full min-w-0">
           <div className="grid w-full min-w-0 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-1">
             <Skeleton className="h-36 rounded-xl" />

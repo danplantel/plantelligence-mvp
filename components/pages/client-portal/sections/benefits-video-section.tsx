@@ -6,6 +6,7 @@ import { motion, useInView } from "framer-motion";
 import { Clock, Pencil, Play } from "lucide-react";
 import { toNextImageSrc } from "@/lib/branding-image-url";
 import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
+import { portalRadiusValue } from "@/lib/typography-themes";
 import { resolveJourneyImage } from "@/lib/benefits-video-fallback";
 import type { WebinarPlacementKey } from "@/lib/webinar-placements";
 import { VideoCarousel } from "./video-carousel";
@@ -401,7 +402,10 @@ export function BenefitsVideoSection({
                   type="button"
                   onClick={handleWatchNow}
                   className="inline-flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
-                  style={{ background: brandColor }}
+                  style={{
+                    background: brandColor,
+                    borderRadius: portalRadiusValue(),
+                  }}
                 >
                   Watch Now
                   <Play
@@ -417,6 +421,7 @@ export function BenefitsVideoSection({
                   type="button"
                   onClick={onScheduleClick}
                   className="inline-flex items-center justify-center rounded-lg border border-white/30 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/10"
+                  style={{ borderRadius: portalRadiusValue() }}
                 >
                   {scheduleLabel}
                 </button>
@@ -426,6 +431,7 @@ export function BenefitsVideoSection({
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center justify-center rounded-lg border border-white/30 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/10"
+                  style={{ borderRadius: portalRadiusValue() }}
                 >
                   {scheduleLabel}
                 </a>
@@ -433,6 +439,7 @@ export function BenefitsVideoSection({
                 <button
                   type="button"
                   className="inline-flex items-center justify-center rounded-lg border border-white/30 px-5 py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-white/10"
+                  style={{ borderRadius: portalRadiusValue() }}
                 >
                   {scheduleLabel}
                 </button>
@@ -459,7 +466,14 @@ export function BenefitsVideoSection({
             {onVideoClick && hoveredField === "video" && (
               <EditPencil label="Edit plan video" />
             )}
-            <div className="aspect-video overflow-hidden rounded-xl border border-white/15 bg-black/80 shadow-2xl sm:rounded-2xl">
+            {/* The journey's headline surface: it follows the typography
+                theme's corner treatment rather than a fixed `rounded-xl`, so a
+                sharp theme squares it off completely. */}
+            <div
+              data-testid="journey-video-frame"
+              className="aspect-video overflow-hidden border border-white/15 bg-black/80 shadow-2xl"
+              style={{ borderRadius: portalRadiusValue(2) }}
+            >
               {planVideoUrl ? (
                 <div
                   className="relative h-full w-full cursor-pointer"

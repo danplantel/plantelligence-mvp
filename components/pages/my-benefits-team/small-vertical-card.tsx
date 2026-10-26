@@ -17,6 +17,7 @@ import {
 import { withContactFormAvatar } from "@/lib/url-utils";
 import { resolveContactFormUrl } from "@/lib/contact-form-link";
 import { ContactCategoryBadge } from "@/components/ui/contact-category-badge";
+import { portalRadiusValue } from "@/lib/typography-themes";
 
 interface Contact {
   id?: string | number;
@@ -500,6 +501,8 @@ export function SmallVerticalCard({
               backgroundColor: buttonBg,
               color: buttonColor,
               border: isPrimaryButton ? "none" : "1px solid #E5E7EB",
+              // The CTA follows the portal's corner treatment, like the card.
+              borderRadius: portalRadiusValue(),
             };
 
             if (contactFormInert) {
@@ -558,7 +561,10 @@ export function SmallVerticalCard({
             cardWidth,
             "flex h-full flex-col rounded-xl border border-[#E5E5E5] shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md",
           )}
-          style={{ backgroundColor }}
+          // The typography theme owns the card's corners (the `rounded-xl`
+          // class is only a fallback for surfaces outside the portal).
+          style={{ backgroundColor, borderRadius: portalRadiusValue(1.5) }}
+          data-testid="contact-card"
           data-mobile-variant="wide"
         >
           <div className="flex min-w-0 items-start gap-3 p-3">
@@ -680,7 +686,8 @@ export function SmallVerticalCard({
           cardWidth,
           "flex h-full flex-col rounded-xl border border-[#E5E5E5] p-2 shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md",
         )}
-        style={{ backgroundColor }}
+        style={{ backgroundColor, borderRadius: portalRadiusValue(1.5) }}
+        data-testid="contact-card"
         data-mobile-variant="compact"
       >
         <ContactCategoryBadge
@@ -808,7 +815,8 @@ export function SmallVerticalCard({
     return (
       <div
         className={`${cardWidth} h-full ${minH} flex flex-col items-center rounded-xl border border-[#E5E5E5] ${cardPadding} shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-300 cursor-pointer`}
-        style={{ backgroundColor }}
+        style={{ backgroundColor, borderRadius: portalRadiusValue(1.5) }}
+        data-testid="contact-card"
       >
         <div className="flex flex-col items-center flex-1 w-full">
           {/* BENEFIT CATEGORY TAG — sits above the logo bar so it reads as the top
@@ -1104,6 +1112,7 @@ export function SmallVerticalCard({
                     : isPrimary
                     ? "1px solid #E5E7EB"
                     : "1px solid #E5E7EB",
+                  borderRadius: portalRadiusValue(),
                 };
 
                 if (contactFormInert) {
@@ -1158,7 +1167,8 @@ export function SmallVerticalCard({
         ease: "easeOut",
       }}
       className={`${cardWidth} h-auto min-h-0 sm:min-h-[420px] flex flex-col items-center rounded-xl border border-[#E5E5E5] px-4 py-6 sm:px-8 sm:py-10 shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-300 cursor-pointer`}
-      style={{ backgroundColor }}
+      style={{ backgroundColor, borderRadius: portalRadiusValue(1.5) }}
+      data-testid="contact-card"
     >
       <div className="flex flex-col items-center flex-1 w-full">
         {/* BENEFIT CATEGORY TAG — see the comment on the non-animated variant above. */}
@@ -1441,6 +1451,7 @@ export function SmallVerticalCard({
                   : isPrimary
                   ? "1px solid #E5E7EB"
                   : "1px solid #E5E7EB",
+                borderRadius: portalRadiusValue(),
               };
 
               if (contactFormInert) {

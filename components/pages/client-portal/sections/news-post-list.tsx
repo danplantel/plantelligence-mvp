@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Calendar, ArrowRight } from "lucide-react";
 import { useNewsPostAssets } from "@/hooks/useMarketingAssets";
 import { normalizePortalCtaUrl } from "@/lib/portal-banner";
+import { portalRadiusValue } from "@/lib/typography-themes";
 
 interface NewsPostListProps {
   clientId?: string;
@@ -55,7 +56,11 @@ export function NewsPostList({
             <div className="mx-auto h-10 w-48 rounded bg-gray-200" />
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {[1, 2].map((i) => (
-                <div key={i} className="h-64 rounded-xl bg-gray-200" />
+                <div
+                  key={i}
+                  className="h-64 rounded-xl bg-gray-200"
+                  style={{ borderRadius: portalRadiusValue(1.5) }}
+                />
               ))}
             </div>
           </div>
@@ -143,13 +148,16 @@ export function NewsPostList({
               >
                 <div
                   className="group relative h-full min-h-[380px] sm:min-h-[360px] rounded-xl overflow-hidden shadow-sm hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
-                  style={
-                    !hasBg
-                      ? {
+                  // The post card wears the typography theme's corners; a post
+                  // with no artwork keeps its brand gradient.
+                  style={{
+                    ...(hasBg
+                      ? {}
+                      : {
                           background: `linear-gradient(135deg, ${brandColor} 0%, #2c4b80 100%)`,
-                        }
-                      : undefined
-                  }
+                        }),
+                    borderRadius: portalRadiusValue(1.5),
+                  }}
                 >
                   {/* Background image */}
                   {hasBg && (
@@ -225,12 +233,16 @@ export function NewsPostList({
                             target="_blank"
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 backdrop-blur-sm px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-semibold text-white shadow-sm border border-white/30 transition-all duration-200 hover:bg-white/30"
+                            style={{ borderRadius: portalRadiusValue() }}
                           >
                             {post.ctaText}
                             <ArrowRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                           </a>
                         ) : (
-                          <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 backdrop-blur-sm px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-semibold text-white shadow-sm border border-white/30">
+                          <span
+                            className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 backdrop-blur-sm px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-semibold text-white shadow-sm border border-white/30"
+                            style={{ borderRadius: portalRadiusValue() }}
+                          >
                             {post.ctaText}
                             <ArrowRight className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                           </span>

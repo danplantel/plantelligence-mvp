@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronDown, Phone, Mail } from "lucide-react";
 import { readableColor } from "polished";
 import { Headshot } from "@/components/ui/headshot";
+import { portalRadiusValue } from "@/lib/typography-themes";
 
 export interface DynamicFAQItem {
   id: string;
@@ -104,9 +105,13 @@ function FAQAccordionGroup({
         return (
           <div
             key={key}
+            data-testid="faq-card"
             // The section sits on a light grey band; each card stays white so the
             // question (secondary colour) and its answer read as raised panels.
-            className="overflow-hidden rounded-lg border border-gray-200 bg-white transition-shadow duration-200 hover:shadow-sm"
+            // The corners come from the typography theme, so a sharp theme squares
+            // every question card off.
+            className="overflow-hidden border border-gray-200 bg-white transition-shadow duration-200 hover:shadow-sm"
+            style={{ borderRadius: portalRadiusValue(1.5) }}
           >
             <button
               onClick={() => onToggle(key)}

@@ -25,6 +25,16 @@ export type TypographyThemeId =
   | "editorial"
   | "contemporary";
 
+/**
+ * Corner treatment bundled with a typography theme.
+ *
+ * A theme is no longer only fonts: it also decides the portal's shape language.
+ * `sharp` squares every rounded utility off (0 radius); `round` keeps a subtle
+ * rounding. Both leave `rounded-full` circular — a circle is a shape, not a
+ * corner — so avatars, pills and status dots stay as designed.
+ */
+export type TypographyShape = "sharp" | "round";
+
 /** The three font roles a theme assigns. */
 export type TypographyRole = "headline" | "body" | "ui";
 
@@ -34,6 +44,13 @@ export interface TypographyTheme {
   label: string;
   /** One-line description shown under the label. */
   description: string;
+  /** Corner treatment this theme applies to the portal's UI. */
+  shape: TypographyShape;
+  /**
+   * Resolved base corner radius, published to the portal as
+   * `--portal-radius` (see `getPortalShapeCssVars`). `0px` for `sharp`.
+   */
+  radius: string;
   /** Resolved `font-family` stack for headings. */
   headline: string;
   /** Resolved `font-family` stack for body copy. */
@@ -64,11 +81,22 @@ const OUTFIT =
 
 // ── Themes ──────────────────────────────────────────────────────────────────
 
+/**
+ * Corner radii, as the resolved `--portal-radius` value.
+ *
+ * `round` is a step up from the app's base 0.5rem so the difference from `sharp`
+ * reads immediately without turning cards into lozenges.
+ */
+const SHARP_RADIUS = "0px";
+const ROUND_RADIUS = "0.75rem";
+
 export const TYPOGRAPHY_THEMES: Record<TypographyThemeId, TypographyTheme> = {
   classic: {
     id: "classic",
     label: "Classic",
     description: "Timeless serif headlines paired with a clean, modern body.",
+    shape: "sharp",
+    radius: SHARP_RADIUS,
     headline: PLAYFAIR,
     body: OUTFIT,
     ui: OUTFIT,
@@ -79,6 +107,8 @@ export const TYPOGRAPHY_THEMES: Record<TypographyThemeId, TypographyTheme> = {
     id: "modern",
     label: "Modern",
     description: "Contemporary sans-serif headlines with a clean body.",
+    shape: "round",
+    radius: ROUND_RADIUS,
     headline: SORA,
     body: OUTFIT,
     ui: OUTFIT,
@@ -89,6 +119,8 @@ export const TYPOGRAPHY_THEMES: Record<TypographyThemeId, TypographyTheme> = {
     id: "editorial",
     label: "Editorial",
     description: "Elegant serif headlines with a refined serif body.",
+    shape: "round",
+    radius: ROUND_RADIUS,
     headline: PLAYFAIR,
     body: LORA,
     ui: OUTFIT,
@@ -99,6 +131,8 @@ export const TYPOGRAPHY_THEMES: Record<TypographyThemeId, TypographyTheme> = {
     id: "contemporary",
     label: "Contemporary",
     description: "Modern sans-serif headlines with a refined serif body.",
+    shape: "sharp",
+    radius: SHARP_RADIUS,
     headline: SORA,
     body: LORA,
     ui: OUTFIT,
@@ -158,9 +192,14 @@ export interface TypographyCssVars {
 }
 
 /**
- * Build the CSS custom properties for a theme. Spread onto the portal
+ * Build the CSS custom properties for a theme's FONTS. Spread onto the portal
  * container's `style` (or applied to a preview root) to activate the theme for
  * that subtree.
+ *
+ * Corner treatment is deliberately NOT part of this object: it is also applied
+ * to `document.documentElement` while an editor is open (see
+ * `applyTypographyToElement`), and a global radius would reshape the dashboard.
+ * Use `getPortalShapeCssVars` / `getPortalThemeCssVars` for the portal surfaces.
  */
 export function getTypographyCssVars(id?: string | null): TypographyCssVars {
   const theme = resolveTypographyTheme(id);
@@ -169,6 +208,48 @@ export function getTypographyCssVars(id?: string | null): TypographyCssVars {
     "--font-body": theme.body,
     "--font-ui": theme.ui,
   };
+}
+
+/** The custom property that drives the portal's corner radius. */
+export interface PortalShapeCssVars {
+  "--portal-radius": string;
+}
+
+/**
+ * Build the shape custom property for a theme. Set it on a portal container (or
+ * a preview root) — anywhere it is set, the `rounded-*` utilities below it read
+ * the theme's radius instead of the app's base `--radius`.
+ */
+export function getPortalShapeCssVars(
+  id?: string | null,
+): PortalShapeCssVars {
+  return { "--portal-radius": resolveTypographyTheme(id).radius };
+}
+
+/** Fonts + shape — everything the portal root needs from a theme. */
+export function getPortalThemeCssVars(
+  id?: string | null,
+): TypographyCssVars & PortalShapeCssVars {
+  return { ...getTypographyCssVars(id), ...getPortalShapeCssVars(id) };
+}
+
+/**
+ * The theme's corner radius as a CSS value, at a multiple of the base step.
+ *
+ * Most portal UI leans on the `rounded-*` utilities (see tailwind.config.js),
+ * which already read `--portal-radius`. Sections that draw a surface the
+ * utility set has no class for — the welcome banner's hero card, the journey
+ * video frame, the document grid cards, the contact cards — use this instead,
+ * so the typography theme's shape reaches them too:
+ *
+ *   sharp → `calc(0px * 2)` = 0 (perfectly square)
+ *   round → `calc(0.75rem * 2)` = 1.5rem
+ *
+ * `scale` mirrors the utility steps: 1 = `lg`, 1.5 = `xl`, 2 = `2xl`.
+ */
+export function portalRadiusValue(scale = 1): string {
+  const base = "var(--portal-radius, var(--radius))";
+  return scale === 1 ? base : `calc(${base} * ${scale})`;
 }
 
 /**

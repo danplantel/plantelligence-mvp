@@ -108,4 +108,15 @@ describe("PortalWelcomeBanner portrait", () => {
     expect(screen.queryByAltText("Dana Reed")).not.toBeInTheDocument();
     expect(screen.getByText("BENEFITS LOGO")).toBeInTheDocument();
   });
+
+  it("wears the typography theme's corner treatment", () => {
+    banner();
+
+    // The hero card is the banner's biggest surface. It reads `--portal-radius`
+    // — the variable the theme publishes and every `rounded-*` utility uses —
+    // so a sharp theme squares it off and a round theme curves it.
+    const heroCard = screen.getByTestId("welcome-banner-hero-card");
+
+    expect(heroCard.style.borderRadius).toContain("--portal-radius");
+  });
 });

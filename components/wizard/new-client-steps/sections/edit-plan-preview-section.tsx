@@ -25,6 +25,7 @@ import { useHeroOverlaySettings } from "@/components/wizard/new-client-steps/sec
 import { TypographySection } from "@/components/wizard/new-client-steps/sections/typography-section";
 import {
   applyTypographyToElement,
+  getPortalShapeCssVars,
   type TypographyThemeId,
 } from "@/lib/typography-themes";
 import { usePreviewEditorLayout } from "@/lib/preview-editor-layout";
@@ -1037,10 +1038,17 @@ export function EditPlanPreviewSection({
           </div>
         )}
 
-        {/* Scrollable preview content */}
+        {/* Scrollable preview content. The theme's corner treatment is scoped to
+            this preview, so buttons/cards match the live portal without touching
+            the dashboard's own radii. */}
         <div
           ref={scrollableRef}
           data-preview-scroll-container
+          style={
+            getPortalShapeCssVars(
+              typographyTheme,
+            ) as unknown as React.CSSProperties
+          }
           className={`flex-1 overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center ${
             previewMode === "mobile" ? "overflow-y-hidden justify-center" : "overflow-y-auto"
           }`}

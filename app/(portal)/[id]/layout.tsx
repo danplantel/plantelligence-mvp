@@ -25,7 +25,7 @@ import {
   resolveDefaultDisclosuresText,
   resolveOrgOnlyDisclaimerText,
 } from "@/lib/disclaimer-constants";
-import { getTypographyCssVars } from "@/lib/typography-themes";
+import { getPortalThemeCssVars } from "@/lib/typography-themes";
 import { benefitCategoryToVisibilityKey } from "@/lib/portal-category-visibility";
 import {
   customBenefitNameToSlug,
@@ -78,7 +78,8 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
   // Portal typography theme (portal-only — the dashboard stays on Manrope).
-  // Unset/unknown values resolve to Classic inside getTypographyCssVars.
+  // Unset/unknown values resolve to Classic inside getPortalThemeCssVars, which
+  // carries both the fonts and the theme's corner radius.
   const typographyTheme = clientData?.typographyTheme;
 
   // Portal footer background color — the plan's `footerBackground` preference,
@@ -446,7 +447,9 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     <div
       className="min-h-screen bg-white portal-root"
       style={{
-        ...(getTypographyCssVars(
+        // Fonts + the theme's corner treatment. `--portal-radius` re-shapes
+        // every `rounded-*` utility inside the portal (see tailwind.config.js).
+        ...(getPortalThemeCssVars(
           typographyTheme,
         ) as unknown as React.CSSProperties),
         // UI chrome (nav, buttons, labels, inputs) always uses Outfit in the

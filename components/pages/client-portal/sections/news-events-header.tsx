@@ -1,3 +1,5 @@
+import { portalRadiusValue } from "@/lib/typography-themes";
+
 interface NewsEventsHeaderProps {
   title?: string;
   backgroundImage?: string;
@@ -40,7 +42,11 @@ export function NewsEventsHeader({
 
       {/* Center content block */}
       <div className="absolute inset-0 flex items-center justify-center px-4 sm:px-6">
-        <div className="bg-black/60 backdrop-blur-sm rounded-xl w-full max-w-[90%] sm:max-w-[700px] lg:w-[900px] px-6 py-6 sm:px-10 sm:py-8 lg:px-12 lg:py-10">
+        {/* The header panel follows the portal's typography theme corners. */}
+        <div
+          className="bg-black/60 backdrop-blur-sm rounded-xl w-full max-w-[90%] sm:max-w-[700px] lg:w-[900px] px-6 py-6 sm:px-10 sm:py-8 lg:px-12 lg:py-10"
+          style={{ borderRadius: portalRadiusValue(1.5) }}
+        >
           <h1 className="font-dm-serif text-white text-3xl sm:text-[40px] lg:text-[48px] text-center leading-tight">
             {title}
           </h1>

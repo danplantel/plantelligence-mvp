@@ -284,6 +284,17 @@ describe("FAQSection contacts", () => {
     expect(screen.queryByText("ada@acme.test")).not.toBeInTheDocument();
   });
 
+  it("takes its corners from the typography theme", () => {
+    render(<FAQSection faqs={[faq()]} />);
+
+    // `--portal-radius` is 0px for a sharp theme and the theme's radius for a
+    // round one, so the question cards follow the Typography Theme picker
+    // rather than a fixed `rounded-lg`.
+    const card = screen.getAllByTestId("faq-card")[0];
+
+    expect(card.style.borderRadius).toContain("--portal-radius");
+  });
+
   it("titles the section in gray-900, not the brand colour", () => {
     render(<FAQSection faqs={[]} brandColor="#123456" />);
 

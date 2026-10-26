@@ -73,10 +73,32 @@ module.exports = {
           foreground: "hsl(var(--card-foreground))",
         },
       },
+      /**
+       * Every radius utility is a MULTIPLE of one base value.
+       *
+       * The portal publishes its typography theme's corner treatment as
+       * `--portal-radius` (see lib/typography-themes.ts); the dashboard does not
+       * set it, so it falls back to the app's `--radius` (0.5rem) and every
+       * surface keeps the exact radii it has today:
+       *   sm 0.25rem · md 0.375rem · lg 0.5rem · xl 0.75rem · 2xl 1rem · 3xl 1.5rem
+       *
+       * Scaling by a multiple (rather than adding a constant) is what lets a
+       * `sharp` theme reach EXACTLY 0px on every step — an `+4px` xl would have
+       * stayed 4px square-ish rather than square.
+       *
+       * `full` stays circular: avatars, pills and status dots are shapes, not
+       * corners, and must not be squared off by a sharp theme.
+       */
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        none: "0px",
+        sm: "calc(var(--portal-radius, var(--radius)) * 0.5)",
+        DEFAULT: "calc(var(--portal-radius, var(--radius)) * 0.75)",
+        md: "calc(var(--portal-radius, var(--radius)) * 0.75)",
+        lg: "var(--portal-radius, var(--radius))",
+        xl: "calc(var(--portal-radius, var(--radius)) * 1.5)",
+        "2xl": "calc(var(--portal-radius, var(--radius)) * 2)",
+        "3xl": "calc(var(--portal-radius, var(--radius)) * 3)",
+        full: "9999px",
       },
       keyframes: {
         "accordion-down": {

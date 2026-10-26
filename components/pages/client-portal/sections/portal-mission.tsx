@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { useRef, useState, KeyboardEvent } from "react";
 import { Pencil } from "lucide-react";
 import { BrandingImage } from "@/components/ui/branding-image";
+import { portalRadiusValue } from "@/lib/typography-themes";
 
 interface PortalMissionProps {
   company?: {
@@ -82,7 +83,11 @@ export function PortalMission({
            * a square frame did the same once the slot's crop became 9:10.) It
            * also lets the image grow with the column, which is what keeps it in
            * step with the mission paragraphs beside it. */}
-          <div className="w-full aspect-[9/10] overflow-hidden rounded-lg">
+          <div
+            className="w-full aspect-[9/10] overflow-hidden rounded-lg"
+            // The mission image frame follows the theme's corner treatment.
+            style={{ borderRadius: portalRadiusValue(1.5) }}
+          >
             {company?.thumbnailImg ? (
               <BrandingImage
                 src={company.thumbnailImg}
@@ -191,6 +196,7 @@ export function PortalMission({
               className="w-full sm:w-auto sm:self-start px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm md:text-base text-white uppercase font-semibold rounded-md transition-colors duration-200 hover:opacity-90"
               style={{
                 background: secondaryColor || brandColor || "#D4A574",
+                borderRadius: portalRadiusValue(),
               }}
               aria-label="Explore your benefits"
             >

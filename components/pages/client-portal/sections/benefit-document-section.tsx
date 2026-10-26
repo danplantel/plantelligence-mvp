@@ -65,6 +65,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { normalizePortalDocumentLanguage } from "@/lib/portal-document-language";
+import { portalRadiusValue } from "@/lib/typography-themes";
 
 /**
  * Derive a user-facing accordion header title from a benefit category.
@@ -789,9 +790,12 @@ function SortableCard({
         className={`h-full shadow-sm transition-transform hover:-translate-y-1 hover:shadow-md ${
           isDragging ? "bg-gray-100" : "bg-white"
         }`}
+        // Document cards wear the typography theme's corner treatment (square
+        // for a sharp theme) instead of the utility's fixed radius.
         style={{
           borderColor: `${brandColor}26`,
           borderWidth: 1,
+          borderRadius: portalRadiusValue(1.5),
         }}
       >
         <CardContent className="flex min-h-[320px] h-full flex-col items-center px-6 pt-1 pb-8 text-center relative overflow-hidden">
@@ -1077,6 +1081,7 @@ function SortableCard({
                     backgroundColor: brandColor,
                     borderColor: brandColor,
                     color: "#ffffff",
+                    borderRadius: portalRadiusValue(),
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = accentColor;
@@ -1106,6 +1111,7 @@ function SortableCard({
                 <Button
                   variant="outline"
                   className="bg-gray-200 flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden"
+                  style={{ borderRadius: portalRadiusValue() }}
                   onClick={handleCancel}
                   disabled={isSaving}
                 >
@@ -1131,6 +1137,7 @@ function DocsGridSkeleton({ brandColor }: { brandColor: string }) {
           style={{
             borderColor: `${brandColor}26`,
             borderWidth: 1,
+            borderRadius: portalRadiusValue(1.5),
           }}
         >
           <CardContent className="flex min-h-[320px] h-full flex-col items-center px-6 py-8 text-center relative overflow-hidden">
@@ -1410,10 +1417,12 @@ export function DocsGrid({
         const isEditing = localEditingDocId === doc.id;
         const cardContent = (
           <Card
+            data-testid="document-card"
             className="bg-white shadow-sm transition-transform duration-200 hover:-translate-y-1 hover:shadow-md"
             style={{
               borderColor: `${brandColor}26`,
               borderWidth: 1,
+              borderRadius: portalRadiusValue(1.5),
             }}
           >
             <CardContent className="flex min-h-[320px] h-full flex-col items-center px-6 py-8 text-center relative overflow-hidden">
@@ -1606,9 +1615,11 @@ export function DocsGrid({
                   <Button
                     className="flex-1 flex items-center justify-center gap-2 text-[14px] leading-tight font-red-hat font-semibold tracking-wide transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden text-white"
                     // View/Document CTA uses the brand's primary color.
+                    // Its corners follow the typography theme, like the card's.
                     style={{
                       backgroundColor: brandColor,
                       borderColor: brandColor,
+                      borderRadius: portalRadiusValue(),
                     }}
                     onMouseEnter={(e) => {
                       e.currentTarget.style.backgroundColor = accentColor;
@@ -1677,6 +1688,7 @@ export function DocsGrid({
                         backgroundColor: brandColor,
                         borderColor: brandColor,
                         color: "#ffffff",
+                        borderRadius: portalRadiusValue(),
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = accentColor;
@@ -1707,6 +1719,7 @@ export function DocsGrid({
                     <Button
                       variant="outline"
                       className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden"
+                      style={{ borderRadius: portalRadiusValue() }}
                       onClick={handleCancelEdit}
                     >
                       <XCircle className="h-3 w-3 flex-shrink-0" />
@@ -1722,6 +1735,7 @@ export function DocsGrid({
                       style={{
                         borderColor: brandColor,
                         color: brandColor,
+                        borderRadius: portalRadiusValue(),
                       }}
                       onMouseEnter={(e) => {
                         e.currentTarget.style.backgroundColor = accentColor;
@@ -1794,6 +1808,7 @@ export function DocsGrid({
               style={{
                 borderColor: `${brandColor}40`,
                 borderWidth: 1,
+                borderRadius: portalRadiusValue(1.5),
               }}
             >
               <CardContent className="flex flex-col items-center px-6 py-8 text-center">

@@ -379,6 +379,16 @@ describe("HaveQuestions key contact label", () => {
     );
   });
 
+  it("gives the contact cards the typography theme's corners", () => {
+    render(<HaveQuestions contacts={cards} />);
+
+    // The cards come from the shared My Benefits Team component, so they read
+    // `--portal-radius`: square under a sharp theme, curved under a round one.
+    expect(
+      screen.getAllByTestId("contact-card")[0].style.borderRadius,
+    ).toContain("--portal-radius");
+  });
+
   it("paints the label in the plan's brand colour", () => {
     render(
       <HaveQuestions

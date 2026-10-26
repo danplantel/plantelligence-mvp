@@ -7,6 +7,7 @@ import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { toNextImageSrc } from "@/lib/branding-image-url";
 import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
+import { portalRadiusValue } from "@/lib/typography-themes";
 import {
   DEFAULT_WELCOME_BG,
   CATEGORY_DEFAULT_BGS,
@@ -448,12 +449,16 @@ export function PortalWelcomeBanner({
         style={{ maxWidth: "72rem" }}
       >
         <div
+          data-testid="welcome-banner-hero-card"
           className={`overflow-hidden backdrop-blur-sm ${
             effectiveContainerInverted
               ? "border border-gray-300"
               : "border border-white/15"
           }`}
-          style={containerBgStyle}
+          // The hero card is the banner's headline surface, so it wears the
+          // typography theme's corner treatment: rounded for a round theme,
+          // perfectly square for a sharp one (see `portalRadiusValue`).
+          style={{ ...containerBgStyle, borderRadius: portalRadiusValue(2) }}
         >
           <motion.div
             initial={{ opacity: 0, y: 50 }}
@@ -604,7 +609,10 @@ export function PortalWelcomeBanner({
                     type="button"
                     onClick={onScheduleClick}
                     className="inline-flex w-[calc(50%_-_0.375rem)] items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
-                    style={{ background: brandColor }}
+                    style={{
+                      background: brandColor,
+                      borderRadius: portalRadiusValue(),
+                    }}
                   >
                     {scheduleLabel}
                   </button>
@@ -614,7 +622,10 @@ export function PortalWelcomeBanner({
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex w-[calc(50%_-_0.375rem)] items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
-                    style={{ background: brandColor }}
+                    style={{
+                      background: brandColor,
+                      borderRadius: portalRadiusValue(),
+                    }}
                   >
                     {scheduleLabel}
                   </a>
@@ -622,7 +633,10 @@ export function PortalWelcomeBanner({
                   <button
                     type="button"
                     className="inline-flex w-[calc(50%_-_0.375rem)] items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
-                    style={{ background: brandColor }}
+                    style={{
+                      background: brandColor,
+                      borderRadius: portalRadiusValue(),
+                    }}
                   >
                     {scheduleLabel}
                   </button>
