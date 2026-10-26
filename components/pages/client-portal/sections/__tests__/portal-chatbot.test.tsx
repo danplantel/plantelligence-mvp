@@ -35,6 +35,34 @@ describe("PortalChatbot", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
+  it("reads 'Ask a question' beside the icon, as one pill", () => {
+    render(<PortalChatbot />);
+
+    const fab = screen.getByRole("button", { name: "Ask a question" });
+    const label = screen.getByTestId("portal-chatbot-fab-label");
+    expect(label).toHaveTextContent("Ask a question");
+    // Inside the button, so the whole pill is a single click target — and wide,
+    // since it now carries a label rather than being a bare circle.
+    expect(fab).toContainElement(label);
+    expect(fab.className).toContain("px-5");
+    expect(fab.className).not.toContain("w-14");
+  });
+
+  it("collapses to the close icon while the sheet is open", async () => {
+    const user = userEvent.setup();
+    render(<PortalChatbot />);
+
+    await user.click(screen.getByRole("button", { name: "Ask a question" }));
+
+    // The label would describe the opposite of what the button now does.
+    expect(
+      screen.queryByTestId("portal-chatbot-fab-label"),
+    ).not.toBeInTheDocument();
+    const close = screen.getByRole("button", { name: "Close chat" });
+    expect(close.className).toContain("w-14");
+    expect(close.className).not.toContain("px-5");
+  });
+
   it("opens a chat sheet with a greeting", async () => {
     const user = userEvent.setup();
     render(<PortalChatbot />);

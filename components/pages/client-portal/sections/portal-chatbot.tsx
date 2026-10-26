@@ -213,7 +213,12 @@ export function PortalChatbot({
         )}
       </AnimatePresence>
 
-      {/* Floating action button */}
+      {/* Floating action button. Closed it is a pill — the icon plus the "Ask a
+          question" label, so the action says what it does instead of being a bare
+          glyph. Open it collapses back to the X: keeping the label would describe
+          the opposite of what pressing it now does. The label is inside the button,
+          so the whole pill stays one target (and one accessible name, from the
+          `aria-label`). */}
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
@@ -223,7 +228,9 @@ export function PortalChatbot({
         aria-expanded={open}
         aria-controls="portal-chatbot"
         // `bottom-24` clears the mobile "get the app" bar; desktop uses the corner.
-        className="fixed bottom-24 z-[60] flex h-14 w-14 items-center justify-center rounded-full text-white shadow-[0_10px_30px_rgba(15,23,42,0.28)] transition-transform hover:scale-105 print:hidden md:bottom-6"
+        className={`fixed bottom-24 z-[60] flex h-14 items-center justify-center gap-2 rounded-full text-white shadow-[0_10px_30px_rgba(15,23,42,0.28)] transition-transform hover:scale-105 print:hidden md:bottom-6 ${
+          open ? "w-14" : "px-5"
+        }`}
         style={{
           ...edgeStyle,
           backgroundColor: brandColor,
@@ -233,7 +240,15 @@ export function PortalChatbot({
         {open ? (
           <X className="h-6 w-6" aria-hidden="true" />
         ) : (
-          <MessageCircle className="h-6 w-6" aria-hidden="true" />
+          <>
+            <MessageCircle className="h-6 w-6 shrink-0" aria-hidden="true" />
+            <span
+              data-testid="portal-chatbot-fab-label"
+              className="whitespace-nowrap font-red-hat text-sm font-semibold leading-none"
+            >
+              Ask a question
+            </span>
+          </>
         )}
       </button>
     </>
