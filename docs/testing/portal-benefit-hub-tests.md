@@ -13,12 +13,12 @@ The first three are the same page with different constants; the fourth adds a UR
 
 ## Summary
 
-- **Unit tests:** 184 passing in 12 files (the sections the four pages render, plus the portal benefit read)
+- **Unit tests:** 190 passing in 12 files (the sections the four pages render, plus the portal benefit read)
 - **E2E:** none yet
 - **Runner:** Vitest + React Testing Library + jsdom
 
 ```bash
-pnpm test:portal-hubs           # the hub sections + portal benefit read (184 tests)
+pnpm test:portal-hubs           # the hub sections + portal benefit read (190 tests)
 pnpm test:portal-hubs:watch
 pnpm test:portal-hubs:coverage
 ```
@@ -62,7 +62,7 @@ Every other prop is identical, which is why a shared harness can cover three of 
 | 3   | `components/pages/client-portal/sections/__tests__/video-carousel.test.tsx`             |    17 | Rail fetch, `includeVideoFiles=0`, skeletons, runtime, heading + count, chevrons |
 | 4   | `components/pages/client-portal/sections/__tests__/webinar-replay-card-poster.test.tsx`    |     7 | The poster card: 16:9 frame, white-ring play, gradient, title, runtime badge   |
 | 5   | `components/pages/client-portal/sections/__tests__/benefits-video-section.test.tsx`        |    29 | Journey copy defaults, the no-video image, gating, rail heading, player swap   |
-| 6   | `components/pages/client-portal/sections/__tests__/have-questions.test.tsx`                |    13 | Support cards, `mailto:`/`tel:` affordances, designations, headshots, centring |
+| 6   | `components/pages/client-portal/sections/__tests__/have-questions.test.tsx`                |    19 | Support cards, `mailto:`/`tel:` links, designations, centring, key contact |
 | 7   | `components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx`       |    51 | Default vs configured cards, the three CTA shapes, layout and rollovers        |
 | 8   | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-portrait.test.tsx` |    5 | The banner portrait: plan override, key-contact headshot default, placeholder  |
 | 9   | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-schedule.test.tsx` |    2 | The banner's Schedule CTA: handler vs scheduling URL                            |
@@ -94,7 +94,7 @@ Every other prop is identical, which is why a shared harness can cover three of 
 
 **Materials hero** — heading/CTA/default bullets; plan id from prop then context, hidden for `[Not Set]`; administrator from the benefit's provider with a `name · phone` line, the legacy `recordkeeper` only for Retirement; the prop handler over the context login URL (opened with `noopener,noreferrer`); background precedence prop → saved → category stock; overlay opacity.
 
-**Have questions** — nothing without contacts; one card per person; `mailto:` and digits-only `tel:`; missing rows omitted; designation acronyms with blanks filtered; headshot vs glyph; brand/accent colours; only the CTA the advisor configured (none without one); the plan's logo on a plan-level / plan-sponsor card; the cards centred in the row for 1–4 contacts.
+**Have questions** — nothing without contacts; one card per person; `mailto:` and digits-only `tel:`; missing rows omitted; designation acronyms with blanks filtered; headshot vs glyph; brand/accent colours; only the CTA the advisor configured (none without one); the plan's logo on a plan-level / plan-sponsor card; the cards centred in the row for 1–4 contacts; this benefit’s key contact labelled **Key Contact** and ordered first.
 
 **Welcome banner portrait** — the key contact headshot is the default; an image chosen in the Editing Panel (`portraitImage` prop, else the plan's `heroPortraitImage`) replaces it, prop first; with neither, the frame's own placeholder is drawn — the per-category "Inner Header Image" stock photo is gone.
 

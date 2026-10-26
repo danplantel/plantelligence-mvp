@@ -716,6 +716,10 @@ export function BenefitPortalPreview({
           secondaryColor={secondaryColor}
           contacts={faqContacts}
           companyLogo={planCompanyLogoUrl}
+          // So the preview labels this benefit's key contact too. "Custom" is the
+          // wizard's name for the category the contacts are tagged with.
+          keyContacts={previewKeyContacts}
+          category={category === "Custom" ? "Company / Plan Sponsor" : category}
         />
       </main>
     </div>

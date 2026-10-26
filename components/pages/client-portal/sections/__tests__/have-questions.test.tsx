@@ -278,3 +278,120 @@ describe("HaveQuestions", () => {
     ).not.toBeNull();
   });
 });
+
+describe("HaveQuestions key contact label", () => {
+  // Two people, each tagged for one benefit. Only one of them is this page's key
+  // contact, which is what the label has to say — and the card it belongs on has
+  // to lead the row.
+  const cards = [
+    contact({ id: "c1", title: "Ada Advisor" }),
+    contact({ id: "c2", title: "Ben Broker" }),
+  ];
+
+  it("labels this benefit's key contact and moves that card first", () => {
+    render(
+      <HaveQuestions
+        contacts={cards}
+        keyContacts={[
+          { id: "c1", benefitsCategories: ["Group Life"], isPrimary: true },
+          { id: "c2", benefitsCategories: ["Retirement"] },
+        ]}
+        category="Retirement"
+      />,
+    );
+
+    const labels = screen.getAllByTestId("key-contact-label");
+    expect(labels).toHaveLength(1);
+    expect(labels[0]).toHaveTextContent("Key Contact");
+
+    // First from the left, ahead of the contact the selection listed first.
+    const columns = screen.getAllByTestId("contact-column");
+    expect(columns[0]).toContainElement(labels[0]);
+    expect(columns[0]).toHaveTextContent("Ben Broker");
+    expect(columns[1]).toHaveTextContent("Ada Advisor");
+  });
+
+  it("keeps the other cards in their original order behind it", () => {
+    render(
+      <HaveQuestions
+        contacts={[
+          contact({ id: "c1", title: "Ada Advisor" }),
+          contact({ id: "c2", title: "Ben Broker" }),
+          contact({ id: "c3", title: "Cleo Consultant" }),
+        ]}
+        keyContacts={[{ id: "c3", benefitsCategories: ["Retirement"] }]}
+        category="Retirement"
+      />,
+    );
+
+    const columns = screen.getAllByTestId("contact-column");
+    expect(columns.map((column) => column.textContent)).toEqual([
+      expect.stringContaining("Cleo Consultant"),
+      expect.stringContaining("Ada Advisor"),
+      expect.stringContaining("Ben Broker"),
+    ]);
+    expect(columns[0]).toContainElement(
+      screen.getByTestId("key-contact-label"),
+    );
+  });
+
+  it("falls back to the person carrying the category when nobody is marked primary", () => {
+    render(
+      <HaveQuestions
+        contacts={cards}
+        keyContacts={[
+          { id: "c1", benefitsCategories: ["Group Life"] },
+          { id: "c2", benefitsCategories: ["Retirement"] },
+        ]}
+        category="Retirement"
+      />,
+    );
+
+    expect(screen.getAllByTestId("contact-column")[0]).toHaveTextContent(
+      "Ben Broker",
+    );
+  });
+
+  it("labels nobody when the key contact is not one of the cards", () => {
+    render(
+      <HaveQuestions
+        contacts={[contact({ id: "c9" })]}
+        keyContacts={[{ id: "c1", benefitsCategories: ["Retirement"] }]}
+        category="Retirement"
+      />,
+    );
+
+    expect(
+      screen.queryByTestId("key-contact-label"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("labels nobody, and reorders nothing, without a category", () => {
+    // No benefit means no "key contact for this benefit" — the resolver would
+    // otherwise fall back to the plan's primary person.
+    render(<HaveQuestions contacts={cards} keyContacts={[{ id: "c2" }]} />);
+
+    expect(
+      screen.queryByTestId("key-contact-label"),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("contact-column")[0]).toHaveTextContent(
+      "Ada Advisor",
+    );
+  });
+
+  it("paints the label in the plan's brand colour", () => {
+    render(
+      <HaveQuestions
+        contacts={cards}
+        keyContacts={[{ id: "c2", benefitsCategories: ["Retirement"] }]}
+        category="Retirement"
+        brandColor="#123456"
+      />,
+    );
+
+    expect(screen.getByTestId("key-contact-label")).toHaveStyle({
+      borderColor: "#123456",
+      color: "#123456",
+    });
+  });
+});

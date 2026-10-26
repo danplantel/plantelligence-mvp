@@ -1991,6 +1991,14 @@ export function BenefitsStep3({
                 secondaryColor={secondaryColor}
                 contacts={previewContacts}
                 companyLogo={planCompanyLogoUrl}
+                // Label this benefit's key contact, exactly as the published hub
+                // will. "Custom" is the wizard's name for the stored category.
+                keyContacts={localContacts}
+                category={
+                  step1Data?.benefitCategory === "Custom"
+                    ? "Company / Plan Sponsor"
+                    : String(step1Data?.benefitCategory || "")
+                }
               />
             ) : (
               <div className="text-center py-12 text-muted-foreground">

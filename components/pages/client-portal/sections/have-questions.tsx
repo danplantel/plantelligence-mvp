@@ -4,6 +4,7 @@ import type { FAQContact } from "@/components/faq-section";
 import { BenefitContactCard } from "@/components/pages/client-portal/sections/benefit-contact-card";
 import { useOptionalClientPortal } from "@/contexts/client-portal-context";
 import { normalizeContactCategory } from "@/lib/benefit-contacts";
+import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
 import { HAVE_QUESTIONS_SECTION_ID } from "@/lib/portal-section-anchors";
 
 /** The stored label for the plan-sponsor card ("Custom" is the wizard's name for it). */
@@ -19,6 +20,18 @@ interface HaveQuestionsProps {
   companyName?: string;
   /** The plan's logo — shown on the Company / Plan Sponsor card. */
   companyLogo?: string;
+  /**
+   * The plan's contacts, used to work out WHICH of the cards below is this
+   * benefit's key contact. Falls back to the portal context's `keyContacts`.
+   */
+  keyContacts?: unknown;
+  /**
+   * Benefit category used to pick that key contact — the same resolver the
+   * welcome banner and the journey section use, so the label can never point at
+   * a different person than the rest of the page features. Without a category
+   * there is no "key contact for this benefit" to label.
+   */
+  category?: string;
 }
 
 /**
@@ -42,6 +55,8 @@ export function HaveQuestions({
   appointmentLink,
   companyName,
   companyLogo,
+  keyContacts,
+  category,
 }: HaveQuestionsProps) {
   // The hub pages render this inside the portal provider; the wizard preview and
   // tests do not, hence the optional read.
@@ -51,8 +66,31 @@ export function HaveQuestions({
   const resolvedCompanyName = companyName || clientData?.companyName || "";
   const resolvedCompanyLogo =
     companyLogo || String((clientData as any)?.companyLogo || "");
+  // The benefit's key contact, resolved exactly as the banner and the journey
+  // section resolve it. No category means no key contact to point at: the
+  // resolver would otherwise fall back to the plan's primary contact, labelling
+  // someone the page never featured.
+  const keyContactId = category
+    ? String(
+        resolvePortalPrimaryContact(
+          keyContacts ?? (clientData as any)?.keyContacts,
+          category,
+        )?.id ?? "",
+      )
+    : "";
 
   if (!contacts || contacts.length === 0) return null;
+
+  // The key contact leads the row. It is the person the page features — the one
+  // the banner signs and the journey section schedules with — so it belongs first
+  // from the left rather than wherever the benefit's selection happens to put it.
+  // Every other card keeps its order behind it.
+  const orderedContacts = keyContactId
+    ? [
+        ...contacts.filter((contact) => String(contact.id) === keyContactId),
+        ...contacts.filter((contact) => String(contact.id) !== keyContactId),
+      ]
+    : contacts;
 
   return (
     // The same light grey band as the FAQ section above it: it separates this block
@@ -86,7 +124,7 @@ export function HaveQuestions({
             Each card is wrapped in a sizing div — the card itself is `w-full`, and
             the wrapper is what carries the column width. */}
         <div className="flex w-full flex-wrap justify-center gap-4 sm:gap-6">
-          {contacts.map((contact, index) => {
+          {orderedContacts.map((contact, index) => {
             const categories = (contact.benefitsCategories || []).filter(
               Boolean,
             );
@@ -105,9 +143,15 @@ export function HaveQuestions({
             const isPlanCompanyCard =
               categories.length === 0 ||
               categories.some(
-                (category) =>
-                  normalizeContactCategory(category) === PLAN_SPONSOR_CATEGORY,
+                (contactCategory) =>
+                  normalizeContactCategory(contactCategory) ===
+                  PLAN_SPONSOR_CATEGORY,
               );
+
+            // The one card this benefit points at. The label sits in a strip that
+            // every card reserves, so a labelled card never shifts its row.
+            const isKeyContact =
+              Boolean(keyContactId) && String(contact.id) === keyContactId;
 
             return (
               // Half the row on tablets (one 1.5rem gap), a quarter from `lg`
@@ -115,8 +159,20 @@ export function HaveQuestions({
               // its column and pushing the row off-centre.
               <div
                 key={contact.id}
+                data-testid="contact-column"
                 className="w-full min-w-0 sm:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-4.5rem)/4)]"
               >
+                <div className="mb-2 flex h-6 items-center justify-center">
+                  {isKeyContact ? (
+                    <span
+                      data-testid="key-contact-label"
+                      className="inline-flex items-center rounded-full border bg-white px-3 py-1 font-red-hat text-[11px] font-semibold uppercase tracking-[0.1em] shadow-sm"
+                      style={{ borderColor: brandColor, color: brandColor }}
+                    >
+                      Key Contact
+                    </span>
+                  ) : null}
+                </div>
                 <BenefitContactCard
                   contact={{
                     id: contact.id,

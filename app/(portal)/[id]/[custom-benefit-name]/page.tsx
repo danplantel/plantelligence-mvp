@@ -271,11 +271,15 @@ export default function CustomBenefitPage() {
         />
 
         {/* The category's contacts — the same people listed on My Benefits Team,
-            scoped to this benefit (see `supportContactsForFAQ`). */}
+            scoped to this benefit (see `supportContactsForFAQ`). The plan's
+            contacts come along so the section can label this benefit's key
+            contact (the person the banner and the journey section feature). */}
         <HaveQuestions
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           contacts={supportContactsForFAQ}
+          keyContacts={clientData?.keyContacts}
+          category="Company / Plan Sponsor"
         />
       </main>
     </div>
