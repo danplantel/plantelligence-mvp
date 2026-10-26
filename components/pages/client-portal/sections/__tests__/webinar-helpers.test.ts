@@ -8,7 +8,7 @@ import {
   guessLanguageFromWebinar,
   hubDateKey,
   mapHubMeetingToWebinar,
-} from "../webinars-section";
+} from "../videos-card-section";
 
 /**
  * The pure helpers behind the portal's webinar cards.

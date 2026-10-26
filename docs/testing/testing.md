@@ -349,7 +349,7 @@ The Edit Benefit suites add **206 tests across 9 files** (26 route + 42 editor +
 | `app/(portal)/[id]/news-events/__tests__/integration.test.tsx`                  | Real header default/resolved background, absolute/data URLs, color fallbacks, one `h1`                                   |
 | `components/pages/client-portal/sections/__tests__/news-post-list.test.tsx`     | Loading/empty/sort, headline, category, dates, background map, CTA, brand color, client id                               |
 | `components/pages/client-portal/sections/__tests__/news-events-header.test.tsx` | Default/custom title and background, empty background, plain `<img>`, overlay                                            |
-| `components/pages/client-portal/sections/__tests__/webinars-dashboard.test.tsx` | Only `WebinarsSection`, prop forwarding, `enableEditing` not forwarded                                                   |
+| `components/pages/client-portal/sections/__tests__/webinars-dashboard.test.tsx` | Only `VideosCardSection`, prop forwarding, `enableEditing` not forwarded                                                   |
 | `hooks/__tests__/useMarketingAssets.test.ts`                                    | No-client key, public feed URL, options, payload shape, error/loading, type filters                                      |
 
 The News & Events suites add **54 tests across 6 files**. See [`portal-news-events-tests.md`](portal-news-events-tests.md) for the itemized inventory and manual checklist.

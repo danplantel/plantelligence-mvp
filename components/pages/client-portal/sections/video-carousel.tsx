@@ -9,7 +9,7 @@ import {
   WebinarReplayCard,
   guessLanguageFromWebinar,
   type WebinarReplay,
-} from "./webinars-section";
+} from "./videos-card-section";
 import type { WebinarPlacementKey } from "@/lib/webinar-placements";
 
 /**
@@ -54,7 +54,15 @@ function WebinarCardSkeleton() {
  * `[id]` segment. Both filters run server-side; `includeVideoFiles=0` keeps the
  * multi-MB video payloads out of the list (the card fetches one on play).
  */
-export function useHubWebinars(
+/** Epoch millis for a row's upload time; 0 when the payload does not say. */
+function uploadTime(value: Date | string | undefined): number {
+  if (!value) return 0;
+  const time =
+    value instanceof Date ? value.getTime() : Date.parse(String(value));
+  return Number.isFinite(time) ? time : 0;
+}
+
+export function useHubVideos(
   placement: WebinarPlacementKey,
   clientId?: string,
 ) {
@@ -91,22 +99,29 @@ export function useHubWebinars(
           // No client-side filtering: the response is already narrowed to this plan
           // by the server, and the identifier we sent may be a slug, which would
           // never equal a row's `clientId` ObjectId.
-          setReplays(
-            result.data.map((webinar: any) => ({
-              id: webinar.id,
-              clientId: webinar.clientId,
-              title: webinar.webinarTitle,
-              description: webinar.description ?? undefined,
-              // Stored runtime from the upload form / backfill. The card measures
-              // the file itself only when this is missing.
-              duration: webinar.duration ?? undefined,
-              eventDate: webinar.eventDate,
-              thumbnail: webinar.thumbnail ?? undefined,
-              videoUrl: webinar.videoUrl,
-              hasVideoFile: Boolean(webinar.hasVideoFile),
-              language: guessLanguageFromWebinar(webinar),
-            })),
-          );
+          const mapped: WebinarReplay[] = result.data.map((webinar: any) => ({
+            id: webinar.id,
+            clientId: webinar.clientId,
+            title: webinar.webinarTitle,
+            description: webinar.description ?? undefined,
+            // Stored runtime from the upload form / backfill. The card measures
+            // the file itself only when this is missing.
+            duration: webinar.duration ?? undefined,
+            eventDate: webinar.eventDate,
+            createdAt: webinar.createdAt,
+            thumbnail: webinar.thumbnail ?? undefined,
+            videoUrl: webinar.videoUrl,
+            hasVideoFile: Boolean(webinar.hasVideoFile),
+            language: guessLanguageFromWebinar(webinar),
+          }));
+
+          // Newest upload first. The API orders by `eventDate` (what the News &
+          // Events band wants), which is not what "latest video" means here — the
+          // rail shows the videos in the order the advisor added them. Equal
+          // timestamps keep the server's order, since `sort` is stable.
+          mapped.sort((a, b) => uploadTime(b.createdAt) - uploadTime(a.createdAt));
+
+          setReplays(mapped);
         } else {
           setReplays([]);
         }
@@ -128,7 +143,7 @@ export function useHubWebinars(
   return { replays, isLoading };
 }
 
-interface WebinarsCarouselProps {
+interface VideoCarouselProps {
   /** Which portal page's videos to show (see `lib/webinar-placements`). */
   placement: WebinarPlacementKey;
   /** Plan identifier for hosts with no `[id]` route segment (the preview). */
@@ -140,27 +155,52 @@ interface WebinarsCarouselProps {
    * journey section) passes white, since the brand colour is usually dark too.
    */
   headingColor?: string;
+  /**
+   * The rail's heading. The journey section passes "<Benefit Category> Essentials";
+   * "Videos" is the neutral fallback for a host that has no category.
+   */
   title?: string;
+  /**
+   * Hand a picked video to the host instead of letting the card open its own
+   * dialog. The journey section uses it to play the video inline, at the top of
+   * the section.
+   */
+  onSelect?: (replay: WebinarReplay) => void;
+  /** The video the host is currently playing, so the rail can mark it. */
+  activeId?: string | number | null;
 }
 
-export function WebinarsCarousel({
+export function VideoCarousel({
   placement,
   clientId,
   brandColor = "#002B5B",
   secondaryColor = "#FBBF24",
   headingColor,
-  title = "Webinars",
-}: WebinarsCarouselProps) {
-  const { replays, isLoading } = useHubWebinars(placement, clientId);
+  title = "Videos",
+  onSelect,
+  activeId,
+}: VideoCarouselProps) {
+  const { replays, isLoading } = useHubVideos(placement, clientId);
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  /**
+   * Whether the row actually runs off the edge.
+   *
+   * Four cards fit a 1280px column (4 × 300px + 3 × 20px gaps), so a plan with up
+   * to four videos has nothing to page to — the chevrons are hidden rather than
+   * shown permanently disabled. Measured, not counted: the visible count changes
+   * with the viewport, and the cards are fixed-width.
+   */
+  const [isScrollable, setIsScrollable] = useState(false);
 
   /** Arrow availability follows the track's real position, not a card count. */
   const updateArrows = useCallback(() => {
     const el = scrollerRef.current;
     if (!el) return;
+    // Rounded off: sub-pixel layout can leave a 1px overflow nobody can scroll to.
+    setIsScrollable(el.scrollWidth - el.clientWidth > 4);
     setCanScrollLeft(el.scrollLeft > 4);
     setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
   }, []);
@@ -198,23 +238,38 @@ export function WebinarsCarousel({
   return (
     <div
       className="mt-14"
-      data-testid="webinars-carousel"
+      data-testid="video-carousel"
       data-placement={placement}
     >
       <div className="mb-4 flex items-end justify-between gap-4">
-        <h3
-          className="font-dm-serif text-xl leading-tight sm:text-2xl"
-          style={{ color: headingColor || brandColor }}
-        >
-          {title}
-        </h3>
+        <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h3
+            data-testid="rail-title"
+            className="font-dm-serif text-xl leading-tight sm:text-2xl"
+            style={{ color: headingColor || brandColor }}
+          >
+            {title}
+          </h3>
+          {/* How many videos the row holds. Nothing until the fetch answers, so it
+              never flashes "0 videos" at a plan that has some. */}
+          {isLoading ? null : (
+            <span
+              data-testid="rail-count"
+              className="font-red-hat text-sm opacity-70"
+              style={{ color: headingColor || brandColor }}
+            >
+              {replays.length} {replays.length === 1 ? "video" : "videos"}
+            </span>
+          )}
+        </div>
 
-        {/* Paging controls. Hidden on a phone, where the row is swiped. */}
-        {isLoading ? null : (
+        {/* Paging controls. Hidden on a phone, where the row is swiped, and gone
+            entirely when the row does not overflow (four or fewer videos). */}
+        {isLoading || !isScrollable ? null : (
           <div className="hidden shrink-0 items-center gap-2 sm:flex">
             <button
               type="button"
-              aria-label="Scroll webinars left"
+              aria-label="Scroll videos left"
               onClick={() => page(-1)}
               disabled={!canScrollLeft}
               className={arrowClass}
@@ -223,7 +278,7 @@ export function WebinarsCarousel({
             </button>
             <button
               type="button"
-              aria-label="Scroll webinars right"
+              aria-label="Scroll videos right"
               onClick={() => page(1)}
               disabled={!canScrollRight}
               className={arrowClass}
@@ -236,7 +291,7 @@ export function WebinarsCarousel({
 
       <div
         ref={scrollerRef}
-        data-testid="webinars-carousel-track"
+        data-testid="video-carousel-track"
         aria-busy={isLoading || undefined}
         // `snap-x` + one snap point per card is what makes it feel like a rail
         // rather than a free-scrolling list. The scrollbar is hidden in every
@@ -254,12 +309,19 @@ export function WebinarsCarousel({
             ))}
           </>
         ) : (
-          replays.map((replay) => (
+          replays.map((replay) => {
+            const isActive = activeId != null && String(activeId) === String(replay.id);
+            return (
             <div
               key={replay.id}
-              data-testid="webinar-slide"
+              data-testid="video-slide"
+              data-active={isActive || undefined}
+              aria-current={isActive ? "true" : undefined}
               // One fixed width per slide, so the row reads as a filmstrip and
-              // the card inside never has to guess its own size.
+              // the card inside never has to guess its own size. No ring here: it
+              // sits outside the box (clipped at the top by this scroll container)
+              // and would wrap the caption too — the card draws its own inset
+              // border on the thumbnail instead.
               className="w-[260px] shrink-0 snap-start sm:w-[300px]"
             >
               {/* The poster variant: the card itself is the 16:9 frame, with the
@@ -269,6 +331,8 @@ export function WebinarsCarousel({
                 replay={replay}
                 secondaryColor={secondaryColor}
                 variant="poster"
+                onSelect={onSelect}
+                active={isActive}
               />
               {replay.description ? (
                 <p
@@ -279,7 +343,8 @@ export function WebinarsCarousel({
                 </p>
               ) : null}
             </div>
-          ))
+            );
+          })
         )}
       </div>
     </div>

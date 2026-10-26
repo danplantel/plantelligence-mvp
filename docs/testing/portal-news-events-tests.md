@@ -16,7 +16,7 @@ The page is a composition layer. It reads the portal's plan context, chooses bra
   - webinar helpers: 23
   - `UpcomingWebinarCard`: 15
   - `WebinarReplayCard`: 19
-  - `WebinarsSection`: 13
+  - `VideosCardSection`: 13
   - `useMarketingAssets` / `useNewsPostAssets`: 7
   - `shouldShowPopUpOnPage`: 9
 - **E2E:** 4, env-gated on `E2E_BASE_URL` + `E2E_PORTAL_SLUG` ([`e2e/portal-news-events.spec.ts`](../../e2e/portal-news-events.spec.ts:1)).
@@ -38,7 +38,7 @@ Individual suites, if you need to narrow it down:
 pnpm exec vitest run "app/(portal)/[id]/news-events/__tests__"
 pnpm exec vitest run "components/pages/client-portal/sections/__tests__/news-post-list.test.tsx"
 pnpm exec vitest run "components/pages/client-portal/sections/__tests__/webinar-helpers.test.ts"
-pnpm exec vitest run "components/pages/client-portal/sections/__tests__/webinars-section.test.tsx"
+pnpm exec vitest run "components/pages/client-portal/sections/__tests__/videos-card-section.test.tsx"
 pnpm exec vitest run "hooks/__tests__/shouldShowPopUpOnPage.test.ts"
 ```
 
@@ -61,12 +61,12 @@ pnpm test:coverage
 | 5   | `components/pages/client-portal/sections/__tests__/news-post-list-edge.test.tsx`       |    13 | Publish window, invalid dates, CTA schemes, unsafe schemes, dead `secondaryColor`          |
 | 6   | `components/pages/client-portal/sections/__tests__/news-events-header.test.tsx`        |     5 | Default/custom title and background, empty background, plain `<img>`, overlay              |
 | 7   | `components/pages/client-portal/sections/__tests__/news-events-header-edge.test.tsx`   |     3 | Whitespace background, overlay without image, single `h1`                                  |
-| 8   | `components/pages/client-portal/sections/__tests__/webinars-dashboard.test.tsx`        |     3 | Only `WebinarsSection`, prop forwarding, `enableEditing` not forwarded                     |
+| 8   | `components/pages/client-portal/sections/__tests__/webinars-dashboard.test.tsx`        |     3 | Only `VideosCardSection`, prop forwarding, `enableEditing` not forwarded                     |
 | 9   | `components/pages/client-portal/sections/__tests__/webinars-dashboard-parity.test.tsx` |     3 | No documents/support contacts, exact prop set                                              |
 | 10  | `components/pages/client-portal/sections/__tests__/webinar-helpers.test.ts`            |    23 | Time/date formatting, URL coercion, embeds, meeting mapping, language guessing             |
 | 11  | `components/pages/client-portal/sections/__tests__/upcoming-webinar-card.test.tsx`     |    15 | Title/format, detail rows, register/replay/disabled CTA matrix, accent colour              |
 | 12  | `components/pages/client-portal/sections/__tests__/webinar-replay-card.test.tsx`       |    19 | Media precedence, modal lifecycle, lazy file fetch, teaser suspension                      |
-| 13  | `components/pages/client-portal/sections/__tests__/webinars-section.test.tsx`          |    13 | Both reads, transforms, empty states, no-client path, `onLoadComplete`                     |
+| 13  | `components/pages/client-portal/sections/__tests__/videos-card-section.test.tsx`          |    13 | Both reads, transforms, empty states, no-client path, `onLoadComplete`                     |
 | 14  | `hooks/__tests__/useMarketingAssets.test.ts`                                           |     7 | No-client key, public feed URL, options, payload shape, error/loading, type filters        |
 | 15  | `hooks/__tests__/shouldShowPopUpOnPage.test.ts`                                        |     9 | `all` / home / benefits / news-events / my-benefits-team targeting, substring matching     |
 
@@ -135,7 +135,7 @@ pnpm test:coverage
 
 ### `webinars-dashboard.test.tsx`
 
-- renders only `WebinarsSection`
+- renders only `VideosCardSection`
 - forwards `brandColor`, `secondaryColor` and `clientId`
 - does not forward `enableEditing`
 
@@ -178,7 +178,7 @@ pnpm test:coverage
 - on-demand file: `?forPortal=1&clientId=…` fetch, loading state, success payload, `!ok` and thrown errors, missing-client variant, and fetching even when a thumbnail is showing
 - title/description box, duration, `Popular`, teaser suspended while the modal is open, teaser preload on mount
 
-## `WebinarsSection`
+## `VideosCardSection`
 
 - both reads and their exact contracts (`?forHub=1` with credentials; `placement=news-events&includeVideoFiles=0`)
 - upcoming/past cards from mapped meetings, rows that cannot be rendered dropped

@@ -3,11 +3,11 @@ import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { WebinarReplayCard } from "../webinars-section";
+import { WebinarReplayCard } from "../videos-card-section";
 
 /**
  * `WebinarReplayCard`'s poster variant — the card the hub pages' Webinars rail
- * uses (`webinars-carousel.tsx`).
+ * uses (`video-carousel.tsx`).
  *
  * The card IS the 16:9 frame, so the two overlays are its whole chrome:
  *  - the play control in the TOP-RIGHT, a white ring around a white icon;
@@ -106,6 +106,37 @@ describe("WebinarReplayCard poster variant", () => {
     expect(duration.className).toContain("right-3");
     expect(duration.className).toContain("bg-black/80");
     expect(duration.className).toContain("text-white");
+  });
+
+  it("borders the thumbnail, and only the thumbnail, while it is playing", () => {
+    const { container, rerender } = poster();
+
+    // A resting card draws no border of its own.
+    expect(
+      container.querySelector('[data-testid="video-card-active-border"]'),
+    ).toBeNull();
+
+    rerender(
+      <WebinarReplayCard replay={replay as any} variant="poster" active />,
+    );
+
+    const border = container.querySelector(
+      '[data-testid="video-card-active-border"]',
+    ) as HTMLElement;
+    expect(border).not.toBeNull();
+    expect(border.className).toContain("absolute");
+    expect(border.className).toContain("inset-0");
+    expect(border.className).toContain("border-2");
+    expect(border.className).toContain("border-white");
+    expect(border.className).toContain("pointer-events-none");
+
+    // Inset inside the 16:9 frame, so it hugs the thumbnail: an outer ring sat
+    // outside the box, where the rail's scroll container clipped its top edge
+    // under the heading, and it wrapped the caption printed beneath the card.
+    const frame = border.parentElement as HTMLElement;
+    expect(frame.className).toContain("aspect-video");
+    expect(frame.className).toContain("overflow-hidden");
+    expect(frame.className).toContain("rounded-xl");
   });
 
   it("measures the runtime from the video's metadata when the row has none", async () => {

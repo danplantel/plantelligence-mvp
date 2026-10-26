@@ -108,6 +108,12 @@ export interface WebinarReplay {
    */
   hasVideoFile?: boolean;
   eventDate?: Date | string;
+  /**
+   * When the advisor uploaded the video — what the videos rail orders by (newest
+   * first). Distinct from `eventDate`, which is the date the row *is about* and is
+   * what the News & Events band sorts on.
+   */
+  createdAt?: Date | string;
   language?: WebinarLanguage;
 }
 
@@ -119,7 +125,7 @@ interface RecentMessage {
   avatar: string;
 }
 
-interface WebinarsSectionProps {
+interface VideosCardSectionProps {
   brandColor?: string;
   secondaryColor?: string;
   clientId?: string;
@@ -590,10 +596,25 @@ export function WebinarReplayCard({
    *             the runtime bottom-right. The hub pages' Webinars rail uses this.
    */
   variant = "default",
+  /**
+   * When set, a click on the card hands the replay to the host instead of opening
+   * the card's own dialog. The benefit hub's journey section uses it to play the
+   * video inline, in place of its two-column intro.
+   */
+  onSelect,
+  /**
+   * Marks the card as the one currently playing. The white border is drawn inside
+   * the 16:9 thumbnail rather than around the card: a ring sits outside the box,
+   * where the rail's scroll container clipped its top edge under the heading, and
+   * it also wrapped the caption printed beneath the card.
+   */
+  active = false,
 }: {
   replay: WebinarReplay;
   secondaryColor?: string;
   variant?: "default" | "poster";
+  onSelect?: (replay: WebinarReplay) => void;
+  active?: boolean;
 }) {
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
   // Uploaded videos are multi-MB base64 strings. The list endpoints deliberately
@@ -688,6 +709,12 @@ export function WebinarReplayCard({
 
   const handleVideoClick = () => {
     if (!hasVideo) return;
+    // A host that renders its own player takes the click: opening this card's
+    // dialog on top of it would show the same video twice.
+    if (onSelect) {
+      onSelect(replay);
+      return;
+    }
     setIsVideoModalOpen(true);
     if (needsFileFetch) void resolveVideoFile();
   };
@@ -870,6 +897,16 @@ export function WebinarReplayCard({
 
             {durationProbe}
           </div>
+
+          {/* The playing card's border, inset on the thumbnail so it is clipped by
+              nothing above it — and never draws around the caption below. */}
+          {active && (
+            <div
+              aria-hidden
+              data-testid="video-card-active-border"
+              className="pointer-events-none absolute inset-0 z-[4] rounded-xl border-2 border-white"
+            />
+          )}
         </div>
       ) : (
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden cursor-pointer hover:shadow-md transition-shadow">
@@ -1016,12 +1053,12 @@ export function WebinarReplayCard({
   );
 }
 
-export function WebinarsSection({
+export function VideosCardSection({
   brandColor = "#002B5B",
   secondaryColor,
   clientId,
   onLoadComplete,
-}: WebinarsSectionProps) {
+}: VideosCardSectionProps) {
   const loadCompleteCalled = useRef(false);
   const [upcomingWebinars, setUpcomingWebinars] = useState<UpcomingWebinar[]>(
     [],

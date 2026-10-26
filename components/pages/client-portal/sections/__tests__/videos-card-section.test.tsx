@@ -3,10 +3,10 @@ import React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { WebinarsSection } from "../webinars-section";
+import { VideosCardSection } from "../videos-card-section";
 
 /**
- * `WebinarsSection` — the News & Events page's meetings/replays band.
+ * `VideosCardSection` — the News & Events page's meetings/replays band.
  *
  * It owns two independent reads: plan meetings (`?forHub=1`, which become the
  * Upcoming and Past cards) and published replays (`placement=news-events`,
@@ -81,7 +81,7 @@ function routeFetch({
 
 function renderSection(clientId: string = "plan-1") {
   return render(
-    <WebinarsSection
+    <VideosCardSection
       clientId={clientId}
       brandColor="#123456"
       onLoadComplete={mocks.onLoadComplete}
@@ -113,7 +113,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe("WebinarsSection reads", () => {
+describe("VideosCardSection reads", () => {
   it("reads plan meetings and published replays with their documented contracts", async () => {
     routeFetch({ replays: replaysPayload([replay()]) });
     renderSection();
@@ -153,7 +153,7 @@ describe("WebinarsSection reads", () => {
   });
 });
 
-describe("WebinarsSection meetings", () => {
+describe("VideosCardSection meetings", () => {
   it("renders upcoming and past cards from the hub payload", async () => {
     routeFetch({
       meetings: meetingsPayload(
@@ -201,7 +201,7 @@ describe("WebinarsSection meetings", () => {
   });
 });
 
-describe("WebinarsSection replays", () => {
+describe("VideosCardSection replays", () => {
   it("renders a replay card and the empty state is gone", async () => {
     routeFetch({ replays: replaysPayload([replay()]) });
     renderSection();
@@ -225,7 +225,7 @@ describe("WebinarsSection replays", () => {
   });
 });
 
-describe("WebinarsSection lifecycle", () => {
+describe("VideosCardSection lifecycle", () => {
   it("reports completion once, after both reads settle", async () => {
     let resolveReplays: (value: Response) => void = () => {};
     routeFetch({

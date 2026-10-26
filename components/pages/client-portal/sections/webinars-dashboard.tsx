@@ -1,6 +1,6 @@
 "use client";
 
-import { WebinarsSection } from "./webinars-section";
+import { VideosCardSection } from "./videos-card-section";
 
 interface WebinarsDashboardProps {
   brandColor?: string;
@@ -17,7 +17,7 @@ export function WebinarsDashboard({
 }: WebinarsDashboardProps) {
   return (
     <>
-      <WebinarsSection
+      <VideosCardSection
         brandColor={brandColor}
         secondaryColor={secondaryColor}
         clientId={clientId}

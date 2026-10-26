@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from "vitest";
 import { WebinarsDashboard } from "../webinars-dashboard";
 
 /**
- * `WebinarsDashboard` is a thin wrapper around `WebinarsSection` for the News &
+ * `WebinarsDashboard` is a thin wrapper around `VideosCardSection` for the News &
  * Events route.
  *
  * It used to import `HaveQuestionsSection` and `DocumentsSection` without ever
@@ -18,10 +18,10 @@ const mocks = vi.hoisted(() => ({
   props: null as any,
 }));
 
-vi.mock("@/components/pages/client-portal/sections/webinars-section", () => ({
-  WebinarsSection: (props: any) => {
+vi.mock("@/components/pages/client-portal/sections/videos-card-section", () => ({
+  VideosCardSection: (props: any) => {
     mocks.props = props;
-    return <div data-testid="webinars-section" />;
+    return <div data-testid="videos-card-section" />;
   },
 }));
 
@@ -55,7 +55,7 @@ describe("WebinarsDashboard", () => {
     const { container } = render(<WebinarsDashboard clientId="plan-1" />);
 
     expect(
-      container.querySelectorAll("[data-testid='webinars-section']"),
+      container.querySelectorAll("[data-testid='videos-card-section']"),
     ).toHaveLength(1);
   });
 });

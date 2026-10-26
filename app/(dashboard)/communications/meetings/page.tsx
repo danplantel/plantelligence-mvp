@@ -96,7 +96,7 @@ import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { MeetingDayDrawer, type DayDrawerMeeting } from "@/components/meetings/meeting-day-drawer";
 import { MeetingsCalendarView } from "@/components/meetings/meetings-calendar-view";
-import { WebinarsSection } from "@/components/pages/client-portal/sections/webinars-section";
+import { VideosCardSection } from "@/components/pages/client-portal/sections/videos-card-section";
 import { resolveRsvpUrl } from "@/lib/meetings/meeting-schedule-shared";
 import { PlanChangeLoadingDialog } from "@/components/ui/plan-change-loading-dialog";
 import { ScaledPreviewFrame } from "@/components/ui/scaled-preview-frame";
@@ -487,7 +487,7 @@ const SORT_OPTIONS: { value: string; label: string; column: SortColumn; directio
 ];
 
 /**
- * Width `WebinarsSection` is designed for (its `max-w-7xl` container). The
+ * Width `VideosCardSection` is designed for (its `max-w-7xl` container). The
  * Preview tab lays the section out at this width and scales it down, so its
  * cards keep the proportions they have in the portal instead of being squeezed
  * by the narrower dashboard column.
@@ -1240,7 +1240,7 @@ export default function MeetingsPage() {
                           cards keep their portal proportions rather than being squeezed
                           into a narrower column and reading as stretched-tall. */}
                       <ScaledPreviewFrame designWidth={PORTAL_PREVIEW_WIDTH}>
-                        <WebinarsSection
+                        <VideosCardSection
                           clientId={selectedPlan || undefined}
                           brandColor={clients.find((c) => c.id === selectedPlan)?.brandColor || "#002B5B"}
                           secondaryColor={clients.find((c) => c.id === selectedPlan)?.secondaryColor || "#C9A961"}

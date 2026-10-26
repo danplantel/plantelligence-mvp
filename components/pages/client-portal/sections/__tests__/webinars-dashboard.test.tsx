@@ -11,10 +11,10 @@ const mocks = vi.hoisted(() => ({
   documentsRendered: false,
 }));
 
-vi.mock("@/components/pages/client-portal/sections/webinars-section", () => ({
-  WebinarsSection: (props: any) => {
+vi.mock("@/components/pages/client-portal/sections/videos-card-section", () => ({
+  VideosCardSection: (props: any) => {
     mocks.webinarsProps = props;
-    return <div data-testid="webinars-section" />;
+    return <div data-testid="videos-card-section" />;
   },
 }));
 
@@ -45,7 +45,7 @@ describe("WebinarsDashboard", () => {
   it("renders only the webinars section", () => {
     render(<WebinarsDashboard />);
 
-    expect(screen.getByTestId("webinars-section")).toBeInTheDocument();
+    expect(screen.getByTestId("videos-card-section")).toBeInTheDocument();
     expect(
       screen.queryByTestId("have-questions-section"),
     ).not.toBeInTheDocument();

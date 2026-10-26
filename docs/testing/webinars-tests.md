@@ -147,7 +147,7 @@ The portal's webinar card prints the runtime in its bottom-right badge. That val
 
 - the upload form reads `duration / timescale` off the picked file (a hidden `<video preload="metadata">`) and sends it as `duration` (`m:ss`, or `h:mm:ss` past an hour);
 - `POST` stores it, `PUT` replaces it or keeps the stored value when the key is omitted, and `GET` returns it;
-- `useHubWebinars` / `WebinarsSection` map it onto `WebinarReplay.duration`, so the badge appears with the list read — the list deliberately omits the multi-MB video payload, so a badge that depended on loading the file would never render.
+- `useHubVideos` / `VideosCardSection` map it onto `WebinarReplay.duration`, so the badge appears with the list read — the list deliberately omits the multi-MB video payload, so a badge that depended on loading the file would never render.
 
 Rows uploaded before the column existed are filled by a script that reads the `moov/mvhd` box out of the stored base64 file:
 

@@ -13,12 +13,12 @@ The first three are the same page with different constants; the fourth adds a UR
 
 ## Summary
 
-- **Unit tests:** 155 passing in 11 files (the sections the four pages render, plus the portal benefit read)
+- **Unit tests:** 184 passing in 12 files (the sections the four pages render, plus the portal benefit read)
 - **E2E:** none yet
 - **Runner:** Vitest + React Testing Library + jsdom
 
 ```bash
-pnpm test:portal-hubs           # the hub sections + portal benefit read (155 tests)
+pnpm test:portal-hubs           # the hub sections + portal benefit read (184 tests)
 pnpm test:portal-hubs:watch
 pnpm test:portal-hubs:coverage
 ```
@@ -35,7 +35,7 @@ In render order, each page:
 4. derives the FAQ list — enabled rows first, then `DEFAULT_FAQS[category]`;
 5. resolves support contacts with `buildFaqSupportContacts({ keyContacts, supportContacts })`;
 6. loads documents once per `clientId` + embedded-id signature: `fetchPlanDocumentsForClient` → `mergePlanDocumentRows` → `sortDocumentRowsByCustomOrder` → `mapMergedRowsToBenefitHubItems(rows, hubLabel)`;
-7. renders, in order: `CompletenessAutoTrigger`, `PortalWelcomeBanner`, `BenefitsVideoSection`, `HowCanWeHelpSection`, `FAQSection`, `BenefitDocumentSection`, `HaveQuestions`. Account access (plan / group ID, login URL, provider) is the wide card inside `HowCanWeHelpSection`; the old `PortalMaterialsHero` band was removed, and the header's **Login** button scrolls to that section. The page's videos are the `WebinarsCarousel` rail at the bottom of `BenefitsVideoSection` — the old `BenefitsHubWebinarsSection` band is gone.
+7. renders, in order: `CompletenessAutoTrigger`, `PortalWelcomeBanner`, `BenefitsVideoSection`, `HowCanWeHelpSection`, `FAQSection`, `BenefitDocumentSection`, `HaveQuestions`. Account access (plan / group ID, login URL, provider) is the wide card inside `HowCanWeHelpSection`; the old `PortalMaterialsHero` band was removed, and the header's **Login** button scrolls to that section. The page's videos are the `VideoCarousel` rail at the bottom of `BenefitsVideoSection` — the old `BenefitsHubWebinarsSection` band is gone.
 
 ## Where the four differ
 
@@ -59,15 +59,16 @@ Every other prop is identical, which is why a shared harness can cover three of 
 | --- | ------------------------------------------------------------------------------------------ | ----: | ------------------------------------------------------------------------------ |
 | 1   | `app/api/clients/[id]/benefits/[category]/__tests__/portal-get.test.ts`                    |    13 | The anonymous `forPortal=1` read: slug→advisor scoping, 403/404, video signing |
 | 2   | `components/pages/client-portal/sections/__tests__/completeness-auto-trigger.test.tsx`     |     9 | The "Incomplete Benefit Setup" trigger: merged docs, pre-merge pass, refetch   |
-| 3   | `components/pages/client-portal/sections/__tests__/webinars-carousel.test.tsx`             |     8 | Rail fetch, `includeVideoFiles=0`, skeletons, stored runtime, empty, paging    |
+| 3   | `components/pages/client-portal/sections/__tests__/video-carousel.test.tsx`             |    17 | Rail fetch, `includeVideoFiles=0`, skeletons, runtime, heading + count, chevrons |
 | 4   | `components/pages/client-portal/sections/__tests__/webinar-replay-card-poster.test.tsx`    |     7 | The poster card: 16:9 frame, white-ring play, gradient, title, runtime badge   |
-| 5   | `components/pages/client-portal/sections/__tests__/benefits-video-section.test.tsx`        |    21 | Journey copy defaults, the no-video image, label + Watch Now gating, the rail  |
+| 5   | `components/pages/client-portal/sections/__tests__/benefits-video-section.test.tsx`        |    29 | Journey copy defaults, the no-video image, gating, rail heading, player swap   |
 | 6   | `components/pages/client-portal/sections/__tests__/have-questions.test.tsx`                |    13 | Support cards, `mailto:`/`tel:` affordances, designations, headshots, centring |
 | 7   | `components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx`       |    51 | Default vs configured cards, the three CTA shapes, layout and rollovers        |
 | 8   | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-portrait.test.tsx` |    5 | The banner portrait: plan override, key-contact headshot default, placeholder  |
 | 9   | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-schedule.test.tsx` |    2 | The banner's Schedule CTA: handler vs scheduling URL                            |
 | 10  | `components/__tests__/faq-section.test.tsx`                                                |    19 | Single-open accordion, incomplete rows, link normalisation                     |
 | 11  | `lib/__tests__/benefits-video-fallback.test.ts`                                            |     7 | Per-category clips, plan video precedence, embed/URL fallbacks                 |
+| 12  | `components/pages/client-portal/sections/__tests__/video-feature-player.test.tsx`        |    11 | The inline player: embed/direct/uploaded sources, errors, X and Escape         |
 
 ## Remaining coverage
 
@@ -87,7 +88,9 @@ Every other prop is identical, which is why a shared harness can cover three of 
 
 **Completeness trigger** — opens with `missingInfo`/`category`/`clientId`, stays closed when complete, computes against the merged documents, computes once on the embedded list before the merge (the flash), no fetch without a plan id, re-fetches when embedded ids change but not on an equal signature, closes on a later complete update, and stops after unmount.
 
-**Webinars rail** — `/api/webinars?clientId=…&placement=…&includeVideoFiles=0` with `cache: "no-store"`, the `clientId` prop winning over the route segment; skeletons with `aria-busy` while loading; one fixed-width slide per video in a `snap-x` / `overflow-x-auto` track; nothing for an empty plan or a failed request; the chevron pages the row by 85% of its width; the stored `duration` handed to each card for its badge (blank when the row has none). Each slide is `WebinarReplayCard`'s `poster` variant: the card IS the 16:9 frame, with the play control top-right (white ring, white icon), a bottom-to-top black scrim, the title bottom-left (half the card wide, up to three lines) and the runtime bottom-right (black pill, white text); the description is captioned under the card. The runtime is `replay.duration` — a stored column measured at upload — so it appears with the list read; only when a row has none does the card fall back to the video's own metadata.
+**Videos rail** — `/api/webinars?clientId=…&placement=…&includeVideoFiles=0` with `cache: "no-store"`, the `clientId` prop winning over the route segment; skeletons with `aria-busy` while loading; a heading of "<Category> Essentials" (`essentialsTitleFor` — the Custom hub's `Company / Plan Sponsor` storage key is spelled "Plan", and no category yet means "Benefit Essentials") with the row's count beside it (`3 videos`, `1 video`, absent until the fetch answers); one fixed-width slide per video, newest upload first (ordered on `createdAt`, not the API’s `eventDate` order; ties keep the server’s order), in a `snap-x` / `overflow-x-auto` track; nothing for an empty plan or a failed request; the stored `duration` handed to each card for its badge (blank when the row has none). The chevrons exist only when the row actually overflows (`scrollWidth − clientWidth > 4`): four fixed-width cards fill a 1280px column, so a plan with four or fewer videos gets no paging controls at all — not even disabled ones — and when they are shown ("Scroll videos left/right") the chevron pages the row by 85% of its width. Each slide is `WebinarReplayCard`'s `poster` variant: the card IS the 16:9 frame, with the play control top-right (white ring, white icon), a bottom-to-top black scrim, the title bottom-left (half the card wide, up to three lines) and the runtime bottom-right (black pill, white text); the description is captioned under the card. The runtime is `replay.duration` — a stored column measured at upload — so it appears with the list read; only when a row has none does the card fall back to the video's own metadata.
+
+**Video player (the rail's dynamic video)** — a card click hands the replay to the section (`onSelect`) instead of opening the card's own dialog. The whole two-column intro — heading, copy, Watch Now, the plan video — is taken out of the layout (`hidden`) and `VideoFeaturePlayer` takes its place, full-bleed: the stage's `-mx-4 w-[calc(100%+2rem)]` (and the `sm`/`lg` equivalents) cancels the section's `px-*` and adds it back on both sides, so the video spans the section edge to edge. The rail stays underneath and marks the playing slide (`data-active` / `aria-current`, and the card draws its white border inset on the thumbnail — an outer ring was clipped by the track at the top and wrapped the caption). Sources resolve in the card's order: YouTube/Vimeo embed → direct file URL → the uploaded payload fetched from `/api/webinars/[id]?forPortal=1&clientId=…` (never with the list). The X top-right (`Close video`) or Escape puts the intro back; the plan video is paused when the player takes over so its audio cannot play on from an off-screen element.
 
 **Materials hero** — heading/CTA/default bullets; plan id from prop then context, hidden for `[Not Set]`; administrator from the benefit's provider with a `name · phone` line, the legacy `recordkeeper` only for Retirement; the prop handler over the context login URL (opened with `noopener,noreferrer`); background precedence prop → saved → category stock; overlay opacity.
 

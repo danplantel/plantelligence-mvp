@@ -243,7 +243,7 @@ Real `NextRequest` objects, mocked `next-auth`, `@/lib/prisma`, and `computeStar
 
 - **SWR** is keyed by URL on the page suite (`/api/clients`, `/api/meetings…`), with every requested key recorded.
 - **Zustand stores** are replaced by stable selector state; stable array identities are required to avoid the page's `setAllMeetingTypes` effect looping.
-- **Child surfaces** are prop-capturing stubs: `PlanSearchBar`, `MeetingsCalendarView`, `MeetingDayDrawer`, `WebinarsSection`, `ScaledPreviewFrame`, `AddressSearch`, `PlanChangeLoadingDialog`, `NavigateAwayWarningDialog`, `ConfirmDialog`, and `Switch`.
+- **Child surfaces** are prop-capturing stubs: `PlanSearchBar`, `MeetingsCalendarView`, `MeetingDayDrawer`, `VideosCardSection`, `ScaledPreviewFrame`, `AddressSearch`, `PlanChangeLoadingDialog`, `NavigateAwayWarningDialog`, `ConfirmDialog`, and `Switch`.
 - **Dialog, Select, Popover, DropdownMenu** are lightweight DOM stand-ins. `Popover` tracks its controlled `open` prop through context; `Select` renders a native `<select>`; the dropdown renders items as buttons.
 - **`@/components/ui/calendar`** reports a deterministic `2027-05-10`.
 - **`next-auth`, `@/lib/prisma`, `computeStartAtUtc`, `fetch`, and `sonner`** are stubbed in the API/page/component suites.

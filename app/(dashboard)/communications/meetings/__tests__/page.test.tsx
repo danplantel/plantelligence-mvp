@@ -147,8 +147,8 @@ vi.mock("@/components/ui/scaled-preview-frame", () => ({
   ),
 }));
 
-vi.mock("@/components/pages/client-portal/sections/webinars-section", () => ({
-  WebinarsSection: (props: any) => {
+vi.mock("@/components/pages/client-portal/sections/videos-card-section", () => ({
+  VideosCardSection: (props: any) => {
     mocks.webinarsProps = props;
     return (
       <div

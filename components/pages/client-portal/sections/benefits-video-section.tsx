@@ -8,7 +8,9 @@ import { toNextImageSrc } from "@/lib/branding-image-url";
 import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
 import { resolveJourneyImage } from "@/lib/benefits-video-fallback";
 import type { WebinarPlacementKey } from "@/lib/webinar-placements";
-import { WebinarsCarousel } from "./webinars-carousel";
+import { VideoCarousel } from "./video-carousel";
+import { VideoFeaturePlayer } from "./video-feature-player";
+import type { WebinarReplay } from "./videos-card-section";
 
 /** `m:ss` for the video's runtime. */
 function formatVideoDuration(seconds: number): string {
@@ -51,6 +53,24 @@ function defaultCopyFor(category?: string) {
     (category && VIDEO_TITLE_DEFAULTS[category]) ||
     VIDEO_TITLE_DEFAULTS.Retirement
   );
+}
+
+/**
+ * The videos rail's heading: "<Benefit Category> Essentials".
+ *
+ * `Company / Plan Sponsor` is the storage key for the Custom hub (see
+ * `VIDEO_TITLE_DEFAULTS`), not a phrase that reads as a heading, so it is the one
+ * category spelled out for readers. No category at all (the wizard preview before
+ * a benefit exists) falls back to a generic heading.
+ */
+const ESSENTIALS_NAME: Record<string, string> = {
+  "Company / Plan Sponsor": "Plan",
+};
+
+export function essentialsTitleFor(category?: string): string {
+  const name = category?.trim();
+  if (!name) return "Benefit Essentials";
+  return `${ESSENTIALS_NAME[name] ?? name} Essentials`;
 }
 
 interface BenefitsVideoSectionProps {
@@ -161,6 +181,38 @@ export function BenefitsVideoSection({
   const [videoDurationSec, setVideoDurationSec] = useState<number | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  /**
+   * The webinar picked from the rail, playing in place of the two-column intro.
+   *
+   * `null` is the resting state — the section opens on the plan's own video (or
+   * its fallback image). Picking one swaps the whole top half for the player and
+   * leaves the rail underneath, so another video can be picked without closing
+   * this one first.
+   */
+  const [activeReplay, setActiveReplay] = useState<WebinarReplay | null>(null);
+  const playerStageRef = useRef<HTMLDivElement>(null);
+
+  /** The X (or Escape) puts the two-column intro back, plan video included. */
+  const closeActiveReplay = useCallback(() => setActiveReplay(null), []);
+
+  const openActiveReplay = useCallback((replay: WebinarReplay) => {
+    // The plan's own video keeps its element (hidden behind the player), so it has
+    // to be silenced here — otherwise its audio would play on from off-screen.
+    videoRef.current?.pause();
+    setIsPlaying(false);
+    setActiveReplay(replay);
+  }, []);
+
+  // The card is picked from the rail at the bottom of the section; without this
+  // the player would swap in above the fold, out of sight.
+  useEffect(() => {
+    if (!activeReplay) return;
+    const stage = playerStageRef.current;
+    if (stage && typeof stage.scrollIntoView === "function") {
+      stage.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [activeReplay]);
+
   // A new source has a new runtime; don't show the previous video's length until
   // the new metadata arrives.
   useEffect(() => {
@@ -218,7 +270,33 @@ export function BenefitsVideoSection({
       {/* `py-*` on top of the centring: on a short viewport the grid fills the
           column exactly, so the video sat flush against the section's top edge. */}
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
-        <div className="grid w-full max-w-[1280px] items-center gap-6 pb-2 md:gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]">
+        {/* The picked webinar, in the intro's place. Full-bleed on purpose: the
+            box is wider than the padded content box by exactly this wrapper's
+            horizontal padding, so the video spans the section edge to edge. */}
+        {activeReplay ? (
+          <div
+            ref={playerStageRef}
+            data-testid="video-player-stage"
+            className="-mx-4 w-[calc(100%+2rem)] sm:-mx-6 sm:w-[calc(100%+3rem)] lg:-mx-8 lg:w-[calc(100%+4rem)]"
+          >
+            <VideoFeaturePlayer
+              replay={activeReplay}
+              clientId={clientId || activeReplay.clientId}
+              secondaryColor={secondaryColor}
+              onClose={closeActiveReplay}
+            />
+          </div>
+        ) : null}
+
+        {/* Kept mounted while the player is up so closing restores the plan video
+            exactly as it was (poster, position); `hidden` takes it out of the
+            layout and out of the accessibility tree. */}
+        <div
+          data-testid="journey-intro"
+          className={`${
+            activeReplay ? "hidden" : "grid"
+          } w-full max-w-[1280px] items-center gap-6 pb-2 md:gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(0,0.9fr)]`}
+        >
           <motion.div
             className="flex h-full max-w-3xl flex-col justify-center"
             variants={textVariants}
@@ -433,7 +511,7 @@ export function BenefitsVideoSection({
             keeps its current shape for those plans. */}
         {webinarsPlacement ? (
           <div className="w-full max-w-[1280px] pb-8">
-            <WebinarsCarousel
+            <VideoCarousel
               placement={webinarsPlacement}
               // The hubs have the plan in the route; the wizard preview passes it
               // because it has no `[id]` segment.
@@ -443,6 +521,13 @@ export function BenefitsVideoSection({
               // This section is dark, and the plan's brand colour is usually dark
               // too — the heading would disappear into the background.
               headingColor="#ffffff"
+              // "<Category> Essentials" — the section's own name for this row. The
+              // rail adds the video count beside it.
+              title={essentialsTitleFor(category)}
+              // Picking a card plays it in the intro's place, rather than letting
+              // the card open its own dialog over the rail.
+              onSelect={openActiveReplay}
+              activeId={activeReplay?.id ?? null}
             />
           </div>
         ) : null}

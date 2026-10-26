@@ -36,7 +36,7 @@ const portalNewsTests = [
   // One on-demand replay card, including the lazy file fetch
   "components/pages/client-portal/sections/__tests__/webinar-replay-card.test.tsx",
   // The meetings + replays band and its lifecycle
-  "components/pages/client-portal/sections/__tests__/webinars-section.test.tsx",
+  "components/pages/client-portal/sections/__tests__/videos-card-section.test.tsx",
   // The public news-post feed hook behind the list
   "hooks/__tests__/useMarketingAssets.test.ts",
   // Pop-up page targeting (which pages a pop-up appears on)
