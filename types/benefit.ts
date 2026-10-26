@@ -3,13 +3,44 @@
  * Mirrors the Prisma `Benefit` model (one row per client+category).
  */
 
-export interface HelpCardData {
+/**
+ * The (static) copy for one "How Can We Help You Today?" card.
+ *
+ * These live in `lib/help-card-defaults.ts`, keyed by `id`. A benefit stores only
+ * its `HelpCardLayoutEntry[]` — which cards it shows, in what order, and which
+ * one is primary — never the copy itself, so the text cannot drift between
+ * benefits or be edited per plan.
+ */
+export interface HelpCardContent {
   id: string;
   title: string;
+  /** Short supporting line drawn on the card itself (the panel reads `paragraphs`). */
+  body?: string;
   introBold?: string;
   paragraphs: string[];
   cta: string;
   href?: string;
+}
+
+/** @deprecated Prefer `HelpCardContent`; kept for older imports/tests. */
+export type HelpCardData = HelpCardContent;
+
+/**
+ * One entry in a benefit's persisted card layout.
+ *
+ * The ARRAY ORDER is the visual order: positions 0–2 make row 1 and 3–6 make
+ * row 2. The `primary` card is the single 2-of-4 wide card, and normalization
+ * pins it to index 0 (left edge) or index 2 (right edge) of row 1.
+ */
+export interface HelpCardLayoutEntry {
+  id: string;
+  /** Exactly one entry may set this (see `lib/help-card-layout.ts`). */
+  primary?: boolean;
+}
+
+/** A layout entry with its catalog copy resolved. */
+export interface HelpCardResolved extends HelpCardContent {
+  primary: boolean;
 }
 
 export interface FAQItem {
@@ -97,8 +128,8 @@ export interface BenefitData {
   partnerLogo?: string | null;
   backgroundImage?: string | null;
 
-  // Help Cards
-  helpCards?: HelpCardData[] | null;
+  // Help Cards — layout only (see `HelpCardLayoutEntry`); copy comes from the catalog.
+  helpCards?: HelpCardLayoutEntry[] | null;
 
   // Insurance / Portal Materials
   insurancePlanId?: string | null;

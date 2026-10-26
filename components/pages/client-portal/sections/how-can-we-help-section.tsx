@@ -2,67 +2,62 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { ArrowRight, ChevronDown, X } from "lucide-react";
-import { readableColor } from "polished";
+import { readableColor, transparentize } from "polished";
 import { HOW_CAN_WE_HELP_SECTION_ID } from "@/lib/portal-section-anchors";
 import { Button } from "@/components/ui/button";
 import { useOptionalClientPortal } from "@/contexts/client-portal-context";
 import { formatPhoneWithExtension } from "@/lib/phone-utils";
 import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
 import {
+  ACCOUNT_ACCESS_CARD_ID,
+  fillHelpCardTokens,
+  helpCardCatalogFor,
+} from "@/lib/help-card-defaults";
+import { resolveHelpCardRows } from "@/lib/help-card-layout";
+import {
   HAVE_QUESTIONS_SECTION_ID,
   scrollToPortalSection,
 } from "@/lib/portal-section-anchors";
 import type { ProviderContact } from "@/types/benefit";
+import type { HelpCardLayoutEntry, HelpCardResolved } from "@/types/benefit";
 import { cn } from "@/lib/utils";
+
+// Kept as the section's public surface: the previews import the id from here.
+export { ACCOUNT_ACCESS_CARD_ID };
+// Legacy name for the card copy type (the copy itself is static now).
+export type { HelpCardData } from "@/types/benefit";
 
 /**
  * "How Can We Help You Today?" — a topic grid with an expand-in-place detail panel.
  *
- * Layout contract:
+ * Layout contract (see `lib/help-card-layout.ts`):
  *  - The section fills the viewport (`min-h-screen`), so it owns a whole screen
  *    between the welcome banner and the video section.
- *  - Row 1 is `2/4 + 1/4 + 1/4`: the first card (Account Access) takes the wide slot
- *    and the next two sit beside it.
- *  - Every row after that is `4 × 1/4`.
+ *  - The grid is 4 columns wide. ONE card is primary and spans 2 columns; every
+ *    other card spans 1.
+ *  - With the 7-card set that makes two rows: `2/4 + 1/4 + 1/4`, then `4 × 1/4`.
+ *    The primary sits at the left or right edge of row 1 only.
  *  - Opening a card renders its detail panel directly BENEATH the row it belongs to,
  *    so the rest of the grid moves down instead of the page jumping to a modal.
  *    Rollovers & Distributions is open on first paint.
- *  - Every tile ends in a "Learn more" Button in the plan's SECONDARY colour; the
- *    whole tile is also clickable, so a tap anywhere on the card opens it.
+ *  - The whole tile is clickable, so a tap anywhere on the card opens it.
  *
- * `cards` comes from the Benefit row (`helpCards`). A plan that has not configured
- * any yet still gets the full set below, because the section is a fixed part of every
- * hub page.
+ * The COPY is static: `lib/help-card-defaults.ts` owns it by card id, and a benefit
+ * stores only its layout (`HelpCardLayoutEntry[]` — order + which card is primary).
  *
- * The WIDE tile is the account-access card, not a topic: it mirrors the Insurance
+ * The Account Access card is a special tile, not a topic: it mirrors the Insurance
  * Benefits Access & Materials hero — plan / group ID, the provider administering the
  * benefit, what the participant can do there, and a "Register or Login Here →" button
- * that opens the plan's login URL in a new tab. It never opens a detail panel; the
- * topics below it do.
+ * that opens the plan's login URL in a new tab. It never opens a detail panel.
+ * It can be the primary card (the default) or a standard 1/4 tile.
  *
- * `[Benefit Category]` is a merge token in the default copy, resolved from the
+ * `[Benefit Category]` is a merge token in the catalog copy, resolved from the
  * `category` prop each hub passes ("Retirement", "Group Health", …) — so the wide
- * card reads "Retirement Account Access". It is resolved in ANY card, configured by
- * the advisor or not; when no category is known the token is dropped rather than
- * shown to a participant. `[Company Name]` / `[Advisor Name]` follow the same
- * convention used across the portal's default copy.
+ * card reads "Retirement Account Access". `[Company Name]` / `[Advisor Name]`
+ * follow the same convention used across the portal's default copy.
  */
-
-export interface HelpCardData {
-  id: string;
-  title: string;
-  /**
-   * The tile's supporting line — the one or two sentences shown under the title on
-   * the CARD itself. Optional: a tile without it is just the title and its button.
-   * (The expanded panel reads `paragraphs`.)
-   */
-  body?: string;
-  introBold?: string;
-  paragraphs: string[];
-  cta: string;
-  href?: string;
-}
 
 interface HowCanWeHelpSectionProps {
   brandColor?: string;
@@ -93,24 +88,14 @@ interface HowCanWeHelpSectionProps {
    * context's plan-level copy is the fallback.
    */
   provider?: ProviderContact | null;
-  /** Custom cards from the wizard. Falls back to the set below when omitted. */
-  cards?: HelpCardData[];
+  /**
+   * The saved card layout (order + primary). Omitted/empty falls back to the
+   * catalog's natural order with Account Access primary on the left.
+   */
+  cards?: HelpCardLayoutEntry[] | null;
   /** Click handler for editing a specific card. Receives the card's ID. */
   onCardEdit?: (cardId: string) => void;
 }
-
-/** Merge token in the default copy, replaced by `category`. */
-const BENEFIT_CATEGORY_TOKEN = "[Benefit Category]";
-
-/**
- * `data-help-card` id of the wide Account Access card.
- *
- * The card is not a topic tile — it carries no panel — but it IS the marker the
- * editor's Plan / Group ID, login URL and Provider inputs scroll the preview to,
- * so the id lives here (next to the card that renders it) and is imported by both
- * preview scroll bridges instead of being repeated as a string literal.
- */
-export const ACCOUNT_ACCESS_CARD_ID = "account-access";
 
 /**
  * The "PLAN / GROUP ID: 1234-5678" line the Access & Materials hero and the Account
@@ -128,125 +113,33 @@ export function formatPlanGroupIdLabel(value?: string | null): string {
   return `PLAN / GROUP ID: ${raw}`;
 }
 
-/**
- * Replace the `[Benefit Category]` token. With no category known the token is
- * removed (and the leftover spacing tidied) so a participant never sees a
- * placeholder on a live page.
- */
-function fillBenefitCategory(text: string, category?: string): string {
-  if (!text || !text.includes(BENEFIT_CATEGORY_TOKEN)) return text;
-  const label = (category || "").trim();
-  if (label) return text.split(BENEFIT_CATEGORY_TOKEN).join(label);
-  return text
-    .split(BENEFIT_CATEGORY_TOKEN)
-    .join("")
-    .replace(/\s{2,}/g, " ")
-    .trim();
-}
-
-/**
- * The seven topics, in the order the grid lays them out:
- * row 1 — Account Access (wide), Rollovers & Distributions, Update My Beneficiaries;
- * row 2 — Financial Planning, When to Claim Social Security, Turning 65: Medicare,
- *         How Much Should I Save?
- */
-export const HELP_TOPIC_CARDS: HelpCardData[] = [
-  {
-    id: "account-access",
-    title: "[Benefit Category] Account Access",
-    paragraphs: [
-      "View your balances, plan documents, and investment details in one place.",
-      "Take charge of your account and stay on top of your progress anytime.",
-    ],
-    cta: "",
-  },
-  {
-    id: "rollovers-distributions",
-    title: "Rollovers & Distributions",
-    body: "Changing jobs? Compare your 4 options side by side.",
-    introBold: "Transitioning to a new employer?",
-    paragraphs: [
-      "Understand your options for managing the savings you have already built. The decision you make now can have a lasting impact on your retirement lifestyle.",
-    ],
-    cta: "",
-  },
-  {
-    id: "beneficiaries",
-    title: "Update My Beneficiaries",
-    body: "Update your 401(k) and life insurance beneficiaries in one place.",
-    paragraphs: [
-      "Keep your beneficiary designations current so your benefits go to the people you intend.",
-    ],
-    cta: "",
-  },
-  {
-    id: "financial-planning",
-    title: "Financial Planning",
-    body: "Exclusive benefits for [Company Name] plan participants.",
-    paragraphs: [
-      "Exclusive benefits for [Company Name] plan participants.",
-      "Elevate your financial journey with personalized planning through [Advisor Name], integrated with your benefits.",
-    ],
-    cta: "",
-  },
-  {
-    id: "social-security",
-    title: "When to Claim Social Security",
-    body: "See how your claiming age changes your monthly benefit.",
-    paragraphs: [
-      "See how your claiming age changes your monthly benefit, and what to weigh before you file.",
-    ],
-    cta: "",
-  },
-  {
-    id: "medicare",
-    title: "Turning 65: Medicare",
-    body: "How Medicare works with your employer coverage, and when to enroll.",
-    paragraphs: [
-      "Understand how Medicare works with your employer coverage and when to enroll so there are no gaps or penalties.",
-    ],
-    cta: "",
-  },
-  {
-    id: "savings",
-    title: "How Much Should I Save?",
-    body: "See how your contribution rate shapes your retirement income.",
-    paragraphs: [
-      "Find out how your contribution rate today shapes your income in retirement — and how to close the gap.",
-    ],
-    cta: "",
-  },
-];
-
-/** Row 1 holds the wide slot plus two cards; later rows fill four across. */
-const FIRST_ROW_CARDS = 3;
-const ROW_CAPACITY = 4;
 /** Cards that share one line of the 2-column phone grid. */
 const MOBILE_ROW_CAPACITY = 2;
 
+/**
+ * The reflow animation used when the advisor reorders the cards in the Editing
+ * Panel (Section 4).
+ *
+ * Framer's `layout` animates a card from its previous box to its new one, so the
+ * preview glides into the new order instead of jumping. It is deliberately short
+ * and gentle — this runs inside the scaled preview while the advisor drags, so it
+ * must read as a hint, not a performance. `initial={false}` keeps the first portal
+ * paint static: a participant must never see the section assemble itself.
+ */
+const HELPCARD_LAYOUT_TRANSITION = {
+  layout: {
+    duration: 0.32,
+    ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+  },
+};
+
 /** Split a row into the groups of cards that share a line on a phone. */
-function chunkCards(cards: HelpCardData[], size: number): HelpCardData[][] {
-  const chunks: HelpCardData[][] = [];
+function chunkCards(cards: HelpCardResolved[], size: number): HelpCardResolved[][] {
+  const chunks: HelpCardResolved[][] = [];
   for (let index = 0; index < cards.length; index += size) {
     chunks.push(cards.slice(index, index + size));
   }
   return chunks;
-}
-
-/**
- * Split the cards into the layout's rows: `[wide, narrow, narrow]` first, then
- * chunks of four. A plan with fewer cards simply ends early instead of leaving
- * empty cells.
- */
-function groupIntoRows(cards: HelpCardData[]): HelpCardData[][] {
-  const rows: HelpCardData[][] = [];
-  const first = cards.slice(0, FIRST_ROW_CARDS);
-  if (first.length > 0) rows.push(first);
-  const rest = cards.slice(FIRST_ROW_CARDS);
-  for (let i = 0; i < rest.length; i += ROW_CAPACITY) {
-    rows.push(rest.slice(i, i + ROW_CAPACITY));
-  }
-  return rows;
 }
 
 /** Resolve a card link. Internal paths stay in the portal; everything else is external. */
@@ -485,19 +378,25 @@ function RolloversDetail({
 }
 
 /**
- * The wide Account Access card.
+ * The Account Access card.
  *
  * This is the Insurance Benefits Access & Materials hero, condensed into a tile:
  * the heading, the plan / group ID, who administers the benefit, what the participant
  * can do once they are in, and the Register / Login CTA. The destination and the
  * provider come from the same sources the hero uses, so the two can never point at
  * different places.
+ *
+ * When it is the PRIMARY card it is painted with the plan's primary colour and every
+ * element switches to the readable colour for that fill — including the CTA, which
+ * becomes an inverse button. The secondary colour is deliberately not used: on some
+ * plans it does not contrast with the primary at all.
  */
 function AccountAccessCard({
   title,
   description,
   brandColor,
   secondaryColor,
+  primary = false,
   planIdLabel,
   providerName,
   providerDetailLine,
@@ -507,6 +406,7 @@ function AccountAccessCard({
   description?: string;
   brandColor: string;
   secondaryColor: string;
+  primary?: boolean;
   planIdLabel?: string;
   providerName?: string;
   providerDetailLine?: string;
@@ -515,25 +415,47 @@ function AccountAccessCard({
   // The hero's own feature list — what the login gets the participant.
   const bullets = ["See coverage", "Get ID cards", "Make changes", "Update dependents"];
   const ctaColor = brandColor || secondaryColor;
+  // Colours used when the tile itself is filled with the plan's primary.
+  const onPrimary = readableColor(brandColor);
+  const onPrimaryMuted = transparentize(0.2, onPrimary);
+  const onPrimaryFaint = transparentize(0.35, onPrimary);
 
   return (
-    <div
+    <motion.div
       data-help-card={ACCOUNT_ACCESS_CARD_ID}
+      // Reflow with the other cards when the layout changes, and keep the hover
+      // lift on framer (an inline layout transform would override the CSS one).
+      layout
+      initial={false}
+      transition={HELPCARD_LAYOUT_TRANSITION}
+      whileHover={{ y: -2 }}
       // The height floor is what makes every row in the grid the same height: the
       // topic tiles below use the identical `min-h`, so row 2 matches row 1 even
       // though its cards carry far less content.
-      className="group col-span-2 flex h-full min-h-[180px] flex-col rounded-2xl border border-neutral-200 bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-md sm:p-5 lg:min-h-[210px]"
+      className={cn(
+        "group flex h-full min-h-[180px] flex-col rounded-2xl border p-4 text-left shadow-sm transition-shadow duration-200 hover:shadow-md sm:p-5 lg:min-h-[210px]",
+        primary
+          ? "col-span-2 border-transparent"
+          : "col-span-1 border-neutral-200 bg-white hover:border-neutral-300",
+      )}
+      style={primary ? { backgroundColor: brandColor } : undefined}
     >
       <h3
         // Matches the topic titles, so every card in the grid reads at one size.
         className="font-dm-serif text-lg font-semibold leading-snug sm:text-xl"
-        style={{ color: brandColor }}
+        style={{ color: primary ? onPrimary : brandColor }}
       >
         {title}
       </h3>
 
       {description && (
-        <p className="mt-0.5 line-clamp-1 text-[15px] leading-snug text-neutral-600">
+        <p
+          className={cn(
+            "mt-0.5 line-clamp-1 text-[15px] leading-snug",
+            !primary && "text-neutral-600",
+          )}
+          style={primary ? { color: onPrimaryMuted } : undefined}
+        >
           {description}
         </p>
       )}
@@ -542,7 +464,11 @@ function AccountAccessCard({
         <div className="mt-2">
           <span
             className="inline-block rounded-md px-2 py-1 font-red-hat text-[13px] font-semibold leading-tight"
-            style={{ backgroundColor: `${brandColor}14`, color: brandColor }}
+            style={
+              primary
+                ? { backgroundColor: onPrimaryFaint, color: onPrimary }
+                : { backgroundColor: `${brandColor}14`, color: brandColor }
+            }
           >
             {planIdLabel}
           </span>
@@ -551,9 +477,18 @@ function AccountAccessCard({
 
       {providerName && (
         <div className="mt-1.5">
-          <p className="font-red-hat text-[13px] leading-tight text-neutral-500">
+          <p
+            className={cn(
+              "font-red-hat text-[13px] leading-tight",
+              !primary && "text-neutral-500",
+            )}
+            style={primary ? { color: onPrimaryMuted } : undefined}
+          >
             Administered by{" "}
-            <span className="font-semibold" style={{ color: brandColor }}>
+            <span
+              className="font-semibold"
+              style={{ color: primary ? onPrimary : brandColor }}
+            >
               {providerName}
             </span>
             {providerDetailLine ? ` · ${providerDetailLine}` : ""}
@@ -566,9 +501,15 @@ function AccountAccessCard({
           <div key={item} className="flex items-center">
             <span
               className="mr-1.5 h-1 w-1 flex-shrink-0 rounded-full"
-              style={{ background: brandColor }}
+              style={{ background: primary ? onPrimary : brandColor }}
             />
-            <span className="font-red-hat text-[13px] leading-tight text-neutral-700">
+            <span
+              className={cn(
+                "font-red-hat text-[13px] leading-tight",
+                !primary && "text-neutral-700",
+              )}
+              style={primary ? { color: onPrimary } : undefined}
+            >
               {item}
             </span>
           </div>
@@ -586,16 +527,22 @@ function AccountAccessCard({
             window.open(loginUrl, "_blank", "noopener,noreferrer");
           }}
           className="h-auto w-full gap-2 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] shadow-sm hover:opacity-90"
-          style={{
-            backgroundColor: ctaColor,
-            color: readableColor(ctaColor),
-          }}
+          style={
+            primary
+              ? // Inverse button: the readable colour as the fill, the primary as
+                // the label. Never the secondary colour.
+                { backgroundColor: onPrimary, color: brandColor }
+              : {
+                  backgroundColor: ctaColor,
+                  color: readableColor(ctaColor),
+                }
+          }
         >
           Register or Login Here
           <ArrowRight className="h-4 w-4" />
         </Button>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -607,7 +554,7 @@ function HelpCardPanel({
   contactName,
   onTalkThrough,
 }: {
-  card: HelpCardData;
+  card: HelpCardResolved;
   brandColor: string;
   basePath: string;
   onClose: () => void;
@@ -773,22 +720,28 @@ export function HowCanWeHelpSection({
     bannerPrimaryContact?.fullName || bannerPrimaryContact?.name || "",
   ).trim();
 
-  // Resolve `[Benefit Category]` once per card set, so the default topics and any
-  // advisor-configured card read the same way.
-  const resolvedCards = useMemo(() => {
-    const source = cards && cards.length > 0 ? cards : HELP_TOPIC_CARDS;
-    return source.map((card) => ({
-      ...card,
-      title: fillBenefitCategory(card.title, category),
-      body: card.body ? fillBenefitCategory(card.body, category) : undefined,
-      introBold: card.introBold
-        ? fillBenefitCategory(card.introBold, category)
-        : undefined,
-      paragraphs: (card.paragraphs ?? []).map((paragraph) =>
-        fillBenefitCategory(paragraph, category),
-      ),
-    }));
+  // Resolve the layout into rows of cards carrying their STATIC catalog copy, then
+  // resolve the `[Benefit Category]` token once per card.
+  const rows = useMemo(() => {
+    const catalog = helpCardCatalogFor(category);
+    if (catalog.length === 0) return [];
+    return resolveHelpCardRows(cards, category).map((row) =>
+      row.map((card) => ({
+        ...card,
+        title: fillHelpCardTokens(card.title, category),
+        body: card.body ? fillHelpCardTokens(card.body, category) : undefined,
+        introBold: card.introBold
+          ? fillHelpCardTokens(card.introBold, category)
+          : undefined,
+        paragraphs: (card.paragraphs ?? []).map((paragraph) =>
+          fillHelpCardTokens(paragraph, category),
+        ),
+      })),
+    );
   }, [cards, category]);
+
+  /** Every resolved card, in visual order. */
+  const resolvedCards = useMemo(() => rows.flat(), [rows]);
 
   // `undefined` = untouched, so the default open card is used; `null` = the reader
   // closed it and it must stay closed.
@@ -801,8 +754,6 @@ export function HowCanWeHelpSection({
       ROLLOVER_CARD_PATTERN.test(`${card.id} ${card.title}`),
     )?.id ?? null;
   const activeCardId = openCardId === undefined ? defaultOpenCardId : openCardId;
-
-  const rows = groupIntoRows(resolvedCards);
 
   const toggleCard = (cardId: string) => {
     setOpenCardId(activeCardId === cardId ? null : cardId);
@@ -923,17 +874,23 @@ export function HowCanWeHelpSection({
             row.find((card) => card.id === activeCardId) ?? null;
 
           const renderCard = (
-            card: HelpCardData,
+            card: HelpCardResolved,
             cardIndex: number,
           ): React.ReactNode => {
-            const isWide = isFirstRow && cardIndex === 0;
+            const isAccountAccess = card.id === ACCOUNT_ACCESS_CARD_ID;
+            const isPrimary = card.primary;
             const description = (card.paragraphs ?? []).find(
               (paragraph) => paragraph && paragraph.trim(),
             );
 
-            // The wide card is the account-access card — it mirrors the materials
-            // hero and never opens a detail panel.
-            if (isWide) {
+            // Colour pair for a primary tile: the plan's primary colour as the fill
+            // and the readable colour for everything drawn on top of it.
+            const onPrimary = readableColor(brandColor);
+            const onPrimaryMuted = transparentize(0.2, onPrimary);
+
+            // The Account Access card mirrors the materials hero and never opens a
+            // detail panel. It renders as the 2-wide primary or as a 1-wide tile.
+            if (isAccountAccess) {
               return (
                 <AccountAccessCard
                   key={card.id}
@@ -941,6 +898,7 @@ export function HowCanWeHelpSection({
                   description={description}
                   brandColor={brandColor}
                   secondaryColor={secondaryColor}
+                  primary={isPrimary}
                   planIdLabel={resolvedPlanIdLabel || undefined}
                   providerName={resolvedProviderName || undefined}
                   providerDetailLine={resolvedProviderDetail || undefined}
@@ -952,9 +910,15 @@ export function HowCanWeHelpSection({
             const isOpen = card.id === activeCardId;
 
             return (
-              <div
+              <motion.div
                 key={card.id}
                 data-help-card={card.id}
+                // A reorder in the Editing Panel animates the card into its new
+                // slot; a participant's first paint stays static (`initial={false}`).
+                layout
+                initial={false}
+                transition={HELPCARD_LAYOUT_TRANSITION}
+                whileHover={{ y: -2 }}
                 // Measured by the section-level caret, so it can animate to whichever
                 // card is open.
                 ref={(element) => {
@@ -964,31 +928,50 @@ export function HowCanWeHelpSection({
                 onClick={() => toggleCard(card.id)}
                 className={cn(
                   // Same height floor as the Account Access card, so row 2 is
-                  // exactly as tall as row 1.
-                  "group flex h-full min-h-[180px] w-full cursor-pointer flex-col items-start gap-2 rounded-2xl border bg-white p-4 text-left shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md lg:min-h-[210px]",
-                  "col-span-1",
-                  isOpen
-                    ? "border-transparent"
-                    : "border-neutral-200 hover:border-neutral-300",
+                  // exactly as tall as row 1. The hover lift is framer's
+                  // `whileHover` (an inline layout transform would override CSS).
+                  "group flex h-full min-h-[180px] w-full cursor-pointer flex-col items-start gap-2 rounded-2xl border p-4 text-left shadow-sm transition-shadow duration-200 hover:shadow-md lg:min-h-[210px]",
+                  // A primary tile takes 2 of the 4 columns on EVERY breakpoint
+                  // (both phone columns), exactly like the account-access card.
+                  isPrimary ? "col-span-2 border-transparent" : "col-span-1 bg-white",
+                  !isPrimary &&
+                    (isOpen
+                      ? "border-transparent"
+                      : "border-neutral-200 hover:border-neutral-300"),
                 )}
                 style={
-                  isOpen
-                    ? { boxShadow: `0 0 0 2px ${brandColor}` }
-                    : undefined
+                  isPrimary
+                    ? {
+                        backgroundColor: brandColor,
+                        // The brand ring would vanish on a brand fill, so an open
+                        // primary tile rings in its readable colour instead.
+                        boxShadow: isOpen
+                          ? `0 0 0 2px ${onPrimary}`
+                          : undefined,
+                      }
+                    : isOpen
+                      ? { boxShadow: `0 0 0 2px ${brandColor}` }
+                      : undefined
                 }
               >
                 <h3
                   // Topic titles run a step larger than the Account Access card's,
                   // since those cards carry far less content.
                   className="font-dm-serif text-lg font-semibold leading-snug sm:text-xl"
-                  style={{ color: brandColor }}
+                  style={{ color: isPrimary ? onPrimary : brandColor }}
                 >
                   {card.title}
                 </h3>
 
                 {/* Body text — the short supporting line on the card itself. */}
                 {card.body && (
-                  <p className="text-[15px] leading-snug text-neutral-600">
+                  <p
+                    className={cn(
+                      "text-[15px] leading-snug",
+                      !isPrimary && "text-neutral-600",
+                    )}
+                    style={isPrimary ? { color: onPrimaryMuted } : undefined}
+                  >
                     {card.body}
                   </p>
                 )}
@@ -1009,10 +992,16 @@ export function HowCanWeHelpSection({
                     }}
                     // Nearly the full card width, like the Account Access CTA.
                     className="w-full justify-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] shadow-sm hover:opacity-90"
-                    style={{
-                      backgroundColor: brandColor,
-                      color: readableColor(brandColor),
-                    }}
+                    style={
+                      isPrimary
+                        ? // Inverse button on a filled card — never the secondary
+                          // colour, which may not contrast with the primary.
+                          { backgroundColor: onPrimary, color: brandColor }
+                        : {
+                            backgroundColor: brandColor,
+                            color: readableColor(brandColor),
+                          }
+                    }
                   >
                     {/* The open card tells the reader where its content went. */}
                     {isOpen ? "Showing Below" : "Learn more"}
@@ -1024,7 +1013,7 @@ export function HowCanWeHelpSection({
                     />
                   </Button>
                 </div>
-              </div>
+              </motion.div>
             );
           };
 
@@ -1063,11 +1052,20 @@ export function HowCanWeHelpSection({
             ) : null;
 
           return (
-            <div key={rowIndex} className="space-y-4">
-              {/* Row 1 is 2/4 + 1/4 + 1/4; every later row is 4 × 1/4. */}
+            <motion.div
+              key={rowIndex}
+              // The row itself reflows when a card leaves/arrives, so the grid
+              // below is never left with a gap mid-animation.
+              layout
+              initial={false}
+              transition={HELPCARD_LAYOUT_TRANSITION}
+              className="space-y-4"
+            >
+              {/* Row 1 is the primary (2/4) plus two standard cards; every later
+                  row is `4 × 1/4`. */}
               <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                 {isFirstRow
-                  ? row.map(renderCard)
+                  ? row.map((card, index) => renderCard(card, index))
                   : chunkCards(row, MOBILE_ROW_CAPACITY).map(
                       (chunk, chunkIndex) => (
                         <Fragment key={chunkIndex}>
@@ -1086,7 +1084,7 @@ export function HowCanWeHelpSection({
 
               {/* Row 1 keeps its panel under the whole row. */}
               {isFirstRow ? panelNode(false) : null}
-            </div>
+            </motion.div>
           );
         })}
       </div>

@@ -51,6 +51,7 @@ import {
   formatPlanGroupIdLabel,
   ACCOUNT_ACCESS_CARD_ID,
 } from "@/components/pages/client-portal/sections/how-can-we-help-section";
+import { helpCardCategoryLabel } from "@/lib/help-card-defaults";
 import { BenefitDocumentSection } from "@/components/pages/client-portal/sections/benefit-document-section";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import {
@@ -673,8 +674,12 @@ export function BenefitPortalPreview({
             secondaryColor={secondaryColor}
             clientId={step1Data?.planId}
             // Fills `[Benefit Category]` in the default copy, so the preview reads
-            // exactly like the live hub ("Retirement Account Access").
-            category={step1Data?.benefitCategory || undefined}
+            // exactly like the live hub ("Retirement Account Access"). The Custom
+            // hub uses the advisor's own name for the benefit, as the live page does.
+            category={helpCardCategoryLabel(
+              step1Data?.benefitCategory,
+              step1Data?.benefitTitle,
+            )}
             // The Account Access card's own fields — the ones the editor panel edits.
             accountAccessHref={step1Data?.insuranceLoginUrl || undefined}
             planIdLabel={

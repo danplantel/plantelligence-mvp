@@ -1,10 +1,8 @@
 "use client";
 
 import React, { useRef, useEffect, useState } from "react";
-import {
-  useBenefitsWizardStore,
-  HelpCardData,
-} from "@/lib/benefits-wizard-store";
+import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
+import { HelpCardLayoutEditor } from "./help-card-layout-editor";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import {
   BENEFIT_CATEGORY_GALLERY,
@@ -65,6 +63,7 @@ import {
   type HeroSegmentMode,
 } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
 import { KeyContactImageCard } from "@/components/wizard/shared/key-contact-image-card";
+import { helpCardCategoryLabel } from "@/lib/help-card-defaults";
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
 import { toNextImageSrc } from "@/lib/branding-image-url";
 import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
@@ -73,36 +72,6 @@ import {
   formatPhoneNumber,
   normalizePhoneNumber,
 } from "@/components/wizard/steps/sections/user-setup-section/user-setup-section.funcs";
-
-export const DEFAULT_HELP_CARDS: HelpCardData[] = [
-  {
-    id: "access-account",
-    title: "Access My Retirement Account",
-    paragraphs: [
-      "View your balances, plan documents, and investment details all in one place.",
-      "Take charge of your retirement plan and stay on top of your progress anytime.",
-    ],
-    cta: "",
-  },
-  {
-    id: "financial-planning",
-    title: "Financial Planning",
-    paragraphs: [
-      "Exclusive Benefits for [Company Name] Plan Participants",
-      "Elevate your financial journey with personalized planning through [Advisor Name]—a comprehensive service seamlessly integrated with your retirement benefits.",
-    ],
-    cta: "",
-  },
-  {
-    id: "rollovers",
-    title: "Rollovers & Distributions",
-    introBold: "Transitioning to a new employer?",
-    paragraphs: [
-      "Understand your options for managing the savings you've built. The decision you make now can have a lasting impact on your retirement lifestyle.",
-    ],
-    cta: "",
-  },
-];
 
 interface BenefitsEditorPanelProps {
   isOpen: boolean;
@@ -1343,10 +1312,26 @@ export function BenefitsEditorPanel({
         >
           <SectionHeader number={4} title="How Can We Help You Today?" />
           <p className="text-[13px] text-muted-foreground mb-6">
-            The wide Account Access card in this section shows the Plan / Group
-            ID, where the &ldquo;Register or Login Here&rdquo; button sends
-            participants, and who administers the benefit.
+            Choose the card layout below, then edit the Account Access fields —
+            Plan / Group ID, where the &ldquo;Register or Login Here&rdquo;
+            button sends participants, and who administers the benefit.
           </p>
+
+          {/* Card layout: order + which card is Primary. Copy is static. */}
+          <div className="mb-4 rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
+            <HelpCardLayoutEditor
+              value={step1Data.helpCards}
+              // The benefit being created/edited, so `[Benefit Category]` reads
+              // "Retirement Account Access" (or the advisor's Custom name).
+              category={helpCardCategoryLabel(
+                step1Data.benefitCategory,
+                step1Data.benefitTitle,
+              )}
+              onChange={(helpCards) =>
+                saveStepData(1, { ...step1Data, helpCards } as any)
+              }
+            />
+          </div>
 
           <div className="space-y-4 rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
             {/* Plan / Group ID — printed as "PLAN / GROUP ID: …" on the card. */}

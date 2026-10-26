@@ -15,14 +15,14 @@ export interface WizardStep {
   completed: boolean;
 }
 
-export interface HelpCardData {
-  id: string;
-  title: string;
-  introBold?: string;
-  paragraphs: string[];
-  cta: string;
-  href?: string;
-}
+// Help cards are static copy + a per-benefit layout. Re-exported here so the
+// wizard keeps a single import site.
+export type {
+  HelpCardContent as HelpCardData,
+  HelpCardLayoutEntry,
+  HelpCardResolved,
+} from "@/types/benefit";
+import type { HelpCardLayoutEntry } from "@/types/benefit";
 
 export interface BenefitsStep1Data {
   planId: string;
@@ -53,8 +53,8 @@ export interface BenefitsStep1Data {
   selectedPlan?: any | null;
   /** Per-category publish/hide toggle state. Default true (published). */
   benefitVisibility?: Record<string, boolean>;
-  /** Customizable "How Can We Help You Today?" cards */
-  helpCards?: HelpCardData[];
+  /** "How Can We Help You Today?" card layout (order + primary); copy is static. */
+  helpCards?: HelpCardLayoutEntry[];
   /** Plan ID displayed in the Insurance Benefits Access & Materials section */
   insurancePlanId?: string;
   /** URL for the Register or Login Here button in the Insurance Benefits section */

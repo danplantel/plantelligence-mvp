@@ -7,21 +7,21 @@ import {
   HowCanWeHelpSection,
   computeCaretPosition,
   formatPlanGroupIdLabel,
-  type HelpCardData,
 } from "../how-can-we-help-section";
+import { HELP_CARD_ORDER } from "@/lib/help-card-defaults";
+import type { HelpCardLayoutEntry } from "@/types/benefit";
 
 /**
  * "How Can We Help You Today?" — the expandable topic grid.
  *
- * Layout contract: the section fills the viewport, row 1 is `2/4 + 1/4 + 1/4`
- * (Account Access is the wide slot), later rows are `4 × 1/4`, and a card's detail
- * panel opens directly beneath the row it belongs to. Rollovers & Distributions is
- * open on first paint, and the topic tiles end in a secondary-coloured "Learn more"
- * Button.
+ * Layout contract (see `lib/help-card-layout.ts`): the grid is 4 columns wide;
+ * ONE card is primary and spans 2 columns; with the 7-card catalog that gives
+ * row 1 = `2/4 + 1/4 + 1/4` and row 2 = `4 × 1/4`. The primary sits at the left
+ * or right edge of row 1 only. A card's detail panel opens directly beneath the
+ * row it belongs to, and Rollovers & Distributions is open on first paint.
  *
- * The wide Account Access card is NOT a topic tile: it mirrors the Insurance Benefits
- * Access & Materials hero — plan / group ID, the administering provider, and the
- * Register / Login CTA — and never opens a panel.
+ * The copy is STATIC (`lib/help-card-defaults.ts`); a benefit stores only the
+ * layout, so the tests drive `cards` with ids + the primary flag.
  */
 
 let openSpy: ReturnType<typeof vi.spyOn>;
@@ -30,14 +30,20 @@ beforeEach(() => {
   openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
 });
 
-function card(overrides: Partial<HelpCardData> = {}): HelpCardData {
-  return {
-    id: "rollovers-distributions",
-    title: "Rollovers & Distributions",
-    paragraphs: ["Rollover paragraph."],
-    cta: "",
-    ...overrides,
-  };
+/** Build a layout in visual order, with `primaryId` at the chosen edge. */
+function layoutWith(
+  primaryId: string,
+  side: "left" | "right" = "left",
+  order: string[] = HELP_CARD_ORDER,
+): HelpCardLayoutEntry[] {
+  const rest = order.filter((id) => id !== primaryId);
+  const ids =
+    side === "left"
+      ? [primaryId, ...rest]
+      : [...rest.slice(0, 2), primaryId, ...rest.slice(2)];
+  return ids.map((id) =>
+    id === primaryId ? { id, primary: true } : { id },
+  );
 }
 
 function tiles(container: HTMLElement) {
@@ -79,7 +85,7 @@ describe("HowCanWeHelpSection layout", () => {
     expect(container.querySelector("section")).toHaveClass("min-h-screen");
   });
 
-  it("renders the seven topics in grid order", () => {
+  it("renders the seven catalog cards in the default order", () => {
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
 
     expect(tiles(container).map((element) => element.dataset.helpCard)).toEqual([
@@ -93,73 +99,127 @@ describe("HowCanWeHelpSection layout", () => {
     ]);
   });
 
-  it("gives the first tile the wide 2/4 slot and the rest a single column", () => {
+  it("gives the primary card the 2/4 slot and every other card one column", () => {
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
 
-    const [wide, ...narrow] = tiles(container);
-    expect(wide.className).toContain("col-span-2");
-    expect(narrow.every((element) => !element.className.includes("col-span-2"))).toBe(
-      true,
-    );
+    const [primary, ...narrow] = tiles(container);
+    expect(primary).toHaveAttribute("data-help-card", "account-access");
+    expect(primary.className).toContain("col-span-2");
+    expect(
+      narrow.every((element) => !element.className.includes("col-span-2")),
+    ).toBe(true);
   });
 
-  it("fills [Benefit Category] with the hub's category in the wide slot", () => {
+  it("follows the saved order, not the catalog order", () => {
     const { container } = render(
-      <HowCanWeHelpSection clientId="plan-1" category="Retirement" />,
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        cards={layoutWith("account-access", "left", [
+          "account-access",
+          "savings",
+          "medicare",
+          "social-security",
+          "financial-planning",
+          "beneficiaries",
+          "rollovers-distributions",
+        ])}
+      />,
+    );
+
+    expect(tiles(container).map((element) => element.dataset.helpCard)).toEqual([
+      "account-access",
+      "savings",
+      "medicare",
+      "social-security",
+      "financial-planning",
+      "beneficiaries",
+      "rollovers-distributions",
+    ]);
+  });
+
+  it("can put the primary at the right edge of row 1", () => {
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        cards={layoutWith("account-access", "right")}
+      />,
+    );
+
+    const rendered = tiles(container);
+    // Row 1 is the first three tiles; the primary is the last of them.
+    expect(rendered[2]).toHaveAttribute("data-help-card", "account-access");
+    expect(rendered[2].className).toContain("col-span-2");
+    expect(rendered[0].className).not.toContain("col-span-2");
+    expect(rendered[1].className).not.toContain("col-span-2");
+  });
+
+  it("lets a topic card be the primary and demotes Account Access to 1/4", () => {
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        cards={layoutWith("rollovers-distributions")}
+      />,
+    );
+
+    const primary = tile(container, "rollovers-distributions");
+    expect(primary.className).toContain("col-span-2");
+
+    const account = tile(container, "account-access");
+    expect(account.className).not.toContain("col-span-2");
+    expect(account.className).toContain("bg-white");
+  });
+
+  it("ignores copy stored on legacy card objects (the catalog owns the text)", () => {
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        cards={[
+          // A legacy row: full card objects with old copy.
+          {
+            id: "account-access",
+            title: "Chapter 1",
+            paragraphs: ["Chapter 1 body."],
+            cta: "",
+            primary: true,
+          } as any,
+          {
+            id: "rollovers-distributions",
+            title: "Chapter 2",
+            paragraphs: ["Chapter 2 body."],
+            cta: "",
+          } as any,
+        ]}
+      />,
     );
 
     expect(
-      within(tiles(container)[0]).getByRole("heading", {
-        name: "Retirement Account Access",
+      within(tile(container, "account-access")).getByRole("heading", {
+        name: "Account Access",
       }),
+    ).toBeInTheDocument();
+    expect(
+      within(tile(container, "rollovers-distributions")).getByRole("heading", {
+        name: "Rollovers & Distributions",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText("Chapter 1")).not.toBeInTheDocument();
+  });
+
+  it("fills [Benefit Category] with the hub's category", () => {
+    render(<HowCanWeHelpSection clientId="plan-1" category="Retirement" />);
+
+    expect(
+      screen.getByRole("heading", { name: "Retirement Account Access" }),
     ).toBeInTheDocument();
   });
 
   it("drops the token rather than showing a placeholder when no category is known", () => {
-    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+    render(<HowCanWeHelpSection clientId="plan-1" />);
 
     expect(
-      within(tiles(container)[0]).getByRole("heading", {
-        name: "Account Access",
-      }),
+      screen.getByRole("heading", { name: "Account Access" }),
     ).toBeInTheDocument();
     expect(screen.queryByText(/\[Benefit Category\]/)).not.toBeInTheDocument();
-  });
-
-  it("fills the token in an advisor-configured card too", () => {
-    render(
-      <HowCanWeHelpSection
-        clientId="plan-1"
-        category="Group Health"
-        cards={[
-          card({
-            id: "account-access",
-            title: "[Benefit Category] Account Access",
-          }),
-        ]}
-      />,
-    );
-
-    expect(
-      screen.getByRole("heading", { name: "Group Health Account Access" }),
-    ).toBeInTheDocument();
-  });
-
-  it("shows the given cards instead of the fallbacks", () => {
-    const { container } = render(
-      <HowCanWeHelpSection
-        clientId="plan-1"
-        cards={[
-          card({ id: "a", title: "First" }),
-          card({ id: "b", title: "Second" }),
-          card({ id: "c", title: "Third" }),
-          card({ id: "d", title: "Fourth" }),
-        ]}
-      />,
-    );
-
-    expect(tiles(container)).toHaveLength(4);
-    expect(screen.queryByText(/Account Access/)).not.toBeInTheDocument();
   });
 });
 
@@ -201,43 +261,43 @@ describe("HowCanWeHelpSection tiles", () => {
     }
   });
 
-  it("leaves a tile without body text to its title only", () => {
-    const { container } = render(
-      <HowCanWeHelpSection
-        clientId="plan-1"
-        cards={[
-          card({ id: "account-access", title: "Account Access" }),
-          card({ id: "plain", title: "Plain", body: undefined }),
-        ]}
-      />,
-    );
-
-    const plainTile = tile(container, "plain");
-    expect(
-      within(plainTile).getByRole("heading", { name: "Plain" }),
-    ).toBeInTheDocument();
-    // No body line — only the heading and the Learn more button live in the tile.
-    expect(plainTile.querySelectorAll("p").length).toBe(0);
-  });
-
-  it("gives every topic tile a primary-coloured Learn more button", () => {
+  it("paints standard tiles white with a primary-coloured Learn more button", () => {
     const { container } = render(
       <HowCanWeHelpSection clientId="plan-1" brandColor="#654321" />,
     );
 
-    // The wide Account Access card carries the Register / Login CTA instead.
-    const topicTiles = tiles(container).filter(
+    // The primary Account Access tile carries the Register / Login CTA instead.
+    const standardTiles = tiles(container).filter(
       (element) => element.dataset.helpCard !== "account-access",
     );
 
-    expect(topicTiles).toHaveLength(6);
-    for (const element of topicTiles) {
-      // The open card reads "Showing Below"; every other tile reads "Learn more".
+    expect(standardTiles).toHaveLength(6);
+    for (const element of standardTiles) {
+      expect(element.className).toContain("bg-white");
+      // The open card reads "Showing Below"; every other tile "Learn more".
       const button = within(element).getByRole("button", {
         name: /Learn more|Showing Below/,
       });
       expect(button).toHaveStyle({ backgroundColor: "#654321" });
     }
+  });
+
+  it("fills the primary tile with the plan colour and inverts its button", () => {
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        brandColor="#654321"
+        cards={layoutWith("rollovers-distributions")}
+      />,
+    );
+
+    const primary = tile(container, "rollovers-distributions");
+    expect(primary).toHaveStyle({ backgroundColor: "#654321" });
+    // Inverse: the readable colour (white here) as the fill, the brand as the label.
+    const button = within(primary).getByRole("button", {
+      name: /Learn more|Showing Below/,
+    });
+    expect(button).toHaveStyle({ backgroundColor: "#ffffff", color: "#654321" });
   });
 
   it("tells the reader the open card's content is below", async () => {
@@ -267,11 +327,12 @@ describe("HowCanWeHelpSection tiles", () => {
 });
 
 /**
- * The wide card is the Insurance Benefits Access & Materials hero, condensed: the
- * same plan / group ID, provider, feature list and Register / Login destination.
+ * The Account Access card is the Insurance Benefits Access & Materials hero,
+ * condensed: plan / group ID, provider, feature list and the Register / Login
+ * destination. It never opens a panel.
  */
 describe("HowCanWeHelpSection account access card", () => {
-  it("offers a Register or Login Here button instead of Learn more", () => {
+  it("wears the inverse button while it is the primary tile", () => {
     const { container } = render(
       <HowCanWeHelpSection
         clientId="plan-1"
@@ -285,10 +346,28 @@ describe("HowCanWeHelpSection account access card", () => {
       name: /Register or Login Here/,
     });
 
-    expect(button).toHaveStyle({ backgroundColor: "#654321" });
+    expect(account).toHaveStyle({ backgroundColor: "#654321" });
+    expect(button).toHaveStyle({ backgroundColor: "#ffffff", color: "#654321" });
     expect(
       within(account).queryByRole("button", { name: /Learn more/ }),
     ).not.toBeInTheDocument();
+  });
+
+  it("wears the brand button when another card is primary", () => {
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        brandColor="#654321"
+        cards={layoutWith("rollovers-distributions")}
+      />,
+    );
+
+    const account = tile(container, "account-access");
+    const button = within(account).getByRole("button", {
+      name: /Register or Login Here/,
+    });
+
+    expect(button).toHaveStyle({ backgroundColor: "#654321" });
   });
 
   it("opens the plan's login URL in a new tab", async () => {
@@ -611,6 +690,24 @@ describe("HowCanWeHelpSection expansion", () => {
     ).toBeInTheDocument();
   });
 
+  it("opens a primary topic card too", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        cards={layoutWith("financial-planning")}
+      />,
+    );
+
+    // Rollovers is still the card open on first paint, so this click opens the
+    // primary topic rather than toggling it shut.
+    await user.click(tile(container, "financial-planning"));
+
+    expect(
+      screen.getByRole("region", { name: "Financial Planning" }),
+    ).toBeInTheDocument();
+  });
+
   it("closes the panel when the open card is clicked again", async () => {
     const user = userEvent.setup();
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
@@ -639,16 +736,7 @@ describe("HowCanWeHelpSection expansion", () => {
     const user = userEvent.setup();
     const onCardEdit = vi.fn();
     const { container } = render(
-      <HowCanWeHelpSection
-        clientId="plan-1"
-        // The first card is always the wide Account Access card, so the topic under
-        // test has to be one of the later tiles.
-        cards={[
-          card({ id: "account-access", title: "Account Access" }),
-          card({ id: "rollovers-distributions" }),
-        ]}
-        onCardEdit={onCardEdit}
-      />,
+      <HowCanWeHelpSection clientId="plan-1" onCardEdit={onCardEdit} />,
     );
 
     await user.click(tile(container, "rollovers-distributions"));
@@ -658,26 +746,17 @@ describe("HowCanWeHelpSection expansion", () => {
 
   it("marks the open tile with aria-expanded", async () => {
     const user = userEvent.setup();
-    const { container } = render(
-      <HowCanWeHelpSection
-        clientId="plan-1"
-        cards={[
-          card({ id: "account-access", title: "Account Access" }),
-          card({ id: "one", title: "One" }),
-          card({ id: "two", title: "Two" }),
-        ]}
-      />,
-    );
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
 
-    const firstButton = within(tile(container, "one")).getByRole("button", {
+    const firstButton = within(tile(container, "savings")).getByRole("button", {
       name: /Learn more/,
     });
     expect(firstButton).toHaveAttribute("aria-expanded", "false");
 
-    await user.click(tile(container, "two"));
+    await user.click(tile(container, "medicare"));
 
     expect(
-      within(tile(container, "two")).getByRole("button", {
+      within(tile(container, "medicare")).getByRole("button", {
         name: /Showing Below/,
       }),
     ).toHaveAttribute("aria-expanded", "true");
@@ -773,59 +852,17 @@ describe("HowCanWeHelpSection rollovers panel", () => {
   });
 });
 
-describe("HowCanWeHelpSection CTAs", () => {
-  /** Opens a non-Rollovers topic, whose panel still renders the card's own CTA. */
-  async function openFinancialPlanning(overrides: Partial<HelpCardData> = {}) {
-    const user = userEvent.setup();
-    const utils = render(
-      <HowCanWeHelpSection
-        clientId="plan-1"
-        cards={[
-          card({ id: "account-access", title: "Account Access" }),
-          card({
-            id: "financial-planning",
-            title: "Financial Planning",
-            ...overrides,
-          }),
-        ]}
-      />,
-    );
-    await user.click(tile(utils.container, "financial-planning"));
-    return utils;
-  }
-
-  it("prefixes an internal link with the plan path", async () => {
-    await openFinancialPlanning({ cta: "Learn more", href: "/retirement" });
-
-    expect(screen.getByRole("link", { name: "Learn more" })).toHaveAttribute(
-      "href",
-      "/plan-1/retirement",
-    );
-  });
-
-  it("opens an external link in a new tab and adds the scheme", async () => {
-    await openFinancialPlanning({ cta: "Visit", href: "acme.test/planning" });
-
-    const link = screen.getByRole("link", { name: "Visit" });
-    expect(link).toHaveAttribute("href", "https://acme.test/planning");
-    expect(link).toHaveAttribute("target", "_blank");
-    expect(link).toHaveAttribute("rel", "noopener noreferrer");
-  });
-
-  it("renders an inert button when the CTA has no link", async () => {
-    await openFinancialPlanning({ cta: "Learn more" });
-
-    // Scoped to the panel: the tile has its own "Learn more" button.
-    const panel = screen.getByRole("region", { name: "Financial Planning" });
-    expect(
-      within(panel).getByRole("button", { name: "Learn more" }),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
-  });
-
-  it("draws no panel CTA when the card has no button text", () => {
+describe("HowCanWeHelpSection panel CTAs", () => {
+  it("draws no panel CTA for the static catalog (every card has no button text)", () => {
     render(<HowCanWeHelpSection clientId="plan-1" />);
 
+    // The catalog ships `cta: ""`, so panels show copy only. A CTA is drawn only
+    // for a catalog card that sets one.
     expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(
+      within(
+        screen.getByRole("region", { name: "Rollovers & Distributions" }),
+      ).queryByRole("link"),
+    ).not.toBeInTheDocument();
   });
 });

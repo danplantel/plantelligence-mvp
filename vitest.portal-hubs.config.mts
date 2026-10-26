@@ -30,6 +30,8 @@ const portalHubTests = [
   "components/pages/client-portal/sections/__tests__/portal-welcome-banner-portrait.test.tsx",
   // "How Can We Help You Today?" cards and their CTA shapes
   "components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx",
+  // The card layout rules it renders from: primary edge, order, row packing
+  "lib/__tests__/help-card-layout.test.ts",
   // The FAQ accordion
   "components/__tests__/faq-section.test.tsx",
   // The portal read the hubs make: GET .../benefits/[category]?forPortal=1
