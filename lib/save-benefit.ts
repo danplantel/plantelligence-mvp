@@ -7,6 +7,7 @@ import {
   invalidateClientCache,
   invalidateBenefitRowsCache,
 } from "@/lib/fetch-client";
+import { uploadDataUrlToR2 } from "@/lib/upload-to-r2";
 import type { BenefitsWizardState } from "@/lib/benefits-wizard-store";
 import type { BenefitsCategory } from "@/types/new-client-wizard";
 
@@ -433,8 +434,40 @@ export async function saveBenefit(
         ? step5Data.byCategory
         : undefined;
 
+    // Welcome-banner portrait (a PLAN-level field).
+    //
+    // The Key Contact Image card keeps a fresh crop as a DATA URL so the Portal
+    // Preview paints it immediately — this is the one place it becomes storage.
+    // Uploading here (and only here) means a cancelled edit never writes the
+    // image, and the base64 never lands in the Client row.
+    //
+    // `undefined` stays `undefined` so the key is omitted from the payload: a page
+    // that never loaded the portrait must not clear the saved one. An explicit ""
+    // (the card's Remove) is kept and clears it server-side.
+    const draftHeroPortrait =
+      typeof step1Data?.heroPortraitImage === "string"
+        ? step1Data.heroPortraitImage.trim()
+        : undefined;
+    let heroPortraitImage: string | undefined = draftHeroPortrait;
+    if (draftHeroPortrait && draftHeroPortrait.startsWith("data:")) {
+      heroPortraitImage =
+        (await uploadDataUrlToR2({
+          dataUrl: draftHeroPortrait,
+          fileName: "key-contact-image.png",
+          clientId: planId,
+          subPath: "key-contact-image",
+        })) ?? undefined;
+      if (!heroPortraitImage) {
+        throw new Error(
+          "Could not upload the key contact image. Please try again.",
+        );
+      }
+    }
+
     const updatePayload = {
       keyContacts: finalContactsList,
+      // See `heroPortraitImage` above: only sent when the draft actually carried one.
+      ...(heroPortraitImage !== undefined ? { heroPortraitImage } : {}),
       // Portal typography theme (Step 2 selection — see lib/typography-themes.ts).
       typographyTheme: step1Data?.typographyTheme,
       employeePortalPreview: {

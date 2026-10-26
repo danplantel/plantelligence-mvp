@@ -98,6 +98,13 @@ interface SimpleImageEditorModalProps {
    *  News & Events header title mockup). Non-interactive (pointer-events: none)
    *  so it never blocks dragging/scaling the image beneath it. */
   canvasOverlay?: ReactNode;
+  /**
+   * Shape of the right-hand Preview frame. `rect` (the default) matches the
+   * crop's aspect ratio; `circle` draws it as a round portrait so the preview
+   * matches surfaces that clip the image to a circle (the portal welcome
+   * banner's key-contact portrait).
+   */
+  previewShape?: "rect" | "circle";
   /** Multiplier for the exported crop resolution (e.g. 3 exports at 3x the
    *  guideline size). The on-screen canvas stays at canvasWidth/canvasHeight
    *  for editing, but the saved image is rendered at higher resolution so large
@@ -130,8 +137,10 @@ export function SimpleImageEditorModal({
   guidelinesContent,
   disabled = false,
   canvasOverlay,
+  previewShape = "rect",
   exportScale = 1,
 }: SimpleImageEditorModalProps) {
+  const circularPreview = previewShape === "circle";
   const inputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<Canvas | null>(null);
@@ -1768,17 +1777,28 @@ export function SimpleImageEditorModal({
                   </div>
                   {/* Full panel width, shaped like the guide, so the preview is
                       as large as the column allows and the image fills the frame
-                      rather than floating in the middle of it. */}
-                  <div className="mt-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-700">
+                      rather than floating in the middle of it. A circular
+                      preview mimics a surface that clips the image to a circle
+                      (the welcome banner's portrait), so `object-cover` is used
+                      there — the same fit the live page paints. */}
+                  <div
+                    className={`mt-2 border-2 border-gray-300 dark:border-gray-600 overflow-hidden bg-white dark:bg-gray-700 ${
+                      circularPreview ? "rounded-full" : "rounded-lg"
+                    }`}
+                  >
                     <div
-                      className="w-full flex items-center justify-center"
+                      className={`w-full flex items-center justify-center ${
+                        circularPreview ? "overflow-hidden rounded-full" : ""
+                      }`}
                       style={{ aspectRatio: previewAspectRatio }}
                     >
                       {previewSrc || imageSrc ? (
                         <img
                           src={previewSrc || imageSrc || ""}
                           alt="Preview"
-                          className="w-full h-full object-contain"
+                          className={`w-full h-full ${
+                            circularPreview ? "object-cover" : "object-contain"
+                          }`}
                         />
                       ) : (
                         <span className="text-gray-400 dark:text-gray-500 text-xs">No image</span>

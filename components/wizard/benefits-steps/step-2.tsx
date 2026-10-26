@@ -418,11 +418,17 @@ export function BenefitsStep2() {
     // draft only carries it until Finish, and the banner renders from the Client
     // row on every live hub — so without this the advisor would not see their
     // image on the portal until the whole benefit was published.
+    //
+    // A freshly cropped portrait is a DATA URL: it is only meant to drive the
+    // in-page preview, and Save Changes (`saveBenefit`) uploads it and writes the
+    // key. PUT-ing it here would store the base64 itself in the Client row, so the
+    // deferred values are skipped.
     useEffect(() => {
         const planId = step1Data?.planId;
         const portrait = String(step1Data?.heroPortraitImage || "");
         const savedOnPlan = String((planDetails as any)?.heroPortraitImage || "");
         if (!planId || portrait === savedOnPlan) return;
+        if (portrait.startsWith("data:")) return;
 
         const timer = setTimeout(async () => {
             try {

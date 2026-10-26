@@ -287,6 +287,54 @@ export async function uploadFileToR2(options: UploadToR2Options): Promise<string
   return key;
 }
 
+/** Decode a `data:` URL into a `File` so it can use the normal upload path. */
+export function dataUrlToFile(dataUrl: string, fileName: string): File {
+  const match = /^data:([^;,]*)(;base64)?,([\s\S]*)$/.exec(dataUrl);
+  if (!match) throw new Error("Not a data URL");
+  const [, mime, base64, payload] = match;
+  const type = mime || "application/octet-stream";
+
+  if (!base64) {
+    return new File([decodeURIComponent(payload)], fileName, { type });
+  }
+
+  const binary = atob(payload);
+  const buffer = new ArrayBuffer(binary.length);
+  const bytes = new Uint8Array(buffer);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new File([buffer], fileName, { type });
+}
+
+export interface UploadDataUrlOptions {
+  dataUrl: string;
+  fileName?: string;
+  purpose?: PresignPurpose;
+  clientId?: string;
+  subPath?: string;
+}
+
+/**
+ * Upload an in-memory `data:` URL to R2.
+ *
+ * Used where an image is kept as a data URL while the user edits (so the preview
+ * paints instantly) and only needs a storage key when the record is saved.
+ */
+export async function uploadDataUrlToR2(
+  options: UploadDataUrlOptions,
+): Promise<string | null> {
+  const fileName = options.fileName || "image.png";
+  const file = dataUrlToFile(options.dataUrl, fileName);
+  return uploadFileToR2({
+    file,
+    purpose: options.purpose ?? "upload",
+    clientId: options.clientId,
+    fileName: file.name,
+    subPath: options.subPath,
+  });
+}
+
 /**
  * Delete an object from R2 by key (client-side). Call when user removes logo/headshot so the file is removed from Cloudflare.
  * Returns true if delete succeeded or R2 not configured; false on API error.
