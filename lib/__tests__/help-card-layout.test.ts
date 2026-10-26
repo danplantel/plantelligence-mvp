@@ -9,9 +9,11 @@ import {
   defaultHelpCardLayout,
   helpCardPrimaryId,
   helpCardSide,
+  isHelpCardEnabled,
   moveHelpCard,
   normalizeHelpCardLayout,
   resolveHelpCardRows,
+  setHelpCardEnabled,
   setHelpCardPrimary,
   setHelpCardSide,
 } from "@/lib/help-card-layout";
@@ -259,5 +261,87 @@ describe("resolveHelpCardRows", () => {
       "account-access",
     ]);
     expect(firstRow[2].primary).toBe(true);
+  });
+});
+
+describe("hidden cards", () => {
+  it("treats a missing flag as enabled", () => {
+    const layout = defaultHelpCardLayout();
+
+    expect(layout.every((entry) => isHelpCardEnabled(entry))).toBe(true);
+    // Nothing is written until a card is actually switched off, so a layout
+    // saved before the checkbox existed keeps rendering every card.
+    expect(layout.some((entry) => "enabled" in entry)).toBe(false);
+  });
+
+  it("hides a card in place and shows it again where it was", () => {
+    const layout = defaultHelpCardLayout();
+    const hidden = setHelpCardEnabled(layout, "medicare", false);
+
+    expect(ids(hidden)).toEqual(ids(layout));
+    expect(hidden.find((entry) => entry.id === "medicare")).toEqual({
+      id: "medicare",
+      enabled: false,
+    });
+    // The primary and the edge are untouched.
+    expect(helpCardPrimaryId(hidden)).toBe("account-access");
+    expect(helpCardSide(hidden)).toBe("left");
+
+    const shown = setHelpCardEnabled(hidden, "medicare", true);
+
+    expect(ids(shown)).toEqual(ids(layout));
+    expect(shown.find((entry) => entry.id === "medicare")).toEqual({
+      id: "medicare",
+    });
+  });
+
+  it("keeps the flag through promotion, reordering and side flips", () => {
+    const hidden = setHelpCardEnabled(
+      defaultHelpCardLayout(),
+      "savings",
+      false,
+    );
+    const savings = (layout: ReturnType<typeof defaultHelpCardLayout>) =>
+      layout.find((entry) => entry.id === "savings");
+
+    expect(savings(setHelpCardPrimary(hidden, "beneficiaries"))).toEqual({
+      id: "savings",
+      enabled: false,
+    });
+    expect(savings(moveHelpCard(hidden, "medicare", "social-security"))).toEqual(
+      { id: "savings", enabled: false },
+    );
+    expect(savings(setHelpCardSide(hidden, "right"))).toEqual({
+      id: "savings",
+      enabled: false,
+    });
+  });
+
+  it("drops a hidden card from the rendered rows", () => {
+    const rows = resolveHelpCardRows(
+      setHelpCardEnabled(defaultHelpCardLayout(), "beneficiaries", false),
+    );
+    const rendered = rows.flat().map((card) => card.id);
+
+    expect(rendered).not.toContain("beneficiaries");
+    expect(rendered).toHaveLength(HELP_CARD_ORDER.length - 1);
+    // The primary still leads row 1.
+    expect(rows[0][0]).toMatchObject({ id: "account-access", primary: true });
+  });
+
+  it("packs four to a row when the primary itself is hidden", () => {
+    const rows = resolveHelpCardRows(
+      setHelpCardEnabled(defaultHelpCardLayout(), "account-access", false),
+    );
+
+    // No 2-wide card to lay out around → a plain 4-column grid.
+    expect(rows[0].map((card) => card.id)).toEqual([
+      "rollovers-distributions",
+      "beneficiaries",
+      "financial-planning",
+      "social-security",
+    ]);
+    expect(rows.every((row) => row.length <= 4)).toBe(true);
+    expect(rows.flat().some((card) => card.primary)).toBe(false);
   });
 });

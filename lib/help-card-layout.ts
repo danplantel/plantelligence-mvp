@@ -56,6 +56,45 @@ function readStoredEntries(entries: unknown): StoredEntry[] {
     );
 }
 
+/** The ids stored as `enabled: false` (a absent flag means enabled). */
+function disabledIdsOf(entries: StoredEntry[]): Set<string> {
+  const disabled = new Set<string>();
+  for (const entry of entries) {
+    if (entry.enabled === false && typeof entry.id === "string") {
+      disabled.add(entry.id);
+    }
+  }
+  return disabled;
+}
+
+/**
+ * Lay the cards out with `primaryId` at the requested edge of row 1, re-emitting
+ * only the persisted flags.
+ *
+ * Every rule below goes through this function, which is what keeps a hidden card
+ * hidden: `enabled: false` travels with its id through promotion, side flips and
+ * drag-reordering instead of being dropped by a rebuilt id list.
+ */
+function arrangeHelpCards(
+  ids: string[],
+  primaryId: string,
+  side: HelpCardSide,
+  disabled: Set<string>,
+): HelpCardLayoutEntry[] {
+  const rest = ids.filter((id) => id !== primaryId);
+  const ordered =
+    side === "left"
+      ? [primaryId, ...rest]
+      : [...rest.slice(0, 2), primaryId, ...rest.slice(2)];
+
+  return ordered.map((id) => {
+    const entry: HelpCardLayoutEntry = { id };
+    if (id === primaryId) entry.primary = true;
+    if (disabled.has(id)) entry.enabled = false;
+    return entry;
+  });
+}
+
 /**
  * Coerce any stored value into the canonical 7-entry layout.
  *
@@ -105,13 +144,7 @@ export function normalizeHelpCardLayout(
   const side: HelpCardSide =
     options.side ?? (storedIndex >= 2 ? "right" : "left");
 
-  const rest = storedIds.filter((id) => id !== primaryId);
-  const ordered =
-    side === "left"
-      ? [primaryId, ...rest]
-      : [...rest.slice(0, 2), primaryId, ...rest.slice(2)];
-
-  return ordered.map((id) => (id === primaryId ? { id, primary: true } : { id }));
+  return arrangeHelpCards(storedIds, primaryId, side, disabledIdsOf(stored));
 }
 
 /** Which edge of row 1 the primary occupies. */
@@ -140,14 +173,12 @@ export function setHelpCardPrimary(
   if (!id || id === currentPrimaryId) return entries;
   if (!entries.some((entry) => entry.id === id)) return entries;
 
-  const side = helpCardSide(entries);
-  const rest = entries
-    .map((entry) => entry.id)
-    .filter((cardId) => cardId !== currentPrimaryId && cardId !== id);
-  const insertAt = side === "left" ? 0 : Math.min(2, rest.length);
-  const next = [...rest.slice(0, insertAt), id, ...rest.slice(insertAt)];
-
-  return normalizeHelpCardLayout(next, { side, primaryId: id });
+  return arrangeHelpCards(
+    entries.map((entry) => entry.id),
+    id,
+    helpCardSide(entries),
+    disabledIdsOf(entries),
+  );
 }
 
 /** Move the primary to the other edge of row 1. */
@@ -155,8 +186,43 @@ export function setHelpCardSide(
   layout: HelpCardLayoutEntry[] | undefined | null,
   side: HelpCardSide,
 ): HelpCardLayoutEntry[] {
-  const primaryId = helpCardPrimaryId(layout);
-  return normalizeHelpCardLayout(layout, { side, primaryId });
+  const entries = normalizeHelpCardLayout(layout);
+  return arrangeHelpCards(
+    entries.map((entry) => entry.id),
+    helpCardPrimaryId(entries),
+    side,
+    disabledIdsOf(entries),
+  );
+}
+
+/**
+ * Show or hide one card.
+ *
+ * The card keeps its slot, so hiding and re-showing it is reversible — the order
+ * and the primary flag are untouched.
+ */
+export function setHelpCardEnabled(
+  layout: HelpCardLayoutEntry[] | undefined | null,
+  id: string,
+  enabled: boolean,
+): HelpCardLayoutEntry[] {
+  const entries = normalizeHelpCardLayout(layout);
+  if (!entries.some((entry) => entry.id === id)) return entries;
+
+  return entries.map((entry) => {
+    if (entry.id !== id) return entry;
+    const next: HelpCardLayoutEntry = { id: entry.id };
+    if (entry.primary) next.primary = true;
+    if (!enabled) next.enabled = false;
+    return next;
+  });
+}
+
+/** Whether a card renders on the hub (absent flag = enabled). */
+export function isHelpCardEnabled(
+  entry: HelpCardLayoutEntry | undefined | null,
+): boolean {
+  return entry?.enabled !== false;
 }
 
 /**
@@ -185,11 +251,11 @@ export function moveHelpCard(
   const to = visual.indexOf(overId);
   if (from < 0 || to < 0) return entries;
 
+  const disabled = disabledIdsOf(entries);
+
   // Dropped on the primary slot → promote the dragged card, keeping the edge.
   if (overId === primaryId) {
-    const moved = [...visual];
-    moved.splice(to, 0, ...moved.splice(from, 1));
-    return normalizeHelpCardLayout(moved, { side, primaryId: activeId });
+    return arrangeHelpCards(visual, activeId, side, disabled);
   }
 
   const standards = visual.filter((id) => id !== primaryId);
@@ -198,7 +264,7 @@ export function moveHelpCard(
   if (standardFrom < 0 || standardTo < 0) return entries;
 
   standards.splice(standardTo, 0, ...standards.splice(standardFrom, 1));
-  return normalizeHelpCardLayout(standards, { side, primaryId });
+  return arrangeHelpCards(standards, primaryId, side, disabled);
 }
 
 /**
@@ -223,7 +289,13 @@ export function defaultHelpCardLayout(
 /**
  * Resolve the layout into rows of cards carrying their static copy.
  *
- * Row 1 holds the primary plus two standard cards; every later row holds four.
+ * Only ENABLED cards are returned — a card the advisor unticked in the Editing
+ * Panel does not reach the hub at all.
+ *
+ * With its primary showing, row 1 holds the primary plus two standard cards and
+ * every later row holds four. If the primary itself is hidden there is no 2-wide
+ * card to lay out around, so the remaining cards pack four to a row, filling the
+ * grid instead of leaving a column empty.
  */
 export function resolveHelpCardRows(
   layout: HelpCardLayoutEntry[] | undefined | null,
@@ -234,11 +306,20 @@ export function resolveHelpCardRows(
 
   const cards: HelpCardResolved[] = [];
   for (const entry of entries) {
+    if (!isHelpCardEnabled(entry)) continue;
     const content = getHelpCardContent(entry.id, catalog);
     if (content) cards.push({ ...content, primary: entry.primary === true });
   }
 
   const rows: HelpCardResolved[][] = [];
+  const hasPrimary = cards.some((card) => card.primary);
+  if (!hasPrimary) {
+    for (let i = 0; i < cards.length; i += HELP_CARD_ROW_SIZE) {
+      rows.push(cards.slice(i, i + HELP_CARD_ROW_SIZE));
+    }
+    return rows;
+  }
+
   if (cards.length > 0) rows.push(cards.slice(0, HELP_CARD_ROW_1_SIZE));
   for (let i = HELP_CARD_ROW_1_SIZE; i < cards.length; i += HELP_CARD_ROW_SIZE) {
     rows.push(cards.slice(i, i + HELP_CARD_ROW_SIZE));

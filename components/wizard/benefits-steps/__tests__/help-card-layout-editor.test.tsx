@@ -8,6 +8,7 @@ import { HelpCardLayoutEditor } from "../help-card-layout-editor";
 import { HELP_CARD_ORDER } from "@/lib/help-card-defaults";
 import {
   defaultHelpCardLayout,
+  setHelpCardEnabled,
   setHelpCardSide,
 } from "@/lib/help-card-layout";
 import type { HelpCardLayoutEntry } from "@/types/benefit";
@@ -113,6 +114,47 @@ describe("HelpCardLayoutEditor", () => {
         "Retirement Account Access",
       ),
     ).toBeInTheDocument();
+  });
+
+  it("gives every card a show/hide checkbox, ticked by default", () => {
+    render(<HelpCardLayoutEditor onChange={() => {}} />);
+
+    const boxes = screen.getAllByRole("checkbox");
+
+    expect(boxes).toHaveLength(HELP_CARD_ORDER.length);
+    expect(
+      boxes.every((box) => box.getAttribute("aria-checked") === "true"),
+    ).toBe(true);
+  });
+
+  it("unticking a card hides it without moving it", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(<HelpCardLayoutEditor onChange={onChange} />);
+
+    await user.click(within(row("medicare")).getByRole("checkbox"));
+
+    const layout = layoutOf(onChange);
+    expect(layout.map((entry) => entry.id)).toEqual(HELP_CARD_ORDER);
+    expect(layout.find((entry) => entry.id === "medicare")).toEqual({
+      id: "medicare",
+      enabled: false,
+    });
+  });
+
+  it("leaves a hidden card out of the slot mirror and marks its row", () => {
+    render(
+      <HelpCardLayoutEditor
+        value={setHelpCardEnabled(defaultHelpCardLayout(), "medicare", false)}
+        onChange={() => {}}
+      />,
+    );
+
+    // The mirror shows exactly what the hub will render.
+    expect(screen.getByTestId("help-card-slot-preview").children).toHaveLength(
+      HELP_CARD_ORDER.length - 1,
+    );
+    expect(within(row("medicare")).getByText(/Hidden/)).toBeInTheDocument();
   });
 
   it("draws a stored right-edge primary as the third row-1 card", () => {

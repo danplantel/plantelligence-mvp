@@ -19,6 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
   fillHelpCardTokens,
@@ -28,8 +29,10 @@ import {
   HELP_CARD_ROW_1_SIZE,
   helpCardPrimaryId,
   helpCardSide,
+  isHelpCardEnabled,
   moveHelpCard,
   normalizeHelpCardLayout,
+  setHelpCardEnabled,
   setHelpCardPrimary,
   setHelpCardSide,
 } from "@/lib/help-card-layout";
@@ -59,13 +62,18 @@ function SortableHelpCardRow({
   index,
   isPrimary,
   category,
+  enabled,
   onMakePrimary,
+  onToggleEnabled,
 }: {
   entry: HelpCardLayoutEntry;
   index: number;
   isPrimary: boolean;
   category?: string;
+  /** Whether the card renders on the hub (see `setHelpCardEnabled`). */
+  enabled: boolean;
   onMakePrimary: (id: string) => void;
+  onToggleEnabled: (id: string, enabled: boolean) => void;
 }) {
   const content = getHelpCardContent(entry.id);
   const title = fillHelpCardTokens(content?.title ?? entry.id, category);
@@ -97,9 +105,19 @@ function SortableHelpCardRow({
         isPrimary
           ? "border-blue-300 ring-1 ring-blue-200 dark:border-blue-700 dark:ring-blue-900"
           : "border-muted",
+        !enabled && "opacity-60",
         isDragging && "z-10 opacity-70 shadow-lg",
       )}
     >
+      {/* Show/hide. Ticked by default, and the card keeps its slot while hidden,
+          so unticking is always reversible. */}
+      <Checkbox
+        checked={enabled}
+        onCheckedChange={(checked) => onToggleEnabled(entry.id, checked === true)}
+        aria-label={`Show ${title} on the portal`}
+        data-testid={`help-card-enabled-${entry.id}`}
+      />
+
       {/* The primary is pinned to a row-1 edge, so it has a lock instead of a handle. */}
       {isPrimary ? (
         <span
@@ -126,6 +144,7 @@ function SortableHelpCardRow({
         </p>
         <p className="text-[11px] text-muted-foreground">
           Row {visualRow(index)} · {isPrimary ? "2/4 wide · Primary" : "1/4"}
+          {enabled ? "" : " · Hidden"}
         </p>
       </div>
 
@@ -170,6 +189,9 @@ export function HelpCardLayoutEditor({
   const layout = useMemo(() => normalizeHelpCardLayout(value), [value]);
   const primaryId = helpCardPrimaryId(layout);
   const side = helpCardSide(layout);
+  // The slot mirror shows what the hub will actually render, so a hidden card
+  // leaves the mirror (and its columns) behind.
+  const visibleLayout = layout.filter(isHelpCardEnabled);
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -191,7 +213,8 @@ export function HelpCardLayoutEditor({
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             Drag to reorder. One card is the Primary: it spans 2 of the 4
             columns, at the left or right edge of row 1. Dropping a card on the
-            Primary slot makes that card the Primary. Copy is fixed per card.
+            Primary slot makes that card the Primary. Untick a card to hide it
+            from the portal — it keeps its place here. Copy is fixed per card.
           </p>
         </div>
         {/* Where the primary sits in row 1. */}
@@ -221,24 +244,33 @@ export function HelpCardLayoutEditor({
         data-testid="help-card-slot-preview"
         className="grid grid-cols-4 gap-1.5 rounded-lg border border-muted bg-muted/20 p-2"
       >
-        {layout.map((entry) => {
-          const content = getHelpCardContent(entry.id);
-          const title = fillHelpCardTokens(content?.title ?? entry.id, category);
-          return (
-            <div
-              key={entry.id}
-              title={title}
-              className={cn(
-                "flex h-9 items-center justify-center overflow-hidden rounded-md px-1 text-center text-[9px] font-semibold leading-tight",
-                entry.primary
-                  ? "col-span-2 bg-blue-600 text-white"
-                  : "bg-white text-muted-foreground dark:bg-gray-800",
-              )}
-            >
-              <span className="line-clamp-2">{title}</span>
-            </div>
-          );
-        })}
+        {visibleLayout.length === 0 ? (
+          <p className="col-span-4 py-2 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+            All cards hidden
+          </p>
+        ) : (
+          visibleLayout.map((entry) => {
+            const content = getHelpCardContent(entry.id);
+            const title = fillHelpCardTokens(
+              content?.title ?? entry.id,
+              category,
+            );
+            return (
+              <div
+                key={entry.id}
+                title={title}
+                className={cn(
+                  "flex h-9 items-center justify-center overflow-hidden rounded-md px-1 text-center text-[9px] font-semibold leading-tight",
+                  entry.primary
+                    ? "col-span-2 bg-blue-600 text-white"
+                    : "bg-white text-muted-foreground dark:bg-gray-800",
+                )}
+              >
+                <span className="line-clamp-2">{title}</span>
+              </div>
+            );
+          })
+        )}
       </div>
 
       <DndContext
@@ -258,8 +290,12 @@ export function HelpCardLayoutEditor({
                 index={index}
                 isPrimary={entry.id === primaryId}
                 category={category}
+                enabled={isHelpCardEnabled(entry)}
                 onMakePrimary={(id) =>
                   onChange(setHelpCardPrimary(layout, id))
+                }
+                onToggleEnabled={(id, nextEnabled) =>
+                  onChange(setHelpCardEnabled(layout, id, nextEnabled))
                 }
               />
             ))}

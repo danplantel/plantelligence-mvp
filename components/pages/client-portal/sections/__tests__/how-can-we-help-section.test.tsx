@@ -110,6 +110,22 @@ describe("HowCanWeHelpSection layout", () => {
     ).toBe(true);
   });
 
+  it("does not render a card the advisor switched off", () => {
+    const hidden = layoutWith("account-access", "left").map((entry) =>
+      entry.id === "medicare" ? { ...entry, enabled: false } : entry,
+    );
+    const { container } = render(
+      <HowCanWeHelpSection clientId="plan-1" cards={hidden} />,
+    );
+
+    expect(
+      container.querySelector('[data-help-card="medicare"]'),
+    ).not.toBeInTheDocument();
+    expect(tiles(container).map((element) => element.dataset.helpCard)).toEqual(
+      HELP_CARD_ORDER.filter((id) => id !== "medicare"),
+    );
+  });
+
   it("follows the saved order, not the catalog order", () => {
     const { container } = render(
       <HowCanWeHelpSection

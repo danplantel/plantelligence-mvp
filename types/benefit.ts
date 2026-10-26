@@ -36,6 +36,14 @@ export interface HelpCardLayoutEntry {
   id: string;
   /** Exactly one entry may set this (see `lib/help-card-layout.ts`). */
   primary?: boolean;
+  /**
+   * Whether the card renders on the hub. ABSENT MEANS ENABLED, so a layout saved
+   * before this flag existed keeps showing every card.
+   *
+   * A hidden card keeps its slot in the order: re-enabling it puts it back where
+   * it was, and every other card keeps its position around it.
+   */
+  enabled?: boolean;
 }
 
 /** A layout entry with its catalog copy resolved. */
