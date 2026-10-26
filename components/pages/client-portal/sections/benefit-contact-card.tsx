@@ -22,6 +22,8 @@ export interface BenefitContactCardProps {
   contact: Record<string, any>;
   brandColor: string;
   secondaryColor: string;
+  /** Primary CTA background; defaults to `secondaryColor` (the card's design). */
+  ctaColor?: string;
   appointmentLink?: string;
   companyName?: string;
   /** Animation stagger index (My Benefits Team layouts use it). */
@@ -75,6 +77,7 @@ export function BenefitContactCard({
   contact,
   brandColor,
   secondaryColor,
+  ctaColor,
   appointmentLink = "",
   companyName = "",
   index,
@@ -118,6 +121,7 @@ export function BenefitContactCard({
       contact={contact as any}
       brandColor={brandColor}
       secondaryColor={secondaryColor}
+      ctaColor={ctaColor}
       appointmentLink={appointmentLink}
       companyName={companyName}
       index={index}

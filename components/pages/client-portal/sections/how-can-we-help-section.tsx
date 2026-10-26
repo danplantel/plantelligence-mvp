@@ -352,12 +352,10 @@ const ROLLOVER_OPTIONS: RolloverOption[] = [
  */
 function RolloversDetail({
   brandColor,
-  secondaryColor,
   contactName,
   onTalkThrough,
 }: {
   brandColor: string;
-  secondaryColor: string;
   contactName?: string;
   onTalkThrough?: () => void;
 }) {
@@ -472,8 +470,8 @@ function RolloversDetail({
           onClick={onTalkThrough}
           className="gap-2 rounded-lg px-5 py-2.5 text-xs font-semibold uppercase tracking-[0.08em] shadow-sm hover:opacity-90"
           style={{
-            backgroundColor: secondaryColor,
-            color: readableColor(secondaryColor),
+            backgroundColor: brandColor,
+            color: readableColor(brandColor),
           }}
         >
           Talk through my options
@@ -516,7 +514,7 @@ function AccountAccessCard({
 }) {
   // The hero's own feature list — what the login gets the participant.
   const bullets = ["See coverage", "Get ID cards", "Make changes", "Update dependents"];
-  const ctaColor = secondaryColor || brandColor;
+  const ctaColor = brandColor || secondaryColor;
 
   return (
     <div
@@ -604,7 +602,6 @@ function AccountAccessCard({
 function HelpCardPanel({
   card,
   brandColor,
-  secondaryColor,
   basePath,
   onClose,
   contactName,
@@ -612,7 +609,6 @@ function HelpCardPanel({
 }: {
   card: HelpCardData;
   brandColor: string;
-  secondaryColor: string;
   basePath: string;
   onClose: () => void;
   /** Full name of the plan's primary key contact, for the Rollovers "free call" line. */
@@ -626,11 +622,12 @@ function HelpCardPanel({
   const resolved = card.href ? resolveCardHref(card.href, basePath) : null;
   const ctaLabel = card.cta?.trim() ? card.cta : "";
   const ctaStyle = {
-    borderColor: secondaryColor,
-    color: secondaryColor,
+    backgroundColor: brandColor,
+    borderColor: brandColor,
+    color: readableColor(brandColor),
   } as React.CSSProperties;
   const ctaClass =
-    "inline-flex min-h-11 items-center justify-center rounded-md border bg-white px-6 text-sm font-red-hat uppercase tracking-[0.15em] transition-all duration-300 hover:opacity-90";
+    "inline-flex min-h-11 items-center justify-center rounded-md border px-6 text-sm font-red-hat uppercase tracking-[0.15em] transition-all duration-300 hover:opacity-90";
 
   return (
     <div
@@ -666,7 +663,6 @@ function HelpCardPanel({
       {isRollovers ? (
         <RolloversDetail
           brandColor={brandColor}
-          secondaryColor={secondaryColor}
           contactName={contactName}
           onTalkThrough={onTalkThrough}
         />
@@ -887,10 +883,7 @@ export function HowCanWeHelpSection({
       id={HOW_CAN_WE_HELP_SECTION_ID}
       className="flex min-h-screen w-full scroll-mt-24 flex-col justify-center bg-white py-16 sm:scroll-mt-28 lg:py-20 lg:scroll-mt-32"
     >
-      <h2
-        className="mb-14 text-center text-2xl font-dm-serif sm:text-2xl lg:text-5xl"
-        style={{ color: brandColor }}
-      >
+      <h2 className="mb-14 text-center text-2xl font-dm-serif text-gray-900 sm:text-2xl lg:text-5xl">
         How Can We Help You Today?
       </h2>
 
@@ -1017,8 +1010,8 @@ export function HowCanWeHelpSection({
                     // Nearly the full card width, like the Account Access CTA.
                     className="w-full justify-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] shadow-sm hover:opacity-90"
                     style={{
-                      backgroundColor: secondaryColor,
-                      color: readableColor(secondaryColor),
+                      backgroundColor: brandColor,
+                      color: readableColor(brandColor),
                     }}
                   >
                     {/* The open card tells the reader where its content went. */}
@@ -1056,7 +1049,6 @@ export function HowCanWeHelpSection({
                 <HelpCardPanel
                   card={openCard}
                   brandColor={brandColor}
-                  secondaryColor={secondaryColor}
                   basePath={basePath}
                   contactName={benefitContactName}
                   // Sends the reader to the contact's card in "Have Questions?"

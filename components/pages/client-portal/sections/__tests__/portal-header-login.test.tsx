@@ -95,8 +95,8 @@ describe("PortalHeader login", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("wears the plan's secondary colour", () => {
-    render(<PortalHeader clientId="plan-1" secondaryColor="#abcdef" />);
+  it("wears the plan's primary colour", () => {
+    render(<PortalHeader clientId="plan-1" brandColor="#abcdef" />);
 
     expect(screen.getByRole("button", { name: /Login/ })).toHaveStyle({
       backgroundColor: "#abcdef",

@@ -67,6 +67,12 @@ interface SmallVerticalCardProps {
   contact: Contact;
   brandColor: string;
   secondaryColor: string;
+  /**
+   * Background for the card's primary CTA button. Defaults to `secondaryColor`
+   * (the long-standing card design); the benefit hubs pass the plan's primary
+   * colour so their support CTAs match the rest of the hub's buttons.
+   */
+  ctaColor?: string;
   appointmentLink: string;
   companyName?: string;
   width?: string; // Optional custom width
@@ -124,6 +130,7 @@ export function SmallVerticalCard({
   contact,
   brandColor,
   secondaryColor,
+  ctaColor,
   appointmentLink,
   companyName,
   width,
@@ -475,7 +482,7 @@ export function SmallVerticalCard({
           {buttons.map((button, idx) => {
             const isPrimaryButton = idx === primaryIndex;
             const buttonBg = isPrimaryButton
-              ? effectiveSecondaryColor
+              ? ctaColor || effectiveSecondaryColor
               : isPrimary
                 ? mix(0.2, "#ffffff", effectiveBrandColor)
                 : "#F3F4F6";
@@ -1072,7 +1079,7 @@ export function SmallVerticalCard({
               buttons.map((button, idx) => {
                 const isPrimaryButton = idx === primaryIndex;
                 const buttonBg = isPrimaryButton
-                  ? effectiveSecondaryColor
+                  ? ctaColor || effectiveSecondaryColor
                   : isPrimary
                   ? mix(0.2, "#ffffff", effectiveBrandColor)
                   : "#F3F4F6";
@@ -1409,7 +1416,7 @@ export function SmallVerticalCard({
             {buttons.map((button, idx) => {
               const isPrimaryButton = idx === primaryIndex;
               const buttonBg = isPrimaryButton
-                ? effectiveSecondaryColor
+                ? ctaColor || effectiveSecondaryColor
                 : isPrimary
                 ? mix(0.2, "#ffffff", effectiveBrandColor)
                 : "#F3F4F6";

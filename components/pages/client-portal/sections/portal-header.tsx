@@ -597,8 +597,8 @@ export function PortalHeader({
                   }
                   className="order-1 gap-2 rounded-full px-4 text-xs font-semibold shadow-sm transition-opacity hover:opacity-90 sm:text-sm md:order-2"
                   style={{
-                    backgroundColor: secondaryColor,
-                    color: readableColor(secondaryColor),
+                    backgroundColor: brandColor,
+                    color: readableColor(brandColor),
                   }}
                 >
                   <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />

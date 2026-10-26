@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, Phone, Mail } from "lucide-react";
+import { readableColor } from "polished";
 import { Headshot } from "@/components/ui/headshot";
 
 export interface DynamicFAQItem {
@@ -111,15 +112,16 @@ function FAQAccordionGroup({
               onClick={() => onToggle(key)}
               className="w-full px-5 py-4 text-left flex items-center justify-between gap-4 bg-white hover:bg-gray-50/50 transition-colors duration-200"
               style={{
-                  backgroundColor: secondaryColor,
-                }}
+                backgroundColor: brandColor,
+                color: readableColor(brandColor),
+              }}
             >
               <span
                 // A step down from the body copy: the question is a label, the
                 // answer is what the reader came for.
                 className="text-[13px] uppercase font-red-hat font-semibold leading-snug tracking-[0.02em] transition-colors duration-200 sm:text-sm"
                 style={{
-                  color:  "#ffffff",
+                  color: readableColor(brandColor),
                 }}
               >
                 {item.question}
@@ -127,7 +129,7 @@ function FAQAccordionGroup({
               <ChevronDown
                 className="h-5 w-5 flex-shrink-0 transition-all duration-300"
                 style={{
-                  color:  "#ffffff",
+                  color: readableColor(brandColor),
                   transform: isOpen ? "rotate(180deg)" : "rotate(0deg)",
                 }}
               />
@@ -203,10 +205,7 @@ export function FAQSection({
     <section className="flex w-full flex-col justify-center border-y border-black/5 bg-gray-100 px-4 py-20 sm:px-6 lg:min-h-screen lg:px-8">
       <div className="mx-auto w-full max-w-6xl">
         <div className="text-center mb-12">
-          <h2
-            className="text-3xl font-dm-serif mb-4 sm:text-4xl lg:text-[40px]"
-            style={{ color: brandColor }}
-          >
+          <h2 className="mb-4 font-dm-serif text-3xl text-gray-900 sm:text-4xl lg:text-[40px]">
             Frequently Asked Questions (FAQs)
           </h2>
         </div>

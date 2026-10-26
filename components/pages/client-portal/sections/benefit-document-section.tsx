@@ -475,10 +475,7 @@ export function BenefitDocumentSection({
       {title && (
         <div className="text-center bg-white pt-12 border-b-0">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-            <h2
-              className="font-dm-serif text-3xl leading-tight mb-4 sm:text-4xl lg:text-[40px]"
-              style={{ color: brandColor }}
-            >
+            <h2 className="mb-4 font-dm-serif text-3xl leading-tight text-gray-900 sm:text-4xl lg:text-[40px]">
               {title}
             </h2>
             {description && (
@@ -526,13 +523,14 @@ export function BenefitDocumentSection({
                 }}
               >
                 <span
-                  className="text-xl leading-tight font-dm-serif font-semibold transition-colors duration-200 sm:text-[24px]"
-                  style={{ color: brandColor }}
+                  className="text-xl leading-tight font-dm-serif font-semibold text-gray-900 transition-colors duration-200 sm:text-[24px]"
+                  // Hover keeps the plan's accent colour; clearing the inline colour
+                  // on leave hands the text back to the `text-gray-900` class.
                   onMouseEnter={(e) => {
                     e.currentTarget.style.color = accentColor;
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.color = brandColor;
+                    e.currentTarget.style.color = "";
                   }}
                 >
                   {accordionHeaderTitle}
@@ -996,18 +994,18 @@ function SortableCard({
             {!isEditing && (
               <Button
                 className="flex-1 flex items-center justify-center gap-2 text-xs font-semibold transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden text-white"
-                // View/Document CTA uses the brand's secondary color.
+                // View/Document CTA uses the brand's primary color.
                 style={{
-                  backgroundColor: accentColor,
-                  borderColor: accentColor,
+                  backgroundColor: brandColor,
+                  borderColor: brandColor,
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = brandColor;
-                  e.currentTarget.style.borderColor = brandColor;
-                }}
-                onMouseLeave={(e) => {
                   e.currentTarget.style.backgroundColor = accentColor;
                   e.currentTarget.style.borderColor = accentColor;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = brandColor;
+                  e.currentTarget.style.borderColor = brandColor;
                 }}
                 onClick={() => onPreview(doc)}
               >
@@ -1607,18 +1605,18 @@ export function DocsGrid({
                 {!isEditing && (
                   <Button
                     className="flex-1 flex items-center justify-center gap-2 text-[14px] leading-tight font-red-hat font-semibold tracking-wide transition-all duration-200 hover:scale-105 min-w-0 overflow-hidden text-white"
-                    // View/Document CTA uses the brand's secondary color.
+                    // View/Document CTA uses the brand's primary color.
                     style={{
-                      backgroundColor: accentColor,
-                      borderColor: accentColor,
+                      backgroundColor: brandColor,
+                      borderColor: brandColor,
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.backgroundColor = brandColor;
-                      e.currentTarget.style.borderColor = brandColor;
-                    }}
-                    onMouseLeave={(e) => {
                       e.currentTarget.style.backgroundColor = accentColor;
                       e.currentTarget.style.borderColor = accentColor;
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = brandColor;
+                      e.currentTarget.style.borderColor = brandColor;
                     }}
                     onClick={() => onPreview(doc)}
                   >

@@ -53,12 +53,15 @@ function tile(container: HTMLElement, id: string) {
 }
 
 describe("HowCanWeHelpSection layout", () => {
-  it("renders the heading in the plan's brand colour", () => {
+  it("titles the section in gray-900, not the brand colour", () => {
     render(<HowCanWeHelpSection brandColor="#123456" />);
 
-    expect(
-      screen.getByRole("heading", { name: "How Can We Help You Today?" }),
-    ).toHaveStyle({ color: "#123456" });
+    const heading = screen.getByRole("heading", {
+      name: "How Can We Help You Today?",
+    });
+
+    expect(heading.className).toContain("text-gray-900");
+    expect(heading.getAttribute("style")).toBeNull();
   });
 
   it("exposes the anchor the header's Login button scrolls to", () => {
@@ -217,9 +220,9 @@ describe("HowCanWeHelpSection tiles", () => {
     expect(plainTile.querySelectorAll("p").length).toBe(0);
   });
 
-  it("gives every topic tile a secondary-coloured Learn more button", () => {
+  it("gives every topic tile a primary-coloured Learn more button", () => {
     const { container } = render(
-      <HowCanWeHelpSection clientId="plan-1" secondaryColor="#654321" />,
+      <HowCanWeHelpSection clientId="plan-1" brandColor="#654321" />,
     );
 
     // The wide Account Access card carries the Register / Login CTA instead.
@@ -273,7 +276,7 @@ describe("HowCanWeHelpSection account access card", () => {
       <HowCanWeHelpSection
         clientId="plan-1"
         category="Retirement"
-        secondaryColor="#654321"
+        brandColor="#654321"
       />,
     );
 

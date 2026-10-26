@@ -103,10 +103,7 @@ export function HaveQuestions({
     >
       <div className="mx-auto max-w-6xl">
         <div className="mb-12 text-center">
-          <h2
-            className="mb-2 font-dm-serif text-3xl leading-tight sm:text-4xl lg:text-[40px]"
-            style={{ color: brandColor }}
-          >
+          <h2 className="mb-2 font-dm-serif text-3xl leading-tight text-gray-900 sm:text-4xl lg:text-[40px]">
             Have Questions?
           </h2>
           <p className="mx-auto max-w-[505px] font-red-hat text-[16px]">
@@ -200,6 +197,9 @@ export function HaveQuestions({
                   }}
                   brandColor={brandColor}
                   secondaryColor={secondaryColor}
+                  // The support CTA wears the plan's PRIMARY colour, matching the
+                  // other buttons on the hub (the card's default is secondary).
+                  ctaColor={brandColor}
                   appointmentLink={resolvedAppointmentLink}
                   companyName={resolvedCompanyName}
                   index={index}

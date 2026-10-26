@@ -401,7 +401,7 @@ export function BenefitsVideoSection({
                   type="button"
                   onClick={handleWatchNow}
                   className="inline-flex items-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
-                  style={{ background: secondaryColor }}
+                  style={{ background: brandColor }}
                 >
                   Watch Now
                   <Play

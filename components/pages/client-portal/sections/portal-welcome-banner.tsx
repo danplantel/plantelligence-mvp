@@ -1,8 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { designationAcronym } from "@/config/onboarding/designations";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
@@ -102,7 +100,6 @@ interface PortalWelcomeBannerProps {
 export function PortalWelcomeBanner({
   clientData,
   brandColor = "#1F3A60",
-  secondaryColor = "#C89B5B",
   onTitleClick,
   onDescriptionClick,
   customHeadline,
@@ -134,12 +131,6 @@ export function PortalWelcomeBanner({
   // Auto-fetch the logged-in user's profile data from /api/profile when the
   // caller doesn't pass them explicitly (e.g. live portal pages). The Step 2
   // preview passes `customDesignations` directly, so this fetch is skipped.
-  // Portal base path for in-app links (e.g. My Benefits Team). Empty in the
-  // wizard's preview chrome, where no plan slug is in the route.
-  const params = useParams<{ id?: string }>();
-  const portalBasePath =
-    typeof params?.id === "string" && params.id ? `/${params.id}` : "";
-
   const [autoDesignations, setAutoDesignations] = useState<string[]>([]);
   const [autoOrganizationName, setAutoOrganizationName] = useState<string>("");
   const [autoEmail, setAutoEmail] = useState<string>("");
@@ -604,14 +595,16 @@ export function PortalWelcomeBanner({
                 </div>
               </div>
 
-              {/* CTA row — side by side at the bottom of the info column. */}
+              {/* CTA row. The Schedule button keeps the half-row width it had
+                  when it shared this row with the (now removed) "Meet the Team"
+                  link, so it does not stretch across the whole info column. */}
               <div className="mt-auto flex flex-row gap-3 pt-8">
                 {onScheduleClick ? (
                   <button
                     type="button"
                     onClick={onScheduleClick}
-                    className="inline-flex flex-1 items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
-                    style={{ background: secondaryColor }}
+                    className="inline-flex w-[calc(50%_-_0.375rem)] items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
+                    style={{ background: brandColor }}
                   >
                     {scheduleLabel}
                   </button>
@@ -620,31 +613,20 @@ export function PortalWelcomeBanner({
                     href={scheduleHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex flex-1 items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
-                    style={{ background: secondaryColor }}
+                    className="inline-flex w-[calc(50%_-_0.375rem)] items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
+                    style={{ background: brandColor }}
                   >
                     {scheduleLabel}
                   </a>
                 ) : (
                   <button
                     type="button"
-                    className="inline-flex flex-1 items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
-                    style={{ background: secondaryColor }}
+                    className="inline-flex w-[calc(50%_-_0.375rem)] items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
+                    style={{ background: brandColor }}
                   >
                     {scheduleLabel}
                   </button>
                 )}
-
-                <Link
-                  href={`${portalBasePath}/my-benefits-team`}
-                  className={`inline-flex flex-1 items-center justify-center rounded-lg border px-5 py-3 text-sm font-semibold transition-all duration-200 hover:opacity-90 ${
-                    effectiveContainerInverted
-                      ? "border-gray-300 text-gray-900"
-                      : "border-white/40 text-white"
-                  }`}
-                >
-                  Meet the Team
-                </Link>
               </div>
             </div>
 

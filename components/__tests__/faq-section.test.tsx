@@ -284,14 +284,15 @@ describe("FAQSection contacts", () => {
     expect(screen.queryByText("ada@acme.test")).not.toBeInTheDocument();
   });
 
-  it("uses the brand colour for the heading", () => {
+  it("titles the section in gray-900, not the brand colour", () => {
     render(<FAQSection faqs={[]} brandColor="#123456" />);
 
-    expect(
-      screen.getByRole("heading", {
-        name: "Frequently Asked Questions (FAQs)",
-      }),
-    ).toHaveStyle({ color: "#123456" });
+    const heading = screen.getByRole("heading", {
+      name: "Frequently Asked Questions (FAQs)",
+    });
+
+    expect(heading.className).toContain("text-gray-900");
+    expect(heading.getAttribute("style")).toBeNull();
   });
 
   it("does not call anything on render", () => {
