@@ -645,6 +645,11 @@ function HelpCardPanel({
   const isRollovers = ROLLOVER_CARD_PATTERN.test(`${card.id} ${card.title}`);
   const resolved = card.href ? resolveCardHref(card.href, basePath) : null;
   const ctaLabel = card.cta?.trim() ? card.cta : "";
+  // Rollovers already closes with its own CTA — the same "Talk through my options"
+  // button, plus the "Free call with …" line. The topic also carries that label as
+  // its `cta` (the library seeds it), so printing the generic button too would put
+  // two identical buttons in one panel. The topic's own footer wins.
+  const showGenericCta = !isRollovers && Boolean(ctaLabel);
   const ctaStyle = {
     backgroundColor: brandColor,
     borderColor: brandColor,
@@ -718,7 +723,7 @@ function HelpCardPanel({
           ctaLabel={ctaLabel}
         />
       ) : (
-        ctaLabel && (
+        showGenericCta && (
           <div className="mt-5">
             {resolved && resolved.external ? (
               <a

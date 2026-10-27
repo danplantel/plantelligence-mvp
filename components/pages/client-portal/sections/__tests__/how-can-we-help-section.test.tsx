@@ -10,6 +10,7 @@ import {
 } from "../how-can-we-help-section";
 import { HELP_CARD_ORDER } from "@/lib/help-card-defaults";
 import type { HelpCardLayoutEntry } from "@/types/benefit";
+import type { EffectiveTopic } from "@/types/topic";
 
 /**
  * "How Can We Help You Today?" — the expandable topic grid.
@@ -880,5 +881,41 @@ describe("HowCanWeHelpSection panel CTAs", () => {
         screen.getByRole("region", { name: "Rollovers & Distributions" }),
       ).queryByRole("link"),
     ).not.toBeInTheDocument();
+  });
+
+  it("draws the Rollovers CTA once when the topic repeats the label", () => {
+    // The library seeds this topic's `cta.label` as the very same string the
+    // Rollovers body prints in its own footer, so the panel must suppress one of
+    // them — otherwise a portal plan shows two identical buttons, while the
+    // catalog-driven preview (no `cta`) shows one.
+    const rollovers: EffectiveTopic = {
+      topicId: "topic-rollovers",
+      placementId: "placement-rollovers",
+      slug: "rollovers-distributions",
+      location: "retirement",
+      displayMode: "featured",
+      title: "Rollovers & Distributions",
+      bodyBlocks: [],
+      tags: [],
+      isActionHub: false,
+      cta: {
+        label: "Talk through my options",
+        actionType: "external_url",
+        destination: "https://example.com/schedule",
+      },
+      sortOrder: 0,
+    };
+
+    render(<HowCanWeHelpSection clientId="plan-1" topics={[rollovers]} />);
+
+    expect(
+      screen.getAllByRole("button", { name: "Talk through my options" }),
+    ).toHaveLength(1);
+    // The suppressed one is the generic `cta` link, not the footer button.
+    expect(
+      screen.queryByRole("link", { name: "Talk through my options" }),
+    ).not.toBeInTheDocument();
+    // The footer button keeps the "free call" line that identifies its owner.
+    expect(screen.getByText("Free call with your advisor")).toBeInTheDocument();
   });
 });
