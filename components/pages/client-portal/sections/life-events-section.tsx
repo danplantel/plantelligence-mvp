@@ -296,13 +296,20 @@ export function LifeEventsSection({
                       aria-expanded={isOpen}
                       aria-controls={`life-event-${event.key}`}
                       className={cn(
-                        "group flex min-h-[72px] w-full items-center justify-between gap-3 rounded-xl border px-5 py-4 text-left shadow-sm transition-all duration-200 hover:opacity-90 hover:shadow-md",
-                        isOpen && "border-transparent",
+                        "group flex min-h-[72px] w-full items-center justify-between gap-3 border px-5 py-4 text-left transition-all duration-200",
+                        // CLOSED = OUTLINE, OPEN = SOLID fill. The hover tint only
+                        // matters while closed; an open tile's fill is inline.
+                        isOpen
+                          ? "shadow-md"
+                          : "bg-white shadow-none hover:bg-neutral-50",
                       )}
                       style={{
-                        backgroundColor: brandColor,
+                        backgroundColor: isOpen ? brandColor : undefined,
                         borderColor: brandColor,
-                        color: isOpen ? onPrimary : onPrimary,
+                        // Outline: the label is drawn in the brand colour. Solid: it
+                        // switches to the readable colour for that fill, and rings in
+                        // it too, since a brand ring would vanish on a brand fill.
+                        color: isOpen ? onPrimary : brandColor,
                         boxShadow: isOpen ? `0 0 0 2px ${onPrimary}` : undefined,
                         borderRadius: portalRadiusValue(1.5),
                       }}
@@ -315,7 +322,7 @@ export function LifeEventsSection({
                           "h-4 w-4 shrink-0 transition-transform duration-200",
                           isOpen && "rotate-180",
                         )}
-                        style={{ color: onPrimaryMuted }}
+                        style={{ color: isOpen ? onPrimaryMuted : brandColor }}
                         aria-hidden="true"
                       />
                     </motion.button>
