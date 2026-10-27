@@ -57,6 +57,24 @@ export function readOptionParam(search: string | null | undefined): string {
 }
 
 /**
+ * `?q=loan` → `loan` (TF-7).
+ *
+ * The search box is URL-addressable so a link can open the hub already filtered —
+ * marketing, an email, or the Navigator handing a query off. Same parsing rules as the
+ * option param above.
+ */
+export function readSearchQueryParam(search: string | null | undefined): string {
+  const raw = (search || "").trim();
+  if (!raw) return "";
+  const query = raw.startsWith("?") ? raw.slice(1) : raw;
+  try {
+    return (new URLSearchParams(query).get("q") || "").trim();
+  } catch {
+    return "";
+  }
+}
+
+/**
  * The URL to put in the address bar for an open answer.
  *
  * Returns a PATH (not an absolute URL) so it can be handed straight to

@@ -10,8 +10,14 @@ import { topicQuickAnswer } from "@/lib/topics/effective-topic";
 import {
   buildTopicUrl,
   readHashTopicSlug,
+  readSearchQueryParam,
   topicMatchesHash,
 } from "@/lib/topics/deep-link";
+import {
+  countMatchedTopics,
+  filterTopicGroups,
+  flattenTopicGroups,
+} from "@/lib/topics/search";
 import { resolveTopicHref } from "@/lib/topics/link-href";
 import { cn } from "@/lib/utils";
 import { ActionHubPanel } from "./action-hub-panel";
@@ -74,35 +80,13 @@ const GROUP_LAYOUT_TRANSITION = {
   ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
 };
 
-/** Every topic in the section, in group order. */
-function flattenGroups(groups: TopicGroup[]): EffectiveTopic[] {
-  return groups.flatMap((group) => group.topics);
-}
-
-/** Does any field of this question match the query? */
-function matchesQuery(topic: EffectiveTopic, query: string): boolean {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-  const haystack = [
-    topic.title,
-    topic.summary || "",
-    topicQuickAnswer(topic),
-    ...topic.tags,
-    ...topic.bodyBlocks.flatMap((block) =>
-      block.type === "steps" ? block.steps : [],
-    ),
-  ]
-    .join(" ")
-    .toLowerCase();
-  return haystack.includes(needle);
-}
-
-/** A group-name match keeps a whole group visible, which is how the search reads. */
-function groupNameMatches(group: TopicGroup, query: string): boolean {
-  const needle = query.trim().toLowerCase();
-  if (!needle) return true;
-  return group.name.toLowerCase().includes(needle);
-}
+/**
+ * TF-7: the matcher lives in `lib/topics/search.ts`.
+ *
+ * It is shared rather than local because the same rule has to hold wherever a query is
+ * typed — this section today, the Navigator's Ask box later — and because the
+ * acceptance case ("loan" finds 401(k) loans) belongs in a unit test.
+ */
 
 /** A question's shape, shown as a small chip the way today's rich questions do. */
 function topicChip(topic: EffectiveTopic): string | null {
@@ -208,23 +192,40 @@ export function QuickAnswersSection({
   /** Phone-only answer view. Kept apart so the two layouts cannot fight. */
   const [mobileSlug, setMobileSlug] = useState<string | null>(null);
 
-  const allTopics = useMemo(() => flattenGroups(groups), [groups]);
+  const allTopics = useMemo(() => flattenTopicGroups(groups), [groups]);
 
-  const filteredGroups = useMemo(() => {
-    return groups
-      .map((group) => ({
-        ...group,
-        topics: groupNameMatches(group, query)
-          ? group.topics
-          : group.topics.filter((topic) => matchesQuery(topic, query)),
-      }))
-      .filter((group) => group.topics.length > 0);
-  }, [groups, query]);
-
-  const visibleCount = filteredGroups.reduce(
-    (total, group) => total + group.topics.length,
-    0,
+  const filteredGroups = useMemo(
+    () => filterTopicGroups(groups, query),
+    [groups, query],
   );
+
+  const visibleCount = countMatchedTopics(filteredGroups);
+
+  /**
+   * `?q=` (TF-7): a link can open the hub already filtered, and typing keeps the URL
+   * in step so the filtered view is shareable. `replaceState` — never `pushState` — so
+   * typing does not bury the previous page under a history entry per keystroke.
+   */
+  const syncQuery = (next: string) => {
+    setQuery(next);
+    try {
+      const url = new URL(window.location.href);
+      if (next.trim()) url.searchParams.set("q", next);
+      else url.searchParams.delete("q");
+      window.history.replaceState(
+        window.history.state,
+        "",
+        `${url.pathname}${url.search}${url.hash}`,
+      );
+    } catch {
+      // History can be unavailable (sandboxed frames); search still works.
+    }
+  };
+
+  useEffect(() => {
+    const fromUrl = readSearchQueryParam(window.location.search);
+    if (fromUrl) setQuery(fromUrl);
+  }, []);
 
   /**
    * Two columns, split into HALVES rather than alternating.
@@ -390,7 +391,7 @@ export function QuickAnswersSection({
             <input
               type="search"
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(event) => syncQuery(event.target.value)}
               placeholder={SEARCH_PLACEHOLDER}
               data-testid="quick-answers-search"
               className="h-11 w-full border border-neutral-300 bg-white pl-9 pr-9 font-red-hat text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none"
@@ -399,7 +400,7 @@ export function QuickAnswersSection({
             {query && (
               <button
                 type="button"
-                onClick={() => setQuery("")}
+                onClick={() => syncQuery("")}
                 aria-label="Clear the search"
                 className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-neutral-400 hover:text-neutral-700"
               >
