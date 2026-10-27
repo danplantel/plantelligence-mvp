@@ -258,7 +258,7 @@ export const LIFE_EVENT_TEMPLATES: LifeEventTemplate[] = [
     key: "losing_a_loved_one",
     title: "Losing a Loved One",
     deadlineDays: null,
-    ctaLabel: "Get help from someone who can walk you through it",
+    ctaLabel: "Get help from my benefits team",
     steps: [
       {
         location: "employee_resources",
