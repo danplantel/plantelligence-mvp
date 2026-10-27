@@ -11,6 +11,7 @@ import {
   BenefitsTeam,
   WebinarsDashboard,
 } from "./sections";
+import { LifeEventsSection } from "./sections/life-events-section";
 import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
 import { readableColor } from "polished";
@@ -306,7 +307,10 @@ export function ClientPortal({
         />
       )}
 
-      <SomethingChanged
+      {/* TF-8: the real checklists. The strip behaves like "How Can We Help You
+          Today?" — one open at a time, inline beneath its row, with the shared caret. */}
+      <LifeEventsSection
+        clientId={clientId}
         brandColor={brandColor}
         secondaryColor={secondaryColor}
       />

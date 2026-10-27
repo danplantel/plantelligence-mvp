@@ -853,6 +853,9 @@ model Client {
   /// is not a benefit category, and therefore never counts toward the 1–4 limit.
   employeeResourcesEnabled Boolean @default(false)
 
+  /// Life Events (TF-8) — one row per seeded checklist, plan-scoped.
+  lifeEvents LifeEvent[]
+
   heroTitle       String? // Hero title for portal header
   heroDescription String? // Hero description for portal header
   heroOverlayOpacity              Float? // Overlay opacity (0-1)
@@ -1124,10 +1127,63 @@ model TopicPlacement {
   topic  Topic           @relation(fields: [topicId], references: [id], onDelete: Cascade)
   group  AccordionGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
+  /// Life Event checklist steps that point at this placement (TF-8).
+  lifeEventSteps LifeEventStep[]
+
   @@unique([clientId, topicId, location])
   @@index([clientId, location, sortOrder])
   @@index([topicId])
   @@index([groupId])
+}
+
+/// One Life Event checklist for a plan (TF-8, handoff §7a/§14).
+///
+/// A Life Event is NOT content: it is an ordered list of existing placements. The row
+/// keeps the template's key and its deadline window; changing the plan's own window is
+/// a field edit, not a new checklist.
+model LifeEvent {
+  id       String @id @default(cuid())
+  clientId String
+  /// One of the eight template keys: having_a_baby, moving, …
+  key      String
+  title    String
+  sortOrder Int   @default(0)
+  /// Null means "no deadline banner". A plan may override the template's default.
+  deadlineDays Int?
+  active   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  steps  LifeEventStep[]
+
+  @@unique([clientId, key])
+  @@index([clientId, sortOrder])
+}
+
+/// One checklist line. `placementId` is the whole point: the step IS a placement, so
+/// it can never point at content this plan does not have.
+///
+/// `onDelete: SetNull` on the placement is deliberate — deleting a placement must not
+/// silently delete the advisor's checklist row; the resolver drops a step whose
+/// placement is gone, and the builder can show it as "needs a topic" instead.
+model LifeEventStep {
+  id            String  @id @default(cuid())
+  lifeEventId   String
+  placementId   String?
+  sortOrder     Int     @default(0)
+  /// The checklist's own wording, when the topic's title is too long or too vague.
+  labelOverride String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lifeEvent LifeEvent      @relation(fields: [lifeEventId], references: [id], onDelete: Cascade)
+  placement TopicPlacement? @relation(fields: [placementId], references: [id], onDelete: SetNull)
+
+  @@index([lifeEventId, sortOrder])
+  @@index([placementId])
 }
 
 /// A named Quick Answers group for one plan + location. Advisors rename, add and
