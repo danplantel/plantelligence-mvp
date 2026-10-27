@@ -347,12 +347,105 @@ const CUSTOM_TOPICS: LibraryTopicSeed[] = [
   }),
 ];
 
+// ── Employee Resources (TF-6) ────────────────────────────────────────────────
+//
+// The fifth location. It is NOT a benefit category: it has no Benefit row, does not
+// count toward the 1–4 limit, and sits after the categories in navigation. The titles
+// and groups below are the handoff's §8 builder example and §7b defaults — the HR
+// topics a participant asks about, which no carrier owns.
+
+const EMPLOYEE_RESOURCES: TopicLocation[] = ["employee_resources"];
+
+const EMPLOYEE_RESOURCES_TOPICS: LibraryTopicSeed[] = [
+  // Featured (default), in card order.
+  featured("change-my-address", "Change My Address", EMPLOYEE_RESOURCES, {
+    summary: "Update your address with payroll and every benefit carrier.",
+    isActionHub: true,
+    tags: ["address", "life event", "personal details"],
+  }),
+  featured("pay-stubs-direct-deposit", "Pay Stubs & Direct Deposit", EMPLOYEE_RESOURCES, {
+    summary: "See your pay history and where your paycheck is sent.",
+    tags: ["payroll", "pay stub", "direct deposit"],
+  }),
+  featured("time-off-leave", "Time Off & Leave", EMPLOYEE_RESOURCES, {
+    summary: "PTO balances, holidays, and the leave options available to you.",
+    tags: ["pto", "fmla", "parental leave"],
+  }),
+  featured("who-do-i-contact", "Who Do I Contact?", EMPLOYEE_RESOURCES, {
+    summary: "The right person for payroll, benefits, and HR questions.",
+    tags: ["contact", "hr"],
+  }),
+
+  // Pay & Taxes.
+  answer("pay-stubs", "Pay stubs", EMPLOYEE_RESOURCES, "Pay & Taxes", {
+    tags: ["payroll"],
+  }),
+  answer("w2-tax-forms", "W-2 & tax forms", EMPLOYEE_RESOURCES, "Pay & Taxes", {
+    tags: ["w-2", "tax"],
+  }),
+  answer("direct-deposit", "Direct deposit", EMPLOYEE_RESOURCES, "Pay & Taxes", {
+    tags: ["payroll"],
+  }),
+  answer("tax-withholding", "Tax withholding", EMPLOYEE_RESOURCES, "Pay & Taxes", {
+    tags: ["tax", "w-4"],
+  }),
+
+  // Time Off & Leave.
+  answer("pto-policy", "PTO policy", EMPLOYEE_RESOURCES, "Time Off & Leave", {
+    tags: ["pto"],
+  }),
+  answer("fmla", "FMLA", EMPLOYEE_RESOURCES, "Time Off & Leave", {
+    tags: ["leave"],
+  }),
+  answer("parental-leave", "Parental leave", EMPLOYEE_RESOURCES, "Time Off & Leave", {
+    tags: ["leave", "life event"],
+  }),
+  answer("holidays", "Holidays", EMPLOYEE_RESOURCES, "Time Off & Leave", {
+    tags: ["holiday", "calendar"],
+  }),
+
+  // Policies.
+  answer("employee-handbook", "Employee handbook", EMPLOYEE_RESOURCES, "Policies", {
+    tags: ["handbook"],
+  }),
+  answer("code-of-conduct", "Code of conduct", EMPLOYEE_RESOURCES, "Policies", {
+    tags: ["policy"],
+  }),
+  answer(
+    "reporting-concerns",
+    "Reporting concerns",
+    EMPLOYEE_RESOURCES,
+    "Policies",
+    { tags: ["policy", "compliance"] },
+  ),
+
+  // Employment.
+  answer(
+    "verification-of-employment",
+    "Verification of employment",
+    EMPLOYEE_RESOURCES,
+    "Employment",
+    { tags: ["employment", "letter"] },
+  ),
+  answer("name-change", "Change my name", EMPLOYEE_RESOURCES, "Employment", {
+    isActionHub: true,
+    tags: ["name change", "life event", "personal details"],
+  }),
+  answer("onboarding", "Onboarding", EMPLOYEE_RESOURCES, "Employment", {
+    tags: ["new hire"],
+  }),
+  answer("offboarding-cobra", "Offboarding & COBRA", EMPLOYEE_RESOURCES, "Employment", {
+    tags: ["leaving", "cobra"],
+  }),
+];
+
 /** Every shipped topic, in library order. */
 export const TOPIC_LIBRARY: LibraryTopicSeed[] = [
   ...RETIREMENT_TOPICS,
   ...GROUP_HEALTH_TOPICS,
   ...GROUP_LIFE_TOPICS,
   ...CUSTOM_TOPICS,
+  ...EMPLOYEE_RESOURCES_TOPICS,
 ];
 
 /**
@@ -379,6 +472,8 @@ export const DEFAULT_QUICK_ANSWER_GROUPS: Partial<Record<TopicLocation, string[]
     "Leaving or Retiring",
     "Beneficiaries",
   ],
+  // Employee Resources (TF-6) — the handoff's §8 groups.
+  employee_resources: ["Pay & Taxes", "Time Off & Leave", "Policies", "Employment"],
 };
 
 /** The library entries that belong to one location, in order. */

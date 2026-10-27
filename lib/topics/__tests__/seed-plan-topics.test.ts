@@ -239,12 +239,45 @@ describe("seedLocationTopics", () => {
     ).toBe(planBTitleBefore);
   });
 
-  it("seeds nothing for a location with no defaults", async () => {
+  it("seeds the Employee Resources hub's own defaults (TF-6)", async () => {
     const memory = createMemoryStore();
 
     const result = await seedLocationTopics({
       clientId: "plan-a",
       location: "employee_resources",
+      store: memory.store,
+    });
+
+    expect(result.seeded).toBe(true);
+    expect(result.location).toBe("employee_resources");
+    // Four groups from the handoff's §8 builder example.
+    expect(result.createdGroups).toBe(4);
+    // Four Featured cards plus fifteen Quick Answers.
+    expect(result.createdPlacements).toBe(19);
+    // Every placement belongs to this plan and this location — never a benefit hub.
+    expect(
+      memory.placements.every(
+        (placement: any) =>
+          placement.clientId === "plan-a" &&
+          placement.location === "employee_resources",
+      ),
+    ).toBe(true);
+    // The two ↔ topics HR actually acts on.
+    expect(
+      memory.topics
+        .filter((topic: any) => topic.isActionHub)
+        .map((topic: any) => topic.title)
+        .sort(),
+    ).toEqual(["Change My Address", "Change my name"]);
+  });
+
+  it("seeds nothing when handed no seeds at all", async () => {
+    const memory = createMemoryStore();
+
+    const result = await seedLocationTopics({
+      clientId: "plan-a",
+      location: "custom",
+      seeds: [],
       store: memory.store,
     });
 

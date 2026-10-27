@@ -170,6 +170,10 @@ export default function ViewClientPage() {
           documents: (clientData as any).documents,
           employeePortalPreview: (clientData as any).employeePortalPreview,
           categoryPortalVisibility: categoryVisibility,
+          // TF-6: the fifth hub is opt-in, so the header only links to it when the
+          // plan has published it.
+          employeeResourcesEnabled:
+            (clientData as any).employeeResourcesEnabled === true,
         }}
         hideHeader={true}
         hideFooter={true}

@@ -576,6 +576,12 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
           // Which hubs this plan actually has, and whether each is published — the
           // header hides the link for a category with no Benefit row.
           benefitHubs={(clientData as any)?.benefitHubs}
+          // TF-6: Employee Resources has no Benefit row, so it cannot come from
+          // `benefitHubs`. The plan's own flag is the only answer, and this is the
+          // header the portal actually renders (the landing page passes hideHeader).
+          employeeResourcesEnabled={
+            (clientData as any)?.employeeResourcesEnabled === true
+          }
         />
       </div>
 

@@ -90,11 +90,16 @@ describe("GET /api/clients/[id]/topics", () => {
     expect(mocks.resolveBuilderClient).not.toHaveBeenCalled();
   });
 
-  it("refuses the reserved Employee Resources location", async () => {
+  it("serves the Employee Resources location under its own permission scope (TF-6)", async () => {
     const response = await callGet("?location=employee_resources");
 
-    expect(response.status).toBe(400);
-    expect(mocks.resolveBuilderClient).not.toHaveBeenCalled();
+    // The fifth hub uses the SAME builder, so its board is addressable here — and the
+    // category it checks is the hub's own label, which is what lets an HR collaborator
+    // be granted this location and nothing else.
+    expect(response.status).toBe(200);
+    expect(mocks.resolveBuilderClient).toHaveBeenCalledWith(
+      expect.objectContaining({ category: "Employee Resources" }),
+    );
   });
 
   it("returns the access helper's response verbatim", async () => {

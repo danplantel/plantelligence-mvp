@@ -65,6 +65,11 @@ interface ClientPortalData {
   categoryPortalVisibility?: Record<string, boolean> | null;
   /** Top-level from API; used for benefit completeness (category hero / banner). */
   secondaryBannerImg?: string;
+  /**
+   * TF-6: has this plan published the Employee Resources hub? The fifth location is
+   * opt-in, so its nav link is the only thing the header needs to know about it.
+   */
+  employeeResourcesEnabled?: boolean;
 }
 
 interface ClientPortalProps {
@@ -220,6 +225,7 @@ export function ClientPortal({
           clientId={clientId}
           categoryPortalVisibility={data?.categoryPortalVisibility}
           benefits={data?.employeePortalPreview?.benefits}
+          employeeResourcesEnabled={data?.employeeResourcesEnabled === true}
         />
       )}
 

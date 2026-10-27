@@ -154,6 +154,21 @@ export function benefitCategoryForLocation(
 }
 
 /**
+ * The category label a location's PERMISSION check uses (TF-6).
+ *
+ * This is deliberately NOT `benefitCategoryForLocation`: Employee Resources has no
+ * Benefit row, but it still needs an assignment scope of its own so an HR collaborator
+ * can be granted this location and nothing else. A teammate assignment stores free
+ * text categories, so the label is what makes "edit rights on Employee Resources only"
+ * enforceable. It is spaced (not `employee_resources`) because the assignment model
+ * compares normalized, human-readable category names.
+ */
+export function topicLocationAccessCategory(location: TopicLocation): string {
+  if (location === "employee_resources") return "Employee Resources";
+  return benefitCategoryForLocation(location) ?? "";
+}
+
+/**
  * The label to show for a location. The Custom hub shows the advisor's own benefit
  * name when there is one, exactly like the portal heading does.
  */

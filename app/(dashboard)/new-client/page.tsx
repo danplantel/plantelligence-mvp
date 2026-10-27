@@ -18,6 +18,7 @@ import {
   NewClientStep4,
   NewClientStep5,
 } from "@/components/wizard/new-client-steps";
+import { EmployeeResourcesEditor } from "@/components/pages/benefits/employee-resources-editor";
 import { hasUnsavedWizardWork } from "@/lib/new-client-wizard-dirty";
 import { useNavigateAwayGuard } from "@/hooks/use-navigate-away-guard";
 import { NavigateAwayWarningDialog } from "@/components/ui/navigate-away-warning-dialog";
@@ -667,6 +668,12 @@ export default function NewClientPage() {
       step5SubStep === "disclaimers");
 
   const renderStep = () => {
+    // The draft plan row exists by the time the later steps render (autosave creates it
+    // in step 1), so a plan-level setting such as Employee Resources has something to
+    // write to. Read it from the store rather than the selector so this stays a plain
+    // render helper.
+    const draftPlanId = useNewClientWizardStore.getState().draftClientId;
+
     switch (currentStep) {
       case 1:
         return <NewClientStep1 errorFields={errorFields} />;
@@ -677,7 +684,23 @@ export default function NewClientPage() {
       case 4:
         return <NewClientStep4 errorFields={errorFields} />;
       case 5:
-        return <NewClientStep5 errorFields={errorFields} />;
+        return (
+          <>
+            <NewClientStep5 errorFields={errorFields} />
+            {/* Employee Resources (TF-6). A PLAN-level publishing choice, so it belongs
+                in the plan's own flow rather than in Browse Benefits. Compact here: the
+                wizard is setup, not content editing. Gated on the draft plan, which is
+                what the toggle writes to. */}
+            {draftPlanId && (
+              <div className="mt-6">
+                <EmployeeResourcesEditor
+                  planId={draftPlanId}
+                  variant="compact"
+                />
+              </div>
+            )}
+          </>
+        );
       default:
         return <NewClientStep1 errorFields={errorFields} />;
     }

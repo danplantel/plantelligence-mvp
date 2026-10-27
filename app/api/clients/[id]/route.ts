@@ -354,6 +354,12 @@ export async function GET(
     // Attached after normalization so it can't be mistaken for a branding key.
     if (benefitHubs) (dataPayload as any).benefitHubs = benefitHubs;
 
+    // TF-6: whether this plan has published the Employee Resources hub. The portal
+    // header decides whether to show its nav link from this flag, and the hub page
+    // refuses to render without it.
+    (dataPayload as any).employeeResourcesEnabled =
+      (client as any).employeeResourcesEnabled === true;
+
     // Generate presigned URLs for R2-backed portal media (plan videos + branding
     // images) so public portal viewers (no session) can load them.
     // Portal pages cannot use the authenticated /api/r2/object proxy or the

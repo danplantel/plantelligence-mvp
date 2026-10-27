@@ -85,6 +85,14 @@ interface PortalHeaderProps {
    */
   benefits?: { id?: string; isEnabled?: boolean }[] | null;
   /**
+   * TF-6: has this plan published the Employee Resources hub?
+   *
+   * The fifth location is opt-in and is NOT a benefit category, so it cannot be
+   * derived from `benefitHubs` or the visibility map — the plan's own flag is the
+   * only answer. When false the nav link does not render at all.
+   */
+  employeeResourcesEnabled?: boolean;
+  /**
    * When < 1, proportionally scales the header's content *and* height to match
    * the scaled preview beneath it — e.g. while the editing panel narrows the
    * available width. 1 (default) renders at natural size.
@@ -105,6 +113,7 @@ export function PortalHeader({
   onLogoClick,
   categoryPortalVisibility: categoryPortalVisibilityRaw,
   benefitHubs,
+  employeeResourcesEnabled = false,
   scale = 1,
   referenceWidth = 1400,
 }: PortalHeaderProps) {
@@ -530,6 +539,28 @@ export function PortalHeader({
                   )}
                 </div>
 
+                {/* Employee Resources (TF-6): after the categories, and only when the
+                    plan has published the hub. */}
+                {employeeResourcesEnabled && (
+                  <Link href={`${baseUrl}/employee-resources`}>
+                    <Button
+                      variant="ghost"
+                      className={`font-medium transition-colors duration-200 ${
+                        isActive("/employee-resources")
+                          ? ""
+                          : "text-gray-600 hover:text-gray-800"
+                      }`}
+                      style={
+                        isActive("/employee-resources")
+                          ? { background: brandColor, color: "white" }
+                          : undefined
+                      }
+                    >
+                      Employee Resources
+                    </Button>
+                  </Link>
+                )}
+
                 <div
                   className="relative"
                   onMouseEnter={handleTeamMouseEnter}
@@ -793,6 +824,31 @@ export function PortalHeader({
                     News & Events
                   </span>
                 )}
+
+                {/* Employee Resources (TF-6) */}
+                {employeeResourcesEnabled &&
+                  (enableNavigation ? (
+                    <Link
+                      href={`${baseUrl}/employee-resources`}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                        isActive("/employee-resources")
+                          ? "text-white"
+                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
+                      }`}
+                      style={
+                        isActive("/employee-resources")
+                          ? { backgroundColor: brandColor }
+                          : undefined
+                      }
+                    >
+                      Employee Resources
+                    </Link>
+                  ) : (
+                    <span className="flex items-center rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600">
+                      Employee Resources
+                    </span>
+                  ))}
 
                 {/* My Benefits Team */}
                 {enableNavigation ? (

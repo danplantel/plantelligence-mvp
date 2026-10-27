@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  benefitCategoryForLocation,
   isTopicLocation,
+  topicLocationAccessCategory,
 } from "@/lib/topic-locations";
 import { applyTopicBoard, loadTopicBoard } from "@/lib/topics/board.server";
 import { resolveBuilderClient } from "@/lib/topics/builder-access.server";
@@ -26,10 +26,9 @@ import type { EffectiveTopic, TopicLocation } from "@/types/topic";
  */
 
 function readLocation(value: string | null): TopicLocation | null {
-  if (!isTopicLocation(value)) return null;
-  // Employee Resources is reserved for TF-6: it has no Benefit category and no
-  // builder surface yet, so it is not addressable here.
-  return value === "employee_resources" ? null : value;
+  // Every location is addressable, Employee Resources included (TF-6): the fifth hub
+  // uses the SAME builder, so its board is read and written through this route.
+  return isTopicLocation(value) ? value : null;
 }
 
 function librarySlug(topic: EffectiveTopic): string {
@@ -73,7 +72,7 @@ export async function GET(
   const access = await resolveBuilderClient({
     id: params.id,
     level: "view",
-    category: benefitCategoryForLocation(location),
+    category: topicLocationAccessCategory(location),
   });
   if (!access.ok) return access.response;
 
@@ -115,7 +114,7 @@ export async function PUT(
   const access = await resolveBuilderClient({
     id: params.id,
     level: "edit",
-    category: benefitCategoryForLocation(location),
+    category: topicLocationAccessCategory(location),
   });
   if (!access.ok) return access.response;
 
@@ -170,7 +169,7 @@ export async function POST(
     );
   }
 
-  const category = benefitCategoryForLocation(location);
+  const category = topicLocationAccessCategory(location);
   const access = await resolveBuilderClient({
     id: params.id,
     level: "edit",

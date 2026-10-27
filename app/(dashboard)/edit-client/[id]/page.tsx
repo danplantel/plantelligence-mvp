@@ -129,6 +129,7 @@ import { BrandingImage } from "@/components/ui/branding-image";
 import { Headshot } from "@/components/ui/headshot";
 import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/benefit-document-section";
 import { PlanMeetingsSection } from "@/components/pages/edit-client/plan-meetings-section";
+import { EmployeeResourcesEditor } from "@/components/pages/benefits/employee-resources-editor";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
@@ -5160,6 +5161,11 @@ export default function EditClientPage() {
                 onBrandImagesChange={handleBrandImagesChange}
                 errorFields={[]}
               />
+
+              {/* Employee Resources (TF-6). A PLAN-level surface: the fifth hub has no
+                  Benefit row, so it cannot live in Create/Edit Benefit. It sits in the
+                  plan's own settings, beside Branding, not in Browse Benefits. */}
+              {clientId && <EmployeeResourcesEditor planId={clientId} />}
             </TabsContent>
 
             {/* ── Tab 2: Preview ── */}

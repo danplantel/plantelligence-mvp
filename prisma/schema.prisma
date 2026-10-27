@@ -849,6 +849,9 @@ model Client {
   // Benefits / Employee Portal Data
   employeePortalPreview Json? // Stores benefits title, description, and other portal settings
   categoryPortalVisibility Json? // { Retirement: true, Group Life: true, Group Health: true, Other: true } - Show/Hide per category in portal only
+  /// Employee Resources hub (TF-6). OFF by default: the fifth location is opt-in per plan,
+  /// is not a benefit category, and therefore never counts toward the 1–4 limit.
+  employeeResourcesEnabled Boolean @default(false)
 
   heroTitle       String? // Hero title for portal header
   heroDescription String? // Hero description for portal header

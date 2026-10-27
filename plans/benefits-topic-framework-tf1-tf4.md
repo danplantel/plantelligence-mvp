@@ -1,8 +1,8 @@
-# Benefits Topic Framework — TF-1 → TF-5 Build Plan
+# Benefits Topic Framework — TF-1 → TF-6 Build Plan
 
 Source: `Benefits_Topic_Framework_Handoff_FINAL.pdf` (§17 Tickets, build in order).
 Path: **B · Evolve** the existing templates. No standalone topic pages, no slide-over sheets.
-Scope of this plan: **TF-1, TF-2, TF-3, TF-4 and TF-5.** TF-6 → TF-13 are deferred.
+Scope of this plan: **TF-1 → TF-6.** TF-7 → TF-13 are deferred.
 **The Video section is closed** — Phase 1 is shipped and nothing further will be built there (§0).
 
 ---
@@ -23,6 +23,8 @@ Consequence for this plan: **no card-style work is planned.** The only obligatio
 **`how-can-we-help-section.tsx` is the Featured half of TF-2, not the whole ticket.** It renders from the static catalog (`helpCardCatalogFor` → `resolveHelpCardRows(cards, category)`), keyed to seven hard-coded ids, so it cannot yet show a placement. It has no per-answer URL or `&option=` deep link, non-Rollovers panels are paragraphs only, and the section always renders, so there is no hide-when-empty. *(Superseded by TF-2: placements now drive the grid and deep links are live.)*
 
 **The FAQ accordion is gone from the benefit hubs.** `FAQSection` is no longer rendered by any hub — `retirement`, `health-insurance`, `life-insurance` and `[custom-benefit-name]` all render [`QuickAnswersSection`](components/pages/client-portal/sections/quick-answers-section.tsx:177) in its place, fed by the plan's placements. The section returns `null` when there are no questions, so a plan with nothing placed shows no empty band. `components/faq-section.tsx` stays in the repo for surfaces outside the hubs but must not be wired back into one.
+
+**Employee Resources (TF-6) is a PLAN surface, not a benefit one.** The fifth location has no `Benefit` row, so it cannot hang off Create/Edit Benefit and it must never appear in Browse Benefits. It is switched on from the plan flow instead: **Edit Plan → Company Basics** (full card, including the question board) and **Create Plan → Step 5 "Employee Portal Preview"** (compact card: the toggle plus a link). Both render the same [`EmployeeResourcesEditor`](components/pages/benefits/employee-resources-editor.tsx:1), and `/employee-resources/[planId]` stays as the deep-editing surface behind "Manage questions". Because there is no Benefit row, enabling it cannot change the 1–4 category count or the plan's completion state, and its permission scope is the literal category `"Employee Resources"`, so an HR collaborator can be granted that location alone.
 
 TF-2 is therefore narrower than "build the page" but wider than "wire one component": feed this grid from placements, build the Quick Answers area beside it, add the URLs, and hide both when they resolve to nothing. The layout, the caret maths, the Account Access card and the Rollovers body are settled and must not be redrawn.
 

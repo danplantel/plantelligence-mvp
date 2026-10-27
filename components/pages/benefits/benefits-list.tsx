@@ -604,7 +604,7 @@ export function BenefitsListPage({
           />
         </CardContent>
       </Card>
-      
+
       {/* Organization-wide context: the benefits this advisor's organization offers.
           Plan-independent, permanent, and server-rendered — it is on screen before any of
           the reads below return. See the component.
