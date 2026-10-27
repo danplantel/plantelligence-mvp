@@ -14,6 +14,7 @@ import {
   HowCanWeHelpSection,
   formatPlanGroupIdLabel,
 } from "@/components/pages/client-portal/sections/how-can-we-help-section";
+import { QuickAnswersSection } from "@/components/pages/client-portal/sections/quick-answers-section";
 import {
   HAVE_QUESTIONS_SECTION_ID,
   scrollToPortalSection,
@@ -32,6 +33,7 @@ import {
 } from "@/lib/map-plan-documents-for-benefit-hub";
 import { getBenefitFromPreview } from "@/lib/benefit-data-helpers";
 import type { BenefitData } from "@/types/benefit";
+import type { ResolvedLocationTopics } from "@/types/topic";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -77,6 +79,16 @@ export default function RetirementPage() {
   // than each reaching into a different source.
   const planGroupIdLabel = formatPlanGroupIdLabel(benefitData?.insurancePlanId);
   const accountAccessHref = benefitData?.insuranceLoginUrl || undefined;
+
+  // TF-2: this hub's resolved topic placements. The API only returns them when the
+  // plan is on the framework's rollout list, but `source` is checked anyway so a
+  // non-rolled-out plan can never accidentally render placements.
+  const topicsPayload = benefitApiData?.topics as
+    | (ResolvedLocationTopics & { source?: string })
+    | null
+    | undefined;
+  const topics =
+    topicsPayload?.source === "placements" ? topicsPayload : null;
 
   /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
   const documentsSig = useMemo(() => {
@@ -241,15 +253,29 @@ export default function RetirementPage() {
           provider={benefitData?.providerContact ?? null}
           planIdLabel={planGroupIdLabel || undefined}
           accountAccessHref={accountAccessHref}
+          // Placements win when this plan has them; otherwise the section falls back
+          // to the saved legacy card layout.
+          topics={topics?.featured}
           cards={(benefitData as any)?.helpCards ?? undefined}
         />
 
-        <FAQSection
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          faqs={faqsForCategory}
-          contacts={supportContactsForFAQ}
-        />
+        {/* Quick Answers replaces the accordion only for a plan whose placements are
+            live; every other plan keeps the section it has today. */}
+        {topics && topics.groups.length > 0 ? (
+          <QuickAnswersSection
+            groups={topics.groups}
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            basePath={`/${clientId}`}
+          />
+        ) : (
+          <FAQSection
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            faqs={faqsForCategory}
+            contacts={supportContactsForFAQ}
+          />
+        )}
 
         <BenefitDocumentSection
           brandColor={brandColor}

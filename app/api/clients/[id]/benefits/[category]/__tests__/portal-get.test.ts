@@ -29,8 +29,41 @@ const mocks = vi.hoisted(() => ({
   prisma: {
     client: { findFirst: vi.fn() },
     benefit: { findUnique: vi.fn() },
+    topicPlacement: { count: vi.fn(), findMany: vi.fn() },
+    accordionGroup: { findMany: vi.fn() },
   },
 }));
+
+/** One joined placement + topic row, as `loadLocationTopics` receives it. */
+function placementRow() {
+  return {
+    id: "placement-1",
+    clientId: "plan-1",
+    topicId: "topic-1",
+    location: "retirement",
+    displayMode: "featured",
+    groupId: null,
+    sortOrder: 0,
+    overrides: null,
+    actionHubLink: null,
+    topic: {
+      id: "topic-1",
+      scope: "system",
+      organizationId: null,
+      slug: "sys.rollovers-distributions",
+      title: "Rollovers & Distributions",
+      summary: null,
+      iconKey: null,
+      imageKey: null,
+      bodyBlocks: [{ type: "quick_answer", text: "Four options." }],
+      tags: [],
+      defaultLocations: ["retirement"],
+      isActionHub: false,
+      defaultCta: null,
+      status: "active",
+    },
+  };
+}
 
 vi.mock("next-auth", () => ({ getServerSession: mocks.getSession }));
 vi.mock("@/lib/auth-options", () => ({ authOptions: {} }));
@@ -98,6 +131,7 @@ function callGet(slug = "acme") {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.unstubAllEnvs();
   vi.spyOn(console, "error").mockImplementation(() => {});
   mocks.getSession.mockResolvedValue(null);
   mocks.resolvePortalAdvisorId.mockResolvedValue("advisor-1");
@@ -105,6 +139,9 @@ beforeEach(() => {
   mocks.isR2Configured.mockReturnValue(false);
   mocks.prisma.client.findFirst.mockResolvedValue(plan());
   mocks.prisma.benefit.findUnique.mockResolvedValue(benefit());
+  mocks.prisma.topicPlacement.count.mockResolvedValue(0);
+  mocks.prisma.topicPlacement.findMany.mockResolvedValue([]);
+  mocks.prisma.accordionGroup.findMany.mockResolvedValue([]);
 });
 
 describe("portal benefit read", () => {
@@ -121,7 +158,9 @@ describe("portal benefit read", () => {
   it("returns the benefit row for the category", async () => {
     const body = await (await callGet()).json();
 
-    expect(body).toEqual({ success: true, benefit: benefit() });
+    // `topics` is always present; it is null while the framework is dark, so a legacy
+    // plan's payload carries no placement data and costs no extra query.
+    expect(body).toEqual({ success: true, benefit: benefit(), topics: null });
     expect(mocks.prisma.benefit.findUnique).toHaveBeenCalledWith({
       where: {
         clientId_category: { clientId: "plan-1", category: "Retirement" },
@@ -179,7 +218,7 @@ describe("portal benefit read", () => {
 
     const body = await (await callGet()).json();
 
-    expect(body).toEqual({ success: true, benefit: null });
+    expect(body).toEqual({ success: true, benefit: null, topics: null });
   });
 });
 
@@ -240,5 +279,102 @@ describe("portal benefit video signing", () => {
 
     expect(response.status).toBe(500);
     expect(await response.json()).toEqual({ error: "Internal server error" });
+  });
+});
+
+/** TF-2: the resolved placements the participant page renders from. */
+describe("topics block", () => {
+  function withTopicsRequest(slug = "acme", category = "Retirement") {
+    return new NextRequest(
+      new URL(
+        `/api/clients/${slug}/benefits/${category}?forPortal=1&withTopics=1`,
+        "http://localhost",
+      ),
+      { method: "GET" },
+    );
+  }
+
+  it("queries nothing while the framework is dark", async () => {
+    const body = await (await callGet()).json();
+
+    expect(body.topics).toBeNull();
+    expect(mocks.prisma.topicPlacement.count).not.toHaveBeenCalled();
+  });
+
+  it("gives the builder its placements before rollout, and says the live source", async () => {
+    mocks.prisma.topicPlacement.count.mockResolvedValue(1);
+    mocks.prisma.topicPlacement.findMany.mockResolvedValue([placementRow()]);
+
+    const response = await GET(withTopicsRequest(), {
+      params: { id: "acme", category: "Retirement" },
+    });
+    const body = await response.json();
+
+    // The preview needs the placements; `source` still reports what a PARTICIPANT
+    // gets, which is legacy JSON until this plan is on the rollout list.
+    expect(body.topics.source).toBe("legacy");
+    expect(body.topics.location).toBe("retirement");
+    expect(body.topics.featured.map((topic: any) => topic.title)).toEqual([
+      "Rollovers & Distributions",
+    ]);
+    expect(mocks.prisma.topicPlacement.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { clientId: "plan-1", location: "retirement" },
+      }),
+    );
+  });
+
+  it("returns placements to a rolled-out plan with no query parameter", async () => {
+    vi.stubEnv("TOPIC_FRAMEWORK_PLANS", "plan-1");
+    mocks.prisma.topicPlacement.count.mockResolvedValue(1);
+    mocks.prisma.topicPlacement.findMany.mockResolvedValue([placementRow()]);
+
+    const body = await (await callGet()).json();
+
+    expect(body.topics.source).toBe("placements");
+  });
+
+  it("withholds placements from a seeded plan that is not rolled out", async () => {
+    // Seeding happened, but the plan is not on the allowlist: it must keep its page.
+    vi.stubEnv("TOPIC_FRAMEWORK_PLANS", "plan-2");
+    mocks.prisma.topicPlacement.count.mockResolvedValue(1);
+
+    const body = await (await callGet()).json();
+
+    expect(body.topics).toBeNull();
+    expect(mocks.prisma.topicPlacement.findMany).not.toHaveBeenCalled();
+  });
+
+  it("marks a plan with no placements as legacy even when asked", async () => {
+    const response = await GET(withTopicsRequest(), {
+      params: { id: "acme", category: "Retirement" },
+    });
+    const body = await response.json();
+
+    expect(body.topics.source).toBe("legacy");
+    expect(body.topics.featured).toEqual([]);
+  });
+
+  it("has no location for a category that is not a hub", async () => {
+    const response = await GET(
+      withTopicsRequest("acme", "Employee%20Resources"),
+      { params: { id: "acme", category: "Employee Resources" } },
+    );
+    const body = await response.json();
+
+    expect(body.topics).toBeNull();
+    expect(mocks.prisma.topicPlacement.count).not.toHaveBeenCalled();
+  });
+
+  it("never fails the page when the topic query throws", async () => {
+    vi.stubEnv("TOPIC_FRAMEWORK_PLANS", "plan-1");
+    mocks.prisma.topicPlacement.count.mockRejectedValue(
+      new Error("topics down"),
+    );
+
+    const response = await callGet();
+
+    expect(response.status).toBe(200);
+    expect((await response.json()).topics).toBeNull();
   });
 });

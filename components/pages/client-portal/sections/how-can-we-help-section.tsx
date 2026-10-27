@@ -14,15 +14,28 @@ import { portalRadiusValue } from "@/lib/typography-themes";
 import {
   ACCOUNT_ACCESS_CARD_ID,
   fillHelpCardTokens,
+  getHelpCardContent,
   helpCardCatalogFor,
 } from "@/lib/help-card-defaults";
-import { resolveHelpCardRows } from "@/lib/help-card-layout";
+import {
+  HELP_CARD_ROW_1_SIZE,
+  HELP_CARD_ROW_SIZE,
+  resolveHelpCardRows,
+} from "@/lib/help-card-layout";
 import {
   HAVE_QUESTIONS_SECTION_ID,
   scrollToPortalSection,
 } from "@/lib/portal-section-anchors";
 import type { ProviderContact } from "@/types/benefit";
 import type { HelpCardLayoutEntry, HelpCardResolved } from "@/types/benefit";
+import type { EffectiveTopic } from "@/types/topic";
+import { topicQuickAnswer } from "@/lib/topics/effective-topic";
+import {
+  buildTopicUrl,
+  readHashTopicSlug,
+  readOptionParam,
+  topicMatchesHash,
+} from "@/lib/topics/deep-link";
 import { cn } from "@/lib/utils";
 
 // Kept as the section's public surface: the previews import the id from here.
@@ -94,6 +107,15 @@ interface HowCanWeHelpSectionProps {
    * catalog's natural order with Account Access primary on the left.
    */
   cards?: HelpCardLayoutEntry[] | null;
+  /**
+   * The plan's FEATURED placements, already resolved (`GET .../benefits/[category]`
+   * returns them as `topics.featured`). When present they drive the grid; when the
+   * plan is not on the topic framework this stays null and `cards` is used instead.
+   *
+   * Account Access is still not a topic in this build (that is TF-9), so the card is
+   * synthesised from the catalog and pinned first as the 2-wide primary.
+   */
+  topics?: EffectiveTopic[] | null;
   /** Click handler for editing a specific card. Receives the card's ID. */
   onCardEdit?: (cardId: string) => void;
 }
@@ -141,6 +163,24 @@ function chunkCards(cards: HelpCardResolved[], size: number): HelpCardResolved[]
     chunks.push(cards.slice(index, index + size));
   }
   return chunks;
+}
+
+/**
+ * Rows for a placement-driven grid: the 2-wide primary plus two standard cards, then
+ * four to every later row. Mirrors `resolveHelpCardRows`' shape for the legacy path,
+ * so the renderer below cannot tell the two sources apart.
+ */
+function chunkIntoRows(cards: HelpCardResolved[]): HelpCardResolved[][] {
+  if (cards.length === 0) return [];
+  const rows: HelpCardResolved[][] = [cards.slice(0, HELP_CARD_ROW_1_SIZE)];
+  for (
+    let index = HELP_CARD_ROW_1_SIZE;
+    index < cards.length;
+    index += HELP_CARD_ROW_SIZE
+  ) {
+    rows.push(cards.slice(index, index + HELP_CARD_ROW_SIZE));
+  }
+  return rows;
 }
 
 /** Resolve a card link. Internal paths stay in the portal; everything else is external. */
@@ -248,12 +288,24 @@ function RolloversDetail({
   brandColor,
   contactName,
   onTalkThrough,
+  initialOptionId,
+  onOptionChange,
 }: {
   brandColor: string;
   contactName?: string;
   onTalkThrough?: () => void;
+  /** `&option=` from the URL, so a shared link can open one option directly. */
+  initialOptionId?: string | null;
+  /** Mirrors the selection into the URL; `null` clears the option. */
+  onOptionChange?: (optionId: string | null) => void;
 }) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    // Only honour an id this topic actually has — a stale link opens nothing.
+    initialOptionId &&
+      ROLLOVER_OPTIONS.some((option) => option.id === initialOptionId)
+      ? initialOptionId
+      : null,
+  );
   const selected =
     ROLLOVER_OPTIONS.find((option) => option.id === selectedId) ?? null;
 
@@ -278,11 +330,11 @@ function RolloversDetail({
               key={option.id}
               type="button"
               aria-pressed={isSelected}
-              onClick={() =>
-                setSelectedId((prev) =>
-                  prev === option.id ? null : option.id,
-                )
-              }
+              onClick={() => {
+                const next = selectedId === option.id ? null : option.id;
+                setSelectedId(next);
+                onOptionChange?.(next);
+              }}
               className={cn(
                 "flex min-h-[92px] flex-col justify-between gap-3 rounded-xl border bg-white p-3 text-left transition-all duration-200 hover:shadow-sm",
                 isSelected
@@ -561,6 +613,8 @@ function HelpCardPanel({
   onClose,
   contactName,
   onTalkThrough,
+  initialOptionId,
+  onOptionChange,
 }: {
   card: HelpCardResolved;
   brandColor: string;
@@ -570,6 +624,9 @@ function HelpCardPanel({
   contactName?: string;
   /** Scrolls to the "Have Questions?" band, where the contact's card lives. */
   onTalkThrough?: () => void;
+  /** `&option=` deep link, forwarded to the Options Compare body. */
+  initialOptionId?: string | null;
+  onOptionChange?: (optionId: string | null) => void;
 }) {
   // The Rollovers topic has its own body (options, pros/cons, CTA) instead of the
   // paragraph copy every other topic uses.
@@ -620,6 +677,8 @@ function HelpCardPanel({
           brandColor={brandColor}
           contactName={contactName}
           onTalkThrough={onTalkThrough}
+          initialOptionId={initialOptionId}
+          onOptionChange={onOptionChange}
         />
       ) : (
         <>
@@ -675,6 +734,7 @@ export function HowCanWeHelpSection({
   planIdLabel,
   provider,
   cards,
+  topics,
   onCardEdit,
 }: HowCanWeHelpSectionProps) {
   const basePath = clientId ? `/${clientId}` : "";
@@ -728,9 +788,54 @@ export function HowCanWeHelpSection({
     bannerPrimaryContact?.fullName || bannerPrimaryContact?.name || "",
   ).trim();
 
-  // Resolve the layout into rows of cards carrying their STATIC catalog copy, then
-  // resolve the `[Benefit Category]` token once per card.
+  // Two sources for the grid, in this order:
+  //
+  //  1. PLACEMENTS (`topics`) — what a plan on the topic framework renders. Account
+  //     Access is not a topic in this build (that is TF-9), so the card is synthesised
+  //     from the catalog and pinned first as the 2-wide primary, exactly as today.
+  //  2. The saved legacy layout (`cards`) — the fallback that keeps every existing
+  //     plan rendering while the framework is dark.
+  //
+  // `[Benefit Category]` is resolved once per card in both paths.
   const rows = useMemo(() => {
+    if (topics && topics.length > 0) {
+      const access = getHelpCardContent(ACCOUNT_ACCESS_CARD_ID);
+      const placementCards: HelpCardResolved[] = [
+        {
+          id: ACCOUNT_ACCESS_CARD_ID,
+          title: fillHelpCardTokens(
+            access?.title ?? "[Benefit Category] Account Access",
+            category,
+          ),
+          paragraphs: (access?.paragraphs ?? []).map((paragraph) =>
+            fillHelpCardTokens(paragraph, category),
+          ),
+          cta: "",
+          primary: true,
+        },
+        ...topics.map((topic) => {
+          const quickAnswer = topicQuickAnswer(topic);
+          const card: HelpCardResolved = {
+            id: topic.slug,
+            title: fillHelpCardTokens(topic.title, category),
+            paragraphs: quickAnswer
+              ? [fillHelpCardTokens(quickAnswer, category)]
+              : [],
+            cta: topic.cta?.label ?? "",
+            primary: false,
+          };
+          if (topic.summary) {
+            card.body = fillHelpCardTokens(topic.summary, category);
+          }
+          if (topic.cta?.destination) {
+            card.href = topic.cta.destination;
+          }
+          return card;
+        }),
+      ];
+      return chunkIntoRows(placementCards);
+    }
+
     const catalog = helpCardCatalogFor(category);
     if (catalog.length === 0) return [];
     return resolveHelpCardRows(cards, category).map((row) =>
@@ -746,7 +851,7 @@ export function HowCanWeHelpSection({
         ),
       })),
     );
-  }, [cards, category]);
+  }, [cards, category, topics]);
 
   /** Every resolved card, in visual order. */
   const resolvedCards = useMemo(() => rows.flat(), [rows]);
@@ -763,8 +868,30 @@ export function HowCanWeHelpSection({
     )?.id ?? null;
   const activeCardId = openCardId === undefined ? defaultOpenCardId : openCardId;
 
+  // ── Deep links (TF-2) ──
+  // `#<topic-slug>` opens the matching panel and `&option=` opens one Rollovers
+  // option. Both write back with `replaceState`, so opening a card never piles up
+  // history entries the reader has to click back through.
+  const [rolloversOption, setRolloversOption] = useState<string | null>(null);
+
+  const syncUrl = (slug: string | null, optionId: string | null) => {
+    try {
+      window.history.replaceState(
+        window.history.state,
+        "",
+        buildTopicUrl(window.location.href, slug, optionId),
+      );
+    } catch {
+      // History can be unavailable (sandboxed frames); the panel still works.
+    }
+  };
+
   const toggleCard = (cardId: string) => {
-    setOpenCardId(activeCardId === cardId ? null : cardId);
+    const next = activeCardId === cardId ? null : cardId;
+    setOpenCardId(next);
+    // Only real topics go in the hash — the Account Access card is not one.
+    syncUrl(next && next !== ACCOUNT_ACCESS_CARD_ID ? next : null, null);
+    setRolloversOption(null);
     onCardEdit?.(cardId);
   };
 
@@ -782,6 +909,23 @@ export function HowCanWeHelpSection({
 
   /** Card ids in order — a stable dependency for the measuring effect. */
   const cardOrderKey = resolvedCards.map((card) => card.id).join("|");
+
+  // Open whatever the URL named, once the grid is known. Placed after
+  // `cardOrderKey` because that key is what tells us the topic set changed.
+  useEffect(() => {
+    if (!topics || topics.length === 0) return;
+
+    const fromHash = readHashTopicSlug(window.location.hash);
+    if (fromHash) {
+      const match = resolvedCards.find((card) =>
+        topicMatchesHash({ slug: card.id }, fromHash),
+      );
+      if (match) setOpenCardId(match.id);
+    }
+
+    const option = readOptionParam(window.location.search);
+    if (option) setRolloversOption(option);
+  }, [cardOrderKey, topics]);
 
   useEffect(() => {
     const measure = () => {
@@ -1059,7 +1203,16 @@ export function HowCanWeHelpSection({
                   onTalkThrough={() =>
                     scrollToPortalSection(HAVE_QUESTIONS_SECTION_ID)
                   }
-                  onClose={() => setOpenCardId(null)}
+                  initialOptionId={rolloversOption}
+                  onOptionChange={(optionId) => {
+                    setRolloversOption(optionId);
+                    syncUrl(activeCardId, optionId);
+                  }}
+                  onClose={() => {
+                    setOpenCardId(null);
+                    setRolloversOption(null);
+                    syncUrl(null, null);
+                  }}
                 />
               </div>
             ) : null;

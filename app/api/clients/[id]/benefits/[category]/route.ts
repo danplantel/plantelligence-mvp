@@ -18,6 +18,13 @@ import { removeBenefitCategoryAccess } from "@/lib/teammates/assignments.server"
 import { resolveOrganizationId } from "@/lib/organization";
 import type { PermissionFunction } from "@/types/teammate";
 import { ensureLocationSeeded } from "@/lib/topics/seed-plan-topics";
+import { loadLocationTopics } from "@/lib/topics/resolve-location";
+import {
+  isTopicFrameworkArmed,
+  topicReadSourceForPlan,
+} from "@/lib/topics/read-source";
+import { topicLocationForCategory } from "@/lib/topic-locations";
+import type { ResolvedLocationTopics } from "@/types/topic";
 
 /**
  * Shared helper: resolve a client by ObjectId or slug, then authorize the caller.
@@ -163,6 +170,45 @@ async function signBenefitVideo(b: any) {
 }
 
 /**
+ * The resolved topic placements for this hub, or `null` when the caller should keep
+ * rendering the legacy `helpCards` / `faqs` JSON (TF-2).
+ *
+ * Three gates, cheapest first:
+ *
+ *  1. No location (an unrecognised category) — nothing to resolve.
+ *  2. `withTopics` not set AND the framework is not armed anywhere — return without a
+ *     single query, so every legacy plan's portal payload is byte-for-byte what it was.
+ *  3. A plan whose read source is still `legacy` gets `null` unless it explicitly asked,
+ *     which is what keeps a seeded-but-not-rolled-out plan rendering today's page.
+ *
+ * A failure here is logged and swallowed: a participant's benefit page must not 500
+ * because an optional section could not be resolved.
+ */
+async function loadTopicsPayload(params: {
+  clientId: string;
+  category: string;
+  withTopics: boolean;
+}): Promise<({ source: ReturnType<typeof topicReadSourceForPlan> } & ResolvedLocationTopics) | null> {
+  const location = topicLocationForCategory(params.category);
+  if (!location) return null;
+  if (!params.withTopics && !isTopicFrameworkArmed()) return null;
+
+  try {
+    const placementCount = await prisma.topicPlacement.count({
+      where: { clientId: params.clientId, location },
+    });
+    const source = topicReadSourceForPlan(params.clientId, placementCount > 0);
+    if (!params.withTopics && source === "legacy") return null;
+
+    const resolved = await loadLocationTopics(params.clientId, location);
+    return { source, ...resolved };
+  } catch (error) {
+    console.error("[benefits] topic resolve failed:", params.category, error);
+    return null;
+  }
+}
+
+/**
  * GET /api/clients/[id]/benefits/[category]
  * Returns a single benefit by category. R2 keys are converted to presigned URLs.
  */
@@ -190,12 +236,21 @@ export async function GET(
     });
 
     if (!benefit) {
-      return NextResponse.json({ success: true, benefit: null });
+      return NextResponse.json({ success: true, benefit: null, topics: null });
     }
 
     const signed = await signBenefitVideo(benefit);
 
-    return NextResponse.json({ success: true, benefit: signed });
+    // The Featured cards and Quick Answers come from placements once this plan is on
+    // the rollout list. The portal needs no query parameter of its own: `withTopics`
+    // exists for the admin builder's preview and for tests.
+    const topics = await loadTopicsPayload({
+      clientId: client!.id,
+      category: params.category,
+      withTopics: request.nextUrl.searchParams.get("withTopics") === "1",
+    });
+
+    return NextResponse.json({ success: true, benefit: signed, topics });
   } catch (error) {
     console.error("Error fetching benefit:", error);
     return NextResponse.json(

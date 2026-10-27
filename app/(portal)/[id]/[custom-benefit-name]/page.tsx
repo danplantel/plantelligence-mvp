@@ -14,6 +14,7 @@ import {
   HowCanWeHelpSection,
   formatPlanGroupIdLabel,
 } from "@/components/pages/client-portal/sections/how-can-we-help-section";
+import { QuickAnswersSection } from "@/components/pages/client-portal/sections/quick-answers-section";
 import {
   HAVE_QUESTIONS_SECTION_ID,
   scrollToPortalSection,
@@ -35,6 +36,7 @@ import {
 import { getBenefitFromPreview } from "@/lib/benefit-data-helpers";
 import { isCustomBenefitRouteSegment } from "@/lib/benefit-custom-name";
 import type { BenefitData } from "@/types/benefit";
+import type { ResolvedLocationTopics } from "@/types/topic";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -81,6 +83,14 @@ export default function CustomBenefitPage() {
   // shared by the Account Access card and the Access & Materials hero.
   const planGroupIdLabel = formatPlanGroupIdLabel(benefitData?.insurancePlanId);
   const accountAccessHref = benefitData?.insuranceLoginUrl || undefined;
+
+  // TF-2: resolved topic placements for this hub, when the plan is on the framework.
+  const topicsPayload = benefitApiData?.topics as
+    | (ResolvedLocationTopics & { source?: string })
+    | null
+    | undefined;
+  const topics =
+    topicsPayload?.source === "placements" ? topicsPayload : null;
 
   /**
    * The segment must resolve to this plan's Custom benefit: either its name's slug, or
@@ -255,10 +265,25 @@ export default function CustomBenefitPage() {
           provider={benefitData?.providerContact ?? null}
           planIdLabel={planGroupIdLabel || undefined}
           accountAccessHref={accountAccessHref}
+          topics={topics?.featured}
           cards={(benefitData as any)?.helpCards ?? undefined}
         />
 
-        <FAQSection brandColor={brandColor} secondaryColor={secondaryColor} faqs={faqsForCategory} contacts={supportContactsForFAQ} />
+        {topics && topics.groups.length > 0 ? (
+          <QuickAnswersSection
+            groups={topics.groups}
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            basePath={`/${clientId}`}
+          />
+        ) : (
+          <FAQSection
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            faqs={faqsForCategory}
+            contacts={supportContactsForFAQ}
+          />
+        )}
 
         <BenefitDocumentSection
           brandColor={brandColor}

@@ -1,8 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
+  isTopicFrameworkArmed,
   parsePlanAllowlist,
   resolveTopicReadSource,
 } from "@/lib/topics/read-source";
+
+describe("isTopicFrameworkArmed", () => {
+  it("is false while the feature is dark", () => {
+    // This is what lets the benefit GET skip the placement count entirely.
+    expect(isTopicFrameworkArmed("", "")).toBe(false);
+    expect(isTopicFrameworkArmed(null, undefined)).toBe(false);
+    expect(isTopicFrameworkArmed(" , ", "0")).toBe(false);
+  });
+
+  it("is true when either switch is set", () => {
+    expect(isTopicFrameworkArmed("plan-a", "")).toBe(true);
+    expect(isTopicFrameworkArmed("", "1")).toBe(true);
+    expect(isTopicFrameworkArmed(undefined, "on")).toBe(true);
+  });
+});
 
 describe("parsePlanAllowlist", () => {
   it("splits, trims and drops empty entries", () => {

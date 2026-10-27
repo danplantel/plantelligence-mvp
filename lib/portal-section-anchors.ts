@@ -8,6 +8,9 @@
 /** `id` of the "How Can We Help You Today?" section on every Benefit Hub. */
 export const HOW_CAN_WE_HELP_SECTION_ID = "how-can-we-help";
 
+/** `id` of the "Get Quick Answers" band on every Benefit Hub. */
+export const QUICK_ANSWERS_SECTION_ID = "quick-answers";
+
 /** `id` of the "Have Questions?" support-contact band that closes every hub. */
 export const HAVE_QUESTIONS_SECTION_ID = "have-questions";
 

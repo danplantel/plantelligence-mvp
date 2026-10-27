@@ -164,7 +164,12 @@ describe("GET /api/clients/[id]/benefits/[category]", () => {
     const response = await GET(request("GET"), { params });
 
     expect(response.status).toBe(200);
-    expect(await json(response)).toEqual({ success: true, benefit: null });
+    // `topics` is always in the payload; null means "render from legacy JSON".
+    expect(await json(response)).toEqual({
+      success: true,
+      benefit: null,
+      topics: null,
+    });
   });
 
   it("signs a stored plan video when R2 is configured", async () => {

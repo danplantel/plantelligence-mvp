@@ -82,3 +82,17 @@ export function topicReadSourceForPlan(
     enabled: process.env[TOPIC_FRAMEWORK_ENABLED_ENV],
   });
 }
+
+/**
+ * Is the framework switched on for ANY plan?
+ *
+ * The read route uses this to skip its placement lookup entirely while the feature is
+ * dark, so a plan that never opted in pays nothing for the framework — not even the
+ * one indexed `count` that would tell it there is nothing to read.
+ */
+export function isTopicFrameworkArmed(
+  plans: string | null | undefined = process.env[TOPIC_FRAMEWORK_PLANS_ENV],
+  enabled: string | null | undefined = process.env[TOPIC_FRAMEWORK_ENABLED_ENV],
+): boolean {
+  return parsePlanAllowlist(plans).length > 0 || isEnabledFlag(enabled);
+}
