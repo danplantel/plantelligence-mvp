@@ -3,6 +3,8 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { HelpCardLayoutEditor } from "./help-card-layout-editor";
+import { QuickAnswersBuilder } from "./quick-answers-builder";
+import { topicLocationForCategory } from "@/lib/topic-locations";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import {
   BENEFIT_CATEGORY_GALLERY,
@@ -179,7 +181,14 @@ export function BenefitsEditorPanel({
     messaging: useRef<HTMLDivElement>(null),
     planVideo: useRef<HTMLDivElement>(null),
     helpCards: useRef<HTMLDivElement>(null),
+    quickAnswers: useRef<HTMLDivElement>(null),
   };
+
+  // TF-3: which location's Quick Answers this benefit owns. `null` for Employee
+  // Resources (reserved for TF-6), where the section is simply not offered.
+  const quickAnswersLocation = topicLocationForCategory(
+    step1Data.benefitCategory,
+  );
 
   // Field-level refs so a validation error (e.g. the required Login URL) can
   // scroll the editor straight to the offending input instead of just the
@@ -1473,6 +1482,40 @@ export function BenefitsEditorPanel({
           </div>
         </div>
 
+        {/* Quick Answers Section (TF-3).
+            The long tail of questions, grouped — the other half of the same placement
+            table Section 4 arranges. It writes placements directly rather than the
+            wizard's `faqs` draft, because a question needs a group and an order that
+            the legacy FAQ array cannot express, and because promoting one to a
+            Featured card has to remove it from here. */}
+        {quickAnswersLocation && step1Data.planId && (
+          <div
+            ref={sectionsRef.quickAnswers}
+            className={cn(
+              "transition-all duration-500 rounded-xl",
+              highlightedSection === "quickAnswers"
+                ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800"
+                : "",
+            )}
+          >
+            <SectionHeader
+              number={5}
+              title="Get Quick Answers to Common Benefits Questions"
+            />
+            <p className="text-[13px] text-muted-foreground mb-6">
+              Every other question about this benefit, grouped and searchable. Move
+              one to &ldquo;Featured card&rdquo; to promote it into the grid above, or
+              to &ldquo;Hidden&rdquo; to take it off the page.
+            </p>
+            <div className="rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
+              <QuickAnswersBuilder
+                planId={step1Data.planId}
+                location={quickAnswersLocation}
+              />
+            </div>
+          </div>
+        )}
+
         {/* Plan Video Section */}
         <div
           ref={sectionsRef.planVideo}
@@ -1483,7 +1526,7 @@ export function BenefitsEditorPanel({
               : "",
           )}
         >
-          <SectionHeader number={5} title="Video Source" />
+          <SectionHeader number={6} title="Video Source" />
           <p className="text-[13px] text-muted-foreground mb-6">
             Add the video shown in the journey section, say what it covers, and
             choose a poster image. With no video, the Default Image below is

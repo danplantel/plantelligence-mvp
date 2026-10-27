@@ -55,7 +55,9 @@ describe("QuickAnswersSection", () => {
     render(<QuickAnswersSection groups={[group()]} />);
 
     expect(
-      screen.getByRole("heading", { name: "Get Quick Answers" }),
+      screen.getByRole("heading", {
+        name: "Get Quick Answers to Common Benefits Questions",
+      }),
     ).toBeInTheDocument();
     expect(screen.getByText("Taking Money Out")).toBeInTheDocument();
     expect(

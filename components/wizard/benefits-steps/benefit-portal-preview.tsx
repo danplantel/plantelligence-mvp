@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo, useState, useEffect } from "react";
+import useSWR from "swr";
 
 // The preview is a scaled render of the real portal, so the sections keep their
 // own live max-widths. Anything that stretched them to the 1400px canvas made the
@@ -55,11 +56,10 @@ import { helpCardCategoryLabel } from "@/lib/help-card-defaults";
 import { getPortalShapeCssVars } from "@/lib/typography-themes";
 import { BenefitDocumentSection } from "@/components/pages/client-portal/sections/benefit-document-section";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
-import {
-  FAQSection,
-  DynamicFAQItem,
-  FAQContact,
-} from "@/components/faq-section";
+import { DynamicFAQItem, FAQContact } from "@/components/faq-section";
+import { QuickAnswersSection } from "@/components/pages/client-portal/sections/quick-answers-section";
+import { topicLocationForCategory } from "@/lib/topic-locations";
+import type { EffectiveTopic, TopicGroup } from "@/types/topic";
 import { Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { normalizePortalDocumentLanguage } from "@/lib/portal-document-language";
@@ -264,6 +264,90 @@ export function BenefitPortalPreview({
     if (defaults && defaults.length > 0) return defaults as DynamicFAQItem[];
     return undefined;
   }, [categoryBenefit, step3Data?.faqs, category]);
+
+  /**
+   * Quick Answers — the section participants now get BELOW the Featured cards.
+   *
+   * The LIVE hub renders the plan's saved placements, so the preview prefers the same
+   * source and only falls back to the draft FAQ list when the plan has no placements
+   * yet (a brand-new draft, or a plan that has not been backfilled). The fallback
+   * exists so the section is never blank while the advisor is still writing.
+   *
+   * The key matches the builder's, so saving in "Get Quick Answers" revalidates this
+   * preview too.
+   */
+  const quickAnswersLocation = topicLocationForCategory(category);
+
+  const previewBoardKey =
+    step1Data?.planId && quickAnswersLocation
+      ? `/api/clients/${step1Data.planId}/topics?location=${encodeURIComponent(
+          quickAnswersLocation,
+        )}`
+      : null;
+
+  const { data: previewBoard } = useSWR<{
+    board?: { groups?: TopicGroup[] };
+  } | null>(previewBoardKey, async (url: string) => {
+    const response = await fetch(url, { credentials: "same-origin" });
+    // A draft, or a caller without access, simply has no placements to show.
+    if (!response.ok) return null;
+    return response.json();
+  }, { revalidateOnFocus: false, dedupingInterval: 5_000, shouldRetryOnError: false });
+
+  const quickAnswerGroups = useMemo<TopicGroup[]>(() => {
+    // 1. The plan's own placements — exactly what the hub renders.
+    const boardGroups = (previewBoard?.board?.groups ?? []).filter(
+      (group) => (group.topics?.length ?? 0) > 0,
+    );
+    if (boardGroups.length > 0) return boardGroups;
+
+    // 2. Unsaved draft FAQs, so a brand-new plan still previews the section.
+    const faqs = Array.isArray(faqsForCategory)
+      ? (faqsForCategory as DynamicFAQItem[])
+      : [];
+    const enabled = faqs.filter(
+      (faq) =>
+        faq &&
+        (faq as { enabled?: boolean }).enabled !== false &&
+        (faq.question || "").trim(),
+    );
+    if (enabled.length === 0) return [];
+
+    const location = topicLocationForCategory(category) ?? "retirement";
+
+    return [
+      {
+        id: "preview-questions",
+        name: "Questions",
+        sortOrder: 0,
+        topics: enabled.map((faq, index) => {
+          const topic: EffectiveTopic = {
+            topicId: String(faq.id ?? `faq-${index}`),
+            placementId: "",
+            slug: String(faq.id ?? `faq-${index}`),
+            location,
+            displayMode: "quick_answers",
+            title: faq.question,
+            bodyBlocks: faq.answer
+              ? [{ type: "quick_answer", text: faq.answer }]
+              : [],
+            tags: [],
+            isActionHub: false,
+            groupId: "preview-questions",
+            sortOrder: index,
+          };
+          if (faq.linkHref) {
+            topic.cta = {
+              label: faq.linkLabel || "Learn more",
+              actionType: "external_url",
+              destination: faq.linkHref,
+            };
+          }
+          return topic;
+        }),
+      },
+    ];
+  }, [faqsForCategory, category, previewBoard]);
 
   // ── Support contacts extraction: matches retirement/page.tsx logic ──
   // 1. Check employeePortalPreview.benefits[].supportContacts (persisted from wizard Step 3)
@@ -706,11 +790,12 @@ export function BenefitPortalPreview({
           />
         </div>
 
-        <FAQSection
+        {/* Quick Answers replaces the FAQ accordion in the preview too, so what the
+            advisor sees is the section participants actually get. */}
+        <QuickAnswersSection
+          groups={quickAnswerGroups}
           brandColor={brandColor}
           secondaryColor={secondaryColor}
-          faqs={faqsForCategory}
-          contacts={faqContacts}
         />
 
         {/* The account-access band is the Account Access card in "How Can We

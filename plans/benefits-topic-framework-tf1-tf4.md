@@ -106,20 +106,23 @@ Mapping to today's strings is the one genuinely lossy seam: `Benefit.category` i
 - Deep links: `#<topic-slug>` opens that topic's panel on mount; `&option=<id>` preselects a Rollovers option. Back closes the panel on phone.
 - Empty sections render nothing — no header, no padding.
 - New tiles and accordion rows take the portal's `--portal-radius`, so the shipped card style options keep applying.
+- The wizard / Edit Benefit **preview** renders `QuickAnswersSection` instead of `FAQSection`, built from the draft FAQ list so unsaved edits are visible. The live hub reads the plan's saved placements; the preview reads the draft.
 
 **Accept:** the Retirement page matches the wireframe for the Air Fayre data; a hidden topic does not render; the layout works at 375px and 1920px; opening a second topic closes the first.
 
 ### TF-3 · Admin topic builder (Must Have)
 
-- A new **Topics** section inside the existing Step 2 editor panel, next to `helpCards` — three zones (Featured / Quick Answers grouped / Hidden) with dnd-kit drag between them, already a dependency of [`help-card-layout-editor.tsx`](components/wizard/benefits-steps/help-card-layout-editor.tsx:1).
-- Per-row dropdown as the keyboard-accessible alternative to dragging; Featured cap warning at 3 rows; "which card moves down?" prompt when full.
-- Editor drawer per row: title, summary, icon/image from the default library, content blocks, CTA label + action type + destination, tags.
-- Library drawer: search, filter by location / tag / unused, drag into a zone, "Used in" hint on hover.
-- Edit-scope prompt on a system topic — "this plan only" writes `overrides`; "everywhere" is offered only for org custom topics.
-- Persistence endpoints: `POST /api/clients/[id]/topics/placements` for bulk reorder, `PATCH /api/clients/[id]/topics/placements/[placementId]`, `PUT /api/clients/[id]/topics/groups`, `GET /api/clients/[id]/topics/library`.
-- Preview jumps to the participant page at that location; every write invalidates `client` and `benefitRows` caches so the portal shows the change immediately.
+- A **dedicated panel section** — `Get Quick Answers` (Section 5), placed after Section 4 "How Can We Help You Today?" and before Video Source (renumbered 6). Section 4 keeps its existing layout editor untouched; nothing is appended to it.
+- The section edits PLACEMENTS, not `Benefit.faqs`: questions live in named groups, which is what lets one be promoted to a Featured card later without being retyped, and guarantees a question appears in one area only.
+- Per-question "Move to…" select (any group / ungrouped / Featured card / Hidden) — the keyboard-accessible equivalent of dragging between zones, and the current move mechanism.
+- Groups: add, rename in place, reorder with up/down. No delete, because an orphaned question would fall silently into the trailing "Questions" group.
+- Library drawer: search this location's shipped topics that are not already placed, choose a target group, Add.
+- Featured ceiling is enforced by the server (`FEATURED_CAP` in `lib/topics/board.ts`), so promoting while full is refused with the reason rather than silently dropped.
+- Persistence: `GET`/`PUT` on `/api/clients/[id]/topics?location=…`, plus `POST` for first-use seeding (idempotent). One PUT carries the whole board, so move + rename + reorder is a single transaction, and an unchanged board writes nothing.
+- Permissions: `create_benefits` scoped to the location's category — view to read the board, edit to write it.
+- Saving revalidates the shared SWR key, so the preview beside the panel updates without a reload.
 
-**Accept:** promote "Roth vs. Pre-Tax" to Featured and demote "Rollovers" to Quick Answers with no rebuild; the change survives refresh and a logout/login.
+**Accept:** move a question into Featured, hide another, and rename a group — all persist after refresh; the preview and the live hub show the same questions.
 
 ### TF-4 · Default library + all four categories (Must Have)
 

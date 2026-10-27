@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { LayoutGroup, motion } from "framer-motion";
 import { ArrowLeft, ChevronDown, Search, X } from "lucide-react";
 import { readableColor } from "polished";
 import { QUICK_ANSWERS_SECTION_ID } from "@/lib/portal-section-anchors";
@@ -49,9 +50,23 @@ export interface QuickAnswersSectionProps {
   className?: string;
 }
 
-/** Placeholder that says what the section is, above the search box. */
-const SECTION_TITLE = "Get Quick Answers";
+/** The section heading participants read, above the search box. */
+const SECTION_TITLE = "Get Quick Answers to Common Benefits Questions";
 const SEARCH_PLACEHOLDER = "Search answers for this benefit";
+
+/**
+ * The reorder animation.
+ *
+ * A long, soft exponential-out curve: the group glides into its new slot and settles
+ * rather than snapping, which is what makes a drag in the editor read as movement
+ * instead of a re-render. `initial={false}` keeps a participant's first paint static —
+ * nobody should watch the page assemble itself — and it is also what makes the editor
+ * preview animate only on CHANGE rather than on every mount.
+ */
+const GROUP_LAYOUT_TRANSITION = {
+  duration: 0.45,
+  ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
+};
 
 /** Every topic in the section, in group order. */
 function flattenGroups(groups: TopicGroup[]): EffectiveTopic[] {
@@ -189,14 +204,17 @@ export function QuickAnswersSection({
     0,
   );
 
-  /** Two balanced columns on desktop; empty groups are already gone. */
+  /**
+   * Two columns, split into HALVES rather than alternating.
+   *
+   * Alternating (0 → left, 1 → right, 2 → left …) leaves group 1 sitting directly above
+   * group 3, so reading down a column skips every other group and the list stops
+   * matching the builder's top-to-bottom order. Splitting by halves keeps each column
+   * sequential: 1,2,3 down the left, then 4,5,6 down the right.
+   */
   const columns = useMemo(() => {
-    const left: TopicGroup[] = [];
-    const right: TopicGroup[] = [];
-    filteredGroups.forEach((group, index) => {
-      (index % 2 === 0 ? left : right).push(group);
-    });
-    return [left, right];
+    const split = Math.ceil(filteredGroups.length / 2);
+    return [filteredGroups.slice(0, split), filteredGroups.slice(split)];
   }, [filteredGroups]);
 
   const mobileTopic = allTopics.find((topic) => topic.slug === mobileSlug) ?? null;
@@ -323,14 +341,19 @@ export function QuickAnswersSection({
       )}
     >
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto mb-8 max-w-2xl text-center">
+        {/* The heading is allowed the full column width and, from `lg` up, is kept on
+            ONE line — at the same type size. The old `max-w-2xl` wrapper forced a break
+            mid-sentence on desktop. Only the supporting line stays narrow. */}
+        <div className="mb-8 text-center">
+          {/* `text-gray-900`, matching the "How Can We Help You Today?" heading: the
+              two section titles read as a pair, and neither takes the plan's brand
+              colour. */}
           <h2
-            className="font-dm-serif text-2xl leading-tight sm:text-3xl lg:text-4xl"
-            style={{ color: brandColor }}
+            className="mx-auto font-dm-serif text-2xl leading-tight text-gray-900 sm:text-3xl lg:whitespace-nowrap lg:text-4xl"
           >
             {SECTION_TITLE}
           </h2>
-          <p className="mt-2 font-red-hat text-sm text-neutral-600 sm:text-base">
+          <p className="mx-auto mt-2 max-w-2xl font-red-hat text-sm text-neutral-600 sm:text-base">
             Every other question about this benefit, grouped and searchable.
           </p>
         </div>
@@ -372,11 +395,21 @@ export function QuickAnswersSection({
 
         {/* Two columns from `sm` up. The phone layout is the same list; tapping a
             question opens the full-screen view below. */}
-        <div className="grid gap-6 md:grid-cols-2">
-          {columns.map((column, columnIndex) => (
-            <div key={columnIndex} className="space-y-6">
-              {column.map((group) => (
-                <div key={group.id}>
+        {/* `LayoutGroup` + `layoutId` is what lets a group animate BETWEEN the two
+            columns when its position changes: the group is reconciled into a different
+            parent, so a plain `layout` would remount it and jump. */}
+        <LayoutGroup>
+          <div className="grid gap-6 md:grid-cols-2">
+            {columns.map((column, columnIndex) => (
+              <div key={columnIndex} className="space-y-6">
+                {column.map((group) => (
+                  <motion.div
+                    key={group.id}
+                    layoutId={`quick-answer-group-${group.id}`}
+                    layout
+                    initial={false}
+                    transition={GROUP_LAYOUT_TRANSITION}
+                  >
                   <h3
                     className="mb-2 font-red-hat text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500"
                   >
@@ -414,11 +447,12 @@ export function QuickAnswersSection({
                       );
                     })}
                   </div>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
+                  </motion.div>
+                ))}
+              </div>
+            ))}
+          </div>
+        </LayoutGroup>
       </div>
 
       {/* Phone answer view: a view within the page, with a back arrow. */}
