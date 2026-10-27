@@ -692,6 +692,52 @@ describe("HowCanWeHelpSection expansion", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("takes the brand ring off the card that was open", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    // Rollovers is the default-open card, so it wears the ring on first paint.
+    expect(
+      tile(container, "rollovers-distributions").querySelector(
+        "[data-help-card-ring]",
+      ),
+    ).not.toBeNull();
+
+    await user.click(tile(container, "financial-planning"));
+
+    // Only the newly opened card may look active: the ring is a child node, so it
+    // is genuinely unmounted rather than left behind as a stale inline shadow.
+    expect(
+      tile(container, "rollovers-distributions").querySelector(
+        "[data-help-card-ring]",
+      ),
+    ).toBeNull();
+    expect(
+      tile(container, "financial-planning").querySelector(
+        "[data-help-card-ring]",
+      ),
+    ).not.toBeNull();
+    expect(
+      tile(container, "rollovers-distributions").getAttribute("style") ?? "",
+    ).not.toMatch(/box-shadow/);
+  });
+
+  it("closes the open card's ring when it is clicked again", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    await user.click(tile(container, "rollovers-distributions"));
+
+    expect(
+      tile(container, "rollovers-distributions").querySelector(
+        "[data-help-card-ring]",
+      ),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("region", { name: "Rollovers & Distributions" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("opens a card when its Learn more button is pressed", async () => {
     const user = userEvent.setup();
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);

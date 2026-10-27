@@ -1109,7 +1109,9 @@ export function HowCanWeHelpSection({
                   // Same height floor as the Account Access card, so row 2 is
                   // exactly as tall as row 1. The hover lift is framer's
                   // `whileHover` (an inline layout transform would override CSS).
-                  "group flex h-full min-h-[180px] w-full cursor-pointer flex-col items-start gap-2 rounded-2xl border p-4 text-left shadow-sm transition-shadow duration-200 hover:shadow-md lg:min-h-[210px]",
+                  // `relative` hosts the open ring, which is a child rather than this
+                  // node's own `boxShadow` — see the comment on that span.
+                  "group relative flex h-full min-h-[180px] w-full cursor-pointer flex-col items-start gap-2 rounded-2xl border p-4 text-left shadow-sm transition-shadow duration-200 hover:shadow-md lg:min-h-[210px]",
                   // A primary tile takes 2 of the 4 columns on EVERY breakpoint
                   // (both phone columns), exactly like the account-access card.
                   isPrimary ? "col-span-2 border-transparent" : "col-span-1 bg-white",
@@ -1118,21 +1120,27 @@ export function HowCanWeHelpSection({
                       ? "border-transparent"
                       : "border-neutral-200 hover:border-neutral-300"),
                 )}
-                style={
-                  isPrimary
-                    ? {
-                        backgroundColor: brandColor,
-                        // The brand ring would vanish on a brand fill, so an open
-                        // primary tile rings in its readable colour instead.
-                        boxShadow: isOpen
-                          ? `0 0 0 2px ${onPrimary}`
-                          : undefined,
-                      }
-                    : isOpen
-                      ? { boxShadow: `0 0 0 2px ${brandColor}` }
-                      : undefined
-                }
+                // Only the STATIC fill lives here. `boxShadow` used to be passed on
+                // this node too, toggling with `isOpen` — but framer-motion owns a
+                // motion element's `style` and does not reliably CLEAR a key that
+                // drops out of it. A card that had been open therefore kept its ring
+                // after another card was opened (and picked it up a commit late).
+                style={isPrimary ? { backgroundColor: brandColor } : undefined}
               >
+                {/* The open ring. A plain span, so React mounts and unmounts it
+                    outright and no stale inline shadow can survive the switch. The
+                    brand ring would vanish on a brand fill, so an open primary tile
+                    rings in its own readable colour instead. */}
+                {isOpen && (
+                  <span
+                    aria-hidden
+                    data-help-card-ring
+                    className="pointer-events-none absolute inset-0 rounded-2xl"
+                    style={{
+                      boxShadow: `0 0 0 2px ${isPrimary ? onPrimary : brandColor}`,
+                    }}
+                  />
+                )}
                 <h3
                   // Topic titles run a step larger than the Account Access card's,
                   // since those cards carry far less content.
