@@ -916,6 +916,9 @@ model Client {
   @@index([status])
   benefits Benefit[]
   commentThreads CommentThread[]
+  // Topic framework (TF-1): placements and Quick Answers groups are plan-scoped.
+  topicPlacements TopicPlacement[]
+  accordionGroups AccordionGroup[]
 }
 
 // Benefit model — one row per (clientId, category)
@@ -1007,6 +1010,140 @@ model Benefit {
   @@unique([clientId, category])
   @@index([clientId])
   @@index([category])
+}
+
+// ── Topic framework (TF-1) ──────────────────────────────────────────────────
+//
+// Three objects, exactly as the handoff describes them:
+//
+//   Topic          the CONTENT, written once and shared by every plan
+//   TopicPlacement puts one topic on ONE plan, in ONE location, with its display
+//                  mode, order and per-plan overrides
+//   AccordionGroup names the Quick Answers group a placement sits in
+//
+// Additive on purpose: `Benefit.helpCards` and `Benefit.faqs` stay the live source
+// until the read path is switched per plan (see lib/topics/read-source.ts and
+// plans/benefits-topic-framework-tf1-tf4.md). Nothing here reads or writes them.
+
+enum TopicScope {
+  system
+  org
+}
+
+enum TopicStatus {
+  active
+  archived
+}
+
+/// `quick_answers` is the handoff's "accordion" mode — the topic is listed under
+/// Quick Answers instead of rendering as a Featured card.
+enum TopicDisplayMode {
+  featured
+  quick_answers
+  hidden
+}
+
+/// A location is a hub topics can render on. `employee_resources` is reserved for
+/// TF-6: it is never seeded and never rendered in this build, but reserving the
+/// value now means adding that hub needs no migration.
+enum TopicLocation {
+  retirement
+  group_health
+  group_life
+  custom
+  employee_resources
+}
+
+/// One reusable topic in the library.
+model Topic {
+  id     String     @id @default(cuid())
+  scope  TopicScope @default(system)
+  /// Null for system topics, required for org-authored ones.
+  organizationId String?
+  /// Stable identifier, namespaced so ONE unique constraint covers both scopes:
+  /// `sys.rollovers-distributions` or `org.<organizationId>.<slug>`.
+  slug String @unique
+
+  title   String
+  summary String?
+  /// An icon key from the portal icon set (see components/icons.tsx).
+  iconKey String?
+  /// Card image — an R2 key or an external URL.
+  imageKey String?
+  /// Ordered content blocks for the answer panel (types/topic.ts → TopicBodyBlock).
+  bodyBlocks Json?
+  tags       String[] @default([])
+  /// Locations this topic belongs to by default, used when seeding a plan so a
+  /// topic's home categories travel with it instead of living in seed code.
+  defaultLocations TopicLocation[] @default([])
+  /// Cross-category Action Hub (TF-5). Present now so seeding needs no migration.
+  isActionHub Boolean @default(false)
+  /// Default conversion CTA: { label, actionType, destination } (TF-11).
+  defaultCta Json?
+  status     TopicStatus @default(active)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  placements TopicPlacement[]
+
+  @@index([scope])
+  @@index([organizationId])
+  @@index([status])
+}
+
+/// One topic, placed on one plan, in one location.
+///
+/// The `clientId + topicId + location` unique is what makes seeding idempotent:
+/// re-running the seeder updates a plan's placement instead of duplicating it, and
+/// the same topic can still appear in two locations of the same plan.
+model TopicPlacement {
+  id       String @id @default(cuid())
+  clientId String
+  topicId  String
+  location TopicLocation
+
+  displayMode TopicDisplayMode @default(featured)
+  /// The Quick Answers group. Null for a Featured or Hidden placement.
+  groupId String?
+  /// Order within the zone: among Featured cards, or within the group's questions.
+  sortOrder Int @default(0)
+  /// Per-plan overrides of the topic's copy / CTA, merged by the effective-topic
+  /// resolver. Never written to the Topic itself, so one plan cannot edit another.
+  overrides Json?
+  /// This location's row in the Action Hub panel (TF-5).
+  actionHubLink Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client Client          @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  topic  Topic           @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  group  AccordionGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  @@unique([clientId, topicId, location])
+  @@index([clientId, location, sortOrder])
+  @@index([topicId])
+  @@index([groupId])
+}
+
+/// A named Quick Answers group for one plan + location. Advisors rename, add and
+/// reorder these; the placement's `groupId` says which one a question sits in.
+model AccordionGroup {
+  id       String        @id @default(cuid())
+  clientId String
+  location TopicLocation
+  name     String
+  sortOrder Int          @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  client     Client           @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  placements TopicPlacement[]
+
+  @@unique([clientId, location, name])
+  @@index([clientId, location, sortOrder])
 }
 
 // A comment thread anchored to a section, or a selected text range, of a Plan

@@ -17,6 +17,7 @@ import {
 import { removeBenefitCategoryAccess } from "@/lib/teammates/assignments.server";
 import { resolveOrganizationId } from "@/lib/organization";
 import type { PermissionFunction } from "@/types/teammate";
+import { ensureLocationSeeded } from "@/lib/topics/seed-plan-topics";
 
 /**
  * Shared helper: resolve a client by ObjectId or slug, then authorize the caller.
@@ -248,6 +249,19 @@ export async function PUT(
         });
       }
     }
+
+    // TF-1: seeding the default topics only makes sense when this save CREATES the
+    // category. One indexed lookup is cheaper than seeding on every autosave, and it
+    // keeps a later save from touching a layout the advisor already arranged.
+    // `updateOnly` saves have already proved the row exists.
+    const existedBeforeSave = updateOnly
+      ? true
+      : Boolean(
+          await prisma.benefit.findUnique({
+            where: { clientId_category: { clientId, category } },
+            select: { id: true },
+          }),
+        );
 
     // ── Persist branding as R2 KEYS, never data URLs ──
     //
@@ -483,6 +497,22 @@ export async function PUT(
         isEnabled: body.isEnabled !== undefined ? body.isEnabled : undefined,
       },
     });
+
+    // TF-1: a NEW category starts with the library's default Featured cards and Quick
+    // Answers. Deliberately after the row is written and never fatal: a seeding failure
+    // must not fail a benefit save, and the read path still falls back to the legacy
+    // `helpCards` / `faqs` JSON until the plan is switched over.
+    if (!existedBeforeSave) {
+      try {
+        await ensureLocationSeeded({ clientId, category });
+      } catch (seedError) {
+        console.error(
+          "[benefits] topic seeding failed:",
+          category,
+          seedError,
+        );
+      }
+    }
 
     // DUAL-WRITE: Sync benefit back to employeePortalPreview JSON for backward compatibility
     try {
