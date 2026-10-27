@@ -4,8 +4,6 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import { useParams } from "next/navigation";
 import useSWR from "swr";
-import { FAQSection, DynamicFAQItem } from "@/components/faq-section";
-import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { buildFaqSupportContacts } from "@/lib/faq-support-contacts";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
@@ -33,7 +31,7 @@ import {
 } from "@/lib/map-plan-documents-for-benefit-hub";
 import { getBenefitFromPreview } from "@/lib/benefit-data-helpers";
 import type { BenefitData } from "@/types/benefit";
-import type { ResolvedLocationTopics } from "@/types/topic";
+import type { TopicsPayload } from "@/types/topic";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -53,10 +51,13 @@ export default function RetirementPage() {
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
 
-  // Fetch benefit data from the new Benefit API (typed, no more JSON rummaging)
+  // Fetch benefit data from the new Benefit API (typed, no more JSON rummaging).
+  // `withTopics=1` asks for the plan's resolved placements: they are now the hub's
+  // ONLY source of questions, so they are no longer withheld pending the rollout flag
+  // that used to decide between placements and the old FAQ accordion.
   const { data: benefitApiData } = useSWR(
     clientId
-      ? `/api/clients/${clientId}/benefits/Retirement?forPortal=1`
+      ? `/api/clients/${clientId}/benefits/Retirement?forPortal=1&withTopics=1`
       : null,
     fetcher,
     { revalidateOnFocus: false, dedupingInterval: 60_000 },
@@ -80,15 +81,14 @@ export default function RetirementPage() {
   const planGroupIdLabel = formatPlanGroupIdLabel(benefitData?.insurancePlanId);
   const accountAccessHref = benefitData?.insuranceLoginUrl || undefined;
 
-  // TF-2: this hub's resolved topic placements. The API only returns them when the
-  // plan is on the framework's rollout list, but `source` is checked anyway so a
-  // non-rolled-out plan can never accidentally render placements.
+  // TF-2: this hub's resolved topic placements. `source` says whether participants
+  // WOULD have been reading placements before the FAQ accordion was retired; the page
+  // renders them either way, because there is no longer a fallback to switch to.
   const topicsPayload = benefitApiData?.topics as
-    | (ResolvedLocationTopics & { source?: string })
+    | TopicsPayload
     | null
     | undefined;
-  const topics =
-    topicsPayload?.source === "placements" ? topicsPayload : null;
+  const topics = topicsPayload ?? null;
 
   /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
   const documentsSig = useMemo(() => {
@@ -102,27 +102,6 @@ export default function RetirementPage() {
 
   const clientDataRef = useRef(clientData);
   clientDataRef.current = clientData;
-
-  // Extract FAQs for this category from the benefit data.
-  // Falls back to Retirement-specific defaults when no custom FAQs are saved yet.
-  const faqsForCategory = useMemo(() => {
-    const faqs = benefitData?.faqs;
-    let list: DynamicFAQItem[] | undefined;
-    if (faqs && Array.isArray(faqs)) {
-      const enabled = faqs.filter(
-        (f: any) => f.enabled !== false,
-      ) as DynamicFAQItem[];
-      if (enabled.length > 0) list = enabled;
-    }
-    // Fall back to default Retirement FAQs when no custom ones are saved
-    if (!list) {
-      const defaults = DEFAULT_FAQS["Retirement"];
-      if (defaults && defaults.length > 0) {
-        list = defaults as DynamicFAQItem[];
-      }
-    }
-    return list;
-  }, [benefitData]);
 
   // Resolve the category's support contacts from the benefit's selection. The resolver
   // matches each `contactId` against the plan's LIVE contacts (profile + assignment) and
@@ -256,26 +235,19 @@ export default function RetirementPage() {
           // Placements win when this plan has them; otherwise the section falls back
           // to the saved legacy card layout.
           topics={topics?.featured}
+          actionHubPanels={topics?.actionHubPanels}
           cards={(benefitData as any)?.helpCards ?? undefined}
         />
 
-        {/* Quick Answers replaces the accordion only for a plan whose placements are
-            live; every other plan keeps the section it has today. */}
-        {topics && topics.groups.length > 0 ? (
-          <QuickAnswersSection
-            groups={topics.groups}
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            basePath={`/${clientId}`}
-          />
-        ) : (
-          <FAQSection
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            faqs={faqsForCategory}
-            contacts={supportContactsForFAQ}
-          />
-        )}
+        {/* Quick Answers replaces the FAQ accordion on this hub. It renders nothing at
+            all when the plan has no questions, so the section cannot appear empty. */}
+        <QuickAnswersSection
+          groups={topics?.groups ?? []}
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          basePath={`/${clientId}`}
+          actionHubPanels={topics?.actionHubPanels}
+        />
 
         <BenefitDocumentSection
           brandColor={brandColor}

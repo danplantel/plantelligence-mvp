@@ -168,6 +168,8 @@ describe("planBoardApply", () => {
         displayMode: "quick_answers",
         groupId: "name:new group",
         sortOrder: 0,
+        // A new placement always states its sub-link, `null` when there is none.
+        actionHubLink: null,
       },
     ]);
   });
@@ -238,6 +240,118 @@ describe("planBoardApply", () => {
     expect(plan.placementsToCreate[0].groupId).toBeNull();
   });
 
+  it("writes an Action Hub sub-link onto the placement it belongs to", () => {
+    const plan = planBoardApply({
+      current: { groups: [], placements: [placement()] },
+      next: board({
+        placements: [
+          {
+            topicId: "topic-1",
+            displayMode: "featured",
+            actionHubLink: { label: "Voya Retirement", url: "voya.test/b" },
+          },
+        ],
+      }),
+    });
+
+    expect(plan.placementsToUpdate).toEqual([
+      {
+        id: "placement-1",
+        displayMode: "featured",
+        groupId: null,
+        sortOrder: 0,
+        actionHubLink: { label: "Voya Retirement", url: "voya.test/b" },
+      },
+    ]);
+  });
+
+  it("leaves a stored sub-link alone when the board never mentions one", () => {
+    const plan = planBoardApply({
+      current: {
+        groups: [],
+        placements: [
+          placement({ actionHubLink: { url: "https://voya.test/b" }, sortOrder: 0 }),
+        ],
+      },
+      // Only a reorder: no `actionHubLink` key at all.
+      next: board({
+        placements: [{ topicId: "topic-1", displayMode: "featured", sortOrder: 1 }],
+      }),
+    });
+
+    expect(plan.placementsToUpdate).toEqual([
+      {
+        id: "placement-1",
+        displayMode: "featured",
+        groupId: null,
+        sortOrder: 1,
+      },
+    ]);
+    expect(plan.placementsToUpdate[0]).not.toHaveProperty("actionHubLink");
+  });
+
+  it("clears a sub-link the advisor emptied", () => {
+    const plan = planBoardApply({
+      current: {
+        groups: [],
+        placements: [placement({ actionHubLink: { url: "https://voya.test/b" } })],
+      },
+      next: board({
+        placements: [
+          // Both fields cleared: the row falls back to the provider URL.
+          { topicId: "topic-1", displayMode: "featured", actionHubLink: { url: "" } },
+        ],
+      }),
+    });
+
+    expect(plan.placementsToUpdate[0].actionHubLink).toBeNull();
+  });
+
+  it("does not write a sub-link that did not change", () => {
+    const plan = planBoardApply({
+      current: {
+        groups: [],
+        placements: [placement({ actionHubLink: { label: "Voya", url: "voya.test" } })],
+      },
+      next: board({
+        placements: [
+          {
+            topicId: "topic-1",
+            displayMode: "featured",
+            actionHubLink: { label: "Voya", url: "voya.test" },
+          },
+        ],
+      }),
+    });
+
+    expect(plan.placementsToUpdate).toEqual([]);
+  });
+
+  it("carries the sub-link onto a brand-new placement", () => {
+    const plan = planBoardApply({
+      current: { groups: [], placements: [] },
+      next: board({
+        placements: [
+          {
+            topicId: "topic-9",
+            displayMode: "featured",
+            actionHubLink: { url: "https://metlife.test/b" },
+          },
+        ],
+      }),
+    });
+
+    expect(plan.placementsToCreate).toEqual([
+      {
+        topicId: "topic-9",
+        displayMode: "featured",
+        groupId: null,
+        sortOrder: 0,
+        actionHubLink: { url: "https://metlife.test/b" },
+      },
+    ]);
+  });
+
   it("adds a library topic as a new placement in a group", () => {
     const plan = planBoardApply({
       current: { groups: [group()], placements: [placement()] },
@@ -261,6 +375,7 @@ describe("planBoardApply", () => {
         displayMode: "quick_answers",
         groupId: "group-1",
         sortOrder: 0,
+        actionHubLink: null,
       },
     ]);
   });

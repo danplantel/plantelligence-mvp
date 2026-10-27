@@ -27,8 +27,8 @@ const mocks = vi.hoisted(() => ({
   isR2Configured: vi.fn(() => false),
   getPresignedReadUrl: vi.fn(async () => "https://signed.test/video.mp4"),
   prisma: {
-    client: { findFirst: vi.fn() },
-    benefit: { findUnique: vi.fn() },
+    client: { findFirst: vi.fn(), findUnique: vi.fn() },
+    benefit: { findUnique: vi.fn(), findMany: vi.fn() },
     topicPlacement: { count: vi.fn(), findMany: vi.fn() },
     accordionGroup: { findMany: vi.fn() },
   },
@@ -96,6 +96,9 @@ vi.mock("@/lib/branding-r2", () => ({
 }));
 vi.mock("@/lib/portal-category-visibility", () => ({
   getCategoryPortalVisibility: (raw: unknown) => raw ?? {},
+  // The real helper maps a Benefit category onto Portal Visibility's four keys; the
+  // fixtures below already use those keys, so identity keeps the test readable.
+  benefitCategoryToVisibilityKey: (category: string) => category,
 }));
 
 function plan(overrides: Record<string, unknown> = {}) {
@@ -129,6 +132,22 @@ function callGet(slug = "acme") {
   });
 }
 
+/** One placement of an Action Hub topic, as the joined read returns it. */
+function actionHubPlacement(location = "retirement") {
+  const row = placementRow();
+  return {
+    ...row,
+    location,
+    actionHubLink: null,
+    topic: {
+      ...row.topic,
+      slug: "sys.beneficiaries",
+      title: "Update My Beneficiaries",
+      isActionHub: true,
+    },
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
   vi.unstubAllEnvs();
@@ -138,7 +157,11 @@ beforeEach(() => {
   mocks.isLocalDevLoopback.mockReturnValue(false);
   mocks.isR2Configured.mockReturnValue(false);
   mocks.prisma.client.findFirst.mockResolvedValue(plan());
+  mocks.prisma.client.findUnique.mockResolvedValue({
+    categoryPortalVisibility: {},
+  });
   mocks.prisma.benefit.findUnique.mockResolvedValue(benefit());
+  mocks.prisma.benefit.findMany.mockResolvedValue([]);
   mocks.prisma.topicPlacement.count.mockResolvedValue(0);
   mocks.prisma.topicPlacement.findMany.mockResolvedValue([]);
   mocks.prisma.accordionGroup.findMany.mockResolvedValue([]);
@@ -366,6 +389,18 @@ describe("topics block", () => {
     expect(mocks.prisma.topicPlacement.count).not.toHaveBeenCalled();
   });
 
+  it("asks for no panels when this location has no Action Hub topic", async () => {
+    vi.stubEnv("TOPIC_FRAMEWORK_PLANS", "plan-1");
+    mocks.prisma.topicPlacement.count.mockResolvedValue(1);
+    mocks.prisma.topicPlacement.findMany.mockResolvedValue([placementRow()]);
+
+    const body = await (await callGet()).json();
+
+    expect(body.topics.actionHubPanels).toEqual({});
+    // The extra reads only happen for a topic that can actually open a panel.
+    expect(mocks.prisma.client.findUnique).not.toHaveBeenCalled();
+  });
+
   it("never fails the page when the topic query throws", async () => {
     vi.stubEnv("TOPIC_FRAMEWORK_PLANS", "plan-1");
     mocks.prisma.topicPlacement.count.mockRejectedValue(
@@ -376,5 +411,102 @@ describe("topics block", () => {
 
     expect(response.status).toBe(200);
     expect((await response.json()).topics).toBeNull();
+  });
+});
+
+/** TF-5: the rows an Action Hub panel offers, resolved for this plan only. */
+describe("action hub panels", () => {
+  /** The placements the panel reads — every location that holds the same topic. */
+  function placementsAcrossLocations() {
+    return [
+      { topicId: "topic-1", location: "retirement", actionHubLink: null },
+      {
+        topicId: "topic-1",
+        location: "group_life",
+        actionHubLink: { label: "MetLife", url: "metlife.test/beneficiaries" },
+      },
+    ];
+  }
+
+  function benefitsByCategory() {
+    return [
+      {
+        category: "Retirement",
+        insuranceLoginUrl: "https://voya.test/beneficiaries",
+        providerContact: null,
+      },
+      {
+        category: "Group Life",
+        insuranceLoginUrl: "https://metlife.test/login",
+        providerContact: null,
+      },
+    ];
+  }
+
+  it("lists every benefit that holds the action, keyed by the topic's slug", async () => {
+    vi.stubEnv("TOPIC_FRAMEWORK_PLANS", "plan-1");
+    mocks.prisma.topicPlacement.count.mockResolvedValue(1);
+    mocks.prisma.topicPlacement.findMany
+      .mockResolvedValueOnce([actionHubPlacement()])
+      .mockResolvedValueOnce(placementsAcrossLocations());
+    mocks.prisma.benefit.findMany.mockResolvedValue(benefitsByCategory());
+
+    const body = await (await callGet()).json();
+
+    expect(body.topics.actionHubPanels).toEqual({
+      "sys.beneficiaries": [
+        {
+          location: "retirement",
+          label: "Retirement",
+          href: "https://voya.test/beneficiaries",
+          external: true,
+          source: "provider",
+        },
+        {
+          // The advisor's per-location sub-link wins over the provider's login URL.
+          location: "group_life",
+          label: "MetLife",
+          href: "https://metlife.test/beneficiaries",
+          external: true,
+          source: "placement",
+        },
+      ],
+    });
+  });
+
+  it("never counts a hidden placement as a row", async () => {
+    vi.stubEnv("TOPIC_FRAMEWORK_PLANS", "plan-1");
+    mocks.prisma.topicPlacement.count.mockResolvedValue(1);
+    mocks.prisma.topicPlacement.findMany
+      .mockResolvedValueOnce([actionHubPlacement()])
+      .mockResolvedValueOnce(placementsAcrossLocations());
+    mocks.prisma.benefit.findMany.mockResolvedValue(benefitsByCategory());
+
+    await callGet();
+
+    expect(mocks.prisma.topicPlacement.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ displayMode: { not: "hidden" } }),
+      }),
+    );
+  });
+
+  it("drops the row of a benefit switched off in Portal Visibility", async () => {
+    vi.stubEnv("TOPIC_FRAMEWORK_PLANS", "plan-1");
+    mocks.prisma.topicPlacement.count.mockResolvedValue(1);
+    mocks.prisma.topicPlacement.findMany
+      .mockResolvedValueOnce([actionHubPlacement()])
+      .mockResolvedValueOnce(placementsAcrossLocations());
+    mocks.prisma.benefit.findMany.mockResolvedValue(benefitsByCategory());
+    mocks.prisma.client.findUnique.mockResolvedValue({
+      categoryPortalVisibility: { "Group Life": false },
+    });
+
+    const body = await (await callGet()).json();
+
+    expect(body.topics.actionHubPanels["sys.beneficiaries"]).toHaveLength(1);
+    expect(body.topics.actionHubPanels["sys.beneficiaries"][0].location).toBe(
+      "retirement",
+    );
   });
 });

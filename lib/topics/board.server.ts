@@ -1,3 +1,5 @@
+import { Prisma } from "@prisma/client";
+
 import prisma from "@/lib/prisma";
 import {
   FEATURED_CAP,
@@ -9,6 +11,7 @@ import {
 } from "@/lib/topics/board";
 import { resolveEffectiveTopic } from "@/lib/topics/effective-topic";
 import type {
+  ActionHubLink,
   EffectiveTopic,
   TopicLocation,
   TopicPlacementRecord,
@@ -96,6 +99,20 @@ function toPlacementRecord(row: {
     overrides: row.overrides,
     actionHubLink: row.actionHubLink,
   };
+}
+
+/**
+ * A sub-link as a Prisma Json input value.
+ *
+ * `ActionHubLink` is a hand-written interface, so it has no index signature and the
+ * generated input type cannot accept it directly. `DbNull` is how Prisma clears a
+ * nullable Json column — a bare `null` is rejected by the same type.
+ */
+function actionHubLinkJson(
+  link: ActionHubLink | null | undefined,
+): Prisma.InputJsonValue | Prisma.NullTypes.DbNull {
+  if (!link) return Prisma.DbNull;
+  return { ...link } as unknown as Prisma.InputJsonObject;
 }
 
 /**
@@ -234,6 +251,11 @@ export async function applyTopicBoard(params: {
           displayMode: placement.displayMode,
           groupId: placement.groupId,
           sortOrder: placement.sortOrder,
+          // TF-5: only written when the board carried a sub-link, so a plain reorder
+          // can never blank one.
+          ...(placement.actionHubLink === undefined
+            ? {}
+            : { actionHubLink: actionHubLinkJson(placement.actionHubLink) }),
         },
       });
     }
@@ -254,6 +276,7 @@ export async function applyTopicBoard(params: {
           displayMode: placement.displayMode,
           groupId,
           sortOrder: placement.sortOrder,
+          actionHubLink: actionHubLinkJson(placement.actionHubLink),
         },
       });
     }

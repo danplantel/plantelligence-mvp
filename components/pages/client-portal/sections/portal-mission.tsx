@@ -3,6 +3,7 @@
 import { motion } from "framer-motion";
 import { useRef, useState, KeyboardEvent } from "react";
 import { Pencil } from "lucide-react";
+import { readableColor } from "polished";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { portalRadiusValue } from "@/lib/typography-themes";
 
@@ -118,7 +119,10 @@ export function PortalMission({
           <div className="flex flex-col justify-center p-4 sm:p-6 lg:p-10">
             <div className="relative">
               <h2
-                className={`mb-4 sm:mb-5 font-dm-serif text-xl sm:text-2xl md:text-3xl lg:text-[34px] leading-tight ${onMissionHeadlineClick
+                // `text-gray-900`, matching "How Can We Help You Today?" — the
+                // landing page's section headings all read in one colour, and none of
+                // them takes the plan's brand colour.
+                className={`mb-4 sm:mb-5 font-dm-serif text-gray-900 text-xl sm:text-2xl md:text-3xl lg:text-[34px] leading-tight ${onMissionHeadlineClick
                   ? `${showEditIndicators
                       ? `cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70 ${hoveredElement === "headline"
                           ? "opacity-90 ring-2 ring-blue-500/50 rounded-md px-2 -mx-2"
@@ -128,7 +132,6 @@ export function PortalMission({
                     }`
                   : ""
                   }`}
-                style={{ color: brandColor }}
                 role={onMissionHeadlineClick ? "button" : undefined}
                 tabIndex={onMissionHeadlineClick ? 0 : undefined}
                 onClick={(e) => {
@@ -193,9 +196,13 @@ export function PortalMission({
             </div>
             <button
               onClick={handleScrollDown}
-              className="w-full sm:w-auto sm:self-start px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm md:text-base text-white uppercase font-semibold rounded-md transition-colors duration-200 hover:opacity-90"
+              // Every CTA on the landing page wears the plan's PRIMARY colour; the
+              // label switches to the readable colour for that fill instead of a
+              // hard-coded white, which fails on a light brand.
+              className="w-full sm:w-auto sm:self-start px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm md:text-base uppercase font-semibold rounded-md transition-colors duration-200 hover:opacity-90"
               style={{
-                background: secondaryColor || brandColor || "#D4A574",
+                backgroundColor: brandColor,
+                color: readableColor(brandColor),
                 borderRadius: portalRadiusValue(),
               }}
               aria-label="Explore your benefits"

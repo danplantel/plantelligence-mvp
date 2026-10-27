@@ -6,6 +6,7 @@ import { useRef, KeyboardEvent, ReactNode, useState } from "react";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { isR2BrandingKey } from "@/lib/branding-image-url";
 import { portalRadiusValue } from "@/lib/typography-themes";
+import { readableColor } from "polished";
 
 interface PortalHeroProps {
   companyData?: {
@@ -563,9 +564,12 @@ export function PortalHero({
               />
               <Button
                 type="submit"
-                className="h-9 shrink-0 rounded-lg px-5 text-sm font-semibold text-white shadow-none"
+                // Primary brand colour like every other CTA on the landing page,
+                // with the readable colour for the label instead of a fixed white.
+                className="h-9 shrink-0 rounded-lg px-5 text-sm font-semibold shadow-none"
                 style={{
-                  background: secondaryColor,
+                  backgroundColor: brandColor,
+                  color: readableColor(brandColor),
                   borderRadius: portalRadiusValue(),
                 }}
               >

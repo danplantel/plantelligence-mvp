@@ -1,8 +1,8 @@
-# Benefits Topic Framework — TF-1 → TF-4 Build Plan
+# Benefits Topic Framework — TF-1 → TF-5 Build Plan
 
 Source: `Benefits_Topic_Framework_Handoff_FINAL.pdf` (§17 Tickets, build in order).
 Path: **B · Evolve** the existing templates. No standalone topic pages, no slide-over sheets.
-Scope of this plan: **TF-1, TF-2, TF-3, TF-4 only.** TF-5 → TF-13 are deliberately deferred.
+Scope of this plan: **TF-1, TF-2, TF-3, TF-4 and TF-5.** TF-6 → TF-13 are deferred.
 **The Video section is closed** — Phase 1 is shipped and nothing further will be built there (§0).
 
 ---
@@ -20,7 +20,9 @@ Scope of this plan: **TF-1, TF-2, TF-3, TF-4 only.** TF-5 → TF-13 are delibera
 
 Consequence for this plan: **no card-style work is planned.** The only obligation is that every new surface (Featured topic tiles, Quick Answers rows, the builder) consumes the existing `--portal-radius` / `portalRadiusValue()` treatment so a plan's chosen look keeps applying to them.
 
-**`how-can-we-help-section.tsx` is the Featured half of TF-2, not the whole ticket.** It renders from the static catalog (`helpCardCatalogFor` → `resolveHelpCardRows(cards, category)`), keyed to seven hard-coded ids, so it cannot yet show a placement. It contains no Quick Answers area — the hubs render the older [`FAQSection`](components/faq-section.tsx:182) below it, with no groups and no search. It has no per-answer URL or `&option=` deep link, non-Rollovers panels are paragraphs only, and the section always renders, so there is no hide-when-empty.
+**`how-can-we-help-section.tsx` is the Featured half of TF-2, not the whole ticket.** It renders from the static catalog (`helpCardCatalogFor` → `resolveHelpCardRows(cards, category)`), keyed to seven hard-coded ids, so it cannot yet show a placement. It has no per-answer URL or `&option=` deep link, non-Rollovers panels are paragraphs only, and the section always renders, so there is no hide-when-empty. *(Superseded by TF-2: placements now drive the grid and deep links are live.)*
+
+**The FAQ accordion is gone from the benefit hubs.** `FAQSection` is no longer rendered by any hub — `retirement`, `health-insurance`, `life-insurance` and `[custom-benefit-name]` all render [`QuickAnswersSection`](components/pages/client-portal/sections/quick-answers-section.tsx:177) in its place, fed by the plan's placements. The section returns `null` when there are no questions, so a plan with nothing placed shows no empty band. `components/faq-section.tsx` stays in the repo for surfaces outside the hubs but must not be wired back into one.
 
 TF-2 is therefore narrower than "build the page" but wider than "wire one component": feed this grid from placements, build the Quick Answers area beside it, add the URLs, and hide both when they resolve to nothing. The layout, the caret maths, the Account Access card and the Rollovers body are settled and must not be redrawn.
 

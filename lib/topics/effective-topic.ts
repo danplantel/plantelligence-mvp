@@ -189,6 +189,7 @@ export function resolveEffectiveTopic(
 
   const iconKey = asTrimmedString(topic.iconKey);
   const imageKey = asTrimmedString(topic.imageKey);
+  const actionHubLink = readActionHubLink(placement.actionHubLink);
 
   return {
     topicId: topic.id,
@@ -204,6 +205,7 @@ export function resolveEffectiveTopic(
     tags: readTags(topic.tags),
     isActionHub: topic.isActionHub === true,
     ...(cta ? { cta } : {}),
+    ...(actionHubLink ? { actionHubLink } : {}),
     groupId: placement.groupId ?? null,
     sortOrder: placement.sortOrder,
   };

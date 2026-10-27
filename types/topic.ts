@@ -90,6 +90,40 @@ export interface ActionHubLink {
   url?: string;
 }
 
+/** Where a row's destination came from, in the handoff's priority order. */
+export type ActionHubLinkSource = "placement" | "provider" | "contact";
+
+/**
+ * One actionable row in an Action Hub panel (TF-5, §6).
+ *
+ * The row is NOT a link into another page of this portal — it is a launcher. "Update
+ * my beneficiaries" lists every benefit that holds beneficiaries (Retirement, Group
+ * Life) and each row sends the participant to that provider's own beneficiary tools.
+ * That is why the destination is resolved from the placement's sub-link first, then
+ * from the category's provider, and only then from a contact.
+ */
+export interface ActionHubRow {
+  location: TopicLocation;
+  /** The hub this row belongs to: "Retirement", "Group Life", … */
+  label: string;
+  /** Ready to use: absolute URL, `mailto:`, `tel:`, or an in-portal path. */
+  href: string;
+  /** True when the link leaves the portal (open in a new tab). */
+  external: boolean;
+  source: ActionHubLinkSource;
+}
+
+/**
+ * What an Action Hub renders.
+ *
+ * `direct` is the single-row shortcut: one qualifying row means there is nothing to
+ * choose between, so the CTA links straight at it and no panel is drawn.
+ */
+export type ActionHubPanel =
+  | { mode: "none" }
+  | { mode: "direct"; row: ActionHubRow }
+  | { mode: "panel"; rows: ActionHubRow[] };
+
 /** A topic row as stored. `bodyBlocks`/`defaultCta` are JSON, so they are validated on read. */
 export interface TopicRecord {
   id: string;
@@ -147,6 +181,12 @@ export interface EffectiveTopic {
   tags: string[];
   isActionHub: boolean;
   cta?: TopicCta;
+  /**
+   * This location's Action Hub sub-link (TF-5), when the advisor set one. It is the
+   * FIRST source in the row's priority order; provider and contact links are resolved
+   * at read time because they live on the category, not the placement.
+   */
+  actionHubLink?: ActionHubLink;
   /** Set only for a `quick_answers` placement. */
   groupId?: string | null;
   sortOrder: number;
@@ -173,4 +213,18 @@ export interface ResolvedLocationTopics {
   groups: TopicGroup[];
   /** Placements deliberately hidden — never rendered, but useful to the builder. */
   hiddenCount: number;
+}
+
+/**
+ * The `topics` block `GET /api/clients/[id]/benefits/[category]` returns (TF-2), with
+ * the Action Hub panels attached (TF-5).
+ *
+ * `source` is what a hub page checks before rendering placements: a plan that is
+ * seeded but not rolled out still answers `legacy` and keeps today's page.
+ * `actionHubPanels` is keyed by the topic's PUBLISHED slug, which is what a rendered
+ * card carries — the ids never reach the address bar or the DOM.
+ */
+export interface TopicsPayload extends ResolvedLocationTopics {
+  source: "placements" | "legacy";
+  actionHubPanels: Record<string, ActionHubRow[]>;
 }

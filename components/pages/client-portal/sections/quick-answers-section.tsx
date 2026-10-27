@@ -14,7 +14,8 @@ import {
 } from "@/lib/topics/deep-link";
 import { resolveTopicHref } from "@/lib/topics/link-href";
 import { cn } from "@/lib/utils";
-import type { EffectiveTopic, TopicGroup } from "@/types/topic";
+import { ActionHubPanel } from "./action-hub-panel";
+import type { ActionHubRow, EffectiveTopic, TopicGroup } from "@/types/topic";
 
 /**
  * "Get Quick Answers" — the second question area on a benefit hub (TF-2).
@@ -47,6 +48,11 @@ export interface QuickAnswersSectionProps {
   secondaryColor?: string;
   /** Portal base path, so an internal CTA stays inside this plan. */
   basePath?: string;
+  /**
+   * Action Hub rows per topic slug (`topics.actionHubPanels`, TF-5). An answer whose
+   * slug has rows replaces its single CTA with the choice of benefits.
+   */
+  actionHubPanels?: Record<string, ActionHubRow[]> | null;
   className?: string;
 }
 
@@ -113,13 +119,17 @@ function TopicAnswer({
   brandColor,
   secondaryColor,
   basePath,
+  actionHubRows,
 }: {
   topic: EffectiveTopic;
   brandColor: string;
   secondaryColor: string;
   basePath: string;
+  /** TF-5: the other benefits this action applies to, when it is an Action Hub. */
+  actionHubRows?: ActionHubRow[];
 }) {
   const quickAnswer = topicQuickAnswer(topic);
+  const hasActionHub = !!actionHubRows && actionHubRows.length > 0;
 
   return (
     <div className="space-y-3">
@@ -143,23 +153,34 @@ function TopicAnswer({
         );
       })}
 
-      {topic.cta && (
-        <div className="pt-1">
-          <a
-            href={resolveTopicHref(topic.cta.destination, basePath).href || "#"}
-            {...(resolveTopicHref(topic.cta.destination, basePath).external
-              ? { target: "_blank", rel: "noopener noreferrer" }
-              : {})}
-            className="inline-flex min-h-10 items-center justify-center px-5 py-2 text-xs font-semibold uppercase tracking-[0.1em] transition-opacity hover:opacity-90"
-            style={{
-              backgroundColor: brandColor,
-              color: readableColor(brandColor),
-              borderRadius: portalRadiusValue(),
-            }}
-          >
-            {topic.cta.label}
-          </a>
-        </div>
+      {/* The Action Hub panel IS the CTA when there is a choice to make. With one
+          row it collapses to a single button, so both cases land here. */}
+      {hasActionHub ? (
+        <ActionHubPanel
+          rows={actionHubRows}
+          brandColor={brandColor}
+          basePath={basePath}
+          ctaLabel={topic.cta?.label}
+        />
+      ) : (
+        topic.cta && (
+          <div className="pt-1">
+            <a
+              href={resolveTopicHref(topic.cta.destination, basePath).href || "#"}
+              {...(resolveTopicHref(topic.cta.destination, basePath).external
+                ? { target: "_blank", rel: "noopener noreferrer" }
+                : {})}
+              className="inline-flex min-h-10 items-center justify-center px-5 py-2 text-xs font-semibold uppercase tracking-[0.1em] transition-opacity hover:opacity-90"
+              style={{
+                backgroundColor: brandColor,
+                color: readableColor(brandColor),
+                borderRadius: portalRadiusValue(),
+              }}
+            >
+              {topic.cta.label}
+            </a>
+          </div>
+        )
       )}
 
       {topic.isActionHub && (
@@ -179,6 +200,7 @@ export function QuickAnswersSection({
   brandColor = "#1F3A60",
   secondaryColor = "#6B7280",
   basePath = "",
+  actionHubPanels,
   className,
 }: QuickAnswersSectionProps) {
   const [query, setQuery] = useState("");
@@ -439,6 +461,7 @@ export function QuickAnswersSection({
                                   brandColor={brandColor}
                                   secondaryColor={secondaryColor}
                                   basePath={basePath}
+                                  actionHubRows={actionHubPanels?.[topic.slug]}
                                 />
                               </div>
                             )}
@@ -489,6 +512,7 @@ export function QuickAnswersSection({
               brandColor={brandColor}
               secondaryColor={secondaryColor}
               basePath={basePath}
+              actionHubRows={actionHubPanels?.[mobileTopic.slug]}
             />
           </div>
         </div>

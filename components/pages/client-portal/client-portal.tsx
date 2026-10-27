@@ -13,6 +13,7 @@ import {
 } from "./sections";
 import { motion } from "framer-motion";
 import { ChevronRight } from "lucide-react";
+import { readableColor } from "polished";
 import { KeyContact } from "@/types/new-client-wizard";
 import { resolveFooterBackgroundColor } from "@/lib/portal-footer-color";
 import { portalRadiusValue } from "@/lib/typography-themes";
@@ -114,8 +115,9 @@ function SomethingChanged({
       <div className="mx-auto max-w-7xl">
         <div className="mx-auto mb-10 max-w-2xl text-center">
           <h2
-            className="font-dm-serif text-3xl leading-tight sm:text-4xl lg:text-[40px]"
-            style={{ color: brandColor }}
+            // `text-gray-900`, matching "How Can We Help You Today?" — the third of
+            // the landing page's section headings, all in one colour.
+            className="font-dm-serif text-gray-900 text-3xl leading-tight sm:text-4xl lg:text-[40px]"
           >
             Something Changed? Start Here.
           </h2>
@@ -131,18 +133,19 @@ function SomethingChanged({
               key={label}
               type="button"
               className="group flex min-h-[72px] w-full items-center justify-between gap-3 rounded-xl border px-5 py-4 text-left shadow-sm transition-all duration-200 hover:opacity-90 hover:shadow-md"
-              // Life-event tiles follow the portal's typography theme corners.
+              // These tiles ARE buttons, so they take the plan's primary colour like
+              // every other CTA on the page; the label and chevron switch to the
+              // readable colour for that fill. Corners follow the typography theme.
               style={{
-                backgroundColor: secondaryColor,
-                borderColor: secondaryColor,
+                backgroundColor: brandColor,
+                borderColor: brandColor,
+                color: readableColor(brandColor),
                 borderRadius: portalRadiusValue(1.5),
               }}
             >
-              <span className="font-red-hat text-sm font-medium text-white">
-                {label}
-              </span>
+              <span className="font-red-hat text-sm font-medium">{label}</span>
               <ChevronRight
-                className="h-4 w-4 shrink-0 text-white transition-transform duration-200 group-hover:translate-x-0.5"
+                className="h-4 w-4 shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
                 aria-hidden="true"
               />
             </button>

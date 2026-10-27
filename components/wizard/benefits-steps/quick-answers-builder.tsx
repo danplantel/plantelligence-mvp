@@ -23,7 +23,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import type { EffectiveTopic, TopicLocation } from "@/types/topic";
+import { TOPIC_LOCATION_LABELS } from "@/lib/topic-locations";
+import type { ActionHubLink, EffectiveTopic, TopicLocation } from "@/types/topic";
 
 /**
  * "Get Quick Answers" — the builder for one location's question list (TF-3).
@@ -251,6 +252,57 @@ function countQuestions(draft: Draft): number {
   );
 }
 
+/** The ↔ pill the builder shows on an Action Hub topic (TF-5). */
+function ActionHubBadge() {
+  return (
+    <span
+      title="This action applies to more than one benefit"
+      aria-label="Action Hub: applies to more than one benefit"
+      className="shrink-0 rounded-full border border-muted bg-muted/40 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-muted-foreground"
+    >
+      ↔
+    </span>
+  );
+}
+
+/**
+ * This LOCATION's Action Hub sub-link (TF-5).
+ *
+ * An Action Hub is one topic in more than one benefit, so the link belongs to the
+ * placement, not the topic: "Update my beneficiaries" points at Voya on the Retirement
+ * hub and at MetLife on the Group Life hub. Leaving both fields empty is meaningful —
+ * the row then falls back to the category's provider login URL, and disappears if there
+ * is none. Committed on blur, so typing never hits the network.
+ */
+function ActionHubLinkFields({
+  link,
+  locationLabel,
+  onCommit,
+}: {
+  link?: ActionHubLink;
+  locationLabel: string;
+  onCommit: (patch: Partial<ActionHubLink>) => void;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+      <Input
+        defaultValue={link?.label ?? ""}
+        aria-label={`Action Hub row label for ${locationLabel}`}
+        placeholder={`Row label (${locationLabel})`}
+        onBlur={(event) => onCommit({ label: event.target.value.trim() })}
+        className="h-7 text-[11px]"
+      />
+      <Input
+        defaultValue={link?.url ?? ""}
+        aria-label={`Action Hub row link for ${locationLabel}`}
+        placeholder="https://provider.com/beneficiaries"
+        onBlur={(event) => onCommit({ url: event.target.value.trim() })}
+        className="h-7 text-[11px]"
+      />
+    </div>
+  );
+}
+
 export function QuickAnswersBuilder({
   planId,
   location,
@@ -304,11 +356,21 @@ export function QuickAnswersBuilder({
       });
     }
 
+    /**
+     * The sub-link travels with its placement. Sent only when the topic IS an Action
+     * Hub and the advisor set something, so a plain reorder can never blank one.
+     */
+    const placementLink = (topic: BoardTopic) =>
+      topic.isActionHub && topic.actionHubLink
+        ? { actionHubLink: topic.actionHubLink }
+        : {};
+
     const placements = [
       ...next.featured.map((topic, index) => ({
         topicId: topic.topicId,
         displayMode: "featured" as const,
         sortOrder: index,
+        ...placementLink(topic),
       })),
       ...next.groups.flatMap((group) =>
         group.topics.map((topic, index) => ({
@@ -317,6 +379,7 @@ export function QuickAnswersBuilder({
           // A group created in this request has no id; the server matches it by name.
           groupId: group.id.startsWith("new:") ? group.name : group.id,
           sortOrder: index,
+          ...placementLink(topic),
         })),
       ),
       ...next.ungrouped.map((topic, index) => ({
@@ -324,11 +387,13 @@ export function QuickAnswersBuilder({
         displayMode: "quick_answers" as const,
         groupId: null,
         sortOrder: index,
+        ...placementLink(topic),
       })),
       ...next.hidden.map((topic, index) => ({
         topicId: topic.topicId,
         displayMode: "hidden" as const,
         sortOrder: index,
+        ...placementLink(topic),
       })),
     ];
 
@@ -552,6 +617,32 @@ export function QuickAnswersBuilder({
     moveQuestion(topic, "ungrouped", target);
   };
 
+  /**
+   * Write this LOCATION's Action Hub sub-link onto one question.
+   *
+   * The same topic has a different link on each hub it is placed on, which is the whole
+   * point of the per-placement field. The question object is replaced wherever it sits
+   * (grouped, ungrouped or hidden) so dragging it afterwards cannot lose the link.
+   */
+  const setActionHubLink = (topic: BoardTopic, patch: Partial<ActionHubLink>) => {
+    if (!draft) return;
+    const link: ActionHubLink = { ...(topic.actionHubLink ?? {}), ...patch };
+    const withLink = (topics: BoardTopic[]) =>
+      topics.map((entry) =>
+        entry.topicId === topic.topicId ? { ...entry, actionHubLink: link } : entry,
+      );
+
+    void persist({
+      ...draft,
+      groups: draft.groups.map((group) => ({
+        ...group,
+        topics: withLink(group.topics),
+      })),
+      ungrouped: withLink(draft.ungrouped),
+      hidden: withLink(draft.hidden),
+    });
+  };
+
   if (!planId) return null;
 
   if (loadError) {
@@ -668,25 +759,38 @@ export function QuickAnswersBuilder({
                       group.topics.map((topic) => (
                         <div
                           key={topic.topicId}
-                          className="flex items-center gap-2 rounded-md border border-muted/60 px-2 py-1.5"
+                          className={cn(
+                            "rounded-md border border-muted/60 px-2 py-1.5",
+                            topic.isActionHub && "space-y-1.5",
+                          )}
                         >
-                          <span className="min-w-0 flex-1 truncate text-[12px] font-medium">
-                            {topic.title}
-                          </span>
-                          <select
-                            aria-label={`Move ${topic.title}`}
-                            value={group.id}
-                            onChange={(event) =>
-                              moveQuestion(
-                                topic,
-                                { groupId: group.id },
-                                event.target.value,
-                              )
-                            }
-                            className="h-7 rounded-md border border-muted bg-white px-1 text-[11px] dark:bg-gray-900"
-                          >
-                            {moveOptions(group.id)}
-                          </select>
+                          <div className="flex items-center gap-2">
+                            <span className="min-w-0 flex-1 truncate text-[12px] font-medium">
+                              {topic.title}
+                            </span>
+                            {topic.isActionHub && <ActionHubBadge />}
+                            <select
+                              aria-label={`Move ${topic.title}`}
+                              value={group.id}
+                              onChange={(event) =>
+                                moveQuestion(
+                                  topic,
+                                  { groupId: group.id },
+                                  event.target.value,
+                                )
+                              }
+                              className="h-7 rounded-md border border-muted bg-white px-1 text-[11px] dark:bg-gray-900"
+                            >
+                              {moveOptions(group.id)}
+                            </select>
+                          </div>
+                          {topic.isActionHub && (
+                            <ActionHubLinkFields
+                              link={topic.actionHubLink}
+                              locationLabel={TOPIC_LOCATION_LABELS[location]}
+                              onCommit={(patch) => setActionHubLink(topic, patch)}
+                            />
+                          )}
                         </div>
                       ))
                     )}
@@ -705,21 +809,34 @@ export function QuickAnswersBuilder({
                 {draft.ungrouped.map((topic) => (
                   <div
                     key={topic.topicId}
-                    className="flex items-center gap-2 rounded-md border border-muted/60 px-2 py-1.5"
+                    className={cn(
+                      "rounded-md border border-muted/60 px-2 py-1.5",
+                      topic.isActionHub && "space-y-1.5",
+                    )}
                   >
-                    <span className="min-w-0 flex-1 truncate text-[12px] font-medium">
-                      {topic.title}
-                    </span>
-                    <select
-                      aria-label={`Move ${topic.title}`}
-                      value={UNGROUPED_KEY}
-                      onChange={(event) =>
-                        moveQuestion(topic, "ungrouped", event.target.value)
-                      }
-                      className="h-7 rounded-md border border-muted bg-white px-1 text-[11px] dark:bg-gray-900"
-                    >
-                      {moveOptions(UNGROUPED_KEY)}
-                    </select>
+                    <div className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-[12px] font-medium">
+                        {topic.title}
+                      </span>
+                      {topic.isActionHub && <ActionHubBadge />}
+                      <select
+                        aria-label={`Move ${topic.title}`}
+                        value={UNGROUPED_KEY}
+                        onChange={(event) =>
+                          moveQuestion(topic, "ungrouped", event.target.value)
+                        }
+                        className="h-7 rounded-md border border-muted bg-white px-1 text-[11px] dark:bg-gray-900"
+                      >
+                        {moveOptions(UNGROUPED_KEY)}
+                      </select>
+                    </div>
+                    {topic.isActionHub && (
+                      <ActionHubLinkFields
+                        link={topic.actionHubLink}
+                        locationLabel={TOPIC_LOCATION_LABELS[location]}
+                        onCommit={(patch) => setActionHubLink(topic, patch)}
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -735,24 +852,37 @@ export function QuickAnswersBuilder({
                 {draft.hidden.map((topic) => (
                   <div
                     key={topic.topicId}
-                    className="flex items-center gap-2 rounded-md border border-muted/60 px-2 py-1.5"
+                    className={cn(
+                      "rounded-md border border-muted/60 px-2 py-1.5",
+                      topic.isActionHub && "space-y-1.5",
+                    )}
                   >
-                    <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground">
-                      {topic.title}
-                    </span>
-                    <select
-                      aria-label={`Restore ${topic.title}`}
-                      value="hidden"
-                      onChange={(event) =>
-                        moveQuestion(topic, "hidden", event.target.value)
-                      }
-                      className="h-7 rounded-md border border-muted bg-white px-1 text-[11px] dark:bg-gray-900"
-                    >
-                      <option value="hidden" disabled>
-                        Hidden
-                      </option>
-                      {moveOptions("hidden")}
-                    </select>
+                    <div className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground">
+                        {topic.title}
+                      </span>
+                      {topic.isActionHub && <ActionHubBadge />}
+                      <select
+                        aria-label={`Restore ${topic.title}`}
+                        value="hidden"
+                        onChange={(event) =>
+                          moveQuestion(topic, "hidden", event.target.value)
+                        }
+                        className="h-7 rounded-md border border-muted bg-white px-1 text-[11px] dark:bg-gray-900"
+                      >
+                        <option value="hidden" disabled>
+                          Hidden
+                        </option>
+                        {moveOptions("hidden")}
+                      </select>
+                    </div>
+                    {topic.isActionHub && (
+                      <ActionHubLinkFields
+                        link={topic.actionHubLink}
+                        locationLabel={TOPIC_LOCATION_LABELS[location]}
+                        onCommit={(patch) => setActionHubLink(topic, patch)}
+                      />
+                    )}
                   </div>
                 ))}
               </div>

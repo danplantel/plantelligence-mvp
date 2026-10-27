@@ -1,5 +1,7 @@
+import { readActionHubLink } from "@/lib/topics/effective-topic";
 import type {
   AccordionGroupRecord,
+  ActionHubLink,
   TopicDisplayMode,
   TopicLocation,
   TopicPlacementRecord,
@@ -41,6 +43,12 @@ export interface BoardPlacementInput {
    */
   groupId?: string | null;
   sortOrder?: number;
+  /**
+   * TF-5: this location's Action Hub sub-link. Only meaningful for an action-hub
+   * topic, and only used when ANOTHER location lists this one as a row. `null`
+   * clears it; omitted leaves it alone (see `planBoardApply`).
+   */
+  actionHubLink?: ActionHubLink | null;
 }
 
 export interface TopicBoardInput {
@@ -63,18 +71,43 @@ export interface BoardPlan {
     displayMode: TopicDisplayMode;
     groupId: string | null;
     sortOrder: number;
+    actionHubLink: ActionHubLink | null;
   }[];
   placementsToUpdate: {
     id: string;
     displayMode: TopicDisplayMode;
     groupId: string | null;
     sortOrder: number;
+    /** `undefined` means "the board said nothing about it" — do not overwrite. */
+    actionHubLink?: ActionHubLink | null;
   }[];
 }
 
 /** Case/whitespace-insensitive key for group matching. */
 function groupKey(name: string): string {
   return (name || "").trim().toLowerCase();
+}
+
+/**
+ * Only `{ label, url }` ever reaches storage, and only when it is usable — the
+ * sub-link is written into a `Json` column, so the reader cannot be the only guard.
+ */
+function normalizeActionHubLink(value: unknown): ActionHubLink | null {
+  return readActionHubLink(value) ?? null;
+}
+
+function sameActionHubLink(
+  next: ActionHubLink | null | undefined,
+  current: unknown,
+): boolean {
+  // `undefined` = the board did not mention it, so there is nothing to compare.
+  if (next === undefined) return true;
+  const left = next ?? {};
+  const right = readActionHubLink(current) ?? {};
+  return (
+    (left.label ?? "") === (right.label ?? "") &&
+    (left.url ?? "") === (right.url ?? "")
+  );
 }
 
 /**
@@ -193,18 +226,30 @@ export function planBoardApply(params: {
         ? resolveGroup(placement.groupId)
         : null;
     const existing = placementByTopic.get(placement.topicId);
+    // `undefined` = the board never mentioned a sub-link, which must NOT be read as
+    // "clear it": the builder only sends the field for a topic it owns, and a plain
+    // reorder must leave every other topic's sub-link exactly as it was.
+    const actionHubLink =
+      placement.actionHubLink === undefined
+        ? undefined
+        : normalizeActionHubLink(placement.actionHubLink);
 
     if (existing) {
+      const linkChanged = !sameActionHubLink(actionHubLink, existing.actionHubLink);
       if (
         existing.displayMode !== placement.displayMode ||
         (existing.groupId ?? null) !== groupId ||
-        existing.sortOrder !== sortOrder
+        existing.sortOrder !== sortOrder ||
+        linkChanged
       ) {
         placementsToUpdate.push({
           id: existing.id,
           displayMode: placement.displayMode,
           groupId,
           sortOrder,
+          // Only sent when the board actually carried one, so the builder cannot
+          // wipe a sub-link merely by omitting the field.
+          ...(linkChanged ? { actionHubLink } : {}),
         });
       }
       return;
@@ -215,6 +260,7 @@ export function planBoardApply(params: {
       displayMode: placement.displayMode,
       groupId,
       sortOrder,
+      actionHubLink: actionHubLink ?? null,
     });
   });
 

@@ -28,7 +28,8 @@ import {
 } from "@/lib/portal-section-anchors";
 import type { ProviderContact } from "@/types/benefit";
 import type { HelpCardLayoutEntry, HelpCardResolved } from "@/types/benefit";
-import type { EffectiveTopic } from "@/types/topic";
+import type { ActionHubRow, EffectiveTopic } from "@/types/topic";
+import { ActionHubPanel } from "./action-hub-panel";
 import { topicQuickAnswer } from "@/lib/topics/effective-topic";
 import {
   buildTopicUrl,
@@ -116,6 +117,11 @@ interface HowCanWeHelpSectionProps {
    * synthesised from the catalog and pinned first as the 2-wide primary.
    */
   topics?: EffectiveTopic[] | null;
+  /**
+   * Action Hub rows per topic slug (`topics.actionHubPanels`, TF-5). A card whose slug
+   * has rows offers the participant a choice of benefits instead of a single CTA.
+   */
+  actionHubPanels?: Record<string, ActionHubRow[]> | null;
   /** Click handler for editing a specific card. Receives the card's ID. */
   onCardEdit?: (cardId: string) => void;
 }
@@ -615,6 +621,7 @@ function HelpCardPanel({
   onTalkThrough,
   initialOptionId,
   onOptionChange,
+  actionHubRows,
 }: {
   card: HelpCardResolved;
   brandColor: string;
@@ -627,6 +634,11 @@ function HelpCardPanel({
   /** `&option=` deep link, forwarded to the Options Compare body. */
   initialOptionId?: string | null;
   onOptionChange?: (optionId: string | null) => void;
+  /**
+   * TF-5: the other benefits this action applies to. When present the panel replaces
+   * the single CTA — the choice IS the call to action.
+   */
+  actionHubRows?: ActionHubRow[];
 }) {
   // The Rollovers topic has its own body (options, pros/cons, CTA) instead of the
   // paragraph copy every other topic uses.
@@ -698,28 +710,37 @@ function HelpCardPanel({
         </>
       )}
 
-      {ctaLabel && (
-        <div className="mt-5">
-          {resolved && resolved.external ? (
-            <a
-              href={resolved.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={ctaClass}
-              style={ctaStyle}
-            >
-              {ctaLabel}
-            </a>
-          ) : resolved ? (
-            <Link href={resolved.href} className={ctaClass} style={ctaStyle}>
-              {ctaLabel}
-            </Link>
-          ) : (
-            <button type="button" className={ctaClass} style={ctaStyle}>
-              {ctaLabel}
-            </button>
-          )}
-        </div>
+      {actionHubRows && actionHubRows.length > 0 ? (
+        <ActionHubPanel
+          rows={actionHubRows}
+          brandColor={brandColor}
+          basePath={basePath}
+          ctaLabel={ctaLabel}
+        />
+      ) : (
+        ctaLabel && (
+          <div className="mt-5">
+            {resolved && resolved.external ? (
+              <a
+                href={resolved.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={ctaClass}
+                style={ctaStyle}
+              >
+                {ctaLabel}
+              </a>
+            ) : resolved ? (
+              <Link href={resolved.href} className={ctaClass} style={ctaStyle}>
+                {ctaLabel}
+              </Link>
+            ) : (
+              <button type="button" className={ctaClass} style={ctaStyle}>
+                {ctaLabel}
+              </button>
+            )}
+          </div>
+        )
       )}
     </div>
   );
@@ -735,6 +756,7 @@ export function HowCanWeHelpSection({
   provider,
   cards,
   topics,
+  actionHubPanels,
   onCardEdit,
 }: HowCanWeHelpSectionProps) {
   const basePath = clientId ? `/${clientId}` : "";
@@ -1197,6 +1219,7 @@ export function HowCanWeHelpSection({
                   brandColor={brandColor}
                   basePath={basePath}
                   contactName={benefitContactName}
+                  actionHubRows={actionHubPanels?.[openCard.id]}
                   // Sends the reader to the contact's card in "Have Questions?"
                   // rather than opening the scheduling URL in another tab — the
                   // person (and their email / phone) is right there.

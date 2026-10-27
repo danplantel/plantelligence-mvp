@@ -19,12 +19,18 @@ import { resolveOrganizationId } from "@/lib/organization";
 import type { PermissionFunction } from "@/types/teammate";
 import { ensureLocationSeeded } from "@/lib/topics/seed-plan-topics";
 import { loadLocationTopics } from "@/lib/topics/resolve-location";
+import { loadActionHubPanels } from "@/lib/topics/action-hub.server";
 import {
   isTopicFrameworkArmed,
   topicReadSourceForPlan,
 } from "@/lib/topics/read-source";
 import { topicLocationForCategory } from "@/lib/topic-locations";
-import type { ResolvedLocationTopics } from "@/types/topic";
+import type {
+  ActionHubRow,
+  EffectiveTopic,
+  ResolvedLocationTopics,
+  TopicsPayload as SharedTopicsPayload,
+} from "@/types/topic";
 
 /**
  * Shared helper: resolve a client by ObjectId or slug, then authorize the caller.
@@ -184,11 +190,29 @@ async function signBenefitVideo(b: any) {
  * A failure here is logged and swallowed: a participant's benefit page must not 500
  * because an optional section could not be resolved.
  */
+/** The shared shape the hub pages cast the response to (see `types/topic.ts`). */
+type TopicsPayload = SharedTopicsPayload;
+
+/** Every visible topic on this location that can open an Action Hub panel. */
+function actionHubTopics(resolved: ResolvedLocationTopics): EffectiveTopic[] {
+  const visible = [
+    ...resolved.featured,
+    ...resolved.groups.flatMap((group) => group.topics),
+  ].filter((topic) => topic.isActionHub);
+
+  const seen = new Set<string>();
+  return visible.filter((topic) => {
+    if (seen.has(topic.topicId)) return false;
+    seen.add(topic.topicId);
+    return true;
+  });
+}
+
 async function loadTopicsPayload(params: {
   clientId: string;
   category: string;
   withTopics: boolean;
-}): Promise<({ source: ReturnType<typeof topicReadSourceForPlan> } & ResolvedLocationTopics) | null> {
+}): Promise<TopicsPayload | null> {
   const location = topicLocationForCategory(params.category);
   if (!location) return null;
   if (!params.withTopics && !isTopicFrameworkArmed()) return null;
@@ -201,7 +225,21 @@ async function loadTopicsPayload(params: {
     if (!params.withTopics && source === "legacy") return null;
 
     const resolved = await loadLocationTopics(params.clientId, location);
-    return { source, ...resolved };
+
+    // Rows are keyed by the topic's PUBLISHED slug, which is what a rendered card
+    // carries; the loader keys by id because that is what the placement stores.
+    const hubTopics = actionHubTopics(resolved);
+    const panelsByTopicId = await loadActionHubPanels({
+      clientId: params.clientId,
+      topicIds: hubTopics.map((topic) => topic.topicId),
+    });
+    const actionHubPanels: Record<string, ActionHubRow[]> = {};
+    for (const topic of hubTopics) {
+      const rows = panelsByTopicId[topic.topicId];
+      if (rows && rows.length > 0) actionHubPanels[topic.slug] = rows;
+    }
+
+    return { source, ...resolved, actionHubPanels };
   } catch (error) {
     console.error("[benefits] topic resolve failed:", params.category, error);
     return null;

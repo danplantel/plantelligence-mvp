@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { PiggyBank, Shield, Heart, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
+import { readableColor } from "polished";
 
 import {
   Benefit,
@@ -315,8 +316,9 @@ export function PortalBenefits({
     <section className="bg-white py-8 sm:py-10 lg:py-12 box-border flex flex-col items-center justify-center">
       <div className="text-center mb-8 sm:mb-12 lg:mb-16 px-4">
         <h2
-          className="text-2xl sm:text-4xl lg:text-[48px] font-dm-serif mb-4 sm:mb-6"
-          style={{ color: brandColor }}
+          // `text-gray-900`, matching "How Can We Help You Today?" — one colour for
+          // every section heading on the landing page.
+          className="text-2xl sm:text-4xl lg:text-[48px] font-dm-serif text-gray-900 mb-4 sm:mb-6"
         >
           Your Benefits at a Glance
         </h2>
@@ -504,9 +506,12 @@ export function PortalBenefits({
                         {hasClientId ? (
                           <Link
                             href={`${basePath}${benefit.href}`}
-                            className="block w-full rounded-md py-2.5 sm:py-3 text-center text-xs sm:text-sm font-semibold tracking-wide text-white transition-all duration-300 hover:opacity-90 hover:scale-105"
+                            className="block w-full rounded-md py-2.5 sm:py-3 text-center text-xs sm:text-sm font-semibold tracking-wide transition-all duration-300 hover:opacity-90 hover:scale-105"
+                            // Primary brand colour, with the readable colour for the
+                            // label — never the secondary, which may not contrast.
                             style={{
-                              background: secondaryColor,
+                              backgroundColor: brandColor,
+                              color: readableColor(brandColor),
                               borderRadius: portalRadiusValue(),
                             }}
                             onClick={(e) => handleBenefitClick(e, benefit)}
@@ -518,9 +523,10 @@ export function PortalBenefits({
                           </Link>
                         ) : (
                           <div
-                            className="block w-full rounded-md py-2.5 sm:py-3 text-center text-xs sm:text-sm font-semibold tracking-wide text-white transition-all duration-300 cursor-default"
+                            className="block w-full rounded-md py-2.5 sm:py-3 text-center text-xs sm:text-sm font-semibold tracking-wide transition-all duration-300 cursor-default"
                             style={{
-                              background: secondaryColor,
+                              backgroundColor: brandColor,
+                              color: readableColor(brandColor),
                               borderRadius: portalRadiusValue(),
                             }}
                           >

@@ -4,8 +4,6 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import { useParams } from "next/navigation";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import useSWR from "swr";
-import { FAQSection, DynamicFAQItem } from "@/components/faq-section";
-import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
 import { buildFaqSupportContacts } from "@/lib/faq-support-contacts";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
@@ -33,7 +31,7 @@ import {
 } from "@/lib/map-plan-documents-for-benefit-hub";
 import { getBenefitFromPreview } from "@/lib/benefit-data-helpers";
 import type { BenefitData } from "@/types/benefit";
-import type { ResolvedLocationTopics } from "@/types/topic";
+import type { TopicsPayload } from "@/types/topic";
 
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
@@ -53,7 +51,9 @@ export default function LifeInsurancePage() {
   // Fetch benefit data from the new Benefit API
   const { data: benefitApiData } = useSWR(
     clientId
-      ? `/api/clients/${clientId}/benefits/Group%20Life?forPortal=1`
+      ? // `withTopics=1`: placements are the hub's only source of questions now that
+        // the FAQ accordion is retired, so they are always requested.
+        `/api/clients/${clientId}/benefits/Group%20Life?forPortal=1&withTopics=1`
       : null,
     fetcher,
     { revalidateOnFocus: false, dedupingInterval: 60_000 },
@@ -76,11 +76,10 @@ export default function LifeInsurancePage() {
 
   // TF-2: resolved topic placements for this hub, when the plan is on the framework.
   const topicsPayload = benefitApiData?.topics as
-    | (ResolvedLocationTopics & { source?: string })
+    | TopicsPayload
     | null
     | undefined;
-  const topics =
-    topicsPayload?.source === "placements" ? topicsPayload : null;
+  const topics = topicsPayload ?? null;
 
   /** Re-merge documents when embedded list ids change — avoids re-fetching on every clientData reference churn. */
   const documentsSig = useMemo(() => {
@@ -142,22 +141,6 @@ export default function LifeInsurancePage() {
       cancelled = true;
     };
   }, [clientId, documentsSig]);
-
-  // Extract FAQs for this category from the benefit data.
-  const faqsForCategory = useMemo(() => {
-    const faqs = benefitData?.faqs;
-    if (faqs && Array.isArray(faqs)) {
-      const enabled = faqs.filter(
-        (f: any) => f.enabled !== false,
-      ) as DynamicFAQItem[];
-      if (enabled.length > 0) return enabled;
-    }
-    const defaults = DEFAULT_FAQS["Group Life"];
-    if (defaults && defaults.length > 0) {
-      return defaults as DynamicFAQItem[];
-    }
-    return undefined;
-  }, [benefitData]);
 
   // Resolve the category's support contacts from the benefit's selection. The resolver
   // matches each `contactId` against the plan's LIVE contacts (profile + assignment) and
@@ -241,24 +224,19 @@ export default function LifeInsurancePage() {
           planIdLabel={planGroupIdLabel || undefined}
           accountAccessHref={accountAccessHref}
           topics={topics?.featured}
+          actionHubPanels={topics?.actionHubPanels}
           cards={(benefitData as any)?.helpCards ?? undefined}
         />
 
-        {topics && topics.groups.length > 0 ? (
-          <QuickAnswersSection
-            groups={topics.groups}
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            basePath={`/${clientId}`}
-          />
-        ) : (
-          <FAQSection
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            faqs={faqsForCategory}
-            contacts={supportContactsForFAQ}
-          />
-        )}
+        {/* Quick Answers replaces the FAQ accordion on this hub. It renders nothing at
+            all when the plan has no questions, so the section cannot appear empty. */}
+        <QuickAnswersSection
+          groups={topics?.groups ?? []}
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          basePath={`/${clientId}`}
+          actionHubPanels={topics?.actionHubPanels}
+        />
 
         <BenefitDocumentSection
           brandColor={brandColor}

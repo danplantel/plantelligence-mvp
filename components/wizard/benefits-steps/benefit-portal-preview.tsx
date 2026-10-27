@@ -59,7 +59,8 @@ import { HaveQuestions } from "@/components/pages/client-portal/sections/have-qu
 import { DynamicFAQItem, FAQContact } from "@/components/faq-section";
 import { QuickAnswersSection } from "@/components/pages/client-portal/sections/quick-answers-section";
 import { topicLocationForCategory } from "@/lib/topic-locations";
-import type { EffectiveTopic, TopicGroup } from "@/types/topic";
+import { resolveActionHubRow } from "@/lib/topics/action-hub";
+import type { ActionHubRow, EffectiveTopic, TopicGroup } from "@/types/topic";
 import { Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { normalizePortalDocumentLanguage } from "@/lib/portal-document-language";
@@ -348,6 +349,30 @@ export function BenefitPortalPreview({
       },
     ];
   }, [faqsForCategory, category, previewBoard]);
+
+  /**
+   * TF-5: the Action Hub panels the preview can know about.
+   *
+   * The live hub resolves a panel from EVERY benefit that holds the action, which is a
+   * server read the preview cannot make for an unsaved draft. What it CAN show is this
+   * location's own sub-link — and with a single row the panel collapses to a direct
+   * CTA, which is exactly how a plan with one qualifying benefit renders. An advisor
+   * therefore sees the label and destination they typed, in place.
+   */
+  const previewActionHubPanels = useMemo<Record<string, ActionHubRow[]>>(() => {
+    const panels: Record<string, ActionHubRow[]> = {};
+    for (const group of quickAnswerGroups) {
+      for (const topic of group.topics) {
+        if (!topic.isActionHub) continue;
+        const row = resolveActionHubRow({
+          location: topic.location,
+          link: topic.actionHubLink,
+        });
+        if (row) panels[topic.slug] = [row];
+      }
+    }
+    return panels;
+  }, [quickAnswerGroups]);
 
   // ── Support contacts extraction: matches retirement/page.tsx logic ──
   // 1. Check employeePortalPreview.benefits[].supportContacts (persisted from wizard Step 3)
@@ -796,6 +821,7 @@ export function BenefitPortalPreview({
           groups={quickAnswerGroups}
           brandColor={brandColor}
           secondaryColor={secondaryColor}
+          actionHubPanels={previewActionHubPanels}
         />
 
         {/* The account-access band is the Account Access card in "How Can We
