@@ -1483,219 +1483,6 @@ export function BenefitsEditorPanel({
           </div>
         </div>
 
-        {/* Help Cards Section.
-            Section 4 sits ahead of the Video section so the editor's order matches the
-            portal (the cards follow the welcome banner, before the video). Its wide
-            Account Access card is driven by the three fields below — the SAME stored
-            values Benefit Access & Materials edits (`insurancePlanId`,
-            `insuranceLoginUrl` and `providerContact`), so the card and that section
-            cannot disagree. */}
-        <div
-          ref={sectionsRef.helpCards}
-          className={cn(
-            "transition-all duration-500 rounded-xl",
-            highlightedSection === "helpCards"
-              ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800"
-              : "",
-          )}
-        >
-          <SectionHeader number={5} title="How Can We Help You Today?" />
-          <p className="text-[13px] text-muted-foreground mb-6">
-            Choose the card layout below, then edit the Account Access fields —
-            Plan / Group ID, where the &ldquo;Register or Login Here&rdquo;
-            button sends participants, and who administers the benefit.
-          </p>
-
-          {/* Card layout: order + which card is Primary. Copy is static. */}
-          <div className="mb-4 rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
-            <HelpCardLayoutEditor
-              value={step1Data.helpCards}
-              // The benefit being created/edited, so `[Benefit Category]` reads
-              // "Retirement Account Access" (or the advisor's Custom name).
-              category={helpCardCategoryLabel(
-                step1Data.benefitCategory,
-                step1Data.benefitTitle,
-              )}
-              onChange={(helpCards) =>
-                saveStepData(1, { ...step1Data, helpCards } as any)
-              }
-            />
-          </div>
-
-          <div className="space-y-4 rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
-            {/* Plan / Group ID — printed as "PLAN / GROUP ID: …" on the card. */}
-            <div className="space-y-2">
-              <Label className="text-xs font-bold text-foreground">
-                Plan / Group ID
-              </Label>
-              <Input
-                value={step1Data.insurancePlanId || ""}
-                onChange={(e) => {
-                  // The same xxxx-xxxx-xxxx formatting the Section 6 field applies,
-                  // so both views of this one value always look identical.
-                  const raw = e.target.value
-                    .replace(/[^a-zA-Z0-9]/g, "")
-                    .toUpperCase()
-                    .slice(0, 12);
-                  const groups: string[] = [];
-                  for (let i = 0; i < raw.length; i += 4) {
-                    groups.push(raw.slice(i, i + 4));
-                  }
-                  saveStepData(1, {
-                    ...step1Data,
-                    insurancePlanId: groups.join("-"),
-                  });
-                }}
-                onFocus={() => focusPreviewField("insurancePlanId")}
-                placeholder="xxxx-xxxx-xxxx"
-                className="h-11 shadow-sm border-muted font-mono tracking-wider"
-              />
-              <p className="text-[11px] text-muted-foreground">
-                This appears as &ldquo;PLAN / GROUP ID: [value]&rdquo; on the
-                Account Access card.
-              </p>
-            </div>
-
-            {/* Required — the card's CTA destination. This is the element the
-                required-field validation scrolls to. */}
-            <div
-              className="space-y-2"
-              ref={insuranceLoginUrlRef}
-              data-field="insuranceLoginUrl"
-            >
-              <Label className="text-xs font-bold text-foreground">
-                Register or Login Here Button URL{" "}
-                <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                value={step1Data.insuranceLoginUrl || ""}
-                onChange={(e) =>
-                  saveStepData(1, {
-                    ...step1Data,
-                    insuranceLoginUrl: e.target.value,
-                  })
-                }
-                onFocus={() => focusPreviewField("insuranceLoginUrl")}
-                placeholder="e.g. https://portal.empower.com/auth/login"
-                destructive={isFieldInvalid("insuranceLoginUrl")}
-                data-field="insuranceLoginUrl"
-                type="url"
-                className={cn(
-                  "h-11 shadow-sm border-muted",
-                  isFieldInvalid("insuranceLoginUrl") &&
-                    "border-red-500 dark:border-red-500",
-                )}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                Required. Where the &ldquo;Register or Login Here&rdquo; button
-                sends participants.
-              </p>
-            </div>
-
-            {/* Provider / Recordkeeper — the "Administered by …" line. */}
-            <div className="space-y-3 border-t pt-4">
-              <div>
-                <Label className="text-xs font-bold text-foreground">
-                  Provider / Recordkeeper
-                </Label>
-                <p className="text-[11px] text-muted-foreground mt-1">
-                  The company that administers this benefit — the card shows it as
-                  &ldquo;Administered by …&rdquo;.
-                </p>
-              </div>
-              <Input
-                value={step1Data.providerContact?.companyName || ""}
-                onChange={(e) =>
-                  saveStepData(1, {
-                    ...step1Data,
-                    providerContact: {
-                      ...(step1Data.providerContact || {}),
-                      companyName: e.target.value,
-                    },
-                  })
-                }
-                // "Administered by …" on the card — the preview scrolls to it.
-                onFocus={() => focusPreviewField("providerContact")}
-                placeholder="e.g. Voya, Empower, Principal, Fidelity"
-                className="h-11 shadow-sm border-muted"
-              />
-              <div className="grid grid-cols-2 gap-3">
-                <Input
-                  value={step1Data.providerContact?.contactName || ""}
-                  onChange={(e) =>
-                    saveStepData(1, {
-                      ...step1Data,
-                      providerContact: {
-                        ...(step1Data.providerContact || {}),
-                        contactName: e.target.value,
-                      },
-                    })
-                  }
-                  onFocus={() => focusPreviewField("providerContact")}
-                  placeholder="Provider contact (optional)"
-                  className="h-11 shadow-sm border-muted"
-                />
-                <Input
-                  type="tel"
-                  // Capped at a formatted 10-digit US number.
-                  maxLength={14}
-                  value={formatPhoneNumber(
-                    step1Data.providerContact?.phone || "",
-                  )}
-                  onChange={(e) => {
-                    const digits = normalizePhoneNumber(e.target.value);
-                    if (digits.length > 10) return;
-                    saveStepData(1, {
-                      ...step1Data,
-                      providerContact: {
-                        ...(step1Data.providerContact || {}),
-                        phone: digits,
-                      },
-                    });
-                  }}
-                  onFocus={() => focusPreviewField("providerContact")}
-                  placeholder="Provider phone (optional)"
-                  className="h-11 shadow-sm border-muted"
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Quick Answers Section (TF-3).
-            The long tail of questions, grouped — the other half of the same placement
-            table Section 4 arranges. It writes placements directly rather than the
-            wizard's `faqs` draft, because a question needs a group and an order that
-            the legacy FAQ array cannot express, and because promoting one to a
-            Featured card has to remove it from here. */}
-        {quickAnswersLocation && step1Data.planId && (
-          <div
-            ref={sectionsRef.quickAnswers}
-            className={cn(
-              "transition-all duration-500 rounded-xl",
-              highlightedSection === "quickAnswers"
-                ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800"
-                : "",
-            )}
-          >
-            <SectionHeader
-              number={6}
-              title="Get Quick Answers to Common Benefits Questions"
-            />
-            <p className="text-[13px] text-muted-foreground mb-6">
-              Every other question about this benefit, grouped and searchable. Move
-              one to &ldquo;Featured card&rdquo; to promote it into the grid above, or
-              to &ldquo;Hidden&rdquo; to take it off the page.
-            </p>
-            <div className="rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
-              <QuickAnswersBuilder
-                planId={step1Data.planId}
-                location={quickAnswersLocation}
-              />
-            </div>
-          </div>
-        )}
-
         {/* Plan Video Section */}
         <div
           ref={sectionsRef.planVideo}
@@ -1706,7 +1493,7 @@ export function BenefitsEditorPanel({
               : "",
           )}
         >
-          <SectionHeader number={7} title="Video Source" />
+          <SectionHeader number={5} title="Video Source" />
           <p className="text-[13px] text-muted-foreground mb-6">
             Add the video shown in the journey section, say what it covers, and
             choose a poster image. With no video, the Default Image below is
@@ -2171,6 +1958,217 @@ export function BenefitsEditorPanel({
             </div>
           </div>
         </div>
+
+        {/* Help Cards Section — follows Video Source in this panel's order.
+            Its wide Account Access card is driven by the three fields below — the
+            SAME stored values Benefit Access & Materials edits (`insurancePlanId`,
+            `insuranceLoginUrl` and `providerContact`), so the card and that section
+            cannot disagree. */}
+        <div
+          ref={sectionsRef.helpCards}
+          className={cn(
+            "transition-all duration-500 rounded-xl",
+            highlightedSection === "helpCards"
+              ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800"
+              : "",
+          )}
+        >
+          <SectionHeader number={6} title="How Can We Help You Today?" />
+          <p className="text-[13px] text-muted-foreground mb-6">
+            Choose the card layout below, then edit the Account Access fields —
+            Plan / Group ID, where the &ldquo;Register or Login Here&rdquo;
+            button sends participants, and who administers the benefit.
+          </p>
+
+          {/* Card layout: order + which card is Primary. Copy is static. */}
+          <div className="mb-4 rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
+            <HelpCardLayoutEditor
+              value={step1Data.helpCards}
+              // The benefit being created/edited, so `[Benefit Category]` reads
+              // "Retirement Account Access" (or the advisor's Custom name).
+              category={helpCardCategoryLabel(
+                step1Data.benefitCategory,
+                step1Data.benefitTitle,
+              )}
+              onChange={(helpCards) =>
+                saveStepData(1, { ...step1Data, helpCards } as any)
+              }
+            />
+          </div>
+
+          <div className="space-y-4 rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
+            {/* Plan / Group ID — printed as "PLAN / GROUP ID: …" on the card. */}
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-foreground">
+                Plan / Group ID
+              </Label>
+              <Input
+                value={step1Data.insurancePlanId || ""}
+                onChange={(e) => {
+                  // The same xxxx-xxxx-xxxx formatting the Section 6 field applies,
+                  // so both views of this one value always look identical.
+                  const raw = e.target.value
+                    .replace(/[^a-zA-Z0-9]/g, "")
+                    .toUpperCase()
+                    .slice(0, 12);
+                  const groups: string[] = [];
+                  for (let i = 0; i < raw.length; i += 4) {
+                    groups.push(raw.slice(i, i + 4));
+                  }
+                  saveStepData(1, {
+                    ...step1Data,
+                    insurancePlanId: groups.join("-"),
+                  });
+                }}
+                onFocus={() => focusPreviewField("insurancePlanId")}
+                placeholder="xxxx-xxxx-xxxx"
+                className="h-11 shadow-sm border-muted font-mono tracking-wider"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                This appears as &ldquo;PLAN / GROUP ID: [value]&rdquo; on the
+                Account Access card.
+              </p>
+            </div>
+
+            {/* Required — the card's CTA destination. This is the element the
+                required-field validation scrolls to. */}
+            <div
+              className="space-y-2"
+              ref={insuranceLoginUrlRef}
+              data-field="insuranceLoginUrl"
+            >
+              <Label className="text-xs font-bold text-foreground">
+                Register or Login Here Button URL{" "}
+                <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                value={step1Data.insuranceLoginUrl || ""}
+                onChange={(e) =>
+                  saveStepData(1, {
+                    ...step1Data,
+                    insuranceLoginUrl: e.target.value,
+                  })
+                }
+                onFocus={() => focusPreviewField("insuranceLoginUrl")}
+                placeholder="e.g. https://portal.empower.com/auth/login"
+                destructive={isFieldInvalid("insuranceLoginUrl")}
+                data-field="insuranceLoginUrl"
+                type="url"
+                className={cn(
+                  "h-11 shadow-sm border-muted",
+                  isFieldInvalid("insuranceLoginUrl") &&
+                    "border-red-500 dark:border-red-500",
+                )}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Required. Where the &ldquo;Register or Login Here&rdquo; button
+                sends participants.
+              </p>
+            </div>
+
+            {/* Provider / Recordkeeper — the "Administered by …" line. */}
+            <div className="space-y-3 border-t pt-4">
+              <div>
+                <Label className="text-xs font-bold text-foreground">
+                  Provider / Recordkeeper
+                </Label>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  The company that administers this benefit — the card shows it as
+                  &ldquo;Administered by …&rdquo;.
+                </p>
+              </div>
+              <Input
+                value={step1Data.providerContact?.companyName || ""}
+                onChange={(e) =>
+                  saveStepData(1, {
+                    ...step1Data,
+                    providerContact: {
+                      ...(step1Data.providerContact || {}),
+                      companyName: e.target.value,
+                    },
+                  })
+                }
+                // "Administered by …" on the card — the preview scrolls to it.
+                onFocus={() => focusPreviewField("providerContact")}
+                placeholder="e.g. Voya, Empower, Principal, Fidelity"
+                className="h-11 shadow-sm border-muted"
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  value={step1Data.providerContact?.contactName || ""}
+                  onChange={(e) =>
+                    saveStepData(1, {
+                      ...step1Data,
+                      providerContact: {
+                        ...(step1Data.providerContact || {}),
+                        contactName: e.target.value,
+                      },
+                    })
+                  }
+                  onFocus={() => focusPreviewField("providerContact")}
+                  placeholder="Provider contact (optional)"
+                  className="h-11 shadow-sm border-muted"
+                />
+                <Input
+                  type="tel"
+                  // Capped at a formatted 10-digit US number.
+                  maxLength={14}
+                  value={formatPhoneNumber(
+                    step1Data.providerContact?.phone || "",
+                  )}
+                  onChange={(e) => {
+                    const digits = normalizePhoneNumber(e.target.value);
+                    if (digits.length > 10) return;
+                    saveStepData(1, {
+                      ...step1Data,
+                      providerContact: {
+                        ...(step1Data.providerContact || {}),
+                        phone: digits,
+                      },
+                    });
+                  }}
+                  onFocus={() => focusPreviewField("providerContact")}
+                  placeholder="Provider phone (optional)"
+                  className="h-11 shadow-sm border-muted"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Answers Section (TF-3).
+            The long tail of questions, grouped — the other half of the same placement
+            table Section 4 arranges. It writes placements directly rather than the
+            wizard's `faqs` draft, because a question needs a group and an order that
+            the legacy FAQ array cannot express, and because promoting one to a
+            Featured card has to remove it from here. */}
+        {quickAnswersLocation && step1Data.planId && (
+          <div
+            ref={sectionsRef.quickAnswers}
+            className={cn(
+              "transition-all duration-500 rounded-xl",
+              highlightedSection === "quickAnswers"
+                ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800"
+                : "",
+            )}
+          >
+            <SectionHeader
+              number={7}
+              title="Get Quick Answers to Common Benefits Questions"
+            />
+            <p className="text-[13px] text-muted-foreground mb-6">
+              Every other question about this benefit, grouped and searchable. Move
+              one to &ldquo;Featured card&rdquo; to promote it into the grid above, or
+              to &ldquo;Hidden&rdquo; to take it off the page.
+            </p>
+            <div className="rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
+              <QuickAnswersBuilder
+                planId={step1Data.planId}
+                location={quickAnswersLocation}
+              />
+            </div>
+          </div>
+        )}
 
       </div>
 

@@ -7,14 +7,15 @@ import { BenefitsEditorPanel } from "../benefits-editor-panel";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 
 /**
- * Section 5 ("How Can We Help You Today?") owns the wide Account Access card's
+ * Section 6 ("How Can We Help You Today?") owns the wide Account Access card's
  * three fields — Plan / Group ID, the required "Register or Login Here" URL and
- * the Provider / Recordkeeper. They are the SAME stored values Section 6
- * ("Benefit Access & Materials") edits, so typing in either place must land on
+ * the Provider / Recordkeeper. They are the SAME stored values Benefit Access &
+ * Materials edits, so typing in either place must land on
  * `step1.insurancePlanId` / `insuranceLoginUrl` / `providerContact`.
  *
- * The panel's numbering starts with the plan-level Portal Header Button (Section
- * 1), so every earlier section moved down by one.
+ * The panel's order is: 1 Portal Header Button, 2 Typography, 3 Branding,
+ * 4 Benefit Messaging, 5 Video Source, 6 How Can We Help You Today?,
+ * 7 Get Quick Answers.
  */
 
 function seed() {
@@ -26,11 +27,11 @@ function seed() {
   } as any);
 }
 
-/** The Section 5 block (the heading's nearest `rounded-xl` wrapper). */
-function sectionFive(): HTMLElement {
-  const heading = screen.getByText(/Section 5: How Can We Help You Today\?/);
+/** The Section 6 block (the heading's nearest `rounded-xl` wrapper). */
+function sectionSix(): HTMLElement {
+  const heading = screen.getByText(/Section 6: How Can We Help You Today\?/);
   const section = heading.closest(".rounded-xl");
-  if (!section) throw new Error("Section 5 wrapper not found");
+  if (!section) throw new Error("Section 6 wrapper not found");
   return section as HTMLElement;
 }
 
@@ -49,9 +50,9 @@ describe("BenefitsEditorPanel account access fields", () => {
     seed();
   });
 
-  it("puts the Account Access fields in Section 5", () => {
+  it("puts the Account Access fields in Section 6", () => {
     renderPanel();
-    const section = sectionFive();
+    const section = sectionSix();
 
     expect(
       within(section).getByText("Plan / Group ID"),
@@ -64,11 +65,11 @@ describe("BenefitsEditorPanel account access fields", () => {
     ).toBeInTheDocument();
   });
 
-  it("marks the login URL as required in Section 5", () => {
+  it("marks the login URL as required in Section 6", () => {
     renderPanel();
 
     expect(
-      within(sectionFive()).getByText("*", { selector: "span" }),
+      within(sectionSix()).getByText("*", { selector: "span" }),
     ).toBeInTheDocument();
   });
 
@@ -76,7 +77,7 @@ describe("BenefitsEditorPanel account access fields", () => {
     renderPanel();
 
     fireEvent.change(
-      within(sectionFive()).getByPlaceholderText("xxxx-xxxx-xxxx"),
+      within(sectionSix()).getByPlaceholderText("xxxx-xxxx-xxxx"),
       { target: { value: "abcd1234" } },
     );
 
@@ -87,7 +88,7 @@ describe("BenefitsEditorPanel account access fields", () => {
     renderPanel();
 
     fireEvent.change(
-      within(sectionFive()).getByPlaceholderText(
+      within(sectionSix()).getByPlaceholderText(
         "e.g. https://portal.empower.com/auth/login",
       ),
       { target: { value: "https://portal.example.com/login" } },
@@ -98,9 +99,9 @@ describe("BenefitsEditorPanel account access fields", () => {
     );
   });
 
-  it("saves the provider / recordkeeper from Section 5", () => {
+  it("saves the provider / recordkeeper from Section 6", () => {
     renderPanel();
-    const section = sectionFive();
+    const section = sectionSix();
 
     fireEvent.change(
       within(section).getByPlaceholderText(
@@ -123,7 +124,7 @@ describe("BenefitsEditorPanel account access fields", () => {
     renderPanel();
 
     expect(
-      screen.queryByText(/Section 6: Benefit Access & Materials/),
+      screen.queryByText(/Benefit Access & Materials/),
     ).not.toBeInTheDocument();
     // One editing surface for each of the card's fields.
     expect(screen.getAllByPlaceholderText("xxxx-xxxx-xxxx")).toHaveLength(1);
@@ -214,5 +215,39 @@ describe("BenefitsEditorPanel portal header button", () => {
     fireEvent.click(screen.getByRole("radio", { name: /Schedule a Call/ }));
 
     expect(screen.getByDisplayValue("https://cal.com/team")).toBeInTheDocument();
+  });
+});
+
+describe("BenefitsEditorPanel section order", () => {
+  beforeEach(() => {
+    seed();
+  });
+
+  it("runs Portal Header Button, Typography, Branding, Messaging, Video, Help, Quick Answers", () => {
+    renderPanel();
+
+    const labels = screen
+      .getAllByText(/^Section \d+:/)
+      .map((element) => element.textContent);
+
+    // Video Source precedes How Can We Help You Today? — that is the order the
+    // portal reads in, and the panel must match it.
+    expect(labels.slice(0, 5)).toEqual([
+      "Section 1: Portal Header Button",
+      "Section 2: Typography",
+      "Section 3: Branding",
+      "Section 4: Benefit Messaging",
+      "Section 5: Video Source",
+    ]);
+
+    const helpCardsAt = labels.indexOf("Section 6: How Can We Help You Today?");
+    expect(helpCardsAt).toBe(5);
+
+    // Quick Answers renders only once a location resolves, so it is asserted by
+    // position when present rather than required.
+    const quickAnswersAt = labels.indexOf(
+      "Section 7: Get Quick Answers to Common Benefits Questions",
+    );
+    if (quickAnswersAt !== -1) expect(quickAnswersAt).toBeGreaterThan(helpCardsAt);
   });
 });
