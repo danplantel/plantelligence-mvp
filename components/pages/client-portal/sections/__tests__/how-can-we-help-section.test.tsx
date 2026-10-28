@@ -915,6 +915,43 @@ describe("HowCanWeHelpSection rollovers panel", () => {
   });
 });
 
+/**
+ * A card that owns its whole row (a 5-card set puts the primary alone in row 1)
+ * keeps its content — and therefore its CTA — in one measured column. The width
+ * must not depend on WHICH card is the primary one.
+ */
+describe("wide card content width", () => {
+  function fiveCards(primaryId: string) {
+    // 7-card catalog minus two → 5 visible → row 1 holds the primary alone.
+    return layoutWith(primaryId).map((entry) =>
+      entry.id === "savings" || entry.id === "medicare"
+        ? { ...entry, enabled: false }
+        : entry,
+    );
+  }
+
+  it("gives a topic tile and the Account Access card the same content column", () => {
+    const topicView = render(
+      <HowCanWeHelpSection clientId="plan-1" cards={fiveCards("financial-planning")} />,
+    );
+    const topicTile = tile(topicView.container, "financial-planning");
+    expect(topicTile.className).toContain("lg:col-span-4");
+    expect(
+      topicTile.querySelector('[class*="max-w-[44rem]"]'),
+    ).not.toBeNull();
+    topicView.unmount();
+
+    const accessView = render(
+      <HowCanWeHelpSection clientId="plan-1" cards={fiveCards("account-access")} />,
+    );
+    const accessTile = tile(accessView.container, "account-access");
+    expect(accessTile.className).toContain("lg:col-span-4");
+    expect(
+      accessTile.querySelector('[class*="max-w-[44rem]"]'),
+    ).not.toBeNull();
+  });
+});
+
 describe("HowCanWeHelpSection panel CTAs", () => {
   it("draws no panel CTA for the static catalog (every card has no button text)", () => {
     render(<HowCanWeHelpSection clientId="plan-1" />);
