@@ -12,9 +12,14 @@ import type { EffectiveTopic } from "@/types/topic";
  *
  * What changes when `topics` is supplied:
  *  - the tiles are the plan's featured topics, in placement order;
- *  - Account Access is still the 2-wide primary, synthesised from the catalog, because
- *    it is not a topic until TF-9;
+ *  - Account Access is still the primary, synthesised from the catalog, because it
+ *    is not a topic until TF-9;
  *  - the legacy `cards` layout is ignored.
+ *
+ * Card WIDTH is a property of the row, not of the card: each row's four columns are
+ * divided between whatever cards it holds, so the grid never trails off into white
+ * space. A plan with one featured topic therefore gets two half-width cards, and a
+ * plan with four gets a full-width Account Access row above four quarter tiles.
  *
  * Everything else — the caret, inline expansion, the Rollovers body — is unchanged and
  * covered by the original suite.
@@ -77,7 +82,7 @@ describe("HowCanWeHelpSection with placements", () => {
     expect(container.querySelector('[data-help-card="medicare"]')).toBeNull();
   });
 
-  it("keeps Account Access as the 2-wide primary and topics at 1/4", () => {
+  it("splits a two-card row between Account Access and the topic", () => {
     const { container } = render(
       <HowCanWeHelpSection
         clientId="plan-1"
@@ -93,8 +98,51 @@ describe("HowCanWeHelpSection with placements", () => {
       '[data-help-card="sys.financial-planning"]',
     );
 
+    // Two cards, four columns: half each, so the row reaches the right edge.
     expect(access?.className).toContain("col-span-2");
-    expect(topic?.className).toContain("col-span-1");
+    expect(topic?.className).toContain("col-span-2");
+  });
+
+  it("gives Account Access the whole first row when that is what fills it", () => {
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Retirement"
+        topics={[
+          featured("sys.financial-planning", "Financial Planning"),
+          featured("sys.plan-materials", "Plan Materials"),
+          featured("sys.beneficiaries", "Update My Beneficiaries"),
+          featured("sys.rollovers-distributions", "Rollovers & Distributions"),
+        ]}
+      />,
+    );
+
+    // Five cards: the primary takes row 1 alone at full width, and the other four
+    // take one column each beneath it. Neither row is left with a gap.
+    const access = container.querySelector<HTMLElement>(
+      `[data-help-card="${ACCOUNT_ACCESS_CARD_ID}"]`,
+    );
+    expect(access?.className).toContain("lg:col-span-4");
+
+    // One grid element per row, in DOM order.
+    const rowGrids = Array.from(
+      new Set(
+        Array.from(container.querySelectorAll("[data-help-card]")).map(
+          (element) => element.parentElement as HTMLElement,
+        ),
+      ),
+    );
+    expect(rowGrids).toHaveLength(2);
+    expect(rowGrids[0].querySelectorAll("[data-help-card]")).toHaveLength(1);
+
+    const secondRow = Array.from(
+      rowGrids[1].querySelectorAll<HTMLElement>("[data-help-card]"),
+    );
+    expect(secondRow).toHaveLength(4);
+    secondRow.forEach((rowTile) => {
+      expect(rowTile.className).toContain("col-span-1");
+      expect(rowTile.className).not.toContain("lg:col-span-2");
+    });
   });
 
   it("shows the topic's summary on the tile, not the catalog copy", () => {

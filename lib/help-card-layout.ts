@@ -14,21 +14,81 @@ import type {
  * The "How Can We Help You Today?" layout rules.
  *
  *  - The grid is 4 columns wide.
- *  - One card is PRIMARY and spans 2 columns; every other card spans 1.
- *  - Because a primary takes half a row, a 7-card set fills exactly two rows:
+ *  - One card is PRIMARY and takes the widest slot in its row; the rest of the
+ *    row's cards fill whatever is left, so EVERY row reaches the right edge.
+ *    No row is ever left with an empty column — the section must not paint white
+ *    space just because a plan shows fewer cards than the catalog does.
+ *  - With the 7-card catalog that still reads exactly as it always has:
  *      row 1: primary (2) + two standard (1 + 1)
  *      row 2: four standard (1 × 4)
+ *  - A shorter set re-balances instead of trailing off. Five cards put the
+ *    primary alone across the whole first row and the other four beneath it;
+ *    six cards give a two-card first row over a four-card second row.
  *  - The primary may sit at the LEFT or RIGHT edge of row 1 only — never between
  *    two standard cards, and never in row 2. Its edge is therefore a property of
  *    its INDEX in the stored order: 0 = left, 2 = right.
- *  - Later card sets (other benefits, added in the future) keep the same first
- *    row and wrap every subsequent four cards onto a new row.
  */
 
-/** Row 1: the 2-wide primary plus the two standard cards beside it. */
+/**
+ * Row 1 of the classic 7-card set: the 2-wide primary plus the two standard cards
+ * beside it. Kept for the layout editor's row labels — the portal itself derives
+ * the first row's size from the card count with [`helpCardFirstRowSize`].
+ */
 export const HELP_CARD_ROW_1_SIZE = 3;
-/** Every row after the first. */
+/** How many columns the grid has, and the size of every row after the first. */
 export const HELP_CARD_ROW_SIZE = 4;
+
+/**
+ * How many cards share the FIRST row.
+ *
+ * Packing greedily from the front leaves the *last* row short — the white space
+ * this layout exists to avoid — so the first row takes the remainder instead and
+ * every later row is a full four:
+ *
+ *   7 cards → 3 + 4       (primary + two, then four)
+ *   5 cards → 1 + 4       (the primary gets the whole first row)
+ *   6 cards → 2 + 4
+ *   4 cards → 4
+ *   8 cards → 4 + 4
+ *   9 cards → 1 + 4 + 4
+ */
+export function helpCardFirstRowSize(cardCount: number): number {
+  if (cardCount <= 0) return 0;
+  const remainder = cardCount % HELP_CARD_ROW_SIZE;
+  return remainder === 0 ? HELP_CARD_ROW_SIZE : remainder;
+}
+
+/**
+ * The column span of each card in a row of `rowSize`, adding up to the grid's
+ * four columns:
+ *
+ *   1 card  → [4]
+ *   2 cards → [2, 2]
+ *   3 cards → [2, 1, 1]
+ *   4 cards → [1, 1, 1, 1]
+ *
+ * `emphasisIndex` is the row's PRIMARY. The extra columns are handed out from
+ * there first, so a primary at the RIGHT edge of row 1 is still the wide card
+ * (`[1, 1, 2]`) — the emphasis follows the card, not the slot.
+ */
+export function helpCardRowSpans(
+  rowSize: number,
+  columns: number = HELP_CARD_ROW_SIZE,
+  emphasisIndex = 0,
+): number[] {
+  if (rowSize <= 0) return [];
+  // A row never holds more cards than the grid has columns; clamping keeps the
+  // spans at 1 or more if a caller ever hands us more.
+  const size = Math.min(rowSize, columns);
+  const base = Math.floor(columns / size);
+  const remainder = columns % size;
+  const spans = Array.from({ length: size }, () => base);
+  for (let offset = 0; offset < remainder; offset += 1) {
+    const index = (emphasisIndex + offset) % size;
+    spans[index] += 1;
+  }
+  return spans;
+}
 
 export type HelpCardSide = "left" | "right";
 
@@ -292,10 +352,10 @@ export function defaultHelpCardLayout(
  * Only ENABLED cards are returned — a card the advisor unticked in the Editing
  * Panel does not reach the hub at all.
  *
- * With its primary showing, row 1 holds the primary plus two standard cards and
- * every later row holds four. If the primary itself is hidden there is no 2-wide
- * card to lay out around, so the remaining cards pack four to a row, filling the
- * grid instead of leaving a column empty.
+ * Row sizes come from [`helpCardFirstRowSize`], so the last row is always a full
+ * four and no column is left empty. With the 7-card catalog that is the familiar
+ * primary + two, then four. If the primary itself is hidden there is no wide card
+ * to lay out around, so the remaining cards simply pack four to a row.
  */
 export function resolveHelpCardRows(
   layout: HelpCardLayoutEntry[] | undefined | null,
@@ -320,8 +380,9 @@ export function resolveHelpCardRows(
     return rows;
   }
 
-  if (cards.length > 0) rows.push(cards.slice(0, HELP_CARD_ROW_1_SIZE));
-  for (let i = HELP_CARD_ROW_1_SIZE; i < cards.length; i += HELP_CARD_ROW_SIZE) {
+  const firstRowSize = helpCardFirstRowSize(cards.length);
+  if (firstRowSize > 0) rows.push(cards.slice(0, firstRowSize));
+  for (let i = firstRowSize; i < cards.length; i += HELP_CARD_ROW_SIZE) {
     rows.push(cards.slice(i, i + HELP_CARD_ROW_SIZE));
   }
   return rows;

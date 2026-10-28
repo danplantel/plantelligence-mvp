@@ -26,8 +26,10 @@ import {
   getHelpCardContent,
 } from "@/lib/help-card-defaults";
 import {
-  HELP_CARD_ROW_1_SIZE,
+  HELP_CARD_ROW_SIZE,
+  helpCardFirstRowSize,
   helpCardPrimaryId,
+  helpCardRowSpans,
   helpCardSide,
   isHelpCardEnabled,
   moveHelpCard,
@@ -51,10 +53,42 @@ interface HelpCardLayoutEditorProps {
   className?: string;
 }
 
-/** 1-based row for a visual index: 0–2 → row 1, 3–6 → row 2, then every 4. */
-function visualRow(index: number): number {
-  if (index < HELP_CARD_ROW_1_SIZE) return 1;
-  return Math.floor((index - HELP_CARD_ROW_1_SIZE) / 4) + 2;
+/** Column span → mini-mirror classes (a plain 4-column grid, so no prefixes). */
+const MIRROR_SPAN_CLASS: Record<number, string> = {
+  1: "col-span-1",
+  2: "col-span-2",
+  3: "col-span-3",
+  4: "col-span-4",
+};
+
+/**
+ * The row and column span of every VISIBLE card, laid out with the same rule the
+ * hub uses: rows divide their four columns between them, so hiding a card re-flows
+ * the mirror exactly as it will re-flow the portal.
+ */
+function planCardSlots(
+  visible: HelpCardLayoutEntry[],
+): { row: number; span: number }[] {
+  const slots: { row: number; span: number }[] = [];
+  const firstRowSize = helpCardFirstRowSize(visible.length);
+
+  let start = 0;
+  let row = 1;
+  while (start < visible.length) {
+    const size = row === 1 ? firstRowSize : HELP_CARD_ROW_SIZE;
+    const rowCards = visible.slice(start, start + size);
+    const primaryInRow = rowCards.findIndex((entry) => entry.primary);
+    const spans = helpCardRowSpans(
+      rowCards.length,
+      HELP_CARD_ROW_SIZE,
+      primaryInRow >= 0 ? primaryInRow : 0,
+    );
+    spans.forEach((span) => slots.push({ row, span }));
+    start += size;
+    row += 1;
+  }
+
+  return slots;
 }
 
 function SortableHelpCardRow({
@@ -63,6 +97,8 @@ function SortableHelpCardRow({
   isPrimary,
   category,
   enabled,
+  row = 1,
+  span = 1,
   onMakePrimary,
   onToggleEnabled,
 }: {
@@ -72,6 +108,9 @@ function SortableHelpCardRow({
   category?: string;
   /** Whether the card renders on the hub (see `setHelpCardEnabled`). */
   enabled: boolean;
+  /** Which row the card lands in, and how many columns it takes there. */
+  row?: number;
+  span?: number;
   onMakePrimary: (id: string) => void;
   onToggleEnabled: (id: string, enabled: boolean) => void;
 }) {
@@ -143,8 +182,8 @@ function SortableHelpCardRow({
           {title}
         </p>
         <p className="text-[11px] text-muted-foreground">
-          Row {visualRow(index)} · {isPrimary ? "2/4 wide · Primary" : "1/4"}
-          {enabled ? "" : " · Hidden"}
+          {enabled ? `Row ${row} · ${span}/4 wide` : `Hidden · ${span}/4 wide`}
+          {isPrimary ? " · Primary" : ""}
         </p>
       </div>
 
@@ -173,9 +212,11 @@ function SortableHelpCardRow({
  * Copy is STATIC (see `lib/help-card-defaults.ts`) — this only edits the layout:
  *  - one sortable list of all cards, so every card can be reordered, including the
  *    1/4 ones (positions 0–2 are row 1, 3–6 are row 2);
- *  - exactly one primary card, pinned to the LEFT or RIGHT edge of row 1, spanning
- *    2 of the grid's 4 columns. Dragging the primary is disabled — pick another
- *    card with "Make primary", and flip its edge with the Left/Right control.
+ *  - exactly one primary card, pinned to the LEFT or RIGHT edge of row 1, taking
+ *    the widest slot in its row (2 of 4 across the full seven-card set, all 4 when
+ *    a short plan leaves it alone in row 1). Dragging the primary is disabled —
+ *    pick another card with "Make primary", and flip its edge with the Left/Right
+ *    control.
  *
  * `lib/help-card-layout.ts` owns those rules and normalizes whatever comes back, so
  * the stored layout is always a legal 7-slot arrangement.
@@ -192,6 +233,12 @@ export function HelpCardLayoutEditor({
   // The slot mirror shows what the hub will actually render, so a hidden card
   // leaves the mirror (and its columns) behind.
   const visibleLayout = layout.filter(isHelpCardEnabled);
+  // Row + span of each visible card, so the mirror and the row labels agree with
+  // what the hub will actually paint.
+  const slots = planCardSlots(visibleLayout);
+  const slotById = new Map(
+    visibleLayout.map((entry, index) => [entry.id, slots[index]]),
+  );
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -211,10 +258,11 @@ export function HelpCardLayoutEditor({
         <div>
           <Label className="text-xs font-bold text-foreground">Card Layout</Label>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Drag to reorder. One card is the Primary: it spans 2 of the 4
-            columns, at the left or right edge of row 1. Dropping a card on the
+            Drag to reorder. One card is the Primary: it takes the widest slot in
+            its row, at the left or right edge of row 1. Dropping a card on the
             Primary slot makes that card the Primary. Untick a card to hide it
-            from the portal — it keeps its place here. Copy is fixed per card.
+            from the portal — it keeps its place here, and the remaining cards
+            re-fill the rows. Copy is fixed per card.
           </p>
         </div>
         {/* Where the primary sits in row 1. */}
@@ -249,7 +297,7 @@ export function HelpCardLayoutEditor({
             All cards hidden
           </p>
         ) : (
-          visibleLayout.map((entry) => {
+          visibleLayout.map((entry, index) => {
             const content = getHelpCardContent(entry.id);
             const title = fillHelpCardTokens(
               content?.title ?? entry.id,
@@ -261,8 +309,9 @@ export function HelpCardLayoutEditor({
                 title={title}
                 className={cn(
                   "flex h-9 items-center justify-center overflow-hidden rounded-md px-1 text-center text-[9px] font-semibold leading-tight",
+                  MIRROR_SPAN_CLASS[slots[index]?.span ?? 1],
                   entry.primary
-                    ? "col-span-2 bg-blue-600 text-white"
+                    ? "bg-blue-600 text-white"
                     : "bg-white text-muted-foreground dark:bg-gray-800",
                 )}
               >
@@ -291,6 +340,8 @@ export function HelpCardLayoutEditor({
                 isPrimary={entry.id === primaryId}
                 category={category}
                 enabled={isHelpCardEnabled(entry)}
+                row={slotById.get(entry.id)?.row ?? 1}
+                span={slotById.get(entry.id)?.span ?? 1}
                 onMakePrimary={(id) =>
                   onChange(setHelpCardPrimary(layout, id))
                 }

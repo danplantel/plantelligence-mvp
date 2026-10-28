@@ -7,7 +7,9 @@ import {
 } from "@/lib/help-card-defaults";
 import {
   defaultHelpCardLayout,
+  helpCardFirstRowSize,
   helpCardPrimaryId,
+  helpCardRowSpans,
   helpCardSide,
   isHelpCardEnabled,
   moveHelpCard,
@@ -21,9 +23,10 @@ import {
 /**
  * The "How Can We Help You Today?" layout rules.
  *
- * One primary (2 of 4 columns) at the LEFT or RIGHT edge of row 1; every other
- * card is 1/4. The stored array order IS the visual order: indices 0–2 are row 1,
- * 3–6 are row 2.
+ * Four columns, divided between the cards of each row so no row is ever left
+ * short: the 7-card catalog gives a 2-wide primary plus two 1-wide cards, then a
+ * row of four, while a 5-card set gives the primary a full-width row of its own.
+ * The stored array order IS the visual order.
  */
 
 function ids(layout: { id: string }[]): string[] {
@@ -343,5 +346,72 @@ describe("hidden cards", () => {
     ]);
     expect(rows.every((row) => row.length <= 4)).toBe(true);
     expect(rows.flat().some((card) => card.primary)).toBe(false);
+  });
+});
+
+/**
+ * Rows must always reach the right edge — the grid cannot trail off into white
+ * space just because a plan shows fewer cards than the catalog does.
+ */
+describe("helpCardFirstRowSize", () => {
+  it("puts the remainder in the FIRST row, so the last row is always full", () => {
+    expect(helpCardFirstRowSize(0)).toBe(0);
+    expect(helpCardFirstRowSize(1)).toBe(1);
+    expect(helpCardFirstRowSize(2)).toBe(2);
+    expect(helpCardFirstRowSize(3)).toBe(3);
+    expect(helpCardFirstRowSize(4)).toBe(4);
+    // Five cards: the primary gets the whole first row rather than a lone card
+    // stretched across the last one.
+    expect(helpCardFirstRowSize(5)).toBe(1);
+    expect(helpCardFirstRowSize(6)).toBe(2);
+    expect(helpCardFirstRowSize(7)).toBe(3);
+    expect(helpCardFirstRowSize(8)).toBe(4);
+    expect(helpCardFirstRowSize(9)).toBe(1);
+  });
+});
+
+describe("helpCardRowSpans", () => {
+  it("divides the four columns so every row adds up to four", () => {
+    expect(helpCardRowSpans(0)).toEqual([]);
+    expect(helpCardRowSpans(1)).toEqual([4]);
+    expect(helpCardRowSpans(2)).toEqual([2, 2]);
+    expect(helpCardRowSpans(3)).toEqual([2, 1, 1]);
+    expect(helpCardRowSpans(4)).toEqual([1, 1, 1, 1]);
+  });
+
+  it("hands the extra column to the row's primary", () => {
+    // A primary at the RIGHT edge of row 1 stays the wide card.
+    expect(helpCardRowSpans(3, 4, 2)).toEqual([1, 1, 2]);
+    expect(helpCardRowSpans(3, 4, 1)).toEqual([1, 2, 1]);
+  });
+
+  it("never gives a card fewer than one column", () => {
+    for (const rowSize of [1, 2, 3, 4]) {
+      const spans = helpCardRowSpans(rowSize);
+      expect(spans.every((span) => span >= 1)).toBe(true);
+      expect(spans.reduce((total, span) => total + span, 0)).toBe(4);
+    }
+  });
+});
+
+describe("resolveHelpCardRows with a short card set", () => {
+  it("keeps every row full when the catalog is cut down to five cards", () => {
+    let layout = defaultHelpCardLayout();
+    for (const id of ["social-security", "medicare"]) {
+      layout = setHelpCardEnabled(layout, id, false);
+    }
+
+    const rows = resolveHelpCardRows(layout);
+
+    expect(rows.map((row) => row.length)).toEqual([1, 4]);
+    expect(rows[0][0]).toMatchObject({ id: "account-access", primary: true });
+  });
+
+  it("keeps every row full at six cards", () => {
+    const rows = resolveHelpCardRows(
+      setHelpCardEnabled(defaultHelpCardLayout(), "savings", false),
+    );
+
+    expect(rows.map((row) => row.length)).toEqual([2, 4]);
   });
 });

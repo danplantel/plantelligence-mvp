@@ -18,8 +18,9 @@ import {
   helpCardCatalogFor,
 } from "@/lib/help-card-defaults";
 import {
-  HELP_CARD_ROW_1_SIZE,
   HELP_CARD_ROW_SIZE,
+  helpCardFirstRowSize,
+  helpCardRowSpans,
   resolveHelpCardRows,
 } from "@/lib/help-card-layout";
 import {
@@ -146,6 +147,36 @@ export function formatPlanGroupIdLabel(value?: string | null): string {
 const MOBILE_ROW_CAPACITY = 2;
 
 /**
+ * Column span → grid classes.
+ *
+ * The grid is 2 columns on a phone and 4 from `lg` up, so a card wider than half
+ * the phone grid simply owns the whole phone line. Written out as static strings
+ * because Tailwind cannot see a computed `col-span-${n}`.
+ */
+const SPAN_CLASS: Record<number, string> = {
+  1: "col-span-1",
+  2: "col-span-2",
+  3: "col-span-2 lg:col-span-3",
+  4: "col-span-2 lg:col-span-4",
+};
+
+/** The grid classes for a card spanning `span` of the 4 columns. */
+function spanClass(span: number): string {
+  return SPAN_CLASS[Math.min(Math.max(span, 1), 4)];
+}
+
+/**
+ * The measured, centred content column every WIDE card uses — the Account Access
+ * card and a 3–4 column topic tile alike.
+ *
+ * Sharing one constant is the point: the CTA sits inside this column at full
+ * width, so the button is the same size whichever card happens to be the primary
+ * one filling the row. A per-card value would make the button resize just because
+ * the advisor promoted a different card.
+ */
+const WIDE_CARD_CONTENT = "w-full max-w-[44rem] text-center mx-auto";
+
+/**
  * The reflow animation used when the advisor reorders the cards in the Editing
  * Panel (Section 4).
  *
@@ -162,28 +193,50 @@ const HELPCARD_LAYOUT_TRANSITION = {
   },
 };
 
-/** Split a row into the groups of cards that share a line on a phone. */
-function chunkCards(cards: HelpCardResolved[], size: number): HelpCardResolved[][] {
-  const chunks: HelpCardResolved[][] = [];
-  for (let index = 0; index < cards.length; index += size) {
-    chunks.push(cards.slice(index, index + size));
-  }
-  return chunks;
+/** One card of a row, with the columns it takes and its index in that row. */
+interface RowEntry {
+  card: HelpCardResolved;
+  index: number;
+  span: number;
 }
 
 /**
- * Rows for a placement-driven grid: the 2-wide primary plus two standard cards, then
- * four to every later row. Mirrors `resolveHelpCardRows`' shape for the legacy path,
- * so the renderer below cannot tell the two sources apart.
+ * Group a row into the lines a PHONE shows. The mobile grid is two columns, so a
+ * card spanning more than that takes a line of its own and everything else pairs
+ * up. The grouping exists so the open card's panel can be inserted directly under
+ * the line it belongs to.
+ */
+function chunkRowForPhone(row: HelpCardResolved[], spans: number[]): RowEntry[][] {
+  const lines: RowEntry[][] = [];
+  let current: RowEntry[] = [];
+  let used = 0;
+
+  row.forEach((card, index) => {
+    const span = spans[index] ?? 1;
+    const phoneWidth = Math.min(span, MOBILE_ROW_CAPACITY);
+    if (used + phoneWidth > MOBILE_ROW_CAPACITY && current.length > 0) {
+      lines.push(current);
+      current = [];
+      used = 0;
+    }
+    current.push({ card, index, span });
+    used += phoneWidth;
+  });
+
+  if (current.length > 0) lines.push(current);
+  return lines;
+}
+
+/**
+ * Rows for a placement-driven grid. The split is the same rule the legacy path
+ * uses (`helpCardFirstRowSize`), so the renderer cannot tell the two sources
+ * apart and neither can leave a row short of the right edge.
  */
 function chunkIntoRows(cards: HelpCardResolved[]): HelpCardResolved[][] {
   if (cards.length === 0) return [];
-  const rows: HelpCardResolved[][] = [cards.slice(0, HELP_CARD_ROW_1_SIZE)];
-  for (
-    let index = HELP_CARD_ROW_1_SIZE;
-    index < cards.length;
-    index += HELP_CARD_ROW_SIZE
-  ) {
+  const firstRowSize = helpCardFirstRowSize(cards.length);
+  const rows: HelpCardResolved[][] = [cards.slice(0, firstRowSize)];
+  for (let index = firstRowSize; index < cards.length; index += HELP_CARD_ROW_SIZE) {
     rows.push(cards.slice(index, index + HELP_CARD_ROW_SIZE));
   }
   return rows;
@@ -458,6 +511,7 @@ function AccountAccessCard({
   brandColor,
   secondaryColor,
   primary = false,
+  span = 2,
   planIdLabel,
   providerName,
   providerDetailLine,
@@ -468,6 +522,8 @@ function AccountAccessCard({
   brandColor: string;
   secondaryColor: string;
   primary?: boolean;
+  /** Columns this card takes in its row — see `helpCardRowSpans`. */
+  span?: number;
   planIdLabel?: string;
   providerName?: string;
   providerDetailLine?: string;
@@ -480,6 +536,13 @@ function AccountAccessCard({
   const onPrimary = readableColor(brandColor);
   const onPrimaryMuted = transparentize(0.2, onPrimary);
   const onPrimaryFaint = transparentize(0.35, onPrimary);
+  /**
+   * A card that owns most of its row (3–4 of the 4 columns) lays out horizontally:
+   * the details in a measured left column, the CTA keeping its natural width on
+   * the right. Stacked at that width every line runs the full page and the tile
+   * reads as three disconnected islands.
+   */
+  const isWide = span >= 3;
 
   return (
     <motion.div
@@ -492,121 +555,157 @@ function AccountAccessCard({
       whileHover={{ y: -2 }}
       // The height floor is what makes every row in the grid the same height: the
       // topic tiles below use the identical `min-h`, so row 2 matches row 1 even
-      // though its cards carry far less content.
+      // though its cards carry far less content. A full-width card has its row to
+      // itself, so it uses the compact floor instead of a tall, empty band.
       className={cn(
-        "group flex h-full min-h-[180px] flex-col rounded-2xl border p-4 text-left shadow-sm transition-shadow duration-200 hover:shadow-md sm:p-5 lg:min-h-[210px]",
+        "group flex h-full flex-col rounded-2xl border p-4 text-left shadow-sm transition-shadow duration-200 hover:shadow-md sm:p-5",
+        isWide
+          ? "min-h-[132px] items-center justify-center"
+          : "min-h-[180px] lg:min-h-[210px]",
+        // The wide card is wide because its ROW says so, not because it is the
+        // Access card: with five cards it takes all four columns, in the classic
+        // seven it takes two, and in a four-card row it shares equally.
+        spanClass(span),
         primary
-          ? "col-span-2 border-transparent"
-          : "col-span-1 border-neutral-200 bg-white hover:border-neutral-300",
+          ? "border-transparent"
+          : "border-neutral-200 bg-white hover:border-neutral-300",
       )}
       style={primary ? { backgroundColor: brandColor } : undefined}
     >
-      <h3
-        // Matches the topic titles, so every card in the grid reads at one size.
-        className="font-dm-serif text-lg font-semibold leading-snug sm:text-xl"
-        style={{ color: primary ? onPrimary : brandColor }}
+      {/* A wide card does not stretch its contents across the whole row: the
+          details AND the button share one measured column, centred in the card, so
+          the button is exactly as wide as the text above it. */}
+      <div
+        className={cn(
+          "flex min-w-0 flex-1 flex-col",
+          isWide && WIDE_CARD_CONTENT,
+        )}
       >
-        {title}
-      </h3>
+        <div className={cn("min-w-0", isWide && "text-center")}>
+          <h3
+            // Matches the topic titles, so every card in the grid reads at one size.
+            className="font-dm-serif text-lg font-semibold leading-snug sm:text-xl"
+            style={{ color: primary ? onPrimary : brandColor }}
+          >
+            {title}
+          </h3>
 
-      {description && (
-        <p
-          className={cn(
-            "mt-0.5 line-clamp-1 text-[15px] leading-snug",
-            !primary && "text-neutral-600",
+          {description && (
+            <p
+              className={cn(
+                "mt-0.5 text-[15px] leading-snug",
+                isWide ? "line-clamp-2" : "line-clamp-1",
+                !primary && "text-neutral-600",
+              )}
+              style={primary ? { color: onPrimaryMuted } : undefined}
+            >
+              {description}
+            </p>
           )}
-          style={primary ? { color: onPrimaryMuted } : undefined}
-        >
-          {description}
-        </p>
-      )}
 
-      {planIdLabel && (
-        <div className="mt-2">
-          <span
-            className="inline-block rounded-md px-2 py-1 font-red-hat text-[13px] font-semibold leading-tight"
+          {/* Plan ID and administrator share one wrapped line — two short facts,
+              not two stacked blocks that push the CTA to the far bottom of a wide
+              card. */}
+          {(planIdLabel || providerName) && (
+            <div
+              className={cn(
+                "mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5",
+                isWide && "sm:justify-center",
+              )}
+            >
+              {planIdLabel && (
+                <span
+                  className="inline-block rounded-md px-2 py-1 font-red-hat text-[13px] font-semibold leading-tight"
+                  style={
+                    primary
+                      ? { backgroundColor: onPrimaryFaint, color: onPrimary }
+                      : { backgroundColor: `${brandColor}14`, color: brandColor }
+                  }
+                >
+                  {planIdLabel}
+                </span>
+              )}
+              {providerName && (
+                <p
+                  className={cn(
+                    "font-red-hat text-[13px] leading-tight",
+                    !primary && "text-neutral-500",
+                  )}
+                  style={primary ? { color: onPrimaryMuted } : undefined}
+                >
+                  Administered by{" "}
+                  <span
+                    className="font-semibold"
+                    style={{ color: primary ? onPrimary : brandColor }}
+                  >
+                    {providerName}
+                  </span>
+                  {providerDetailLine ? ` · ${providerDetailLine}` : ""}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div
+            className={cn(
+              "mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5",
+              // Four short features read as a single line across a wide card.
+              isWide && "sm:grid-cols-4 sm:justify-items-center",
+            )}
+          >
+            {bullets.map((item) => (
+              <div key={item} className="flex items-center">
+                <span
+                  className="mr-1.5 h-1 w-1 flex-shrink-0 rounded-full"
+                  style={{ background: primary ? onPrimary : brandColor }}
+                />
+                <span
+                  className={cn(
+                    "font-red-hat text-[13px] leading-tight",
+                    !primary && "text-neutral-700",
+                  )}
+                  style={primary ? { color: onPrimary } : undefined}
+                >
+                  {item}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-auto pt-3">
+          <Button
+            type="button"
+            data-testid="account-access-cta"
+            // Same destination and same new-tab behaviour as the hero's CTA; with no
+            // URL configured the button is drawn but inert, exactly like the hero.
+            onClick={() => {
+              if (!loginUrl) return;
+              window.open(loginUrl, "_blank", "noopener,noreferrer");
+            }}
+            // Full width of the card's content column — on a wide card that column
+            // is the measured block above it, not the whole row.
+            className="h-auto w-full gap-2 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] shadow-sm hover:opacity-90"
             style={
               primary
-                ? { backgroundColor: onPrimaryFaint, color: onPrimary }
-                : { backgroundColor: `${brandColor}14`, color: brandColor }
+                ? // Inverse button: the readable colour as the fill, the primary as
+                  // the label. Never the secondary colour.
+                  {
+                    backgroundColor: onPrimary,
+                    color: brandColor,
+                    borderRadius: portalRadiusValue(),
+                  }
+                : {
+                    backgroundColor: ctaColor,
+                    color: readableColor(ctaColor),
+                    borderRadius: portalRadiusValue(),
+                  }
             }
           >
-            {planIdLabel}
-          </span>
+            Register or Login Here
+            <ArrowRight className="h-4 w-4" />
+          </Button>
         </div>
-      )}
-
-      {providerName && (
-        <div className="mt-1.5">
-          <p
-            className={cn(
-              "font-red-hat text-[13px] leading-tight",
-              !primary && "text-neutral-500",
-            )}
-            style={primary ? { color: onPrimaryMuted } : undefined}
-          >
-            Administered by{" "}
-            <span
-              className="font-semibold"
-              style={{ color: primary ? onPrimary : brandColor }}
-            >
-              {providerName}
-            </span>
-            {providerDetailLine ? ` · ${providerDetailLine}` : ""}
-          </p>
-        </div>
-      )}
-
-      <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5">
-        {bullets.map((item) => (
-          <div key={item} className="flex items-center">
-            <span
-              className="mr-1.5 h-1 w-1 flex-shrink-0 rounded-full"
-              style={{ background: primary ? onPrimary : brandColor }}
-            />
-            <span
-              className={cn(
-                "font-red-hat text-[13px] leading-tight",
-                !primary && "text-neutral-700",
-              )}
-              style={primary ? { color: onPrimary } : undefined}
-            >
-              {item}
-            </span>
-          </div>
-        ))}
-      </div>
-
-      <div className="mt-auto pt-3">
-        <Button
-          type="button"
-          data-testid="account-access-cta"
-          // Same destination and same new-tab behaviour as the hero's CTA; with no
-          // URL configured the button is drawn but inert, exactly like the hero.
-          onClick={() => {
-            if (!loginUrl) return;
-            window.open(loginUrl, "_blank", "noopener,noreferrer");
-          }}
-          className="h-auto w-full gap-2 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] shadow-sm hover:opacity-90"
-          style={
-            primary
-              ? // Inverse button: the readable colour as the fill, the primary as
-                // the label. Never the secondary colour.
-                {
-                  backgroundColor: onPrimary,
-                  color: brandColor,
-                  borderRadius: portalRadiusValue(),
-                }
-              : {
-                  backgroundColor: ctaColor,
-                  color: readableColor(ctaColor),
-                  borderRadius: portalRadiusValue(),
-                }
-          }
-        >
-          Register or Login Here
-          <ArrowRight className="h-4 w-4" />
-        </Button>
       </div>
     </motion.div>
   );
@@ -1051,10 +1150,21 @@ export function HowCanWeHelpSection({
           const isFirstRow = rowIndex === 0;
           const openCard =
             row.find((card) => card.id === activeCardId) ?? null;
+          // The row's four columns, divided between its cards. The extra column
+          // follows the PRIMARY, so a primary at the right edge of row 1 stays the
+          // wide card there.
+          const primaryIndexInRow = row.findIndex((card) => card.primary);
+          const spans = helpCardRowSpans(
+            row.length,
+            HELP_CARD_ROW_SIZE,
+            primaryIndexInRow >= 0 ? primaryIndexInRow : 0,
+          );
+          const phoneLines = chunkRowForPhone(row, spans);
 
           const renderCard = (
             card: HelpCardResolved,
             cardIndex: number,
+            span: number,
           ): React.ReactNode => {
             const isAccountAccess = card.id === ACCOUNT_ACCESS_CARD_ID;
             const isPrimary = card.primary;
@@ -1078,6 +1188,7 @@ export function HowCanWeHelpSection({
                   brandColor={brandColor}
                   secondaryColor={secondaryColor}
                   primary={isPrimary}
+                  span={span}
                   planIdLabel={resolvedPlanIdLabel || undefined}
                   providerName={resolvedProviderName || undefined}
                   providerDetailLine={resolvedProviderDetail || undefined}
@@ -1087,6 +1198,12 @@ export function HowCanWeHelpSection({
             }
 
             const isOpen = card.id === activeCardId;
+            /**
+             * Same treatment as the Account Access card when a topic owns most of
+             * its row: the content and its button share one measured, centred
+             * column instead of each line running the full width of the grid.
+             */
+            const isWide = span >= 3;
 
             return (
               <motion.div
@@ -1111,10 +1228,16 @@ export function HowCanWeHelpSection({
                   // `whileHover` (an inline layout transform would override CSS).
                   // `relative` hosts the open ring, which is a child rather than this
                   // node's own `boxShadow` — see the comment on that span.
-                  "group relative flex h-full min-h-[180px] w-full cursor-pointer flex-col items-start gap-2 rounded-2xl border p-4 text-left shadow-sm transition-shadow duration-200 hover:shadow-md lg:min-h-[210px]",
-                  // A primary tile takes 2 of the 4 columns on EVERY breakpoint
-                  // (both phone columns), exactly like the account-access card.
-                  isPrimary ? "col-span-2 border-transparent" : "col-span-1 bg-white",
+                  "group relative flex h-full w-full cursor-pointer flex-col gap-2 rounded-2xl border p-4 text-left shadow-sm transition-shadow duration-200 hover:shadow-md",
+                  // A wide tile centres its measured block; a narrow one stacks from
+                  // the top-left, with the CTA pushed to the bottom edge.
+                  isWide
+                    ? "min-h-[132px] items-center justify-center"
+                    : "min-h-[180px] items-start lg:min-h-[210px]",
+                  // Width comes from the row's span plan, so every row reaches the
+                  // right edge however many cards the plan shows.
+                  spanClass(span),
+                  isPrimary ? "border-transparent" : "bg-white",
                   !isPrimary &&
                     (isOpen
                       ? "border-transparent"
@@ -1141,6 +1264,14 @@ export function HowCanWeHelpSection({
                     }}
                   />
                 )}
+                <div
+                  className={cn(
+                    "flex min-w-0 flex-1 flex-col gap-2",
+                    // The same measured column the Account Access card uses, so
+                    // the button below is the same width on either card type.
+                    isWide && WIDE_CARD_CONTENT,
+                  )}
+                >
                 <h3
                   // Topic titles run a step larger than the Account Access card's,
                   // since those cards carry far less content.
@@ -1177,7 +1308,10 @@ export function HowCanWeHelpSection({
                       event.stopPropagation();
                       toggleCard(card.id);
                     }}
-                    // Nearly the full card width, like the Account Access CTA.
+                    // Full width of the card's CONTENT column — the same rule the
+                    // Account Access card follows. On a wide tile that column is the
+                    // measured 44rem block above it, so the button matches the text
+                    // rather than spanning the whole row.
                     className="w-full justify-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] shadow-sm hover:opacity-90"
                     style={
                       isPrimary
@@ -1204,6 +1338,7 @@ export function HowCanWeHelpSection({
                       )}
                     />
                   </Button>
+                </div>
                 </div>
               </motion.div>
             );
@@ -1263,25 +1398,25 @@ export function HowCanWeHelpSection({
               transition={HELPCARD_LAYOUT_TRANSITION}
               className="space-y-4"
             >
-              {/* Row 1 is the primary (2/4) plus two standard cards; every later
-                  row is `4 × 1/4`. */}
+              {/* The row's cards divide its four columns between them, so the row
+                  always reaches the right edge. */}
               <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
                 {isFirstRow
-                  ? row.map((card, index) => renderCard(card, index))
-                  : chunkCards(row, MOBILE_ROW_CAPACITY).map(
-                      (chunk, chunkIndex) => (
-                        <Fragment key={chunkIndex}>
-                          {chunk.map((card, index) =>
-                            renderCard(card, chunkIndex * MOBILE_ROW_CAPACITY + index),
-                          )}
-                          {/* Below the phone line the open card sits on — and below
-                              everything on desktop, via `lg:order-last`. */}
-                          {chunk.some((card) => card.id === activeCardId)
-                            ? panelNode(true)
-                            : null}
-                        </Fragment>
-                      ),
-                    )}
+                  ? row.map((card, index) =>
+                      renderCard(card, index, spans[index] ?? 1),
+                    )
+                  : phoneLines.map((line, lineIndex) => (
+                      <Fragment key={lineIndex}>
+                        {line.map((entry) =>
+                          renderCard(entry.card, entry.index, entry.span),
+                        )}
+                        {/* Below the phone line the open card sits on — and below
+                            everything on desktop, via `lg:order-last`. */}
+                        {line.some((entry) => entry.card.id === activeCardId)
+                          ? panelNode(true)
+                          : null}
+                      </Fragment>
+                    ))}
               </div>
 
               {/* Row 1 keeps its panel under the whole row. */}
