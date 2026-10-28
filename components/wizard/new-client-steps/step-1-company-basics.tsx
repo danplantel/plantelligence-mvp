@@ -32,6 +32,7 @@ const defaultBrandImages: BrandImagesData = {
   header: null,
   thumbnail: null,
   secondaryBanner: null,
+  employeeResourcesHero: null,
   favicon: null,
 };
 const defaultWelcomeBody = MISSION_STATEMENT_PRESETS[0]?.bodyText || "";
@@ -50,6 +51,10 @@ const normalizeCompanyBasicsData = (
     thumbnail: data?.brandImages?.thumbnail || defaultBrandImages.thumbnail,
     secondaryBanner:
       data?.brandImages?.secondaryBanner || defaultBrandImages.secondaryBanner,
+    // Employee Resources' own header band; absent on older drafts.
+    employeeResourcesHero:
+      data?.brandImages?.employeeResourcesHero ||
+      defaultBrandImages.employeeResourcesHero,
     favicon: data?.brandImages?.favicon || defaultBrandImages.favicon,
   },
   appointmentLink: data?.appointmentLink,
@@ -661,10 +666,19 @@ export function NewClientStep1({
       updateField("brandImages", brandImages);
       return;
     }
-    const slots: { key: keyof BrandImagesData; r2Slot: "background" | "thumbnail" | "secondaryBanner" | "favicon" }[] = [
+    const slots: {
+      key: keyof BrandImagesData;
+      r2Slot:
+        | "background"
+        | "thumbnail"
+        | "secondaryBanner"
+        | "employeeResourcesHero"
+        | "favicon";
+    }[] = [
       { key: "header", r2Slot: "background" },
       { key: "thumbnail", r2Slot: "thumbnail" },
       { key: "secondaryBanner", r2Slot: "secondaryBanner" },
+      { key: "employeeResourcesHero", r2Slot: "employeeResourcesHero" },
       { key: "favicon", r2Slot: "favicon" },
     ];
     let updated = { ...brandImages };

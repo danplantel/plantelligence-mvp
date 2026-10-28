@@ -71,6 +71,15 @@ export interface BrandImagesData {
   thumbnail: BrandImageData | null;
   secondaryBanner: BrandImageData | null;
   favicon: BrandImageData | null;
+  /**
+   * The Employee Resources hub's header band (TF-6).
+   *
+   * Its own slot because that hub is not a benefit category and has no welcome
+   * banner to inherit the hero banner from: without one the page falls back to the
+   * Page Image Header, then to the bundled default. Optional so every existing
+   * `BrandImagesData` literal — drafts, save payloads, tests — stays valid.
+   */
+  employeeResourcesHero?: BrandImageData | null;
 }
 
 export interface CompanyBasicsData {

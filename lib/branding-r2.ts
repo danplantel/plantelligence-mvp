@@ -26,7 +26,16 @@ export function dataUrlToFile(dataUrl: string, fileName: string): File {
   return new File([u8], fileName || "image.png", { type: mime });
 }
 
-const BRANDING_SLOTS = ["logo", "background", "thumbnail", "secondaryBanner", "favicon"] as const;
+const BRANDING_SLOTS = [
+  "logo",
+  "background",
+  "thumbnail",
+  "secondaryBanner",
+  // The Employee Resources hub's header band (TF-6) — its own slot so the two
+  // header images never overwrite each other on R2.
+  "employeeResourcesHero",
+  "favicon",
+] as const;
 export type BrandingSlot = (typeof BRANDING_SLOTS)[number];
 
 /**

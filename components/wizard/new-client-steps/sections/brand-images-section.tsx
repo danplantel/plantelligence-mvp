@@ -79,6 +79,19 @@ const BRAND_IMAGE_SLOTS = [
     previewAspectRatio: 16 / 9,
     previewLabel: "Banner preview (16:9)",
   },
+  {
+    key: "employeeResourcesHero" as keyof BrandImagesData,
+    title: "Employee Resources Header",
+    description:
+      "The header band on the Employee Resources page. If none is uploaded, the Page Image Header is used, then a bundled default.",
+    recommendedSize: "1600×600 px",
+    required: false,
+    accept: ".png,.jpg,.jpeg,.webp",
+    // Same upload / Choose Default Image / crop flow as the other slots.
+    defaultPhoteButton: true,
+    previewAspectRatio: 16 / 9,
+    previewLabel: "Header preview (16:9)",
+  },
 ];
 
 export function BrandImagesSection({
@@ -293,7 +306,7 @@ export function BrandImagesSection({
         const preloads: Promise<void>[] = [];
         if (finalBrandImages) {
           const slotsToCheck: (keyof BrandImagesData)[] = [
-            "header", "thumbnail", "secondaryBanner", "favicon",
+            "header", "thumbnail", "secondaryBanner", "employeeResourcesHero", "favicon",
           ];
           for (const key of slotsToCheck) {
             const img = finalBrandImages[key];

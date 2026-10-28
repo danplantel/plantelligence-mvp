@@ -6,6 +6,18 @@ export const DEFAULT_WELCOME_BG =
   "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=2400&q=80";
 
 /**
+ * Stock header band for the Employee Resources hub (TF-6).
+ *
+ * That hub is not a benefit category, so it has no entry in
+ * `CATEGORY_DEFAULT_BGS` — and it must not borrow the News & Events default, or the
+ * two interior pages end up looking identical. This is the curated HR-guidance
+ * image from the default gallery, used only until the plan picks its own Employee
+ * Resources Header in Create Plan → Branding or Edit Client → Branding.
+ */
+export const EMPLOYEE_RESOURCES_DEFAULT_BG =
+  "/gallery/016-5fd20d227ffe-hr-benefits-guidance.jpg";
+
+/**
  * Per-category default hero background images.
  * Used when no custom background is uploaded for a benefit hub page.
  */

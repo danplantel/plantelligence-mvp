@@ -60,6 +60,20 @@ describe("BrandImagesSection", () => {
     expect(screen.getByText("Page Image Header")).toBeInTheDocument();
   });
 
+  it("offers the Employee Resources header as its own slot", () => {
+    render(
+      <BrandImagesSection
+        brandImages={emptyImages}
+        onBrandImagesChange={vi.fn()}
+      />,
+    );
+
+    // The Employee Resources hub has no welcome banner to inherit from, so it gets
+    // a slot of its own — with the same upload / Choose Default Image controls.
+    expect(screen.getByTestId("upload-employeeResourcesHero")).toBeInTheDocument();
+    expect(screen.getByText("Employee Resources Header")).toBeInTheDocument();
+  });
+
   it("renders only the requested slots", () => {
     render(
       <BrandImagesSection

@@ -598,6 +598,12 @@ export async function PUT(
     let secondaryBannerImgName =
       (brandImages as any)?.secondaryBanner?.fileName ||
       existingClient.secondaryBannerImgName;
+    // The Employee Resources hub's header band has no Client column — it lives in
+    // `employeePortalPreview` (below), because that hub is opt-in and does not own a
+    // Benefit row. Read here so the Brand Images slot saves with the other images.
+    const employeeResourcesHeroUrl = String(
+      (brandImages as any)?.employeeResourcesHero?.url || "",
+    ).trim();
     let faviconImg =
       (brandImages as any)?.favicon?.url || existingClient.faviconImg;
     let faviconImgName =
@@ -852,11 +858,16 @@ export async function PUT(
       // behaviour) made every PUT rewrite this JSON column, and — worse — let a stale
       // read from the start of this request clobber a concurrent writer, which is
       // exactly the hazard the dual-write already creates on the publish path.
-      ...(employeePortalPreview !== undefined
+      ...(employeePortalPreview !== undefined || employeeResourcesHeroUrl
         ? {
             employeePortalPreview: {
               ...((existingClient as any).employeePortalPreview || {}),
               ...(employeePortalPreview as any),
+              // Written from the Brand Images slot; absent leaves the stored value
+              // alone, so a save that never touched this slot cannot erase it.
+              ...(employeeResourcesHeroUrl
+                ? { employeeResourcesHeroImage: employeeResourcesHeroUrl }
+                : {}),
             },
           }
         : {}),
