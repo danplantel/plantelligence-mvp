@@ -5,7 +5,10 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PortalHeader } from "../portal-header";
-import { HOW_CAN_WE_HELP_SECTION_ID } from "@/lib/portal-section-anchors";
+import {
+  HAVE_QUESTIONS_SECTION_ID,
+  HOW_CAN_WE_HELP_SECTION_ID,
+} from "@/lib/portal-section-anchors";
 
 /**
  * The header's Login button.
@@ -101,5 +104,175 @@ describe("PortalHeader login", () => {
     expect(screen.getByRole("button", { name: /Login/ })).toHaveStyle({
       backgroundColor: "#abcdef",
     });
+  });
+});
+
+/**
+ * The same slot, now a plan-level choice (Section 1 of the editing panel): Login,
+ * a booking button, or nothing. `login` is the fallback, which is what the suite
+ * above already covers — these pin the other two.
+ */
+describe("PortalHeader call to action", () => {
+  beforeEach(() => {
+    mocks.pathname = "/plan-1/retirement";
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.unstubAllGlobals();
+  });
+
+  it("falls back to Login when the plan stores nothing", () => {
+    render(<PortalHeader clientId="plan-1" headerCta={null} />);
+
+    expect(screen.getByRole("button", { name: /Login/ })).toBeInTheDocument();
+  });
+
+  it("falls back to Login for a mode it does not know", () => {
+    render(<PortalHeader clientId="plan-1" headerCta={{ mode: "telepathy" }} />);
+
+    expect(screen.getByRole("button", { name: /Login/ })).toBeInTheDocument();
+  });
+
+  it("renders no button at all for None — even on a hub page", () => {
+    render(<PortalHeader clientId="plan-1" headerCta={{ mode: "none" }} />);
+
+    expect(
+      screen.queryByRole("button", { name: /Login|Schedule a Call/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Login|Schedule a Call/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows the booking button outside the benefit hubs too", () => {
+    mocks.pathname = "/plan-1/news-events";
+    render(
+      <PortalHeader
+        clientId="plan-1"
+        headerCta={{ mode: "schedule", url: "https://calendly.com/team" }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: /Schedule a Call/ }),
+    ).toBeInTheDocument();
+    // Login would be absent here — Schedule is not hub-scoped.
+    expect(
+      screen.queryByRole("button", { name: /Login/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("opens an external booking link in a new tab", () => {
+    render(
+      <PortalHeader
+        clientId="plan-1"
+        // No scheme: the header completes it to https.
+        headerCta={{ mode: "schedule", url: "calendly.com/team" }}
+      />,
+    );
+
+    const link = screen.getByRole("link", { name: /Schedule a Call/ });
+    expect(link).toHaveAttribute("href", "https://calendly.com/team");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("keeps a portal destination in the same tab", () => {
+    render(
+      <PortalHeader
+        clientId="plan-1"
+        headerCta={{ mode: "schedule", url: "/plan-1/my-benefits-team" }}
+      />,
+    );
+
+    const link = screen.getByRole("link", { name: /Schedule a Call/ });
+    expect(link).toHaveAttribute("href", "/plan-1/my-benefits-team");
+    expect(link).not.toHaveAttribute("target");
+  });
+
+  it("uses the advisor's own label", () => {
+    render(
+      <PortalHeader
+        clientId="plan-1"
+        headerCta={{
+          mode: "schedule",
+          url: "https://calendly.com/team",
+          label: "Book a review",
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: /Book a review/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("scrolls to the contact card when Schedule has no link", async () => {
+    const user = userEvent.setup();
+    const support = document.createElement("section");
+    support.id = HAVE_QUESTIONS_SECTION_ID;
+    support.scrollIntoView = vi.fn();
+    document.body.appendChild(support);
+
+    render(<PortalHeader clientId="plan-1" headerCta={{ mode: "schedule" }} />);
+
+    await user.click(screen.getByRole("button", { name: /Schedule a Call/ }));
+
+    expect(support.scrollIntoView).toHaveBeenCalledWith({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+
+  /**
+   * The editors render the header with `enableNavigation={false}`, which has no
+   * routes — so `isBenefitsActive` can never be true there. The previews are all
+   * previewing a benefit hub, so they must still show the button the advisor just
+   * picked; that is the whole point of the control living in Section 1.
+   */
+  it("shows the Login button in the editors' preview chrome", () => {
+    render(
+      <PortalHeader
+        clientId="plan-1"
+        enableNavigation={false}
+        headerCta={{ mode: "login" }}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Login/ })).toBeInTheDocument();
+  });
+
+  it("draws a booking link as an inert button in preview chrome", () => {
+    render(
+      <PortalHeader
+        clientId="plan-1"
+        enableNavigation={false}
+        headerCta={{ mode: "schedule", url: "https://calendly.com/team" }}
+      />,
+    );
+
+    // The advisor is mid-edit: the label is faithful, but no tab may open.
+    expect(
+      screen.getByRole("button", { name: /Schedule a Call/ }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: /Schedule a Call/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps None empty in preview chrome too", () => {
+    render(
+      <PortalHeader
+        clientId="plan-1"
+        enableNavigation={false}
+        headerCta={{ mode: "none" }}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("button", { name: /Login|Schedule a Call/ }),
+    ).not.toBeInTheDocument();
   });
 });

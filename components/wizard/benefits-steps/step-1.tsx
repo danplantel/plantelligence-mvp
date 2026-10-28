@@ -109,6 +109,7 @@ import {
   type BenefitCategoryCardState,
 } from "./benefit-category-card";
 import { categoryToSlug } from "@/lib/benefit-category-slug";
+import { normalizePortalHeaderCta } from "@/lib/portal-header-cta";
 import { convertToDocumentFormat } from "@/lib/compliance-document-utils";
 import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboarding-advisor-contacts";
 import { contactCompanyLogoForCategory } from "@/lib/benefit-contacts";
@@ -2330,6 +2331,11 @@ export function BenefitsStep1({
         // Sync insurance overlay settings from persisted plan data
         const fullPlanEpp = fullPlan.employeePortalPreview || {};
 
+        // The header CTA is plan-level (Client row), so it is read from the plan
+        // blob. Recording it as the save baseline here means opening the editor
+        // never writes the value it just read straight back.
+        const syncedHeaderCta = normalizePortalHeaderCta(fullPlanEpp.headerCta);
+
         saveStepData(1, {
           ...currentStepData,
           planId,
@@ -2338,6 +2344,7 @@ export function BenefitsStep1({
           contactId: "",
           benefitTitle: "",
           companyLogo: null,
+          headerCta: syncedHeaderCta,
           insuranceBackgroundImage: syncedInsuranceBg,
           insurancePlanId: syncedInsurancePlanId,
           insuranceLoginUrl: syncedInsuranceLoginUrl,

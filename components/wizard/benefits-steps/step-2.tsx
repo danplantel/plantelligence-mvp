@@ -727,6 +727,9 @@ export function BenefitsStep2() {
                             clientId={step1Data?.planId}
                             categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
                             benefits={(step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? null}
+                            // The header button chosen in Section 1, live — the
+                            // preview must not wait for the debounced plan PUT.
+                            headerCta={step1Data?.headerCta}
                             enableNavigation={false}
                             scale={scale}
                             // Same reference the body below is laid out at, so the header and the
@@ -770,6 +773,7 @@ export function BenefitsStep2() {
                                                 clientId={step1Data?.planId}
                                                 categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
                                                 benefits={(step1Data?.selectedPlan as any)?.employeePortalPreview?.benefits ?? null}
+                                                headerCta={step1Data?.headerCta}
                                                 enableNavigation={false}
                                             />
                                         </div>

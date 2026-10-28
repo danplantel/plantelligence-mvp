@@ -24,9 +24,15 @@ import {
 import { BrandingImage } from "@/components/ui/branding-image";
 import { readableColor } from "polished";
 import {
+  HAVE_QUESTIONS_SECTION_ID,
   HOW_CAN_WE_HELP_SECTION_ID,
   scrollToPortalSection,
 } from "@/lib/portal-section-anchors";
+import {
+  normalizePortalHeaderCta,
+  portalHeaderCtaLabel,
+  resolvePortalHeaderCtaHref,
+} from "@/lib/portal-header-cta";
 import {
   HEADER_LOGO_BAND_PX,
   HEADER_LOGO_MAX_WIDTH_PX,
@@ -93,6 +99,19 @@ interface PortalHeaderProps {
    */
   employeeResourcesEnabled?: boolean;
   /**
+   * The plan's Portal Header button — `employeePortalPreview.headerCta`, chosen in
+   * Section 1 of the editing panel (see `lib/portal-header-cta`).
+   *
+   *  - `login` (default) — the original Login button, shown on Benefit Hub pages
+   *    only, scrolling to that hub's Account Access card.
+   *  - `schedule` — a booking button, shown on every portal page.
+   *  - `none` — no button.
+   *
+   * Typed loosely because it arrives as JSON; anything unrecognized falls back to
+   * `login`, so existing plans are untouched.
+   */
+  headerCta?: unknown;
+  /**
    * When < 1, proportionally scales the header's content *and* height to match
    * the scaled preview beneath it — e.g. while the editing panel narrows the
    * available width. 1 (default) renders at natural size.
@@ -114,10 +133,34 @@ export function PortalHeader({
   categoryPortalVisibility: categoryPortalVisibilityRaw,
   benefitHubs,
   employeeResourcesEnabled = false,
+  headerCta,
   scale = 1,
   referenceWidth = 1400,
 }: PortalHeaderProps) {
   const visibility = getCategoryPortalVisibility(categoryPortalVisibilityRaw);
+
+  // ── The header's one call to action ──
+  // `schedule` is a plan-wide booking button, so it renders on every page; `login`
+  // keeps its benefit-hub-only rule (below); `none` renders nothing at all.
+  const headerCtaSetting = normalizePortalHeaderCta(headerCta);
+  const headerCtaText = portalHeaderCtaLabel(headerCtaSetting);
+  const headerCtaHref = resolvePortalHeaderCtaHref(headerCtaSetting.url);
+  /** Login has a destination (the Account Access card); a booking button without a
+   *  URL falls back to the contact card in "Have Questions?". */
+  const handleHeaderCtaClick = () =>
+    scrollToPortalSection(
+      headerCtaSetting.mode === "login"
+        ? HOW_CAN_WE_HELP_SECTION_ID
+        : HAVE_QUESTIONS_SECTION_ID,
+    );
+  const headerCtaClass =
+    "order-1 gap-2 rounded-full px-4 text-xs font-semibold shadow-sm transition-opacity hover:opacity-90 sm:text-sm md:order-2";
+  const headerCtaStyle = {
+    backgroundColor: brandColor,
+    color: readableColor(brandColor),
+  };
+  // `showHeaderCta` / `headerCtaAsLink` are derived further down, once
+  // `isBenefitsActive` exists — they need it.
 
   /**
    * A hub link renders only for a hub this plan actually published — the same three
@@ -238,6 +281,24 @@ export function PortalHeader({
     ...(customHubPath ? [customHubPath] : []),
   ];
   const isBenefitsActive = benefitsPaths.some((path) => isActive(path));
+
+  /**
+   * Preview chrome — the editors' `enableNavigation={false}` — has no routes, so
+   * `isBenefitsActive` cannot answer "are we on a benefit page?", and every editor
+   * preview IS previewing one. So previews show the Login button as well, which is
+   * what makes the Section 1 choice visible in the preview at the moment it is made.
+   *
+   * A booking link is drawn as an inert button there instead of an anchor: the
+   * advisor is editing, and a stray new tab would interrupt them.
+   */
+  const isPreviewChrome = !enableNavigation;
+  const showHeaderCta =
+    headerCtaSetting.mode === "schedule" ||
+    (headerCtaSetting.mode === "login" && (isBenefitsActive || isPreviewChrome));
+  const headerCtaAsLink =
+    headerCtaSetting.mode === "schedule" &&
+    Boolean(headerCtaHref.href) &&
+    !isPreviewChrome;
   // "Home" is the landing page: not one of the benefit hubs, news, or the team page.
   const isHomeActive =
     pathname === baseUrl ||
@@ -615,27 +676,44 @@ export function PortalHeader({
                   floating chatbot action in the bottom-right corner (see
                   portal-chatbot.tsx), so it is reachable on every page size. */}
 
-              {/* Login — Benefit Hub pages only. Scrolls to that hub's "How Can We
-                  Help You Today?" section, which holds the Account Access card
-                  (plan / group ID, administering provider and the Register or Login
-                  Here button). Ordered before the mobile hamburger so the two sit
-                  [Login][☰] on a phone and [nav][Login] from `md:` up. */}
-              {isBenefitsActive && (
-                <Button
-                  type="button"
-                  onClick={() =>
-                    scrollToPortalSection(HOW_CAN_WE_HELP_SECTION_ID)
-                  }
-                  className="order-1 gap-2 rounded-full px-4 text-xs font-semibold shadow-sm transition-opacity hover:opacity-90 sm:text-sm md:order-2"
-                  style={{
-                    backgroundColor: brandColor,
-                    color: readableColor(brandColor),
-                  }}
-                >
-                  <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
-                  Login
-                </Button>
-              )}
+              {/* The header CTA, chosen in Section 1 of the editing panel.
+                  `login` keeps the original rule — Benefit Hub pages only, scrolling
+                  to that hub's "How Can We Help You Today?" section, which holds the
+                  Account Access card (plan / group ID, administering provider and the
+                  Register or Login Here button). `schedule` is plan-wide, so it shows
+                  everywhere. Ordered before the mobile hamburger so the two sit
+                  [CTA][☰] on a phone and [nav][CTA] from `md:` up. */}
+              {headerCtaSetting.mode !== "none" &&
+                showHeaderCta &&
+                (headerCtaAsLink ? (
+                  // `asChild` keeps the markup valid (an anchor, not a button inside
+                  // a link) while inheriting the Button's styling.
+                  <Button asChild className={headerCtaClass} style={headerCtaStyle}>
+                    <a
+                      href={headerCtaHref.href}
+                      {...(headerCtaHref.external
+                        ? { target: "_blank", rel: "noopener noreferrer" }
+                        : {})}
+                    >
+                      <Calendar className="h-4 w-4 shrink-0" aria-hidden="true" />
+                      {headerCtaText}
+                    </a>
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={handleHeaderCtaClick}
+                    className={headerCtaClass}
+                    style={headerCtaStyle}
+                  >
+                    {headerCtaSetting.mode === "login" ? (
+                      <LogIn className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    ) : (
+                      <Calendar className="h-4 w-4 shrink-0" aria-hidden="true" />
+                    )}
+                    {headerCtaText}
+                  </Button>
+                ))}
             </div>
           </div>
         </div>

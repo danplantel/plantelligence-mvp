@@ -35,7 +35,19 @@ import {
   Settings,
   Video,
   Upload,
+  CalendarClock,
+  LogIn,
 } from "lucide-react";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { invalidateClientCache } from "@/lib/fetch-client";
+import {
+  DEFAULT_SCHEDULE_CTA_LABEL,
+  PORTAL_HEADER_CTA_OPTIONS,
+  normalizePortalHeaderCta,
+  portalHeaderCtaLabel,
+  type PortalHeaderCta,
+  type PortalHeaderCtaMode,
+} from "@/lib/portal-header-cta";
 import { compressImage } from "@/lib/image-compression";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -638,6 +650,68 @@ export function BenefitsEditorPanel({
     saveStepData(1, updated);
   };
 
+  // ── Portal Header button (Section 1) ──
+  // The one PLAN-level control in this panel: the single call to action in the
+  // portal header. Stored on the plan, not on this Benefit row.
+  const planHeaderCta = (step1Data as any)?.selectedPlan?.employeePortalPreview
+    ?.headerCta as unknown;
+  // A value the advisor has touched wins; otherwise this shows what the plan
+  // stores — and Login when it stores nothing, which is every existing plan.
+  const headerCtaSetting = normalizePortalHeaderCta(
+    step1Data.headerCta ?? planHeaderCta,
+  );
+  const updateHeaderCta = (patch: Partial<PortalHeaderCta>) =>
+    saveStepData(1, {
+      ...step1Data,
+      headerCta: normalizePortalHeaderCta({ ...headerCtaSetting, ...patch }),
+    });
+
+  const headerCtaPayloadKey = JSON.stringify(headerCtaSetting);
+  /** The value last read from / written to the plan, so no echo PUT fires. */
+  const savedHeaderCtaRef = useRef<string | null>(null);
+
+  // Adopt the plan's stored value as the baseline whenever it (re)loads and the
+  // advisor has not edited the control yet.
+  useEffect(() => {
+    if (step1Data.headerCta) return;
+    savedHeaderCtaRef.current = JSON.stringify(
+      normalizePortalHeaderCta(planHeaderCta),
+    );
+  }, [planHeaderCta, step1Data.headerCta]);
+
+  /** Debounced write of the header CTA onto the plan (`employeePortalPreview`). */
+  useEffect(() => {
+    const planId = step1Data.planId;
+    if (!planId || !step1Data.headerCta) return;
+
+    if (savedHeaderCtaRef.current === null) {
+      savedHeaderCtaRef.current = headerCtaPayloadKey;
+      return;
+    }
+    if (savedHeaderCtaRef.current === headerCtaPayloadKey) return;
+
+    const timer = setTimeout(async () => {
+      try {
+        await fetch(`/api/clients/${planId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          // The API shallow-merges `employeePortalPreview`, so `headerCta` lands
+          // beside the rest of the blob instead of replacing it.
+          body: JSON.stringify({
+            employeePortalPreview: { headerCta: JSON.parse(headerCtaPayloadKey) },
+          }),
+        });
+        savedHeaderCtaRef.current = headerCtaPayloadKey;
+        // The portal header renders from the cached client payload.
+        invalidateClientCache(planId);
+      } catch (error) {
+        console.error("Header CTA save error:", error);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [step1Data.planId, step1Data.headerCta, headerCtaPayloadKey]);
+
   const SectionHeader = ({
     number,
     title,
@@ -678,12 +752,118 @@ export function BenefitsEditorPanel({
       }
     >
       <div className="flex flex-col gap-12 p-6 pb-20">
+        {/* Portal Header Button — the only plan-level section, so it leads. */}
+        <div className="transition-all duration-500 rounded-xl">
+          <SectionHeader number={1} title="Portal Header Button" />
+          <div className="space-y-4">
+            <p className="text-[13px] text-muted-foreground leading-relaxed">
+              Every portal page carries one call to action in its header. This is a
+              plan-wide setting, so it applies to every benefit in this plan.
+            </p>
+
+            <RadioGroup
+              value={headerCtaSetting.mode}
+              onValueChange={(value) =>
+                updateHeaderCta({ mode: value as PortalHeaderCtaMode })
+              }
+              className="gap-2"
+            >
+              {PORTAL_HEADER_CTA_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  htmlFor={`panel-header-cta-${option.value}`}
+                  className={cn(
+                    "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
+                    headerCtaSetting.mode === option.value
+                      ? "border-accent-blue bg-accent-blue/5"
+                      : "border-border hover:bg-muted/40",
+                  )}
+                >
+                  <RadioGroupItem
+                    value={option.value}
+                    id={`panel-header-cta-${option.value}`}
+                    className="mt-0.5"
+                  />
+                  <span className="min-w-0">
+                    <span className="block text-[13px] font-semibold text-foreground">
+                      {option.label}
+                    </span>
+                    <span className="block text-[12px] text-muted-foreground">
+                      {option.description}
+                    </span>
+                  </span>
+                </label>
+              ))}
+            </RadioGroup>
+
+            {/* Booking details are only meaningful for that option, and are kept
+                when the advisor switches away so the link is not lost. */}
+            {headerCtaSetting.mode === "schedule" && (
+              <div className="space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-foreground">
+                    Booking link
+                  </Label>
+                  <Input
+                    value={headerCtaSetting.url || ""}
+                    onChange={(event) =>
+                      updateHeaderCta({ url: event.target.value })
+                    }
+                    placeholder="https://calendly.com/your-team/benefits-review"
+                    className="h-9"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Opens in a new tab. Leave it empty and the button scrolls to your
+                    team&rsquo;s contact card instead.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-foreground">
+                    Button label
+                  </Label>
+                  <Input
+                    value={headerCtaSetting.label || ""}
+                    onChange={(event) =>
+                      updateHeaderCta({ label: event.target.value })
+                    }
+                    placeholder={DEFAULT_SCHEDULE_CTA_LABEL}
+                    maxLength={28}
+                    className="h-9"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Defaults to &ldquo;{DEFAULT_SCHEDULE_CTA_LABEL}&rdquo;. Keep it
+                    short — the header has room for about 28 characters.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-dashed border-border px-3 py-2">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
+                Header shows
+              </span>
+              {headerCtaSetting.mode === "none" ? (
+                <span className="text-[13px] text-muted-foreground">No button</span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-blue px-3 py-1 text-[12px] font-semibold text-white">
+                  {headerCtaSetting.mode === "login" ? (
+                    <LogIn className="h-3.5 w-3.5" />
+                  ) : (
+                    <CalendarClock className="h-3.5 w-3.5" />
+                  )}
+                  {portalHeaderCtaLabel(headerCtaSetting)}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+
         {/* Typography Section */}
         <div
           ref={sectionsRef.typography}
           className="transition-all duration-500 rounded-xl"
         >
-          <SectionHeader number={1} title="Typography" />
+          <SectionHeader number={2} title="Typography" />
           <TypographySection
             value={step1Data?.typographyTheme}
             onChange={(id) =>
@@ -710,7 +890,7 @@ export function BenefitsEditorPanel({
               : "",
           )}
         >
-          <SectionHeader number={2} title="Branding" />
+          <SectionHeader number={3} title="Branding" />
           <div className="space-y-8">
             <div
               className={cn(
@@ -875,7 +1055,7 @@ export function BenefitsEditorPanel({
               : "",
           )}
         >
-          <SectionHeader number={3} title="Benefit Messaging" />
+          <SectionHeader number={4} title="Benefit Messaging" />
           <div className="space-y-6">
             <div
               className="space-y-2"
@@ -1319,7 +1499,7 @@ export function BenefitsEditorPanel({
               : "",
           )}
         >
-          <SectionHeader number={4} title="How Can We Help You Today?" />
+          <SectionHeader number={5} title="How Can We Help You Today?" />
           <p className="text-[13px] text-muted-foreground mb-6">
             Choose the card layout below, then edit the Account Access fields —
             Plan / Group ID, where the &ldquo;Register or Login Here&rdquo;
@@ -1499,7 +1679,7 @@ export function BenefitsEditorPanel({
             )}
           >
             <SectionHeader
-              number={5}
+              number={6}
               title="Get Quick Answers to Common Benefits Questions"
             />
             <p className="text-[13px] text-muted-foreground mb-6">
@@ -1526,7 +1706,7 @@ export function BenefitsEditorPanel({
               : "",
           )}
         >
-          <SectionHeader number={6} title="Video Source" />
+          <SectionHeader number={7} title="Video Source" />
           <p className="text-[13px] text-muted-foreground mb-6">
             Add the video shown in the journey section, say what it covers, and
             choose a poster image. With no video, the Default Image below is

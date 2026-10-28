@@ -1031,6 +1031,9 @@ export function EditPlanPreviewSection({
               clientId={clientId}
               categoryPortalVisibility={null}
               benefits={null}
+              // The plan's own header button (Login / Schedule / None), so this
+              // preview matches what the portal will render.
+              headerCta={(portalData as any)?.employeePortalPreview?.headerCta}
               enableNavigation={false}
               scale={scale}
               referenceWidth={contentWidth}
@@ -1079,6 +1082,9 @@ export function EditPlanPreviewSection({
                         clientId={clientId}
                         categoryPortalVisibility={null}
                         benefits={null}
+                        headerCta={
+                          (portalData as any)?.employeePortalPreview?.headerCta
+                        }
                         enableNavigation={false}
                       />
                     </div>

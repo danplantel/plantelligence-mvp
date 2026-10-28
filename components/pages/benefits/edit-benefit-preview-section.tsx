@@ -551,6 +551,14 @@ export function EditBenefitPreviewSection({
               clientId={planId}
               categoryPortalVisibility={step1Data?.benefitVisibility ?? null}
               benefits={selectedPlan?.employeePortalPreview?.benefits ?? null}
+              // The header button from Section 1, live: the store value is what the
+              // advisor just chose, and the plan's stored value covers the first
+              // render before the wizard syncs.
+              headerCta={
+                step1Data?.headerCta ??
+                selectedPlan?.employeePortalPreview?.headerCta ??
+                null
+              }
               enableNavigation={false}
               scale={scale}
               referenceWidth={contentWidth}
@@ -597,6 +605,11 @@ export function EditBenefitPreviewSection({
                         }
                         benefits={
                           selectedPlan?.employeePortalPreview?.benefits ?? null
+                        }
+                        headerCta={
+                          step1Data?.headerCta ??
+                          selectedPlan?.employeePortalPreview?.headerCta ??
+                          null
                         }
                         enableNavigation={false}
                       />

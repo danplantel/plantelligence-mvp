@@ -23,6 +23,7 @@ export type {
   HelpCardResolved,
 } from "@/types/benefit";
 import type { HelpCardLayoutEntry } from "@/types/benefit";
+import type { PortalHeaderCta } from "@/lib/portal-header-cta";
 
 export interface BenefitsStep1Data {
   planId: string;
@@ -44,6 +45,14 @@ export interface BenefitsStep1Data {
    * `shortDescription`; when empty the card falls back to it.
    */
   landingCardBody?: string;
+  /**
+   * The Portal Header's one call to action: the original Login button, a
+   * "Schedule a Call" booking button, or none (see `lib/portal-header-cta`).
+   *
+   * PLAN-level, so Section 1 writes it onto the Client row
+   * (`employeePortalPreview.headerCta`) rather than onto this Benefit row.
+   */
+  headerCta?: PortalHeaderCta;
   brandImages?: BrandImagesData;
   // Temporary storage for contact details if changed
   contactName?: string;

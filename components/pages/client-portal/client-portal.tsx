@@ -227,6 +227,9 @@ export function ClientPortal({
           categoryPortalVisibility={data?.categoryPortalVisibility}
           benefits={data?.employeePortalPreview?.benefits}
           employeeResourcesEnabled={data?.employeeResourcesEnabled === true}
+          // Login, a booking button, or none — chosen in Section 1 of the
+          // Create/Edit Benefit panel and stored on the plan.
+          headerCta={data?.employeePortalPreview?.headerCta}
         />
       )}
 

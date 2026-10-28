@@ -582,6 +582,10 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
           employeeResourcesEnabled={
             (clientData as any)?.employeeResourcesEnabled === true
           }
+          // Section 1 of the editing panel: Login, a booking button, or none. The
+          // whole `employeePortalPreview` blob already ships in the portal payload,
+          // so no extra fetch is needed; the header normalizes it (absent ⇒ Login).
+          headerCta={(clientData as any)?.employeePortalPreview?.headerCta}
         />
       </div>
 
