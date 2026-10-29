@@ -9,7 +9,6 @@ import {
   getAppHost,
   getAppOrigin,
   getMarketingOrigin,
-  isLocalHost,
   isMarketingAssetPath,
   isMarketingHost,
   isWwwMarketingHost,
@@ -92,24 +91,11 @@ export default async function middleware(req: NextRequest) {
     return response;
   }
 
-  // ── Local preview ──────────────────────────────────────────────────────
-  // A loopback host is a single-origin preview of both sites: `/` is the
-  // marketing page and every other path is the app or portal served by the
-  // same dev server. Only `/` claims the marketing page, so `/signin`,
-  // `/dashboard`, and `/{plan-slug}` keep behaving exactly like the app origin.
-  if (isLocalHost(requestHost) && pathname === "/") {
-    return response;
-  }
-
-  // ── App origin ─────────────────────────────────────────────────────────
-  // `/` has always been a sign-in redirect on the app host. Keeping it in
-  // middleware means the marketing page is never the app origin's root.
-  if (pathname === "/") {
-    return NextResponse.redirect(
-      new URL(`/signin${req.nextUrl.search}`, req.url),
-      307,
-    );
-  }
+  // ── Root ───────────────────────────────────────────────────────────────
+  // `/` is the public marketing landing page on every host — plantel.pro,
+  // dev.plantel.pro, localhost. It is deliberately NOT a redirect to /signin:
+  // sign-in keeps its own path, and app routes are gated further down.
+  // Nothing to do for `/` here; it falls through to the root page.
 
   // ── Auth + onboarding gate for app routes ──────────────────────────────
   // /api/* and auth routes handle their own auth; only app routes need the

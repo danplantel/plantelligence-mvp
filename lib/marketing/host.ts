@@ -179,19 +179,17 @@ export function isLocalHost(host: string | null | undefined): boolean {
 type HeaderSource = { get(name: string): string | null };
 
 /**
- * The origin the browser used, but only for loopback hosts.
+ * The absolute origin the browser used for this request.
  *
- * Local development serves the marketing site and the app from a single origin
- * (`http://localhost:3000`). Reusing the configured production origins there
- * would send every CTA to plantel.pro, so on a loopback host the request origin
- * wins. Every other host returns `null` and keeps the configured origins.
+ * Prefers the proxy headers (`x-forwarded-host`, `x-forwarded-proto`) because
+ * that is what the visitor actually typed; falls back to `host` and plain
+ * `http` for local development. Returns `null` when no host is present, so
+ * callers can fall back to the configured origins.
  */
-export function getLocalRequestOrigin(headers: HeaderSource): string | null {
-  const rawHost = headers.get("host");
-  if (!rawHost) return null;
-
-  const hostWithPort = rawHost.split(",")[0]?.trim();
-  if (!hostWithPort || !isLocalHost(hostWithPort)) return null;
+export function getRequestOrigin(headers: HeaderSource): string | null {
+  const rawHost = headers.get("x-forwarded-host") ?? headers.get("host");
+  const hostWithPort = rawHost?.split(",")[0]?.trim();
+  if (!hostWithPort) return null;
 
   const forwardedProto = headers.get("x-forwarded-proto") ?? "";
   const proto = forwardedProto.split(",")[0]?.trim() || "http";
@@ -205,22 +203,30 @@ export interface MarketingPageOrigins {
 }
 
 /**
- * The origins the marketing page should link to.
+ * The origins the marketing page should use.
  *
- * Production keeps the split between the marketing origin and the app origin.
- * A local preview collapses both onto the origin the browser is already on, so
- * "Sign in" / "Go to dashboard" stay on localhost instead of jumping to the
- * deployed app.
+ * The landing page is served at `/` on every host, so its own origin is the
+ * origin the browser is already on: that keeps `canonical`, OpenGraph, and the
+ * "Sign in" CTA correct on plantel.pro, dev.plantel.pro, and localhost alike.
+ * The marketing host is the one place the two origins genuinely differ, so
+ * there the configured split is kept and app links cross over.
  */
 export function getMarketingPageOrigins(
   headers: HeaderSource,
   env: MarketingEnv = process.env,
 ): MarketingPageOrigins {
-  const localOrigin = getLocalRequestOrigin(headers);
+  if (isMarketingHost(requestHostFromHeaders(headers), env)) {
+    return {
+      appOrigin: getAppOrigin(env),
+      marketingOrigin: getMarketingOrigin(env),
+    };
+  }
+
+  const requestOrigin = getRequestOrigin(headers);
 
   return {
-    appOrigin: localOrigin ?? getAppOrigin(env),
-    marketingOrigin: localOrigin ?? getMarketingOrigin(env),
+    appOrigin: requestOrigin ?? getAppOrigin(env),
+    marketingOrigin: requestOrigin ?? getMarketingOrigin(env),
   };
 }
 

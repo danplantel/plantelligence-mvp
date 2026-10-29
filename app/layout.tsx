@@ -14,7 +14,6 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import { InviteCodeProvider } from "@/components/providers/invite-code-provider";
 import {
   getAppOrigin,
-  isLocalHost,
   isMarketingHost,
   requestHostFromHeaders,
 } from "@/lib/marketing/host";
@@ -126,17 +125,16 @@ export default async function RootLayout({
   const requestHost = requestHostFromHeaders(requestHeaders);
   /**
    * The Early Access invite gate belongs to the product, not the public
-   * marketing site. The marketing host renders the landing page standalone:
+   * marketing site. The marketing site renders the landing page standalone:
    * mounting the gate there would cover the page with a sign-in modal.
    *
-   * A loopback host previews both sites from one origin, so only its root
-   * (`/`) is the marketing page; `/signin`, `/dashboard`, and the participant
-   * portals still need the app providers. Middleware stamps `x-pathname` on
-   * every request it handles.
+   * `/` is the landing page on every host (plantel.pro, dev.plantel.pro,
+   * localhost), so the root always renders the marketing shell. Every other
+   * path — `/signin`, `/dashboard`, `/{plan-slug}` — keeps the app providers.
+   * Middleware stamps `x-pathname` on every request it handles.
    */
   const isMarketing =
-    isMarketingHost(requestHost) ||
-    (isLocalHost(requestHost) && requestHeaders.get("x-pathname") === "/");
+    isMarketingHost(requestHost) || requestHeaders.get("x-pathname") === "/";
   // Font CSS variables MUST live on <html> (not <body>): the portal sets
   // --font-headline / --font-body to values that reference these variables
   // (e.g. var(--font-playfair), …). A nested var() resolves against the

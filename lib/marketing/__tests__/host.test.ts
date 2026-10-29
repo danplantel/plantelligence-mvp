@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   getAppHost,
   getAppOrigin,
-  getLocalRequestOrigin,
   getMarketingApexHost,
   getMarketingHosts,
   getMarketingOrigin,
   getMarketingPageOrigins,
+  getRequestOrigin,
   isLocalHost,
   isMarketingAssetPath,
   isMarketingHost,
@@ -150,28 +150,31 @@ describe("local preview and metadata assets", () => {
   });
 
   it("keeps the loopback origin, port included", () => {
-    expect(getLocalRequestOrigin(headers({ host: "localhost:3000" }))).toBe(
+    expect(getRequestOrigin(headers({ host: "localhost:3000" }))).toBe(
       "http://localhost:3000",
     );
-    expect(getLocalRequestOrigin(headers({ host: "127.0.0.1:3100" }))).toBe(
+    expect(getRequestOrigin(headers({ host: "127.0.0.1:3100" }))).toBe(
       "http://127.0.0.1:3100",
     );
   });
 
-  it("honours the forwarded protocol for loopback hosts", () => {
+  it("prefers the proxy headers and their protocol", () => {
     expect(
-      getLocalRequestOrigin(
-        headers({ host: "localhost:3000", "x-forwarded-proto": "https" }),
+      getRequestOrigin(
+        headers({
+          host: "internal:80",
+          "x-forwarded-host": "plantel.pro",
+          "x-forwarded-proto": "https",
+        }),
       ),
-    ).toBe("https://localhost:3000");
+    ).toBe("https://plantel.pro");
   });
 
-  it("ignores real hosts and missing headers", () => {
-    expect(getLocalRequestOrigin(headers({ host: "plantel.ai" }))).toBeNull();
-    expect(getLocalRequestOrigin(headers({}))).toBeNull();
+  it("returns null when the request carries no host", () => {
+    expect(getRequestOrigin(headers({}))).toBeNull();
   });
 
-  it("collapses both page origins onto a loopback host", () => {
+  it("uses the serving origin on a loopback host", () => {
     expect(
       getMarketingPageOrigins(headers({ host: "localhost:3000" }), productionEnv),
     ).toEqual({
@@ -180,7 +183,19 @@ describe("local preview and metadata assets", () => {
     });
   });
 
-  it("keeps the configured origins on real hosts", () => {
+  it("uses the serving origin when the app host renders the landing page", () => {
+    expect(
+      getMarketingPageOrigins(
+        headers({ host: "plantel.pro", "x-forwarded-proto": "https" }),
+        productionEnv,
+      ),
+    ).toEqual({
+      appOrigin: "https://plantel.pro",
+      marketingOrigin: "https://plantel.pro",
+    });
+  });
+
+  it("keeps the configured split on the marketing host", () => {
     expect(
       getMarketingPageOrigins(headers({ host: "plantel.ai" }), productionEnv),
     ).toEqual({

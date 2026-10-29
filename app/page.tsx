@@ -10,8 +10,9 @@ import { getMarketingPageOrigins } from "@/lib/marketing/host";
 export const dynamic = "force-dynamic";
 
 export function generateMetadata(): Metadata {
-  // A local preview must advertise its own origin; production advertises the
-  // canonical marketing origin (plantel.ai) regardless of the request host.
+  // The page advertises the origin that served it (plantel.pro,
+  // dev.plantel.pro, localhost); only the marketing host keeps plantel.ai as
+  // its canonical URL.
   const { marketingOrigin: site } = getMarketingPageOrigins(headers());
 
   return {

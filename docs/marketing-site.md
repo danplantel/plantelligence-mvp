@@ -1,8 +1,9 @@
 # Marketing Site (`plantel.ai`)
 
 The public marketing page is served by the same Next.js deployment as the
-dashboard and participant portals, but it owns a separate origin:
-`https://plantel.ai`. The app stays on `https://plantel.pro`.
+dashboard and participant portals. `/` is the landing page on **every** host
+(`plantel.pro`, `dev.plantel.pro`, `plantel.ai`, localhost); sign-in lives at
+`/signin` rather than owning the root.
 
 ## Host behaviour
 
@@ -11,18 +12,19 @@ dashboard and participant portals, but it owns a separate origin:
 | `plantel.ai/` | Renders the marketing landing page. |
 | `plantel.ai/{anything}` | 308 redirect to `plantel.pro/{anything}`. App and portal URLs are never duplicated on the marketing host. |
 | `www.plantel.ai/` | 308 redirect to the canonical apex `plantel.ai/`. |
-| `plantel.pro/` | 307 redirect to `/signin`, as before. |
+| `plantel.pro/`, `dev.plantel.pro/`, `localhost:3000/` | Render the marketing landing page. |
+| `plantel.pro/{app-route}` | Authenticated app route, unchanged (`/signin` when signed out). |
 | `plantel.pro/{plan-slug}` | Participant portal, unchanged. |
-| `localhost:3000/` (or `127.0.0.1:3000/`) | Renders the marketing landing page. A loopback host previews both sites from one origin. |
-| `localhost:3000/{anything}` | App or portal page, unchanged — `/signin`, `/dashboard`, and `/{plan-slug}` are **not** redirected onto another host. |
 
 The logic lives in [`middleware.ts`](../middleware.ts) and the host helpers in
 [`lib/marketing/host.ts`](../lib/marketing/host.ts).
 
 Metadata routes (`/opengraph-image`, `/twitter-image`, `/icon`,
 `/apple-icon`) are allowed through on the marketing host so social previews and
-icons resolve. `robots.txt` and `sitemap.xml` are host-aware: the marketing
-origin is crawlable, every other host returns `Disallow: /`.
+icons resolve. `robots.txt` and `sitemap.xml` are still host-aware: only the
+marketing origin is crawlable, every other host returns `Disallow: /`. The
+landing page answers on `plantel.pro` for humans, but `plantel.ai` stays the
+indexed, canonical origin.
 
 ## Environment variables
 
@@ -43,10 +45,8 @@ Sign In and Go to Dashboard point.
 
 ## Local preview
 
-A loopback host (`localhost`, `127.0.0.1`, `[::1]`, `*.localhost`) needs no
-marketing configuration: middleware claims only the root path for the marketing
-page and leaves every other path to the app. Run `pnpm dev` and open
-`http://localhost:3000/`.
+No marketing configuration is needed. Run `pnpm dev` and open
+`http://localhost:3000/`:
 
 ```bash
 pnpm dev
@@ -55,10 +55,10 @@ pnpm dev
 # http://localhost:3000/acme    → participant portal
 ```
 
-While the request is on a loopback host, [`app/page.tsx`](../app/page.tsx)
-also resolves both the app and marketing origins to that same loopback origin
-(see `getMarketingPageOrigins`), so "Sign in", "Go to dashboard", and canonical
-URLs stay on `localhost` instead of jumping to `plantel.pro`.
+[`app/page.tsx`](../app/page.tsx) resolves both the app and marketing origins to
+the origin that served the request (see `getMarketingPageOrigins`), so "Sign
+in", "Go to dashboard", `canonical`, and OpenGraph URLs stay on `localhost` —
+and likewise on `dev.plantel.pro` — instead of pointing at `plantel.pro`.
 
 `MARKETING_HOSTS` can still list `localhost` explicitly; that keeps the whole
 origin in marketing mode (including `app/layout.tsx`'s provider-free render) and
@@ -77,7 +77,7 @@ providers mounted.
    - `curl -I https://www.plantel.ai/` → `308` to `https://plantel.ai/`
    - `curl -I https://plantel.ai/dashboard` → `308` to
      `https://plantel.pro/dashboard`
-   - `curl -I https://plantel.pro/` → `307` to `/signin`
+   - `curl -I https://plantel.pro/` → `200` (the landing page)
    - `curl https://plantel.ai/robots.txt` → marketing sitemap and
      `Disallow` rules for app paths
    - `curl https://plantel.ai/sitemap.xml` → the marketing root only

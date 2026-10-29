@@ -70,12 +70,21 @@ test.describe("marketing site", () => {
 test.describe("app origin root", () => {
   test.skip(!hasApp, "Set E2E_BASE_URL (or E2E_START_SERVER=1) to run E2E");
 
-  // The app host is what owns the `/` → `/signin` redirect, so name it
+  // The landing page is the root on the app host too, so name the host
   // explicitly instead of inheriting the (loopback) base URL host.
   test.use({ extraHTTPHeaders: { "x-forwarded-host": "plantel.pro" } });
 
-  test("keeps redirecting / to /signin", async ({ page }) => {
+  test("renders the marketing page at /", async ({ page }) => {
     await page.goto("/");
+
+    await expect(page.getByRole("heading", { level: 1 })).toContainText(
+      "Every benefit",
+    );
+    await expect(page).not.toHaveURL(/\/signin/);
+  });
+
+  test("keeps sign-in on its own path", async ({ page }) => {
+    await page.goto("/signin");
 
     await expect(page).toHaveURL(/\/signin/);
   });

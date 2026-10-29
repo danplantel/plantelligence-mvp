@@ -55,14 +55,27 @@ describe("middleware", () => {
     expect(redirectTarget(response).pathname).toBe("/signin");
   });
 
-  it("keeps redirecting / to sign-in on the app host", async () => {
+  it("serves the marketing page at / on the app host", async () => {
     vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://plantel.pro");
     vi.stubEnv("NEXT_PUBLIC_MARKETING_URL", "https://plantel.ai");
 
     const response = await run("/", { host: "plantel.pro" });
 
-    expect(response.status).toBe(307);
-    expect(redirectTarget(response).pathname).toBe("/signin");
+    expect(isPassThrough(response)).toBe(true);
+    expect(response.headers.get("x-pathname")).toBe("/");
+    expect(getToken).not.toHaveBeenCalled();
+  });
+
+  it("still moves app paths off the marketing host", async () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://plantel.pro");
+    vi.stubEnv("NEXT_PUBLIC_MARKETING_URL", "https://plantel.ai");
+    vi.stubEnv("MARKETING_HOSTS", "plantel.ai,www.plantel.ai");
+
+    const response = await run("/dashboard", { host: "plantel.ai" });
+
+    expect(response.status).toBe(308);
+    expect(redirectTarget(response).origin).toBe("https://plantel.pro");
+    expect(redirectTarget(response).pathname).toBe("/dashboard");
   });
 
   it("lets static assets through without checking the session", async () => {
