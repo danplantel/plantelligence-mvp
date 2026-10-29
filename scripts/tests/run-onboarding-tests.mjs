@@ -3,7 +3,7 @@
 /**
  * Run every onboarding test.
  *
- * Unit coverage uses `vitest.onboarding.config.mts`, which includes all 40
+ * Unit coverage uses `config/vitest/vitest.onboarding.config.mts`, which includes all 40
  * onboarding suites (582 tests at the time of writing). Passing `--e2e` also
  * runs the Playwright onboarding journeys; `--e2e-only` runs just those.
  *
@@ -56,7 +56,7 @@ function run(label, command) {
 const unitCommand = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.onboarding.config.mts",
+  "--config config/vitest/vitest.onboarding.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

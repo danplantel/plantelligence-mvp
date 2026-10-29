@@ -3,7 +3,7 @@
 /**
  * Run every Marketing test.
  *
- * Uses `vitest.marketing.config.mts`, which includes the page shell, the API
+ * Uses `config/vitest/vitest.marketing.config.mts`, which includes the page shell, the API
  * routes, the `lib/marketing` helpers, the asset modal, the flyer templates,
  * and the flyer image-position editor (232 tests at the time of writing).
  *
@@ -22,7 +22,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.marketing.config.mts",
+  "--config config/vitest/vitest.marketing.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

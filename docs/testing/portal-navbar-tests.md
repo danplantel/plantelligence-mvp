@@ -37,7 +37,7 @@ pnpm test:portal-navbar:watch     # watch mode
 pnpm test:portal-navbar:coverage  # suites + V8 coverage
 ```
 
-Backed by [`vitest.portal-navbar.config.mts`](../../vitest.portal-navbar.config.mts) and [`scripts/tests/run-portal-navbar-tests.mjs`](../../scripts/tests/run-portal-navbar-tests.mjs).
+Backed by [`config/vitest/vitest.portal-navbar.config.mts`](../../config/vitest/vitest.portal-navbar.config.mts) and [`scripts/tests/run-portal-navbar-tests.mjs`](../../scripts/tests/run-portal-navbar-tests.mjs).
 
 ## Test inventory
 

@@ -20,7 +20,7 @@ pnpm test:new-client:watch     # watch mode
 pnpm test:new-client:coverage  # suite + V8 coverage
 ```
 
-These are backed by [`vitest.new-client.config.mts`](../../vitest.new-client.config.mts) and [`scripts/tests/run-new-client-tests.mjs`](../../scripts/tests/run-new-client-tests.mjs), which list every suite explicitly so the command cannot pick up unrelated tests.
+These are backed by [`config/vitest/vitest.new-client.config.mts`](../../config/vitest/vitest.new-client.config.mts) and [`scripts/tests/run-new-client-tests.mjs`](../../scripts/tests/run-new-client-tests.mjs), which list every suite explicitly so the command cannot pick up unrelated tests.
 
 All tests:
 

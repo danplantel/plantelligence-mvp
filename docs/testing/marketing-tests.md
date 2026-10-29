@@ -24,7 +24,7 @@ pnpm test:marketing:watch     # Marketing unit tests in watch mode
 pnpm test:marketing:coverage  # Marketing unit tests + V8 coverage
 ```
 
-These are backed by [`vitest.marketing.config.mts`](../../vitest.marketing.config.mts) and [`scripts/tests/run-marketing-tests.mjs`](../../scripts/tests/run-marketing-tests.mjs). The config lists every Marketing suite explicitly so unrelated tests cannot leak into the scoped run.
+These are backed by [`config/vitest/vitest.marketing.config.mts`](../../config/vitest/vitest.marketing.config.mts) and [`scripts/tests/run-marketing-tests.mjs`](../../scripts/tests/run-marketing-tests.mjs). The config lists every Marketing suite explicitly so unrelated tests cannot leak into the scoped run.
 
 All tests:
 

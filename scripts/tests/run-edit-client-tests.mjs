@@ -3,7 +3,7 @@
 /**
  * Run every Edit Plan (`/edit-client/[id]`) unit test.
  *
- * Uses `vitest.edit-client.config.mts`, which lists the page suite, the header
+ * Uses `config/vitest/vitest.edit-client.config.mts`, which lists the page suite, the header
  * and save-button components, the `useEditClient` hook, the visibility and
  * slug-registry helpers, and the three API routes the editor writes through.
  *
@@ -22,7 +22,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.edit-client.config.mts",
+  "--config config/vitest/vitest.edit-client.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

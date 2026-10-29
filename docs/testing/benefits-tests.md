@@ -21,7 +21,7 @@ pnpm test:benefits:watch     # watch mode
 pnpm test:benefits:coverage  # suite + V8 coverage
 ```
 
-These are backed by [`vitest.benefits.config.mts`](../../vitest.benefits.config.mts) and [`scripts/tests/run-benefits-tests.mjs`](../../scripts/tests/run-benefits-tests.mjs), which list the 13 suites explicitly so the command cannot pick up unrelated tests.
+These are backed by [`config/vitest/vitest.benefits.config.mts`](../../config/vitest/vitest.benefits.config.mts) and [`scripts/tests/run-benefits-tests.mjs`](../../scripts/tests/run-benefits-tests.mjs), which list the 13 suites explicitly so the command cannot pick up unrelated tests.
 
 All tests:
 

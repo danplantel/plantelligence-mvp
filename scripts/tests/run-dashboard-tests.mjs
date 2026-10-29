@@ -3,7 +3,7 @@
 /**
  * Run every Dashboard test.
  *
- * Uses `vitest.dashboard.config.mts`, which includes the dashboard page suite
+ * Uses `config/vitest/vitest.dashboard.config.mts`, which includes the dashboard page suite
  * (21 tests at the time of writing).
  *
  * Usage:
@@ -21,7 +21,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.dashboard.config.mts",
+  "--config config/vitest/vitest.dashboard.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

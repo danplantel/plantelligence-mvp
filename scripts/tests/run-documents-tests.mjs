@@ -3,7 +3,7 @@
 /**
  * Run every Documents page test.
  *
- * Uses `vitest.documents.config.mts`, which includes the Documents page, API,
+ * Uses `config/vitest/vitest.documents.config.mts`, which includes the Documents page, API,
  * component, and helper suites (305 tests across 16 files at the time of writing).
  *
  * Usage:
@@ -21,7 +21,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.documents.config.mts",
+  "--config config/vitest/vitest.documents.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

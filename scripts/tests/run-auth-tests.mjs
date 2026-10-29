@@ -3,7 +3,7 @@
 /**
  * Run every auth test.
  *
- * Unit coverage uses `vitest.auth.config.mts`, which includes the shared
+ * Unit coverage uses `config/vitest/vitest.auth.config.mts`, which includes the shared
  * schema/navigation suites, sign-in, sign-up, forgot/reset password,
  * verification-code, resume-link, middleware, and auth API routes
  * (161 tests at the time of writing). Passing `--e2e` also runs the Playwright
@@ -58,7 +58,7 @@ function run(label, command) {
 const unitCommand = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.auth.config.mts",
+  "--config config/vitest/vitest.auth.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

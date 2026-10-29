@@ -32,7 +32,7 @@ pnpm test:edit-client:watch     # watch mode
 pnpm test:edit-client:coverage  # suites + V8 coverage
 ```
 
-These are backed by [`vitest.edit-client.config.mts`](../../vitest.edit-client.config.mts) and [`scripts/tests/run-edit-client-tests.mjs`](../../scripts/tests/run-edit-client-tests.mjs), which list the suites explicitly so the command cannot pick up unrelated tests.
+These are backed by [`config/vitest/vitest.edit-client.config.mts`](../../config/vitest/vitest.edit-client.config.mts) and [`scripts/tests/run-edit-client-tests.mjs`](../../scripts/tests/run-edit-client-tests.mjs), which list the suites explicitly so the command cannot pick up unrelated tests.
 
 E2E:
 

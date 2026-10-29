@@ -20,7 +20,7 @@ The page is a composition layer. It reads the portal's plan context, chooses bra
   - `useMarketingAssets` / `useNewsPostAssets`: 7
   - `shouldShowPopUpOnPage`: 9
 - **E2E:** 4, env-gated on `E2E_BASE_URL` + `E2E_PORTAL_SLUG` ([`e2e/portal-news-events.spec.ts`](../../e2e/portal-news-events.spec.ts:1)).
-- **Runner:** `pnpm test:portal-news` / `:watch` / `:coverage` — [`vitest.portal-news.config.mts`](../../vitest.portal-news.config.mts:1) driven by [`scripts/tests/run-portal-news-tests.mjs`](../../scripts/tests/run-portal-news-tests.mjs:1).
+- **Runner:** `pnpm test:portal-news` / `:watch` / `:coverage` — [`config/vitest/vitest.portal-news.config.mts`](../../config/vitest/vitest.portal-news.config.mts:1) driven by [`scripts/tests/run-portal-news-tests.mjs`](../../scripts/tests/run-portal-news-tests.mjs:1).
 - Seven defects were found and fixed while writing the suites (see [Fixed while writing these suites](#fixed-while-writing-these-suites)).
 
 ## Running these tests

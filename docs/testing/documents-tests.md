@@ -18,7 +18,7 @@ pnpm test:documents:watch     # Documents unit tests in watch mode
 pnpm test:documents:coverage  # Documents unit tests + V8 coverage
 ```
 
-These are backed by [`vitest.documents.config.mts`](../../vitest.documents.config.mts) and [`scripts/tests/run-documents-tests.mjs`](../../scripts/tests/run-documents-tests.mjs). The config lists every Documents suite explicitly; add new page, API, component, or helper suites there.
+These are backed by [`config/vitest/vitest.documents.config.mts`](../../config/vitest/vitest.documents.config.mts) and [`scripts/tests/run-documents-tests.mjs`](../../scripts/tests/run-documents-tests.mjs). The config lists every Documents suite explicitly; add new page, API, component, or helper suites there.
 
 All tests:
 

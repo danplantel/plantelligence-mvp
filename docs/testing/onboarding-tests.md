@@ -21,7 +21,7 @@ pnpm test:onboarding:e2e       # the 7 Playwright onboarding journeys
 pnpm test:onboarding:all       # onboarding unit + E2E
 ```
 
-These are backed by `vitest.onboarding.config.mts` and
+These are backed by `config/vitest/vitest.onboarding.config.mts` and
 `scripts/tests/run-onboarding-tests.mjs`.
 
 All tests:

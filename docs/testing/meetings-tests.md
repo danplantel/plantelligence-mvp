@@ -23,7 +23,7 @@ pnpm test:meetings:watch     # Meetings unit tests in watch mode
 pnpm test:meetings:coverage  # Meetings unit tests + V8 coverage
 ```
 
-These are backed by [`vitest.meetings.config.mts`](../../vitest.meetings.config.mts) and [`scripts/tests/run-meetings-tests.mjs`](../../scripts/tests/run-meetings-tests.mjs). The config lists every Meetings suite explicitly so unrelated tests cannot leak into the scoped run.
+These are backed by [`config/vitest/vitest.meetings.config.mts`](../../config/vitest/vitest.meetings.config.mts) and [`scripts/tests/run-meetings-tests.mjs`](../../scripts/tests/run-meetings-tests.mjs). The config lists every Meetings suite explicitly so unrelated tests cannot leak into the scoped run.
 
 All tests:
 

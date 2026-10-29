@@ -71,30 +71,30 @@ inventories see [`onboarding-tests.md`](onboarding-tests.md),
 | `pnpm test:e2e:install`             | Install the Chromium browser binary               |
 
 The onboarding-only scripts are backed by
-[`vitest.onboarding.config.mts`](../../vitest.onboarding.config.mts), which
+[`config/vitest/vitest.onboarding.config.mts`](../../config/vitest/vitest.onboarding.config.mts), which
 keeps the default environment and aliases but narrows `include` to the
 onboarding suites. The orchestrator is
 [`scripts/tests/run-onboarding-tests.mjs`](../../scripts/tests/run-onboarding-tests.mjs).
 The auth-only scripts follow the same pattern with
-[`vitest.auth.config.mts`](../../vitest.auth.config.mts) and
+[`config/vitest/vitest.auth.config.mts`](../../config/vitest/vitest.auth.config.mts) and
 [`scripts/tests/run-auth-tests.mjs`](../../scripts/tests/run-auth-tests.mjs).
 Settings does the same with
-[`vitest.settings.config.mts`](../../vitest.settings.config.mts) and
+[`config/vitest/vitest.settings.config.mts`](../../config/vitest/vitest.settings.config.mts) and
 [`scripts/tests/run-settings-tests.mjs`](../../scripts/tests/run-settings-tests.mjs).
 The chrome suites use
-[`vitest.header-sidebar.config.mts`](../../vitest.header-sidebar.config.mts) and
+[`config/vitest/vitest.header-sidebar.config.mts`](../../config/vitest/vitest.header-sidebar.config.mts) and
 [`scripts/tests/run-header-sidebar-tests.mjs`](../../scripts/tests/run-header-sidebar-tests.mjs).
 The dashboard uses
-[`vitest.dashboard.config.mts`](../../vitest.dashboard.config.mts) and
+[`config/vitest/vitest.dashboard.config.mts`](../../config/vitest/vitest.dashboard.config.mts) and
 [`scripts/tests/run-dashboard-tests.mjs`](../../scripts/tests/run-dashboard-tests.mjs).
 Documents does the same with
-[`vitest.documents.config.mts`](../../vitest.documents.config.mts) and
+[`config/vitest/vitest.documents.config.mts`](../../config/vitest/vitest.documents.config.mts) and
 [`scripts/tests/run-documents-tests.mjs`](../../scripts/tests/run-documents-tests.mjs).
-Marketing uses [`vitest.marketing.config.mts`](../../vitest.marketing.config.mts)
+Marketing uses [`config/vitest/vitest.marketing.config.mts`](../../config/vitest/vitest.marketing.config.mts)
 and [`scripts/tests/run-marketing-tests.mjs`](../../scripts/tests/run-marketing-tests.mjs).
-Meetings uses [`vitest.meetings.config.mts`](../../vitest.meetings.config.mts)
+Meetings uses [`config/vitest/vitest.meetings.config.mts`](../../config/vitest/vitest.meetings.config.mts)
 and [`scripts/tests/run-meetings-tests.mjs`](../../scripts/tests/run-meetings-tests.mjs).
-Webinars uses [`vitest.webinars.config.mts`](../../vitest.webinars.config.mts)
+Webinars uses [`config/vitest/vitest.webinars.config.mts`](../../config/vitest/vitest.webinars.config.mts)
 and [`scripts/tests/run-webinars-tests.mjs`](../../scripts/tests/run-webinars-tests.mjs).
 
 Coverage is written to `coverage/` (already gitignored).
@@ -114,7 +114,7 @@ scannable:
 
 ## Layout
 
-- [`vitest.config.mts`](../../vitest.config.mts) wires the `@/*` and
+- [`config/vitest/vitest.config.mts`](../../config/vitest/vitest.config.mts) wires the `@/*` and
   `@video-steps/*` aliases from `tsconfig.json`, jsdom, and coverage.
 - [`vitest.setup.ts`](../../vitest.setup.ts) loads `jest-dom`, unmounts trees
   between tests, and stubs browser APIs jsdom does not implement

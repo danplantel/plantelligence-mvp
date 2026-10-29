@@ -23,7 +23,7 @@ pnpm test:webinars:watch     # Webinars unit tests in watch mode
 pnpm test:webinars:coverage  # Webinars unit tests + V8 coverage
 ```
 
-These are backed by [`vitest.webinars.config.mts`](../../vitest.webinars.config.mts) and [`scripts/tests/run-webinars-tests.mjs`](../../scripts/tests/run-webinars-tests.mjs). The config lists every Webinars suite explicitly so unrelated tests cannot leak into the scoped run.
+These are backed by [`config/vitest/vitest.webinars.config.mts`](../../config/vitest/vitest.webinars.config.mts) and [`scripts/tests/run-webinars-tests.mjs`](../../scripts/tests/run-webinars-tests.mjs). The config lists every Webinars suite explicitly so unrelated tests cannot leak into the scoped run.
 
 All tests:
 

@@ -11,7 +11,7 @@ The page is two things at once, and that is what the tests have to separate:
 
 - **Unit tests:** 162 across 12 suites (`pnpm test:portal-team`), all passing
 - **E2E:** 3, env-gated on `E2E_BASE_URL` + `E2E_PORTAL_SLUG` (`e2e/portal-team.spec.ts`)
-- **Runner:** `pnpm test:portal-team` / `:watch` / `:coverage` — [`vitest.portal-team.config.mts`](../../vitest.portal-team.config.mts:1) driven by [`scripts/tests/run-portal-team-tests.mjs`](../../scripts/tests/run-portal-team-tests.mjs:1)
+- **Runner:** `pnpm test:portal-team` / `:watch` / `:coverage` — [`config/vitest/vitest.portal-team.config.mts`](../../config/vitest/vitest.portal-team.config.mts:1) driven by [`scripts/tests/run-portal-team-tests.mjs`](../../scripts/tests/run-portal-team-tests.mjs:1)
 - Four card defects were found and fixed while writing the suites (see [Fixed while writing these suites](#fixed-while-writing-these-suites))
 
 ## Commands

@@ -3,7 +3,7 @@
 /**
  * Run every Edit Benefit test.
  *
- * Uses `vitest.edit-benefit.config.mts`, which lists the route gate, the editor,
+ * Uses `config/vitest/vitest.edit-benefit.config.mts`, which lists the route gate, the editor,
  * and the benefit-category API the editor reads and writes.
  *
  * Usage:
@@ -21,7 +21,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.edit-benefit.config.mts",
+  "--config config/vitest/vitest.edit-benefit.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

@@ -26,7 +26,7 @@ pnpm test:portal-landing:watch     # watch mode
 pnpm test:portal-landing:coverage  # suites + V8 coverage
 ```
 
-Backed by [`vitest.portal-landing.config.mts`](../../vitest.portal-landing.config.mts) and [`scripts/tests/run-portal-landing-tests.mjs`](../../scripts/tests/run-portal-landing-tests.mjs), which list the suites explicitly so the command cannot pick up unrelated tests.
+Backed by [`config/vitest/vitest.portal-landing.config.mts`](../../config/vitest/vitest.portal-landing.config.mts) and [`scripts/tests/run-portal-landing-tests.mjs`](../../scripts/tests/run-portal-landing-tests.mjs), which list the suites explicitly so the command cannot pick up unrelated tests.
 
 ## Test inventory
 

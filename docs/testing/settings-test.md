@@ -20,7 +20,7 @@ pnpm test:settings:e2e       # the 7 Playwright Settings journeys
 pnpm test:settings:all       # Settings unit + E2E
 ```
 
-These are backed by `vitest.settings.config.mts` and
+These are backed by `config/vitest/vitest.settings.config.mts` and
 `scripts/tests/run-settings-tests.mjs`. The config currently lists the page
 suite explicitly; add each `components/pages/settings` or
 `components/settings` section suite to it as it lands.

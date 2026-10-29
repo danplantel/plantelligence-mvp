@@ -3,7 +3,7 @@
 /**
  * Run every Meetings test.
  *
- * Uses `vitest.meetings.config.mts`, which includes the page shell, the API
+ * Uses `config/vitest/vitest.meetings.config.mts`, which includes the page shell, the API
  * routes, the meeting/date helpers and stores, and the calendar, day drawer,
  * and plan-scoped schedule form (12 files, 224 tests at the time of writing).
  *
@@ -22,7 +22,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.meetings.config.mts",
+  "--config config/vitest/vitest.meetings.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

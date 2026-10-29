@@ -28,7 +28,7 @@ pnpm test:edit-benefit:watch     # watch mode
 pnpm test:edit-benefit:coverage  # suite + V8 coverage
 ```
 
-These are backed by [`vitest.edit-benefit.config.mts`](../../vitest.edit-benefit.config.mts) and [`scripts/tests/run-edit-benefit-tests.mjs`](../../scripts/tests/run-edit-benefit-tests.mjs), which list the nine suites explicitly so the command cannot pick up unrelated tests.
+These are backed by [`config/vitest/vitest.edit-benefit.config.mts`](../../config/vitest/vitest.edit-benefit.config.mts) and [`scripts/tests/run-edit-benefit-tests.mjs`](../../scripts/tests/run-edit-benefit-tests.mjs), which list the nine suites explicitly so the command cannot pick up unrelated tests.
 
 All tests:
 

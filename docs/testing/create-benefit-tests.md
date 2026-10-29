@@ -27,7 +27,7 @@ pnpm test:create-benefit:watch     # watch mode
 pnpm test:create-benefit:coverage  # suite + V8 coverage
 ```
 
-These are backed by [`vitest.create-benefit.config.mts`](../../vitest.create-benefit.config.mts) and [`scripts/tests/run-create-benefit-tests.mjs`](../../scripts/tests/run-create-benefit-tests.mjs).
+These are backed by [`config/vitest/vitest.create-benefit.config.mts`](../../config/vitest/vitest.create-benefit.config.mts) and [`scripts/tests/run-create-benefit-tests.mjs`](../../scripts/tests/run-create-benefit-tests.mjs).
 
 All tests:
 

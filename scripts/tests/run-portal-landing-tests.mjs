@@ -3,7 +3,7 @@
 /**
  * Run every Portal Landing test.
  *
- * Uses `vitest.portal-landing.config.mts`, which lists the landing page, the
+ * Uses `config/vitest/vitest.portal-landing.config.mts`, which lists the landing page, the
  * portal context, the hero/mission and benefits sections, and the shared
  * helpers in `lib/` they compose.
  *
@@ -22,7 +22,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.portal-landing.config.mts",
+  "--config config/vitest/vitest.portal-landing.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

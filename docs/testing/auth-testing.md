@@ -20,7 +20,7 @@ pnpm test:auth:e2e       # the 12 Playwright auth journeys
 pnpm test:auth:all       # auth unit + E2E
 ```
 
-These are backed by `vitest.auth.config.mts` and
+These are backed by `config/vitest/vitest.auth.config.mts` and
 `scripts/tests/run-auth-tests.mjs`.
 
 All tests:

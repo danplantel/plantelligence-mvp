@@ -3,7 +3,7 @@
 /**
  * Run every All Plans (View Clients) test.
  *
- * Uses `vitest.clients.config.mts`, which lists the All Plans page suite plus
+ * Uses `config/vitest/vitest.clients.config.mts`, which lists the All Plans page suite plus
  * the `GET /api/clients` and `DELETE /api/clients/[id]` contract suites.
  *
  * Usage:
@@ -21,7 +21,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.clients.config.mts",
+  "--config config/vitest/vitest.clients.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

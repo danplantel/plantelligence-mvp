@@ -3,7 +3,7 @@
 /**
  * Run every Portal News & Events test.
  *
- * Uses `vitest.portal-news.config.mts`, which lists the page composition, the
+ * Uses `config/vitest/vitest.portal-news.config.mts`, which lists the page composition, the
  * page + real header integration, the published news-post list, the banner,
  * the webinars wrapper, and the marketing-assets hook behind the feed.
  *
@@ -22,7 +22,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.portal-news.config.mts",
+  "--config config/vitest/vitest.portal-news.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

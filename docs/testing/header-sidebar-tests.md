@@ -21,7 +21,7 @@ pnpm test:header-sidebar:watch     # watch mode
 pnpm test:header-sidebar:coverage  # suites + V8 coverage
 ```
 
-These are backed by `vitest.header-sidebar.config.mts` and
+These are backed by `config/vitest/vitest.header-sidebar.config.mts` and
 `scripts/tests/run-header-sidebar-tests.mjs`.
 
 All tests:

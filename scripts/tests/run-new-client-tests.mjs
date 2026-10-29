@@ -3,7 +3,7 @@
 /**
  * Run every Create Plan (`/new-client`) page test.
  *
- * Uses `vitest.new-client.config.mts`, which includes the Create Plan page
+ * Uses `config/vitest/vitest.new-client.config.mts`, which includes the Create Plan page
  * suite in `app/(dashboard)/new-client/__tests__`.
  *
  * Usage:
@@ -21,7 +21,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.new-client.config.mts",
+  "--config config/vitest/vitest.new-client.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

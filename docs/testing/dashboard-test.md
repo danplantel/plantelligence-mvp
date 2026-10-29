@@ -21,7 +21,7 @@ pnpm test:dashboard:watch     # watch mode
 pnpm test:dashboard:coverage  # suite + V8 coverage
 ```
 
-These are backed by `vitest.dashboard.config.mts` and
+These are backed by `config/vitest/vitest.dashboard.config.mts` and
 `scripts/tests/run-dashboard-tests.mjs`.
 
 All tests:

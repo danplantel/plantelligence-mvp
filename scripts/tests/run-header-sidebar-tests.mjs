@@ -3,7 +3,7 @@
 /**
  * Run every Header and Sidebar test.
  *
- * Uses `vitest.header-sidebar.config.mts`, which includes both chrome suites
+ * Uses `config/vitest/vitest.header-sidebar.config.mts`, which includes both chrome suites
  * (34 tests at the time of writing).
  *
  * Usage:
@@ -21,7 +21,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.header-sidebar.config.mts",
+  "--config config/vitest/vitest.header-sidebar.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

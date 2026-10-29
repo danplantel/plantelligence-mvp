@@ -3,7 +3,7 @@
 /**
  * Run every Webinars test.
  *
- * Uses `vitest.webinars.config.mts`, which includes the page shell, the API
+ * Uses `config/vitest/vitest.webinars.config.mts`, which includes the page shell, the API
  * routes, the placement/video-embed helpers, and the hover-preview hook and
  * layer (6 files at the time of writing).
  *
@@ -22,7 +22,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.webinars.config.mts",
+  "--config config/vitest/vitest.webinars.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

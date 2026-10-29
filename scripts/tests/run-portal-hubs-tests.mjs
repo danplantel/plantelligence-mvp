@@ -3,7 +3,7 @@
 /**
  * Run every Portal benefit hub test.
  *
- * Uses `vitest.portal-hubs.config.mts`, which lists the hub sections (welcome
+ * Uses `config/vitest/vitest.portal-hubs.config.mts`, which lists the hub sections (welcome
  * materials, webinars, FAQs, support contacts, completeness trigger) and the
  * portal benefit read they depend on.
  *
@@ -22,7 +22,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.portal-hubs.config.mts",
+  "--config config/vitest/vitest.portal-hubs.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

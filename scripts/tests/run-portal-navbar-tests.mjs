@@ -3,7 +3,7 @@
 /**
  * Run every Portal Navbar / chrome test.
  *
- * Uses `vitest.portal-navbar.config.mts`, which lists the portal layout, its
+ * Uses `config/vitest/vitest.portal-navbar.config.mts`, which lists the portal layout, its
  * 404 page, the Comments rail/zoom, the footer, and the helpers they compose.
  *
  * Usage:
@@ -21,7 +21,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.portal-navbar.config.mts",
+  "--config config/vitest/vitest.portal-navbar.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

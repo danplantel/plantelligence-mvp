@@ -23,7 +23,7 @@ pnpm test:portal-hubs:watch
 pnpm test:portal-hubs:coverage
 ```
 
-Backed by [`vitest.portal-hubs.config.mts`](../../vitest.portal-hubs.config.mts) and [`scripts/tests/run-portal-hubs-tests.mjs`](../../scripts/tests/run-portal-hubs-tests.mjs).
+Backed by [`config/vitest/vitest.portal-hubs.config.mts`](../../config/vitest/vitest.portal-hubs.config.mts) and [`scripts/tests/run-portal-hubs-tests.mjs`](../../scripts/tests/run-portal-hubs-tests.mjs).
 
 ## What every hub does
 

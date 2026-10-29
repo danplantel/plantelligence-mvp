@@ -34,6 +34,12 @@ tscheck.log
 ts-errors.txt
 /tailwind-output.css
 
+# Stray shell-redirect artifacts (e.g. `> $host_` or `2> $out` typed at a
+# PowerShell prompt), which PowerShell turns into real files in the repo root.
+$host_
+$out
+$env
+
 # local env files
 .env*.local
 .env

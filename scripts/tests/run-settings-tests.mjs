@@ -3,7 +3,7 @@
 /**
  * Run every Settings test.
  *
- * Uses `vitest.settings.config.mts`, which includes the Settings page suite
+ * Uses `config/vitest/vitest.settings.config.mts`, which includes the Settings page suite
  * (91 tests at the time of writing) plus any future `components/pages/settings`
  * and `components/settings` section suites. Passing `--e2e` also runs the
  * Playwright settings journeys; `--e2e-only` runs just those.
@@ -60,7 +60,7 @@ function run(label, command) {
 const unitCommand = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.settings.config.mts",
+  "--config config/vitest/vitest.settings.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

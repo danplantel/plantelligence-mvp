@@ -3,7 +3,7 @@
 /**
  * Run every Portal My Benefits Team test.
  *
- * Uses `vitest.portal-team.config.mts`, which lists the contact-selection
+ * Uses `config/vitest/vitest.portal-team.config.mts`, which lists the contact-selection
  * helper, the shared CTA/company/category helpers, all three contact card
  * variants, and the two circular visual slots they use.
  *
@@ -22,7 +22,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.portal-team.config.mts",
+  "--config config/vitest/vitest.portal-team.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

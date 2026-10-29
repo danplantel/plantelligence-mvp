@@ -3,7 +3,7 @@
 /**
  * Run every Browse Benefits test.
  *
- * Uses `vitest.benefits.config.mts`, which lists the server/client pages, the
+ * Uses `config/vitest/vitest.benefits.config.mts`, which lists the server/client pages, the
  * organization strip, the plan picker, the `/api/benefits` contract, the
  * visibility write, the assignment roster, and the pure helpers the page calls.
  *
@@ -22,7 +22,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.benefits.config.mts",
+  "--config config/vitest/vitest.benefits.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)

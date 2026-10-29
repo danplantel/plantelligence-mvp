@@ -3,7 +3,7 @@
 /**
  * Run every Create Benefit test.
  *
- * Uses `vitest.create-benefit.config.mts`, which lists the `/new-benefits` page
+ * Uses `config/vitest/vitest.create-benefit.config.mts`, which lists the `/new-benefits` page
  * suite.
  *
  * Usage:
@@ -21,7 +21,7 @@ const coverage = args.has("--coverage");
 const command = [
   "pnpm exec vitest",
   watch ? "" : "run",
-  "--config vitest.create-benefit.config.mts",
+  "--config config/vitest/vitest.create-benefit.config.mts",
   coverage ? "--coverage" : "",
 ]
   .filter(Boolean)
