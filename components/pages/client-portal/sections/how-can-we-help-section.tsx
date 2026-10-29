@@ -916,15 +916,22 @@ export function HowCanWeHelpSection({
 
   // Two sources for the grid, in this order:
   //
-  //  1. PLACEMENTS (`topics`) — what a plan on the topic framework renders. Account
-  //     Access is not a topic in this build (that is TF-9), so the card is synthesised
-  //     from the catalog and pinned first as the 2-wide primary, exactly as today.
-  //  2. The saved legacy layout (`cards`) — the fallback that keeps every existing
-  //     plan rendering while the framework is dark.
+  //  1. The SAVED card layout (`cards`). Section 6 of the editing panel lets the
+  //     advisor order the cards, choose which one is primary and hide the rest, and
+  //     that layout is what the Create/Edit Benefit preview renders — so it is what
+  //     the portal renders too. Placements used to outrank it, which is exactly why
+  //     the live hub could show a different grid (more cards, primary at 2/4) from
+  //     the preview the advisor had just arranged.
+  //  2. PLACEMENTS (`topics`) — only when the plan has NO saved layout, so a plan
+  //     that lives on featured topics still gets a grid. Account Access is not a
+  //     topic in this build (that is TF-9), so the card is synthesised from the
+  //     catalog and pinned first.
   //
   // `[Benefit Category]` is resolved once per card in both paths.
   const rows = useMemo(() => {
-    if (topics && topics.length > 0) {
+    const hasSavedLayout = Array.isArray(cards) && cards.length > 0;
+
+    if (!hasSavedLayout && topics && topics.length > 0) {
       const access = getHelpCardContent(ACCOUNT_ACCESS_CARD_ID);
       const placementCards: HelpCardResolved[] = [
         {
@@ -962,6 +969,7 @@ export function HowCanWeHelpSection({
       return chunkIntoRows(placementCards);
     }
 
+    // The saved layout (or, with neither, the catalog's natural order).
     const catalog = helpCardCatalogFor(category);
     if (catalog.length === 0) return [];
     return resolveHelpCardRows(cards, category).map((row) =>

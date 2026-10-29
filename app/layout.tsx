@@ -9,8 +9,15 @@ import { Manrope, Playfair_Display, Sora, Lora, Outfit } from "next/font/google"
 import localFont from "next/font/local";
 import "./globals.css";
 import { getServerSession } from "next-auth";
+import { headers } from "next/headers";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { InviteCodeProvider } from "@/components/providers/invite-code-provider";
+import {
+  getAppOrigin,
+  isLocalHost,
+  isMarketingHost,
+  requestHostFromHeaders,
+} from "@/lib/marketing/host";
 
 const manrope = Manrope({
   subsets: ["latin"],
@@ -64,6 +71,14 @@ const redHatDisplay = localFont({
 });
 
 export const metadata: Metadata = {
+  /**
+   * `metadataBase` is what turns the file-convention OG image
+   * (`app/opengraph-image.tsx`) into an absolute URL. Without it Next falls back
+   * to the *request* origin and logs a `metadataBase` warning on every app and
+   * portal page. It must be the app origin, not the marketing one: the marketing
+   * page overrides this in `app/page.tsx#generateMetadata` with its own origin.
+   */
+  metadataBase: new URL(getAppOrigin()),
   title: "PlanTelligence",
   description: "PlanTelligence - Your AI-Powered Financial Planning Assistant",
   applicationName: "PlanTelligence",
@@ -107,6 +122,21 @@ export default async function RootLayout({
   children: React.ReactNode;
 }) {
   const session = await getServerSession();
+  const requestHeaders = headers();
+  const requestHost = requestHostFromHeaders(requestHeaders);
+  /**
+   * The Early Access invite gate belongs to the product, not the public
+   * marketing site. The marketing host renders the landing page standalone:
+   * mounting the gate there would cover the page with a sign-in modal.
+   *
+   * A loopback host previews both sites from one origin, so only its root
+   * (`/`) is the marketing page; `/signin`, `/dashboard`, and the participant
+   * portals still need the app providers. Middleware stamps `x-pathname` on
+   * every request it handles.
+   */
+  const isMarketing =
+    isMarketingHost(requestHost) ||
+    (isLocalHost(requestHost) && requestHeaders.get("x-pathname") === "/");
   // Font CSS variables MUST live on <html> (not <body>): the portal sets
   // --font-headline / --font-body to values that reference these variables
   // (e.g. var(--font-playfair), …). A nested var() resolves against the
@@ -125,17 +155,21 @@ export default async function RootLayout({
           defaultTheme="light"
           disableTransitionOnChange
         >
-          <InviteCodeProvider>
-            <PageTitleProvider>
-              <LoadingProvider>
-                <Providers session={session}>
-                  <ToasterContainer />
-                  {children}
-                  <Toaster richColors />
-                </Providers>
-              </LoadingProvider>
-            </PageTitleProvider>
-          </InviteCodeProvider>
+          {isMarketing ? (
+            children
+          ) : (
+            <InviteCodeProvider>
+              <PageTitleProvider>
+                <LoadingProvider>
+                  <Providers session={session}>
+                    <ToasterContainer />
+                    {children}
+                    <Toaster richColors />
+                  </Providers>
+                </LoadingProvider>
+              </PageTitleProvider>
+            </InviteCodeProvider>
+          )}
         </ThemeProvider>
       </body>
     </html>

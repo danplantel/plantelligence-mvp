@@ -103,6 +103,45 @@ describe("HowCanWeHelpSection with placements", () => {
     expect(topic?.className).toContain("col-span-2");
   });
 
+  it("renders the advisor's saved card layout instead of the placements", () => {
+    // Section 6 arranged five cards and hid the rest. The plan ALSO has featured
+    // placements — but the portal must render the layout the preview showed, not a
+    // longer placement-driven grid that re-flows the primary to 2/4.
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Retirement"
+        cards={[
+          { id: ACCOUNT_ACCESS_CARD_ID, primary: true },
+          { id: "financial-planning" },
+          { id: "beneficiaries" },
+          { id: "social-security" },
+          { id: "savings" },
+          // Hidden in Section 6 — the layout keeps their slots, the grid drops them.
+          { id: "rollovers-distributions", enabled: false },
+          { id: "medicare", enabled: false },
+        ]}
+        topics={[
+          featured("sys.rollovers-distributions", "Rollovers & Distributions"),
+          featured("sys.plan-materials", "Plan Materials"),
+        ]}
+      />,
+    );
+
+    expect(
+      tiles(container).map((tile) => tile.getAttribute("data-help-card")),
+    ).toEqual([
+      ACCOUNT_ACCESS_CARD_ID,
+      "financial-planning",
+      "beneficiaries",
+      "social-security",
+      "savings",
+    ]);
+    // Five cards, so the primary owns row 1 alone at full width — the shape the
+    // editor showed.
+    expect(tiles(container)[0].className).toContain("lg:col-span-4");
+  });
+
   it("gives Account Access the whole first row when that is what fills it", () => {
     const { container } = render(
       <HowCanWeHelpSection

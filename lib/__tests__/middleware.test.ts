@@ -7,12 +7,12 @@ const getToken = vi.hoisted(() => vi.fn());
 
 vi.mock("next-auth/jwt", () => ({ getToken }));
 
-function request(path: string) {
-  return new NextRequest(new URL(path, "http://localhost"));
+function request(path: string, headers: Record<string, string> = {}) {
+  return new NextRequest(new URL(path, "http://localhost"), { headers });
 }
 
-async function run(path: string) {
-  return middleware(request(path));
+async function run(path: string, headers: Record<string, string> = {}) {
+  return middleware(request(path, headers));
 }
 
 function isPassThrough(response: { headers: Headers }) {
@@ -37,6 +37,32 @@ describe("middleware", () => {
 
     expect(isPassThrough(response)).toBe(true);
     expect(response.headers.get("x-pathname")).toBe("/acme-wealth");
+  });
+
+  it("serves the marketing page at / on a loopback host", async () => {
+    const response = await run("/", { host: "localhost:3000" });
+
+    expect(isPassThrough(response)).toBe(true);
+    expect(response.headers.get("x-pathname")).toBe("/");
+    expect(getToken).not.toHaveBeenCalled();
+  });
+
+  it("still keeps the app gate on other loopback paths", async () => {
+    getToken.mockResolvedValue(null);
+
+    const response = await run("/dashboard", { host: "localhost:3000" });
+
+    expect(redirectTarget(response).pathname).toBe("/signin");
+  });
+
+  it("keeps redirecting / to sign-in on the app host", async () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://plantel.pro");
+    vi.stubEnv("NEXT_PUBLIC_MARKETING_URL", "https://plantel.ai");
+
+    const response = await run("/", { host: "plantel.pro" });
+
+    expect(response.status).toBe(307);
+    expect(redirectTarget(response).pathname).toBe("/signin");
   });
 
   it("lets static assets through without checking the session", async () => {

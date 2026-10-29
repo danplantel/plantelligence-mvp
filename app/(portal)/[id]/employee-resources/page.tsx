@@ -32,7 +32,7 @@ import type { ActionHubRow, ResolvedLocationTopics } from "@/types/topic";
  * HR-resources index. Its background is the plan's own "Employee Resources Header"
  * image (`employeePortalPreview.employeeResourcesHeroImage`, chosen in Create Plan →
  * Branding or Edit Client → Branding), falling back to the Page Image Header and
- * then to the bundled default.
+ * then to a default of its own.
  *
  * The page is opt-in per plan (`Client.employeeResourcesEnabled`). When the plan has not
  * switched it on, the API answers `enabled: false` and nothing renders — a URL that was
@@ -61,10 +61,10 @@ export default function EmployeeResourcesPage() {
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
 
-  // The hub's own header image, then the plan's Page Image Header, then nothing —
-  // in which case `NewsEventsHeader` renders its bundled default. Resolved through
-  // useBrandingImageUrl because the stored value can be an R2 key (`org/…`) as well
-  // as an absolute URL; a bare key would be requested as the relative path /org/…
+  // The hub's own header image, then the plan's Page Image Header, then the bundled
+  // default. Resolved through useBrandingImageUrl because the stored value can be an
+  // R2 key (`org/…`) as well as an absolute URL; a bare key would otherwise be
+  // requested as the relative path /org/… and 404.
   const storedHeaderImage = [
     (clientData as any)?.employeePortalPreview?.employeeResourcesHeroImage,
     (clientData as any)?.secondaryBannerImg,

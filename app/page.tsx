@@ -1,15 +1,62 @@
-"use client"
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import type { Metadata } from "next";
+import { headers } from "next/headers";
+import { getServerSession } from "next-auth";
 
-export default function MainPage() {
-    const router = useRouter();
+import { MarketingPage } from "@/components/marketing/marketing-page";
+import { MARKETING_HERO } from "@/config/marketing";
+import { authOptions } from "@/lib/auth-options";
+import { getMarketingPageOrigins } from "@/lib/marketing/host";
 
-    useEffect(() => {
-        router.replace('/signin');
-    }, [router]); 
+export const dynamic = "force-dynamic";
 
-    return (
-        <div></div>
-    );
+export function generateMetadata(): Metadata {
+  // A local preview must advertise its own origin; production advertises the
+  // canonical marketing origin (plantel.ai) regardless of the request host.
+  const { marketingOrigin: site } = getMarketingPageOrigins(headers());
+
+  return {
+    metadataBase: new URL(site),
+    title: "PlanTelligence | Benefits communication, end to end",
+    description: MARKETING_HERO.description,
+    keywords: [
+      "benefits communication",
+      "employee benefits portal",
+      "retirement plan portal",
+      "group health benefits",
+      "benefits administration",
+      "participant portal",
+    ],
+    alternates: {
+      canonical: "/",
+    },
+    openGraph: {
+      type: "website",
+      url: site,
+      siteName: "PlanTelligence",
+      title: "PlanTelligence | Benefits communication, end to end",
+      description: MARKETING_HERO.description,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: "PlanTelligence | Benefits communication, end to end",
+      description: MARKETING_HERO.description,
+    },
+    robots: {
+      index: true,
+      follow: true,
+    },
+  };
+}
+
+export default async function MarketingHomePage() {
+  const { appOrigin, marketingOrigin } = getMarketingPageOrigins(headers());
+  const session = await getServerSession(authOptions);
+
+  return (
+    <MarketingPage
+      appOrigin={appOrigin}
+      marketingOrigin={marketingOrigin}
+      isSignedIn={Boolean(session?.user)}
+    />
+  );
 }

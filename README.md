@@ -1,89 +1,233 @@
 <p align="center">
-  <img src="public/plantelligence.png" alt="PlanTelligence Logo" width=50%>
+  <img src="public/plantelligence-logos/pt_web_light.png" alt="PlanTelligence Logo" width="50%">
 </p>
-<!-- <p align="center">
-  <i align="center">Educational Video Generator</i>
-</p> -->
+
+<p align="center">
+  <i>Benefits communication, plan workspaces, and a participant portal in one platform.</i>
+</p>
 
 ## Overview
 
-The **Plantelligence Video Generator** is an AI-powered tool that provides Plantelligence’s clients with customizable, professional retirement plan education videos. Built with TypeScript, Next.js, and Tailwind CSS and leveraging Synthesia’s video generation capabilities, it enables clients to easily deliver vital retirement information to employees, promoting financial literacy and helping participants understand their retirement options.
+**PlanTelligence** is a benefits communication platform for the people who
+administer and support employer benefit plans. It gives advisors, TPAs, and
+plan sponsors one place to set up a plan, build its benefits content, publish a
+branded participant portal, and keep the communication around that plan
+current.
 
-<!-- ## Table of Contents
+The product is built with Next.js (App Router), TypeScript, Tailwind CSS,
+Prisma/PostgreSQL, and NextAuth. Participant-facing files are stored in
+Cloudflare R2. The public marketing site is served on its own origin,
+[`plantel.ai`](https://plantel.ai), while the dashboard and participant portals
+remain on [`plantel.pro`](https://plantel.pro).
 
-- [Overview](#overview)
-- [Table of Contents](#table-of-contents)
-- [Features](#features)
-- [Tech Stack](#tech-stack)
-- [Getting Started](#getting-started)
-- [Environment Variables](#environment-variables)
-- [Usage](#usage)
-- [Contributing](#contributing)
-- [License](#license) -->
+## Product surface
 
-## Features
+### Plan workspaces
 
-- **Customizable Videos**: Seamless customization to match specific needs.
-- **User-Friendly Interface**: Responsive interface for managing content requests.
-- **Synthesia AI Integration**: Utilizes Synthesia’s API for pro video creation.
-- **Secure and Scalable**: Built with Next.js and TypeScript for robustness.
+- Guided plan creation for company basics, key contacts, compliance documents,
+  and disclosures.
+- Plan-level branding: logo, hero imagery, favicon, brand colors, and
+  typography themes.
+- Live desktop and mobile previews of the participant experience.
+- Employee Resources as a plan-level surface, independent of the four benefit
+  categories.
+- Plan visibility controls and participant-facing disclaimers.
 
-## Tech Stack
+### Benefits builder
 
-- Next.js
-- TypeScript
-- Tailwind CSS
-- Synthesia API
+- Dedicated hubs for Retirement, Group Health, Group Life, and a custom
+  benefit.
+- A reusable topic library with Featured cards, grouped Quick Answers, and
+  action-hub panels.
+- Plan documents, plan videos, key contacts, and landing cards attached to the
+  benefit category where participants need them.
+- AI-assisted suggestions for brand colors, naming, typography, document
+  names, and flyer copy. Suggestions are applied by the advisor.
+- Benefit completion tracking and category-level visibility.
 
-## Getting Started
+### Participant portal
 
-To set up the project locally, follow these steps:
+- A branded hub home with benefits, announcements, and team contacts.
+- News and Events, Employee Resources, and Webinars and Replays.
+- My Benefits Team with contact cards and a public contact form.
+- Portal notices, pop-ups, and news posts.
+- Installable progressive-web-app experience for participants.
+- Configurable disclaimers and disclosures on participant surfaces.
+- Participant-facing video sections that present plan videos; PlanTelligence
+  does not currently generate videos with Synthesia or HeyGen.
+- A guided chat surface in the portal. Automated answer generation is not part
+  of the current release.
 
-1. **Clone the repository**:  
-   `git clone https://github.com/camconrad/plantelligence.git`  
-   `cd plantelligence`
+### Communications
 
-2. **Install dependencies**:  
-   `yarn`
+- Meetings calendar with scheduling and reminder support.
+- Webinars and replays published into the portal.
+- Meeting-based and topical flyers, including QR codes that link to the plan's
+  portal.
+- A plan-level asset library for flyers, portal notices, pop-ups, and news
+  posts.
+- AI-assisted flyer copy with advisor review before publishing.
 
-3. **Start the development server**:  
-   `yarn dev`
+### Documents and team
 
-4. Open [http://localhost:3000](http://localhost:3000) in your browser to view the app.
+- A searchable document library with categories and plan-level organization.
+- Secure uploads and signed access for participant-facing files.
+- Owner, team member, and collaborator roles.
+- Collaborator access scoped by benefit category and permission level.
+- Invitations, seat management, and ownership transfer.
+- Direct messages, comment threads, attachments, and task assignment.
+- A dashboard with active plans, tasks, meetings, needs-attention signals,
+  recent activity, and team overview.
 
-## Environment Variables
+## Marketing site
 
-Create a `.env.local` file in the root directory and add the following environment variables:
+The public marketing page is a single-scroll site at the root of
+`https://plantel.ai`. It uses anchor navigation (`#features`, `#portal`,
+`#communications`, `#team`, `#faq`) and sends all account actions to the app
+origin.
 
-- `NEXT_PUBLIC_SYNTHESIA_API_KEY`: Your Synthesia API key.
-- `NEXTAUTH_SECRET`: Secret key for NextAuth.
-- `NEXTAUTH_URL`: Base URL for the application.
+Host behaviour is enforced in [`middleware.ts`](middleware.ts) with helpers in
+[`lib/marketing/host.ts`](lib/marketing/host.ts):
 
-Example `.env.local` file:
+| Request | Result |
+| --- | --- |
+| `plantel.ai/` | Marketing landing page |
+| `plantel.ai/{anything}` | 308 redirect to `plantel.pro/{anything}` |
+| `www.plantel.ai/` | 308 redirect to `plantel.ai/` |
+| `plantel.pro/` | 307 redirect to `/signin` |
+| `plantel.pro/{plan-slug}` | Participant portal, unchanged |
 
-NEXT_PUBLIC_SYNTHESIA_API_KEY=your_synthesia_api_key  
-NEXTAUTH_SECRET=your_nextauth_secret  
-NEXTAUTH_URL=http://localhost:3000
+The page copy and feature inventory live in
+[`config/marketing.ts`](config/marketing.ts). The visual sections live in
+[`components/marketing`](components/marketing). Deployment and local-preview
+details are in [`docs/marketing-site.md`](docs/marketing-site.md).
 
-## Usage
+## Architecture
 
-After setting up environment variables and running the development server:
+- **Framework:** Next.js 14 App Router, React 18, TypeScript
+- **Styling:** Tailwind CSS with shadcn/Radix primitives
+- **Database:** PostgreSQL through Prisma
+- **Authentication:** NextAuth (credentials and Google)
+- **File storage:** Cloudflare R2 (S3-compatible)
+- **AI helpers:** Google Gemini for brand, naming, typography, document-name,
+  and flyer-copy suggestions
+- **Email:** SMTP / Resend integrations for notifications and contact forms
+- **Testing:** Vitest + Testing Library, Playwright for E2E
 
-1. **Access the Platform**: Use the app to create new educational videos.
-2. **Customize your Content**: Insert branding, specify details, and link plan resources.
-3. **Generate and Publish**: Once satisfied, initiate the video generation process.
+### Repository structure
+
+```text
+app/                    Next.js routes (dashboard, portal, API, marketing root)
+components/             Shared UI, portal sections, wizards, marketing sections
+config/                 Onboarding and marketing content
+contexts/               Client portal and loading providers
+lib/                    Domain logic, Prisma helpers, R2, marketing host helpers
+prisma/                 Schema and migrations
+public/                 Brand assets, fonts, PWA icons
+scripts/                Backfills, verification scripts, test runners
+types/                  Shared TypeScript types
+docs/                   Implementation and testing notes
+e2e/                    Playwright specs
+```
+
+## Getting started
+
+1. Clone the repository and install dependencies:
+
+   ```bash
+   pnpm install
+   ```
+
+2. Create `.env.local` with the values for your environment. At minimum:
+
+   ```bash
+   DATABASE_URL=postgresql://...
+   DIRECT_URL=postgresql://...
+   NEXTAUTH_SECRET=...
+   NEXTAUTH_URL=http://localhost:3000
+   NEXT_PUBLIC_APP_URL=http://localhost:3000
+   NEXT_PUBLIC_ROOT_DOMAIN=localhost
+   ROOT_DOMAIN=localhost
+   ```
+
+3. Start the development server:
+
+   ```bash
+   pnpm dev
+   ```
+
+4. Open [http://localhost:3000/signin](http://localhost:3000/signin).
+
+### Environment variables
+
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | Pooled PostgreSQL connection used by the app |
+| `DIRECT_URL` | Direct PostgreSQL connection used by Prisma migrations |
+| `NEXTAUTH_SECRET` | NextAuth JWT/session secret |
+| `NEXTAUTH_URL` | App origin used by NextAuth |
+| `NEXT_PUBLIC_APP_URL` | Public app origin used by links and portals |
+| `NEXT_PUBLIC_ROOT_DOMAIN` / `ROOT_DOMAIN` | Portal URL root |
+| `NEXT_PUBLIC_MARKETING_URL` | Canonical marketing origin (`https://plantel.ai`) |
+| `MARKETING_HOSTS` | Comma-separated marketing host allowlist |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth |
+| `GEMINI_API_KEY` | AI suggestion helpers |
+| `R2_*` | Cloudflare R2 bucket, endpoint, and credentials |
+| `MAIL_*` / email provider keys | Outbound email |
+
+Do not commit real secrets. `.env` is a local/production-default file for the
+maintainers; deployment values belong in the hosting project's environment
+settings.
 
 ## Testing
 
-Unit tests use [Vitest](https://vitest.dev) with React Testing Library and jsdom.
-See [`docs/testing.md`](docs/testing.md) for conventions and the mocking strategy.
-
 ```bash
-pnpm test            # run once
-pnpm test:watch      # watch mode
-pnpm test:coverage   # run once + V8 coverage report
+pnpm test                 # Vitest, all suites
+pnpm test:watch           # Vitest in watch mode
+pnpm test:coverage        # Vitest with V8 coverage
+pnpm exec tsc --noEmit    # type check
+pnpm lint                 # Next.js lint
+pnpm test:e2e             # Playwright
 ```
+
+Focused suites keep their own Vitest configs, for example
+`pnpm test:marketing`, `pnpm test:portal-landing`, and `pnpm test:webinars`.
+The marketing site has dedicated unit coverage in
+[`lib/marketing/__tests__/host.test.ts`](lib/marketing/__tests__/host.test.ts),
+[`config/__tests__/marketing.test.ts`](config/__tests__/marketing.test.ts), and
+[`components/marketing/__tests__`](components/marketing/__tests__), plus
+[`e2e/marketing-site.spec.ts`](e2e/marketing-site.spec.ts).
+
+## Portal URLs
+
+Participant portals are public and slug-based at the environment root:
+
+- Production: `https://plantel.pro/{plan-slug}`
+- Development: `https://dev.plantel.pro/{plan-slug}`
+
+The owning advisor is resolved from the globally unique `Client.slug`. See
+[`docs/slug-based-plan-urls.md`](docs/slug-based-plan-urls.md) and
+[`lib/portal-access.ts`](lib/portal-access.ts).
+
+## Current limitations
+
+- PlanTelligence presents plan videos; it does not generate videos with
+  Synthesia or HeyGen.
+- The participant chat surface is UI-only; automated answers are not shipped.
+- Life Events entry points exist, but the full guided-checklist destination is
+  not part of the current release.
+- The topic framework is rolled out through the `TOPIC_FRAMEWORK_PLANS`
+  allowlist; copy should describe the capability rather than promising it to
+  every plan.
+- No customer logos, testimonials, usage metrics, pricing, or compliance
+  certifications are published on the marketing site without verified source
+  material.
 
 ## License
 
-This project is not yet licensed, and the source code is proprietary. Unauthorized distribution, modification, or use of this code is prohibited. Access is limited to authorized personnel only, and any use outside of granted permissions is strictly forbidden. For inquiries regarding permissions or potential licensing, please contact the project owner via email: Ty Rogers, ty at waypointfas.com.
+This project is not yet licensed, and the source code is proprietary.
+Unauthorized distribution, modification, or use of this code is prohibited.
+Access is limited to authorized personnel only, and any use outside of granted
+permissions is strictly forbidden. For inquiries regarding permissions or
+potential licensing, please contact the project owner via email: Ty Rogers,
+ty at waypointfas.com.

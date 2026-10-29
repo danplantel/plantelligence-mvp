@@ -5,6 +5,16 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
+import {
+  getAppHost,
+  getAppOrigin,
+  getMarketingOrigin,
+  isLocalHost,
+  isMarketingAssetPath,
+  isMarketingHost,
+  isWwwMarketingHost,
+  requestHostFromHeaders,
+} from "@/lib/marketing/host";
 
 // App routes that require auth + onboarding completion. Portal pages live at
 // the root-level /{slug} (the (portal) route group) and are excluded here.
@@ -30,14 +40,75 @@ function isPathOrChild(pathname: string, route: string): boolean {
 
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const requestHost = requestHostFromHeaders(req.headers);
 
-  const response = NextResponse.next();
+  // `x-pathname` lets app/layout.tsx tell the marketing root apart from the app
+  // and portal pages. It has to be forwarded on the *request* (the response
+  // header alone is not visible to server components).
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-pathname", pathname);
+
+  const response = NextResponse.next({ request: { headers: requestHeaders } });
   response.headers.set("x-pathname", pathname);
 
   // Let static/public assets through (e.g. /logo.png) — they're never an app
   // or portal route.
   if (/\.[a-zA-Z0-9]+$/.test(pathname)) {
     return response;
+  }
+
+  // ── Public marketing site (plantel.ai) ─────────────────────────────────
+  // The marketing site is served by this same deployment but owns its own
+  // origin. `/` is the landing page there; every app or portal path belongs on
+  // the app origin. The two origins are allowed to be the same host so a local
+  // preview can exercise both without redirect loops.
+  if (isMarketingHost(requestHost)) {
+    const isMarketingAsset = isMarketingAssetPath(pathname);
+
+    // One canonical marketing origin: `www.` never serves content itself.
+    if (isWwwMarketingHost(requestHost)) {
+      const targetOrigin =
+        pathname === "/" || isMarketingAsset
+          ? getMarketingOrigin()
+          : getAppOrigin();
+      return NextResponse.redirect(
+        new URL(`${pathname}${req.nextUrl.search}`, targetOrigin),
+        308,
+      );
+    }
+
+    const sameHost = getAppHost() === requestHost;
+
+    // App routes and portal slugs are not duplicated on the marketing host.
+    if (pathname !== "/" && !isMarketingAsset && !sameHost) {
+      return NextResponse.redirect(
+        new URL(`${pathname}${req.nextUrl.search}`, getAppOrigin()),
+        308,
+      );
+    }
+
+    // `/` (and, on a shared local host, the app paths) render normally. The
+    // root page is the marketing page, so no internal rewrite URL is exposed.
+    return response;
+  }
+
+  // ── Local preview ──────────────────────────────────────────────────────
+  // A loopback host is a single-origin preview of both sites: `/` is the
+  // marketing page and every other path is the app or portal served by the
+  // same dev server. Only `/` claims the marketing page, so `/signin`,
+  // `/dashboard`, and `/{plan-slug}` keep behaving exactly like the app origin.
+  if (isLocalHost(requestHost) && pathname === "/") {
+    return response;
+  }
+
+  // ── App origin ─────────────────────────────────────────────────────────
+  // `/` has always been a sign-in redirect on the app host. Keeping it in
+  // middleware means the marketing page is never the app origin's root.
+  if (pathname === "/") {
+    return NextResponse.redirect(
+      new URL(`/signin${req.nextUrl.search}`, req.url),
+      307,
+    );
   }
 
   // ── Auth + onboarding gate for app routes ──────────────────────────────
