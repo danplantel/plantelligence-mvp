@@ -64,20 +64,34 @@ async function createFixtureUser(email: string): Promise<string> {
 async function main(): Promise<void> {
   console.log("\n▶ Web push verification\n");
 
-  // ── Deployment configuration (informational) ───────────────────────────────
+  // ── Deployment configuration (informational, NOT an assertion) ─────────────
   // Missing keys mean push is silently disabled at runtime, which looks like "nothing happens" in
-  // the browser. Worth saying out loud here rather than discovering it during a demo.
-  const configured = Boolean(
-    (process.env.VAPID_PUBLIC_KEY ?? process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) &&
-      process.env.VAPID_PRIVATE_KEY,
-  );
-  check(
-    "VAPID keys are configured (informational)",
-    true,
-    configured
-      ? undefined
-      : "VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY are unset — sends will no-op in this environment",
-  );
+  // the browser — worth saying out loud rather than discovering it during a demo.
+  //
+  // Deliberately not a `check()`: the data-layer rules below do not need VAPID keys, so failing the
+  // script over an unconfigured environment would make a genuinely healthy database look broken.
+  // It is printed as a plain INFO line instead, because a PASS here was previously unconditional and
+  // therefore meaningless.
+  const publicKey =
+    process.env.VAPID_PUBLIC_KEY ?? process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const configured = Boolean(publicKey && process.env.VAPID_PRIVATE_KEY);
+
+  if (configured) {
+    console.log("  INFO  VAPID keys are configured — real sends will work.");
+  } else {
+    console.log(
+      "  INFO  VAPID keys are NOT configured — push is DISABLED in this environment.",
+    );
+    console.log("        Set VAPID_PUBLIC_KEY, NEXT_PUBLIC_VAPID_PUBLIC_KEY,");
+    console.log("        VAPID_PRIVATE_KEY and VAPID_SUBJECT (see docs/testing/push-tests.md).");
+    console.log("        The assertions below still verify the data layer.");
+  }
+
+  if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY) {
+    console.log(
+      "        NOTE: NEXT_PUBLIC_VAPID_PUBLIC_KEY is unset, so the BROWSER cannot subscribe.",
+    );
+  }
 
   const userId = await createFixtureUser(userA);
   const otherUserId = await createFixtureUser(userB);

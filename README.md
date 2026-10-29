@@ -164,6 +164,10 @@ e2e/                    Playwright specs
 | --- | --- |
 | `DATABASE_URL` | Pooled PostgreSQL connection used by the app |
 | `DIRECT_URL` | Direct PostgreSQL connection used by Prisma migrations |
+| `VAPID_PUBLIC_KEY` | Web push signing key, public half (server). Falls back to `NEXT_PUBLIC_VAPID_PUBLIC_KEY` |
+| `NEXT_PUBLIC_VAPID_PUBLIC_KEY` | The same public key, inlined into the browser bundle so it can subscribe |
+| `VAPID_PRIVATE_KEY` | Web push signing key, private half. Never exposed to the client |
+| `VAPID_SUBJECT` | `mailto:` or origin URL identifying the push sender |
 | `NEXTAUTH_SECRET` | NextAuth JWT/session secret |
 | `NEXTAUTH_URL` | App origin used by NextAuth |
 | `NEXT_PUBLIC_APP_URL` | Public app origin used by links and portals |
@@ -178,6 +182,14 @@ e2e/                    Playwright specs
 Do not commit real secrets. `.env` is a local/production-default file for the
 maintainers; deployment values belong in the hosting project's environment
 settings.
+
+Web push is **disabled, not broken**, when its VAPID variables are unset: the sender logs one
+warning per process and returns, so notifications and messages keep working and only the push is
+skipped. Generate a pair with `npx web-push generate-vapid-keys` — one pair **per environment**,
+kept permanently, because every stored subscription is bound to the key that created it. Rotating the
+pair invalidates every subscription and every reader has to opt in again. `NEXT_PUBLIC_VAPID_PUBLIC_KEY`
+is read at **build** time, so a key added after a build needs a redeploy rather than a restart. See
+[`docs/testing/push-tests.md`](docs/testing/push-tests.md).
 
 ## Testing
 
