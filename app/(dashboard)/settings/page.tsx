@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { PushOptInCard } from "@/components/pwa/push-optin-card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
@@ -1696,6 +1697,14 @@ export default function SettingsPage() {
               // so the Designations row is omitted from their Profile.
               hideDesignations={isCollaborator}
             />
+
+            {/* ── Push notifications ──
+                Per BROWSER, not per account: the OS permission and the subscription both belong to
+                the browser profile, so this card describes "this device" and is deliberately placed
+                on the profile tab rather than under Organization. It renders its own state for every
+                case (unsupported, iOS-install-required, denied, unconfigured) instead of a dead
+                toggle. */}
+            <PushOptInCard />
 
             {/* ── Delete Profile Section ── */}
             <Card className="border-2 border-red-500/50 dark:border-red-500/40 bg-red-50/30 dark:bg-red-950/20">

@@ -12,6 +12,7 @@ import { getServerSession } from "next-auth";
 import { headers } from "next/headers";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { InviteCodeProvider } from "@/components/providers/invite-code-provider";
+import { ServiceWorkerBootstrap } from "@/components/pwa/service-worker-registration";
 import {
   getAppOrigin,
   isMarketingHost,
@@ -160,6 +161,10 @@ export default async function RootLayout({
               <PageTitleProvider>
                 <LoadingProvider>
                   <Providers session={session}>
+                    {/* Registers the service worker for the portal AND the dashboard. Push and
+                        installability both depend on it, so it belongs to the app shell rather
+                        than to any one page. */}
+                    <ServiceWorkerBootstrap />
                     <ToasterContainer />
                     {children}
                     <Toaster richColors />

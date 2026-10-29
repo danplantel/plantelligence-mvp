@@ -25,6 +25,7 @@
 import prisma from "@/lib/prisma";
 import { loadPersonIdentities } from "@/lib/teammates/identity.server";
 import { createNotification } from "@/lib/notifications/notifications.server";
+import { sendPushToUsers } from "@/lib/push/push.server";
 import { TeammateDataError } from "@/lib/teammates/errors";
 import { canMessageUser, isDirectOrgMember } from "./directory.server";
 import {
@@ -826,6 +827,22 @@ async function coalesceDirectNotification(input: {
       await prisma.notification.update({
         where: { id: existing.id },
         data: { title, body: input.preview, createdAt: new Date() },
+      });
+
+      // The COALESCING branch needs its own push. `createNotification` is the push hook for every
+      // other notification, but this path deliberately updates the row instead of creating one — the
+      // Bell must show one row per conversation — so a push wired only to `createNotification` would
+      // deliver the FIRST message of a thread and silently drop every reply after it.
+      //
+      // `threadId` is the collapse key: the phone replaces the earlier notification rather than
+      // stacking one per message.
+      await sendPushToUsers({
+        userIds: [input.recipientUserId],
+        title,
+        body: input.preview,
+        type: DIRECT_MESSAGE_NOTIFICATION_TYPE,
+        href,
+        threadId: input.threadId,
       });
       return;
     }

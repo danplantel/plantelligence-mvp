@@ -14,6 +14,7 @@
  */
 
 import prisma from "@/lib/prisma";
+import { sendPushToUsers } from "@/lib/push/push.server";
 
 /** The one notification kind shipped today; the UI keys its icon/group off it. */
 export const TEAM_MEMBER_ACCEPTED_TYPE = "team_member_accepted";
@@ -92,6 +93,24 @@ export async function createNotification(input: {
       profileId: input.profileId ?? null,
       actorUserId: input.actorUserId ?? null,
     },
+  });
+
+  // Web push is an ECHO of the row that was just written, never a second source of truth: the bell
+  // still reads this table, and a reader whose phone is offline loses nothing but the head start.
+  //
+  // The push deliberately sits here rather than at each call site, because every notification a
+  // reader can be pushed about is written through this function. `sendPushToUsers` ignores types it
+  // has no push design for (the team/ownership events), so the allowlist lives in one place too.
+  //
+  // AWAITED, not fired and forgotten: on a serverless host the invocation can be frozen as soon as
+  // this returns, and a background send would be silently lost. The function swallows its own
+  // errors, so this can never fail the write above.
+  await sendPushToUsers({
+    userIds: [input.userId],
+    title: input.title,
+    body: input.body ?? null,
+    type: input.type,
+    href: input.href ?? null,
   });
 }
 

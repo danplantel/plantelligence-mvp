@@ -186,21 +186,9 @@ export function PortalInstallApp() {
     };
   }, [slug, appName]);
 
-  // The service worker is what makes the page installable at all. It is a pass-through (see
-  // public/sw.js), so registering it changes no request behaviour.
-  useEffect(() => {
-    if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) {
-      return;
-    }
-    const secure =
-      window.location.protocol === "https:" ||
-      window.location.hostname === "localhost" ||
-      window.location.hostname === "127.0.0.1";
-    if (!secure) return;
-    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => {
-      // A failed registration only costs installability on this visit.
-    });
-  }, []);
+  // The service worker is what makes the page installable at all, and it is registered centrally by
+  // `ServiceWorkerRegistration` in the root layout — the dashboard needs the same worker for web
+  // push, so registration can no longer live in this banner. See lib/pwa/push.ts.
 
   // Browser-only facts: platform, standalone mode, stored dismissal, and the captured prompt.
   useEffect(() => {

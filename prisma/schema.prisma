@@ -139,6 +139,7 @@ model User {
   meetingCustomTypes MeetingCustomType[]
   tasks             Task[]
   notifications     Notification[]
+  pushSubscriptions PushSubscription[]
   // Direct messages this user takes part in, split by side because a pair is stored in a
   // canonical order (see `DirectThread`).
   directThreadsAsA DirectThread[] @relation("DirectThreadParticipantA")
@@ -236,6 +237,55 @@ model Notification {
   @@index([userId, readAt])
   @@index([userId, createdAt])
   @@index([organizationId, createdAt])
+}
+
+/// One browser's web-push endpoint.
+///
+/// A subscription belongs to the BROWSER, not to an installed app: the dashboard and every plan portal
+/// share one origin and one service worker (scope "/"), so a phone that installs two different plan
+/// portals still holds exactly ONE subscription. `surface` records where the reader opted in so the
+/// sender can address the right audience — it does not describe two delivery channels, because there
+/// is only one. See plans/web-push-notifications.md.
+///
+/// `endpoint` is the identity AND a bearer capability on the push service: whoever holds it can push
+/// to that browser, so it is never returned to a client that did not present it. It is @unique so a
+/// browser that re-subscribes upserts instead of accumulating dead rows.
+///
+/// `userId` is deliberately rebound on every subscribe: a shared browser can change hands, and a
+/// notification addressed to the previous user of that device would be a data-leak-shaped bug.
+model PushSubscription {
+  id String @id @default(cuid())
+
+  /// The push service URL. Unique — this is the device.
+  endpoint String @unique
+  /// Client public key (base64url) from the payload-encryption handshake.
+  p256dh String
+  /// Client auth secret (base64url), the other half of that handshake.
+  auth   String
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// "portal" | "dashboard". Text rather than an enum so a new surface needs no migration.
+  surface String @default("dashboard")
+  /// The plan a portal opt-in came from. Null for the dashboard, and deliberately a plain scalar
+  /// (like the teammate models) rather than a relation — nothing here needs client-level cascade.
+  clientId String?
+
+  /// Per-type opt-outs, e.g. { "direct_message": false }. NULL means every type is on, which is the
+  /// state of every row written before preferences existed.
+  preferences Json?
+
+  userAgent String?
+  createdAt DateTime @default(now())
+  /// Bumped on every successful send, so a healthy endpoint is distinguishable from an untested one.
+  lastSuccessAt DateTime?
+  /// Consecutive failures. Rows are pruned on 404/410 well before this matters; the counter exists so
+  /// a stuck endpoint is diagnosable instead of invisible.
+  failureCount Int @default(0)
+
+  @@index([userId])
+  @@index([surface, clientId])
 }
 
 // Plan model
