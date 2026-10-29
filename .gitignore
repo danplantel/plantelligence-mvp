@@ -40,6 +40,9 @@ $host_
 $out
 $env
 
+# Throwaway probe scripts (`node .tmp-*.mjs`) are scratch work, not repo code.
+.tmp-*
+
 # local env files
 .env*.local
 .env
