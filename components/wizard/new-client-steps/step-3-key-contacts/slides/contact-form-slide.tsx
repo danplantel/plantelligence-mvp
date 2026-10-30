@@ -2602,6 +2602,8 @@ export function ContactFormSlide({
             }}
             brandColor={brandColor}
             secondaryColor={secondaryColor}
+            // The portal's CTAs wear the plan's PRIMARY colour.
+            ctaColor={brandColor}
             appointmentLink={stepData?.companyBasics?.appointmentLink || ""}
             companyName={
               companyName || (!isFromSomeoneElse ? defaultCompanyName : "")

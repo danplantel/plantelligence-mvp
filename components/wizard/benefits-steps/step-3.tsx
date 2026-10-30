@@ -1704,6 +1704,13 @@ export function BenefitsStep3({
           benefitTitle={step1Data?.benefitTitle || ""}
           categoryBenefitByApi={step1Data?.categoryBenefitByApi ?? null}
           onSubmit={handleContactSubmitted}
+          // Deleting from the editor is the same destructive action as the row
+          // menu's (writes the plan roster immediately), so it reuses that path
+          // and closes the dialog once the delete lands.
+          onDelete={async (contactToDelete) => {
+            await deleteContact(contactToDelete);
+            setEditingContact(null);
+          }}
         />
 
         {/* Add contact — the SAME editor the Edit button above opens, in create mode,

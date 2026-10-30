@@ -1280,6 +1280,8 @@ export function InviteAcceptForm({ token }: { token: string }) {
               }}
               brandColor={PREVIEW_BRAND_COLOR}
               secondaryColor={PREVIEW_SECONDARY_COLOR}
+              // The portal's CTAs wear the plan's PRIMARY colour.
+              ctaColor={PREVIEW_BRAND_COLOR}
               appointmentLink=""
               index={0}
               disableAnimation

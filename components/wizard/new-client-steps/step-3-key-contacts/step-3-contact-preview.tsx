@@ -360,6 +360,9 @@ function RenderCardBySlot({
             contact={contactWithProps}
             brandColor={brandColor}
             secondaryColor={secondaryColor}
+            // The portal's CTAs wear the plan's PRIMARY colour (see
+            // `HaveQuestions`), so the preview must not fall back to secondary.
+            ctaColor={brandColor}
             appointmentLink={appointmentLink}
             companyName={companyName}
             index={index}

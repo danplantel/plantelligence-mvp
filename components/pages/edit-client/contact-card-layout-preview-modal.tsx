@@ -135,6 +135,8 @@ function RenderCardBySlot({
           contact={contactWithProps}
           brandColor={brandColor}
           secondaryColor={resolvedSecondaryColor}
+          // Matches the portal's CTA colour (the plan's primary colour).
+          ctaColor={brandColor}
           appointmentLink=""
           companyName={resolvedCompanyName}
           index={index}

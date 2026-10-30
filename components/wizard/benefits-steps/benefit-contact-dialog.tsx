@@ -21,8 +21,14 @@
  * the stored rows.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Info } from "lucide-react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
+import { Info, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -50,6 +56,7 @@ import type { ContactEmailEntry } from "@/lib/contact-email-conflict";
 import { ContactFormPage } from "@/components/pages/contact-form-page";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
+import { BrandingImage } from "@/components/ui/branding-image";
 import { buildContactFormHref } from "@/lib/contact-form-link";
 import {
   getActiveContactFormTopicLabels,
@@ -64,6 +71,8 @@ import {
   hasReachableMethod,
 } from "@/lib/contact-form-copy";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
+import { fetchClientOnce } from "@/lib/fetch-client";
+import { getPortalShapeCssVars } from "@/lib/typography-themes";
 import { primaryServiceLabelToBenefitsCategory } from "@/lib/seed-onboarding-advisor-contacts";
 import {
   formatPhoneNumber,
@@ -72,6 +81,7 @@ import {
 import { normalizeExtension } from "@/lib/phone-utils";
 import { toast } from "sonner";
 import { BenefitsCategory, KeyContact } from "@/types/new-client-wizard";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 /** The most designations one contact may carry — the same cap the plan-side editor enforces. */
 const MAX_DESIGNATIONS = 5;
@@ -126,6 +136,12 @@ export interface BenefitContactDialogProps {
   existingContacts?: ContactEmailEntry[];
   /** Receives the finished contact. Throwing keeps the dialog open and toasts. */
   onSubmit: (contact: KeyContact) => void | Promise<void>;
+  /**
+   * Delete this contact from the plan. Only offered in edit mode, and only when
+   * the caller supplies it — the dialog itself owns the confirmation step, so a
+   * destructive click can never fire straight from the form.
+   */
+  onDelete?: (contact: KeyContact) => void | Promise<void>;
 }
 
 interface ContactFormState {
@@ -225,6 +241,38 @@ function primaryOrgCompanyName(profile: any, category: string): string {
   ).trim();
 }
 
+/** A branding field may be stored as a URL string or as `{ url }`. */
+function brandingUrl(value: unknown): string {
+  if (typeof value === "string") return value.trim();
+  if (value && typeof value === "object") {
+    const url = (value as { url?: unknown }).url;
+    if (typeof url === "string") return url.trim();
+  }
+  return "";
+}
+
+/**
+ * The ORGANIZATION's identity for a contact, when the advisor's firm is the one
+ * that provides this benefit.
+ *
+ * A category on the advisor's primary-service list is serviced by their own
+ * firm, so the contact card belongs to the organization: its name and its logo,
+ * not a typed vendor and not the plan's logo. Every other category belongs to a
+ * provider / carrier whose details have to be entered by hand.
+ */
+function primaryOrgBranding(
+  profile: any,
+  category: string,
+): { name: string; logo: string } {
+  const name = primaryOrgCompanyName(profile, category);
+  if (!name) return { name: "", logo: "" };
+  const logo =
+    brandingUrl(profile?.advisorLogoUrl) ||
+    brandingUrl(profile?.advisorLogo) ||
+    brandingUrl(profile?.wizardSessions?.[0]?.branding?.logo);
+  return { name, logo };
+}
+
 export function BenefitContactDialog({
   open,
   onOpenChange,
@@ -241,6 +289,7 @@ export function BenefitContactDialog({
   contact = null,
   existingContacts,
   onSubmit,
+  onDelete,
 }: BenefitContactDialogProps) {
   const isEdit = mode === "edit";
   const [form, setForm] = useState<ContactFormState>(EMPTY_FORM);
@@ -248,6 +297,9 @@ export function BenefitContactDialog({
   // Whether the live Plantelligence /contact page preview modal is open.
   const [contactPreviewOpen, setContactPreviewOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Delete is a two-step action: the footer button only opens the confirmation.
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   // Refs for focusing the first invalid field on submit.
   const firstNameRef = useRef<HTMLInputElement>(null);
   const lastNameRef = useRef<HTMLInputElement>(null);
@@ -423,12 +475,27 @@ export function BenefitContactDialog({
   }, [open, isEdit, contact, category]);
 
   /**
-   * Fill Company / Organization once the advisor's profile has loaded.
+   * The organization whose benefit this is, when the advisor's own firm provides
+   * this category (see `primaryOrgBranding`). `null` for a vendor / carrier
+   * contact, or until the profile has loaded.
+   */
+  const [orgBranding, setOrgBranding] = useState<{
+    name: string;
+    logo: string;
+  } | null>(null);
+  const orgOffersBenefit = !isEdit && Boolean(orgBranding?.name);
+
+  /**
+   * Fill Company / Organization and its logo once the advisor's profile has
+   * loaded.
    *
    * The seed above is synchronous, but `/api/profile` may still be in flight when the
-   * dialog opens, so this tops it up. It only ever fills a still-empty field, so
+   * dialog opens, so this tops it up. It only ever fills still-empty fields, so
    * anything the advisor types is left alone. Create mode only: an existing contact
    * keeps whatever company it was saved with.
+   *
+   * When the firm is the one providing this benefit, the card is the ORGANIZATION's:
+   * its name and its branding logo, which is why the fields are then read-only.
    */
   useEffect(() => {
     if (!open || isEdit) return;
@@ -436,16 +503,64 @@ export function BenefitContactDialog({
     (async () => {
       const profile: any = await fetchProfileOnce().catch(() => null);
       if (cancelled || !profile) return;
-      const orgCompany = primaryOrgCompanyName(profile, category);
-      if (!orgCompany) return;
-      setForm((prev) =>
-        prev.companyName.trim() ? prev : { ...prev, companyName: orgCompany },
-      );
+      const branding = primaryOrgBranding(profile, category);
+      if (!branding.name) return;
+      setOrgBranding(branding);
+      setForm((prev) => {
+        const next = { ...prev };
+        if (!next.companyName.trim()) next.companyName = branding.name;
+        if (!next.companyLogo && branding.logo) next.companyLogo = branding.logo;
+        return next;
+      });
     })();
     return () => {
       cancelled = true;
     };
   }, [open, isEdit, category]);
+
+  /**
+   * The PLAN's own colours, read from the plan row itself.
+   *
+   * `brandColor`/`secondaryColor` arrive from the wizard store's `selectedPlan`,
+   * which is often the plan PICKER's summary read — it carries no branding, so the
+   * preview fell back to a default navy instead of the plan's colours. The plan
+   * row is what the live hub renders from, so the card preview reads the same
+   * row (`fetchClientOnce` is cached + single-flight, so this costs nothing when
+   * Step 1 already loaded it).
+   */
+  const [planBranding, setPlanBranding] = useState<{
+    brandColor: string;
+    secondaryColor: string;
+    typographyTheme: string;
+  } | null>(null);
+  useEffect(() => {
+    if (!open || !planId) return;
+    let cancelled = false;
+    (async () => {
+      const client: any = await fetchClientOnce(planId).catch(() => null);
+      if (cancelled || !client) return;
+      const primary = String(client.brandColor || "").trim();
+      const secondary = String(client.secondaryColor || "").trim();
+      // The theme decides the portal's corner treatment, and the preview has to
+      // use the same one the live hub publishes as `--portal-radius`.
+      const theme = String(client.typographyTheme || "").trim();
+      if (primary || secondary || theme) {
+        setPlanBranding({
+          brandColor: primary,
+          secondaryColor: secondary,
+          typographyTheme: theme,
+        });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, planId]);
+
+  // The plan's colours win; the props are only the first paint before the plan
+  // row resolves (or the last resort if it carries no branding at all).
+  const cardBrandColor = planBranding?.brandColor || brandColor;
+  const cardSecondaryColor = planBranding?.secondaryColor || secondaryColor;
 
   const handleSubmit = async () => {
     const {
@@ -608,11 +723,16 @@ export function BenefitContactDialog({
         contactType === "team_support"
           ? form.teamImageFileName || undefined
           : undefined,
-      companyName: companyName || "",
-      companyLogo:
-        !isPlanSponsorContact && form.companyLogo
-          ? form.companyLogo
-          : undefined,
+      // The organization provides this benefit → the card carries the
+      // organization's name and branding, whatever the fields happen to hold.
+      companyName: orgOffersBenefit
+        ? orgBranding?.name || companyName || ""
+        : companyName || "",
+      companyLogo: orgOffersBenefit
+        ? orgBranding?.logo || undefined
+        : !isPlanSponsorContact && form.companyLogo
+        ? form.companyLogo
+        : undefined,
       name:
         contactType === "individual"
           ? `${firstName} ${lastName}`.trim()
@@ -670,11 +790,39 @@ export function BenefitContactDialog({
     }
   };
 
+  /** Who the confirmation names — a support line has no first/last name. */
+  const contactDisplayName =
+    form.contactType === "team_support"
+      ? form.displayName.trim()
+      : `${form.firstName} ${form.lastName}`.trim();
+  const deleteTargetName =
+    contactDisplayName || form.email.trim() || "this contact";
+
+  const handleDelete = async () => {
+    if (!onDelete || !contact) return;
+    setDeleting(true);
+    try {
+      await onDelete(contact);
+      setConfirmDeleteOpen(false);
+      onOpenChange(false);
+    } catch (error: any) {
+      // The caller reports its own failure toast; keep the dialog open so the
+      // advisor can retry or cancel.
+      toast.error("Could not delete the contact", {
+        description: error?.message,
+      });
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        {/* The action row is FIXED: the dialog is a column, the header and
+            footer never move, and only the form between them scrolls. */}
+        <DialogContent className="flex max-h-[90vh] flex-col gap-4 overflow-hidden sm:max-w-2xl lg:max-w-4xl">
+          <DialogHeader className="shrink-0">
             <DialogTitle>
               {isEdit ? "Edit Contact" : "Create New Contact"}
             </DialogTitle>
@@ -685,7 +833,7 @@ export function BenefitContactDialog({
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-6 py-2 items-start">
+          <div className="grid min-h-0 flex-1 grid-cols-1 items-start gap-6 overflow-y-auto py-2 pr-1 lg:grid-cols-[1fr_320px]">
             {/* Left column: Form Fields */}
             <div className="space-y-4 min-w-0">
               {/* Contact Type */}
@@ -841,12 +989,24 @@ export function BenefitContactDialog({
                         "companyName",
                       ])
                     }
+                    // Your own firm provides this benefit, so the card belongs to the
+                    // organization and its name is not a free-text vendor field.
+                    readOnly={orgOffersBenefit}
+                    aria-readonly={orgOffersBenefit}
                     placeholder="e.g. Benefits Provider Inc."
                     className={cn(
                       "h-8 text-sm",
+                      orgOffersBenefit &&
+                        "cursor-default bg-gray-50 text-gray-600 focus-visible:ring-0 dark:bg-gray-800/60 dark:text-gray-300",
                       errors.includes("companyName") && "border-red-500",
                     )}
                   />
+                  {orgOffersBenefit && (
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                      Your organization offers this benefit, so the card uses your
+                      organization&rsquo;s name and logo.
+                    </p>
+                  )}
                   {errors.includes("companyName") && (
                     <p className="text-[10px] text-red-500">
                       Company / Organization is required
@@ -934,33 +1094,62 @@ export function BenefitContactDialog({
               {!isPlanSponsorContact && (
                 <div className="space-y-1.5 pt-1 border-t border-gray-100 dark:border-gray-700">
                   <Label className="dark:text-gray-300 text-xs font-medium">
-                    Upload Contact Company Logo
+                    Contact Company Logo
                   </Label>
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                    Upload a logo to display on this contact&rsquo;s portal card
-                    instead of the plan&rsquo;s company logo.
-                  </p>
-                  <UniversalImageEditorModal
-                    value={form.companyLogo || ""}
-                    fileName={form.companyLogoFileName || ""}
-                    onChange={(value, fileName) =>
-                      updateForm({
-                        companyLogo: value,
-                        companyLogoFileName: fileName || "",
-                      })
-                    }
-                    onRemove={() =>
-                      updateForm({
-                        companyLogo: "",
-                        companyLogoFileName: "",
-                      })
-                    }
-                    placeholder="Upload Contact Company Logo"
-                    modalTitle="Contact Company Logo"
-                    modalDescription="Upload a logo for this contact's portal card."
-                    saveButtonText="Save Logo"
-                    type="logo"
-                  />
+                  {orgOffersBenefit ? (
+                    /* The organization provides this benefit, so the card wears the
+                       organization's branding. Read-only: the logo is managed once,
+                       in Settings → Branding, and must not be overridden per contact. */
+                    <>
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                        Taken from your organization branding — change it in
+                        Settings → Branding.
+                      </p>
+                      <div className="flex min-h-[64px] items-center rounded-lg border border-gray-200 bg-gray-50 px-3 dark:border-gray-700 dark:bg-gray-800/60">
+                        {form.companyLogo ? (
+                          <BrandingImage
+                            src={form.companyLogo}
+                            alt="Organization logo"
+                            className="w-auto object-contain"
+                            style={{ height: "2.5rem", maxWidth: "10rem" }}
+                          />
+                        ) : (
+                          <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                            No organization logo yet — add one in Settings →
+                            Branding.
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                        Upload a logo to display on this contact&rsquo;s portal card
+                        instead of the plan&rsquo;s company logo.
+                      </p>
+                      <UniversalImageEditorModal
+                        value={form.companyLogo || ""}
+                        fileName={form.companyLogoFileName || ""}
+                        onChange={(value, fileName) =>
+                          updateForm({
+                            companyLogo: value,
+                            companyLogoFileName: fileName || "",
+                          })
+                        }
+                        onRemove={() =>
+                          updateForm({
+                            companyLogo: "",
+                            companyLogoFileName: "",
+                          })
+                        }
+                        placeholder="Upload Contact Company Logo"
+                        modalTitle="Contact Company Logo"
+                        modalDescription="Upload a logo for this contact's portal card."
+                        saveButtonText="Save Logo"
+                        type="logo"
+                      />
+                    </>
+                  )}
                 </div>
               )}
 
@@ -1153,8 +1342,17 @@ export function BenefitContactDialog({
               </div>
             </div>
 
-            {/* Right column: Live Portal Preview of the contact card */}
-            <div className="flex flex-col items-center gap-2 lg:sticky lg:top-0 self-start w-full">
+            {/* Right column: Live Portal Preview of the contact card. The wrapper
+                publishes the plan's `--portal-radius`, so the card AND its CTA
+                wear the same corner treatment the live hub uses. */}
+            <div
+              className="flex flex-col items-center gap-2 lg:sticky lg:top-0 self-start w-full"
+              style={
+                getPortalShapeCssVars(
+                  planBranding?.typographyTheme,
+                ) as CSSProperties
+              }
+            >
               <span className="text-[10px] font-semibold uppercase tracking-wider text-accent-blue text-center">
                 Portal Preview
               </span>
@@ -1223,8 +1421,11 @@ export function BenefitContactDialog({
                       : undefined,
                   websiteUrl: contactFormCta.url || undefined,
                 }}
-                brandColor={brandColor}
-                secondaryColor={secondaryColor}
+                brandColor={cardBrandColor}
+                secondaryColor={cardSecondaryColor}
+                // The hub's support CTAs wear the plan's PRIMARY colour; the card's
+                // own default is the secondary one, so the preview has to say.
+                ctaColor={cardBrandColor}
                 appointmentLink={appointmentLink}
                 // Only Plan Sponsor contacts fall back to the plan's company name;
                 // for the other categories the preview shows a [Company / Organization]
@@ -1240,36 +1441,74 @@ export function BenefitContactDialog({
             </div>
           </div>
 
-          <DialogFooter>
-            <Button
-              variant="outline"
-              disabled={busy}
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={
-                busy ||
-                !hasReachableMethod({
-                  displayEmail: form.displayEmail,
-                  displayPhone: form.displayPhone,
-                  enableContactButton: form.enableContactButton,
-                })
-              }
-            >
-              {busy
-                ? isEdit
-                  ? "Saving..."
-                  : "Creating..."
-                : isEdit
-                ? "Save Contact"
-                : "Create Contact"}
-            </Button>
+          <DialogFooter
+            className={cn(
+              "shrink-0 gap-2 border-t pt-4",
+              isEdit && contact && onDelete
+                ? "sm:flex-row sm:items-center sm:justify-between"
+                : "sm:justify-end",
+            )}
+          >
+            {/* Delete lives on the LEFT, away from Save, and only opens the
+                confirmation below. */}
+            {isEdit && contact && onDelete ? (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy || deleting}
+                onClick={() => setConfirmDeleteOpen(true)}
+                className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 dark:border-red-900/60 dark:text-red-400 dark:hover:bg-red-950/40"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete Contact
+              </Button>
+            ) : null}
+            <div className="flex w-full items-center justify-end gap-2 sm:w-auto">
+              <Button
+                variant="outline"
+                disabled={busy || deleting}
+                onClick={() => onOpenChange(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={
+                  busy ||
+                  deleting ||
+                  !hasReachableMethod({
+                    displayEmail: form.displayEmail,
+                    displayPhone: form.displayPhone,
+                    enableContactButton: form.enableContactButton,
+                  })
+                }
+              >
+                {busy
+                  ? isEdit
+                    ? "Saving..."
+                    : "Creating..."
+                  : isEdit
+                  ? "Save Contact"
+                  : "Create Contact"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Deleting removes the person from the PLAN, so it is confirmed before it
+          runs — the form's own Save/Cancel are untouched. */}
+      <ConfirmDialog
+        open={confirmDeleteOpen}
+        onOpenChange={setConfirmDeleteOpen}
+        onConfirm={handleDelete}
+        title="Delete this contact?"
+        description={`${deleteTargetName} will be removed from this plan's contact list, so they stop appearing on My Benefits Team and on every benefit page they serve.`}
+        confirmText="Delete contact"
+        cancelText="Keep contact"
+        variant="destructive"
+        isLoading={deleting}
+      />
 
       {/* Contact Form preview — renders the live Plantelligence-branded /contact
           page (with this contact's details and the topics below) so the advisor
