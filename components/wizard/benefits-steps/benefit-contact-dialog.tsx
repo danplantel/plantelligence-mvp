@@ -942,6 +942,70 @@ export function BenefitContactDialog({
                 errorFields={errors}
               />
 
+              {/* Contact Company Logo — sits directly under the headshot /
+                  team image it pairs with on the card. Non-Plan-Sponsor only. */}
+              {!isPlanSponsorContact && (
+                <div className="space-y-1.5 pt-1 border-t border-gray-100 dark:border-gray-700">
+                  <Label className="dark:text-gray-300 text-xs font-medium">
+                    Contact Company Logo
+                  </Label>
+                  {orgOffersBenefit ? (
+                    /* The organization provides this benefit, so the card wears the
+                       organization's branding. Read-only: the logo is managed once,
+                       in Settings → Branding, and must not be overridden per contact. */
+                    <>
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                        Taken from your organization branding — change it in
+                        Settings → Branding.
+                      </p>
+                      <div className="flex min-h-[64px] items-center rounded-lg border border-gray-200 bg-gray-50 px-3 dark:border-gray-700 dark:bg-gray-800/60">
+                        {form.companyLogo ? (
+                          <BrandingImage
+                            src={form.companyLogo}
+                            alt="Organization logo"
+                            className="w-auto object-contain"
+                            style={{ height: "2.5rem", maxWidth: "10rem" }}
+                          />
+                        ) : (
+                          <span className="text-[11px] text-gray-400 dark:text-gray-500">
+                            No organization logo yet — add one in Settings →
+                            Branding.
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-[10px] text-gray-400 dark:text-gray-500">
+                        Upload a logo to display on this contact&rsquo;s portal card
+                        instead of the plan&rsquo;s company logo.
+                      </p>
+                      <UniversalImageEditorModal
+                        value={form.companyLogo || ""}
+                        fileName={form.companyLogoFileName || ""}
+                        onChange={(value, fileName) =>
+                          updateForm({
+                            companyLogo: value,
+                            companyLogoFileName: fileName || "",
+                          })
+                        }
+                        onRemove={() =>
+                          updateForm({
+                            companyLogo: "",
+                            companyLogoFileName: "",
+                          })
+                        }
+                        placeholder="Upload Contact Company Logo"
+                        modalTitle="Contact Company Logo"
+                        modalDescription="Upload a logo for this contact's portal card."
+                        saveButtonText="Save Logo"
+                        type="logo"
+                      />
+                    </>
+                  )}
+                </div>
+              )}
+
               {/* Designations — individual contacts only: a Team / Support Line's
                   cards suppress the row, and the plan-side editor does not offer it
                   for them either. Same dictionary, chips and 5-item cap as the
@@ -1089,69 +1153,6 @@ export function BenefitContactDialog({
                   <ContactEmailConflictNotice conflict={emailConflict} />
                 </div>
               </div>
-
-              {/* Contact Company Logo — non-Plan-Sponsor only */}
-              {!isPlanSponsorContact && (
-                <div className="space-y-1.5 pt-1 border-t border-gray-100 dark:border-gray-700">
-                  <Label className="dark:text-gray-300 text-xs font-medium">
-                    Contact Company Logo
-                  </Label>
-                  {orgOffersBenefit ? (
-                    /* The organization provides this benefit, so the card wears the
-                       organization's branding. Read-only: the logo is managed once,
-                       in Settings → Branding, and must not be overridden per contact. */
-                    <>
-                      <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                        Taken from your organization branding — change it in
-                        Settings → Branding.
-                      </p>
-                      <div className="flex min-h-[64px] items-center rounded-lg border border-gray-200 bg-gray-50 px-3 dark:border-gray-700 dark:bg-gray-800/60">
-                        {form.companyLogo ? (
-                          <BrandingImage
-                            src={form.companyLogo}
-                            alt="Organization logo"
-                            className="w-auto object-contain"
-                            style={{ height: "2.5rem", maxWidth: "10rem" }}
-                          />
-                        ) : (
-                          <span className="text-[11px] text-gray-400 dark:text-gray-500">
-                            No organization logo yet — add one in Settings →
-                            Branding.
-                          </span>
-                        )}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                        Upload a logo to display on this contact&rsquo;s portal card
-                        instead of the plan&rsquo;s company logo.
-                      </p>
-                      <UniversalImageEditorModal
-                        value={form.companyLogo || ""}
-                        fileName={form.companyLogoFileName || ""}
-                        onChange={(value, fileName) =>
-                          updateForm({
-                            companyLogo: value,
-                            companyLogoFileName: fileName || "",
-                          })
-                        }
-                        onRemove={() =>
-                          updateForm({
-                            companyLogo: "",
-                            companyLogoFileName: "",
-                          })
-                        }
-                        placeholder="Upload Contact Company Logo"
-                        modalTitle="Contact Company Logo"
-                        modalDescription="Upload a logo for this contact's portal card."
-                        saveButtonText="Save Logo"
-                        type="logo"
-                      />
-                    </>
-                  )}
-                </div>
-              )}
 
               {/* Call-to-Action Button */}
               <div className="border-t border-gray-100 dark:border-gray-700 pt-3 space-y-2.5">
