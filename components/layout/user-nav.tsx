@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
 import {
   fetchHeaderProfileOnce,
@@ -17,7 +18,16 @@ import {
 } from "@/lib/fetch-header-profile";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Settings, LayoutDashboard, FileText, LogOut, Bell, AlertTriangle, Clock, Calendar } from "lucide-react";
+import {
+  Settings,
+  LayoutDashboard,
+  FileText,
+  LogOut,
+  Bell,
+  AlertTriangle,
+  Clock,
+  Calendar,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getNameMonogram } from "@/lib/name-monogram";
 import { LoadingOverlay } from "@/components/ui/loading-overlay";
@@ -78,7 +88,9 @@ export function UserNav({
   // carries the wizard sessions and branding JSON and took seconds on every
   // dashboard page. fetchHeaderProfileOnce caches the payload, so navigating
   // between dashboard pages no longer re-requests it.
-  const [headerProfile, setHeaderProfile] = useState<HeaderProfile | null>(null);
+  const [headerProfile, setHeaderProfile] = useState<HeaderProfile | null>(
+    null,
+  );
   useEffect(() => {
     let cancelled = false;
     const loadData = async () => {
@@ -128,7 +140,7 @@ export function UserNav({
         // Same responsive shape as the real control below, so the header does not
         // resize when the payload lands — including the name block, which is
         // avatar-only below `detailsFrom` in both states.
-        <div className="relative flex h-10 items-center gap-2 px-2 xl:h-12 xl:gap-3">
+        <div className="relative flex items-center gap-2 rounded-xl px-2 py-1.5 xl:gap-2.5 xl:px-2.5 xl:py-2">
           <div className="h-9 w-9 rounded-full bg-gray-200 animate-pulse xl:h-10 xl:w-10" />
           <div
             className={cn(
@@ -153,11 +165,18 @@ export function UserNav({
             <Button
               variant="ghost"
               className={cn(
-                // The badge is a third row, which is why the name and title step down a size —
-                // together they still fit the control's own height. `group` lets the badge
-                // restyle itself on hover: the trigger's hover paints accent-blue, which is
-                // exactly the badge's resting colour.
-                "group relative flex h-10 min-w-0 items-center gap-2 rounded-lg hover:bg-accent-blue hover:text-white xl:h-12 xl:gap-3",
+                // Sized by its own padding, not a fixed height: the three text rows
+                // (role badge, name, title) are taller than the old `h-10`/`h-12`
+                // box, so the content spilled outside it and the hover background
+                // looked smaller than the block it belonged to.
+                //
+                // The hover is a quiet surface tint that keeps the accent-blue role
+                // badge and the dark name legible as they are — the previous
+                // accent-blue fill forced the badge to invert itself on hover, and
+                // it only painted the box the text had already escaped.
+                "group relative flex h-auto min-w-0 items-center gap-2 rounded-xl transition-colors duration-200",
+                "hover:bg-muted data-[state=open]:bg-muted",
+                "xl:gap-2.5",
                 // Below `detailsFrom` the control is avatar-only, at a smaller
                 // footprint. The name/title/role block is the widest thing in the
                 // header's action cluster (~210px) and was what crowded the stepper,
@@ -165,10 +184,10 @@ export function UserNav({
                 // shows the name and the email, and the avatar keeps the initials.
                 // `compact` (the Editing Panel case) stays avatar-only at every width.
                 compact
-                  ? "shrink-0 px-2"
+                  ? "shrink-0 px-2 py-1.5"
                   : detailsFrom === "2xl"
-                    ? "px-2 2xl:px-3"
-                    : "px-2 xl:px-3",
+                  ? "px-2 py-1.5 2xl:px-2.5 2xl:py-2"
+                  : "px-2 py-1.5 xl:px-2.5 xl:py-2",
               )}
             >
               <Avatar className="h-9 w-9 shrink-0 xl:h-10 xl:w-10">
@@ -184,19 +203,18 @@ export function UserNav({
               {!compact && (
                 <div
                   className={cn(
-                    "hidden min-w-0 flex-col items-start",
+                    "hidden min-w-0 flex-col items-start gap-0.5 leading-tight",
                     detailsFrom === "2xl" ? "2xl:flex" : "xl:flex",
                   )}
                 >
                   {/* The role, ABOVE the name: the one line that says what this account IS rather
                       than who they are. Deliberately tiny (`text-[9px]`) and shrink-wrapped —
                       it is a label, so the name below stays the loudest thing in the control.
-                      `group-hover:bg-white/25` keeps it readable when the trigger turns
-                      accent-blue on hover; without it the pill would be accent-on-accent and
-                      vanish exactly when the pointer is over it. */}
+                      It keeps its accent-blue fill on hover: the trigger's hover is now a
+                      neutral surface tint, so the pill never sits accent-on-accent. */}
                   {userRole && (
                     <span
-                      className="mb-0.5 w-fit max-w-[200px] truncate rounded-full bg-accent-blue px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-3 tracking-wide text-white group-hover:bg-white/25"
+                      className="w-fit max-w-[200px] truncate rounded-full bg-accent-blue px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-3 tracking-wide text-white"
                       title={userRole}
                     >
                       {userRole}
@@ -210,7 +228,7 @@ export function UserNav({
                   </span>
                   {userTitle && (
                     <span
-                      className="text-[10px] truncate max-w-[200px]"
+                      className="max-w-[200px] truncate text-[10px] text-muted-foreground"
                       title={userTitle}
                     >
                       {userTitle}
@@ -223,30 +241,54 @@ export function UserNav({
           <DropdownMenuContent className="w-56" align="end" forceMount>
             <DropdownMenuLabel className="font-normal">
               <div className="flex flex-col space-y-1">
-                <p className="text-sm font-medium leading-none">{userName}</p>
-                <p className="text-xs leading-none text-muted-foreground">
+                <p className="truncate text-sm font-medium leading-none">
+                  {userName}
+                </p>
+                <p className="truncate text-xs leading-none text-muted-foreground">
                   {userEmail}
                 </p>
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onClick={handleLogoutClick}>
+            {/* Settings — the same destination as Settings in the sidebar, so the
+                account menu can reach it without hunting for the icon. */}
+            <DropdownMenuItem asChild>
+              <Link href="/settings" className="flex w-full items-center gap-2">
+                <Settings className="h-4 w-4" />
+                Settings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={handleLogoutClick}
+              className="flex items-center gap-2 text-red-600 focus:text-red-600 dark:text-red-400 dark:focus:text-red-400"
+            >
+              <LogOut className="h-4 w-4" />
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
 
         {/* Logout confirmation dialog */}
-        <AlertDialog open={showLogoutConfirm} onOpenChange={setShowLogoutConfirm}>
+        <AlertDialog
+          open={showLogoutConfirm}
+          onOpenChange={setShowLogoutConfirm}
+        >
           <AlertDialogContent className="max-w-sm">
             <AlertDialogHeader>
-              <AlertDialogTitle>Are you sure you want to log out?</AlertDialogTitle>
+              <AlertDialogTitle>
+                Are you sure you want to log out?
+              </AlertDialogTitle>
               <AlertDialogDescription>
-                You will be redirected to the sign-in page. Any unsaved changes may be lost.
+                You will be redirected to the sign-in page. Any unsaved changes
+                may be lost.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter className="flex-row gap-2 sm:gap-2">
-              <AlertDialogCancel className="flex-1 m-0" onClick={handleLogoutCancel}>
+              <AlertDialogCancel
+                className="flex-1 m-0"
+                onClick={handleLogoutCancel}
+              >
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction
@@ -259,7 +301,12 @@ export function UserNav({
           </AlertDialogContent>
         </AlertDialog>
 
-        <LoadingOverlay isLoading={isLoggingOut} message="Logging out" hideLogo className="[&>div]:scale-150" />
+        <LoadingOverlay
+          isLoading={isLoggingOut}
+          message="Logging out"
+          hideLogo
+          className="[&>div]:scale-150"
+        />
       </>
     );
   }
