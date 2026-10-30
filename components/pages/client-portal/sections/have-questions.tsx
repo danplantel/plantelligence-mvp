@@ -9,6 +9,7 @@ import { HAVE_QUESTIONS_SECTION_ID } from "@/lib/portal-section-anchors";
 import {
   supportCardColumnClass,
   supportCardSize,
+  supportContactShowsCta,
 } from "@/lib/support-card-layout";
 
 /** The stored label for the plan-sponsor card ("Custom" is the wizard's name for it). */
@@ -105,27 +106,12 @@ export function HaveQuestions({
   const columnClass = supportCardColumnClass(contactCount);
   const cardSize = supportCardSize(contactCount);
 
-  // A card only draws a button when the advisor configured one AND it has a
-  // target (see the CTA rules in `SmallVerticalCard`). If even one card in the
-  // row does, every card stretches to that height — otherwise the row reads
-  // ragged, with the button-less cards ending a CTA's height short.
-  const anyContactShowsCta = orderedContacts.some((contact) => {
-    if (contact.enableContactButton !== true || !contact.contactButtonType) {
-      return false;
-    }
-    switch (contact.contactButtonType) {
-      case "calendar":
-        return Boolean(contact.schedulingUrl || resolvedAppointmentLink);
-      case "phone":
-        return Boolean(contact.phone);
-      case "email":
-        return Boolean(contact.email);
-      case "url":
-        return Boolean(contact.websiteUrl);
-      default:
-        return false;
-    }
-  });
+  // If even one card draws a button, every card in the row stretches to that
+  // height — otherwise the row reads ragged, with the button-less cards ending a
+  // CTA's height short (see `lib/support-card-layout`).
+  const anyContactShowsCta = orderedContacts.some((contact) =>
+    supportContactShowsCta(contact, resolvedAppointmentLink),
+  );
 
   return (
     // The same light grey band as the FAQ section above it: it separates this block

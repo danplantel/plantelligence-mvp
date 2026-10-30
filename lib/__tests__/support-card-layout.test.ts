@@ -5,6 +5,7 @@ import {
   supportCardColumnClass,
   supportCardRowSlots,
   supportCardSize,
+  supportContactShowsCta,
 } from "@/lib/support-card-layout";
 
 /**
@@ -57,6 +58,63 @@ describe("supportCardSize", () => {
   it("uses the largest tier for two and for a lone card", () => {
     expect(supportCardSize(2)).toBe("lg");
     expect(supportCardSize(1)).toBe("lg");
+  });
+});
+
+describe("supportContactShowsCta", () => {
+  it("needs both the advisor's flag and a button type", () => {
+    expect(supportContactShowsCta({})).toBe(false);
+    expect(
+      supportContactShowsCta({ enableContactButton: true }),
+    ).toBe(false);
+    expect(
+      supportContactShowsCta({
+        enableContactButton: true,
+        contactButtonType: "calendar",
+        schedulingUrl: "https://book.test/a",
+      }),
+    ).toBe(true);
+  });
+
+  it("counts a calendar CTA that books to the plan's link", () => {
+    expect(
+      supportContactShowsCta(
+        { enableContactButton: true, contactButtonType: "calendar" },
+        "https://plan.test/schedule",
+      ),
+    ).toBe(true);
+  });
+
+  it("ignores a button with no target", () => {
+    expect(
+      supportContactShowsCta({
+        enableContactButton: true,
+        contactButtonType: "phone",
+        phone: "",
+      }),
+    ).toBe(false);
+    expect(
+      supportContactShowsCta({
+        enableContactButton: true,
+        contactButtonType: "email",
+      }),
+    ).toBe(false);
+    expect(
+      supportContactShowsCta({
+        enableContactButton: true,
+        contactButtonType: "url",
+      }),
+    ).toBe(false);
+  });
+
+  it("ignores unknown button types", () => {
+    expect(
+      supportContactShowsCta({
+        enableContactButton: true,
+        contactButtonType: "carrier-pigeon",
+        phone: "5551234567",
+      }),
+    ).toBe(false);
   });
 });
 

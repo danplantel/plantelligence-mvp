@@ -63,6 +63,42 @@ export function supportCardSize(count: number): SupportCardSize {
 }
 
 /**
+ * The fields the CTA decision reads. A card draws a button only when the advisor
+ * configured one AND it has a target — the same rule `SmallVerticalCard` applies,
+ * so a row is levelled for a button that will actually appear.
+ */
+export interface SupportCtaFields {
+  enableContactButton?: boolean | null;
+  contactButtonType?: string | null;
+  schedulingUrl?: string | null;
+  websiteUrl?: string | null;
+  phone?: string | null;
+  email?: string | null;
+}
+
+/** Does this support contact render a CTA button? */
+export function supportContactShowsCta(
+  contact: SupportCtaFields,
+  appointmentLink?: string | null,
+): boolean {
+  if (contact.enableContactButton !== true || !contact.contactButtonType) {
+    return false;
+  }
+  switch (contact.contactButtonType) {
+    case "calendar":
+      return Boolean(contact.schedulingUrl || appointmentLink);
+    case "phone":
+      return Boolean(contact.phone);
+    case "email":
+      return Boolean(contact.email);
+    case "url":
+      return Boolean(contact.websiteUrl);
+    default:
+      return false;
+  }
+}
+
+/**
  * The wrapper width class for one card.
  *
  * The wrapper — not the card — carries the column width, exactly as the

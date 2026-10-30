@@ -16,6 +16,11 @@ import {
   type CategoryPortalVisibility,
 } from "@/lib/portal-category-visibility";
 import { portalRadiusValue } from "@/lib/typography-themes";
+import {
+  supportCardColumnClass,
+  supportCardSize,
+  supportContactShowsCta,
+} from "@/lib/support-card-layout";
 
 /** True if contact should be hidden by Category Display (Show/Hide). Use: fetch → filter by !isHidden → render. */
 function isContactHiddenByCategory(
@@ -362,6 +367,24 @@ export default function MyBenefitsTeamPage() {
         normalized.designations = currentUserDesignations;
       }
 
+      // A card with no logo of its own borrows one — but the RIGHT one. A person
+      // who works for the ADVISOR'S OWN ORGANIZATION (the firm that provides the
+      // benefit) gets the organization's branding logo, never the plan sponsor's;
+      // every other card falls back to the plan's mark, as the hub does.
+      if (!normalized.companyLogo && !normalized.logo) {
+        const isOrgCompany =
+          !!ownOrgName &&
+          (normalized.companyName || "").trim().toLowerCase() ===
+            ownOrgName.toLowerCase();
+        const fallbackLogo = isOrgCompany
+          ? currentUserLogo || ""
+          : planCompanyLogo;
+        if (fallbackLogo) {
+          normalized.companyLogo = fallbackLogo;
+          normalized.logo = fallbackLogo;
+        }
+      }
+
       normalized.cardBackgroundColor = contact.cardBackgroundColor;
       normalized.logoScale = contact.logoScale ?? globalLogoScale ?? 1;
       return normalized;
@@ -384,18 +407,9 @@ export default function MyBenefitsTeamPage() {
     planCompanyLogo,
   ]);
 
-  // The Main Contact is the page's headline card, and its company logo must never be
-  // blank: a row seeded before the advisor uploaded a logo carries none of its own,
-  // while every Company / Plan Sponsor card already falls back to the plan's logo.
-  // Applying the same fallback to the primary card (only) keeps the headline card
-  // complete without relabelling anybody else's company.
+  // Every card's logo fallback now happens above, in the normalisation map, so the
+  // headline card and the support cards cannot disagree about it.
   const primaryContact = visibleContacts[0];
-  if (primaryContact && planCompanyLogo) {
-    if (!primaryContact.companyLogo && !primaryContact.logo) {
-      primaryContact.companyLogo = planCompanyLogo;
-      primaryContact.logo = planCompanyLogo;
-    }
-  }
   const rest = visibleContacts.slice(1);
 
   // Mark primary contact visually
@@ -417,7 +431,9 @@ export default function MyBenefitsTeamPage() {
 
   return (
     <div className="min-h-screen bg-white pb-24">
-      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 pt-8">
+      {/* Same width as the benefit hubs' "Have Questions?" band, so the two
+          contact surfaces read at the same scale. */}
+      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 pt-8">
         {/* TITLE */}
         <div className="text-center">
           <h1
@@ -517,6 +533,80 @@ export default function MyBenefitsTeamPage() {
    LAYOUT COMPONENTS
 --------------------------------------------------- */
 
+/**
+ * One row of SUPPORT cards, rendered the way the benefit hub's "Have Questions?"
+ * band renders them:
+ *
+ *  - the row fills its parent, its column count coming from how many cards it
+ *    holds — a plan with two contacts gets two halves, not two quarters and a
+ *    pair of empty columns;
+ *  - each card takes the element tier that matches that width, so a 2-up card is
+ *    a genuinely larger card rather than a quarter card with slack in it;
+ *  - the row levels to its tallest card as soon as one card draws a CTA;
+ *  - the CTA wears the plan's PRIMARY colour, exactly as it does on the hub.
+ *
+ * The PRIMARY card is deliberately not part of this row — it keeps its own
+ * headline layout.
+ */
+function SupportCardsRow({
+  contacts,
+  visibility,
+  brandColor,
+  secondaryColor,
+  appointmentLink,
+  companyName,
+  baselineBackgroundColor,
+  startIndex = 1,
+}: {
+  contacts: Contact[];
+  visibility: CategoryPortalVisibility;
+  brandColor: string;
+  secondaryColor: string;
+  appointmentLink: string;
+  companyName: string;
+  baselineBackgroundColor?: string;
+  startIndex?: number;
+}) {
+  const visible = contacts.filter(
+    (contact) => !isContactHiddenByCategory(contact as any, visibility),
+  );
+  if (visible.length === 0) return null;
+
+  const columnClass = supportCardColumnClass(visible.length);
+  const cardSize = supportCardSize(visible.length);
+  const anyCta = visible.some((contact) =>
+    supportContactShowsCta(contact as any, appointmentLink),
+  );
+
+  return (
+    <div className="flex w-full flex-wrap justify-center gap-4 sm:gap-6">
+      {visible.map((contact, index) => (
+        <div
+          key={contact.id || index}
+          data-testid="contact-column"
+          // The wrapper carries the column width (`min-w-0` keeps a long name
+          // from widening it off-centre).
+          className={columnClass}
+        >
+          <BenefitContactCard
+            contact={{ ...contact, isPrimary: false }}
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            ctaColor={brandColor}
+            appointmentLink={appointmentLink}
+            companyName={companyName}
+            index={index + startIndex}
+            baselineBackgroundColor={baselineBackgroundColor}
+            placement="team"
+            size={cardSize}
+            equalHeight={anyCta}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 // Layout 4 (displayStyle 4): all compact vertical cards — 2 top row + 3 bottom row
 // Mirrors step-3d.tsx displayStyle 4 EXACTLY — step-3d converts "large" slots
 // to compact SmallVerticalCard on desktop, so every card renders vertically.
@@ -547,6 +637,13 @@ function Layout4({
     primaryContact &&
     !isContactHiddenByCategory(primaryContact as any, visibility);
 
+  // Each of the two rows levels on its own, and every CTA wears the plan's
+  // primary colour — the same button treatment the hub uses.
+  const showsCta = (contact?: Contact) =>
+    contact ? supportContactShowsCta(contact as any, appointmentLink) : false;
+  const topRowHasCta = showsCta(primaryContact) || showsCta(first);
+  const bottomRowHasCta = smallCards.some((contact) => showsCta(contact));
+
   return (
     <div className="space-y-4">
       {/* TOP ROW — 2 vertical cards */}
@@ -559,11 +656,14 @@ function Layout4({
             }}
             brandColor={brandColor}
             secondaryColor={secondaryColor}
+            ctaColor={brandColor}
             appointmentLink={appointmentLink}
             companyName={companyName}
             index={0}
             baselineBackgroundColor={baselineBackgroundColor}
             placement="team"
+            size={supportCardSize(2)}
+            equalHeight={topRowHasCta}
           />
         )}
         {first && (
@@ -574,11 +674,14 @@ function Layout4({
             }}
             brandColor={brandColor}
             secondaryColor={secondaryColor}
+            ctaColor={brandColor}
             appointmentLink={appointmentLink}
             companyName={companyName}
             index={1}
             baselineBackgroundColor={baselineBackgroundColor}
             placement="team"
+            size={supportCardSize(2)}
+            equalHeight={topRowHasCta}
           />
         )}
       </div>
@@ -595,11 +698,14 @@ function Layout4({
               }}
               brandColor={brandColor}
               secondaryColor={secondaryColor}
+              ctaColor={brandColor}
               appointmentLink={appointmentLink}
               companyName={companyName}
               index={index + 2}
               baselineBackgroundColor={baselineBackgroundColor}
               placement="team"
+              size={supportCardSize(smallCards.length)}
+              equalHeight={bottomRowHasCta}
             />
           ))}
         </div>
@@ -636,6 +742,13 @@ function Layout2({
     isPrimary: index === 0,
   }));
 
+  // This layout deliberately wraps two-up, so its cards keep the 2-up tier — but
+  // they level to each other as soon as one of them shows a CTA, and the CTA wears
+  // the plan's primary colour like the hub's.
+  const anyCta = contactsWithPrimary.some((contact) =>
+    supportContactShowsCta(contact as any, appointmentLink),
+  );
+
   return (
     <div className="grid w-full min-w-0 grid-cols-1 md:grid-cols-2 gap-4 [&>*]:min-w-0">
       {contactsWithPrimary.map((contact, index) => (
@@ -644,11 +757,14 @@ function Layout2({
           contact={contact}
           brandColor={brandColor}
           secondaryColor={secondaryColor}
+          ctaColor={brandColor}
           appointmentLink={appointmentLink}
           companyName={companyName}
           index={index}
           baselineBackgroundColor={baselineBackgroundColor}
           placement="team"
+          size={supportCardSize(2)}
+          equalHeight={anyCta}
         />
       ))}
     </div>
@@ -682,22 +798,18 @@ function Layout3({
     isPrimary: index === 0,
   }));
 
+  // Same count-driven row as the hub: this layout is one row of support cards.
   return (
-    <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 [&>*]:min-w-0">
-      {contactsWithPrimary.map((contact, index) => (
-        <BenefitContactCard
-          key={contact.id || index}
-          contact={contact}
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          appointmentLink={appointmentLink}
-          companyName={companyName}
-          index={index}
-          baselineBackgroundColor={baselineBackgroundColor}
-          placement="team"
-        />
-      ))}
-    </div>
+    <SupportCardsRow
+      contacts={contactsWithPrimary}
+      visibility={visibility}
+      brandColor={brandColor}
+      secondaryColor={secondaryColor}
+      appointmentLink={appointmentLink}
+      companyName={companyName}
+      baselineBackgroundColor={baselineBackgroundColor}
+      startIndex={0}
+    />
   );
 }
 
@@ -745,27 +857,18 @@ function DefaultLayout({
         />
       )}
 
-      {/* ---------- SECONDARY CONTACT CARDS ---------- */}
-      {restVisible.length > 0 && (
-        <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-4 gap-4 [&>*]:min-w-0">
-          {restVisible.map((contact, index) => (
-            <BenefitContactCard
-              key={contact.id || index}
-              contact={{
-                ...contact,
-                isPrimary: false,
-              }}
-              brandColor={brandColor}
-              secondaryColor={secondaryColor}
-              appointmentLink={appointmentLink}
-              companyName={companyName}
-              index={index + 1}
-              baselineBackgroundColor={baselineBackgroundColor}
-              placement="team"
-            />
-          ))}
-        </div>
-      )}
+      {/* ---------- SUPPORT CARDS ---------- */}
+      {/* One count-driven row, exactly like the hub's "Have Questions?" band. */}
+      <SupportCardsRow
+        contacts={restVisible}
+        visibility={visibility}
+        brandColor={brandColor}
+        secondaryColor={secondaryColor}
+        appointmentLink={appointmentLink}
+        companyName={companyName}
+        baselineBackgroundColor={baselineBackgroundColor}
+        startIndex={1}
+      />
     </div>
   );
 }
@@ -809,6 +912,8 @@ function MobileLayout({
       contact={contact}
       brandColor={brandColor}
       secondaryColor={secondaryColor}
+      // Same CTA colour the hub's support cards use.
+      ctaColor={brandColor}
       appointmentLink={appointmentLink}
       companyName={companyName}
       index={index}
@@ -857,7 +962,7 @@ function MobileLayout({
 function MyBenefitsTeamSkeleton() {
   return (
     <div className="min-h-screen bg-white pb-24">
-      <div className="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8 pt-8">
+      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 lg:px-8 pt-8">
         <div className="text-center mb-11">
           <Skeleton className="h-10 w-64 mx-auto" />
         </div>
