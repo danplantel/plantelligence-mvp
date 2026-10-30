@@ -402,8 +402,11 @@ export function LargeHorizontalCard({
               const isLastButton = idx === buttons.length - 1;
               const shouldSpanFullWidth = buttons.length >= 3 && isLastButton;
 
+              // Primary CTA wears the plan's PRIMARY colour — the same button
+              // colour the hub's support cards use (it used to take the secondary
+              // colour), so this preview cannot disagree with the live page.
               const buttonBg = isPrimaryButton
-                ? effectiveSecondaryColor
+                ? effectiveBrandColor
                 : isPrimary
                 ? mix(0.2, "#ffffff", effectiveBrandColor)
                 : "#F3F4F6";

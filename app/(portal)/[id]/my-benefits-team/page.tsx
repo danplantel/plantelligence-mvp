@@ -928,7 +928,9 @@ function MobileLayout({
     // 2-Column Grid — every card shares a row, so all use the narrow variant.
     return (
       <div className="grid w-full min-w-0 grid-cols-2 gap-2 [&>*]:min-w-0">
-        {toRender.map((contact, index) => renderCard(contact, index, "compact"))}
+        {toRender.map((contact, index) =>
+          renderCard(contact, index, "compact"),
+        )}
       </div>
     );
   }
@@ -938,7 +940,9 @@ function MobileLayout({
     const [hero, ...gridContacts] = toRender;
     return (
       <div className="w-full min-w-0 max-w-none space-y-2">
-        {hero && <div className="w-full min-w-0">{renderCard(hero, 0, "wide")}</div>}
+        {hero && (
+          <div className="w-full min-w-0">{renderCard(hero, 0, "wide")}</div>
+        )}
         {gridContacts.length > 0 && (
           <div className="grid w-full min-w-0 grid-cols-2 gap-2 [&>*]:min-w-0">
             {gridContacts.map((contact, index) =>

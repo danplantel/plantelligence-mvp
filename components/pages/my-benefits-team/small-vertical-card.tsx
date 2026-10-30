@@ -70,9 +70,12 @@ interface SmallVerticalCardProps {
   brandColor: string;
   secondaryColor: string;
   /**
-   * Background for the card's primary CTA button. Defaults to `secondaryColor`
-   * (the long-standing card design); the benefit hubs pass the plan's primary
-   * colour so their support CTAs match the rest of the hub's buttons.
+   * Background for the card's primary CTA button.
+   *
+   * Defaults to the card's PRIMARY (brand) colour — the colour every portal
+   * surface uses for its buttons. Callers may override it explicitly, but no
+   * surface falls back to the secondary colour any more: a preview that omitted
+   * this used to draw a button no live page ever showed.
    */
   ctaColor?: string;
   appointmentLink: string;
@@ -574,10 +577,10 @@ export function SmallVerticalCard({
           {buttons.map((button, idx) => {
             const isPrimaryButton = idx === primaryIndex;
             const buttonBg = isPrimaryButton
-              ? ctaColor || effectiveSecondaryColor
+              ? ctaColor || effectiveBrandColor
               : isPrimary
-                ? mix(0.2, "#ffffff", effectiveBrandColor)
-                : "#F3F4F6";
+              ? mix(0.2, "#ffffff", effectiveBrandColor)
+              : "#F3F4F6";
             const buttonColor = isPrimaryButton
               ? "#ffffff"
               : readableColor(buttonBg);
@@ -756,7 +759,11 @@ export function SmallVerticalCard({
 
           {hasAnyButton && (
             <div className="mt-auto px-3 pb-3">
-              {actionButtons({ twoUp: true, text: "text-[9px]", pad: "py-1.5" })}
+              {actionButtons({
+                twoUp: true,
+                text: "text-[9px]",
+                pad: "py-1.5",
+              })}
             </div>
           )}
         </motion.div>
@@ -903,11 +910,9 @@ export function SmallVerticalCard({
 
   // Email sits above the phone on this card. A contact that saved an explicit
   // order still wins, so the wizard's ordering is honoured.
-  const infoOrder: ContactInfoType[] =
-    ((contact as any).contactInfoOrder as ContactInfoType[] | undefined) || [
-      "email",
-      "phone",
-    ];
+  const infoOrder: ContactInfoType[] = ((contact as any).contactInfoOrder as
+    | ContactInfoType[]
+    | undefined) || ["email", "phone"];
 
   /** One row of the right-hand column: the address, the number or neither. */
   const infoRow = (infoType: ContactInfoType) => {
@@ -1206,7 +1211,7 @@ export function SmallVerticalCard({
           {buttons.map((button, idx) => {
             const isPrimaryButton = idx === primaryIndex;
             const buttonBg = isPrimaryButton
-              ? ctaColor || effectiveSecondaryColor
+              ? ctaColor || effectiveBrandColor
               : isPrimary
               ? mix(0.2, "#ffffff", effectiveBrandColor)
               : "#F3F4F6";

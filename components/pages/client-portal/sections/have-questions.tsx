@@ -13,7 +13,9 @@ import {
 } from "@/lib/support-card-layout";
 
 /** The stored label for the plan-sponsor card ("Custom" is the wizard's name for it). */
-const PLAN_SPONSOR_CATEGORY = normalizeContactCategory("Company / Plan Sponsor");
+const PLAN_SPONSOR_CATEGORY = normalizeContactCategory(
+  "Company / Plan Sponsor",
+);
 
 interface HaveQuestionsProps {
   brandColor?: string;

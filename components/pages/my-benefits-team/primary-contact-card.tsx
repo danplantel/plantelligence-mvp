@@ -228,14 +228,20 @@ export function PrimaryContactCard({
         duration: 0.6,
         ease: "easeOut",
       }}
-      className="mt-10 w-full rounded-xl p-6 sm:p-10 shadow-lg relative overflow-hidden"
+      className="mt-8 w-full rounded-xl p-5 sm:p-8 shadow-lg relative overflow-hidden"
       // The card's corners come from the portal's typography theme.
-      style={{ backgroundColor: backgroundColor, borderRadius: portalRadiusValue(1.5) }}
+      style={{
+        backgroundColor: backgroundColor,
+        borderRadius: portalRadiusValue(1.5),
+      }}
     >
       <div className="grid gap-8 sm:gap-10 lg:gap-14 grid-cols-1 lg:grid-cols-2 relative z-10">
         {/* LEFT: HEADSHOT */}
         <div className="flex items-center justify-center">
-          <div className="relative h-[220px] w-[220px] sm:h-[300px] sm:w-[300px] lg:h-[360px] lg:w-[360px] overflow-hidden rounded-full shadow-md">
+          {/* Smaller than the old 220/300/360 set: the card is a header, not a
+              poster, and the reduced portrait keeps its height down now that the
+              right column carries two inner columns. */}
+          <div className="relative h-[160px] w-[160px] sm:h-[200px] sm:w-[200px] lg:h-[240px] lg:w-[240px] overflow-hidden rounded-full shadow-md">
             <PrimaryVisual contact={contact} />
           </div>
         </div>
@@ -283,121 +289,136 @@ export function PrimaryContactCard({
             )
           )}
 
-          {/* NAME — brand (primary) color, matching SmallVerticalCard's card name. */}
-          <h2
-            className="text-xl sm:text-2xl lg:text-3xl font-semibold font-dm-serif leading-tight w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis"
-            style={{ color: effectiveBrandColor }}
-          >
-            {contact.contactType === "team_support"
-              ? contact.displayName || contact.name
-              : contact.name}
-          </h2>
+          {/* Two inner columns, laid out like the support cards: identity on the
+              left, the ways to reach them on the right, CTA underneath. */}
+          <div className="mt-2 h-px w-full bg-black/10" aria-hidden />
+          <div className="grid w-full min-w-0 grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
+            {/* LEFT inner column: who they are. */}
+            <div className="min-w-0">
+              {/* NAME — brand (primary) color, matching SmallVerticalCard's card name. */}
+              <h2
+                className="text-xl sm:text-2xl lg:text-3xl font-semibold font-dm-serif leading-tight w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis"
+                style={{ color: effectiveBrandColor }}
+              >
+                {contact.contactType === "team_support"
+                  ? contact.displayName || contact.name
+                  : contact.name}
+              </h2>
 
-          {/* DESIGNATIONS — the row directly under the name, so the card reads
+              {/* DESIGNATIONS — the row directly under the name, so the card reads
               name → designations → title → company, matching SmallVerticalCard.
               Acronyms only (CFP®, AIF®), held to a SINGLE row. A chip never shrinks
               and its text never wraps — a chip squeezed into a narrow column read as
               VERTICAL text — so a row that does not fit scrolls sideways instead.
               Hidden for Team/Support Line contacts, whose role line is suppressed
               too. */}
-          {!isTeamSupport &&
-            (contact.designations || []).some(
-              (value) => value && value.trim(),
-            ) && (
-              <div className="w-full min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                <div className="flex w-max items-center gap-px">
-                  {(contact.designations || [])
-                    .filter((value) => value && value.trim())
-                    .map((value, index) => (
-                      <span
-                        key={index}
-                        className="inline-block shrink-0 whitespace-nowrap rounded-full px-1 py-px text-center text-[8px] leading-none tracking-tight"
-                        style={{
-                          color: textColor,
-                          backgroundColor: "rgba(255,255,255,0.16)",
-                        }}
-                      >
-                        {designationAcronym(value)}
-                      </span>
-                    ))}
-                </div>
-              </div>
-            )}
+              {!isTeamSupport &&
+                (contact.designations || []).some(
+                  (value) => value && value.trim(),
+                ) && (
+                  <div className="w-full min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    <div className="flex w-max items-center gap-px">
+                      {(contact.designations || [])
+                        .filter((value) => value && value.trim())
+                        .map((value, index) => (
+                          <span
+                            key={index}
+                            className="inline-block shrink-0 whitespace-nowrap rounded-full px-1 py-px text-center text-[8px] leading-none tracking-tight"
+                            style={{
+                              color: textColor,
+                              backgroundColor: "rgba(255,255,255,0.16)",
+                            }}
+                          >
+                            {designationAcronym(value)}
+                          </span>
+                        ))}
+                    </div>
+                  </div>
+                )}
 
-          {/* TITLE — hidden for Team/Support Line contacts because the team
+              {/* TITLE — hidden for Team/Support Line contacts because the team
               name above already conveys it. */}
-          {!isTeamSupport && (
-            <p
-              className="text-base sm:text-lg font-medium font-red-hat"
-              style={{ color: textColor }}
-            >
-              {contact.title || contact.customRole}
-            </p>
-          )}
+              {!isTeamSupport && (
+                <p
+                  className="text-base sm:text-lg font-medium font-red-hat"
+                  style={{ color: textColor }}
+                >
+                  {contact.title || contact.customRole}
+                </p>
+              )}
 
-          {/* COMPANY NAME — below the title, so the card reads name → designations
+              {/* COMPANY NAME — below the title, so the card reads name → designations
               → title → company. Brand (primary) color, same as the name above. */}
-          {(contact.companyName || companyName) && (
-            <p
-              className="text-sm sm:text-base font-bold"
-              style={{ color: effectiveBrandColor }}
-            >
-              {contact.companyName || companyName}
-            </p>
-          )}
-
-          {/* EMAIL (clickable) */}
-          {contact.email && contact.displayEmail !== false && (
-            <a
-              href={`mailto:${contact.email}`}
-              className="flex items-center gap-2.5 text-sm sm:text-base font-red-hat hover:opacity-80 transition-opacity group"
-              style={{ color: textColor }}
-            >
-              <span
-                className={`flex items-center justify-center w-8 h-8 rounded-full ${iconChipBg} shrink-0 group-hover:scale-110 transition-transform`}
-              >
-                <Mail
-                  size={18}
-                  strokeWidth={1.5}
-                  className="w-[18px] h-[18px] shrink-0"
+              {(contact.companyName || companyName) && (
+                <p
+                  className="text-sm sm:text-base font-bold"
                   style={{ color: effectiveBrandColor }}
-                />
-              </span>
-              {contact.email}
-            </a>
-          )}
+                >
+                  {contact.companyName || companyName}
+                </p>
+              )}
+            </div>
 
-          {/* PHONE (clickable) */}
-          {contact.phone && contact.displayPhone !== false && (
-            <a
-              // `getBasePhoneForDialing` already carries the scheme.
-              href={getBasePhoneForDialing(contact.phone)}
-              className="flex items-center gap-2.5 text-sm sm:text-base font-red-hat hover:opacity-80 transition-opacity group"
-              style={{ color: textColor }}
-            >
-              <span
-                className={`flex items-center justify-center w-8 h-8 rounded-full ${iconChipBg} shrink-0 group-hover:scale-110 transition-transform`}
-              >
-                <Phone
-                  size={18}
-                  strokeWidth={1.5}
-                  className="w-[18px] h-[18px] shrink-0"
-                  style={{ color: effectiveBrandColor }}
-                />
-              </span>
-              {formatPhoneWithExtension(contact.phone, contact.phoneExtension)}
-            </a>
-          )}
+            {/* RIGHT inner column: the ways to reach them. */}
+            <div className="flex min-w-0 flex-col gap-2">
+              {/* EMAIL (clickable) */}
+              {contact.email && contact.displayEmail !== false && (
+                <a
+                  href={`mailto:${contact.email}`}
+                  className="flex items-center gap-2.5 text-sm sm:text-base font-red-hat hover:opacity-80 transition-opacity group"
+                  style={{ color: textColor }}
+                >
+                  <span
+                    className={`flex items-center justify-center w-8 h-8 rounded-full ${iconChipBg} shrink-0 group-hover:scale-110 transition-transform`}
+                  >
+                    <Mail
+                      size={18}
+                      strokeWidth={1.5}
+                      className="w-[18px] h-[18px] shrink-0"
+                      style={{ color: effectiveBrandColor }}
+                    />
+                  </span>
+                  {contact.email}
+                </a>
+              )}
 
-          {/* SUPPORT HOURS */}
-          {contact.contactType === "team_support" && contact.supportHours && (
-            <p
-              className="text-sm font-red-hat mt-1"
-              style={{ color: textColor }}
-            >
-              Support Hours: {contact.supportHours}
-            </p>
-          )}
+              {/* PHONE (clickable) */}
+              {contact.phone && contact.displayPhone !== false && (
+                <a
+                  // `getBasePhoneForDialing` already carries the scheme.
+                  href={getBasePhoneForDialing(contact.phone)}
+                  className="flex items-center gap-2.5 text-sm sm:text-base font-red-hat hover:opacity-80 transition-opacity group"
+                  style={{ color: textColor }}
+                >
+                  <span
+                    className={`flex items-center justify-center w-8 h-8 rounded-full ${iconChipBg} shrink-0 group-hover:scale-110 transition-transform`}
+                  >
+                    <Phone
+                      size={18}
+                      strokeWidth={1.5}
+                      className="w-[18px] h-[18px] shrink-0"
+                      style={{ color: effectiveBrandColor }}
+                    />
+                  </span>
+                  {formatPhoneWithExtension(
+                    contact.phone,
+                    contact.phoneExtension,
+                  )}
+                </a>
+              )}
+
+              {/* SUPPORT HOURS */}
+              {contact.contactType === "team_support" &&
+                contact.supportHours && (
+                  <p
+                    className="text-sm font-red-hat mt-1"
+                    style={{ color: textColor }}
+                  >
+                    Support Hours: {contact.supportHours}
+                  </p>
+                )}
+            </div>
+          </div>
 
           {/* SCHEDULE APPOINTMENT BUTTON */}
           <div className="w-full pt-2">
@@ -409,11 +430,11 @@ export function PrimaryContactCard({
             {hasAnyButton &&
               buttons.map((button, idx) => {
                 const isPrimaryButton = idx === primaryIndex;
-                // Primary CTA uses the SECONDARY color, matching
-                // SmallVerticalCard / LargeHorizontalCard so the portal page and
-                // every portal preview render the same button color.
+                // Primary CTA wears the plan's PRIMARY colour — the same button
+                // colour the hub's support cards use, so the page and every portal
+                // preview agree (it used to take the secondary colour).
                 const buttonBg = isPrimaryButton
-                  ? effectiveSecondaryColor
+                  ? effectiveBrandColor
                   : "#F3F4F6";
                 const buttonColor = isPrimaryButton
                   ? "#ffffff"
