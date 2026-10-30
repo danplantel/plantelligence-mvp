@@ -141,10 +141,10 @@ interface SmallVerticalCardProps {
    */
   categoryLabel?: string;
   /**
-   * Every category the contact serves. When more than one is supplied the tag reads
-   * "Multiple Categories" and lists them on hover, rather than stretching the card to
-   * fit every name. `categoryLabel` is still honoured for callers that only have the
-   * joined string.
+   * Every category the contact serves, rendered as one pill per category at the top
+   * of the card. My Benefits Team mixes every benefit on one page, so a multi-benefit
+   * contact names each of them instead of collapsing to "Multiple Categories".
+   * `categoryLabel` is still honoured for callers that only have the joined string.
    */
   categoryList?: string[];
 }
@@ -708,7 +708,8 @@ export function SmallVerticalCard({
             <div className="min-w-0 flex-1">
               <ContactCategoryBadge
                 categories={categoryListValues}
-                className="mb-1 text-[9px] px-1.5 py-0"
+                layout="pills"
+                className="mb-1 text-[9px] [&>span]:px-1.5 [&>span]:py-0"
               />
               <h3
                 className="truncate font-dm-serif text-sm font-semibold leading-tight"
@@ -790,7 +791,8 @@ export function SmallVerticalCard({
       >
         <ContactCategoryBadge
           categories={categoryListValues}
-          className="mb-1 self-center text-[8px] px-1.5 py-0"
+          layout="pills"
+          className="mb-1 self-center justify-center text-[8px] [&>span]:px-1.5 [&>span]:py-0"
         />
 
         {(contact.companyLogo || contact.logo) && (
@@ -999,10 +1001,12 @@ export function SmallVerticalCard({
       data-testid="contact-card"
       data-card-size={cardSize}
     >
-      {/* BENEFIT CATEGORY TAG — the hubs are one benefit and skip it; My
-          Benefits Team mixes every benefit, so each card names its own. */}
+      {/* BENEFIT CATEGORY TAGS — the hubs are one benefit and skip it; My
+          Benefits Team mixes every benefit, so each card names every one it
+          covers, as a pill per benefit. */}
       <ContactCategoryBadge
         categories={categoryListValues}
+        layout="pills"
         className="mb-2 self-start"
       />
 

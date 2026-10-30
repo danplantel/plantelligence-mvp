@@ -10,6 +10,11 @@ import {
 } from "@/lib/resolve-contact-company-name";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
 import {
+  customBenefitTitleFromHubs,
+  isCustomHubCategory,
+} from "@/lib/benefit-custom-name";
+import { canonicalContactCategory } from "@/lib/benefit-contacts";
+import {
   isContactVisibleInPortal,
   getCategoryPortalVisibility,
   getContactCategories as getContactCategoriesFromLib,
@@ -423,6 +428,37 @@ export default function MyBenefitsTeamPage() {
 
   const companyName = clientData?.companyName || "";
 
+  /**
+   * The advisor's own name for the plan's Custom benefit.
+   *
+   * A contact tagged "Other Benefits" covers that benefit, so the card names it
+   * instead of printing the generic label — and prints nothing while the plan has
+   * no custom benefit at all. Read from the portal's hub rows (`Benefit.title`),
+   * the same source the header's Custom hub link uses.
+   */
+  const customBenefitName = customBenefitTitleFromHubs(
+    (clientData as any)?.benefitHubs,
+  );
+
+  /**
+   * Every benefit the plan offers, in the same labels the card pills use.
+   *
+   * A contact who covers all of them — the advisor's own row normally carries
+   * every category — is shown as one "All Benefits" pill instead of a row that
+   * repeats the plan's benefit list. The Custom hub is named with the advisor's
+   * own name for it, and an unnamed Custom benefit drops out (nothing to cover).
+   */
+  const planBenefitLabels = useMemo(() => {
+    const hubs = (clientData as any)?.benefitHubs;
+    if (!Array.isArray(hubs)) return [] as string[];
+    const labels = hubs.map((hub: any) => {
+      const category = String(hub?.category || "").trim();
+      if (isCustomHubCategory(category)) return customBenefitName || "";
+      return canonicalContactCategory(category);
+    });
+    return Array.from(new Set(labels.filter(Boolean))) as string[];
+  }, [clientData, customBenefitName]);
+
   // Show skeleton while loading, null when no data after loading
   if (!clientData) {
     if (loading) return <MyBenefitsTeamSkeleton />;
@@ -462,6 +498,8 @@ export default function MyBenefitsTeamPage() {
               appointmentLink={appointmentLink}
               companyName={companyName}
               baselineBackgroundColor={globalBackgroundColor}
+              customBenefitName={customBenefitName}
+              planBenefitLabels={planBenefitLabels}
             />
           )}
           {displayStyle === 2 && (
@@ -473,6 +511,8 @@ export default function MyBenefitsTeamPage() {
               appointmentLink={appointmentLink}
               companyName={companyName}
               baselineBackgroundColor={globalBackgroundColor}
+              customBenefitName={customBenefitName}
+              planBenefitLabels={planBenefitLabels}
             />
           )}
           {displayStyle === 3 && (
@@ -484,6 +524,8 @@ export default function MyBenefitsTeamPage() {
               appointmentLink={appointmentLink}
               companyName={companyName}
               baselineBackgroundColor={globalBackgroundColor}
+              customBenefitName={customBenefitName}
+              planBenefitLabels={planBenefitLabels}
             />
           )}
           {displayStyle === 4 && (
@@ -496,6 +538,8 @@ export default function MyBenefitsTeamPage() {
               appointmentLink={appointmentLink}
               companyName={companyName}
               baselineBackgroundColor={globalBackgroundColor}
+              customBenefitName={customBenefitName}
+              planBenefitLabels={planBenefitLabels}
             />
           )}
           {displayStyle === null && (
@@ -508,6 +552,8 @@ export default function MyBenefitsTeamPage() {
               appointmentLink={appointmentLink}
               companyName={companyName}
               baselineBackgroundColor={globalBackgroundColor}
+              customBenefitName={customBenefitName}
+              planBenefitLabels={planBenefitLabels}
             />
           )}
         </div>
@@ -522,6 +568,8 @@ export default function MyBenefitsTeamPage() {
             appointmentLink={appointmentLink}
             companyName={companyName}
             baselineBackgroundColor={globalBackgroundColor}
+            customBenefitName={customBenefitName}
+            planBenefitLabels={planBenefitLabels}
           />
         </div>
       </div>
@@ -556,6 +604,8 @@ function SupportCardsRow({
   appointmentLink,
   companyName,
   baselineBackgroundColor,
+  customBenefitName,
+  planBenefitLabels,
   startIndex = 1,
 }: {
   contacts: Contact[];
@@ -565,6 +615,8 @@ function SupportCardsRow({
   appointmentLink: string;
   companyName: string;
   baselineBackgroundColor?: string;
+  customBenefitName?: string | null;
+  planBenefitLabels?: string[];
   startIndex?: number;
 }) {
   const visible = contacts.filter(
@@ -597,6 +649,8 @@ function SupportCardsRow({
             companyName={companyName}
             index={index + startIndex}
             baselineBackgroundColor={baselineBackgroundColor}
+            customBenefitName={customBenefitName}
+            planBenefitLabels={planBenefitLabels}
             placement="team"
             size={cardSize}
             equalHeight={anyCta}
@@ -619,6 +673,8 @@ function Layout4({
   appointmentLink,
   companyName,
   baselineBackgroundColor,
+  customBenefitName,
+  planBenefitLabels,
 }: {
   primaryContact?: Contact;
   rest: Contact[];
@@ -628,6 +684,8 @@ function Layout4({
   appointmentLink: string;
   companyName: string;
   baselineBackgroundColor?: string;
+  customBenefitName?: string | null;
+  planBenefitLabels?: string[];
 }) {
   const restVisible = rest.filter(
     (c) => !isContactHiddenByCategory(c as any, visibility),
@@ -661,6 +719,8 @@ function Layout4({
             companyName={companyName}
             index={0}
             baselineBackgroundColor={baselineBackgroundColor}
+            customBenefitName={customBenefitName}
+            planBenefitLabels={planBenefitLabels}
             placement="team"
             size={supportCardSize(2)}
             equalHeight={topRowHasCta}
@@ -679,6 +739,8 @@ function Layout4({
             companyName={companyName}
             index={1}
             baselineBackgroundColor={baselineBackgroundColor}
+            customBenefitName={customBenefitName}
+            planBenefitLabels={planBenefitLabels}
             placement="team"
             size={supportCardSize(2)}
             equalHeight={topRowHasCta}
@@ -703,6 +765,8 @@ function Layout4({
               companyName={companyName}
               index={index + 2}
               baselineBackgroundColor={baselineBackgroundColor}
+              customBenefitName={customBenefitName}
+              planBenefitLabels={planBenefitLabels}
               placement="team"
               size={supportCardSize(smallCards.length)}
               equalHeight={bottomRowHasCta}
@@ -725,6 +789,8 @@ function Layout2({
   appointmentLink,
   companyName,
   baselineBackgroundColor,
+  customBenefitName,
+  planBenefitLabels,
 }: {
   contacts: Contact[];
   visibility: CategoryPortalVisibility;
@@ -733,6 +799,8 @@ function Layout2({
   appointmentLink: string;
   companyName: string;
   baselineBackgroundColor?: string;
+  customBenefitName?: string | null;
+  planBenefitLabels?: string[];
 }) {
   const toRender = contacts.filter(
     (c) => !isContactHiddenByCategory(c as any, visibility),
@@ -762,6 +830,8 @@ function Layout2({
           companyName={companyName}
           index={index}
           baselineBackgroundColor={baselineBackgroundColor}
+          customBenefitName={customBenefitName}
+          planBenefitLabels={planBenefitLabels}
           placement="team"
           size={supportCardSize(2)}
           equalHeight={anyCta}
@@ -781,6 +851,8 @@ function Layout3({
   appointmentLink,
   companyName,
   baselineBackgroundColor,
+  customBenefitName,
+  planBenefitLabels,
 }: {
   contacts: Contact[];
   visibility: CategoryPortalVisibility;
@@ -789,6 +861,8 @@ function Layout3({
   appointmentLink: string;
   companyName: string;
   baselineBackgroundColor?: string;
+  customBenefitName?: string | null;
+  planBenefitLabels?: string[];
 }) {
   const toRender = contacts.filter(
     (c) => !isContactHiddenByCategory(c as any, visibility),
@@ -808,6 +882,8 @@ function Layout3({
       appointmentLink={appointmentLink}
       companyName={companyName}
       baselineBackgroundColor={baselineBackgroundColor}
+      customBenefitName={customBenefitName}
+      planBenefitLabels={planBenefitLabels}
       startIndex={0}
     />
   );
@@ -824,6 +900,8 @@ function DefaultLayout({
   appointmentLink,
   companyName,
   baselineBackgroundColor,
+  customBenefitName,
+  planBenefitLabels,
 }: {
   primaryContact?: Contact;
   rest: Contact[];
@@ -833,6 +911,8 @@ function DefaultLayout({
   appointmentLink: string;
   companyName: string;
   baselineBackgroundColor?: string;
+  customBenefitName?: string | null;
+  planBenefitLabels?: string[];
 }) {
   const showPrimary =
     primaryContact &&
@@ -853,6 +933,8 @@ function DefaultLayout({
           appointmentLink={appointmentLink}
           companyName={companyName}
           baselineBackgroundColor={baselineBackgroundColor}
+          customBenefitName={customBenefitName}
+          planBenefitLabels={planBenefitLabels}
           placement="team"
         />
       )}
@@ -867,6 +949,8 @@ function DefaultLayout({
         appointmentLink={appointmentLink}
         companyName={companyName}
         baselineBackgroundColor={baselineBackgroundColor}
+        customBenefitName={customBenefitName}
+        planBenefitLabels={planBenefitLabels}
         startIndex={1}
       />
     </div>
@@ -883,6 +967,8 @@ function MobileLayout({
   appointmentLink,
   companyName,
   baselineBackgroundColor,
+  customBenefitName,
+  planBenefitLabels,
 }: {
   contacts: Contact[];
   mobileDisplayStyle: number;
@@ -891,6 +977,8 @@ function MobileLayout({
   appointmentLink: string;
   companyName: string;
   baselineBackgroundColor?: string;
+  customBenefitName?: string | null;
+  planBenefitLabels?: string[];
 }) {
   const toRender = contacts.map((contact, index) => ({
     ...contact,
@@ -920,6 +1008,8 @@ function MobileLayout({
       compact={true}
       mobileVariant={variant}
       baselineBackgroundColor={baselineBackgroundColor}
+      customBenefitName={customBenefitName}
+      planBenefitLabels={planBenefitLabels}
       placement="team"
     />
   );

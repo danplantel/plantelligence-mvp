@@ -51,12 +51,15 @@ vi.mock("@/components/ui/branding-image", () => ({
 }));
 
 vi.mock("@/components/ui/contact-category-badge", () => ({
-  ContactCategoryBadge: ({ categories }: any) => (
-    <div
-      data-testid="category-badge"
-      data-categories={JSON.stringify(categories)}
-    />
-  ),
+  // Mirrors the real component: nothing to tag means no element at all, so the
+  // card's children stay in the order a caller without categories produces.
+  ContactCategoryBadge: ({ categories }: any) =>
+    Array.isArray(categories) && categories.length > 0 ? (
+      <div
+        data-testid="category-badge"
+        data-categories={JSON.stringify(categories)}
+      />
+    ) : null,
 }));
 
 vi.mock("@/components/pages/my-benefits-team/contact-avatar", () => ({
@@ -223,7 +226,29 @@ describe("SmallVerticalCard identity", () => {
   it("renders no category tag when neither prop is supplied", () => {
     renderCard({ name: "Ada" });
 
-    expect(badgeCategories()).toEqual([]);
+    expect(screen.queryByTestId("category-badge")).not.toBeInTheDocument();
+  });
+
+  it("tags the card near the top, above the identity block and the CTA", () => {
+    const { container } = renderCard(
+      {
+        name: "Ada Lovelace",
+        title: "Benefits Advisor",
+        enableContactButton: true,
+        contactButtonType: "calendar",
+        schedulingUrl: "https://cal.test/ada",
+      },
+      { categoryList: ["Retirement", "Group Health"] },
+    );
+
+    const card = container.querySelector('[data-testid="contact-card"]')!;
+    const badge = screen.getByTestId("category-badge");
+    // First thing in the card, so the benefits read before the person does.
+    expect(card.firstElementChild).toBe(badge);
+    const cta = screen.getByRole("button", { name: "Schedule Appt." });
+    expect(
+      badge.compareDocumentPosition(cta) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 });
 
@@ -485,7 +510,9 @@ describe("SmallVerticalCard visuals", () => {
   it("stretches to the row height only when asked", () => {
     // Default: hug the content (no empty block under the last row).
     const hugging = renderCard({ name: "Ada" });
-    expect(screen.getByTestId("contact-card").className).toContain("self-start");
+    expect(screen.getByTestId("contact-card").className).toContain(
+      "self-start",
+    );
     hugging.unmount();
 
     // `equalHeight`: a row where a neighbour carries a CTA must line up.
@@ -501,7 +528,9 @@ describe("SmallVerticalCard visuals", () => {
     const divider = container.querySelector(".h-px");
     expect(divider).not.toBeNull();
     expect(
-      divider?.parentElement?.contains(screen.getByRole("heading", { level: 3 })),
+      divider?.parentElement?.contains(
+        screen.getByRole("heading", { level: 3 }),
+      ),
     ).toBe(true);
   });
 
@@ -609,12 +638,12 @@ describe("SmallVerticalCard mobile variants", () => {
     // so the details never stack under the photo.
     const row = container.querySelector('[data-mobile-variant="wide"] > div');
     expect(row?.children).toHaveLength(2);
-    expect(row?.children[0].contains(screen.getByTestId("contact-avatar"))).toBe(
+    expect(
+      row?.children[0].contains(screen.getByTestId("contact-avatar")),
+    ).toBe(true);
+    expect(row?.children[1].contains(screen.getByText("Ada Lovelace"))).toBe(
       true,
     );
-    expect(
-      row?.children[1].contains(screen.getByText("Ada Lovelace")),
-    ).toBe(true);
   });
 
   it("draws the actions outside the two-column row", () => {
@@ -635,7 +664,10 @@ describe("SmallVerticalCard mobile variants", () => {
   });
 
   it("keeps every preview placeholder in both designs", () => {
-    const wide = renderCard({}, { compact: true, mobileVariant: "wide", previewPlaceholders: true });
+    const wide = renderCard(
+      {},
+      { compact: true, mobileVariant: "wide", previewPlaceholders: true },
+    );
     expect(screen.getByText("[First & Last Name]")).toBeInTheDocument();
     expect(screen.getByText("[Job Title]")).toBeInTheDocument();
     expect(screen.getByText("[Company / Organization]")).toBeInTheDocument();
@@ -644,7 +676,10 @@ describe("SmallVerticalCard mobile variants", () => {
     expect(screen.getByText("[Logo]")).toBeInTheDocument();
     wide.unmount();
 
-    renderCard({}, { compact: true, mobileVariant: "compact", previewPlaceholders: true });
+    renderCard(
+      {},
+      { compact: true, mobileVariant: "compact", previewPlaceholders: true },
+    );
     expect(screen.getByText("[First & Last Name]")).toBeInTheDocument();
     expect(screen.getByText("[Email]")).toBeInTheDocument();
   });

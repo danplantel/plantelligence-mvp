@@ -37,7 +37,10 @@ export const BENEFIT_TITLE_MAX_LENGTH = 35;
 export function isCustomHubCategory(
   category: string | null | undefined,
 ): boolean {
-  const value = (category || "").trim().toLowerCase().replace(/\s*\/\s*/g, "/");
+  const value = (category || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\/\s*/g, "/");
   if (!value) return false;
   if (value === "custom") return true;
   return (
@@ -81,6 +84,27 @@ export function displayCategoryName(
   if (!isCustomHubCategory(stored)) return stored;
   const name = (benefitTitle || "").trim();
   return isPlaceholderBenefitName(name) ? "Custom" : name;
+}
+
+/**
+ * The advisor's own name for the plan's Custom benefit, read from the portal's
+ * hub rows (`benefitHubs` on `GET /api/clients/[id]?forPortal=1`).
+ *
+ * `null` when the plan has no Custom benefit, or has never named it — a
+ * placeholder title counts as unnamed, exactly as `displayCategoryName` treats
+ * it, so callers fall back to their generic wording instead of printing the
+ * storage label.
+ */
+export function customBenefitTitleFromHubs(
+  hubs:
+    | readonly { category?: string | null; title?: string | null }[]
+    | null
+    | undefined,
+): string | null {
+  if (!Array.isArray(hubs)) return null;
+  const hub = hubs.find((entry) => isCustomHubCategory(entry?.category));
+  const title = (hub?.title || "").trim();
+  return title && !isPlaceholderBenefitName(title) ? title : null;
 }
 
 /*

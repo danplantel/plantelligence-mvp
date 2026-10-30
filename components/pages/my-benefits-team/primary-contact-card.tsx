@@ -79,8 +79,9 @@ interface PrimaryContactCardProps {
    */
   categoryLabel?: string;
   /**
-   * Every category the contact serves. Several collapse to "Multiple Categories" with
-   * the list on hover, so a multi-benefit contact does not stretch the card.
+   * Every category the contact serves, rendered as one pill per category at the top
+   * of the card (My Benefits Team mixes every benefit on one page, so a multi-benefit
+   * contact names each of them rather than collapsing to "Multiple Categories").
    * `categoryLabel` remains supported for callers that only hold the joined string.
    */
   categoryList?: string[];
@@ -251,12 +252,13 @@ export function PrimaryContactCard({
           className="flex flex-col font-red-hat gap-1 justify-center h-full min-w-0"
           style={{ color: textColor }}
         >
-          {/* BENEFIT CATEGORY TAG — the top of the card, above the logo/icon. The
+          {/* BENEFIT CATEGORY PILLS — the top of the card, above the logo/icon. Each
               chip carries its own background/text colour so it stays legible on
-              whatever card colour the advisor chose; several categories collapse to
-              "Multiple Categories" with the list on hover. */}
+              whatever card colour the advisor chose; a contact who covers several
+              benefits shows one pill per benefit, wrapping onto a second line. */}
           <ContactCategoryBadge
             categories={categoryListValues}
+            layout="pills"
             className="mb-1 self-start"
           />
           {/* SUPPORT-LINE ICON OR COMPANY LOGO — Team/Support Line contacts show a

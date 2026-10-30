@@ -125,10 +125,108 @@ describe("BenefitContactCard category tag", () => {
 
   it("folds stored spellings onto the contact-facing label", () => {
     renderCard({
-      contact: { id: "c1", name: "Ada", benefitsCategory: "Other" },
+      contact: { id: "c1", name: "Ada", benefitsCategory: "Health Insurance" },
     });
 
-    expect(smallProps().categoryList).toEqual(["Other Benefits"]);
+    expect(smallProps().categoryList).toEqual(["Group Health"]);
+  });
+
+  it("names the plan's custom benefit instead of 'Other Benefits'", () => {
+    renderCard({
+      contact: { id: "c1", name: "Ada", benefitsCategories: ["Other"] },
+      customBenefitName: "Mindfulness and Me",
+    });
+
+    expect(smallProps()).toMatchObject({
+      categoryLabel: "Mindfulness and Me",
+      categoryList: ["Mindfulness and Me"],
+    });
+  });
+
+  it("drops the 'Other Benefits' pill when the plan has no custom benefit", () => {
+    renderCard({
+      contact: { id: "c1", name: "Ada", benefitsCategories: ["Other"] },
+    });
+
+    expect(smallProps()).toMatchObject({ categoryLabel: "", categoryList: [] });
+  });
+
+  it("collapses a contact who covers every plan benefit to 'All Benefits'", () => {
+    renderCard({
+      contact: {
+        id: "c1",
+        name: "Ada",
+        benefitsCategories: ["Retirement", "Group Health", "Group Life"],
+      },
+      planBenefitLabels: ["Retirement", "Group Health", "Group Life"],
+    });
+
+    expect(smallProps()).toMatchObject({
+      categoryLabel: "All Benefits",
+      categoryList: ["All Benefits"],
+    });
+  });
+
+  it("counts the plan's custom benefit when deciding 'All Benefits'", () => {
+    renderCard({
+      contact: {
+        id: "c1",
+        name: "Ada",
+        benefitsCategories: ["Other", "Retirement"],
+      },
+      customBenefitName: "Mindfulness and Me",
+      planBenefitLabels: ["Retirement", "Mindfulness and Me"],
+    });
+
+    expect(smallProps().categoryList).toEqual(["All Benefits"]);
+  });
+
+  it("keeps the pills when one plan benefit is left uncovered", () => {
+    renderCard({
+      contact: {
+        id: "c1",
+        name: "Ada",
+        benefitsCategories: ["Retirement", "Group Health"],
+      },
+      planBenefitLabels: ["Retirement", "Group Health", "Group Life"],
+    });
+
+    expect(smallProps().categoryList).toEqual(["Retirement", "Group Health"]);
+  });
+
+  it("keeps a single-benefit plan's own name instead of saying 'All'", () => {
+    renderCard({
+      contact: { id: "c1", name: "Ada", benefitsCategories: ["Retirement"] },
+      planBenefitLabels: ["Retirement"],
+    });
+
+    expect(smallProps().categoryList).toEqual(["Retirement"]);
+  });
+
+  it("leaves a contact ROLE off the pills", () => {
+    // "Company / Plan Sponsor" says what the person is, not which benefit they
+    // cover — the card already carries the plan's own company name and logo.
+    renderCard({
+      contact: {
+        id: "c1",
+        name: "Ada",
+        benefitsCategories: ["Company / Plan Sponsor"],
+      },
+    });
+
+    expect(smallProps()).toMatchObject({ categoryLabel: "", categoryList: [] });
+  });
+
+  it("still names the benefits a plan-sponsor contact also covers", () => {
+    renderCard({
+      contact: {
+        id: "c1",
+        name: "Ada",
+        benefitsCategories: ["Company / Plan Sponsor", "Retirement"],
+      },
+    });
+
+    expect(smallProps().categoryList).toEqual(["Retirement"]);
   });
 
   it("does not tag a category-page card", () => {
