@@ -789,134 +789,259 @@ export function SmallVerticalCard({
     );
   }
 
-  if (disableAnimation) {
-    const cardPadding = compact
-      ? "px-2 py-3 sm:px-3 sm:py-4"
-      : "px-4 py-6 sm:px-8 sm:py-10";
-    const avatarSize = compact ? "h-[60px] w-[60px]" : "h-[90px] w-[90px]";
-    const nameSize = compact ? "text-xs sm:text-sm" : "text-base sm:text-lg";
-    const subtitleSize = compact ? "text-xs" : "text-sm";
-    const gapLogo = compact ? "mb-3" : "mb-6";
-    const gapAvatar = compact ? "mb-3" : "mb-6";
-    const gapName = compact ? "mb-1" : "mb-2";
-    const gapTitle = compact ? "mb-1" : "mb-2";
-    // Designation pills are deliberately small, and smaller again on the compact
-    // card: up to MAX_DESIGNATIONS (5) acronyms must fit on ONE row, and a pill
-    // that overflows is clipped by the row rather than seen.
-    const desigChip = compact ? "text-[7px] px-1" : "text-[8px] px-1";
-    const gapCompany = compact ? "mb-2" : "mb-4";
-    const contactInfoGap = compact ? "space-y-1" : "space-y-1.5";
-    const buttonGap = compact ? "space-y-1" : "space-y-2";
-    const iconSize = compact ? 14 : 18;
-    const buttonSize = compact ? "py-2" : "py-3";
-    const logoHeight = compact ? 40 : 60;
-    const minH = compact ? "min-h-0" : "min-h-[500px]";
+  // ── DESKTOP CARD — THREE ROWS ─────────────────────────────────────────────
+  //
+  //   1. profile picture (start) … company logo + name (end)
+  //   2. two columns and two rows: name / title (left), email / phone (right)
+  //   3. the advisor-configured CTA, when there is one
+  //
+  // The benefit hubs, My Benefits Team and every wizard preview render this
+  // card, so the structure is identical everywhere; `compact` only tightens the
+  // spacing for the narrow columns.
+  const cardPadding = compact ? "p-3 sm:p-4" : "p-4 sm:p-6";
+  const avatarSize = compact ? "h-14 w-14" : "h-16 w-16 sm:h-20 sm:w-20";
+  const nameSize = compact ? "text-sm" : "text-base sm:text-lg";
+  const bodySize = compact ? "text-[11px]" : "text-xs sm:text-sm";
+  const infoIconSize = compact ? 12 : 14;
+  const logoBoxHeight = compact ? 40 : 60;
+  const logoScaleValue = contact.logoScale || baselineLogoScale || 1;
 
-    return (
-      <div
-        className={`${cardWidth} h-full ${minH} flex flex-col items-center rounded-xl border border-[#E5E5E5] ${cardPadding} shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-300 cursor-pointer`}
-        style={{ backgroundColor, borderRadius: portalRadiusValue(1.5) }}
-        data-testid="contact-card"
-      >
-        <div className="flex flex-col items-center flex-1 w-full">
-          {/* BENEFIT CATEGORY TAG — sits above the logo bar so it reads as the top
-              of the card. One category is named; several collapse to "Multiple
-              Categories" with the list on hover. */}
-          <ContactCategoryBadge
-            categories={categoryListValues}
-            className="mb-2"
+  // Email sits above the phone on this card. A contact that saved an explicit
+  // order still wins, so the wizard's ordering is honoured.
+  const infoOrder: ContactInfoType[] =
+    ((contact as any).contactInfoOrder as ContactInfoType[] | undefined) || [
+      "email",
+      "phone",
+    ];
+
+  /** One row of the right-hand column: the address, the number or neither. */
+  const infoRow = (infoType: ContactInfoType) => {
+    if (infoType === "email") {
+      if (contact.displayEmail === false) return null;
+      if (!contact.email && !showPlaceholders) return null;
+      return (
+        <p key="email" className="flex min-w-0 items-center gap-1.5">
+          <Mail
+            size={infoIconSize}
+            strokeWidth={1.5}
+            className="shrink-0"
+            style={{ color: effectiveSecondaryColor }}
           />
-          {/* COMPANY LOGO BAR — Team/Support Line contacts show their Company
-              Logo here, with the support-line icon in the circular avatar slot
-              below (positions swapped). */}
-          <div
-            className={`flex flex-col items-center justify-center gap-2 ${gapLogo} flex-shrink-0`}
-            style={{
-              height: `${
-                logoHeight * (contact.logoScale || baselineLogoScale || 1)
-              }px`,
-            }}
-          >
-            {(contact.companyLogo || contact.logo) && (
-              <BrandingImage
-                src={contact.companyLogo || contact.logo || ""}
-                alt="Logo"
-                className="w-auto object-contain transition-all duration-200"
-                style={{ height: "100%" }}
+          {contact.email ? (
+            <a
+              href={`mailto:${contact.email}`}
+              className="truncate transition-colors duration-200 hover:underline"
+              style={{ color: textColor || "#4B5563" }}
+              title={contact.email}
+            >
+              {contact.email}
+            </a>
+          ) : (
+            <span className="truncate italic text-gray-400">[Email]</span>
+          )}
+        </p>
+      );
+    }
+    if (infoType === "phone") {
+      if (contact.displayPhone === false) return null;
+      if (!contact.phone && !showPlaceholders) return null;
+      return (
+        <p key="phone" className="flex min-w-0 items-center gap-1.5">
+          <Phone
+            size={infoIconSize}
+            strokeWidth={1.5}
+            className="shrink-0"
+            style={{ color: effectiveSecondaryColor }}
+          />
+          {contact.phone ? (
+            <a
+              href={getBasePhoneForDialing(contact.phone)}
+              className="truncate transition-colors duration-200 hover:underline"
+              style={{ color: textColor || "#4B5563" }}
+              title={formatPhoneWithExtension(
+                contact.phone,
+                contact.phoneExtension,
+              )}
+            >
+              {formatPhoneWithExtension(contact.phone, contact.phoneExtension)}
+            </a>
+          ) : (
+            <span className="truncate italic text-gray-400">[Phone]</span>
+          )}
+        </p>
+      );
+    }
+    return null;
+  };
+
+  return (
+    <motion.div
+      initial={disableAnimation ? false : { opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: 0.35,
+        delay: disableAnimation ? 0 : index * 0.06,
+        ease: "easeOut",
+      }}
+      className={cn(
+        cardWidth,
+        // Spacing is set per group below rather than by one `gap`: the identity
+        // block, its rule and the details stay tightly packed. `self-start`
+        // keeps the card at its content height instead of being stretched to a
+        // taller neighbour in the same grid row, which left a block of empty
+        // card under the last row.
+        "flex cursor-pointer flex-col self-start border border-[#E5E5E5] shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md",
+        cardPadding,
+      )}
+      style={{ backgroundColor, borderRadius: portalRadiusValue(1.5) }}
+      data-testid="contact-card"
+    >
+      {/* BENEFIT CATEGORY TAG — the hubs are one benefit and skip it; My
+          Benefits Team mixes every benefit, so each card names its own. */}
+      <ContactCategoryBadge
+        categories={categoryListValues}
+        className="mb-2 self-start"
+      />
+
+      {/* ROW 1 — the person on the start, their company on the end. */}
+      <div className="flex w-full items-start justify-between gap-3">
+        <div
+          className={cn(
+            "relative shrink-0 overflow-hidden rounded-full",
+            avatarSize,
+            showAvatarPlaceholder &&
+              "flex items-center justify-center bg-gray-50",
+          )}
+        >
+          {showHeadshotPlaceholder ? (
+            <span className="text-[10px] font-medium italic text-gray-400">
+              [Headshot]
+            </span>
+          ) : isTeamSupport ? (
+            <div className="flex h-full w-full items-center justify-center">
+              <SupportIcon
+                className="h-1/2 w-1/2"
+                style={{ color: effectiveBrandColor }}
               />
-            )}
-            {/* Preview-only placeholder so the wizard's Portal Preview shows
-                what's expected when no contact company logo has been uploaded. */}
-            {showPlaceholders && !(contact.companyLogo || contact.logo) && (
-              <div className="w-full h-full flex items-center justify-center rounded bg-gray-50 border border-dashed border-gray-200 px-2">
-                <span className="text-[10px] text-gray-400 font-medium text-center leading-tight">
-                  [Upload Company Logo]
-                </span>
-              </div>
-            )}
-          </div>
+            </div>
+          ) : (
+            <ContactAvatar contact={contact} />
+          )}
+        </div>
 
-          {/* PROFILE PICTURE — Team/Support Line contacts show the support-line
-              icon here (their Company Logo is in the logo bar above). */}
-          <div
-            className={`relative ${
-              showAvatarPlaceholder ? "h-[90px] w-[90px]" : avatarSize
-            } overflow-hidden rounded-full ${gapAvatar} flex-shrink-0 ${
-              showAvatarPlaceholder
-                ? "flex items-center justify-center bg-gray-50"
-                : ""
-            }`}
-          >
-            {showHeadshotPlaceholder ? (
-              <span className="text-[10px] sm:text-xs font-medium italic text-gray-400">
-                [Headshot]
-              </span>
-            ) : isTeamSupport ? (
-              <div className="w-full h-full flex items-center justify-center">
-                <SupportIcon
-                  className="w-1/2 h-1/2"
-                  style={{ color: effectiveBrandColor }}
+        <div className="flex min-w-0 max-w-[58%] flex-col items-end">
+          {/* COMPANY LOGO — the plan's (or the contact's own) mark. Preview-only
+              placeholder when the wizard has nothing to show yet. */}
+          {disableAnimation ? (
+            <div
+              className="flex items-center justify-end"
+              style={{ height: `${logoBoxHeight * logoScaleValue}px` }}
+            >
+              {contact.companyLogo || contact.logo ? (
+                <BrandingImage
+                  src={contact.companyLogo || contact.logo || ""}
+                  alt="Logo"
+                  className="h-full w-auto object-contain"
+                  style={{ height: "100%" }}
                 />
-              </div>
-            ) : (
-              <ContactAvatar contact={contact} />
-            )}
-          </div>
+              ) : showPlaceholders ? (
+                <div className="flex h-full w-full items-center justify-center rounded border border-dashed border-gray-200 bg-gray-50 px-1">
+                  <span className="text-center text-[9px] font-medium leading-none text-gray-400">
+                    [Upload Company Logo]
+                  </span>
+                </div>
+              ) : null}
+            </div>
+          ) : contact.companyLogo || contact.logo ? (
+            <BrandingImage
+              src={contact.companyLogo || contact.logo || ""}
+              alt="Logo"
+              className="w-auto max-w-full object-contain"
+              style={{
+                height: `${logoBoxHeight}px`,
+                transform: `scale(${logoScaleValue})`,
+              }}
+            />
+          ) : showPlaceholders ? (
+            <div className="flex h-8 w-full items-center justify-center rounded border border-dashed border-gray-200 bg-gray-50 px-1">
+              <span className="text-center text-[9px] font-medium leading-none text-gray-400">
+                [Upload Company Logo]
+              </span>
+            </div>
+          ) : null}
 
-          {/* NAME */}
-          <h3
-            className={`${nameSize} font-semibold ${gapName} text-center flex-shrink-0 font-dm-serif w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis px-1`}
-            style={{
-              color:
-                showPlaceholders && !resolvedCardName
-                  ? "#9CA3AF"
-                  : effectiveBrandColor,
-            }}
-          >
-            {displayNameText}
-          </h3>
+          {(resolvedCardCompany || showPlaceholders) && (
+            <p
+              className={cn(
+                "mt-1 w-full truncate text-right font-dm-serif font-semibold leading-snug",
+                compact ? "text-[10px]" : "text-xs sm:text-sm",
+              )}
+              style={{
+                color:
+                  showPlaceholders && !resolvedCardCompany
+                    ? "#9CA3AF"
+                    : effectiveBrandColor,
+              }}
+              title={displayCompanyText}
+            >
+              {displayCompanyText}
+            </p>
+          )}
+        </div>
+      </div>
 
-          {/* DESIGNATIONS — the row directly under the name, so the card reads
-              name → designations → title → company. Acronyms only (CFP®, AIF®), held
-              to a SINGLE row. A chip never shrinks and its text never wraps: a chip
-              squeezed into a narrow column read as VERTICAL text, so a row that does
-              not fit scrolls sideways instead (and stays centred while it fits).
-              Hidden for Team/Support Line contacts, whose role line is suppressed
-              too. */}
-          {!isTeamSupport &&
-            (contact.designations || []).some(
-              (value) => value && value.trim(),
-            ) && (
-              <div
-                className={`${gapTitle} w-full min-w-0 flex-shrink-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden`}
-              >
-                <div className="mx-auto flex w-max items-center gap-px">
+      {/* ROW 2 — two columns, two rows.
+
+          The rule above it separates the identity block (photo, logo, company)
+          from the contact details. It travels with the details so a card with
+          slack never strands the line halfway down, and the small margin above
+          keeps it tucked under the identity block. */}
+      <div
+        className={cn(
+          "flex w-full min-w-0 flex-col",
+          compact ? "mt-2 gap-2" : "mt-3 gap-3",
+        )}
+      >
+        <div className="h-px w-full shrink-0 bg-black/10" aria-hidden />
+
+        <div
+          className={cn(
+            "grid w-full min-w-0 grid-cols-2",
+            compact ? "gap-x-3 gap-y-0.5" : "gap-x-4 gap-y-1",
+          )}
+        >
+          {/* Left column — name, then title (designations travel with the name). */}
+          <div className="min-w-0">
+            <h3
+              className={cn(
+                "w-full truncate font-dm-serif font-semibold leading-tight",
+                nameSize,
+              )}
+              style={{
+                color:
+                  showPlaceholders && !resolvedCardName
+                    ? "#9CA3AF"
+                    : effectiveBrandColor,
+              }}
+              title={displayNameText}
+            >
+              {displayNameText}
+            </h3>
+
+            {!isTeamSupport &&
+              (contact.designations || []).some(
+                (value) => value && value.trim(),
+              ) && (
+                <div className="mt-1 flex min-w-0 flex-wrap items-center gap-1">
                   {(contact.designations || [])
                     .filter((value) => value && value.trim())
-                    .map((value, index) => (
+                    .map((value, chipIndex) => (
                       <span
-                        key={index}
-                        className={`inline-block shrink-0 whitespace-nowrap rounded-full py-px text-center leading-none tracking-tight ${desigChip}`}
+                        key={chipIndex}
+                        className={cn(
+                          "inline-block shrink-0 whitespace-nowrap rounded-full py-px text-center leading-none tracking-tight",
+                          compact ? "px-1 text-[8px]" : "px-1.5 text-[9px]",
+                        )}
                         style={{
                           color: textColor || "#4B5563",
                           backgroundColor: textColor
@@ -928,571 +1053,122 @@ export function SmallVerticalCard({
                       </span>
                     ))}
                 </div>
-              </div>
+              )}
+
+            {!isTeamSupport && (
+              <p
+                className={cn(
+                  "mt-1 w-full truncate font-red-hat font-medium leading-snug",
+                  bodySize,
+                )}
+                style={{
+                  color:
+                    showPlaceholders && !resolvedCardTitle
+                      ? "#9CA3AF"
+                      : textColor || "#374151",
+                }}
+                title={displayTitleText}
+              >
+                {displayTitleText}
+              </p>
             )}
+          </div>
 
-          {/* TITLE / DEPARTMENT LABEL — hidden for Team/Support Line contacts
-              because the team name above already conveys it. */}
-          {!isTeamSupport && (
-            <p
-              className={`${subtitleSize} font-medium ${gapTitle} text-center font-red-hat flex-shrink-0`}
-              style={{
-                color:
-                  showPlaceholders && !resolvedCardTitle
-                    ? "#9CA3AF"
-                    : textColor || "#374151",
-              }}
-            >
-              {displayTitleText}
-            </p>
-          )}
-
-          {/* COMPANY NAME — below the title, so the card reads name → designations
-              → title → company. */}
-          {(resolvedCardCompany || showPlaceholders) && (
-            <p
-              className={`${subtitleSize} font-semibold ${gapCompany} text-center flex-shrink-0 font-dm-serif`}
-              style={{
-                color:
-                  showPlaceholders && !resolvedCardCompany
-                    ? "#9CA3AF"
-                    : effectiveBrandColor,
-              }}
-            >
-              {displayCompanyText}
-            </p>
-          )}
-        </div>
-        {/* CONTACT INFO */}
-        <div
-          className={`${contactInfoGap} ${subtitleSize} w-full font-red-hat`}
-          style={{ color: textColor || "#374151" }}
-        >
-          {/* Display contact info in the specified order */}
-          {contactInfoOrder.map((infoType: ContactInfoType) => {
-            if (infoType === "email") {
-              if (contact.displayEmail === false) return null;
-              const hasEmail = Boolean(contact.email);
-              if (!hasEmail && !showPlaceholders) return null;
-              return (
-                <p
-                  key="email"
-                  className="flex items-center justify-center gap-2 group"
-                >
-                  <Mail
-                    size={18}
-                    strokeWidth={1.5}
-                    className="w-[18px] h-[18px] shrink-0 transition-colors duration-200"
-                    style={{ color: effectiveSecondaryColor }}
-                  />
-                  {contact.email ? (
-                    <a
-                      className="text-center transition-colors duration-200"
-                      style={
-                        {
-                          color: textColor || "#4B5563",
-                          "--hover-color": isPrimary
-                            ? "rgba(255,255,255,0.8)"
-                            : effectiveBrandColor,
-                        } as React.CSSProperties & { "--hover-color": string }
-                      }
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = isPrimary
-                          ? "rgba(255,255,255,0.8)"
-                          : effectiveBrandColor;
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = textColor || "#4B5563";
-                      }}
-                      href={`mailto:${contact.email}`}
-                    >
-                      {contact.email}
-                    </a>
-                  ) : (
-                    <span className="text-center italic text-gray-400">
-                      [Email]
-                    </span>
-                  )}
-                </p>
-              );
-            }
-            if (infoType === "phone") {
-              if (contact.displayPhone === false) return null;
-              const hasPhone = Boolean(contact.phone);
-              if (!hasPhone && !showPlaceholders) return null;
-              return (
-                <p
-                  key="phone"
-                  className="flex items-center justify-center gap-2 group"
-                >
-                  <Phone
-                    size={18}
-                    strokeWidth={1.5}
-                    className="w-[18px] h-[18px] shrink-0 transition-colors duration-200"
-                    style={{ color: effectiveSecondaryColor }}
-                  />
-                  {contact.phone ? (
-                    <a
-                      className="text-center transition-colors duration-200"
-                      style={
-                        {
-                          color: textColor || "#4B5563",
-                          "--hover-color": isPrimary
-                            ? "rgba(255,255,255,0.8)"
-                            : effectiveBrandColor,
-                        } as React.CSSProperties & { "--hover-color": string }
-                      }
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = isPrimary
-                          ? "rgba(255,255,255,0.8)"
-                          : effectiveBrandColor;
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = textColor || "#4B5563";
-                      }}
-                      href={getBasePhoneForDialing(contact.phone)}
-                    >
-                      {formatPhoneWithExtension(
-                        contact.phone,
-                        contact.phoneExtension,
-                      )}
-                    </a>
-                  ) : (
-                    <span className="text-center italic text-gray-400">
-                      [Phone]
-                    </span>
-                  )}
-                </p>
-              );
-            }
-            return null;
-          })}
-          {contact.contactType === "team_support" && contact.supportHours && (
-            <p
-              className={`${subtitleSize} text-center flex items-center justify-center gap-2`}
-              style={{ color: textColor || "#6B7280" }}
-            >
-              <Clock
-                size={compact ? 12 : 16}
-                strokeWidth={1.5}
-                style={{ color: textColor || effectiveSecondaryColor }}
-              />
-              <span>{contact.supportHours}</span>
-            </p>
-          )}
-
-          {/* ACTION BUTTONS */}
-          <div className={`w-full ${buttonGap} flex-shrink-0 pt-2 mt-auto`}>
-            {hasAnyButton &&
-              buttons.map((button, idx) => {
-                const isPrimaryButton = idx === primaryIndex;
-                const buttonBg = isPrimaryButton
-                  ? ctaColor || effectiveSecondaryColor
-                  : isPrimary
-                  ? mix(0.2, "#ffffff", effectiveBrandColor)
-                  : "#F3F4F6";
-                const buttonColor = isPrimaryButton
-                  ? "#ffffff"
-                  : readableColor(buttonBg);
-                // See the compact path above: the Contact Form CTA is drawn but inert in
-                // a preview, so an advisor cannot navigate out of the wizard mid-edit.
-                const contactFormInert =
-                  disableContactFormButton && button.isContactForm === true;
-                const actionClassName = cn(
-                  "inline-flex items-center justify-center rounded-lg text-sm transition-colors",
-                  "w-full rounded-lg px-4 font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat",
-                  subtitleSize,
-                  isPrimaryButton ? buttonSize : "py-1.5",
-                );
-                const actionStyle = {
-                  backgroundColor: buttonBg,
-                  color: buttonColor,
-                  border: isPrimaryButton
-                    ? "none"
-                    : isPrimary
-                    ? "1px solid #E5E7EB"
-                    : "1px solid #E5E7EB",
-                  borderRadius: portalRadiusValue(),
-                };
-
-                if (contactFormInert) {
-                  return (
-                    <span
-                      key={idx}
-                      className={cn(actionClassName, "cursor-default")}
-                      style={actionStyle}
-                    >
-                      {button.label}
-                    </span>
-                  );
-                }
-
-                return (
-                  <Button
-                    key={idx}
-                    className={actionClassName}
-                    style={actionStyle}
-                    onClick={async () => {
-                      if (
-                        button.type === "schedule" ||
-                        button.type === "website" ||
-                        button.type === "call" ||
-                        button.type === "email"
-                      ) {
-                        const target =
-                          button.type === "website"
-                            ? await resolveContactFormUrl(button.url, contact)
-                            : button.url;
-                        window.open(target, "_blank");
-                      }
-                    }}
-                  >
-                    {button.label}
-                  </Button>
-                );
-              })}
+          {/* Right column — email, then phone (plus support hours for a line). */}
+          <div
+            className={cn("min-w-0 font-red-hat", bodySize)}
+            style={{ color: textColor || "#374151" }}
+          >
+            {infoOrder.map(infoRow)}
+            {isTeamSupport && contact.supportHours && (
+              <p
+                className="flex min-w-0 items-center gap-1.5"
+                style={{ color: textColor || "#6B7280" }}
+              >
+                <Clock
+                  size={infoIconSize}
+                  strokeWidth={1.5}
+                  className="shrink-0"
+                  style={{ color: textColor || effectiveSecondaryColor }}
+                />
+                <span className="truncate">{contact.supportHours}</span>
+              </p>
+            )}
           </div>
         </div>
       </div>
-    );
-  }
 
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 50 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{
-        duration: 0.5,
-        delay: index * 0.1,
-        ease: "easeOut",
-      }}
-      className={`${cardWidth} h-auto min-h-0 sm:min-h-[420px] flex flex-col items-center rounded-xl border border-[#E5E5E5] px-4 py-6 sm:px-8 sm:py-10 shadow-sm transition-all duration-200 hover:shadow-md hover:border-gray-300 cursor-pointer`}
-      style={{ backgroundColor, borderRadius: portalRadiusValue(1.5) }}
-      data-testid="contact-card"
-    >
-      <div className="flex flex-col items-center flex-1 w-full">
-        {/* BENEFIT CATEGORY TAG — see the comment on the non-animated variant above. */}
-        <ContactCategoryBadge
-          categories={categoryListValues}
-          className="mb-2"
-        />
-        {/* COMPANY LOGO BAR — Team/Support Line contacts show their Company Logo
-            here, with the support-line icon in the circular avatar slot below
-            (positions swapped). */}
-        <div className="flex flex-col items-center justify-center gap-2 mb-3 sm:mb-6 flex-shrink-0 min-h-[60px]">
-          {(contact.companyLogo || contact.logo) && (
-            <BrandingImage
-              src={contact.companyLogo || contact.logo || ""}
-              alt="Logo"
-              className="h-[40px] sm:h-[60px] w-auto object-contain transition-transform duration-200"
-              style={{
-                transform: `scale(${
-                  contact.logoScale || baselineLogoScale || 1
-                })`,
-              }}
-            />
-          )}
-          {/* Preview-only placeholder, matching the non-animated variant. */}
-          {showPlaceholders && !(contact.companyLogo || contact.logo) && (
-            <div className="w-full h-full flex items-center justify-center rounded bg-gray-50 border border-dashed border-gray-200 px-2">
-              <span className="text-[10px] text-gray-400 font-medium text-center leading-tight">
-                [Upload Company Logo]
-              </span>
-            </div>
-          )}
-        </div>
-
-        {/* PROFILE PICTURE — Team/Support Line contacts show the support-line
-            icon here (their Company Logo is in the logo bar above). */}
+      {/* ROW 3 — the CTA the advisor configured, and nothing when none was. */}
+      {hasAnyButton && (
         <div
-          className={`relative ${
-            showAvatarPlaceholder
-              ? "h-[90px] w-[90px] sm:h-[135px] sm:w-[135px]"
-              : "h-[60px] w-[60px] sm:h-[90px] sm:w-[90px]"
-          } overflow-hidden rounded-full mb-3 sm:mb-6 flex-shrink-0 ${
-            showAvatarPlaceholder
-              ? "flex items-center justify-center bg-gray-50"
-              : ""
-          }`}
-        >
-          {showHeadshotPlaceholder ? (
-            <span className="text-xs sm:text-sm font-medium italic text-gray-400">
-              [Headshot]
-            </span>
-          ) : isTeamSupport ? (
-            <div className="w-full h-full flex items-center justify-center">
-              <SupportIcon
-                className="w-1/2 h-1/2"
-                style={{ color: effectiveBrandColor }}
-              />
-            </div>
-          ) : (
-            <ContactAvatar contact={contact} />
+          className={cn(
+            "flex w-full flex-col gap-1.5",
+            compact ? "pt-2" : "pt-3",
           )}
-        </div>
-
-        {/* NAME */}
-        <h3
-          className="text-sm sm:text-lg font-semibold mb-1 sm:mb-2 text-center flex-shrink-0 font-dm-serif w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis px-1"
-          style={{
-            color:
-              showPlaceholders && !resolvedCardName
-                ? "#9CA3AF"
-                : effectiveBrandColor,
-          }}
         >
-          {displayNameText}
-        </h3>
-
-        {/* DESIGNATIONS — same rule as the non-animated variant: acronyms only,
-            held to a single row. This block was previously missing here, so the
-            live portal cards showed no designation chips. */}
-        {!isTeamSupport &&
-          (contact.designations || []).some(
-            (value) => value && value.trim(),
-          ) && (
-            <div className="mb-1 sm:mb-2 w-full min-w-0 flex-shrink-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-              <div className="mx-auto flex w-max items-center gap-px">
-                {(contact.designations || [])
-                  .filter((value) => value && value.trim())
-                  .map((value, index) => (
-                    <span
-                      key={index}
-                      className="inline-block shrink-0 whitespace-nowrap rounded-full px-1 py-px text-center text-[8px] leading-none tracking-tight"
-                      style={{
-                        color: textColor || "#4B5563",
-                        backgroundColor: textColor
-                          ? "rgba(255,255,255,0.16)"
-                          : "#F3F4F6",
-                      }}
-                    >
-                      {designationAcronym(value)}
-                    </span>
-                  ))}
-              </div>
-            </div>
-          )}
-
-        {/* TITLE / DEPARTMENT LABEL — hidden for Team/Support Line contacts
-            because the team name above already conveys it. */}
-        {!isTeamSupport && (
-          <p
-            className="text-xs sm:text-sm font-medium mb-1 sm:mb-2 text-center font-red-hat flex-shrink-0"
-            style={{
-              color:
-                showPlaceholders && !resolvedCardTitle
-                  ? "#9CA3AF"
-                  : textColor || "#374151",
-            }}
-          >
-            {displayTitleText}
-          </p>
-        )}
-
-        {/* COMPANY NAME */}
-        {(resolvedCardCompany || showPlaceholders) && (
-          <p
-            className="text-sm sm:text-base font-semibold mb-2 sm:mb-3 text-center flex-shrink-0 font-dm-serif"
-            style={{
-              color:
-                showPlaceholders && !resolvedCardCompany
-                  ? "#9CA3AF"
-                  : effectiveBrandColor,
-            }}
-          >
-            {displayCompanyText}
-          </p>
-        )}
-      </div>
-      {/* CONTACT INFO */}
-      <div
-        className="space-y-1 sm:space-y-1.5 text-xs sm:text-sm w-full font-red-hat"
-        style={{ color: textColor || "#374151" }}
-      >
-        {/* Display contact info in the specified order */}
-        {contactInfoOrder.map((infoType: ContactInfoType) => {
-          if (infoType === "email") {
-            const hasEmail = Boolean(contact.email);
-            if (!hasEmail && !showPlaceholders) return null;
-            return (
-              <p
-                key="email"
-                className="flex items-center justify-center gap-2 group"
-              >
-                <Mail
-                  size={18}
-                  strokeWidth={1.5}
-                  className="w-[18px] h-[18px] shrink-0 transition-colors duration-200"
-                  style={{ color: effectiveSecondaryColor }}
-                />
-                {contact.email ? (
-                  <a
-                    className="text-center transition-colors duration-200"
-                    style={
-                      {
-                        color: textColor || "#4B5563",
-                        "--hover-color": isPrimary
-                          ? "rgba(255,255,255,0.8)"
-                          : effectiveBrandColor,
-                      } as React.CSSProperties & { "--hover-color": string }
-                    }
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = isPrimary
-                        ? "rgba(255,255,255,0.8)"
-                        : effectiveBrandColor;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = textColor || "#4B5563";
-                    }}
-                    href={`mailto:${contact.email}`}
-                  >
-                    {contact.email}
-                  </a>
-                ) : (
-                  <span className="text-center italic text-gray-400">
-                    [Email]
-                  </span>
-                )}
-              </p>
+          {buttons.map((button, idx) => {
+            const isPrimaryButton = idx === primaryIndex;
+            const buttonBg = isPrimaryButton
+              ? ctaColor || effectiveSecondaryColor
+              : isPrimary
+              ? mix(0.2, "#ffffff", effectiveBrandColor)
+              : "#F3F4F6";
+            const buttonColor = isPrimaryButton
+              ? "#ffffff"
+              : readableColor(buttonBg);
+            // A preview draws the Contact Form CTA but does not act on it, so an
+            // advisor cannot navigate out of the wizard mid-edit.
+            const contactFormInert =
+              disableContactFormButton && button.isContactForm === true;
+            const actionClassName = cn(
+              "inline-flex w-full items-center justify-center px-4 font-semibold uppercase leading-tight tracking-wide font-red-hat hover:opacity-90",
+              compact ? "py-1.5 text-[10px]" : "py-2 text-xs sm:text-sm",
             );
-          }
-          if (infoType === "phone") {
-            const hasPhone = Boolean(contact.phone);
-            if (!hasPhone && !showPlaceholders) return null;
-            return (
-              <p
-                key="phone"
-                className="flex items-center justify-center gap-2 group"
-              >
-                <Phone
-                  size={18}
-                  strokeWidth={1.5}
-                  className="w-[18px] h-[18px] shrink-0 transition-colors duration-200"
-                  style={{ color: effectiveSecondaryColor }}
-                />
-                {contact.phone ? (
-                  <a
-                    className="text-center transition-colors duration-200"
-                    style={
-                      {
-                        color: textColor || "#4B5563",
-                        "--hover-color": isPrimary
-                          ? "rgba(255,255,255,0.8)"
-                          : effectiveBrandColor,
-                      } as React.CSSProperties & { "--hover-color": string }
-                    }
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = isPrimary
-                        ? "rgba(255,255,255,0.8)"
-                        : effectiveBrandColor;
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = textColor || "#4B5563";
-                    }}
-                    href={getBasePhoneForDialing(contact.phone)}
-                  >
-                    {formatPhoneWithExtension(
-                      contact.phone,
-                      contact.phoneExtension,
-                    )}
-                  </a>
-                ) : (
-                  <span className="text-center italic text-gray-400">
-                    [Phone]
-                  </span>
-                )}
-              </p>
-            );
-          }
-          return null;
-        })}
-        {contact.contactType === "team_support" && contact.supportHours && (
-          <p
-            className="text-xs sm:text-sm text-center flex items-center justify-center gap-2"
-            style={{ color: textColor || "#6B7280" }}
-          >
-            <Clock
-              strokeWidth={1.5}
-              className="w-[13px] h-[13px] sm:w-4 sm:h-4"
-              style={{ color: textColor || effectiveSecondaryColor }}
-            />
-            <span>{contact.supportHours}</span>
-          </p>
-        )}
+            const actionStyle = {
+              backgroundColor: buttonBg,
+              color: buttonColor,
+              border: isPrimaryButton ? "none" : "1px solid #E5E7EB",
+              borderRadius: portalRadiusValue(),
+            };
 
-        {/* ACTION BUTTONS - ALWAYS AT BOTTOM */}
-        {hasAnyButton && (
-          <div className="w-full space-y-1 sm:space-y-2 flex-shrink-0 mt-auto">
-            {buttons.map((button, idx) => {
-              const isPrimaryButton = idx === primaryIndex;
-              const buttonBg = isPrimaryButton
-                ? ctaColor || effectiveSecondaryColor
-                : isPrimary
-                ? mix(0.2, "#ffffff", effectiveBrandColor)
-                : "#F3F4F6";
-              const buttonColor = isPrimaryButton
-                ? "#ffffff"
-                : readableColor(buttonBg);
-              // A preview draws the Contact Form CTA but does not act on it (see the
-              // prop's doc): identical size, colour and label to the published card,
-              // minus the navigation to the live `/contact` page.
-              const contactFormInert =
-                disableContactFormButton && button.isContactForm === true;
-              const actionClassName = cn(
-                "inline-flex items-center justify-center rounded-lg text-sm transition-colors",
-                "w-full rounded-lg px-6 text-xs sm:text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat",
-                isPrimaryButton ? "py-2 sm:py-3" : "py-1.5 sm:py-2",
-              );
-              const actionStyle = {
-                backgroundColor: buttonBg,
-                color: buttonColor,
-                border: isPrimaryButton
-                  ? "none"
-                  : isPrimary
-                  ? "1px solid #E5E7EB"
-                  : "1px solid #E5E7EB",
-                borderRadius: portalRadiusValue(),
-              };
-
-              if (contactFormInert) {
-                return (
-                  <span
-                    key={idx}
-                    className={cn(actionClassName, "cursor-default")}
-                    style={actionStyle}
-                  >
-                    {button.label}
-                  </span>
-                );
-              }
-
+            if (contactFormInert) {
               return (
-                <Button
+                <span
                   key={idx}
-                  className={actionClassName}
+                  className={cn(actionClassName, "cursor-default")}
                   style={actionStyle}
-                  onClick={async () => {
-                    if (
-                      button.type === "schedule" ||
-                      button.type === "website" ||
-                      button.type === "call" ||
-                      button.type === "email"
-                    ) {
-                      const target =
-                        button.type === "website"
-                          ? await resolveContactFormUrl(button.url, contact)
-                          : button.url;
-                      window.open(target, "_blank");
-                    }
-                  }}
                 >
                   {button.label}
-                </Button>
+                </span>
               );
-            })}
-          </div>
-        )}
-      </div>
+            }
+
+            return (
+              <Button
+                key={idx}
+                className={actionClassName}
+                style={actionStyle}
+                onClick={async () => {
+                  if (
+                    button.type === "schedule" ||
+                    button.type === "website" ||
+                    button.type === "call" ||
+                    button.type === "email"
+                  ) {
+                    const target =
+                      button.type === "website"
+                        ? await resolveContactFormUrl(button.url, contact)
+                        : button.url;
+                    window.open(target, "_blank");
+                  }
+                }}
+              >
+                {button.label}
+              </Button>
+            );
+          })}
+        </div>
+      )}
     </motion.div>
   );
 }

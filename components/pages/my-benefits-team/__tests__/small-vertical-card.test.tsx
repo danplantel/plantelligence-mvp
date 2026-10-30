@@ -228,14 +228,15 @@ describe("SmallVerticalCard identity", () => {
 });
 
 describe("SmallVerticalCard contact details", () => {
-  it("lists phone before email by default", () => {
+  it("lists email above the phone by default", () => {
+    // The card's right column reads email first, then phone.
     renderCard({
       name: "Ada",
       email: "ada@acme.test",
       phone: "5551234567",
     });
 
-    expect(linkHrefs()).toEqual(["tel:+15551234567", "mailto:ada@acme.test"]);
+    expect(linkHrefs()).toEqual(["mailto:ada@acme.test", "tel:+15551234567"]);
   });
 
   it("honours a contact's contactInfoOrder", () => {
@@ -276,7 +277,7 @@ describe("SmallVerticalCard contact details", () => {
     expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 
-  it("ignores displayEmail/displayPhone in the animated variant (known divergence)", () => {
+  it("honours displayEmail/displayPhone in the animated variant too", () => {
     renderCard({
       name: "Ada",
       email: "ada@acme.test",
@@ -285,9 +286,9 @@ describe("SmallVerticalCard contact details", () => {
       displayPhone: false,
     });
 
-    // The compact / no-animation branch checks the two flags; the animated
-    // branch does not, so a hidden address is published on the live portal.
-    expect(linkHrefs()).toEqual(["tel:+15551234567", "mailto:ada@acme.test"]);
+    // Both render paths now share one desktop layout, so a hidden address is
+    // hidden on the live portal as well as in the no-animation preview.
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
   });
 });
 
@@ -455,6 +456,18 @@ describe("SmallVerticalCard visuals", () => {
     // image fill it, rather than scaling the image with a transform.
     const box = screen.getByTestId("branding-image").parentElement;
     expect(box).toHaveStyle({ height: "120px" });
+  });
+
+  it("rules off the identity block from the contact details", () => {
+    const { container } = renderCard({ name: "Ada", email: "ada@acme.test" });
+
+    // The hairline sits between the headshot/logo row and the details row, and
+    // travels with the details so it never floats in the middle of the card.
+    const divider = container.querySelector(".h-px");
+    expect(divider).not.toBeNull();
+    expect(
+      divider?.parentElement?.contains(screen.getByRole("heading", { level: 3 })),
+    ).toBe(true);
   });
 
   it("prefers the contact's card colour over the plan baseline", () => {
