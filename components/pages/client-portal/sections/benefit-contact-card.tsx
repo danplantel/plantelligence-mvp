@@ -4,6 +4,7 @@ import { PrimaryContactCard } from "@/components/pages/my-benefits-team/primary-
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { getContactCategories } from "@/lib/portal-category-visibility";
 import { canonicalContactCategory } from "@/lib/benefit-contacts";
+import type { SupportCardSize } from "@/lib/support-card-layout";
 
 /**
  * Where the card is being rendered. The client wants the same contact to appear
@@ -36,6 +37,12 @@ export interface BenefitContactCardProps {
   placement?: ContactPlacement;
   /** Explicit compact override; wins over the placement default. */
   compact?: boolean;
+  /**
+   * Element tier for the compact card — the benefit hub sizes its support
+   * cards from how many of them share the row (see `lib/support-card-layout`).
+   * Omitted elsewhere, where `compact` picks the tier.
+   */
+  size?: SupportCardSize;
   /**
    * Phone-sized card design, set only by the mobile layouts (My Benefits Team and
    * the Step 3 / Contacts mobile preview): `wide` for a full-width card, `compact`
@@ -86,6 +93,7 @@ export function BenefitContactCard({
   asPrimary = false,
   placement = "team",
   compact,
+  size,
   mobileVariant,
 }: BenefitContactCardProps) {
   // Category pages are content-dense, so their cards default to the compact
@@ -128,6 +136,7 @@ export function BenefitContactCard({
       disableAnimation={disableAnimation}
       baselineBackgroundColor={baselineBackgroundColor}
       compact={isCompact}
+      size={size}
       mobileVariant={mobileVariant}
       categoryLabel={categoryLabel}
       categoryList={categoryList}

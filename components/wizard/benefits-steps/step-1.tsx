@@ -112,7 +112,11 @@ import { categoryToSlug } from "@/lib/benefit-category-slug";
 import { normalizePortalHeaderCta } from "@/lib/portal-header-cta";
 import { convertToDocumentFormat } from "@/lib/compliance-document-utils";
 import { mergeOnboardingAdvisorContactsIntoKeyContacts } from "@/lib/seed-onboarding-advisor-contacts";
-import { contactCompanyLogoForCategory } from "@/lib/benefit-contacts";
+import {
+  canAddSupportContact,
+  contactCompanyLogoForCategory,
+} from "@/lib/benefit-contacts";
+import { persistBenefitSupportContacts } from "@/lib/persist-benefit-support-contacts";
 import { BenefitsDocumentsSection } from "./benefits-documents-section";
 import {
   BENEFIT_CATEGORY_GALLERY,
@@ -2143,6 +2147,54 @@ export function BenefitsStep1({
     }
 
     saveStepData(1, updatedData);
+
+    // A person the advisor created FOR this benefit belongs on its card row too.
+    //
+    // The plan roster is what My Benefits Team renders, but the hub's "Have
+    // Questions?" renders `Benefit.supportContacts`, which only grows when a
+    // contact is selected. Creating somebody here left them on My Benefits Team
+    // and off the benefit page until the advisor re-saved — and a save from a
+    // step whose local list predated the creation wrote the old list straight
+    // back. So select them for this benefit (the same 4-contact cap applies) and
+    // persist it now. `updateOnly` inside the helper means a category with no
+    // benefit page yet simply skips the write.
+    const planId = currentStepData.planId;
+    const category = currentStepData.benefitCategory;
+    if (planId && category) {
+      const liveStep3 = useBenefitsWizardStore.getState().stepData.step3 ?? {
+        faqs: [],
+        supportContacts: [],
+        currentSubStep: "a" as const,
+      };
+      const selected = liveStep3.supportContacts ?? [];
+      const alreadySelected = selected.some(
+        (sc) => sc.contactId === newContact.id,
+      );
+      if (!alreadySelected && canAddSupportContact(selected.length)) {
+        const nextSupportContacts = [
+          ...selected,
+          {
+            contactId: newContact.id,
+            title: newContact.title || "Support Contact",
+            // No boilerplate — the card's subtitle is the person's own role.
+            description: "",
+            enabled: true,
+          },
+        ];
+        saveStepData(3, {
+          ...liveStep3,
+          supportContactsPlanId: planId,
+          supportContactsCategory: category,
+          supportContacts: nextSupportContacts,
+        });
+        void persistBenefitSupportContacts({
+          planId,
+          category,
+          supportContacts: nextSupportContacts,
+        });
+      }
+    }
+
     toast.success("Contact created");
   };
 

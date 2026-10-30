@@ -62,7 +62,8 @@ Every other prop is identical, which is why a shared harness can cover three of 
 | 3   | `components/pages/client-portal/sections/__tests__/video-carousel.test.tsx`             |    17 | Rail fetch, `includeVideoFiles=0`, skeletons, runtime, heading + count, chevrons |
 | 4   | `components/pages/client-portal/sections/__tests__/webinar-replay-card-poster.test.tsx`    |     7 | The poster card: 16:9 frame, white-ring play, gradient, title, runtime badge   |
 | 5   | `components/pages/client-portal/sections/__tests__/benefits-video-section.test.tsx`        |    29 | Journey copy defaults, the no-video image, gating, rail heading, player swap   |
-| 6   | `components/pages/client-portal/sections/__tests__/have-questions.test.tsx`                |    19 | Support cards, `mailto:`/`tel:` links, designations, centring, key contact |
+| 6   | `components/pages/client-portal/sections/__tests__/have-questions.test.tsx`                |    21 | Support cards, `mailto:`/`tel:` links, designations, count-driven widths, key contact |
+| 6b  | `lib/__tests__/support-card-layout.test.ts`                                                |    15 | Row slots + element tier per contact count (1–4), the lone-card half width |
 | 7   | `components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx`       |    51 | Default vs configured cards, the three CTA shapes, layout and rollovers        |
 | 8   | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-portrait.test.tsx` |    5 | The banner portrait: plan override, key-contact headshot default, placeholder  |
 | 9   | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-schedule.test.tsx` |    2 | The banner's Schedule CTA: handler vs scheduling URL                            |
@@ -94,7 +95,7 @@ Every other prop is identical, which is why a shared harness can cover three of 
 
 **Materials hero** — heading/CTA/default bullets; plan id from prop then context, hidden for `[Not Set]`; administrator from the benefit's provider with a `name · phone` line, the legacy `recordkeeper` only for Retirement; the prop handler over the context login URL (opened with `noopener,noreferrer`); background precedence prop → saved → category stock; overlay opacity.
 
-**Have questions** — nothing without contacts; one card per person; `mailto:` and digits-only `tel:`; missing rows omitted; designation acronyms with blanks filtered; headshot vs glyph; brand/accent colours; only the CTA the advisor configured (none without one); the plan's logo on a plan-level / plan-sponsor card; the cards centred in the row for 1–4 contacts; this benefit’s key contact labelled **Key Contact** and ordered first.
+**Have questions** — nothing without contacts; one card per person; `mailto:` and digits-only `tel:`; missing rows omitted; designation acronyms with blanks filtered; headshot vs glyph; brand/accent colours; only the CTA the advisor configured (none without one); the plan's logo on a plan-level / plan-sponsor card; the cards centred in the row for 1–4 contacts, and the row sized from that count — four contacts share it as quarters, three as thirds, two as halves, and a lone card keeps a **half** so it never spans the band (`lib/support-card-layout`); the same count picks the card's element tier (`sm` 4-up, `md` 3-up, `lg` 2-up / lone); this benefit’s key contact labelled **Key Contact** and ordered first.
 
 **Welcome banner portrait** — the key contact headshot is the default; an image chosen in the Editing Panel (`portraitImage` prop, else the plan's `heroPortraitImage`) replaces it, prop first; with neither, the frame's own placeholder is drawn — the per-category "Inner Header Image" stock photo is gone.
 

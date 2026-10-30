@@ -18,6 +18,7 @@ import { withContactFormAvatar } from "@/lib/url-utils";
 import { resolveContactFormUrl } from "@/lib/contact-form-link";
 import { ContactCategoryBadge } from "@/components/ui/contact-category-badge";
 import { portalRadiusValue } from "@/lib/typography-themes";
+import type { SupportCardSize } from "@/lib/support-card-layout";
 
 interface Contact {
   id?: string | number;
@@ -84,6 +85,14 @@ interface SmallVerticalCardProps {
   /** When true, reduces padding, margins, avatar, text, and min-height for compact
    *  display in constrained containers such as the mobile wizard preview grid. */
   compact?: boolean;
+  /**
+   * Element tier. Set by the benefit hub's "Have Questions?" row, where the
+   * number of support contacts decides how big each card is (`sm` 4-up, `md`
+   * 3-up, `lg` 2-up / a lone card). Omitted everywhere else, where `compact`
+   * picks the tier instead — the My Benefits Team layouts keep the `md` look
+   * they have always had.
+   */
+  size?: SupportCardSize;
   /** When true, renders muted [placeholder] labels for any missing card data
    *  (used only by the wizard's live Portal Preview — never real portal cards). */
   previewPlaceholders?: boolean;
@@ -127,6 +136,76 @@ interface SmallVerticalCardProps {
   categoryList?: string[];
 }
 
+/**
+ * The card's element sizes, one set per tier.
+ *
+ * `sm` is the original compact card (a full row of four on a benefit hub), `md`
+ * is the long-standing My Benefits Team card, and `lg` is the card a hub shows
+ * when its row holds only two contacts — or one. Sizes that only make sense on
+ * a wide card are gated to `lg` so the same tier still reads correctly on a
+ * phone, where every card is full width.
+ */
+const CARD_SIZE_STYLES: Record<
+  SupportCardSize,
+  {
+    padding: string;
+    avatar: string;
+    name: string;
+    body: string;
+    company: string;
+    iconSize: number;
+    logoHeight: number;
+    infoGap: string;
+    dividerGap: string;
+    chip: string;
+    cta: string;
+    ctaSpacing: string;
+  }
+> = {
+  sm: {
+    padding: "p-3 sm:p-4",
+    avatar: "h-14 w-14",
+    name: "text-sm",
+    body: "text-[11px]",
+    company: "text-[10px]",
+    iconSize: 12,
+    logoHeight: 40,
+    infoGap: "gap-x-3 gap-y-0.5",
+    dividerGap: "mt-2 gap-2",
+    chip: "px-1 text-[8px]",
+    cta: "py-1.5 text-[10px]",
+    ctaSpacing: "pt-2",
+  },
+  md: {
+    padding: "p-4 sm:p-6",
+    avatar: "h-16 w-16 sm:h-20 sm:w-20",
+    name: "text-base sm:text-lg",
+    body: "text-xs sm:text-sm",
+    company: "text-xs sm:text-sm",
+    iconSize: 14,
+    logoHeight: 60,
+    infoGap: "gap-x-4 gap-y-1",
+    dividerGap: "mt-3 gap-3",
+    chip: "px-1.5 text-[9px]",
+    cta: "py-2 text-xs sm:text-sm",
+    ctaSpacing: "pt-3",
+  },
+  lg: {
+    padding: "p-4 sm:p-6 lg:p-7",
+    avatar: "h-16 w-16 sm:h-20 sm:w-20 lg:h-24 lg:w-24",
+    name: "text-base sm:text-lg lg:text-xl",
+    body: "text-xs sm:text-sm lg:text-base",
+    company: "text-xs sm:text-sm",
+    iconSize: 16,
+    logoHeight: 72,
+    infoGap: "gap-x-4 gap-y-1 lg:gap-x-6 lg:gap-y-1.5",
+    dividerGap: "mt-3 gap-3 lg:mt-4 lg:gap-4",
+    chip: "px-1.5 text-[9px] lg:text-[10px]",
+    cta: "py-2 text-xs sm:text-sm lg:py-2.5 lg:text-sm",
+    ctaSpacing: "pt-3 lg:pt-4",
+  },
+};
+
 export function SmallVerticalCard({
   contact,
   brandColor,
@@ -140,6 +219,7 @@ export function SmallVerticalCard({
   baselineBackgroundColor,
   baselineLogoScale,
   compact = false,
+  size,
   previewPlaceholders = false,
   disableContactFormButton = false,
   mobileVariant,
@@ -796,14 +876,18 @@ export function SmallVerticalCard({
   //   3. the advisor-configured CTA, when there is one
   //
   // The benefit hubs, My Benefits Team and every wizard preview render this
-  // card, so the structure is identical everywhere; `compact` only tightens the
-  // spacing for the narrow columns.
-  const cardPadding = compact ? "p-3 sm:p-4" : "p-4 sm:p-6";
-  const avatarSize = compact ? "h-14 w-14" : "h-16 w-16 sm:h-20 sm:w-20";
-  const nameSize = compact ? "text-sm" : "text-base sm:text-lg";
-  const bodySize = compact ? "text-[11px]" : "text-xs sm:text-sm";
-  const infoIconSize = compact ? 12 : 14;
-  const logoBoxHeight = compact ? 40 : 60;
+  // card, so the structure is identical everywhere. `size` — the hub's
+  // count-driven tier — decides how big everything inside it is; without one,
+  // `compact` picks the tier so the existing surfaces keep their look.
+  const cardSize: SupportCardSize = size ?? (compact ? "sm" : "md");
+  const cardStyles = CARD_SIZE_STYLES[cardSize];
+  const cardPadding = cardStyles.padding;
+  const avatarSize = cardStyles.avatar;
+  const nameSize = cardStyles.name;
+  const bodySize = cardStyles.body;
+  const companySize = cardStyles.company;
+  const infoIconSize = cardStyles.iconSize;
+  const logoBoxHeight = cardStyles.logoHeight;
   const logoScaleValue = contact.logoScale || baselineLogoScale || 1;
 
   // Email sits above the phone on this card. A contact that saved an explicit
@@ -895,6 +979,7 @@ export function SmallVerticalCard({
       )}
       style={{ backgroundColor, borderRadius: portalRadiusValue(1.5) }}
       data-testid="contact-card"
+      data-card-size={cardSize}
     >
       {/* BENEFIT CATEGORY TAG — the hubs are one benefit and skip it; My
           Benefits Team mixes every benefit, so each card names its own. */}
@@ -974,7 +1059,7 @@ export function SmallVerticalCard({
             <p
               className={cn(
                 "mt-1 w-full truncate text-right font-dm-serif font-semibold leading-snug",
-                compact ? "text-[10px]" : "text-xs sm:text-sm",
+                companySize,
               )}
               style={{
                 color:
@@ -997,18 +1082,12 @@ export function SmallVerticalCard({
           slack never strands the line halfway down, and the small margin above
           keeps it tucked under the identity block. */}
       <div
-        className={cn(
-          "flex w-full min-w-0 flex-col",
-          compact ? "mt-2 gap-2" : "mt-3 gap-3",
-        )}
+        className={cn("flex w-full min-w-0 flex-col", cardStyles.dividerGap)}
       >
         <div className="h-px w-full shrink-0 bg-black/10" aria-hidden />
 
         <div
-          className={cn(
-            "grid w-full min-w-0 grid-cols-2",
-            compact ? "gap-x-3 gap-y-0.5" : "gap-x-4 gap-y-1",
-          )}
+          className={cn("grid w-full min-w-0 grid-cols-2", cardStyles.infoGap)}
         >
           {/* Left column — name, then title (designations travel with the name). */}
           <div className="min-w-0">
@@ -1040,7 +1119,7 @@ export function SmallVerticalCard({
                         key={chipIndex}
                         className={cn(
                           "inline-block shrink-0 whitespace-nowrap rounded-full py-px text-center leading-none tracking-tight",
-                          compact ? "px-1 text-[8px]" : "px-1.5 text-[9px]",
+                          cardStyles.chip,
                         )}
                         style={{
                           color: textColor || "#4B5563",
@@ -1103,7 +1182,7 @@ export function SmallVerticalCard({
         <div
           className={cn(
             "flex w-full flex-col gap-1.5",
-            compact ? "pt-2" : "pt-3",
+            cardStyles.ctaSpacing,
           )}
         >
           {buttons.map((button, idx) => {
@@ -1122,7 +1201,7 @@ export function SmallVerticalCard({
               disableContactFormButton && button.isContactForm === true;
             const actionClassName = cn(
               "inline-flex w-full items-center justify-center px-4 font-semibold uppercase leading-tight tracking-wide font-red-hat hover:opacity-90",
-              compact ? "py-1.5 text-[10px]" : "py-2 text-xs sm:text-sm",
+              cardStyles.cta,
             );
             const actionStyle = {
               backgroundColor: buttonBg,

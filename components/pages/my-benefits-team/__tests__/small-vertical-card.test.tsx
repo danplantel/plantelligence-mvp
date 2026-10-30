@@ -458,6 +458,30 @@ describe("SmallVerticalCard visuals", () => {
     expect(box).toHaveStyle({ height: "120px" });
   });
 
+  it("picks its element tier from `size`, falling back to `compact`", () => {
+    // The benefit hub passes the tier its row computed; every other surface
+    // keeps the long-standing compact/regular card.
+    const regular = renderCard({ name: "Ada" });
+    expect(screen.getByTestId("contact-card")).toHaveAttribute(
+      "data-card-size",
+      "md",
+    );
+    regular.unmount();
+
+    const compact = renderCard({ name: "Ada" }, { compact: true });
+    expect(screen.getByTestId("contact-card")).toHaveAttribute(
+      "data-card-size",
+      "sm",
+    );
+    compact.unmount();
+
+    renderCard({ name: "Ada" }, { size: "lg" });
+    expect(screen.getByTestId("contact-card")).toHaveAttribute(
+      "data-card-size",
+      "lg",
+    );
+  });
+
   it("rules off the identity block from the contact details", () => {
     const { container } = renderCard({ name: "Ada", email: "ada@acme.test" });
 

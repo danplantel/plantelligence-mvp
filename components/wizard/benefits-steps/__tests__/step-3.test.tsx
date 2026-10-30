@@ -416,13 +416,38 @@ function renderStep(props: { section?: "contacts" | "faqs" } = {}) {
   return render(<BenefitsStep3 {...props} />);
 }
 
-const bodyOf = (fetchMock: ReturnType<typeof installFetch>, method: string) => {
+/**
+ * The last request body for `method`, optionally narrowed by URL.
+ *
+ * The Contacts section now writes TWICE when it changes: the plan roster
+ * (`/api/clients/:id`) and this benefit's selection (`…/benefits/:category`), so
+ * the caller has to say which one it means.
+ */
+const bodyOf = (
+  fetchMock: ReturnType<typeof installFetch>,
+  method: string,
+  urlMatches?: (url: string) => boolean,
+) => {
   const call = [...fetchMock.mock.calls]
     .reverse()
-    .find(([, init]) => (init as RequestInit | undefined)?.method === method);
+    .find(
+      ([input, init]) =>
+        (init as RequestInit | undefined)?.method === method &&
+        (!urlMatches || urlMatches(String(input))),
+    );
   expect(call).toBeTruthy();
   return JSON.parse(String((call![1] as RequestInit).body));
 };
+
+/** The plan-level write (never the `/benefits/…` one). */
+const planBodyOf = (fetchMock: ReturnType<typeof installFetch>, method: string) =>
+  bodyOf(fetchMock, method, (url) => !url.includes("/benefits/"));
+
+/** The benefit-level write. */
+const benefitBodyOf = (
+  fetchMock: ReturnType<typeof installFetch>,
+  method: string,
+) => bodyOf(fetchMock, method, (url) => url.includes("/benefits/"));
 
 const lastStep3Save = () => {
   const calls = mocks.state.saveStepData.mock.calls.filter(
@@ -457,7 +482,7 @@ describe("BenefitsStep3", () => {
     });
 
     it("selects and deselects a contact for this benefit", () => {
-      installFetch();
+      const fetchMock = installFetch();
       renderStep();
 
       fireEvent.click(screen.getByTitle("Jane Advisor"));
@@ -475,11 +500,32 @@ describe("BenefitsStep3", () => {
           supportContactsCategory: "Retirement",
         }),
       );
+      // The hub reads the Benefit row, so the selection is written at once.
+      expect(benefitBodyOf(fetchMock, "PUT").supportContacts).toEqual([
+        expect.objectContaining({ contactId: "c1", enabled: true }),
+      ]);
 
       fireEvent.click(screen.getByTitle("Jane Advisor"));
       expect(lastStep3Save()).toEqual(
         expect.objectContaining({ supportContacts: [] }),
       );
+      // An empty selection clears the hub's cards.
+      expect(benefitBodyOf(fetchMock, "PUT").supportContacts).toBeNull();
+    });
+
+    it("writes the selection to the benefit, never creating a missing page", () => {
+      const fetchMock = installFetch();
+      renderStep();
+
+      fireEvent.click(screen.getByTitle("Jane Advisor"));
+
+      const [url, init] = [...fetchMock.mock.calls]
+        .reverse()
+        .find(([input]) => String(input).includes("/benefits/"))!;
+      // `updateOnly` keeps the write off a category the advisor never published.
+      expect(String(url)).toContain("/api/clients/plan-1/benefits/Retirement");
+      expect(String(url)).toContain("updateOnly=1");
+      expect((init as RequestInit).method).toBe("PUT");
     });
 
     it("refuses a contact beyond the per-benefit cap", () => {
@@ -606,7 +652,7 @@ describe("BenefitsStep3", () => {
       await waitFor(() =>
         expect(mocks.toastSuccess).toHaveBeenCalledWith("Contact updated"),
       );
-      const body = bodyOf(fetchMock, "PUT");
+      const body = planBodyOf(fetchMock, "PUT");
       expect(body.keyContacts).toEqual([
         expect.objectContaining({ id: "c1", name: "New Person" }),
         CONTACT_BOB,
@@ -626,12 +672,17 @@ describe("BenefitsStep3", () => {
           "Contact added and selected for this benefit",
         ),
       );
-      expect(bodyOf(fetchMock, "PUT").keyContacts).toEqual([
+      expect(planBodyOf(fetchMock, "PUT").keyContacts).toEqual([
         CONTACT_JANE,
         CONTACT_BOB,
         expect.objectContaining({ id: "created-1" }),
       ]);
       expect(lastStep3Save().supportContacts).toEqual([
+        expect.objectContaining({ contactId: "created-1" }),
+      ]);
+      // …and the benefit's own selection is written straight away, so the hub's
+      // "Have Questions?" cards include the new person without waiting for Save.
+      expect(benefitBodyOf(fetchMock, "PUT").supportContacts).toEqual([
         expect.objectContaining({ contactId: "created-1" }),
       ]);
     });

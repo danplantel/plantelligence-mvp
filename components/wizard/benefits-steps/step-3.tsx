@@ -64,6 +64,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BenefitContactDialog } from "./benefit-contact-dialog";
 import { GiveTeamSeatDialog } from "./give-team-seat-dialog";
 import { invalidateClientCache } from "@/lib/fetch-client";
+import { persistBenefitSupportContacts } from "@/lib/persist-benefit-support-contacts";
 import { toApiBenefitCategory } from "@/lib/benefit-draft";
 import { formatPhoneWithExtension } from "@/lib/phone-utils";
 import { useDismissibleAlert } from "@/hooks/use-dismissible-alert";
@@ -756,6 +757,26 @@ export function BenefitsStep3({
         }
       : {};
 
+  /**
+   * Write this benefit's support-contacts selection to its Benefit row NOW.
+   *
+   * The plan-level roster (`Client.keyContacts`) is saved the moment a contact is
+   * created, edited or deleted, but the benefit's own selection used to wait for the
+   * page's Save. That left the two participant surfaces disagreeing: My Benefits Team
+   * (which reads the plan roster) showed the person the advisor had just added, while
+   * the hub's "Have Questions?" (which reads `Benefit.supportContacts`) kept showing
+   * the old list — the selection only landed once the benefit itself was saved.
+   *
+   * See `lib/persist-benefit-support-contacts` for the write itself.
+   */
+  const persistSupportContacts = (contactsForBenefit: SupportContact[]) => {
+    void persistBenefitSupportContacts({
+      planId: step1Data?.planId,
+      category: step1Data?.benefitCategory,
+      supportContacts: contactsForBenefit,
+    });
+  };
+
   // Handle Contact changes
   const toggleContact = (contactId: string) => {
     const existing = currentStep3Data.supportContacts.find(
@@ -770,6 +791,8 @@ export function BenefitsStep3({
         ...supportContactsContext,
         supportContacts: newContacts,
       });
+      // The hub must stop showing this person now, not at the next Save.
+      persistSupportContacts(newContacts);
     } else {
       // The cap is enforced here as well as in the row styling: two fast clicks must
       // not slip a fifth contact past a stale render.
@@ -795,11 +818,17 @@ export function BenefitsStep3({
         description: "",
         enabled: true,
       };
+      const nextContacts = [
+        ...currentStep3Data.supportContacts,
+        newContact,
+      ];
       saveStepData(3, {
         ...currentStep3Data,
         ...supportContactsContext,
-        supportContacts: [...currentStep3Data.supportContacts, newContact],
+        supportContacts: nextContacts,
       });
+      // The hub must show this person now, not at the next Save.
+      persistSupportContacts(nextContacts);
     }
   };
 
@@ -815,6 +844,8 @@ export function BenefitsStep3({
       ...supportContactsContext,
       supportContacts: newContacts,
     });
+    // `enabled` lives here too, and a disabled person is dropped from the hub.
+    persistSupportContacts(newContacts);
   };
 
   // Map FAQs and contacts for preview
@@ -890,13 +921,17 @@ export function BenefitsStep3({
       // Drop it from this benefit's support contacts too.
       const step3 = useBenefitsWizardStore.getState().stepData.step3;
       if (step3?.supportContacts?.some((sc) => sc.contactId === contactId)) {
+        const remainingSupportContacts = step3.supportContacts.filter(
+          (sc) => sc.contactId !== contactId,
+        );
         saveStepData(3, {
           ...step3,
           ...supportContactsContext,
-          supportContacts: step3.supportContacts.filter(
-            (sc) => sc.contactId !== contactId,
-          ),
+          supportContacts: remainingSupportContacts,
         });
+        // The hub reads the Benefit row, not the plan roster — drop the card there
+        // too, now, rather than at the next Save.
+        persistSupportContacts(remainingSupportContacts);
       }
 
       toast.success("Contact removed from this plan");
@@ -1164,11 +1199,15 @@ export function BenefitsStep3({
       description: "",
       enabled: true,
     };
+    const nextSupportContacts = [...liveSupportContacts, newSupportContact];
     saveStepData(3, {
       ...liveStep3,
       ...supportContactsContext,
-      supportContacts: [...liveSupportContacts, newSupportContact],
+      supportContacts: nextSupportContacts,
     });
+    // The person is already on the plan roster, which My Benefits Team reads; write
+    // this benefit's selection too, so the hub's cards include them immediately.
+    persistSupportContacts(nextSupportContacts);
     toast.success("Contact added and selected for this benefit");
   };
 

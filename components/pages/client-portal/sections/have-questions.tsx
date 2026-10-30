@@ -6,6 +6,10 @@ import { useOptionalClientPortal } from "@/contexts/client-portal-context";
 import { normalizeContactCategory } from "@/lib/benefit-contacts";
 import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
 import { HAVE_QUESTIONS_SECTION_ID } from "@/lib/portal-section-anchors";
+import {
+  supportCardColumnClass,
+  supportCardSize,
+} from "@/lib/support-card-layout";
 
 /** The stored label for the plan-sponsor card ("Custom" is the wizard's name for it). */
 const PLAN_SPONSOR_CATEGORY = normalizeContactCategory("Company / Plan Sponsor");
@@ -92,16 +96,30 @@ export function HaveQuestions({
       ]
     : contacts;
 
+  // The row fills its parent whatever the count: four contacts share it as
+  // quarters, three as thirds, two as halves, and a LONE card keeps a half
+  // rather than stretching across the band. Fewer cards also means a bigger
+  // element tier, so a 2-up card is a genuinely larger card — not a quarter
+  // card with empty space around it (see `lib/support-card-layout`).
+  const contactCount = orderedContacts.length;
+  const columnClass = supportCardColumnClass(contactCount);
+  const cardSize = supportCardSize(contactCount);
+
   return (
     // The same light grey band as the FAQ section above it: it separates this block
     // from the white sections around it, and the white cards sit against it.
     // `id` + scroll margin: the journey section's "Schedule with …" buttons scroll
     // here, and the margin keeps the heading clear of the fixed portal header.
+    //
+    // From `lg` the band is at least one viewport tall and centres its content, so
+    // the closing section fills the screen instead of leaving the next page (or the
+    // footer) peeking in under a short row of cards. Phones keep the natural
+    // height — a 100vh band there would only push the cards apart.
     <section
       id={HAVE_QUESTIONS_SECTION_ID}
-      className="w-full scroll-mt-24 border-y border-black/5 bg-gray-100 px-4 py-20 sm:scroll-mt-28 sm:px-6 lg:scroll-mt-32 lg:px-8"
+      className="flex w-full scroll-mt-24 flex-col justify-center border-y border-black/5 bg-gray-100 px-4 py-20 sm:scroll-mt-28 sm:px-6 lg:min-h-screen lg:scroll-mt-32 lg:px-8"
     >
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto w-full max-w-6xl">
         <div className="mb-12 text-center">
           <h2 className="mb-2 font-dm-serif text-3xl leading-tight text-gray-900 sm:text-4xl lg:text-[40px]">
             Have Questions?
@@ -112,11 +130,12 @@ export function HaveQuestions({
           </p>
         </div>
 
-        {/* One row of four from `lg`; two across on tablets, stacked on phones.
-            A flex row rather than a grid so a partial row is CENTRED: with one,
-            two or three support contacts the cards sit in the middle of the band
-            instead of hugging the left edge. The widths are the same fourths (and
-            halves) a grid would give them, so a full row is unchanged.
+        {/* The row's column count comes from the number of support contacts
+            (`supportCardColumnClass`): full width on phones, halves on tablets,
+            then quarters / thirds / halves / a single half from `lg`. A flex row
+            rather than a grid so a partial row is CENTRED — a lone card, or the
+            third card of a 3-up row on a tablet, sits in the middle of the band
+            instead of hugging the left edge.
 
             Each card is wrapped in a sizing div — the card itself is `w-full`, and
             the wrapper is what carries the column width. */}
@@ -151,13 +170,12 @@ export function HaveQuestions({
               Boolean(keyContactId) && String(contact.id) === keyContactId;
 
             return (
-              // Half the row on tablets (one 1.5rem gap), a quarter from `lg`
-              // (three 1.5rem gaps). `min-w-0` keeps a long name from widening
-              // its column and pushing the row off-centre.
+              // The wrapper carries the column width for this row's count (and
+              // `min-w-0` keeps a long name from widening it off-centre).
               <div
                 key={contact.id}
                 data-testid="contact-column"
-                className="w-full min-w-0 sm:w-[calc((100%-1.5rem)/2)] lg:w-[calc((100%-4.5rem)/4)]"
+                className={columnClass}
               >
                 <div className="mb-2 flex h-6 items-center justify-center">
                   {isKeyContact ? (
@@ -204,9 +222,11 @@ export function HaveQuestions({
                   companyName={resolvedCompanyName}
                   index={index}
                   // The category placement renders the compact card: no benefit
-                  // tag (the whole page is one benefit) and a denser layout.
+                  // tag (the whole page is one benefit) and a denser layout. The
+                  // `size` tier then scales that card to the width of its column.
                   placement="category"
                   compact
+                  size={cardSize}
                 />
               </div>
             );

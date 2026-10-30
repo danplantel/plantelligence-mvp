@@ -24,6 +24,8 @@ const portalHubTests = [
   "components/pages/client-portal/sections/__tests__/video-feature-player.test.tsx",
   // The support-people cards
   "components/pages/client-portal/sections/__tests__/have-questions.test.tsx",
+  // How many support cards share the row, and the element tier that follows
+  "lib/__tests__/support-card-layout.test.ts",
   // The welcome banner's "Schedule with …" CTA (scrolls to Have Questions)
   "components/pages/client-portal/sections/__tests__/portal-welcome-banner-schedule.test.tsx",
   // The banner's circular portrait: chosen image → headshot → placeholder

@@ -71,6 +71,9 @@ describe("HaveQuestions", () => {
     expect(section.className).toContain("bg-gray-100");
     expect(section.className).toContain("border-y");
     expect(section.className).not.toContain("bg-white");
+    // A closing band that fills the desktop viewport, with its content centred.
+    expect(section.className).toContain("lg:min-h-screen");
+    expect(section.className).toContain("justify-center");
 
     // The card's identity block is the shared one — its own role line included.
     expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent(
@@ -80,10 +83,17 @@ describe("HaveQuestions", () => {
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
   });
 
-  it("centres the cards in the row whatever the count", () => {
-    // One, two or three contacts used to sit at the start of a four-column grid.
-    // The row centres its cards instead, while each card keeps the width a fourth
-    // (or a half on tablets) would have given it.
+  it("sizes the row from the contact count, so the cards fill the band", () => {
+    // The row always fills its parent: 4 contacts share it as quarters, 3 as
+    // thirds, 2 as halves — and a LONE card keeps a half rather than stretching
+    // across the whole band. Tablets pair up, phones stack.
+    const lgWidthFor: Record<number, string> = {
+      1: "lg:w-[calc((100%-1.5rem)/2)]",
+      2: "lg:w-[calc((100%-1.5rem)/2)]",
+      3: "lg:w-[calc((100%-3rem)/3)]",
+      4: "lg:w-[calc((100%-4.5rem)/4)]",
+    };
+
     [1, 2, 3, 4].forEach((count) => {
       const { container, unmount } = render(
         <HaveQuestions
@@ -103,16 +113,36 @@ describe("HaveQuestions", () => {
 
       Array.from(row.children).forEach((column) => {
         expect(column.className).toContain("w-full");
-        expect(column.className).toContain(
-          "sm:w-[calc((100%-1.5rem)/2)]",
-        );
-        expect(column.className).toContain(
-          "lg:w-[calc((100%-4.5rem)/4)]",
-        );
+        expect(column.className).toContain("sm:w-[calc((100%-1.5rem)/2)]");
+        expect(column.className).toContain(lgWidthFor[count]);
       });
 
       unmount();
     });
+  });
+
+  it("gives the cards a bigger element tier when fewer share the row", () => {
+    const tierFor = (count: number) => {
+      const { container, unmount } = render(
+        <HaveQuestions
+          contacts={Array.from({ length: count }, (_, index) =>
+            contact({ id: `c${index}`, title: `Advisor ${index}` }),
+          )}
+        />,
+      );
+      const tier = container
+        .querySelector('[data-testid="contact-card"]')
+        ?.getAttribute("data-card-size");
+      unmount();
+      return tier;
+    };
+
+    // A full row keeps the compact card; fewer cards means a bigger card, so a
+    // 2-up (or lone) card is genuinely larger rather than a quarter with slack.
+    expect(tierFor(4)).toBe("sm");
+    expect(tierFor(3)).toBe("md");
+    expect(tierFor(2)).toBe("lg");
+    expect(tierFor(1)).toBe("lg");
   });
 
   it("renders the heading and one card per contact", () => {
