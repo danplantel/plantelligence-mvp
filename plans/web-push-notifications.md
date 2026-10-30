@@ -105,6 +105,13 @@ flowchart LR
 - **The pair is permanent per environment.** A subscription is bound to it, so rotating the keys
   invalidates every stored row: a rotation means clearing `PushSubscription` and asking every reader
   to opt in again. Treat it as a migration, not a config change.
+- **The real rule is one pair per DATABASE, not per environment.** Anything that writes to the same
+  `PushSubscription` table must carry the same pair, or it gets `403` on rows another environment
+  created — a failure visible only as `failureCount` climbing. Sharing one Neon database across
+  production, preview and local development therefore means sharing one pair.
+- The client now DETECTS a stale subscription (created with a different key) and replaces it on the
+  next opt-in tap, and reports such a device as not-subscribed so the button is offered. A rotation
+  still costs one tap per device, but no longer requires anyone to know about "turn off, turn on".
 - Unset keys are a DISABLED state, not an error: the sender warns once per process and returns, so
   the app keeps writing notifications and sending messages normally.
 - The portal deep-link policy is settled — dashboard links are REWRITTEN to portal routes for

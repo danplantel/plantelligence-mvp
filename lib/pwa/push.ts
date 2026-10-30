@@ -197,7 +197,57 @@ export async function readPushCapability(): Promise<PushCapability> {
   }
 
   const subscription = await getExistingPushSubscription();
-  return { support, permission, subscribed: Boolean(subscription) };
+  if (!subscription) return { support, permission, subscribed: false };
+
+  // A subscription created with a DIFFERENT VAPID key is not "subscribed" in any useful sense: it
+  // can never be delivered to, and the only repair is to replace it. Reporting it as subscribed
+  // would show "registered" with no button to tap, which is exactly how a key change used to strand
+  // a device with a UI insisting everything was fine.
+  const publicKey = readVapidPublicKey();
+  const keyMatches = publicKey
+    ? subscriptionMatchesKey(subscription, decodeBase64Url(publicKey))
+    : true;
+
+  return { support, permission, subscribed: keyMatches };
+}
+
+/**
+ * Did this subscription get created with the key we would use today?
+ *
+ * A `PushSubscription` outlives the VAPID pair that created it: the endpoint stays valid, but every
+ * send signed with a different private key is rejected by the push service with `403`. That is not a
+ * theoretical hazard in this deployment — the dashboard, a preview deployment and local development
+ * can all point at ONE `PushSubscription` table while carrying different pairs, and the symptom is a
+ * row that looks healthy and never delivers.
+ *
+ * An ABSENT `applicationServerKey` is treated as a match, not a mismatch. Browsers that omit it
+ * (none of the majors do) would otherwise have their subscription torn down and recreated on every
+ * single tap, churning endpoints and orphaning rows for no benefit.
+ */
+function subscriptionMatchesKey(
+  subscription: PushSubscription,
+  desiredKey: Uint8Array,
+): boolean {
+  const current = subscription.options?.applicationServerKey;
+  if (!current) return true;
+
+  let bytes: Uint8Array;
+  if (current instanceof ArrayBuffer) {
+    bytes = new Uint8Array(current);
+  } else {
+    const view = current as ArrayBufferView;
+    bytes = new Uint8Array(
+      view.buffer as ArrayBuffer,
+      view.byteOffset,
+      view.byteLength,
+    );
+  }
+
+  if (bytes.length !== desiredKey.length) return false;
+  for (let index = 0; index < bytes.length; index += 1) {
+    if (bytes[index] !== desiredKey[index]) return false;
+  }
+  return true;
 }
 
 /**
@@ -206,6 +256,10 @@ export async function readPushCapability(): Promise<PushCapability> {
  * MUST be called from a user gesture. Every failure is returned rather than thrown, because the
  * caller always has something useful to say about it: `"install-required"` → install steps,
  * `"denied"` → browser settings, `"dismissed"` → a quieter retry affordance.
+ *
+ * An existing subscription is reused only when it was created with the key THIS BUILD is configured
+ * with; otherwise it is replaced. Without that check, a VAPID change leaves the device permanently
+ * undeliverable while every tap reports success.
  */
 export async function subscribeToPush(
   input: PushSubscribeInput,
@@ -231,17 +285,29 @@ export async function subscribeToPush(
     return { ok: false, reason: permission === "denied" ? "denied" : "dismissed" };
   }
 
+  // Decoded once: it is compared byte-wise against whatever subscription already exists.
+  const desiredKey = decodeBase64Url(publicKey);
+
   let created = false;
+  let replacedEndpoint: string | null = null;
   let subscription: PushSubscription;
   try {
     const existing = await registration.pushManager.getSubscription();
-    if (existing) {
+    if (existing && subscriptionMatchesKey(existing, desiredKey)) {
+      // Already keyed correctly: reuse it, which keeps the endpoint — and the plan hint the server
+      // stored against it — stable across repeat taps.
       subscription = existing;
     } else {
+      // Either there is no subscription, or it was created with a DIFFERENT VAPID key. Re-POSTing
+      // the latter would store a row that can never deliver, so it is replaced instead.
+      if (existing) {
+        replacedEndpoint = existing.endpoint;
+        await existing.unsubscribe().catch(() => undefined);
+      }
       subscription = await registration.pushManager.subscribe({
         // Every browser that ships push requires this flag; without it Chrome rejects the call.
         userVisibleOnly: true,
-        applicationServerKey: decodeBase64Url(publicKey) as BufferSource,
+        applicationServerKey: desiredKey as BufferSource,
       });
       created = true;
     }
@@ -279,6 +345,18 @@ export async function subscribeToPush(
   } catch {
     if (created) await subscription.unsubscribe().catch(() => undefined);
     return { ok: false, reason: "save-failed" };
+  }
+
+  // The replaced endpoint was unsubscribed in the browser, but the server still holds its row. Drop
+  // it so it does not linger as a device that can never be reached. Best effort on purpose: the
+  // sender prunes it on the next 410 anyway, and an anonymous portal session cannot delete, which
+  // must not turn a successful subscribe into a failure.
+  if (replacedEndpoint && replacedEndpoint !== endpoint) {
+    void fetch(PUSH_SUBSCRIBE_ENDPOINT, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endpoint: replacedEndpoint }),
+    }).catch(() => undefined);
   }
 
   return { ok: true };

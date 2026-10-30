@@ -18,6 +18,7 @@ import baseConfig from "./vitest.config.mts";
  * JS outside the bundle, so nothing else in the build would catch a broken `push` handler.
  */
 const pushTests = [
+  "lib/pwa/__tests__/push-subscribe.test.ts",
   "lib/push/__tests__/types.test.ts",
   "lib/push/__tests__/portal-href.test.ts",
   "lib/push/__tests__/subscriptions.test.ts",

@@ -4,7 +4,7 @@ This document is the test inventory for web push: the service worker handlers in
 
 ## Summary
 
-- **Unit tests:** 63 passing in 6 files
+- **Unit tests:** 68 passing in 7 files
 - **Verification script:** [`scripts/push/verify-push.ts`](../../scripts/push/verify-push.ts) — real database, real data layer
 - **Runner:** Vitest + jsdom, plus a `node:vm` sandbox for the service worker
 - **No E2E:** a real push requires a browser with a push service, so the browser half is covered by unit tests and the manual checklist below
@@ -12,7 +12,7 @@ This document is the test inventory for web push: the service worker handlers in
 ## Running these tests
 
 ```bash
-pnpm test:push           # all push unit suites (63 tests)
+pnpm test:push           # all push unit suites (68 tests)
 pnpm test:push:watch     # watch mode
 pnpm test:push:coverage  # with V8 coverage
 ```
@@ -30,6 +30,7 @@ npx tsx scripts/push/verify-push.ts --keep   # leaves them for inspection
 
 | File | What it pins |
 |---|---|
+| [`lib/pwa/__tests__/push-subscribe.test.ts`](../../lib/pwa/__tests__/push-subscribe.test.ts) | Subscribing over an EXISTING subscription: a subscription made with the current VAPID key is reused (endpoint stays stable), one made with a different key is replaced and its superseded row deleted, and `readPushCapability` reports such a device as not-subscribed so the UI offers the repair button. |
 | [`lib/push/__tests__/types.test.ts`](../../lib/push/__tests__/types.test.ts) | Notification type → preference category. Four comment events, one switch. Unknown types return null, which the sender reads as "do not push". |
 | [`lib/push/__tests__/portal-href.test.ts`](../../lib/push/__tests__/portal-href.test.ts) | The dashboard→portal translation, including the two vocabularies (`group-health` → `health-insurance`) and the refusal to invent a portal page for a direct message. |
 | [`lib/push/__tests__/subscriptions.test.ts`](../../lib/push/__tests__/subscriptions.test.ts) | Endpoint and key validation: https only, base64url only, bounded length. |
@@ -68,6 +69,14 @@ Push is disabled, not broken, when these are unset — the sender logs one warni
 | `VAPID_SUBJECT` | A `mailto:` or origin URL identifying the sender; defaults to `mailto:support@plantel.pro`. |
 
 Generate one pair per environment with `npx web-push generate-vapid-keys`. Treat the pair as permanent: **rotating the keys invalidates every stored subscription**, so a rotation means clearing `PushSubscription` and having every reader opt in again.
+
+Two things make that less painful than it sounds, and one that does not:
+
+- A browser whose subscription was created with a different key is **no longer reported as subscribed**, so the opt-in button reappears instead of the UI claiming success.
+- Tapping it **replaces** the stale subscription and deletes the superseded row, so a rotation needs one tap per device rather than a manual "turn off, turn on".
+- It still needs that tap. Nobody is notified automatically, and until they tap, their device is silent.
+
+**Every deployment sharing one `PushSubscription` table must use the same pair.** If production, a preview deployment and local development all point at the same database while carrying different keys, each will get `403` on rows the others created — visible only as `failureCount` climbing. Give each environment its own database and it can have its own pair.
 
 ## Related
 
