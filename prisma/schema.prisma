@@ -134,6 +134,8 @@ model User {
   marketingFlyers             MarketingFlyer[]
   marketingAssets             MarketingAsset[]
   headshots                   Headshot[]
+  /// Files dropped in as part of a .zip and kept for reuse (see `UserAsset`).
+  assets                      UserAsset[]
 
   futureContacts    FutureContact[]   @relation("UserFutureContacts")
   meetingCustomTypes MeetingCustomType[]
@@ -200,6 +202,51 @@ model Task {
   @@index([sourceThreadId])
   // The de-duplication read: "does this reader hold an assignment covering this derived row?"
   @@index([userId, clientId, derivedKind])
+}
+
+// A file the advisor brought in with a .zip and asked to keep: the "library"
+// that every image and document uploader can pick from without dragging the
+// archive in again.
+//
+// Deliberately a per-USER library, not a per-plan one: the same logo pack or
+// document bundle is usually reused across several plans, and the upload pickers
+// are account-level surfaces. `kind` splits it into the two pickers that read it
+// (`image` for the image uploaders, `document` for the PDFs/Word files), so an
+// image picker never offers a PDF and vice versa.
+//
+// The bytes live in R2 under `org/{userId}/library/…`; this row is the index
+// (name, dimensions, size, the archive it came from). A real relation with
+// `onDelete: Cascade` so deleting the account takes its library with it.
+model UserAsset {
+  id            String   @id @default(cuid())
+  userId        String
+  /// "image" | "document" — which pickers may offer it.
+  kind          String
+  fileName      String
+  /// R2 object key.
+  key           String
+  contentType   String
+  /// Byte size of the stored file.
+  size          Int
+  /// Natural pixel dimensions; 0 for non-images.
+  width         Int      @default(0)
+  height        Int      @default(0)
+  /// The .zip it came from, so the picker can name its source.
+  sourceZipName String?
+  createdAt     DateTime @default(now())
+  /// When the row stops being offered. The library is a short-lived convenience —
+  /// a rolling 24 hours — not permanent storage, so the column is filled by the
+  /// database itself and both reads and writes purge what has lapsed.
+  expiresAt     DateTime @default(dbgenerated("(now() + interval '24 hours')"))
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, kind])
+  @@index([userId, createdAt])
+  // The dedupe read: re-dropping the same archive must not clone its files.
+  @@index([userId, fileName, size])
+  // The expiry sweep: find what has lapsed before listing or adding.
+  @@index([userId, expiresAt])
 }
 
 // In-app notifications (persisted, per-user read/unread).

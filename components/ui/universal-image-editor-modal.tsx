@@ -20,6 +20,7 @@ import {
   Plus,
   RotateCcw,
   Wand2,
+  Library,
 } from "lucide-react";
 import { CropMetadata } from "./simple-image-editor-modal";
 import {
@@ -35,7 +36,11 @@ import {
   installShiftCenteredScaling,
 } from "@/hooks/use-fabric-image-editor";
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
-import { isR2BrandingKey, toR2BrandingKey, toFabricImageLoadUrl } from "@/lib/branding-image-url";
+import {
+  isR2BrandingKey,
+  toR2BrandingKey,
+  toFabricImageLoadUrl,
+} from "@/lib/branding-image-url";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import {
   HEADER_LOGO_BAND_PX,
@@ -46,12 +51,12 @@ import {
 import { Headshot } from "@/components/ui/headshot";
 import {
   isZipFile,
-  extractImagesFromZip,
+  extractZipContents,
   revokeZipImagePreviews,
   type ExtractedFile,
-  type ExtractedImage,
 } from "@/lib/zip-image-extract";
 import { ZipFilePickerModal } from "@/components/ui/zip-file-picker-modal";
+import { useProfileLibraryAvailability } from "@/hooks/useProfileLibraryAvailability";
 import {
   MEANINGFUL_REMOVAL_RATIO,
   detectImageBackground,
@@ -169,9 +174,12 @@ const HUE_PURPLE_TO_PINK = 320;
 const HUE_PINK_TO_RED = 345;
 
 /** sRGB (0-255) → HSV, plus the HSL lightness used to pick a shade. */
-function toHsv(
-  rgb: [number, number, number],
-): { hue: number; saturation: number; value: number; lightness: number } {
+function toHsv(rgb: [number, number, number]): {
+  hue: number;
+  saturation: number;
+  value: number;
+  lightness: number;
+} {
   const [r, g, b] = [rgb[0] / 255, rgb[1] / 255, rgb[2] / 255];
   const max = Math.max(r, g, b);
   const min = Math.min(r, g, b);
@@ -322,107 +330,107 @@ export interface ImageEditorConfig {
 
 // Default configurations for different use cases
 export const IMAGE_EDITOR_CONFIGS: Record<ImageEditorType, ImageEditorConfig> =
-{
-  headshot: {
-    canvasWidth: 500,
-    canvasHeight: 500,
-    previewFormats: ["circle"],
-    previewSizes: {
-      circle: { width: 200, height: 200 },
+  {
+    headshot: {
+      canvasWidth: 500,
+      canvasHeight: 500,
+      previewFormats: ["circle"],
+      previewSizes: {
+        circle: { width: 200, height: 200 },
+      },
+      allowFlipping: false,
+      allowScaling: true,
+      minResolution: 400,
+      maxFileSize: 5 * 1024 * 1024,
+      acceptedTypes: [".jpg", ".jpeg", ".png", ".webp"],
+      modalTitle: "Headshot",
+      modalDescription:
+        "Upload a clear, front-facing photo. Keep your face inside the circle guide for best results.",
+      buttonText: "Upload Headshot",
+      saveButtonText: "Save Headshot",
+      showFileDetails: false,
+      showWarnings: false,
+      showLayoutButtons: false,
+      saveToAPI: false,
     },
-    allowFlipping: false,
-    allowScaling: true,
-    minResolution: 400,
-    maxFileSize: 5 * 1024 * 1024,
-    acceptedTypes: [".jpg", ".jpeg", ".png", ".webp"],
-    modalTitle: "Headshot",
-    modalDescription:
-      "Upload a clear, front-facing photo. Keep your face inside the circle guide for best results.",
-    buttonText: "Upload Headshot",
-    saveButtonText: "Save Headshot",
-    showFileDetails: false,
-    showWarnings: false,
-    showLayoutButtons: false,
-    saveToAPI: false,
-  },
 
-  logo: {
-    canvasWidth: 600,
-    canvasHeight: 450,
-    previewFormats: ["rectangular"],
-    previewSizes: {
-      rectangular: { width: 300, height: 250 },
+    logo: {
+      canvasWidth: 600,
+      canvasHeight: 450,
+      previewFormats: ["rectangular"],
+      previewSizes: {
+        rectangular: { width: 300, height: 250 },
+      },
+      allowFlipping: false,
+      allowScaling: true,
+      minResolution: 0,
+      maxFileSize: 5 * 1024 * 1024,
+      acceptedTypes: [".jpg", ".jpeg", ".png", ".webp", ".svg"],
+      recommendedText:
+        "landscape orientation, transparent PNG, at least 600px wide",
+      modalTitle: "Company Logo",
+      modalDescription:
+        "Upload your company logo. Keep it centered and clear for best results.",
+      buttonText: "Upload Logo",
+      saveButtonText: "Save Logo",
+      showFileDetails: false,
+      showWarnings: false,
+      showLayoutButtons: true,
+      saveToAPI: false,
+      allowBackgroundRemoval: true,
+      normalizeLogoForHeader: true,
     },
-    allowFlipping: false,
-    allowScaling: true,
-    minResolution: 0,
-    maxFileSize: 5 * 1024 * 1024,
-    acceptedTypes: [".jpg", ".jpeg", ".png", ".webp", ".svg"],
-    recommendedText:
-      "landscape orientation, transparent PNG, at least 600px wide",
-    modalTitle: "Company Logo",
-    modalDescription:
-      "Upload your company logo. Keep it centered and clear for best results.",
-    buttonText: "Upload Logo",
-    saveButtonText: "Save Logo",
-    showFileDetails: false,
-    showWarnings: false,
-    showLayoutButtons: true,
-    saveToAPI: false,
-    allowBackgroundRemoval: true,
-    normalizeLogoForHeader: true,
-  },
 
-  normalizer: {
-    canvasWidth: 600,
-    canvasHeight: 550,
-    previewFormats: ["custom"],
-    previewSizes: {
-      rectangular: { width: 300, height: 200 },
-      custom: { width: 152, height: 90 }, // Header bar preview - dynamically updated based on mode (120×90 normal, 150×60 compact)
+    normalizer: {
+      canvasWidth: 600,
+      canvasHeight: 550,
+      previewFormats: ["custom"],
+      previewSizes: {
+        rectangular: { width: 300, height: 200 },
+        custom: { width: 152, height: 90 }, // Header bar preview - dynamically updated based on mode (120×90 normal, 150×60 compact)
+      },
+      allowFlipping: false,
+      allowScaling: true,
+      minResolution: 200,
+      maxFileSize: 5 * 1024 * 1024,
+      acceptedTypes: [".jpg", ".jpeg", ".png", ".webp", ".svg"],
+      recommendedText:
+        "landscape orientation, transparent PNG, at least 600px wide",
+      modalTitle: "Company Logo",
+      modalDescription:
+        "Fit your logo inside the safe zone so it works across headers, cards, and PDFs. You can fine-tune later.",
+      buttonText: "Upload Logo",
+      saveButtonText: "Save Logo",
+      showFileDetails: true,
+      showWarnings: true,
+      showLayoutButtons: true,
+      saveToAPI: false,
+      allowBackgroundRemoval: true,
     },
-    allowFlipping: false,
-    allowScaling: true,
-    minResolution: 200,
-    maxFileSize: 5 * 1024 * 1024,
-    acceptedTypes: [".jpg", ".jpeg", ".png", ".webp", ".svg"],
-    recommendedText:
-      "landscape orientation, transparent PNG, at least 600px wide",
-    modalTitle: "Company Logo",
-    modalDescription:
-      "Fit your logo inside the safe zone so it works across headers, cards, and PDFs. You can fine-tune later.",
-    buttonText: "Upload Logo",
-    saveButtonText: "Save Logo",
-    showFileDetails: true,
-    showWarnings: true,
-    showLayoutButtons: true,
-    saveToAPI: false,
-    allowBackgroundRemoval: true,
-  },
 
-  custom: {
-    canvasWidth: 500,
-    canvasHeight: 500,
-    previewFormats: ["rectangular"],
-    previewSizes: {
-      rectangular: { width: 300, height: 200 },
+    custom: {
+      canvasWidth: 500,
+      canvasHeight: 500,
+      previewFormats: ["rectangular"],
+      previewSizes: {
+        rectangular: { width: 300, height: 200 },
+      },
+      recommendedDisplaySize: { width: 1920, height: 1080 },
+      allowFlipping: true,
+      allowScaling: true,
+      minResolution: 200,
+      maxFileSize: 5 * 1024 * 1024,
+      acceptedTypes: [".jpg", ".jpeg", ".png", ".webp"],
+      modalTitle: "Image",
+      modalDescription: "Upload and edit your image.",
+      buttonText: "Upload Image",
+      saveButtonText: "Save Image",
+      showFileDetails: false,
+      showWarnings: false,
+      showLayoutButtons: false,
+      saveToAPI: false,
     },
-    recommendedDisplaySize: { width: 1920, height: 1080 },
-    allowFlipping: true,
-    allowScaling: true,
-    minResolution: 200,
-    maxFileSize: 5 * 1024 * 1024,
-    acceptedTypes: [".jpg", ".jpeg", ".png", ".webp"],
-    modalTitle: "Image",
-    modalDescription: "Upload and edit your image.",
-    buttonText: "Upload Image",
-    saveButtonText: "Save Image",
-    showFileDetails: false,
-    showWarnings: false,
-    showLayoutButtons: false,
-    saveToAPI: false,
-  },
-};
+  };
 
 interface UniversalImageEditorModalProps {
   // Core props
@@ -633,9 +641,17 @@ export function UniversalImageEditorModal({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isZipPickerOpen, setIsZipPickerOpen] = useState(false);
+  // Opens the saved-library picker directly, with no .zip in hand.
+  const [isLibraryPickerOpen, setIsLibraryPickerOpen] = useState(false);
+  // "From Library" only makes sense once the advisor has kept something.
+  const hasLibrary = useProfileLibraryAvailability("image");
   const [pendingZipImages, setPendingZipImages] = useState<
-    ExtractedImage[] | null
+    ExtractedFile[] | null
   >(null);
+  // Documents found in the same archive — listed read-only by the picker.
+  const [pendingZipDocuments, setPendingZipDocuments] = useState<
+    ExtractedFile[]
+  >([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   // Confirmation dialog states
@@ -772,7 +788,9 @@ export function UniversalImageEditorModal({
   // (e.g. returning to Step 3 before the preview cache is populated).
   const previewSrc =
     previewDataUrl ||
-    (isStoredR2Key ? (displayUrl ?? undefined) : (displayUrl ?? value ?? undefined));
+    (isStoredR2Key
+      ? displayUrl ?? undefined
+      : displayUrl ?? value ?? undefined);
 
   // Track whether the trigger-area preview image has decoded so a spinner can
   // show until it's ready. Reset synchronously when the source changes (an
@@ -810,7 +828,7 @@ export function UniversalImageEditorModal({
     // Calculate the distance from image center to canvas center
     const distanceFromCenter = Math.sqrt(
       Math.pow(imageCenterX - canvasCenterX, 2) +
-      Math.pow(imageCenterY - canvasCenterY, 2),
+        Math.pow(imageCenterY - canvasCenterY, 2),
     );
 
     // Get the actual scale from the fabric object
@@ -870,7 +888,9 @@ export function UniversalImageEditorModal({
   // Also allow internal modal open to override external closed state
   // (e.g., when a file is selected via the trigger in controlled mode).
   const modalOpen =
-    externalIsOpen !== undefined ? (externalIsOpen || internalModalOpen) : internalModalOpen;
+    externalIsOpen !== undefined
+      ? externalIsOpen || internalModalOpen
+      : internalModalOpen;
   const handleClose = () => {
     setInternalModalOpen(false);
     if (externalOnClose) externalOnClose();
@@ -931,8 +951,8 @@ export function UniversalImageEditorModal({
     type === "headshot"
       ? "headshot.png"
       : type === "logo"
-        ? "logo.png"
-        : "image.png",
+      ? "logo.png"
+      : "image.png",
   );
 
   /**
@@ -1088,12 +1108,19 @@ export function UniversalImageEditorModal({
       // state; a plain image goes straight to the preview instead.
       setIsLoading(true);
       try {
-        const extracted = await extractImagesFromZip(file);
+        const contents = await extractZipContents(file);
+        const extracted = contents.images;
         setIsLoading(false);
-        if (extracted.length === 1) {
+        // A lone image is applied straight away — unless the archive also carries
+        // documents. Those cannot be uploaded into an image editor, but the
+        // advisor should still see them (read-only, in the picker's accordion)
+        // before the archive is forgotten.
+        if (extracted.length === 1 && contents.documents.length === 0) {
+          setPendingZipDocuments([]);
           await processImageFile(extracted[0].file);
           return;
         }
+        setPendingZipDocuments(contents.documents);
         setPendingZipImages(extracted);
         setIsZipPickerOpen(true);
         return;
@@ -1141,6 +1168,9 @@ export function UniversalImageEditorModal({
       if (prev) revokeZipImagePreviews(prev);
       return null;
     });
+    // The read-only list is gone with the archive now that an image was picked.
+    revokeZipImagePreviews(pendingZipDocuments);
+    setPendingZipDocuments([]);
     await processImageFile(image.file);
   };
 
@@ -1631,11 +1661,11 @@ export function UniversalImageEditorModal({
       type === "headshot"
         ? false
         : !!(
-          notTouchingTwoEdges &&
-          !isPerfect &&
-          !isWideImageProperlySized &&
-          !isNormalImageProperlySized
-        ),
+            notTouchingTwoEdges &&
+            !isPerfect &&
+            !isWideImageProperlySized &&
+            !isNormalImageProperlySized
+          ),
     );
 
     if (type === "headshot") {
@@ -2000,10 +2030,10 @@ export function UniversalImageEditorModal({
       ctx.strokeStyle = isNearDottedLine
         ? "#22c55e"
         : isOutsideSafeZone
-          ? "#ef4444"
-          : isTooSmall || isOutsideDottedLine
-            ? "#f97316"
-            : "#9ca3af";
+        ? "#ef4444"
+        : isTooSmall || isOutsideDottedLine
+        ? "#f97316"
+        : "#9ca3af";
       if (type === "headshot" || forceCircularGuidelines) {
         // No dotted line for headshot — circle acts as the guideline.
       } else {
@@ -2312,7 +2342,10 @@ export function UniversalImageEditorModal({
         handleClose();
         // Scroll to bottom after modal closes (only for custom type like background images)
         if (type === "custom") {
-          window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+          window.scrollTo({
+            top: document.body.scrollHeight,
+            behavior: "smooth",
+          });
         }
 
         if (!shouldStoreInR2) return;
@@ -2321,10 +2354,15 @@ export function UniversalImageEditorModal({
         onUploadStateChange?.(true);
         try {
           let finalOriginalImage = originalImageSrc;
-          if (originalImageSrc.length > 300000) { // Compress if > 300KB
+          if (originalImageSrc.length > 300000) {
+            // Compress if > 300KB
             try {
               const { compressImage } = await import("@/lib/image-compression");
-              finalOriginalImage = await compressImage(originalImageSrc, { maxWidth: 1600, maxHeight: 1600, quality: 0.8 });
+              finalOriginalImage = await compressImage(originalImageSrc, {
+                maxWidth: 1600,
+                maxHeight: 1600,
+                quality: 0.8,
+              });
             } catch (err) {
               console.warn("Failed to compress original image in modal", err);
             }
@@ -2332,7 +2370,8 @@ export function UniversalImageEditorModal({
 
           const res = await fetch(croppedPreview);
           const blob = await res.blob();
-          const mime = exportFormat === "image/png" ? "image/png" : "image/jpeg";
+          const mime =
+            exportFormat === "image/png" ? "image/png" : "image/jpeg";
           const file = new File([blob], newFileName, { type: mime });
           let subPath: string;
           if (type === "headshot") {
@@ -2352,10 +2391,15 @@ export function UniversalImageEditorModal({
             // Second call: swap the data URL for the stored key, which is what the
             // plan keeps. Pass croppedPreview DataURL as headshotData so callers can
             // use it for logo preview and color extraction without fetching R2.
-            onChange(r2Key, newFileName, { previewDataUrl: croppedPreview }, {
-              ...cropMeta,
-              originalImage: finalOriginalImage,
-            });
+            onChange(
+              r2Key,
+              newFileName,
+              { previewDataUrl: croppedPreview },
+              {
+                ...cropMeta,
+                originalImage: finalOriginalImage,
+              },
+            );
           }
         } catch (err) {
           // The data URL handed over above stands, so the image is never lost.
@@ -2996,7 +3040,6 @@ export function UniversalImageEditorModal({
     };
   }, [imageSrc, sourceIsSvg, config.allowBackgroundRemoval]);
 
-
   /**
    * Build the before/after pair while the offer is on screen: the untouched upload
    * beside the removal being offered, so the user sees what changes rather than
@@ -3358,7 +3401,10 @@ export function UniversalImageEditorModal({
             <Label className="text-sm font-medium text-gray-400">
               {type === "logo" && format === "rectangular"
                 ? "Logo Preview"
-                : previewText || previewTitle || modalTitle || config.modalTitle}
+                : previewText ||
+                  previewTitle ||
+                  modalTitle ||
+                  config.modalTitle}
             </Label>
             <div className="mt-2">
               {isHeaderBarPreview ? (
@@ -3394,7 +3440,9 @@ export function UniversalImageEditorModal({
                         />
                       </div>
                     ) : (
-                      <span className="text-gray-400 text-xs">Adjusting...</span>
+                      <span className="text-gray-400 text-xs">
+                        Adjusting...
+                      </span>
                     )}
                   </div>
                   <p className="text-[10px] text-gray-400">
@@ -3404,10 +3452,9 @@ export function UniversalImageEditorModal({
               ) : (
                 // Standard preview for other formats
                 <div
-                  className={`w-full overflow-hidden flex items-center justify-center border-2 border-gray-300 dark:border-gray-600 ${format === "circle"
-                    ? "rounded-full"
-                    : "rounded-lg"
-                    }`}
+                  className={`w-full overflow-hidden flex items-center justify-center border-2 border-gray-300 dark:border-gray-600 ${
+                    format === "circle" ? "rounded-full" : "rounded-lg"
+                  }`}
                   style={{
                     // Fill the info column — a preview scaled down to a fraction of
                     // its own size was too small to check anything in. The box is
@@ -3435,8 +3482,8 @@ export function UniversalImageEditorModal({
               <div className="flex items-start space-x-1.5 sm:space-x-2 p-2 sm:p-2.5 md:p-3 bg-orange-50 dark:bg-orange-950/30 border border-orange-200 dark:border-orange-800 rounded-md mt-3">
                 <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 md:h-4 md:w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
                 <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600 dark:text-orange-400">
-                  The preview is square (900×900). Make sure your image fits well
-                  within these dimensions for best results.
+                  The preview is square (900×900). Make sure your image fits
+                  well within these dimensions for best results.
                 </p>
               </div>
             )}
@@ -3462,14 +3509,15 @@ export function UniversalImageEditorModal({
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        className={`border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 cursor-pointer ${isDragOver
-          ? "border-accent-blue bg-accent-blue/10"
-          : destructive
+        className={`border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 cursor-pointer ${
+          isDragOver
+            ? "border-accent-blue bg-accent-blue/10"
+            : destructive
             ? "border-red-500"
             : value
-              ? "border-accent-blue bg-[#23919C]/5"
-              : "border-gray-300 hover:border-gray-400"
-          }`}
+            ? "border-accent-blue bg-[#23919C]/5"
+            : "border-gray-300 hover:border-gray-400"
+        }`}
       >
         {value ? (
           <div className="w-full">
@@ -3492,7 +3540,6 @@ export function UniversalImageEditorModal({
                 (type === "headshot" ? "" : "min-h-[180px]")
               }
             >
-
               {/* Preview Column */}
               <div className="flex items-center justify-center flex-shrink-0">
                 <div
@@ -3583,25 +3630,49 @@ export function UniversalImageEditorModal({
               <p className="text-xs text-gray-500">
                 Recommended:{" "}
                 {config.recommendedText ??
-                  `${(config as any).recommendedDisplaySize?.width ?? config.previewSizes.rectangular?.width ?? 300}×${(config as any).recommendedDisplaySize?.height ?? config.previewSizes.rectangular?.height ?? 250}`}{" "}
-                • Accepted: {config.acceptedTypes.join(", ").toUpperCase()} • Max
-                15 MB
+                  `${
+                    (config as any).recommendedDisplaySize?.width ??
+                    config.previewSizes.rectangular?.width ??
+                    300
+                  }×${
+                    (config as any).recommendedDisplaySize?.height ??
+                    config.previewSizes.rectangular?.height ??
+                    250
+                  }`}{" "}
+                • Accepted: {config.acceptedTypes.join(", ").toUpperCase()} •
+                Max 15 MB
               </p>
               <p className="text-xs text-accent-blue mt-1">
                 Drag & drop an image (or a .zip) here, or choose a file below
               </p>
             </div>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                inputRef.current?.click();
-              }}
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2 mt-2"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              Choose File
-            </button>
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-2">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  inputRef.current?.click();
+                }}
+                className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-4 py-2"
+              >
+                <Plus className="w-4 h-4 mr-1" />
+                Choose File
+              </button>
+              {hasLibrary && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsLibraryPickerOpen(true);
+                  }}
+                  disabled={isLoading || isSaving}
+                  className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background shadow-sm hover:border-accent-blue hover:bg-accent-blue/5 hover:text-accent-blue dark:hover:border-accent-blue dark:hover:bg-accent-blue/10 h-9 px-4 py-2"
+                >
+                  <Library className="w-4 h-4 mr-1.5" />
+                  Choose from My Library
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -3683,10 +3754,11 @@ export function UniversalImageEditorModal({
                         ) : (
                           <>
                             <p className="text-[9px] sm:text-[10px] md:text-xs text-gray-600 dark:text-gray-400">
-                              Removes the background — a solid colour, a gradient
-                              or a photo behind the logo — trims the empty space
-                              around the artwork and fits the result to the guide,
-                              so the logo is sized by the artwork itself.
+                              Removes the background — a solid colour, a
+                              gradient or a photo behind the logo — trims the
+                              empty space around the artwork and fits the result
+                              to the guide, so the logo is sized by the artwork
+                              itself.
                             </p>
 
                             {/* The model runs on the server, so a removal is a request
@@ -3697,8 +3769,8 @@ export function UniversalImageEditorModal({
                                 moving it. */}
                             {bgRemoval.isProcessing && (
                               <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground">
-                                Removing the background on the server — this can take
-                                a few seconds the first time.
+                                Removing the background on the server — this can
+                                take a few seconds the first time.
                               </p>
                             )}
 
@@ -3707,8 +3779,8 @@ export function UniversalImageEditorModal({
                                 <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
                                 <p className="text-[9px] sm:text-[10px] md:text-xs text-orange-600 dark:text-orange-400">
                                   This logo&rsquo;s artwork may use the same
-                                  colour as the background. Check the preview, and
-                                  press Undo Background Removal if anything
+                                  colour as the background. Check the preview,
+                                  and press Undo Background Removal if anything
                                   disappeared.
                                 </p>
                               </div>
@@ -3741,8 +3813,8 @@ export function UniversalImageEditorModal({
                                 <AlertTriangle className="h-3 w-3 sm:h-3.5 sm:w-3.5 text-amber-600 dark:text-amber-400 mt-0.5 flex-shrink-0" />
                                 <p className="text-[9px] sm:text-[10px] md:text-xs text-amber-700 dark:text-amber-300">
                                   Background removal can alter fine details like
-                                  script lettering or thin lines. Check your logo
-                                  before saving.
+                                  script lettering or thin lines. Check your
+                                  logo before saving.
                                 </p>
                               </div>
                             )}
@@ -3760,7 +3832,9 @@ export function UniversalImageEditorModal({
                           </h4>
                           <ul className="space-y-1 sm:space-y-1.5 text-[9px] sm:text-[10px] md:text-xs text-blue-800 dark:text-blue-200">
                             <li className="flex items-start gap-2">
-                              <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                              <span className="text-blue-600 dark:text-blue-400 mt-0.5">
+                                •
+                              </span>
                               <span>
                                 Resize your{" "}
                                 {previewTitle ? previewTitle : "logo"} so it
@@ -3768,7 +3842,9 @@ export function UniversalImageEditorModal({
                               </span>
                             </li>
                             <li className="flex items-start gap-2">
-                              <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                              <span className="text-blue-600 dark:text-blue-400 mt-0.5">
+                                •
+                              </span>
                               <span>
                                 The dashed line marks the recommended{" "}
                                 {previewTitle ? previewTitle : "logo"} area (for
@@ -3776,7 +3852,9 @@ export function UniversalImageEditorModal({
                               </span>
                             </li>
                             <li className="flex items-start gap-2">
-                              <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                              <span className="text-blue-600 dark:text-blue-400 mt-0.5">
+                                •
+                              </span>
                               <span>
                                 The solid border line marks the safe zone –
                                 anything beyond it may be cropped or hidden.
@@ -3794,31 +3872,43 @@ export function UniversalImageEditorModal({
                         </h4>
                         <ul className="space-y-1 sm:space-y-1.5 text-[9px] sm:text-[10px] md:text-xs text-blue-800 dark:text-blue-200">
                           <li className="flex items-start gap-2">
-                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">
+                              •
+                            </span>
                             <span>
                               Recommended size:{" "}
                               <strong>
-                                {(config as any).recommendedDisplaySize?.width ?? 1920}×{(config as any).recommendedDisplaySize?.height ?? 1080}
+                                {(config as any).recommendedDisplaySize
+                                  ?.width ?? 1920}
+                                ×
+                                {(config as any).recommendedDisplaySize
+                                  ?.height ?? 1080}
                               </strong>{" "}
                               for best results.
                             </span>
                           </li>
                           <li className="flex items-start gap-2">
-                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">
+                              •
+                            </span>
                             <span>
-                              Resize the image so it fills the preview and covers
-                              the entire background.
+                              Resize the image so it fills the preview and
+                              covers the entire background.
                             </span>
                           </li>
                           <li className="flex items-start gap-2">
-                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">
+                              •
+                            </span>
                             <span>
-                              The solid border line marks the safe zone – anything
-                              beyond it may be cropped or hidden.
+                              The solid border line marks the safe zone –
+                              anything beyond it may be cropped or hidden.
                             </span>
                           </li>
                           <li className="flex items-start gap-2">
-                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">
+                              •
+                            </span>
                             <span>
                               Accepted formats:{" "}
                               {config.acceptedTypes.join(", ").toUpperCase()}.
@@ -3862,31 +3952,39 @@ export function UniversalImageEditorModal({
                         </h4>
                         <ul className="space-y-1 sm:space-y-1.5 text-[9px] sm:text-[10px] md:text-xs text-blue-800 dark:text-blue-200">
                           <li className="flex items-start gap-2">
-                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">
+                              •
+                            </span>
                             <span>
                               Grab the blue circles at the edges of your photo
                               to resize.
                             </span>
                           </li>
                           <li className="flex items-start gap-2">
-                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">
+                              •
+                            </span>
                             <span>
                               Use the Scale slider below for fine-tuning.
                             </span>
                           </li>
                           <li className="flex items-start gap-2">
-                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">
+                              •
+                            </span>
                             <span>
                               Center your face inside the dotted circle for best
                               results.
                             </span>
                           </li>
                           <li className="flex items-start gap-2">
-                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">•</span>
+                            <span className="text-blue-600 dark:text-blue-400 mt-0.5">
+                              •
+                            </span>
                             <span>
                               photo sizes and formats vary, please review
-                              carefully to make sure there&rsquo;s no blank space or
-                              cutoff areas in the preview.
+                              carefully to make sure there&rsquo;s no blank
+                              space or cutoff areas in the preview.
                             </span>
                           </li>
                         </ul>
@@ -4001,13 +4099,19 @@ export function UniversalImageEditorModal({
                     {/* File Details */}
                     {config.showFileDetails && imageSrc && (
                       <div className="space-y-2 text-sm dark:text-gray-200">
-                        <h4 className="font-medium dark:text-gray-100">File Details</h4>
+                        <h4 className="font-medium dark:text-gray-100">
+                          File Details
+                        </h4>
                         <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Type:</span>
+                          <span className="text-gray-600 dark:text-gray-400">
+                            Type:
+                          </span>
                           <span className="font-medium">PNG</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Size:</span>
+                          <span className="text-gray-600 dark:text-gray-400">
+                            Size:
+                          </span>
                           <span className="font-medium">
                             {type === "normalizer" || type === "logo"
                               ? canvasMode === "compact"
@@ -4017,11 +4121,15 @@ export function UniversalImageEditorModal({
                           </span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">File Size:</span>
+                          <span className="text-gray-600 dark:text-gray-400">
+                            File Size:
+                          </span>
                           <span className="font-medium">~18 KB</span>
                         </div>
                         <div className="flex justify-between">
-                          <span className="text-gray-600 dark:text-gray-400">Transparency:</span>
+                          <span className="text-gray-600 dark:text-gray-400">
+                            Transparency:
+                          </span>
                           <span className="font-medium">Yes</span>
                         </div>
                       </div>
@@ -4030,7 +4138,9 @@ export function UniversalImageEditorModal({
                     {/* Warnings */}
                     {config.showWarnings && warnings.length > 0 && (
                       <div className="space-y-2">
-                        <h4 className="font-medium dark:text-gray-100">Warnings</h4>
+                        <h4 className="font-medium dark:text-gray-100">
+                          Warnings
+                        </h4>
                         <div className="space-y-1">
                           {warnings.map((warning, index) => (
                             <div
@@ -4165,7 +4275,9 @@ export function UniversalImageEditorModal({
                           <span className="truncate">Saving...</span>
                         </div>
                       ) : (
-                        <span className="truncate">{saveButtonText || config.saveButtonText}</span>
+                        <span className="truncate">
+                          {saveButtonText || config.saveButtonText}
+                        </span>
                       )}
                     </Button>
                   </div>
@@ -4176,23 +4288,42 @@ export function UniversalImageEditorModal({
           document.body,
         )}
 
-        {/* ZIP file picker — shown when a dropped .zip contains multiple images */}
-        <ZipFilePickerModal
-          open={isZipPickerOpen}
-          files={pendingZipImages ?? []}
-          multiple={false}
-          onSelect={(files) => {
-            const f = files[0];
-            if (f) void handleZipImageSelect(f);
-          }}
-          onClose={() => {
-            setIsZipPickerOpen(false);
-            setPendingZipImages((prev) => {
-              if (prev) revokeZipImagePreviews(prev);
-              return null;
-            });
-          }}
-        />
+      {/* ZIP file picker — shown when a dropped .zip contains multiple images */}
+      <ZipFilePickerModal
+        open={isZipPickerOpen}
+        files={pendingZipImages ?? []}
+        libraryKind="image"
+        otherKindFiles={pendingZipDocuments}
+        multiple={false}
+        onSelect={(files) => {
+          const f = files[0];
+          if (f) void handleZipImageSelect(f);
+        }}
+        onClose={() => {
+          setIsZipPickerOpen(false);
+          setPendingZipImages((prev) => {
+            if (prev) revokeZipImagePreviews(prev);
+            return null;
+          });
+          setPendingZipDocuments([]);
+        }}
+      />
+
+      {/* Saved-library picker — opened directly, with no .zip in hand. */}
+      <ZipFilePickerModal
+        open={isLibraryPickerOpen}
+        files={[]}
+        libraryKind="image"
+        title="Choose from your library"
+        description="Images you kept from a previous .zip folder. Pick one to use here."
+        multiple={false}
+        onSelect={(files) => {
+          const f = files[0];
+          setIsLibraryPickerOpen(false);
+          if (f) void processImageFile(f.file);
+        }}
+        onClose={() => setIsLibraryPickerOpen(false)}
+      />
 
       {/* Discard changes confirmation */}
       <ConfirmDialog

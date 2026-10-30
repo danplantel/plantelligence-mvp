@@ -11,7 +11,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Document, BenefitsCategory } from "@/types/new-client-wizard";
-import { guessLanguageFromDocument, detectBenefitsCategory, analyzeDocumentCategory, extractTextFromPDF } from "@/lib/compliance-document-utils";
+import {
+  guessLanguageFromDocument,
+  detectBenefitsCategory,
+  analyzeDocumentCategory,
+  extractTextFromPDF,
+} from "@/lib/compliance-document-utils";
 import { getDocumentCategoryDisplayLabel } from "@/lib/service-categories";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -41,14 +46,23 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
-import { CheckCircle2, Loader2, AlertCircle, Circle, Sparkles } from "lucide-react";
+import {
+  CheckCircle2,
+  Loader2,
+  AlertCircle,
+  Circle,
+  Sparkles,
+  Library,
+} from "lucide-react";
 import { toCanonicalCategory } from "@/lib/r2";
 import {
   isZipFile,
-  extractFilesFromZip,
+  extractZipContents,
+  revokeZipImagePreviews,
   type ExtractedFile,
 } from "@/lib/zip-image-extract";
 import { ZipFilePickerModal } from "@/components/ui/zip-file-picker-modal";
+import { useProfileLibraryAvailability } from "@/hooks/useProfileLibraryAvailability";
 import { suggestDocumentNamesBatch } from "@/lib/gemini-suggest-doc-name";
 import {
   computeBulkCategoryAssignmentHint,
@@ -151,19 +165,33 @@ export function DocumentsUploadSection({
   const isAddingRef = useRef(false);
   const [batchCategoryDialogOpen, setBatchCategoryDialogOpen] = useState(false);
   const [pendingBatchFiles, setPendingBatchFiles] = useState<File[]>([]);
-  const [batchCategory, setBatchCategory] = useState<BenefitsCategory>("Retirement");
-  const [batchMultipleCategories, setBatchMultipleCategories] = useState<string[]>(["Retirement"]);
+  const [batchCategory, setBatchCategory] =
+    useState<BenefitsCategory>("Retirement");
+  const [batchMultipleCategories, setBatchMultipleCategories] = useState<
+    string[]
+  >(["Retirement"]);
   const [reviewDocuments, setReviewDocuments] = useState<Document[]>([]);
   /** IDs of review documents that were originally uncategorized — the category dropdown
    *  stays visible until the user confirms, even after a category is selected. */
-  const [uncategorizedReviewIds, setUncategorizedReviewIds] = useState<Set<string>>(new Set());
+  const [uncategorizedReviewIds, setUncategorizedReviewIds] = useState<
+    Set<string>
+  >(new Set());
   const [isReviewing, setIsReviewing] = useState(false);
   const [confirmedReview, setConfirmedReview] = useState(false);
   const [isAnalyzingNames, setIsAnalyzingNames] = useState(false);
   const [isZipPickerOpen, setIsZipPickerOpen] = useState(false);
+  // Opens the saved-library picker directly, with no .zip in hand.
+  const [isLibraryPickerOpen, setIsLibraryPickerOpen] = useState(false);
+  // "From Library" only makes sense once the advisor has kept some documents.
+  const hasLibrary = useProfileLibraryAvailability("document");
   const [pendingZipFiles, setPendingZipFiles] = useState<
     ExtractedFile[] | null
   >(null);
+  // Images found in the same archive — listed read-only by the picker so the
+  // advisor knows the .zip held more than the documents they came for.
+  const [pendingZipOtherFiles, setPendingZipOtherFiles] = useState<
+    ExtractedFile[]
+  >([]);
   const [uploadProgress, setUploadProgress] = useState<{
     total: number;
     completed: number;
@@ -200,7 +228,8 @@ export function DocumentsUploadSection({
   const isAutoCategorized = useMemo(() => {
     return (
       (currentDocumentFile as any)?._autoDetection?.confidence >= 70 &&
-      currentDocumentCategory === (currentDocumentFile as any)?._autoDetection?.category
+      currentDocumentCategory ===
+        (currentDocumentFile as any)?._autoDetection?.category
     );
   }, [currentDocumentFile, currentDocumentCategory]);
 
@@ -217,7 +246,9 @@ export function DocumentsUploadSection({
     if (editingDocument) {
       setCurrentDocumentName(editingDocument.name);
       setCurrentDocumentDescription(editingDocument.shortDescription || "");
-      setCurrentDocumentCategory(editingDocument.category || fixedCategory || "Other Benefits");
+      setCurrentDocumentCategory(
+        editingDocument.category || fixedCategory || "Other Benefits",
+      );
       setCurrentDocumentExpirationDate(
         editingDocument.expirationDate
           ? new Date(editingDocument.expirationDate).toISOString().split("T")[0]
@@ -364,8 +395,7 @@ export function DocumentsUploadSection({
 
   const validateFile = (file: File) => {
     const nameLower = file.name.toLowerCase();
-    const isPdf =
-      file.type === "application/pdf" || nameLower.endsWith(".pdf");
+    const isPdf = file.type === "application/pdf" || nameLower.endsWith(".pdf");
     if (pdfOnly) {
       if (!isPdf) {
         toast.error(
@@ -431,14 +461,20 @@ export function DocumentsUploadSection({
       pdfText = await extractTextFromPDF(base64);
     }
 
-    const { category, confidence } = analyzeDocumentCategory(file.name, pdfText);
+    const { category, confidence } = analyzeDocumentCategory(
+      file.name,
+      pdfText,
+    );
 
-    const detectedCategory = (fixedCategory || (confidence >= 70 ? category : "Other Benefits")) as BenefitsCategory;
+    const detectedCategory = (fixedCategory ||
+      (confidence >= 70 ? category : "Other Benefits")) as BenefitsCategory;
     setCurrentDocumentCategory(detectedCategory);
 
     const defaultExpirationDate = new Date();
     defaultExpirationDate.setFullYear(defaultExpirationDate.getFullYear() + 1);
-    setCurrentDocumentExpirationDate(defaultExpirationDate.toISOString().split("T")[0]);
+    setCurrentDocumentExpirationDate(
+      defaultExpirationDate.toISOString().split("T")[0],
+    );
 
     (file as any)._autoDetection = { category, confidence };
 
@@ -448,7 +484,7 @@ export function DocumentsUploadSection({
     } else {
       toast.info("Document analysis complete", {
         description: "Please manually select a category if not detected.",
-        duration: 5000
+        duration: 5000,
       });
     }
   };
@@ -478,7 +514,9 @@ export function DocumentsUploadSection({
       const tooBig = validFiles.filter((f) => f.size > MAX_PDF_BYTES);
       if (tooBig.length > 0) {
         toast.error(
-          `Each PDF must be under ${MAX_PDF_BYTES / 1024 / 1024} MB: ${tooBig.map((f) => f.name).join(", ")}`,
+          `Each PDF must be under ${MAX_PDF_BYTES / 1024 / 1024} MB: ${tooBig
+            .map((f) => f.name)
+            .join(", ")}`,
         );
         return;
       }
@@ -497,11 +535,19 @@ export function DocumentsUploadSection({
       total: validFiles.length,
       completed: 0,
       currentFile: null,
-      fileStatuses: validFiles.map((f) => ({ fileName: f.name, status: "pending" as const })),
+      fileStatuses: validFiles.map((f) => ({
+        fileName: f.name,
+        status: "pending" as const,
+      })),
     });
     const newDocuments: Document[] = [];
     /** Parallel arrays mapping to newDocuments for Gemini name suggestion */
-    const geminiInputs: Array<{ pdfText: string; originalFileName: string; category: string; pdfBase64?: string }> = [];
+    const geminiInputs: Array<{
+      pdfText: string;
+      originalFileName: string;
+      category: string;
+      pdfBase64?: string;
+    }> = [];
     try {
       await new Promise((resolve) => setTimeout(resolve, 300));
 
@@ -514,17 +560,19 @@ export function DocumentsUploadSection({
                 ...prev,
                 currentFile: file.name,
                 fileStatuses: prev.fileStatuses.map((s, j) =>
-                  j === i ? { ...s, status: "uploading" as const } : s
+                  j === i ? { ...s, status: "uploading" as const } : s,
                 ),
               }
-            : null
+            : null,
         );
 
         try {
           const docType = detectDocumentType(file.name);
           const defaultName = getFileNameWithoutExtension(file.name);
           const defaultDescription = getDescriptionByType(docType);
-          const category = (groupCategory || fixedCategory || "Other Benefits") as string;
+          const category = (groupCategory ||
+            fixedCategory ||
+            "Other Benefits") as string;
           const canonicalCategory = toCanonicalCategory(category);
 
           let filePayload: string;
@@ -595,7 +643,8 @@ export function DocumentsUploadSection({
           if (file.name.toLowerCase().endsWith(".pdf")) {
             pdfText = await extractTextFromPDF(base64ForAnalysis);
           }
-          const { category: suggestedCategory, confidence } = analyzeDocumentCategory(file.name, pdfText);
+          const { category: suggestedCategory, confidence } =
+            analyzeDocumentCategory(file.name, pdfText);
           // Multi-file: require explicit category per file unless fixedCategory,
           // groupCategory (batch dialog), or high-confidence auto-detect (3b.2).
           // When forceNoCategory is true (user selected "Multiple"), don't assign
@@ -604,17 +653,19 @@ export function DocumentsUploadSection({
             fixedCategory
               ? fixedCategory
               : forceNoCategory
-                ? undefined
-                : groupCategory
-                  ? groupCategory
-                  : confidence >= 70
-                    ? suggestedCategory
-                    : undefined
+              ? undefined
+              : groupCategory
+              ? groupCategory
+              : confidence >= 70
+              ? suggestedCategory
+              : undefined
           ) as BenefitsCategory | undefined;
 
           // Default expiration date: 1 year from now
           const defaultExpirationDate = new Date();
-          defaultExpirationDate.setFullYear(defaultExpirationDate.getFullYear() + 1);
+          defaultExpirationDate.setFullYear(
+            defaultExpirationDate.getFullYear() + 1,
+          );
 
           newDocuments.push({
             ...tempDoc,
@@ -635,7 +686,10 @@ export function DocumentsUploadSection({
           geminiInputs.push({
             pdfText,
             originalFileName: file.name,
-            category: (detectedCategory || groupCategory || fixedCategory || "Other Benefits") as string,
+            category: (detectedCategory ||
+              groupCategory ||
+              fixedCategory ||
+              "Other Benefits") as string,
             pdfBase64: isPdf ? base64ForAnalysis : undefined,
           });
 
@@ -644,12 +698,13 @@ export function DocumentsUploadSection({
               ? {
                   ...prev,
                   completed: prev.completed + 1,
-                  currentFile: i + 1 < validFiles.length ? validFiles[i + 1].name : null,
+                  currentFile:
+                    i + 1 < validFiles.length ? validFiles[i + 1].name : null,
                   fileStatuses: prev.fileStatuses.map((s, j) =>
-                    j === i ? { ...s, status: "ready" as const } : s
+                    j === i ? { ...s, status: "ready" as const } : s,
                   ),
                 }
-              : null
+              : null,
           );
         } catch (error) {
           console.error(`Error converting file ${file.name}:`, error);
@@ -660,10 +715,10 @@ export function DocumentsUploadSection({
                   ...prev,
                   completed: prev.completed + 1,
                   fileStatuses: prev.fileStatuses.map((s, j) =>
-                    j === i ? { ...s, status: "error" as const } : s
+                    j === i ? { ...s, status: "error" as const } : s,
                   ),
                 }
-              : null
+              : null,
           );
           toast.error(`Failed to process: ${file.name}`);
         }
@@ -674,12 +729,20 @@ export function DocumentsUploadSection({
         if (geminiInputs.length > 0) {
           try {
             setIsAnalyzingNames(true);
-            setUploadProgress((prev) => prev ? {
-              ...prev,
-              currentFile: "AI naming in progress...",
-              fileStatuses: prev.fileStatuses.map((s) => ({ ...s, status: "ready" as const })),
-            } : null);
-            const suggestedResults = await suggestDocumentNamesBatch(geminiInputs);
+            setUploadProgress((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    currentFile: "AI naming in progress...",
+                    fileStatuses: prev.fileStatuses.map((s) => ({
+                      ...s,
+                      status: "ready" as const,
+                    })),
+                  }
+                : null,
+            );
+            const suggestedResults =
+              await suggestDocumentNamesBatch(geminiInputs);
             if (suggestedResults.length === newDocuments.length) {
               let applied = 0;
               for (let i = 0; i < newDocuments.length; i++) {
@@ -699,9 +762,13 @@ export function DocumentsUploadSection({
                       })()
                     : (rawItem as Record<string, unknown> | null | undefined);
                 const candidate = parsed?.display_title;
-                const title = typeof candidate === "string" ? candidate.trim() : "";
+                const title =
+                  typeof candidate === "string" ? candidate.trim() : "";
                 const descriptionCandidate = parsed?.description;
-                const description = typeof descriptionCandidate === "string" ? descriptionCandidate.trim() : "";
+                const description =
+                  typeof descriptionCandidate === "string"
+                    ? descriptionCandidate.trim()
+                    : "";
                 if (title) {
                   newDocuments[i] = {
                     ...newDocuments[i],
@@ -734,17 +801,17 @@ export function DocumentsUploadSection({
         const existingKeys = new Set(
           documents.map((d) => {
             const name = (d.originalFileName || d.name || "").toLowerCase();
-            return fixedCategory ? `${name}::${d.category || ''}` : name;
+            return fixedCategory ? `${name}::${d.category || ""}` : name;
           }),
         );
         const toAdd = newDocuments.filter((d) => {
           const name = (d.originalFileName || d.name || "").toLowerCase();
-          const key = fixedCategory ? `${name}::${d.category || ''}` : name;
+          const key = fixedCategory ? `${name}::${d.category || ""}` : name;
           return !existingKeys.has(key);
         });
         toAdd.forEach((d) => {
           const name = (d.originalFileName || d.name || "").toLowerCase();
-          const key = fixedCategory ? `${name}::${d.category || ''}` : name;
+          const key = fixedCategory ? `${name}::${d.category || ""}` : name;
           existingKeys.add(key);
         });
         if (toAdd.length < newDocuments.length) {
@@ -772,7 +839,11 @@ export function DocumentsUploadSection({
             setIsReviewing(true);
             // Track which docs were uncategorized so the category dropdown
             // stays visible even after the user selects a value.
-            setUncategorizedReviewIds(new Set(toAdd.filter((d) => !d.category?.trim()).map((d) => d.id)));
+            setUncategorizedReviewIds(
+              new Set(
+                toAdd.filter((d) => !d.category?.trim()).map((d) => d.id),
+              ),
+            );
           } else {
             onDocumentsChange([...documents, ...toAdd]);
             const needsCategory = toAdd.filter((d) => !d.category?.trim());
@@ -865,13 +936,19 @@ export function DocumentsUploadSection({
     // (with thumbnails/icons) so the user chooses which ones to import.
     if (files.some((f) => isZipFile(f))) {
       const extracted: ExtractedFile[] = [];
+      // Images in the same archive: this picker cannot take them, but showing
+      // them read-only tells the advisor the .zip held more than documents.
+      const otherKind: ExtractedFile[] = [];
       for (const f of files) {
         if (isZipFile(f)) {
           try {
-            const list = await extractFilesFromZip(f, [".pdf", ".doc", ".docx"]);
-            extracted.push(...list);
+            const contents = await extractZipContents(f);
+            extracted.push(...contents.documents);
+            otherKind.push(...contents.images);
           } catch (err) {
-            toast.error((err as Error).message || "Could not read that .zip file.");
+            toast.error(
+              (err as Error).message || "Could not read that .zip file.",
+            );
           }
         } else {
           extracted.push({
@@ -883,7 +960,12 @@ export function DocumentsUploadSection({
           });
         }
       }
-      if (extracted.length === 0) return;
+      // Nothing readable at all (every archive already toasted its own error).
+      if (extracted.length === 0 && otherKind.length === 0) return;
+      // An archive holding ONLY images still opens the picker: it states that no
+      // documents were found and lists the images read-only in its accordion, so
+      // the advisor sees what actually arrived instead of a bare toast.
+      setPendingZipOtherFiles(otherKind);
       setPendingZipFiles(extracted);
       setIsZipPickerOpen(true);
       return;
@@ -895,7 +977,14 @@ export function DocumentsUploadSection({
   const handleZipFilesPicked = (chosen: ExtractedFile[]) => {
     setIsZipPickerOpen(false);
     setPendingZipFiles(null);
+    revokeZipImagePreviews(pendingZipOtherFiles);
+    setPendingZipOtherFiles([]);
     processSelectedFiles(chosen.map((c) => c.file));
+  };
+
+  const handleLibraryFilesPicked = (chosen: ExtractedFile[]) => {
+    setIsLibraryPickerOpen(false);
+    handleZipFilesPicked(chosen);
   };
 
   const handleAddDocument = async () => {
@@ -948,7 +1037,9 @@ export function DocumentsUploadSection({
           if (currentDocumentFile) {
             if (clientId) {
               try {
-                const category = (currentDocumentCategory || fixedCategory || "Other Benefits") as string;
+                const category = (currentDocumentCategory ||
+                  fixedCategory ||
+                  "Other Benefits") as string;
                 const key = await uploadFileToR2({
                   file: currentDocumentFile,
                   purpose: "document",
@@ -1024,7 +1115,9 @@ export function DocumentsUploadSection({
 
           if (clientId) {
             try {
-              const category = (currentDocumentCategory || fixedCategory || "Other Benefits") as string;
+              const category = (currentDocumentCategory ||
+                fixedCategory ||
+                "Other Benefits") as string;
               const key = await uploadFileToR2({
                 file: currentDocumentFile,
                 purpose: "document",
@@ -1082,25 +1175,31 @@ export function DocumentsUploadSection({
               ? new Date(currentDocumentExpirationDate).toISOString()
               : undefined,
             category: currentDocumentCategory,
-            categorySuggested: (currentDocumentFile as any)?._autoDetection?.category,
-            categoryConfidence: (currentDocumentFile as any)?._autoDetection?.confidence,
+            categorySuggested: (currentDocumentFile as any)?._autoDetection
+              ?.category,
+            categoryConfidence: (currentDocumentFile as any)?._autoDetection
+              ?.confidence,
           };
 
-          const sameFile = documents.some(
-            (d) => {
-              const sameName =
-                (d.originalFileName || d.name || "").toLowerCase() ===
-                (newDocument.originalFileName || newDocument.name || "").toLowerCase();
-              if (!sameName) return false;
-              // When fixedCategory is set (e.g. create benefits for Group Health), only treat as duplicate if same category
-              if (fixedCategory) return (d.category || "") === fixedCategory;
-              return true;
-            },
-          );
+          const sameFile = documents.some((d) => {
+            const sameName =
+              (d.originalFileName || d.name || "").toLowerCase() ===
+              (
+                newDocument.originalFileName ||
+                newDocument.name ||
+                ""
+              ).toLowerCase();
+            if (!sameName) return false;
+            // When fixedCategory is set (e.g. create benefits for Group Health), only treat as duplicate if same category
+            if (fixedCategory) return (d.category || "") === fixedCategory;
+            return true;
+          });
           if (!sameFile) {
             onDocumentsChange([...documents, newDocument]);
           } else {
-            toast.info("A document with this file name already exists in this category.");
+            toast.info(
+              "A document with this file name already exists in this category.",
+            );
           }
 
           setUploadProgress({
@@ -1148,7 +1247,10 @@ export function DocumentsUploadSection({
     );
   };
 
-  const handleReviewCategoryUpdate = (docId: string, category: BenefitsCategory) => {
+  const handleReviewCategoryUpdate = (
+    docId: string,
+    category: BenefitsCategory,
+  ) => {
     setReviewDocuments((prev) =>
       prev.map((d) => (d.id === docId ? { ...d, category } : d)),
     );
@@ -1170,10 +1272,15 @@ export function DocumentsUploadSection({
 
     try {
       const existingNames = new Set(
-        documents.map((d) => (d.originalFileName || d.name || "").toLowerCase()),
+        documents.map((d) =>
+          (d.originalFileName || d.name || "").toLowerCase(),
+        ),
       );
       const unique = reviewDocuments.filter(
-        (d) => !existingNames.has((d.originalFileName || d.name || "").toLowerCase()),
+        (d) =>
+          !existingNames.has(
+            (d.originalFileName || d.name || "").toLowerCase(),
+          ),
       );
       if (unique.length === 0) {
         toast.info("All files are duplicates of existing documents.");
@@ -1185,7 +1292,9 @@ export function DocumentsUploadSection({
       }
       if (unique.length < reviewDocuments.length) {
         toast.info(
-          `${reviewDocuments.length - unique.length} duplicate file(s) skipped.`,
+          `${
+            reviewDocuments.length - unique.length
+          } duplicate file(s) skipped.`,
         );
       }
       onDocumentsChange([...documents, ...unique]);
@@ -1231,8 +1340,8 @@ export function DocumentsUploadSection({
           <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 dark:border-red-800/40 dark:bg-red-900/10">
             <p className="text-sm text-destructive font-medium">
               {failedBatchFiles.length} file
-              {failedBatchFiles.length === 1 ? "" : "s"} could not be uploaded or
-              analyzed.
+              {failedBatchFiles.length === 1 ? "" : "s"} could not be uploaded
+              or analyzed.
             </p>
             <Button
               type="button"
@@ -1252,9 +1361,12 @@ export function DocumentsUploadSection({
             className="border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/30"
           >
             <AlertTriangle className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-            <AlertTitle className="text-sm font-semibold text-blue-800 dark:text-blue-300">Admin Notice</AlertTitle>
+            <AlertTitle className="text-sm font-semibold text-blue-800 dark:text-blue-300">
+              Admin Notice
+            </AlertTitle>
             <AlertDescription className="text-xs text-blue-700 dark:text-blue-400">
-              Suggested names, categories, and review dates are for organization only. Please review before publishing.
+              Suggested names, categories, and review dates are for organization
+              only. Please review before publishing.
             </AlertDescription>
           </DismissibleAlert>
         )}
@@ -1272,8 +1384,11 @@ export function DocumentsUploadSection({
                 {isAnalyzingNames && (
                   <span className="animate-spin inline-block h-4 w-4 rounded-full border-2 border-accent-blue border-t-transparent" />
                 )}
-                {isAnalyzingNames ? "Naming" : "Uploading"} {uploadProgress.completed} of {uploadProgress.total}
-                {uploadProgress.currentFile ? ` — ${uploadProgress.currentFile}` : ""}
+                {isAnalyzingNames ? "Naming" : "Uploading"}{" "}
+                {uploadProgress.completed} of {uploadProgress.total}
+                {uploadProgress.currentFile
+                  ? ` — ${uploadProgress.currentFile}`
+                  : ""}
               </span>
               <div className="flex items-center gap-2">
                 <Button
@@ -1290,11 +1405,17 @@ export function DocumentsUploadSection({
                   {isCancelling ? "Cancelling..." : "Cancel"}
                 </Button>
                 <span className="text-sm tabular-nums text-muted-foreground">
-                  {Math.round((uploadProgress.completed / uploadProgress.total) * 100)}%
+                  {Math.round(
+                    (uploadProgress.completed / uploadProgress.total) * 100,
+                  )}
+                  %
                 </span>
               </div>
             </div>
-            <Progress value={(uploadProgress.completed / uploadProgress.total) * 100} className="h-2" />
+            <Progress
+              value={(uploadProgress.completed / uploadProgress.total) * 100}
+              className="h-2"
+            />
             {uploadProgress.currentFileBytes &&
               uploadProgress.currentFileBytes.total > 0 && (
                 <div className="space-y-1 pt-1">
@@ -1322,7 +1443,8 @@ export function DocumentsUploadSection({
             <ul className="space-y-1.5">
               {uploadProgress.fileStatuses.map((f, i) => (
                 <li key={i} className="flex items-center gap-2 text-sm">
-                  {(f.status === "ready" || (f.status as string) === "done") && (
+                  {(f.status === "ready" ||
+                    (f.status as string) === "done") && (
                     <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
                   )}
                   {f.status === "uploading" && (
@@ -1337,13 +1459,23 @@ export function DocumentsUploadSection({
                   {f.status === "pending" && (
                     <Circle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                   )}
-                  <span className={f.status === "error" ? "text-destructive" : "text-muted-foreground"}>
+                  <span
+                    className={
+                      f.status === "error"
+                        ? "text-destructive"
+                        : "text-muted-foreground"
+                    }
+                  >
                     {f.fileName}
                     {f.status === "analyzing" && (
-                      <span className="text-violet-600/80 ml-1.5 text-xs">Analyzing</span>
+                      <span className="text-violet-600/80 ml-1.5 text-xs">
+                        Analyzing
+                      </span>
                     )}
                     {f.status === "ready" && (
-                      <span className="text-green-700/80 ml-1.5 text-xs">Ready</span>
+                      <span className="text-green-700/80 ml-1.5 text-xs">
+                        Ready
+                      </span>
                     )}
                   </span>
                 </li>
@@ -1360,7 +1492,8 @@ export function DocumentsUploadSection({
                 Generating document names with AI
               </p>
               <p className="text-xs text-violet-700/80 dark:text-violet-300/80 mt-0.5">
-                Gemini is reading each document and suggesting a descriptive name...
+                Gemini is reading each document and suggesting a descriptive
+                name...
               </p>
             </div>
           </div>
@@ -1375,7 +1508,9 @@ export function DocumentsUploadSection({
                 {reviewDocuments.length !== 1 ? "s" : ""} before adding
               </h4>
               <Badge className="bg-accent-blue/10 text-accent-blue border-transparent text-[10px] dark:bg-accent-blue/20 dark:text-accent-blue dark:bg-accent-blue-light">
-                {batchCategory && String(batchCategory).includes(",") ? "Multiple" : batchCategory || "—"}
+                {batchCategory && String(batchCategory).includes(",")
+                  ? "Multiple"
+                  : batchCategory || "—"}
               </Badge>
             </div>
             <p className="text-xs text-muted-foreground">
@@ -1404,7 +1539,10 @@ export function DocumentsUploadSection({
                         {doc.originalFileName || doc.name}
                       </span>
                     </div>
-                    <div className="flex items-center gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <div
+                      className="flex items-center gap-2 shrink-0"
+                      onClick={(e) => e.stopPropagation()}
+                    >
                       {(doc as any).language === "ES" ? (
                         <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400">
                           ES
@@ -1449,7 +1587,11 @@ export function DocumentsUploadSection({
                       <Input
                         value={doc.name}
                         onChange={(e) =>
-                          handleReviewFieldUpdate(doc.id, "name", e.target.value)
+                          handleReviewFieldUpdate(
+                            doc.id,
+                            "name",
+                            e.target.value,
+                          )
                         }
                         maxLength={60}
                         className="h-8 text-xs dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
@@ -1458,7 +1600,9 @@ export function DocumentsUploadSection({
                     <div className="space-y-1">
                       <Label className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
                         Description{" "}
-                        <span className="text-gray-400 font-normal">(optional)</span>
+                        <span className="text-gray-400 font-normal">
+                          (optional)
+                        </span>
                       </Label>
                       <Textarea
                         value={doc.shortDescription || ""}
@@ -1477,7 +1621,9 @@ export function DocumentsUploadSection({
                     <div className="space-y-1">
                       <Label className="text-[11px] font-medium text-gray-500 dark:text-gray-400">
                         Review Date{" "}
-                        <span className="text-gray-400 font-normal">(optional)</span>
+                        <span className="text-gray-400 font-normal">
+                          (optional)
+                        </span>
                       </Label>
                       <Input
                         type="date"
@@ -1510,17 +1656,25 @@ export function DocumentsUploadSection({
                             <SelectValue placeholder="Select a category" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="Retirement">Retirement</SelectItem>
-                            <SelectItem value="Group Health">Group Health</SelectItem>
-                            <SelectItem value="Group Life">Group Life</SelectItem>
+                            <SelectItem value="Retirement">
+                              Retirement
+                            </SelectItem>
+                            <SelectItem value="Group Health">
+                              Group Health
+                            </SelectItem>
+                            <SelectItem value="Group Life">
+                              Group Life
+                            </SelectItem>
                             <SelectItem value="Multiple">Multiple</SelectItem>
-                            <SelectItem value="Other Benefits">Other</SelectItem>
+                            <SelectItem value="Other Benefits">
+                              Other
+                            </SelectItem>
                           </SelectContent>
                         </Select>
                         {!doc.category && (
                           <p className="text-[10px] text-amber-600 dark:text-amber-400">
-            Please assign a category before adding.
-          </p>
+                            Please assign a category before adding.
+                          </p>
                         )}
                       </div>
                     )}
@@ -1531,11 +1685,14 @@ export function DocumentsUploadSection({
             <label className="flex items-start gap-3 pt-3 pb-1 cursor-pointer">
               <Checkbox
                 checked={confirmedReview}
-                onCheckedChange={(checked: boolean | "indeterminate") => setConfirmedReview(checked === true)}
+                onCheckedChange={(checked: boolean | "indeterminate") =>
+                  setConfirmedReview(checked === true)
+                }
                 className="mt-0.5"
               />
               <span className="text-xs text-muted-foreground leading-relaxed select-none">
-                I confirm these documents are accurate, authorized for use, and ready to publish to this Benefits Hub.
+                I confirm these documents are accurate, authorized for use, and
+                ready to publish to this Benefits Hub.
               </span>
             </label>
             <div className="flex flex-col sm:flex-row gap-2 pt-2">
@@ -1572,20 +1729,23 @@ export function DocumentsUploadSection({
           !editingDocument && (
             <div
               className={`relative border-2 mt-6 border-dashed rounded-lg transition-colors ${
-                compactDropzone
-                  ? "p-4 sm:p-5"
-                  : "p-6 sm:p-8 md:p-12"
-              } ${isDragOver
-                ? "border-accent-blue bg-accent-blue/5"
-                : "border-gray-300 hover:border-accent-blue dark:border-gray-600 dark:hover:border-accent-blue"
-                }`}
+                compactDropzone ? "p-4 sm:p-5" : "p-6 sm:p-8 md:p-12"
+              } ${
+                isDragOver
+                  ? "border-accent-blue bg-accent-blue/5"
+                  : "border-gray-300 hover:border-accent-blue dark:border-gray-600 dark:hover:border-accent-blue"
+              }`}
               onDragOver={handleDragOver}
               onDragLeave={handleDragLeave}
               onDrop={handleDrop}
             >
               <div className="text-center">
                 <Upload
-                  className={`mx-auto text-gray-400 dark:text-gray-500 ${compactDropzone ? "w-7 h-7 sm:w-8 sm:h-8 mb-2" : "w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 mb-3 sm:mb-4"}`}
+                  className={`mx-auto text-gray-400 dark:text-gray-500 ${
+                    compactDropzone
+                      ? "w-7 h-7 sm:w-8 sm:h-8 mb-2"
+                      : "w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 mb-3 sm:mb-4"
+                  }`}
                 />
                 <p
                   className={
@@ -1614,6 +1774,17 @@ export function DocumentsUploadSection({
                   >
                     Choose Files
                   </Button>
+                  {hasLibrary && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsLibraryPickerOpen(true)}
+                      className="border-neutral-300 bg-white text-foreground shadow-sm hover:border-accent-blue hover:bg-accent-blue/5 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-accent-blue dark:hover:bg-accent-blue/10 w-full sm:w-auto"
+                    >
+                      <Library className="w-4 h-4 mr-1.5" />
+                      Choose from My Library
+                    </Button>
+                  )}
                   {secondaryAction && !editingDocument && (
                     <Button
                       type="button"
@@ -1627,7 +1798,8 @@ export function DocumentsUploadSection({
                   )}
                 </div>
                 <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-2">
-                  Tip: you can also drop a .zip folder of PDFs &mdash; we&rsquo;ll extract them for you.
+                  Tip: you can also drop a .zip folder of PDFs &mdash;
+                  we&rsquo;ll extract them for you.
                 </p>
               </div>
 
@@ -1656,15 +1828,15 @@ export function DocumentsUploadSection({
                       {currentDocumentFile
                         ? currentDocumentFile.name
                         : editingDocument?.originalFileName ||
-                        editingDocument?.name ||
-                        "Current file"}
+                          editingDocument?.name ||
+                          "Current file"}
                     </p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
                       {currentDocumentFile
                         ? `${Math.round(currentDocumentFile.size / 1024)} KB`
                         : editingDocument
-                          ? `${Math.round(editingDocument.size / 1024)} KB`
-                          : ""}
+                        ? `${Math.round(editingDocument.size / 1024)} KB`
+                        : ""}
                     </p>
                   </div>
                 </div>
@@ -1687,10 +1859,11 @@ export function DocumentsUploadSection({
               {/* Replace file option when editing */}
               {editingDocument && !currentDocumentFile && (
                 <div
-                  className={`relative border-2 border-dashed rounded-lg p-4 sm:p-6 transition-colors ${isDragOver
-                    ? "border-accent-blue bg-accent-blue/5"
-                    : "border-gray-300 hover:border-accent-blue dark:border-gray-600 dark:hover:border-accent-blue"
-                    }`}
+                  className={`relative border-2 border-dashed rounded-lg p-4 sm:p-6 transition-colors ${
+                    isDragOver
+                      ? "border-accent-blue bg-accent-blue/5"
+                      : "border-gray-300 hover:border-accent-blue dark:border-gray-600 dark:hover:border-accent-blue"
+                  }`}
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
@@ -1737,11 +1910,21 @@ export function DocumentsUploadSection({
                     <SelectValue placeholder="Select Category" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Retirement">{getDocumentCategoryDisplayLabel("Retirement")}</SelectItem>
-                    <SelectItem value="Group Health">{getDocumentCategoryDisplayLabel("Group Health")}</SelectItem>
-                    <SelectItem value="Group Life">{getDocumentCategoryDisplayLabel("Group Life")}</SelectItem>
-                    <SelectItem value="Multiple">{getDocumentCategoryDisplayLabel("Multiple")}</SelectItem>
-                    <SelectItem value="Other Benefits">{getDocumentCategoryDisplayLabel("Other Benefits")}</SelectItem>
+                    <SelectItem value="Retirement">
+                      {getDocumentCategoryDisplayLabel("Retirement")}
+                    </SelectItem>
+                    <SelectItem value="Group Health">
+                      {getDocumentCategoryDisplayLabel("Group Health")}
+                    </SelectItem>
+                    <SelectItem value="Group Life">
+                      {getDocumentCategoryDisplayLabel("Group Life")}
+                    </SelectItem>
+                    <SelectItem value="Multiple">
+                      {getDocumentCategoryDisplayLabel("Multiple")}
+                    </SelectItem>
+                    <SelectItem value="Other Benefits">
+                      {getDocumentCategoryDisplayLabel("Other Benefits")}
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1754,12 +1937,13 @@ export function DocumentsUploadSection({
                   Document Name <span className="text-red-500">*</span>
                 </Label>
                 <span
-                  className={`text-xs ${currentDocumentName.length > 60
-                    ? "text-red-500"
-                    : currentDocumentName.length > 50
+                  className={`text-xs ${
+                    currentDocumentName.length > 60
+                      ? "text-red-500"
+                      : currentDocumentName.length > 50
                       ? "text-amber-500"
                       : "text-gray-500 dark:text-gray-400"
-                    }`}
+                  }`}
                 >
                   {currentDocumentName.length}/60
                 </span>
@@ -1786,17 +1970,23 @@ export function DocumentsUploadSection({
             {/* Short Description */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="document-description" className="dark:text-gray-300">
+                <Label
+                  htmlFor="document-description"
+                  className="dark:text-gray-300"
+                >
                   Short Description{" "}
-                  <span className="text-gray-400 dark:text-gray-500">(optional)</span>
+                  <span className="text-gray-400 dark:text-gray-500">
+                    (optional)
+                  </span>
                 </Label>
                 <span
-                  className={`text-xs ${currentDocumentDescription.length > 200
-                    ? "text-red-500"
-                    : currentDocumentDescription.length > 180
+                  className={`text-xs ${
+                    currentDocumentDescription.length > 200
+                      ? "text-red-500"
+                      : currentDocumentDescription.length > 180
                       ? "text-amber-500"
                       : "text-gray-500 dark:text-gray-400"
-                    }`}
+                  }`}
                 >
                   {currentDocumentDescription.length}/200
                 </span>
@@ -1820,12 +2010,16 @@ export function DocumentsUploadSection({
               />
             </div>
 
-
             {/* Review Date */}
             <div className="space-y-2">
-              <Label htmlFor="document-expiration-date" className="dark:text-gray-300">
+              <Label
+                htmlFor="document-expiration-date"
+                className="dark:text-gray-300"
+              >
                 Review Date{" "}
-                <span className="text-gray-400 dark:text-gray-500">(optional)</span>
+                <span className="text-gray-400 dark:text-gray-500">
+                  (optional)
+                </span>
               </Label>
               <Input
                 id="document-expiration-date"
@@ -1838,8 +2032,8 @@ export function DocumentsUploadSection({
                 className="dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600"
               />
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Set a review date to receive notifications when this
-                document is due for review
+                Set a review date to receive notifications when this document is
+                due for review
               </p>
             </div>
 
@@ -1864,9 +2058,7 @@ export function DocumentsUploadSection({
                   </>
                 ) : (
                   <>
-                    <span className="hidden sm:inline">
-                      Add Document
-                    </span>
+                    <span className="hidden sm:inline">Add Document</span>
                     <span className="sm:hidden">Add Document</span>
                   </>
                 )}
@@ -1889,117 +2081,120 @@ export function DocumentsUploadSection({
         )}
       </CardContent>
 
-    {/* Batch category selection dialog — shown when multiple files are dropped */}
-    <AlertDialog
-      open={batchCategoryDialogOpen}
-      onOpenChange={(open) => {
-        if (!open) {
-          setBatchCategoryDialogOpen(false);
-          setPendingBatchFiles([]);
-        }
-      }}
-    >
-      <AlertDialogContent className="dark:bg-gray-800 dark:border-gray-700 max-w-md">
-        <AlertDialogHeader>
-          <AlertDialogTitle className="dark:text-gray-100">
-            Assign a category
-          </AlertDialogTitle>
-          <AlertDialogDescription className="dark:text-gray-400">
-            <span className="block mb-3">
-              You&rsquo;re uploading{" "}
-              <span className="font-semibold text-foreground">
-                {pendingBatchFiles.length} files
-              </span>{" "}
-              at once. Which category should be assigned to this group of
-              documents?
-            </span>
-            <span className="block text-muted-foreground text-xs">
-              You can change individual categories later in the review list.
-            </span>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
+      {/* Batch category selection dialog — shown when multiple files are dropped */}
+      <AlertDialog
+        open={batchCategoryDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setBatchCategoryDialogOpen(false);
+            setPendingBatchFiles([]);
+          }
+        }}
+      >
+        <AlertDialogContent className="dark:bg-gray-800 dark:border-gray-700 max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="dark:text-gray-100">
+              Assign a category
+            </AlertDialogTitle>
+            <AlertDialogDescription className="dark:text-gray-400">
+              <span className="block mb-3">
+                You&rsquo;re uploading{" "}
+                <span className="font-semibold text-foreground">
+                  {pendingBatchFiles.length} files
+                </span>{" "}
+                at once. Which category should be assigned to this group of
+                documents?
+              </span>
+              <span className="block text-muted-foreground text-xs">
+                You can change individual categories later in the review list.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
 
-        <div className="py-4 space-y-3">
-          <Label
-            htmlFor="batch-category"
-            className="text-sm font-medium block dark:text-gray-300"
-          >
-            Category
-          </Label>
-
-          <Select
-            value={batchCategory}
-            onValueChange={(v: any) => {
-              setBatchCategory(v);
-              if (v === "Multiple") {
-                setBatchMultipleCategories(["Retirement"]);
-              }
-            }}
-          >
-            <SelectTrigger
-              id="batch-category"
-              className="w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
+          <div className="py-4 space-y-3">
+            <Label
+              htmlFor="batch-category"
+              className="text-sm font-medium block dark:text-gray-300"
             >
-              <SelectValue placeholder="Select Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Retirement">Retirement</SelectItem>
-              <SelectItem value="Group Health">Group Health</SelectItem>
-              <SelectItem value="Group Life">Group Life</SelectItem>
-              <SelectItem value="Multiple">Multiple</SelectItem>
-              <SelectItem value="Other Benefits">Other</SelectItem>
-            </SelectContent>
-          </Select>
+              Category
+            </Label>
 
-          {batchCategory === "Multiple" && (
-            <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
-              <p className="text-xs text-blue-700 dark:text-blue-300">
-                You&rsquo;ll assign a category to each file individually in the review
-                step after upload and AI naming are complete.
-              </p>
-            </div>
-          )}
-        </div>
+            <Select
+              value={batchCategory}
+              onValueChange={(v: any) => {
+                setBatchCategory(v);
+                if (v === "Multiple") {
+                  setBatchMultipleCategories(["Retirement"]);
+                }
+              }}
+            >
+              <SelectTrigger
+                id="batch-category"
+                className="w-full dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
+              >
+                <SelectValue placeholder="Select Category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Retirement">Retirement</SelectItem>
+                <SelectItem value="Group Health">Group Health</SelectItem>
+                <SelectItem value="Group Life">Group Life</SelectItem>
+                <SelectItem value="Multiple">Multiple</SelectItem>
+                <SelectItem value="Other Benefits">Other</SelectItem>
+              </SelectContent>
+            </Select>
 
-        <AlertDialogFooter>
-          <AlertDialogCancel
-            className="dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
-            onClick={() => {
-              setBatchCategoryDialogOpen(false);
-              setPendingBatchFiles([]);
-            }}
-          >
-            Cancel
-          </AlertDialogCancel>
-          <AlertDialogAction
-            onClick={() => {
-              setBatchCategoryDialogOpen(false);
-              const isMultiple = batchCategory === "Multiple";
-              // When "Multiple" is selected, don't pass a groupCategory and
-              // set forceNoCategory=true so every file stays uncategorized
-              // for per-file assignment in the review step.
-              const effectiveCategory = isMultiple
-                ? undefined
-                : batchCategory;
-              void addDocumentsFromFiles(
-                pendingBatchFiles,
-                effectiveCategory as BenefitsCategory | undefined,
-                isMultiple, // forceNoCategory
-              );
-              setPendingBatchFiles([]);
-            }}
-          >
-            Start uploading {pendingBatchFiles.length} file
-            {pendingBatchFiles.length !== 1 ? "s" : ""}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+            {batchCategory === "Multiple" && (
+              <div className="mt-3 rounded-md border border-blue-200 bg-blue-50 p-3 dark:border-blue-800 dark:bg-blue-950/30">
+                <p className="text-xs text-blue-700 dark:text-blue-300">
+                  You&rsquo;ll assign a category to each file individually in
+                  the review step after upload and AI naming are complete.
+                </p>
+              </div>
+            )}
+          </div>
 
-      {/* ZIP file picker — shown when a dropped .zip contains documents */}
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              className="dark:bg-gray-700 dark:text-gray-300 dark:hover:bg-gray-600"
+              onClick={() => {
+                setBatchCategoryDialogOpen(false);
+                setPendingBatchFiles([]);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setBatchCategoryDialogOpen(false);
+                const isMultiple = batchCategory === "Multiple";
+                // When "Multiple" is selected, don't pass a groupCategory and
+                // set forceNoCategory=true so every file stays uncategorized
+                // for per-file assignment in the review step.
+                const effectiveCategory = isMultiple
+                  ? undefined
+                  : batchCategory;
+                void addDocumentsFromFiles(
+                  pendingBatchFiles,
+                  effectiveCategory as BenefitsCategory | undefined,
+                  isMultiple, // forceNoCategory
+                );
+                setPendingBatchFiles([]);
+              }}
+            >
+              Start uploading {pendingBatchFiles.length} file
+              {pendingBatchFiles.length !== 1 ? "s" : ""}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ZIP file picker — shown when a dropped .zip contains documents, with
+          the saved library offered alongside for a previously used archive. */}
       <ZipFilePickerModal
         open={isZipPickerOpen}
         files={pendingZipFiles ?? []}
+        libraryKind="document"
+        otherKindFiles={pendingZipOtherFiles}
         multiple
         title="Choose documents from the .zip"
         description="That .zip folder contains these files. Select the ones you'd like to upload."
@@ -2007,8 +2202,22 @@ export function DocumentsUploadSection({
         onClose={() => {
           setIsZipPickerOpen(false);
           setPendingZipFiles(null);
+          revokeZipImagePreviews(pendingZipOtherFiles);
+          setPendingZipOtherFiles([]);
         }}
       />
+
+      {/* Saved-library picker — opened directly, with no .zip in hand. */}
+      <ZipFilePickerModal
+        open={isLibraryPickerOpen}
+        files={[]}
+        libraryKind="document"
+        multiple
+        title="Choose documents from your library"
+        description="Documents you kept from a previous .zip folder. Select the ones you'd like to upload."
+        onSelect={handleLibraryFilesPicked}
+        onClose={() => setIsLibraryPickerOpen(false)}
+      />
     </Card>
-);
+  );
 }

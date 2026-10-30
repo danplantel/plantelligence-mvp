@@ -4,7 +4,14 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
-import { Upload, AlertTriangle, Plus, Edit2, Loader2 } from "lucide-react";
+import {
+  Upload,
+  AlertTriangle,
+  Plus,
+  Edit2,
+  Loader2,
+  Library,
+} from "lucide-react";
 import { BrandImageData } from "@/types/new-client-wizard";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { ImageActionsRow } from "@/components/ui/image-actions-row";
@@ -12,12 +19,12 @@ import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { toR2BrandingKey } from "@/lib/branding-image-url";
 import {
   isZipFile,
-  extractImagesFromZip,
+  extractZipContents,
   revokeZipImagePreviews,
   type ExtractedFile,
-  type ExtractedImage,
 } from "@/lib/zip-image-extract";
 import { ZipFilePickerModal } from "@/components/ui/zip-file-picker-modal";
+import { useProfileLibraryAvailability } from "@/hooks/useProfileLibraryAvailability";
 import { toast } from "sonner";
 
 interface BrandImageUploadProps {
@@ -50,7 +57,9 @@ interface BrandImageUploadProps {
   hideButtons?: boolean; // Hide Replace, Edit, Remove buttons
   useUniversalModal?: boolean; // Use UniversalImageEditorModal instead of onFileSelect
   universalModalType?: "headshot" | "logo" | "normalizer" | "custom"; // Type for UniversalImageEditorModal
-  universalModalCustomConfig?: Partial<import("@/components/ui/universal-image-editor-modal").ImageEditorConfig>; // Custom config overrides
+  universalModalCustomConfig?: Partial<
+    import("@/components/ui/universal-image-editor-modal").ImageEditorConfig
+  >; // Custom config overrides
   /**
    * Explicit opt-in / opt-out for logo background removal, forwarded to the
    * universal modal where it overrides the shared type default. Lets a slot that
@@ -135,9 +144,18 @@ export function BrandImageUpload({
   const [editedDescription, setEditedDescription] = useState(slot.description);
   const [isEditMode, setIsEditMode] = useState(false);
   const [isZipPickerOpen, setIsZipPickerOpen] = useState(false);
+  // Opens the saved-library picker directly, with no .zip in hand.
+  const [isLibraryPickerOpen, setIsLibraryPickerOpen] = useState(false);
+  // "Choose From Library" only makes sense once the advisor has kept something.
+  const hasLibrary = useProfileLibraryAvailability("image");
   const [pendingZipImages, setPendingZipImages] = useState<
-    ExtractedImage[] | null
+    ExtractedFile[] | null
   >(null);
+  // Documents found in the same archive — listed read-only by the picker so the
+  // advisor knows the .zip held more than the images they came for.
+  const [pendingZipDocuments, setPendingZipDocuments] = useState<
+    ExtractedFile[]
+  >([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const lastModalStateRef = useRef<{
     isOpen: boolean;
@@ -186,8 +204,7 @@ export function BrandImageUpload({
     setIsPreviewLoading(Boolean(previewSrc));
   }
 
-  useEffect(() => {
-  }, [pendingImageData]);
+  useEffect(() => {}, [pendingImageData]);
   // Sync editedDescription with slot.description when it changes externally
   useEffect(() => {
     if (!isEditingDescription) {
@@ -208,13 +225,17 @@ export function BrandImageUpload({
     if (!file.type || !allowedTypes.has(file.type)) {
       const fallbackImage = file.type?.startsWith("image/");
       if (!fallbackImage) {
-        toast.error(`Unsupported file. Please upload an image (PNG, JPG, JPEG, WebP, or SVG), or a .zip folder of images.`);
+        toast.error(
+          `Unsupported file. Please upload an image (PNG, JPG, JPEG, WebP, or SVG), or a .zip folder of images.`,
+        );
         return;
       }
     }
 
     if (file.size > maxFileSize * 1024 * 1024) {
-      toast.error(`File too large. Please upload a file under ${maxFileSize} MB.`);
+      toast.error(
+        `File too large. Please upload a file under ${maxFileSize} MB.`,
+      );
       return;
     }
 
@@ -227,7 +248,11 @@ export function BrandImageUpload({
         const dims = slot.recommendedSize.match(/\d+/g);
         const recWidth = dims?.[0] ? parseInt(dims[0], 10) : 0;
         const recHeight = dims?.[1] ? parseInt(dims[1], 10) : 0;
-        if (recWidth > 0 && recHeight > 0 && (img.width < recWidth || img.height < recHeight)) {
+        if (
+          recWidth > 0 &&
+          recHeight > 0 &&
+          (img.width < recWidth || img.height < recHeight)
+        ) {
           warnings.push(
             `Below recommended size (${slot.recommendedSize}). May appear blurry.`,
           );
@@ -246,7 +271,8 @@ export function BrandImageUpload({
 
         // Compress large images before proceeding
         const processImage = async () => {
-          if (base64String.length > 200000) { // Compress if > 200KB
+          if (base64String.length > 200000) {
+            // Compress if > 200KB
             try {
               const { compressImage } = await import("@/lib/image-compression");
               // For full-bleed slots (hero header background, inner header image,
@@ -294,11 +320,18 @@ export function BrandImageUpload({
   const handleFileSelect = async (file: File) => {
     if (isZipFile(file)) {
       try {
-        const extracted = await extractImagesFromZip(file);
-        if (extracted.length === 1) {
+        const contents = await extractZipContents(file);
+        const extracted = contents.images;
+        // A lone image is applied straight away — unless the same archive also
+        // carries documents. Those cannot be uploaded from an image slot, but the
+        // advisor should still see them (read-only, in the picker's accordion)
+        // before the archive is forgotten.
+        if (extracted.length === 1 && contents.documents.length === 0) {
+          setPendingZipDocuments([]);
           processImageFile(extracted[0].file);
           return;
         }
+        setPendingZipDocuments(contents.documents);
         setPendingZipImages(extracted);
         setIsZipPickerOpen(true);
         return;
@@ -316,6 +349,9 @@ export function BrandImageUpload({
       if (prev) revokeZipImagePreviews(prev);
       return null;
     });
+    // The read-only list is gone with the archive now that an image was picked.
+    revokeZipImagePreviews(pendingZipDocuments);
+    setPendingZipDocuments([]);
     processImageFile(image.file);
   };
 
@@ -550,7 +586,9 @@ export function BrandImageUpload({
           ) : (
             slot.description &&
             slot.description.trim() && (
-              <p className="text-xs text-muted-foreground mt-1">{slot.description}</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {slot.description}
+              </p>
             )
           )}
         </div>
@@ -558,12 +596,13 @@ export function BrandImageUpload({
       </div>
 
       <div
-        className={`relative overflow-hidden border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 ${isDragOver
-          ? "border-accent-blue bg-accent-blue/5"
-          : isHighlighted
+        className={`relative overflow-hidden border-2 border-dashed rounded-lg p-4 text-center transition-all duration-300 ${
+          isDragOver
+            ? "border-accent-blue bg-accent-blue/5"
+            : isHighlighted
             ? "border-blue-500/50 bg-white dark:bg-gray-800 scale-[1.02] shadow-sm"
             : "border-gray-300 dark:border-gray-600 hover:border-gray-400 dark:hover:border-gray-500"
-          }`}
+        }`}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
@@ -603,7 +642,8 @@ export function BrandImageUpload({
                   // `max-w-full` still caps the wide slots (hero, banner), where the ratio
                   // then yields to the card width and the 150px height stands.
                   style={
-                    universalModalType === "headshot" || !slot.previewAspectRatio
+                    universalModalType === "headshot" ||
+                    !slot.previewAspectRatio
                       ? undefined
                       : {
                           height: "150px",
@@ -631,13 +671,13 @@ export function BrandImageUpload({
                           universalModalType === "headshot"
                             ? "h-full w-full object-cover rounded-full"
                             : previewObjectFit === "cover"
-                              ? "w-full h-full object-cover"
-                              : // `contain` is deliberate for marks — the company logo
-                                // must sit whole inside its box, and covering a square
-                                // frame crops its sides, which reads as "zoomed in".
-                                // Photo slots ask for `cover` themselves; their shaped
-                                // box already matches the crop, so it fills either way.
-                                "object-contain"
+                            ? "w-full h-full object-cover"
+                            : // `contain` is deliberate for marks — the company logo
+                              // must sit whole inside its box, and covering a square
+                              // frame crops its sides, which reads as "zoomed in".
+                              // Photo slots ask for `cover` themselves; their shaped
+                              // box already matches the crop, so it fills either way.
+                              "object-contain"
                         } ${isPreviewLoading ? "opacity-0" : "opacity-100"}`}
                       />
                       {isPreviewLoading && (
@@ -647,7 +687,10 @@ export function BrandImageUpload({
                       )}
                     </>
                   ) : isStoredR2Key ? (
-                    <div className="absolute inset-0 flex items-center justify-center animate-pulse bg-muted/50" aria-hidden>
+                    <div
+                      className="absolute inset-0 flex items-center justify-center animate-pulse bg-muted/50"
+                      aria-hidden
+                    >
                       <Loader2 className="h-6 w-6 animate-spin text-accent-blue" />
                     </div>
                   ) : null}
@@ -683,6 +726,19 @@ export function BrandImageUpload({
                   deleteDisabled={isRemoving}
                   isDeleting={isRemoving}
                 />
+                {hasLibrary && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsLibraryPickerOpen(true)}
+                    disabled={isRemoving}
+                    className="border-neutral-300 bg-white text-foreground shadow-sm hover:border-accent-blue hover:bg-accent-blue/5 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-accent-blue dark:hover:bg-accent-blue/10"
+                  >
+                    <Library className="w-4 h-4 mr-1.5" />
+                    Choose from My Library
+                  </Button>
+                )}
               </div>
             </div>
           </div>
@@ -690,12 +746,14 @@ export function BrandImageUpload({
           <div className="space-y-3">
             <Upload className="w-6 h-6 mx-auto text-gray-400 dark:text-gray-500" />
             <div>
-              <p className="text-sm text-gray-600 dark:text-gray-300">No file selected</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                No file selected
+              </p>
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 {slot.helperText ?? (
                   <>
-                    Recommended: {slot.recommendedSize} • Accepted: {slot.accept} •
-                    Max
+                    Recommended: {slot.recommendedSize} • Accepted:{" "}
+                    {slot.accept} • Max
                     {maxFileSize} MB
                   </>
                 )}
@@ -714,6 +772,19 @@ export function BrandImageUpload({
               <Plus className="w-4 h-4 mr-1" />
               Choose File
             </Button>
+
+            {hasLibrary && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsLibraryPickerOpen(true)}
+                className="mt-2 border-neutral-300 bg-white text-foreground shadow-sm hover:border-accent-blue hover:bg-accent-blue/5 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:border-accent-blue dark:hover:bg-accent-blue/10"
+              >
+                <Library className="w-4 h-4 mr-1.5" />
+                Choose from My Library
+              </Button>
+            )}
 
             {slot.defaultPhoteButton && onDefaultPhotoClick && (
               <Button
@@ -758,10 +829,14 @@ export function BrandImageUpload({
         />
       )}
 
-      {/* ZIP file picker — shown when a dropped .zip contains multiple images */}
+      {/* ZIP file picker — shown when a dropped .zip contains multiple images,
+          with the saved library offered alongside so a previous archive's images
+          are one click away. */}
       <ZipFilePickerModal
         open={isZipPickerOpen}
         files={pendingZipImages ?? []}
+        libraryKind="image"
+        otherKindFiles={pendingZipDocuments}
         multiple={false}
         onSelect={(files) => {
           const f = files[0];
@@ -773,7 +848,24 @@ export function BrandImageUpload({
             if (prev) revokeZipImagePreviews(prev);
             return null;
           });
+          setPendingZipDocuments([]);
         }}
+      />
+
+      {/* Saved-library picker — opened directly, with no .zip in hand. */}
+      <ZipFilePickerModal
+        open={isLibraryPickerOpen}
+        files={[]}
+        libraryKind="image"
+        title="Choose from your library"
+        description="Images you kept from a previous .zip folder. Pick one to use here."
+        multiple={false}
+        onSelect={(files) => {
+          const f = files[0];
+          setIsLibraryPickerOpen(false);
+          if (f) processImageFile(f.file);
+        }}
+        onClose={() => setIsLibraryPickerOpen(false)}
       />
     </div>
   );

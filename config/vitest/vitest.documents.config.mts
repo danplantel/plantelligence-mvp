@@ -21,6 +21,10 @@ const documentsTests = [
   "components/pages/documents/views/__tests__/documents-cards-view.test.tsx",
   "components/pages/documents/views/__tests__/documents-table-view.test.tsx",
   "lib/__tests__/compliance-document-utils.test.ts",
+  // The advisor's .zip library: what a document/image uploader keeps for reuse
+  "lib/__tests__/profile-library.test.ts",
+  // Reading one .zip for both pickers ("2 Documents are present in this .zip")
+  "lib/__tests__/zip-image-extract.test.ts",
   "lib/__tests__/document-category.test.ts",
   "lib/__tests__/document-expirations.test.ts",
   "lib/__tests__/document-sort.test.ts",

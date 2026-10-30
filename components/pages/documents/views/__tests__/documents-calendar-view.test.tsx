@@ -42,7 +42,9 @@ function makeDoc(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function renderView(props: Partial<React.ComponentProps<typeof DocumentsCalendarView>> = {}) {
+function renderView(
+  props: Partial<React.ComponentProps<typeof DocumentsCalendarView>> = {},
+) {
   const onPreview = vi.fn();
   const onUpdateReviewDate = vi.fn().mockResolvedValue(true);
   render(
@@ -54,6 +56,19 @@ function renderView(props: Partial<React.ComponentProps<typeof DocumentsCalendar
     />,
   );
   return { onPreview, onUpdateReviewDate };
+}
+
+/**
+ * The day cell a document sits on. Each month grid also renders the trailing
+ * days of its neighbour, so a review date near a month boundary appears twice
+ * (once disabled, once inside its own month) — click the live one.
+ */
+function docDayCell(): HTMLElement {
+  const cells = screen.getAllByTitle("SPD 2025");
+  const enabled = cells.find(
+    (cell) => !(cell as HTMLButtonElement).disabled,
+  ) as HTMLElement | undefined;
+  return enabled ?? cells[0];
 }
 
 beforeEach(() => {
@@ -68,7 +83,9 @@ describe("DocumentsCalendarView", () => {
   });
 
   it("counts documents inside the 15-month window", () => {
-    renderView({ documents: [makeDoc(), makeDoc({ id: "doc-2", title: "SBC" })] });
+    renderView({
+      documents: [makeDoc(), makeDoc({ id: "doc-2", title: "SBC" })],
+    });
 
     expect(
       screen.getByText("2 documents with a review date in the next 15 months"),
@@ -87,14 +104,14 @@ describe("DocumentsCalendarView", () => {
     renderView();
 
     expect(screen.getAllByText("1 document").length).toBeGreaterThan(0);
-    expect(screen.getByTitle("SPD 2025")).toBeInTheDocument();
+    expect(docDayCell()).toBeInTheDocument();
   });
 
   it("opens the day drawer with the document's metadata", async () => {
     const user = userEvent.setup();
     renderView();
 
-    await user.click(screen.getByTitle("SPD 2025"));
+    await user.click(docDayCell());
 
     expect(await screen.findByText("Documents for review")).toBeInTheDocument();
     expect(screen.getByText("SPD 2025")).toBeInTheDocument();
@@ -108,7 +125,7 @@ describe("DocumentsCalendarView", () => {
     const user = userEvent.setup();
     const { onPreview } = renderView();
 
-    await user.click(screen.getByTitle("SPD 2025"));
+    await user.click(docDayCell());
     await user.click(await screen.findByRole("button", { name: "View" }));
 
     expect(onPreview).toHaveBeenCalledWith(
@@ -120,7 +137,7 @@ describe("DocumentsCalendarView", () => {
     const user = userEvent.setup();
     const { onUpdateReviewDate } = renderView();
 
-    await user.click(screen.getByTitle("SPD 2025"));
+    await user.click(docDayCell());
     await user.click(
       await screen.findByRole("button", { name: /Change review date/ }),
     );
@@ -139,7 +156,7 @@ describe("DocumentsCalendarView", () => {
     const user = userEvent.setup();
     const { onUpdateReviewDate } = renderView();
 
-    await user.click(screen.getByTitle("SPD 2025"));
+    await user.click(docDayCell());
     await user.click(
       await screen.findByRole("button", { name: /Change review date/ }),
     );
@@ -155,14 +172,16 @@ describe("DocumentsCalendarView", () => {
     const { onUpdateReviewDate } = renderView();
     onUpdateReviewDate.mockResolvedValue(false);
 
-    await user.click(screen.getByTitle("SPD 2025"));
+    await user.click(docDayCell());
     await user.click(
       await screen.findByRole("button", { name: /Change review date/ }),
     );
     await user.click(screen.getByRole("button", { name: "Save date" }));
 
     await waitFor(() => expect(onUpdateReviewDate).toHaveBeenCalled());
-    expect(screen.getByRole("button", { name: "Save date" })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Save date" }),
+    ).toBeInTheDocument();
   });
 
   it("disables the save action while the update is in flight", async () => {
@@ -174,7 +193,7 @@ describe("DocumentsCalendarView", () => {
     const { onUpdateReviewDate } = renderView();
     onUpdateReviewDate.mockReturnValue(pending);
 
-    await user.click(screen.getByTitle("SPD 2025"));
+    await user.click(docDayCell());
     await user.click(
       await screen.findByRole("button", { name: /Change review date/ }),
     );

@@ -24,6 +24,8 @@ export interface ExtractedFile {
 }
 
 const IMAGE_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".svg"]);
+/** What the documents picker takes out of an archive. */
+const DOCUMENT_EXTENSIONS = [".pdf", ".doc", ".docx"];
 
 /** Upper bound on the .zip size we'll extract in the browser (50 MB). */
 const MAX_ZIP_SIZE = 50 * 1024 * 1024;
@@ -83,11 +85,15 @@ function getImageDimensions(
  * generates thumbnails + dimensions for image entries only.
  *
  * Throws a human-readable Error when the archive is too large, contains too
- * many files, or contains none of the accepted types.
+ * many files, or contains none of the accepted types — unless `allowEmpty` is
+ * set, in which case "none of those types" simply yields an empty list. That is
+ * what lets one archive be read for both kinds at once (see
+ * `extractZipContents`) without treating the missing kind as an error.
  */
 async function extractEntries(
   file: File,
   acceptedExtensions: string[],
+  options: { allowEmpty?: boolean } = {},
 ): Promise<ExtractedFile[]> {
   if (file.size > MAX_ZIP_SIZE) {
     throw new Error(
@@ -144,7 +150,7 @@ async function extractEntries(
     }),
   );
 
-  if (results.length === 0) {
+  if (results.length === 0 && !options.allowEmpty) {
     const label = acceptedExtensions
       .map((e) => e.replace(".", "").toUpperCase())
       .join(", ");
@@ -187,7 +193,50 @@ export async function extractImagesFromZip(
   }));
 }
 
-/** Revoke the object URLs created for image thumbnails. */
-export function revokeZipImagePreviews(images: ExtractedImage[]): void {
-  images.forEach((img) => URL.revokeObjectURL(img.previewUrl));
+/** What one archive holds, split the way the two pickers read it. */
+export interface ZipContents {
+  images: ExtractedFile[];
+  documents: ExtractedFile[];
+}
+
+/**
+ * Both kinds from a single archive.
+ *
+ * A logo pack often ships a PDF spec sheet and a document bundle often carries a
+ * logo, so the picker that opened the .zip can say "2 Documents are present in
+ * this .zip" and show them read-only, instead of silently dropping them.
+ *
+ * An archive with only one kind returns an empty list for the other; only an
+ * archive with neither throws.
+ */
+export async function extractZipContents(file: File): Promise<ZipContents> {
+  const images = await extractEntries(file, Array.from(IMAGE_EXTENSIONS), {
+    allowEmpty: true,
+  });
+  const documents = await extractEntries(file, DOCUMENT_EXTENSIONS, {
+    allowEmpty: true,
+  });
+
+  if (images.length === 0 && documents.length === 0) {
+    throw new Error("No images, PDFs or Word files were found in that .zip.");
+  }
+
+  return { images, documents };
+}
+
+/**
+ * Revoke the object URLs created for thumbnails.
+ *
+ * Accepts any extracted entry (not just images) so the read-only "other files
+ * in this .zip" previews are cleaned up too, and skips non-blob URLs so a
+ * library preview (a server URL) is never revoked.
+ */
+export function revokeZipImagePreviews(
+  images: ReadonlyArray<{ previewUrl?: string }>,
+): void {
+  images.forEach((img) => {
+    if (img.previewUrl?.startsWith("blob:")) {
+      URL.revokeObjectURL(img.previewUrl);
+    }
+  });
 }
