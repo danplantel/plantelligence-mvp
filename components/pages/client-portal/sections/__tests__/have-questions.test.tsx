@@ -245,6 +245,62 @@ describe("HaveQuestions", () => {
     });
   });
 
+  it("levels every card in the row when any card shows a CTA", () => {
+    // A row of mixed cards used to leave the button-less ones a CTA short, so the
+    // row read ragged. One configured button stretches the whole row.
+    const { container, unmount } = render(
+      <HaveQuestions
+        contacts={[
+          contact({
+            id: "c1",
+            enableContactButton: true,
+            contactButtonType: "calendar",
+            schedulingUrl: "https://book.test/ada",
+          }),
+          contact({ id: "c2", title: "Grace Guide" }),
+        ]}
+      />,
+    );
+
+    screen
+      .getAllByTestId("contact-card")
+      .forEach((card) => expect(card.className).toContain("h-full"));
+    expect(container).toBeTruthy();
+    unmount();
+
+    // No CTA anywhere → the cards hug their content again, so a row of short
+    // cards does not trail off into an empty block.
+    render(
+      <HaveQuestions
+        contacts={[contact({ id: "c1" }), contact({ id: "c2" })]}
+      />,
+    );
+    screen
+      .getAllByTestId("contact-card")
+      .forEach((card) => expect(card.className).toContain("self-start"));
+  });
+
+  it("ignores a CTA that has no target when levelling the row", () => {
+    // `phone` configured but no number: the card draws no button, so it must not
+    // level the row either.
+    render(
+      <HaveQuestions
+        contacts={[
+          contact({ id: "c1", phone: "" }),
+          contact({ id: "c2", phone: "" }),
+        ].map((entry) => ({
+          ...entry,
+          enableContactButton: true,
+          contactButtonType: "phone" as const,
+        }))}
+      />,
+    );
+
+    screen
+      .getAllByTestId("contact-card")
+      .forEach((card) => expect(card.className).toContain("self-start"));
+  });
+
   it("draws exactly the CTA the advisor configured — and none without one", () => {
     const { container } = render(
       <HaveQuestions
@@ -306,6 +362,32 @@ describe("HaveQuestions", () => {
     expect(
       container.querySelector('[src="https://cdn.test/plan-logo.png"]'),
     ).not.toBeNull();
+  });
+
+  it("borrows the plan's logo for a benefit contact that has none", () => {
+    // The person's employer may never have had a logo uploaded. The card falls
+    // back to the plan's mark, as the wizard's own contact preview does, instead
+    // of sitting logo-less beside cards that have one.
+    const { container } = render(
+      <HaveQuestions
+        contacts={[
+          contact({
+            companyName: "Final Boss Advisory Group",
+            companyLogo: "",
+            benefitsCategories: ["Retirement"],
+          }),
+        ]}
+        companyLogo="https://cdn.test/plan-logo.png"
+      />,
+    );
+
+    expect(
+      container.querySelector('[src="https://cdn.test/plan-logo.png"]'),
+    ).not.toBeNull();
+    // Their own company still names the card.
+    expect(
+      screen.getByText("Final Boss Advisory Group"),
+    ).toBeInTheDocument();
   });
 });
 

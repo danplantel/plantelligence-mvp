@@ -37,6 +37,8 @@ export interface BenefitContactCardProps {
   placement?: ContactPlacement;
   /** Explicit compact override; wins over the placement default. */
   compact?: boolean;
+  /** Stretch every card in the row to the tallest — see `SmallVerticalCard`. */
+  equalHeight?: boolean;
   /**
    * Element tier for the compact card — the benefit hub sizes its support
    * cards from how many of them share the row (see `lib/support-card-layout`).
@@ -93,6 +95,7 @@ export function BenefitContactCard({
   asPrimary = false,
   placement = "team",
   compact,
+  equalHeight,
   size,
   mobileVariant,
 }: BenefitContactCardProps) {
@@ -136,6 +139,7 @@ export function BenefitContactCard({
       disableAnimation={disableAnimation}
       baselineBackgroundColor={baselineBackgroundColor}
       compact={isCompact}
+      equalHeight={equalHeight}
       size={size}
       mobileVariant={mobileVariant}
       categoryLabel={categoryLabel}

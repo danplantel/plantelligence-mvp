@@ -482,6 +482,17 @@ describe("SmallVerticalCard visuals", () => {
     );
   });
 
+  it("stretches to the row height only when asked", () => {
+    // Default: hug the content (no empty block under the last row).
+    const hugging = renderCard({ name: "Ada" });
+    expect(screen.getByTestId("contact-card").className).toContain("self-start");
+    hugging.unmount();
+
+    // `equalHeight`: a row where a neighbour carries a CTA must line up.
+    renderCard({ name: "Ada" }, { equalHeight: true });
+    expect(screen.getByTestId("contact-card").className).toContain("h-full");
+  });
+
   it("rules off the identity block from the contact details", () => {
     const { container } = renderCard({ name: "Ada", email: "ada@acme.test" });
 

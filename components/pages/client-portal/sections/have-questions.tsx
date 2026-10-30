@@ -105,6 +105,28 @@ export function HaveQuestions({
   const columnClass = supportCardColumnClass(contactCount);
   const cardSize = supportCardSize(contactCount);
 
+  // A card only draws a button when the advisor configured one AND it has a
+  // target (see the CTA rules in `SmallVerticalCard`). If even one card in the
+  // row does, every card stretches to that height — otherwise the row reads
+  // ragged, with the button-less cards ending a CTA's height short.
+  const anyContactShowsCta = orderedContacts.some((contact) => {
+    if (contact.enableContactButton !== true || !contact.contactButtonType) {
+      return false;
+    }
+    switch (contact.contactButtonType) {
+      case "calendar":
+        return Boolean(contact.schedulingUrl || resolvedAppointmentLink);
+      case "phone":
+        return Boolean(contact.phone);
+      case "email":
+        return Boolean(contact.email);
+      case "url":
+        return Boolean(contact.websiteUrl);
+      default:
+        return false;
+    }
+  });
+
   return (
     // The same light grey band as the FAQ section above it: it separates this block
     // from the white sections around it, and the white cards sit against it.
@@ -204,9 +226,12 @@ export function HaveQuestions({
                     companyName: isPlanCompanyCard
                       ? resolvedCompanyName || contact.companyName
                       : contact.companyName,
-                    companyLogo: isPlanCompanyCard
-                      ? contact.companyLogo || resolvedCompanyLogo
-                      : contact.companyLogo,
+                    // A card with no logo of its own borrows the plan's, exactly as
+                    // the wizard's own contact preview does (`planLogoUrl` fallback).
+                    // A contact whose employer has never had a logo uploaded — or
+                    // who carries no company at all — otherwise rendered a
+                    // logo-less card beside cards that do have one.
+                    companyLogo: contact.companyLogo || resolvedCompanyLogo,
                     websiteUrl: contact.websiteUrl,
                     // The advisor's choice, untouched — no inferred CTA.
                     enableContactButton: contact.enableContactButton,
@@ -227,6 +252,8 @@ export function HaveQuestions({
                   placement="category"
                   compact
                   size={cardSize}
+                  // Level heights whenever any card shows a CTA.
+                  equalHeight={anyContactShowsCta}
                 />
               </div>
             );

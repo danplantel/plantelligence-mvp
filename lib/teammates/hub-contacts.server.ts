@@ -33,6 +33,7 @@ import {
 } from "@/lib/benefit-contacts";
 import { readPlanContacts } from "./contact-mirror.server";
 import { designationLabels } from "@/config/onboarding/designations";
+import { applyContactCardPresentation } from "@/lib/contact-card-presentation";
 
 /** Case-insensitive address used to match a stored row to its derived card. */
 function normalizeEmail(value: unknown): string {
@@ -327,12 +328,23 @@ export async function buildPortalKeyContacts(input: {
     benefitsCategories: [...card.benefitsCategories],
   }));
   const residue: Record<string, unknown>[] = [];
+  const cardById = new Map(
+    foldedCards.map((card) => [String(card.id), card] as const),
+  );
 
   for (const contact of readPlanContacts(input.presentation)) {
     const id = contact?.id;
     const idString =
       id === undefined || id === null ? "" : String(id).trim();
-    if (idString && derivedIds.has(idString)) continue; // already represented
+    if (idString && derivedIds.has(idString)) {
+      // The person is already a card. The seat owns their details, but the card
+      // settings (CTA group, show/hide toggles) only exist on this stored row —
+      // nothing mirrors them onto the seat, so without this every portal card
+      // lost the button the advisor configured.
+      const card = cardById.get(idString);
+      if (card) applyContactCardPresentation(card, contact);
+      continue;
+    }
 
     const email = normalizeEmail(contact.email);
     const match = email
@@ -345,6 +357,9 @@ export async function buildPortalKeyContacts(input: {
       );
       match.benefitsCategories = categories;
       match.benefitsCategory = categories[0] ?? match.benefitsCategory;
+      // A row folded onto a card by email (an older draft stored one row per
+      // category) carries that card's presentation too.
+      applyContactCardPresentation(match, contact);
       continue;
     }
 

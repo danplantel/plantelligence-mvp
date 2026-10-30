@@ -86,6 +86,16 @@ interface SmallVerticalCardProps {
    *  display in constrained containers such as the mobile wizard preview grid. */
   compact?: boolean;
   /**
+   * Stretch to the height of the tallest card in the row.
+   *
+   * Without it the card hugs its content (`self-start`), which is what removes
+   * the empty block under the last row — but a row where only SOME cards draw a
+   * CTA then reads ragged. The support row turns this on as soon as any card has
+   * a button, so every card in that row is level and the slack sits where the
+   * button would be.
+   */
+  equalHeight?: boolean;
+  /**
    * Element tier. Set by the benefit hub's "Have Questions?" row, where the
    * number of support contacts decides how big each card is (`sm` 4-up, `md`
    * 3-up, `lg` 2-up / a lone card). Omitted everywhere else, where `compact`
@@ -173,8 +183,8 @@ const CARD_SIZE_STYLES: Record<
     infoGap: "gap-x-3 gap-y-0.5",
     dividerGap: "mt-2 gap-2",
     chip: "px-1 text-[8px]",
-    cta: "py-1.5 text-[10px]",
-    ctaSpacing: "pt-2",
+    cta: "py-2 text-[10px]",
+    ctaSpacing: "pt-1.5",
   },
   md: {
     padding: "p-4 sm:p-6",
@@ -188,7 +198,7 @@ const CARD_SIZE_STYLES: Record<
     dividerGap: "mt-3 gap-3",
     chip: "px-1.5 text-[9px]",
     cta: "py-2 text-xs sm:text-sm",
-    ctaSpacing: "pt-3",
+    ctaSpacing: "pt-2",
   },
   lg: {
     padding: "p-4 sm:p-6 lg:p-7",
@@ -202,7 +212,7 @@ const CARD_SIZE_STYLES: Record<
     dividerGap: "mt-3 gap-3 lg:mt-4 lg:gap-4",
     chip: "px-1.5 text-[9px] lg:text-[10px]",
     cta: "py-2 text-xs sm:text-sm lg:py-2.5 lg:text-sm",
-    ctaSpacing: "pt-3 lg:pt-4",
+    ctaSpacing: "pt-2 lg:pt-2.5",
   },
 };
 
@@ -219,6 +229,7 @@ export function SmallVerticalCard({
   baselineBackgroundColor,
   baselineLogoScale,
   compact = false,
+  equalHeight = false,
   size,
   previewPlaceholders = false,
   disableContactFormButton = false,
@@ -973,8 +984,10 @@ export function SmallVerticalCard({
         // block, its rule and the details stay tightly packed. `self-start`
         // keeps the card at its content height instead of being stretched to a
         // taller neighbour in the same grid row, which left a block of empty
-        // card under the last row.
-        "flex cursor-pointer flex-col self-start border border-[#E5E5E5] shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md",
+        // card under the last row — `equalHeight` opts back in for a row whose
+        // cards must line up because one of them carries a CTA.
+        "flex cursor-pointer flex-col border border-[#E5E5E5] shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md",
+        equalHeight ? "h-full" : "self-start",
         cardPadding,
       )}
       style={{ backgroundColor, borderRadius: portalRadiusValue(1.5) }}
@@ -1183,6 +1196,11 @@ export function SmallVerticalCard({
           className={cn(
             "flex w-full flex-col gap-1.5",
             cardStyles.ctaSpacing,
+            // A levelled row can leave slack on EVERY card, including the one
+            // that carries the button. Draining it into `mt-auto` keeps the
+            // button on the card's bottom padding instead of stranding it above
+            // a gap of empty card.
+            equalHeight && "mt-auto",
           )}
         >
           {buttons.map((button, idx) => {
@@ -1200,7 +1218,10 @@ export function SmallVerticalCard({
             const contactFormInert =
               disableContactFormButton && button.isContactForm === true;
             const actionClassName = cn(
-              "inline-flex w-full items-center justify-center px-4 font-semibold uppercase leading-tight tracking-wide font-red-hat hover:opacity-90",
+              // `h-auto` overrides the shared Button's fixed `h-9`: this CTA sizes
+              // itself from its own padding instead of centring a small label in a
+              // tall box, which showed as slack around and under the button.
+              "inline-flex h-auto w-full items-center justify-center px-4 font-semibold uppercase leading-tight tracking-wide font-red-hat hover:opacity-90",
               cardStyles.cta,
             );
             const actionStyle = {
