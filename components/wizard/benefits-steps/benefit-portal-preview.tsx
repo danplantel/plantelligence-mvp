@@ -849,19 +849,41 @@ export function BenefitPortalPreview({
           hideCategoryBadge
         />
 
-        <HaveQuestions
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          contacts={faqContacts}
-          companyLogo={planCompanyLogoUrl}
-          // Section 8's choice, so the preview shows the key contact's card exactly
-          // as the live hub will.
-          keyContactCardStyle={step1Data?.keyContactCardStyle}
-          // So the preview labels this benefit's key contact too. "Custom" is the
-          // wizard's name for the category the contacts are tagged with.
-          keyContacts={previewKeyContacts}
-          category={category === "Custom" ? "Company / Plan Sponsor" : category}
-        />
+        {/* The same affordance the other sections offer: hovering shows the blue edit
+            pencil and clicking opens the Editing Panel at Section 8 ("Have Questions?"),
+            where the key contact's card style lives. */}
+        <div
+          className={cn(
+            mobile ? "force-visible relative" : "relative",
+            "group cursor-pointer",
+          )}
+          data-preview-field="haveQuestions"
+          onClick={(event) => {
+            const target = event.target as HTMLElement;
+            // The copy-on-click email/phone rows and any CTA act on their own.
+            if (target.closest("a, button")) return;
+            handleEdit("haveQuestions");
+          }}
+          onMouseEnter={() => setHoveredSection("haveQuestions")}
+          onMouseLeave={() => setHoveredSection(null)}
+        >
+          {hoveredSection === "haveQuestions" && <EditPencil />}
+          <HaveQuestions
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            contacts={faqContacts}
+            companyLogo={planCompanyLogoUrl}
+            // Section 8's choice, so the preview shows the key contact's card exactly
+            // as the live hub will.
+            keyContactCardStyle={step1Data?.keyContactCardStyle}
+            // So the preview labels this benefit's key contact too. "Custom" is the
+            // wizard's name for the category the contacts are tagged with.
+            keyContacts={previewKeyContacts}
+            category={
+              category === "Custom" ? "Company / Plan Sponsor" : category
+            }
+          />
+        </div>
       </main>
     </div>
   );

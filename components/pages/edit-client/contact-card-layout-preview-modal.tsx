@@ -705,7 +705,10 @@ export function ContactCardLayoutPreviewModal({
       return (
         <div className="flex w-full flex-wrap justify-center gap-4 sm:gap-6">
           {slotElements.map((el, i) => (
-            <div key={i} className={supportCardColumnClass(slotElements.length)}>
+            <div
+              key={i}
+              className={supportCardColumnClass(slotElements.length)}
+            >
               {el}
             </div>
           ))}
