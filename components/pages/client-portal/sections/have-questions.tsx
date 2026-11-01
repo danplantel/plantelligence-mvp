@@ -4,6 +4,10 @@ import type { FAQContact } from "@/components/faq-section";
 import { BenefitContactCard } from "@/components/pages/client-portal/sections/benefit-contact-card";
 import { useOptionalClientPortal } from "@/contexts/client-portal-context";
 import { normalizeContactCategory } from "@/lib/benefit-contacts";
+import {
+  isHighlightedKeyContactStyle,
+  type KeyContactCardStyle,
+} from "@/lib/key-contact-card-style";
 import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
 import { HAVE_QUESTIONS_SECTION_ID } from "@/lib/portal-section-anchors";
 import {
@@ -21,6 +25,14 @@ interface HaveQuestionsProps {
   brandColor?: string;
   secondaryColor?: string;
   contacts?: FAQContact[];
+  /**
+   * How the KEY CONTACT's card is drawn (Section 8 of the benefit editor):
+   * `"default"` is the neutral card the rest of the row uses, `"highlighted"`
+   * fills it with the plan's primary colour and inverts its contents — the same
+   * treatment the primary card in "How Can We Help You Today?" uses. Unrecognised
+   * values fall back to the default card.
+   */
+  keyContactCardStyle?: KeyContactCardStyle;
   /** Where "Schedule Appt." books. Defaults to the plan's appointment link. */
   appointmentLink?: string;
   /** Company shown on each card when the contact carries none. */
@@ -59,6 +71,7 @@ export function HaveQuestions({
   brandColor = "#1F3A60",
   secondaryColor = "#6B7280",
   contacts,
+  keyContactCardStyle,
   appointmentLink,
   companyName,
   companyLogo,
@@ -174,10 +187,13 @@ export function HaveQuestions({
                   PLAN_SPONSOR_CATEGORY,
               );
 
-            // The one card this benefit points at. The label sits in a strip that
-            // every card reserves, so a labelled card never shifts its row.
+            // The one card this benefit points at. It is drawn in the style the
+            // advisor chose in Section 8 of the editor: the neutral card by default,
+            // or the filled/inverted "highlighted" one.
             const isKeyContact =
               Boolean(keyContactId) && String(contact.id) === keyContactId;
+            const isHighlightedKeyContact =
+              isKeyContact && isHighlightedKeyContactStyle(keyContactCardStyle);
 
             return (
               // The wrapper carries the column width for this row's count (and
@@ -187,17 +203,6 @@ export function HaveQuestions({
                 data-testid="contact-column"
                 className={columnClass}
               >
-                <div className="mb-2 flex h-6 items-center justify-center">
-                  {isKeyContact ? (
-                    <span
-                      data-testid="key-contact-label"
-                      className="inline-flex items-center rounded-full border bg-white px-3 py-1 font-red-hat text-[11px] font-semibold uppercase tracking-[0.1em] shadow-sm"
-                      style={{ borderColor: brandColor, color: brandColor }}
-                    >
-                      Key Contact
-                    </span>
-                  ) : null}
-                </div>
                 <BenefitContactCard
                   contact={{
                     id: contact.id,
@@ -239,6 +244,9 @@ export function HaveQuestions({
                   // `size` tier then scales that card to the width of its column.
                   placement="category"
                   compact
+                  // Only the key contact can be highlighted; everyone else keeps the
+                  // neutral card so the row still reads as one group.
+                  highlighted={isHighlightedKeyContact}
                   size={cardSize}
                   // Level heights whenever any card shows a CTA.
                   equalHeight={anyContactShowsCta}

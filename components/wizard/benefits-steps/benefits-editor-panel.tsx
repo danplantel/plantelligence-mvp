@@ -73,6 +73,10 @@ import { v4 as uuidv4 } from "uuid";
 import { BannerOverlaySettingsCard } from "@/components/wizard/new-client-steps/sections/components/banner-overlay-settings-card";
 import { TypographySection } from "@/components/wizard/new-client-steps/sections/typography-section";
 import {
+  normalizeKeyContactCardStyle,
+  type KeyContactCardStyle,
+} from "@/lib/key-contact-card-style";
+import {
   HeroBackgroundCard,
   type HeroSegmentMode,
 } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
@@ -86,6 +90,28 @@ import {
   formatPhoneNumber,
   normalizePhoneNumber,
 } from "@/components/wizard/steps/sections/user-setup-section/user-setup-section.funcs";
+
+/**
+ * Section 8 — the two ways this benefit's KEY CONTACT can be drawn in the closing
+ * "Have Questions?" band. The copy lives with the buttons that render it; the
+ * values and the fallback rule live in `lib/key-contact-card-style.ts`.
+ */
+const KEY_CONTACT_CARD_STYLE_CHOICES: {
+  value: KeyContactCardStyle;
+  label: string;
+  hint: string;
+}[] = [
+  {
+    value: "default",
+    label: "Default style",
+    hint: "The same white card the rest of the contacts on the page use.",
+  },
+  {
+    value: "highlighted",
+    label: "Highlighted",
+    hint: "Filled with the plan's primary colour, with the contents inverted.",
+  },
+];
 
 interface BenefitsEditorPanelProps {
   isOpen: boolean;
@@ -194,6 +220,7 @@ export function BenefitsEditorPanel({
     planVideo: useRef<HTMLDivElement>(null),
     helpCards: useRef<HTMLDivElement>(null),
     quickAnswers: useRef<HTMLDivElement>(null),
+    haveQuestions: useRef<HTMLDivElement>(null),
   };
 
   // TF-3: which location's Quick Answers this benefit owns. `null` for Employee
@@ -698,7 +725,9 @@ export function BenefitsEditorPanel({
           // The API shallow-merges `employeePortalPreview`, so `headerCta` lands
           // beside the rest of the blob instead of replacing it.
           body: JSON.stringify({
-            employeePortalPreview: { headerCta: JSON.parse(headerCtaPayloadKey) },
+            employeePortalPreview: {
+              headerCta: JSON.parse(headerCtaPayloadKey),
+            },
           }),
         });
         savedHeaderCtaRef.current = headerCtaPayloadKey;
@@ -757,8 +786,9 @@ export function BenefitsEditorPanel({
           <SectionHeader number={1} title="Portal Header Button" />
           <div className="space-y-4">
             <p className="text-[13px] text-muted-foreground leading-relaxed">
-              Every portal page carries one call to action in its header. This is a
-              plan-wide setting, so it applies to every benefit in this plan.
+              Every portal page carries one call to action in its header. This
+              is a plan-wide setting, so it applies to every benefit in this
+              plan.
             </p>
 
             <RadioGroup
@@ -813,8 +843,8 @@ export function BenefitsEditorPanel({
                     className="h-9"
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Opens in a new tab. Leave it empty and the button scrolls to your
-                    team&rsquo;s contact card instead.
+                    Opens in a new tab. Leave it empty and the button scrolls to
+                    your team&rsquo;s contact card instead.
                   </p>
                 </div>
                 <div className="space-y-2">
@@ -831,8 +861,8 @@ export function BenefitsEditorPanel({
                     className="h-9"
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Defaults to &ldquo;{DEFAULT_SCHEDULE_CTA_LABEL}&rdquo;. Keep it
-                    short — the header has room for about 28 characters.
+                    Defaults to &ldquo;{DEFAULT_SCHEDULE_CTA_LABEL}&rdquo;. Keep
+                    it short — the header has room for about 28 characters.
                   </p>
                 </div>
               </div>
@@ -843,7 +873,9 @@ export function BenefitsEditorPanel({
                 Header shows
               </span>
               {headerCtaSetting.mode === "none" ? (
-                <span className="text-[13px] text-muted-foreground">No button</span>
+                <span className="text-[13px] text-muted-foreground">
+                  No button
+                </span>
               ) : (
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-accent-blue px-3 py-1 text-[12px] font-semibold text-white">
                   {headerCtaSetting.mode === "login" ? (
@@ -1695,8 +1727,8 @@ export function BenefitsEditorPanel({
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
                     Upload your own image, or pick one from the gallery with
-                    &ldquo;Add Default Image&rdquo;. This is the image visitors see
-                    on this benefit page while there is no video.
+                    &ldquo;Add Default Image&rdquo;. This is the image visitors
+                    see on this benefit page while there is no video.
                   </p>
                 </div>
               </div>
@@ -1748,149 +1780,154 @@ export function BenefitsEditorPanel({
               (The portal hides the same label — see BenefitsVideoSection.) */}
           {resolvedPlanVideoUrl && (
             <>
-          {/* 4b — What's the video about? */}
-          <div className="space-y-3 mb-6 p-4 border border-muted rounded-lg bg-white dark:bg-gray-800">
-            <Label className="text-xs font-bold text-foreground">
-              {"What's the video about?"}
-            </Label>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              {VIDEO_LABELS.map((label) => (
-                <button
-                  key={label}
-                  type="button"
-                  aria-pressed={step1Data.planVideoLabel === label}
-                  onClick={() => handleVideoLabelChange(label)}
-                  className={cn(
-                    "rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
-                    step1Data.planVideoLabel === label
-                      ? "border-[#23919C] bg-[#23919C] text-white"
-                      : "border-muted bg-white text-muted-foreground hover:border-[#23919C]/60 hover:text-foreground dark:bg-gray-800",
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 4c — Thumbnail: uploaded image or a captured video frame. */}
-          <div className="space-y-3 mb-6 p-4 border border-muted rounded-lg bg-white dark:bg-gray-800">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <Label className="text-xs font-bold text-foreground">
-                Thumbnail
-              </Label>
-              <div className="inline-flex overflow-hidden rounded-lg border border-muted">
-                <button
-                  type="button"
-                  aria-pressed={thumbnailMode === "upload"}
-                  onClick={() => setThumbnailMode("upload")}
-                  className={cn(
-                    "flex h-8 items-center gap-1.5 px-3 text-xs font-medium transition-colors",
-                    thumbnailMode === "upload"
-                      ? "bg-[#23919C] text-white"
-                      : "bg-white text-muted-foreground hover:bg-muted dark:bg-gray-800",
-                  )}
-                >
-                  <ImagePlus className="h-3.5 w-3.5" />
-                  Upload Image
-                </button>
-                <button
-                  type="button"
-                  aria-pressed={thumbnailMode === "frame"}
-                  disabled={!resolvedPlanVideoUrl}
-                  title={
-                    resolvedPlanVideoUrl
-                      ? undefined
-                      : "Add a video source first"
-                  }
-                  onClick={() => setThumbnailMode("frame")}
-                  className={cn(
-                    "flex h-8 items-center gap-1.5 border-l border-muted px-3 text-xs font-medium transition-colors",
-                    thumbnailMode === "frame"
-                      ? "bg-[#23919C] text-white"
-                      : "bg-white text-muted-foreground hover:bg-muted dark:bg-gray-800",
-                    !resolvedPlanVideoUrl &&
-                      "cursor-not-allowed opacity-50 hover:bg-white dark:hover:bg-gray-800",
-                  )}
-                >
-                  <Video className="h-3.5 w-3.5" />
-                  From Video
-                </button>
-              </div>
-            </div>
-
-            {thumbnailMode === "upload" ? (
-              <div className="space-y-2">
-                <Input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleThumbnailFileChange}
-                  disabled={thumbnailBusy}
-                  className="text-sm"
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  JPG, PNG, or WebP. Downscaled to {THUMBNAIL_MAX_EDGE} px.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <video
-                  ref={thumbnailVideoRef}
-                  src={resolvedPlanVideoUrl || undefined}
-                  className="aspect-video w-full rounded-md bg-black"
-                  playsInline
-                  preload="metadata"
-                  onLoadedMetadata={(e) =>
-                    setThumbnailDuration(e.currentTarget.duration || 0)
-                  }
-                />
-                <input
-                  type="range"
-                  min={0}
-                  max={thumbnailDuration || 0}
-                  step={0.1}
-                  value={Math.min(thumbnailFrameTime, thumbnailDuration || 0)}
-                  onChange={(e) => handleThumbnailScrub(Number(e.target.value))}
-                  aria-label="Choose the video frame to use"
-                  className="w-full accent-[#23919C]"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => void captureThumbnailFrame()}
-                  disabled={thumbnailBusy || !resolvedPlanVideoUrl}
-                >
-                  Use This Frame
-                </Button>
-              </div>
-            )}
-
-            {resolvedThumbnailUrl && (
-              <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={resolvedThumbnailUrl}
-                  alt="Current video thumbnail"
-                  className="h-16 w-28 rounded-md object-cover"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">Current thumbnail</p>
-                  <p className="text-xs text-muted-foreground">
-                    Shown before the video plays.
-                  </p>
+              {/* 4b — What's the video about? */}
+              <div className="space-y-3 mb-6 p-4 border border-muted rounded-lg bg-white dark:bg-gray-800">
+                <Label className="text-xs font-bold text-foreground">
+                  {"What's the video about?"}
+                </Label>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  {VIDEO_LABELS.map((label) => (
+                    <button
+                      key={label}
+                      type="button"
+                      aria-pressed={step1Data.planVideoLabel === label}
+                      onClick={() => handleVideoLabelChange(label)}
+                      className={cn(
+                        "rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+                        step1Data.planVideoLabel === label
+                          ? "border-[#23919C] bg-[#23919C] text-white"
+                          : "border-muted bg-white text-muted-foreground hover:border-[#23919C]/60 hover:text-foreground dark:bg-gray-800",
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleRemoveThumbnail}
-                  className="shrink-0 text-destructive hover:text-destructive"
-                >
-                  Remove
-                </Button>
               </div>
-            )}
-          </div>
+
+              {/* 4c — Thumbnail: uploaded image or a captured video frame. */}
+              <div className="space-y-3 mb-6 p-4 border border-muted rounded-lg bg-white dark:bg-gray-800">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <Label className="text-xs font-bold text-foreground">
+                    Thumbnail
+                  </Label>
+                  <div className="inline-flex overflow-hidden rounded-lg border border-muted">
+                    <button
+                      type="button"
+                      aria-pressed={thumbnailMode === "upload"}
+                      onClick={() => setThumbnailMode("upload")}
+                      className={cn(
+                        "flex h-8 items-center gap-1.5 px-3 text-xs font-medium transition-colors",
+                        thumbnailMode === "upload"
+                          ? "bg-[#23919C] text-white"
+                          : "bg-white text-muted-foreground hover:bg-muted dark:bg-gray-800",
+                      )}
+                    >
+                      <ImagePlus className="h-3.5 w-3.5" />
+                      Upload Image
+                    </button>
+                    <button
+                      type="button"
+                      aria-pressed={thumbnailMode === "frame"}
+                      disabled={!resolvedPlanVideoUrl}
+                      title={
+                        resolvedPlanVideoUrl
+                          ? undefined
+                          : "Add a video source first"
+                      }
+                      onClick={() => setThumbnailMode("frame")}
+                      className={cn(
+                        "flex h-8 items-center gap-1.5 border-l border-muted px-3 text-xs font-medium transition-colors",
+                        thumbnailMode === "frame"
+                          ? "bg-[#23919C] text-white"
+                          : "bg-white text-muted-foreground hover:bg-muted dark:bg-gray-800",
+                        !resolvedPlanVideoUrl &&
+                          "cursor-not-allowed opacity-50 hover:bg-white dark:hover:bg-gray-800",
+                      )}
+                    >
+                      <Video className="h-3.5 w-3.5" />
+                      From Video
+                    </button>
+                  </div>
+                </div>
+
+                {thumbnailMode === "upload" ? (
+                  <div className="space-y-2">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleThumbnailFileChange}
+                      disabled={thumbnailBusy}
+                      className="text-sm"
+                    />
+                    <p className="text-[11px] text-muted-foreground">
+                      JPG, PNG, or WebP. Downscaled to {THUMBNAIL_MAX_EDGE} px.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <video
+                      ref={thumbnailVideoRef}
+                      src={resolvedPlanVideoUrl || undefined}
+                      className="aspect-video w-full rounded-md bg-black"
+                      playsInline
+                      preload="metadata"
+                      onLoadedMetadata={(e) =>
+                        setThumbnailDuration(e.currentTarget.duration || 0)
+                      }
+                    />
+                    <input
+                      type="range"
+                      min={0}
+                      max={thumbnailDuration || 0}
+                      step={0.1}
+                      value={Math.min(
+                        thumbnailFrameTime,
+                        thumbnailDuration || 0,
+                      )}
+                      onChange={(e) =>
+                        handleThumbnailScrub(Number(e.target.value))
+                      }
+                      aria-label="Choose the video frame to use"
+                      className="w-full accent-[#23919C]"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => void captureThumbnailFrame()}
+                      disabled={thumbnailBusy || !resolvedPlanVideoUrl}
+                    >
+                      Use This Frame
+                    </Button>
+                  </div>
+                )}
+
+                {resolvedThumbnailUrl && (
+                  <div className="flex items-center gap-3 rounded-lg border bg-muted/30 p-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={resolvedThumbnailUrl}
+                      alt="Current video thumbnail"
+                      className="h-16 w-28 rounded-md object-cover"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">Current thumbnail</p>
+                      <p className="text-xs text-muted-foreground">
+                        Shown before the video plays.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRemoveThumbnail}
+                      className="shrink-0 text-destructive hover:text-destructive"
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                )}
+              </div>
             </>
           )}
 
@@ -2073,8 +2110,8 @@ export function BenefitsEditorPanel({
                   Provider / Recordkeeper
                 </Label>
                 <p className="text-[11px] text-muted-foreground mt-1">
-                  The company that administers this benefit — the card shows it as
-                  &ldquo;Administered by …&rdquo;.
+                  The company that administers this benefit — the card shows it
+                  as &ldquo;Administered by …&rdquo;.
                 </p>
               </div>
               <Input
@@ -2157,9 +2194,9 @@ export function BenefitsEditorPanel({
               title="Get Quick Answers to Common Benefits Questions"
             />
             <p className="text-[13px] text-muted-foreground mb-6">
-              Every other question about this benefit, grouped and searchable. Move
-              one to &ldquo;Featured card&rdquo; to promote it into the grid above, or
-              to &ldquo;Hidden&rdquo; to take it off the page.
+              Every other question about this benefit, grouped and searchable.
+              Move one to &ldquo;Featured card&rdquo; to promote it into the
+              grid above, or to &ldquo;Hidden&rdquo; to take it off the page.
             </p>
             <div className="rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
               <QuickAnswersBuilder
@@ -2170,6 +2207,69 @@ export function BenefitsEditorPanel({
           </div>
         )}
 
+        {/* Have Questions? Section — the band that closes the page, and how its KEY
+            CONTACT is drawn. A benefit-level setting: it rides the Benefit row's
+            `keyContactCardStyle` out to whichever hub page renders this benefit. */}
+        <div
+          ref={sectionsRef.haveQuestions}
+          className={cn(
+            "transition-all duration-500 rounded-xl",
+            highlightedSection === "haveQuestions"
+              ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800"
+              : "",
+          )}
+        >
+          <SectionHeader number={8} title="Have Questions?" />
+          <p className="text-[13px] text-muted-foreground mb-6">
+            The people who close the page for this benefit, taken from its
+            support contacts. Its key contact can be drawn like everyone else,
+            or highlighted so they stand out from the row.
+          </p>
+          <div className="space-y-3 rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
+            <Label className="text-xs font-bold text-foreground">
+              Key contact card style
+            </Label>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {KEY_CONTACT_CARD_STYLE_CHOICES.map((choice) => {
+                const isActive =
+                  normalizeKeyContactCardStyle(
+                    step1Data.keyContactCardStyle,
+                  ) === choice.value;
+                return (
+                  <button
+                    key={choice.value}
+                    type="button"
+                    aria-pressed={isActive}
+                    onClick={() =>
+                      saveStepData(1, {
+                        ...step1Data,
+                        keyContactCardStyle: choice.value,
+                      })
+                    }
+                    className={cn(
+                      "rounded-lg border px-3 py-2 text-left transition-colors",
+                      isActive
+                        ? "border-[#23919C] bg-[#23919C] text-white"
+                        : "border-muted bg-white text-muted-foreground hover:border-[#23919C]/60 hover:text-foreground dark:bg-gray-800",
+                    )}
+                  >
+                    <span className="block text-sm font-medium">
+                      {choice.label}
+                    </span>
+                    <span
+                      className={cn(
+                        "mt-0.5 block text-[11px] leading-snug",
+                        isActive ? "text-white/80" : "text-muted-foreground",
+                      )}
+                    >
+                      {choice.hint}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Default-image gallery for the journey section's no-video image. Its

@@ -6,6 +6,7 @@ import {
   Document,
 } from "@/types/new-client-wizard";
 import type { TypographyThemeId } from "@/lib/typography-themes";
+import type { KeyContactCardStyle } from "@/lib/key-contact-card-style";
 import type { ProviderContact } from "@/types/benefit";
 
 export interface WizardStep {
@@ -129,6 +130,13 @@ export interface BenefitsStep1Data {
    * video section on the portal; absent means shown.
    */
   planVideoVisible?: boolean;
+  /**
+   * "Have Questions?" key contact card style (Section 8 of the editor):
+   * `"default"` is the neutral card every hub draws, `"highlighted"` fills it with
+   * the plan's primary colour and inverts its contents. Persisted on the Benefit
+   * row as `keyContactCardStyle`.
+   */
+  keyContactCardStyle?: KeyContactCardStyle;
   /** When true, the user explicitly removed the video — overrides persisted categoryBenefit.planVideo */
   planVideoRemoved?: boolean;
   /** Journey section main header override */

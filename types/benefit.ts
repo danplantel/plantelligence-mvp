@@ -3,6 +3,8 @@
  * Mirrors the Prisma `Benefit` model (one row per client+category).
  */
 
+import type { KeyContactCardStyle } from "@/lib/key-contact-card-style";
+
 /**
  * The (static) copy for one "How Can We Help You Today?" card.
  *
@@ -138,6 +140,15 @@ export interface BenefitData {
 
   // Help Cards — layout only (see `HelpCardLayoutEntry`); copy comes from the catalog.
   helpCards?: HelpCardLayoutEntry[] | null;
+
+  /**
+   * "Have Questions?" — how the benefit's KEY CONTACT card is drawn:
+   * `"default"` (the neutral card the rest of the row uses) or `"highlighted"`
+   * (filled with the plan's primary colour, contents inverted — the primary-card
+   * treatment). Chosen in Section 8 of the editor; resolve it through
+   * `normalizeKeyContactCardStyle` so an unexpected value still renders a card.
+   */
+  keyContactCardStyle?: KeyContactCardStyle | null;
 
   // Insurance / Portal Materials
   insurancePlanId?: string | null;

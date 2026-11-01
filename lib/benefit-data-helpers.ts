@@ -5,6 +5,7 @@
  */
 
 import type { ProviderContact } from "@/types/benefit";
+import type { KeyContactCardStyle } from "@/lib/key-contact-card-style";
 
 export interface PortalBenefitData {
   id?: string;
@@ -31,6 +32,8 @@ export interface PortalBenefitData {
   insuranceLoginUrl?: string | null;
   /** "Show on page" toggle: `false` hides the video section on the portal. */
   planVideoVisible?: boolean;
+  /** "Have Questions?" key contact card style (Section 8 of the editor). */
+  keyContactCardStyle?: KeyContactCardStyle | null;
   faqs?: any[];
   supportContacts?: any[];
   isEnabled?: boolean;

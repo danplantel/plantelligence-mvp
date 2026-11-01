@@ -38,7 +38,6 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 /** Same hub label as Create Benefits → Retirement card (`resolvePersistedDocumentCategory("Document", "Retirement")`). */
 const RETIREMENT_DOCUMENT_HUB = benefitCategoryToDocumentHubLabel("Retirement");
 
-
 export default function RetirementPage() {
   const { clientData, profile } = useClientPortal();
   const params = useParams();
@@ -266,6 +265,8 @@ export default function RetirementPage() {
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           contacts={supportContactsForFAQ}
+          // Section 8 of the benefit editor: how this benefit's key contact is drawn.
+          keyContactCardStyle={benefitData?.keyContactCardStyle ?? undefined}
           keyContacts={clientData?.keyContacts}
           category="Retirement"
         />

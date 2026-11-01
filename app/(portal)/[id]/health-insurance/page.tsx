@@ -37,7 +37,6 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 const HEALTH_DOCUMENT_HUB = benefitCategoryToDocumentHubLabel("Group Health");
 
-
 export default function HealthInsurancePage() {
   const { clientData, profile } = useClientPortal();
   const params = useParams();
@@ -255,6 +254,8 @@ export default function HealthInsurancePage() {
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           contacts={supportContactsForFAQ}
+          // Section 8 of the benefit editor: how this benefit's key contact is drawn.
+          keyContactCardStyle={benefitData?.keyContactCardStyle ?? undefined}
           keyContacts={clientData?.keyContacts}
           category="Group Health"
         />

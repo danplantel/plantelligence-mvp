@@ -339,9 +339,7 @@ describe("HaveQuestions", () => {
     // Inferring one put "Call Now" on every card the advisor never touched.
     render(
       <HaveQuestions
-        contacts={[
-          contact({ phone: "305-555-0100", email: "a@b.test" }),
-        ]}
+        contacts={[contact({ phone: "305-555-0100", email: "a@b.test" })]}
       />,
     );
     expect(screen.queryByRole("button")).not.toBeInTheDocument();
@@ -352,7 +350,9 @@ describe("HaveQuestions", () => {
     // card is the plan's — it must still show the plan's logo.
     const { container } = render(
       <HaveQuestions
-        contacts={[contact({ companyName: "", companyLogo: "", benefitsCategories: [] })]}
+        contacts={[
+          contact({ companyName: "", companyLogo: "", benefitsCategories: [] }),
+        ]}
         companyName="Acme Sponsor LLC"
         companyLogo="https://cdn.test/plan-logo.png"
       />,
@@ -385,22 +385,23 @@ describe("HaveQuestions", () => {
       container.querySelector('[src="https://cdn.test/plan-logo.png"]'),
     ).not.toBeNull();
     // Their own company still names the card.
-    expect(
-      screen.getByText("Final Boss Advisory Group"),
-    ).toBeInTheDocument();
+    expect(screen.getByText("Final Boss Advisory Group")).toBeInTheDocument();
   });
 });
 
-describe("HaveQuestions key contact label", () => {
+describe("HaveQuestions key contact", () => {
   // Two people, each tagged for one benefit. Only one of them is this page's key
-  // contact, which is what the label has to say — and the card it belongs on has
-  // to lead the row.
+  // contact: that card leads the row, and it is the only card the highlighted
+  // style (Section 8 of the benefit editor) may fill.
   const cards = [
     contact({ id: "c1", title: "Ada Advisor" }),
     contact({ id: "c2", title: "Ben Broker" }),
   ];
+  /** The plan's primary colour the highlighted card is filled with. */
+  const BRAND = "#123456";
+  const BRAND_RGB = "rgb(18, 52, 86)";
 
-  it("labels this benefit's key contact and moves that card first", () => {
+  it("moves this benefit's key contact to the front of the row", () => {
     render(
       <HaveQuestions
         contacts={cards}
@@ -412,15 +413,23 @@ describe("HaveQuestions key contact label", () => {
       />,
     );
 
-    const labels = screen.getAllByTestId("key-contact-label");
-    expect(labels).toHaveLength(1);
-    expect(labels[0]).toHaveTextContent("Key Contact");
-
     // First from the left, ahead of the contact the selection listed first.
     const columns = screen.getAllByTestId("contact-column");
-    expect(columns[0]).toContainElement(labels[0]);
     expect(columns[0]).toHaveTextContent("Ben Broker");
     expect(columns[1]).toHaveTextContent("Ada Advisor");
+  });
+
+  it("no longer prints a Key Contact label over the card", () => {
+    render(
+      <HaveQuestions
+        contacts={cards}
+        keyContacts={[{ id: "c2", benefitsCategories: ["Retirement"] }]}
+        category="Retirement"
+      />,
+    );
+
+    expect(screen.queryByTestId("key-contact-label")).not.toBeInTheDocument();
+    expect(screen.queryByText("Key Contact")).not.toBeInTheDocument();
   });
 
   it("keeps the other cards in their original order behind it", () => {
@@ -442,9 +451,6 @@ describe("HaveQuestions key contact label", () => {
       expect.stringContaining("Ada Advisor"),
       expect.stringContaining("Ben Broker"),
     ]);
-    expect(columns[0]).toContainElement(
-      screen.getByTestId("key-contact-label"),
-    );
   });
 
   it("falls back to the person carrying the category when nobody is marked primary", () => {
@@ -464,28 +470,11 @@ describe("HaveQuestions key contact label", () => {
     );
   });
 
-  it("labels nobody when the key contact is not one of the cards", () => {
-    render(
-      <HaveQuestions
-        contacts={[contact({ id: "c9" })]}
-        keyContacts={[{ id: "c1", benefitsCategories: ["Retirement"] }]}
-        category="Retirement"
-      />,
-    );
-
-    expect(
-      screen.queryByTestId("key-contact-label"),
-    ).not.toBeInTheDocument();
-  });
-
-  it("labels nobody, and reorders nothing, without a category", () => {
+  it("reorders nothing without a category", () => {
     // No benefit means no "key contact for this benefit" — the resolver would
     // otherwise fall back to the plan's primary person.
     render(<HaveQuestions contacts={cards} keyContacts={[{ id: "c2" }]} />);
 
-    expect(
-      screen.queryByTestId("key-contact-label"),
-    ).not.toBeInTheDocument();
     expect(screen.getAllByTestId("contact-column")[0]).toHaveTextContent(
       "Ada Advisor",
     );
@@ -501,19 +490,59 @@ describe("HaveQuestions key contact label", () => {
     ).toContain("--portal-radius");
   });
 
-  it("paints the label in the plan's brand colour", () => {
+  it("leaves every card neutral under the default style", () => {
     render(
       <HaveQuestions
         contacts={cards}
         keyContacts={[{ id: "c2", benefitsCategories: ["Retirement"] }]}
         category="Retirement"
-        brandColor="#123456"
+        brandColor={BRAND}
       />,
     );
 
-    expect(screen.getByTestId("key-contact-label")).toHaveStyle({
-      borderColor: "#123456",
-      color: "#123456",
-    });
+    screen
+      .getAllByTestId("contact-card")
+      .forEach((card) =>
+        expect(card.style.backgroundColor).not.toBe(BRAND_RGB),
+      );
+  });
+
+  it("fills only the key contact's card when the highlighted style is chosen", () => {
+    render(
+      <HaveQuestions
+        contacts={cards}
+        keyContacts={[{ id: "c2", benefitsCategories: ["Retirement"] }]}
+        category="Retirement"
+        brandColor={BRAND}
+        keyContactCardStyle="highlighted"
+      />,
+    );
+
+    // The key contact leads the row, so it is the first card.
+    const rendered = screen.getAllByTestId("contact-card");
+    expect(rendered[0].style.backgroundColor).toBe(BRAND_RGB);
+    expect(rendered[1].style.backgroundColor).not.toBe(BRAND_RGB);
+
+    // Everything on the filled card switches to the readable colour for that fill.
+    const name = rendered[0].querySelector("h3");
+    expect(name).not.toBeNull();
+    expect((name as HTMLElement).style.color).toBe("rgb(255, 255, 255)");
+  });
+
+  it("treats an unknown stored style as the default card", () => {
+    render(
+      <HaveQuestions
+        contacts={cards}
+        keyContacts={[{ id: "c2", benefitsCategories: ["Retirement"] }]}
+        category="Retirement"
+        brandColor={BRAND}
+        // A value from a older or newer release must never leave a blank card.
+        keyContactCardStyle={"bogus" as never}
+      />,
+    );
+
+    expect(
+      screen.getAllByTestId("contact-card")[0].style.backgroundColor,
+    ).not.toBe(BRAND_RGB);
   });
 });

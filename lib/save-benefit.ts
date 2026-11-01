@@ -497,10 +497,9 @@ export async function saveBenefit(
       // the portal footer reverts to the primary colour on every page.
       ...(step5ByCategory
         ? {
-            disclaimers: mergeDisclaimersPayload(
-              (client as any).disclaimers,
-              { byCategory: step5ByCategory },
-            ),
+            disclaimers: mergeDisclaimersPayload((client as any).disclaimers, {
+              byCategory: step5ByCategory,
+            }),
           }
         : {}),
     };
@@ -610,6 +609,9 @@ export async function saveBenefit(
             // "Show on page" — `undefined` leaves the stored value alone, so a save
             // from a step that never touched the toggle cannot flip it off.
             planVideoVisible: step1Data?.planVideoVisible,
+            // Section 8's key contact card style. Same patch semantics: a save that
+            // never opened the section leaves the stored style alone.
+            keyContactCardStyle: step1Data?.keyContactCardStyle,
             journeyHeader: step1Data?.journeyHeader || null,
             journeySubtitle: step1Data?.journeySubtitle || null,
             journeyBodyText: step1Data?.journeyBodyText || null,

@@ -283,6 +283,8 @@ export default function CustomBenefitPage() {
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           contacts={supportContactsForFAQ}
+          // Section 8 of the benefit editor: how this benefit's key contact is drawn.
+          keyContactCardStyle={benefitData?.keyContactCardStyle ?? undefined}
           keyContacts={clientData?.keyContacts}
           category="Company / Plan Sponsor"
         />

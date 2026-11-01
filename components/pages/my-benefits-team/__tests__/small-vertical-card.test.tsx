@@ -534,6 +534,32 @@ describe("SmallVerticalCard visuals", () => {
     ).toBe(true);
   });
 
+  it("fills a highlighted card and inverts its CTA", () => {
+    renderCard(
+      {
+        name: "Ada Lovelace",
+        title: "Benefits Advisor",
+        enableContactButton: true,
+        contactButtonType: "calendar",
+        schedulingUrl: "https://cal.test/ada",
+      },
+      { highlighted: true },
+    );
+
+    // The plan's primary colour fills the card…
+    expect(screen.getByTestId("contact-card").style.backgroundColor).toBe(
+      "rgb(18, 52, 86)",
+    );
+    // …the name wears the colour that is readable on it…
+    expect(screen.getByRole("heading", { level: 3 }).style.color).toBe(
+      "rgb(255, 255, 255)",
+    );
+    // …and the CTA is inverted, exactly like the primary "How Can We Help" card.
+    const cta = screen.getByRole("button", { name: "Schedule Appt." });
+    expect(cta.style.backgroundColor).toBe("rgb(255, 255, 255)");
+    expect(cta.style.color).toBe("rgb(18, 52, 86)");
+  });
+
   it("prefers the contact's card colour over the plan baseline", () => {
     const { container } = renderCard(
       { name: "Ada", cardBackgroundColor: "#000000" },

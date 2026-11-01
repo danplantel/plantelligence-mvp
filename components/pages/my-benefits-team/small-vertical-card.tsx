@@ -147,6 +147,14 @@ interface SmallVerticalCardProps {
    * `categoryLabel` is still honoured for callers that only have the joined string.
    */
   categoryList?: string[];
+  /**
+   * The "highlighted" card style: the card is filled with the plan's PRIMARY colour
+   * and everything on it switches to the readable colour for that fill — the same
+   * treatment the primary card in "How Can We Help You Today?" uses. Chosen per
+   * benefit in the editor's Have Questions? section, and worn by the key contact's
+   * card on the portal.
+   */
+  highlighted?: boolean;
 }
 
 /**
@@ -239,6 +247,7 @@ export function SmallVerticalCard({
   mobileVariant,
   categoryLabel,
   categoryList,
+  highlighted = false,
 }: SmallVerticalCardProps) {
   const categoryListValues =
     categoryList && categoryList.length > 0
@@ -249,15 +258,37 @@ export function SmallVerticalCard({
   const isPrimary = contact.isPrimary || false;
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
   const effectiveSecondaryColor = contact.cardSecondaryColor || secondaryColor;
-  const backgroundColor =
-    contact.cardBackgroundColor || baselineBackgroundColor || "#ffffff";
-  const textColor =
-    isPrimary ||
-    (backgroundColor &&
-      backgroundColor !== "#ffffff" &&
-      backgroundColor !== "white")
-      ? readableColor(backgroundColor)
-      : undefined;
+  /** The colour everything ON a highlighted card is drawn in. */
+  const highlightFill = readableColor(effectiveBrandColor);
+  /**
+   * Highlighted wins over the advisor's per-contact card colour: the whole point of
+   * the style is that this card is the featured one, painted like the primary card
+   * in "How Can We Help You Today?".
+   */
+  const backgroundColor = highlighted
+    ? effectiveBrandColor
+    : contact.cardBackgroundColor || baselineBackgroundColor || "#ffffff";
+  const textColor = highlighted
+    ? highlightFill
+    : isPrimary ||
+      (backgroundColor &&
+        backgroundColor !== "#ffffff" &&
+        backgroundColor !== "white")
+    ? readableColor(backgroundColor)
+    : undefined;
+  /** Names and the company line: the brand colour on a light card, and the fill's
+   *  readable colour on a highlighted one. */
+  const accentColor = highlighted ? highlightFill : effectiveBrandColor;
+  /** Card edge — a filled card has no visible border. */
+  const cardBorderClass = highlighted
+    ? "border-transparent"
+    : "border-[#E5E5E5]";
+  /** The rule under the identity block, softened to suit the fill. */
+  const dividerClass = highlighted
+    ? highlightFill === "#ffffff"
+      ? "bg-white/30"
+      : "bg-black/15"
+    : "bg-black/10";
   const cardWidth = width || "w-full";
 
   // Determine which buttons to show and which is primary (first checked button becomes primary)
@@ -576,13 +607,21 @@ export function SmallVerticalCard({
         >
           {buttons.map((button, idx) => {
             const isPrimaryButton = idx === primaryIndex;
+            // A highlighted card inverts its CTA, exactly like the primary card in
+            // "How Can We Help You Today?": the readable fill as the button, the
+            // plan's primary colour as its label. The brand-on-brand button it would
+            // otherwise draw is invisible.
             const buttonBg = isPrimaryButton
-              ? ctaColor || effectiveBrandColor
+              ? highlighted
+                ? highlightFill
+                : ctaColor || effectiveBrandColor
               : isPrimary
               ? mix(0.2, "#ffffff", effectiveBrandColor)
               : "#F3F4F6";
             const buttonColor = isPrimaryButton
-              ? "#ffffff"
+              ? highlighted
+                ? effectiveBrandColor
+                : "#ffffff"
               : readableColor(buttonBg);
             const contactFormInert =
               disableContactFormButton && button.isContactForm === true;
@@ -653,7 +692,11 @@ export function SmallVerticalCard({
           }}
           className={cn(
             cardWidth,
-            "flex h-full flex-col rounded-xl border border-[#E5E5E5] shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md",
+            "flex h-full flex-col rounded-xl border shadow-sm transition-all duration-200 hover:shadow-md",
+            cardBorderClass,
+            // A filled card has no edge to highlight, so its hover lift is the
+            // shadow alone.
+            !highlighted && "hover:border-gray-300",
           )}
           // The typography theme owns the card's corners (the `rounded-xl`
           // class is only a fallback for surfaces outside the portal).
@@ -695,7 +738,7 @@ export function SmallVerticalCard({
                   <div className="flex h-full w-full items-center justify-center">
                     <SupportIcon
                       className="h-1/2 w-1/2"
-                      style={{ color: effectiveBrandColor }}
+                      style={{ color: accentColor }}
                     />
                   </div>
                 ) : (
@@ -717,7 +760,7 @@ export function SmallVerticalCard({
                   color:
                     showPlaceholders && !resolvedCardName
                       ? "#9CA3AF"
-                      : effectiveBrandColor,
+                      : accentColor,
                 }}
               >
                 {displayNameText}
@@ -743,7 +786,7 @@ export function SmallVerticalCard({
                     color:
                       showPlaceholders && !resolvedCardCompany
                         ? "#9CA3AF"
-                        : effectiveBrandColor,
+                        : accentColor,
                   }}
                 >
                   {displayCompanyText}
@@ -783,7 +826,9 @@ export function SmallVerticalCard({
         }}
         className={cn(
           cardWidth,
-          "flex h-full flex-col rounded-xl border border-[#E5E5E5] p-2 shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md",
+          "flex h-full flex-col rounded-xl border p-2 shadow-sm transition-all duration-200 hover:shadow-md",
+          cardBorderClass,
+          !highlighted && "hover:border-gray-300",
         )}
         style={{ backgroundColor, borderRadius: portalRadiusValue(1.5) }}
         data-testid="contact-card"
@@ -826,7 +871,7 @@ export function SmallVerticalCard({
             <div className="flex h-full w-full items-center justify-center">
               <SupportIcon
                 className="h-1/2 w-1/2"
-                style={{ color: effectiveBrandColor }}
+                style={{ color: accentColor }}
               />
             </div>
           ) : (
@@ -838,9 +883,7 @@ export function SmallVerticalCard({
           className="mt-1 w-full truncate text-center font-dm-serif text-[11px] font-semibold leading-tight"
           style={{
             color:
-              showPlaceholders && !resolvedCardName
-                ? "#9CA3AF"
-                : effectiveBrandColor,
+              showPlaceholders && !resolvedCardName ? "#9CA3AF" : accentColor,
           }}
         >
           {displayNameText}
@@ -866,7 +909,7 @@ export function SmallVerticalCard({
               color:
                 showPlaceholders && !resolvedCardCompany
                   ? "#9CA3AF"
-                  : effectiveBrandColor,
+                  : accentColor,
             }}
           >
             {displayCompanyText}
@@ -993,7 +1036,9 @@ export function SmallVerticalCard({
         // taller neighbour in the same grid row, which left a block of empty
         // card under the last row — `equalHeight` opts back in for a row whose
         // cards must line up because one of them carries a CTA.
-        "flex cursor-pointer flex-col border border-[#E5E5E5] shadow-sm transition-all duration-200 hover:border-gray-300 hover:shadow-md",
+        "flex cursor-pointer flex-col border shadow-sm transition-all duration-200 hover:shadow-md",
+        cardBorderClass,
+        !highlighted && "hover:border-gray-300",
         equalHeight ? "h-full" : "self-start",
         cardPadding,
       )}
@@ -1028,7 +1073,7 @@ export function SmallVerticalCard({
             <div className="flex h-full w-full items-center justify-center">
               <SupportIcon
                 className="h-1/2 w-1/2"
-                style={{ color: effectiveBrandColor }}
+                style={{ color: accentColor }}
               />
             </div>
           ) : (
@@ -1087,7 +1132,7 @@ export function SmallVerticalCard({
                 color:
                   showPlaceholders && !resolvedCardCompany
                     ? "#9CA3AF"
-                    : effectiveBrandColor,
+                    : accentColor,
               }}
               title={displayCompanyText}
             >
@@ -1106,7 +1151,7 @@ export function SmallVerticalCard({
       <div
         className={cn("flex w-full min-w-0 flex-col", cardStyles.dividerGap)}
       >
-        <div className="h-px w-full shrink-0 bg-black/10" aria-hidden />
+        <div className={cn("h-px w-full shrink-0", dividerClass)} aria-hidden />
 
         <div
           className={cn("grid w-full min-w-0 grid-cols-2", cardStyles.infoGap)}
@@ -1122,7 +1167,7 @@ export function SmallVerticalCard({
                 color:
                   showPlaceholders && !resolvedCardName
                     ? "#9CA3AF"
-                    : effectiveBrandColor,
+                    : accentColor,
               }}
               title={displayNameText}
             >
@@ -1214,13 +1259,18 @@ export function SmallVerticalCard({
         >
           {buttons.map((button, idx) => {
             const isPrimaryButton = idx === primaryIndex;
+            // Inverse CTA on a highlighted card — see the mobile builder above.
             const buttonBg = isPrimaryButton
-              ? ctaColor || effectiveBrandColor
+              ? highlighted
+                ? highlightFill
+                : ctaColor || effectiveBrandColor
               : isPrimary
               ? mix(0.2, "#ffffff", effectiveBrandColor)
               : "#F3F4F6";
             const buttonColor = isPrimaryButton
-              ? "#ffffff"
+              ? highlighted
+                ? effectiveBrandColor
+                : "#ffffff"
               : readableColor(buttonBg);
             // A preview draws the Contact Form CTA but does not act on it, so an
             // advisor cannot navigate out of the wizard mid-edit.

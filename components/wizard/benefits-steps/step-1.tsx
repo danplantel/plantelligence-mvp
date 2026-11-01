@@ -30,6 +30,7 @@ import { cn } from "@/lib/utils";
 import { persistPlanSelection } from "@/lib/plan-selector-storage";
 import { storePendingDraftSelection } from "@/lib/draft-utils";
 import { BENEFIT_TITLE_MAX_LENGTH } from "@/lib/benefit-custom-name";
+import { normalizeKeyContactCardStyle } from "@/lib/key-contact-card-style";
 import { getDefaultLandingCardBody } from "@/lib/landing-card-defaults";
 import {
   Select,
@@ -2580,6 +2581,12 @@ export function BenefitsStep1({
       planVideoFallbackImage:
         existingBenefit?.planVideoFallbackImage || undefined,
       planVideoRemoved: false,
+      // Section 8's key contact card style, from this category's own row — and
+      // narrowed on the way in, so a value from another release still renders the
+      // neutral card rather than nothing.
+      keyContactCardStyle: normalizeKeyContactCardStyle(
+        existingBenefit?.keyContactCardStyle,
+      ),
       // Provider / recordkeeper comes from THIS category's own Benefit row (or is
       // cleared), so switching categories never carries another provider over.
       providerContact: existingBenefit?.providerContact ?? null,

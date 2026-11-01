@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { normalizeKeyContactCardStyle } from "@/lib/key-contact-card-style";
 import { uploadBrandingToR2 } from "@/lib/branding-r2";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
@@ -457,6 +458,11 @@ export async function PUT(
         faqs: body.faqs ?? null,
         supportContacts: body.supportContacts ?? null,
         providerContact: body.providerContact ?? null,
+        // "Have Questions?" key contact card style. A new row takes the neutral
+        // card unless the editor says otherwise.
+        keyContactCardStyle: normalizeKeyContactCardStyle(
+          body.keyContactCardStyle,
+        ),
         signatureMode: body.signatureMode ?? null,
         customClosing: body.customClosing ?? null,
         customSignatureName: body.customSignatureName ?? null,
@@ -502,6 +508,11 @@ export async function PUT(
         planVideoVisible:
           body.planVideoVisible !== undefined
             ? Boolean(body.planVideoVisible)
+            : undefined,
+        // Same rule: a save that never opens Section 8 cannot reset the style.
+        keyContactCardStyle:
+          body.keyContactCardStyle !== undefined
+            ? normalizeKeyContactCardStyle(body.keyContactCardStyle)
             : undefined,
         partnerLogo: partnerLogo,
         backgroundImage: backgroundImage,
@@ -599,11 +610,7 @@ export async function PUT(
       try {
         await ensureLocationSeeded({ clientId, category });
       } catch (seedError) {
-        console.error(
-          "[benefits] topic seeding failed:",
-          category,
-          seedError,
-        );
+        console.error("[benefits] topic seeding failed:", category, seedError);
       }
     }
 
@@ -649,6 +656,8 @@ export async function PUT(
           // Editor's "Show on page" toggle (the hub hides the whole video section
           // when this is false).
           planVideoVisible: b.planVideoVisible,
+          // Section 8's key contact card style, mirrored for the legacy readers.
+          keyContactCardStyle: b.keyContactCardStyle,
           partnerLogo: b.partnerLogo,
           // Legacy consumers (portal-welcome-banner, completeness check) read the
           // header background from `image`; the new Benefit model calls it

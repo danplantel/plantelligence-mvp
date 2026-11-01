@@ -68,6 +68,13 @@ export interface BenefitContactCardProps {
    * instead of one pill per benefit.
    */
   planBenefitLabels?: string[];
+  /**
+   * Paint the card in the plan's primary colour with everything on it inverted —
+   * the "highlighted" style a benefit can give its key contact in "Have
+   * Questions?" (Section 8 of the editor). Only the compact card implements it;
+   * the large primary card keeps its own design.
+   */
+  highlighted?: boolean;
 }
 
 /**
@@ -158,6 +165,7 @@ export function BenefitContactCard({
   mobileVariant,
   customBenefitName,
   planBenefitLabels,
+  highlighted = false,
 }: BenefitContactCardProps) {
   // Category pages are content-dense, so their cards default to the compact
   // variant; the team page keeps whatever its layout asks for.
@@ -207,6 +215,7 @@ export function BenefitContactCard({
       mobileVariant={mobileVariant}
       categoryLabel={categoryLabel}
       categoryList={categoryList}
+      highlighted={highlighted}
     />
   );
 }

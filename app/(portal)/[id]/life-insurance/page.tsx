@@ -37,7 +37,6 @@ const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 const LIFE_DOCUMENT_HUB = benefitCategoryToDocumentHubLabel("Group Life");
 
-
 export default function LifeInsurancePage() {
   const { clientData, profile } = useClientPortal();
   const params = useParams();
@@ -256,6 +255,8 @@ export default function LifeInsurancePage() {
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           contacts={supportContactsForFAQ}
+          // Section 8 of the benefit editor: how this benefit's key contact is drawn.
+          keyContactCardStyle={benefitData?.keyContactCardStyle ?? undefined}
           keyContacts={clientData?.keyContacts}
           category="Group Life"
         />

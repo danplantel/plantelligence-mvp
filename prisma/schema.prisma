@@ -1073,6 +1073,12 @@ model Benefit {
   insuranceBackgroundImage      String?
   insuranceContainerBlockOpacity Float?
 
+  // "Have Questions?" — the style of the KEY CONTACT's card: "default" (the neutral
+  // card the rest of the row uses) or "highlighted" (filled with the plan's primary
+  // colour, everything on it inverted — the primary-card treatment). Chosen per
+  // benefit in Section 8 of the editor. See lib/key-contact-card-style.ts.
+  keyContactCardStyle String @default("default")
+
   // FAQs & Support Contacts
   faqs            Json?
   supportContacts Json?

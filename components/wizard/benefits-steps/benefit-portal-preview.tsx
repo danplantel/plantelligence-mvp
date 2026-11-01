@@ -288,12 +288,20 @@ export function BenefitPortalPreview({
 
   const { data: previewBoard } = useSWR<{
     board?: { groups?: TopicGroup[] };
-  } | null>(previewBoardKey, async (url: string) => {
-    const response = await fetch(url, { credentials: "same-origin" });
-    // A draft, or a caller without access, simply has no placements to show.
-    if (!response.ok) return null;
-    return response.json();
-  }, { revalidateOnFocus: false, dedupingInterval: 5_000, shouldRetryOnError: false });
+  } | null>(
+    previewBoardKey,
+    async (url: string) => {
+      const response = await fetch(url, { credentials: "same-origin" });
+      // A draft, or a caller without access, simply has no placements to show.
+      if (!response.ok) return null;
+      return response.json();
+    },
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 5_000,
+      shouldRetryOnError: false,
+    },
+  );
 
   const quickAnswerGroups = useMemo<TopicGroup[]>(() => {
     // 1. The plan's own placements — exactly what the hub renders.
@@ -533,9 +541,7 @@ export function BenefitPortalPreview({
             ? document.querySelector(
                 `[data-help-card="${ACCOUNT_ACCESS_CARD_ID}"]`,
               )
-            : document.querySelector(
-                `[data-preview-field="${selector}"]`,
-              );
+            : document.querySelector(`[data-preview-field="${selector}"]`);
         if (!el) return;
 
         // Resolve the scroll container FROM the element. The Edit page mounts two
@@ -707,57 +713,57 @@ export function BenefitPortalPreview({
 
         {/* Mirrors the live hub: "Show on page" off removes the whole section. */}
         {step1Data?.planVideoVisible !== false && (
-        <div className={mobile ? "force-visible relative" : "relative"}>
-          <BenefitsVideoSection
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            keyContacts={previewKeyContacts}
-            category={category}
-            // Omitted → the section fills in its per-category default headline and
-            // subhead, the same strings the live hub shows.
-            mainTitle={step1Data?.journeyHeader || undefined}
-            subtitle={step1Data?.journeySubtitle || undefined}
-            description={
-              step1Data?.journeyBodyText ||
-              (() => {
-                const map: Record<string, string> = {
-                  Retirement:
-                    "Take control of your financial future with our comprehensive retirement planning resources.",
-                  "Group Health":
-                    "Explore your health benefits and find the coverage that fits your needs.",
-                  "Group Life":
-                    "Understand your life insurance options and secure peace of mind for your loved ones.",
-                  "Company / Plan Sponsor":
-                    "Discover wellness programs designed to support your overall well-being.",
-                };
-                return map[category] || map["Retirement"];
-              })()
-            }
-            planVideoUrl={planVideoUrl}
-            // The plan's own no-video image; the section fills in the category's
-            // stock image when this is empty (lib/benefits-video-fallback.ts).
-            planVideoFallbackImage={step1Data?.planVideoFallbackImage}
-            videoLabel={step1Data?.planVideoLabel}
-            videoThumbnail={
-              step1Data?.planVideoThumbnail?.startsWith("data:") ||
-              step1Data?.planVideoThumbnail?.startsWith("http")
-                ? step1Data.planVideoThumbnail
-                : step1Data?.planVideoThumbnail
-                ? `/api/r2/object?key=${encodeURIComponent(
-                    step1Data.planVideoThumbnail,
-                  )}`
-                : undefined
-            }
-            onMainTitleClick={() => handleEdit("planVideo")}
-            onSubtitleClick={() => handleEdit("planVideo")}
-            onDescriptionClick={() => handleEdit("planVideo")}
-            onVideoClick={() => handleEdit("planVideo")}
-            // Videos published to this page from Communications → Webinars, as the
-            // closing rail of this section — exactly where the live hub puts them.
-            webinarsPlacement={webinarPlacement}
-            clientId={step1Data?.planId}
-          />
-        </div>
+          <div className={mobile ? "force-visible relative" : "relative"}>
+            <BenefitsVideoSection
+              brandColor={brandColor}
+              secondaryColor={secondaryColor}
+              keyContacts={previewKeyContacts}
+              category={category}
+              // Omitted → the section fills in its per-category default headline and
+              // subhead, the same strings the live hub shows.
+              mainTitle={step1Data?.journeyHeader || undefined}
+              subtitle={step1Data?.journeySubtitle || undefined}
+              description={
+                step1Data?.journeyBodyText ||
+                (() => {
+                  const map: Record<string, string> = {
+                    Retirement:
+                      "Take control of your financial future with our comprehensive retirement planning resources.",
+                    "Group Health":
+                      "Explore your health benefits and find the coverage that fits your needs.",
+                    "Group Life":
+                      "Understand your life insurance options and secure peace of mind for your loved ones.",
+                    "Company / Plan Sponsor":
+                      "Discover wellness programs designed to support your overall well-being.",
+                  };
+                  return map[category] || map["Retirement"];
+                })()
+              }
+              planVideoUrl={planVideoUrl}
+              // The plan's own no-video image; the section fills in the category's
+              // stock image when this is empty (lib/benefits-video-fallback.ts).
+              planVideoFallbackImage={step1Data?.planVideoFallbackImage}
+              videoLabel={step1Data?.planVideoLabel}
+              videoThumbnail={
+                step1Data?.planVideoThumbnail?.startsWith("data:") ||
+                step1Data?.planVideoThumbnail?.startsWith("http")
+                  ? step1Data.planVideoThumbnail
+                  : step1Data?.planVideoThumbnail
+                  ? `/api/r2/object?key=${encodeURIComponent(
+                      step1Data.planVideoThumbnail,
+                    )}`
+                  : undefined
+              }
+              onMainTitleClick={() => handleEdit("planVideo")}
+              onSubtitleClick={() => handleEdit("planVideo")}
+              onDescriptionClick={() => handleEdit("planVideo")}
+              onVideoClick={() => handleEdit("planVideo")}
+              // Videos published to this page from Communications → Webinars, as the
+              // closing rail of this section — exactly where the live hub puts them.
+              webinarsPlacement={webinarPlacement}
+              clientId={step1Data?.planId}
+            />
+          </div>
         )}
 
         {/* Hover shows the blue edit pencil and a click opens the Editing Panel at
@@ -843,6 +849,9 @@ export function BenefitPortalPreview({
           secondaryColor={secondaryColor}
           contacts={faqContacts}
           companyLogo={planCompanyLogoUrl}
+          // Section 8's choice, so the preview shows the key contact's card exactly
+          // as the live hub will.
+          keyContactCardStyle={step1Data?.keyContactCardStyle}
           // So the preview labels this benefit's key contact too. "Custom" is the
           // wizard's name for the category the contacts are tagged with.
           keyContacts={previewKeyContacts}
