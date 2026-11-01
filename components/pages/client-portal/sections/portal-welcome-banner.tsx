@@ -709,11 +709,10 @@ export function PortalWelcomeBanner({
         </div>
       </div>
 
-      {/* Bottom accent line */}
-      <div
-        className="absolute inset-x-0 bottom-0 h-0.5"
-        style={{ background: brandColor }}
-      />
+      {/* No bottom accent bar: the banner used to end on a 2px strip of the plan's
+          PRIMARY colour, which read as a stray brand-coloured rule hanging off the
+          bottom of the section (and, at full-bleed width, wider than the hero card it
+          was meant to underline). The section now ends on its own artwork. */}
     </section>
   );
 }
