@@ -27,9 +27,13 @@ import {
   type KeyContactCardStyle,
 } from "@/lib/key-contact-card-style";
 import type { KeyContact } from "@/types/new-client-wizard";
-import { LargeHorizontalCard } from "@/components/pages/my-benefits-team/large-horizontal-card";
-import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { PrimaryContactCard } from "@/components/pages/my-benefits-team/primary-contact-card";
+import { BenefitContactCard } from "@/components/pages/client-portal/sections/benefit-contact-card";
+import {
+  supportCardColumnClass,
+  supportCardSize,
+  type SupportCardSize,
+} from "@/lib/support-card-layout";
 
 // ── Slot system (mirrors step-3d.tsx) ──
 
@@ -86,6 +90,8 @@ function RenderCardBySlot({
   companyName,
   mobileVariant,
   highlighted = false,
+  cardSize,
+  equalHeight,
 }: {
   slot: CardSlot;
   contact: any;
@@ -103,6 +109,13 @@ function RenderCardBySlot({
    * lives on each benefit.
    */
   highlighted?: boolean;
+  /**
+   * Element tier for a support card, from how many share its row — the exact value the
+   * live page's rows compute (`supportCardSize(count)`).
+   */
+  cardSize?: SupportCardSize;
+  /** Level a row's cards when any of them draws a CTA — the live page's rule. */
+  equalHeight?: boolean;
 }) {
   const contactWithProps = {
     ...contact,
@@ -127,24 +140,19 @@ function RenderCardBySlot({
           companyName={resolvedCompanyName}
           compact={true}
           highlighted={highlighted}
+          // The card reads the tag from THESE props (not from the contact), so the
+          // preview has to hand them over or the main card shows no benefit at all.
+          categoryLabel={contact.categoryLabel}
+          categoryList={contact.categoryList}
         />
       );
+    // Support cards (every card but the main contact) ARE the live page's card — the
+    // same component and props the My Benefits Team layouts pass — so this preview
+    // cannot drift from the portal.
     case "large":
-      return (
-        <LargeHorizontalCard
-          contact={contactWithProps}
-          brandColor={brandColor}
-          secondaryColor={resolvedSecondaryColor}
-          appointmentLink=""
-          companyName={resolvedCompanyName}
-          index={index}
-          disableAnimation={true}
-          highlighted={highlighted}
-        />
-      );
     case "small":
       return (
-        <SmallVerticalCard
+        <BenefitContactCard
           contact={contactWithProps}
           brandColor={brandColor}
           secondaryColor={resolvedSecondaryColor}
@@ -155,8 +163,10 @@ function RenderCardBySlot({
           index={index}
           disableAnimation={true}
           compact={compact}
+          size={cardSize}
+          equalHeight={equalHeight}
           mobileVariant={mobileVariant}
-          disableContactFormButton
+          placement="team"
           highlighted={highlighted}
         />
       );
@@ -233,6 +243,16 @@ function transformContactToPreview(
       ) || companyName,
     showOnPortal: contact.showOnPortal !== false,
     benefitsCategory: rawBenefitsCategory,
+    // EVERY category the contact covers, not just the first: the shared card derives
+    // its pills from this list, so dropping it left the preview showing one pill where
+    // the portal shows the full set.
+    benefitsCategories:
+      Array.isArray(contact.benefitsCategories) &&
+      contact.benefitsCategories.length > 0
+        ? contact.benefitsCategories
+        : contact.benefitsCategory
+        ? [contact.benefitsCategory]
+        : [],
     categoryLabel,
     contactType: contact.contactType,
     displayName: contact.displayName,
@@ -497,6 +517,45 @@ export function ContactCardLayoutPreviewModal({
   const previewContent = useMemo(() => {
     if (previewContacts.length === 0 || slots.length === 0) return null;
 
+    // ── Row groups and element tiers, exactly as the live page computes them ──
+    // `lib/support-card-layout` decides BOTH the column width and the card's tier from
+    // how many cards share a row, and a row levels to its tallest card as soon as any
+    // of them draws a CTA. Copied from the My Benefits Team layouts so a card here
+    // cannot be a size the portal would never draw.
+    const renderedContacts = previewContacts.slice(0, slots.length);
+    const isDesktopPreview = previewMode !== "mobile";
+    const supportRow = renderedContacts.slice(1);
+    const bottomRow = renderedContacts.slice(2);
+
+    const tierFor = (index: number): SupportCardSize | undefined => {
+      if (!isDesktopPreview) return undefined;
+      if (currentDisplayStyleValue === 3)
+        return supportCardSize(renderedContacts.length);
+      if (currentDisplayStyleValue === 2) return supportCardSize(2);
+      if (currentDisplayStyleValue === 4)
+        return index < 2
+          ? supportCardSize(2)
+          : supportCardSize(Math.max(1, bottomRow.length));
+      // Default layout: the row that sits behind the main contact.
+      return supportCardSize(Math.max(1, supportRow.length));
+    };
+
+    /**
+     * Level every support card in a row.
+     *
+     * The live page levels a row when any card in it draws a CTA, which needs the exact
+     * same CTA resolution the card performs. The preview resolved less than that (the
+     * card also honours the legacy display flags), so a row could show a button on one
+     * card while the others stayed at their content height. Levelling unconditionally
+     * is the same result the portal lands on whenever a button exists, and keeps the
+     * preview tidy when the contacts differ in length.
+     */
+    const equalHeightFor = (index: number): boolean | undefined => {
+      if (!isDesktopPreview) return undefined;
+      // The main contact keeps its own height; it is never part of the support row.
+      return index === 0 ? undefined : true;
+    };
+
     const slotElements = previewContacts
       .slice(0, slots.length)
       .map((contact, index) => {
@@ -517,7 +576,9 @@ export function ContactCardLayoutPreviewModal({
           ? { ...slot, type: "small" as const }
           : mobileSlot;
 
-        const isCompact = previewMode === "mobile" || largeAsCompact;
+        // Only the phone preview asks for the compact card; on desktop the element
+        // tier comes from `size` (see `tierFor`).
+        const isCompact = previewMode === "mobile";
 
         // Phone card design, matching the live page's MobileLayout: Stacked = every
         // card full width; 2-Column = all narrow; Hero + Grid = a full-width hero
@@ -548,6 +609,8 @@ export function ContactCardLayoutPreviewModal({
               // treatment — everyone else keeps the neutral card, exactly as on the
               // live page.
               highlighted={index === 0 && keyContactStyle === "highlighted"}
+              cardSize={tierFor(index)}
+              equalHeight={equalHeightFor(index)}
             />
           </div>
         );
@@ -594,8 +657,18 @@ export function ContactCardLayoutPreviewModal({
         <div className="w-full min-w-0 max-w-none space-y-4">
           <div className="w-full min-w-0 shrink-0 -mt-10">{primarySlot}</div>
           {smallSlots.length > 0 && (
-            <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-4 gap-4 [&>*]:min-w-0">
-              {smallSlots}
+            // The live page's support row: a centred flex row whose columns come from
+            // the card count, so two cards take halves and three take thirds instead of
+            // a fixed four-column grid with an empty slot.
+            <div className="flex w-full flex-wrap justify-center gap-4 sm:gap-6">
+              {smallSlots.map((el, i) => (
+                <div
+                  key={i}
+                  className={supportCardColumnClass(smallSlots.length)}
+                >
+                  {el}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -628,9 +701,14 @@ export function ContactCardLayoutPreviewModal({
     }
 
     if (currentDisplayStyleValue === 3) {
+      // One count-driven row of support cards — the live page's row.
       return (
-        <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 [&>*]:min-w-0">
-          {slotElements}
+        <div className="flex w-full flex-wrap justify-center gap-4 sm:gap-6">
+          {slotElements.map((el, i) => (
+            <div key={i} className={supportCardColumnClass(slotElements.length)}>
+              {el}
+            </div>
+          ))}
         </div>
       );
     }
@@ -662,7 +740,11 @@ export function ContactCardLayoutPreviewModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh] flex flex-col p-0 overflow-hidden">
+      {/* 1200px, the same canvas Step 3D uses. After this dialog's own padding (px-6)
+          and the preview panel's (p-8) that leaves the cards ~1088px — the width My
+          Benefits Team gives them (`mx-auto max-w-6xl px-8`), so a card here is the
+          size of the same card on the live page rather than a shrunken copy. */}
+      <DialogContent className="w-[min(96vw,1200px)] max-w-[1200px] max-h-[90vh] flex flex-col p-0 overflow-hidden">
         {/* ── Fixed Header: controls + expandable layout previews inline ── */}
         {/* pr-14 reserves space for the Dialog's built-in Close (X) button at top-right */}
         <div className="shrink-0 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-3 pr-14">

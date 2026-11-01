@@ -343,6 +343,10 @@ function RenderCardBySlot({
             compact={true}
             highlighted={highlighted}
             topControls={controls}
+            // The card reads the tag from THESE props (not from the contact), so the
+            // preview has to hand them over or the main card shows no benefit at all.
+            categoryLabel={contact.categoryLabel}
+            categoryList={contact.categoryList}
           />
         </div>
       );
@@ -894,6 +898,11 @@ export function NewClientStep3d({
         companyLogo: contact.companyLogo || planCompanyLogo,
         showOnPortal: contact.showOnPortal !== false,
         benefitsCategory: mapBenefitsCategory(rawBenefitsCategory),
+        // EVERY category the contact covers, not just the first: the shared card
+        // derives its pills from this list (and collapses a contact who covers all of
+        // them into one "All Benefits" pill), so dropping it here left the preview
+        // showing a single pill where the portal shows the full set.
+        benefitsCategories: contactCategoryList,
         benefitsCategoryOther: contact.benefitsCategoryOther,
         categoryLabel,
         // The badge collapses several categories to "Multiple Categories" and lists them
