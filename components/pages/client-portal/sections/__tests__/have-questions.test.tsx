@@ -11,9 +11,8 @@ import { HaveQuestions } from "../have-questions";
  * The hub pages pass the same resolved contacts to `FAQSection` (which ignores
  * them) and to this component (which renders them), so this is where a
  * participant actually sees who to call. The details worth pinning are the
- * contact affordances: `mailto:` for the email, a digits-only `tel:` link for
- * the phone, designation acronyms only, and nothing at all when there is no one
- * to show.
+ * contact affordances: the email and phone are COPY-ON-CLICK values, designation
+ * acronyms only, and nothing at all when there is no one to show.
  */
 
 vi.mock("@/components/ui/headshot", () => ({
@@ -79,8 +78,13 @@ describe("HaveQuestions", () => {
     expect(screen.getByRole("heading", { level: 3 })).toHaveTextContent(
       "Ada Advisor",
     );
-    // The plan's appointment link does NOT create a CTA on its own.
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    // The plan's appointment link does NOT create a CTA on its own. (The email and
+    // phone are buttons — copy-on-click values — so this asks about the CTA.)
+    expect(
+      screen.queryByRole("button", {
+        name: /Schedule Appt\.|Call Now|Send Email|Contact|Visit/,
+      }),
+    ).toBeNull();
   });
 
   it("sizes the row from the contact count, so the cards fill the band", () => {
@@ -168,22 +172,22 @@ describe("HaveQuestions", () => {
     expect(screen.getByText("Health specialist")).toBeInTheDocument();
   });
 
-  it("links the email and a digits-only phone number", () => {
+  it("offers the email and phone as copy-on-click values", () => {
     render(<HaveQuestions contacts={[contact()]} />);
 
     expect(
-      screen.getByRole("link", { name: /ada@acme\.test/ }),
-    ).toHaveAttribute("href", "mailto:ada@acme.test");
-    // The shared card formats the number and dials it with a country code.
+      screen.getByRole("button", { name: "Copy email: ada@acme.test" }),
+    ).toBeInTheDocument();
+    // The shared card formats the number, and that is what the click copies.
     expect(
-      screen.getByRole("link", { name: /\(305\) 555-0100/ }),
-    ).toHaveAttribute("href", "tel:+13055550100");
+      screen.getByRole("button", { name: "Copy phone: (305) 555-0100" }),
+    ).toBeInTheDocument();
   });
 
   it("omits the rows a contact does not have", () => {
     render(<HaveQuestions contacts={[contact({ email: "", phone: "" })]} />);
 
-    expect(screen.queryByRole("link")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Copy / })).toBeNull();
     expect(screen.getByText("Ada Advisor")).toBeInTheDocument();
   });
 
@@ -335,14 +339,18 @@ describe("HaveQuestions", () => {
     ).toBeInTheDocument();
     second.container.remove();
 
-    // A contact with an email and a phone but NO configured CTA draws no button.
+    // A contact with an email and a phone but NO configured CTA draws no CTA.
     // Inferring one put "Call Now" on every card the advisor never touched.
     render(
       <HaveQuestions
         contacts={[contact({ phone: "305-555-0100", email: "a@b.test" })]}
       />,
     );
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", {
+        name: /Schedule Appt\.|Call Now|Send Email|Contact|Visit/,
+      }),
+    ).toBeNull();
   });
 
   it("shows the plan's company logo on a plan-level contact card", () => {

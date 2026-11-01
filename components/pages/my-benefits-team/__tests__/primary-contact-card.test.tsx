@@ -88,10 +88,6 @@ function renderCard(
   );
 }
 
-function linkHrefs() {
-  return screen.getAllByRole("link").map((link) => link.getAttribute("href"));
-}
-
 function buttonLabels() {
   return screen
     .queryAllByRole("button")
@@ -188,7 +184,7 @@ describe("PrimaryContactCard identity", () => {
 });
 
 describe("PrimaryContactCard contact details", () => {
-  it("links the email and phone with the display extension", () => {
+  it("offers the email and phone as copy-on-click values", () => {
     renderCard({
       name: "Ada",
       email: "ada@acme.test",
@@ -196,9 +192,15 @@ describe("PrimaryContactCard contact details", () => {
       phoneExtension: "12",
     });
 
-    expect(linkHrefs()).toEqual(["mailto:ada@acme.test", "tel:+15551234567"]);
-    expect(screen.getByRole("link", { name: /Ext\. 12/ })).toHaveTextContent(
-      "(555) 123-4567 Ext. 12",
+    expect(
+      screen.getByRole("button", { name: "Copy email: ada@acme.test" }),
+    ).toBeInTheDocument();
+    // The number is copied as printed, extension included.
+    const phone = screen.getByRole("button", { name: /Ext\. 12/ });
+    expect(phone).toHaveTextContent("(555) 123-4567 Ext. 12");
+    expect(phone).toHaveAttribute(
+      "aria-label",
+      "Copy phone: (555) 123-4567 Ext. 12",
     );
   });
 

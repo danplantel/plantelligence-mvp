@@ -35,8 +35,10 @@ function readContactArray(value: unknown): Record<string, unknown>[] | null {
   if (Array.isArray(value)) return value as Record<string, unknown>[];
   if (value && typeof value === "object") {
     const raw = value as { contacts?: unknown; Contacts?: unknown };
-    if (Array.isArray(raw.contacts)) return raw.contacts as Record<string, unknown>[];
-    if (Array.isArray(raw.Contacts)) return raw.Contacts as Record<string, unknown>[];
+    if (Array.isArray(raw.contacts))
+      return raw.contacts as Record<string, unknown>[];
+    if (Array.isArray(raw.Contacts))
+      return raw.Contacts as Record<string, unknown>[];
   }
   return null;
 }
@@ -76,7 +78,9 @@ export function buildFaqSupportContacts({
   if (!Array.isArray(supportContacts)) return undefined;
   const enabled = supportContacts.filter(
     (sc): sc is Record<string, unknown> =>
-      !!sc && typeof sc === "object" && (sc as { enabled?: unknown }).enabled !== false,
+      !!sc &&
+      typeof sc === "object" &&
+      (sc as { enabled?: unknown }).enabled !== false,
   );
   if (enabled.length === 0) return undefined;
 
@@ -93,32 +97,47 @@ export function buildFaqSupportContacts({
     // The person is gone (deleted, or a pre-mirror draft id) — nothing to render.
     if (!contact) continue;
 
+    // The person's NAME, from every field the portal uses for it. The card prints
+    // this where the name goes, so a miss here used to surface as the person's job
+    // title sitting in the name slot: `title` is the fallback below, and it often
+    // carries a role.
     const name =
       text(contact.name) ||
+      text(contact.fullName) ||
+      text(contact.displayName) ||
       `${text(contact.firstName)} ${text(contact.lastName)}`.trim();
 
     // The person's own designations, each rendered on its own line under the job
     // title. Tolerates the earlier single-value shape.
     const designationList = textArray(contact.designations);
     const designations =
-      designationList.length > 0 ? designationList : textArray(contact.designation);
+      designationList.length > 0
+        ? designationList
+        : textArray(contact.designation);
 
     // Which categories this person serves. The "Company / Plan Sponsor" card
     // shows the plan's logo rather than the row's (see `HaveQuestions`), so the
     // category has to travel with the contact.
     const categoryList = textArray(contact.benefitsCategories);
     const categories =
-      categoryList.length > 0 ? categoryList : textArray(contact.benefitsCategory);
+      categoryList.length > 0
+        ? categoryList
+        : textArray(contact.benefitsCategory);
 
     out.push({
       // The contact's own id, so the card key and the tel:/mailto: links agree with the
       // same person on My Benefits Team.
       id: contactId,
       // The card shows the person's NAME and, under it, their ROLE. `title` keeps
-      // carrying the name so the pre-refactor shape (and any other reader) still
-      // works; `name` is the explicit field the shared contact card reads.
+      // carrying the NAME for the pre-refactor shape (and the readers that still
+      // read it as one); `name` is the explicit field the shared contact card reads.
+      //
+      // The name wins over the advisor's per-contact label (`entry.title`, which the
+      // wizard writes as a role or blurb). Letting that win put a job title where the
+      // card prints the person's name — and the same role then appeared twice, once
+      // in the name slot and once on the line underneath.
       name: name || undefined,
-      title: text(entry.title) || name || "Support Contact",
+      title: name || text(entry.title) || "Support Contact",
       // The card's subtitle is the PERSON's role, exactly as on My Benefits Team.
       // The per-benefit blurb the wizard used to write here ("Contact for any
       // questions regarding this benefit.") is only a fallback, so a contact with
@@ -146,10 +165,16 @@ export function buildFaqSupportContacts({
       ...(isContactButtonType(contact.contactButtonType)
         ? { contactButtonType: contact.contactButtonType }
         : {}),
-      ...(text(contact.companyName) ? { companyName: text(contact.companyName) } : {}),
-      ...(text(contact.companyLogo) ? { companyLogo: text(contact.companyLogo) } : {}),
+      ...(text(contact.companyName)
+        ? { companyName: text(contact.companyName) }
+        : {}),
+      ...(text(contact.companyLogo)
+        ? { companyLogo: text(contact.companyLogo) }
+        : {}),
       ...(categories.length > 0 ? { benefitsCategories: categories } : {}),
-      ...(text(contact.websiteUrl) ? { websiteUrl: text(contact.websiteUrl) } : {}),
+      ...(text(contact.websiteUrl)
+        ? { websiteUrl: text(contact.websiteUrl) }
+        : {}),
     });
   }
 

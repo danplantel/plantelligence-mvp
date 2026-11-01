@@ -7,6 +7,7 @@ import { getSupportIcon } from "@/lib/support-icons";
 import { designationAcronym } from "@/config/onboarding/designations";
 import { motion } from "framer-motion";
 import { ContactAvatar } from "@/components/pages/my-benefits-team/contact-avatar";
+import { CopyContactValue } from "@/components/pages/my-benefits-team/copy-contact-value";
 import { formatPhone } from "@/components/pages/my-benefits-team/utils";
 import { cn } from "@/lib/utils";
 import { readableColor, mix } from "polished";
@@ -289,6 +290,12 @@ export function SmallVerticalCard({
       ? "bg-white/30"
       : "bg-black/15"
     : "bg-black/10";
+  /**
+   * Tint for the email / phone icons. The plan's secondary colour on a light card;
+   * on a highlighted card that colour can sink into the brand fill, so the icons are
+   * inverted with the rest of the card and take the fill's readable colour.
+   */
+  const infoIconColor = highlighted ? highlightFill : effectiveSecondaryColor;
   const cardWidth = width || "w-full";
 
   // Determine which buttons to show and which is primary (first checked button becomes primary)
@@ -507,66 +514,77 @@ export function SmallVerticalCard({
           if (infoType === "email") {
             if (contact.displayEmail === false) return null;
             if (!contact.email && !showPlaceholders) return null;
-            return (
-              <p
-                key="email"
-                className={cn(
-                  "flex min-w-0 items-center gap-1.5",
-                  alignCenter && "justify-center",
-                )}
-              >
-                <Mail
-                  size={iconSize}
-                  strokeWidth={1.5}
-                  className="shrink-0"
-                  style={{ color: effectiveSecondaryColor }}
-                />
-                {contact.email ? (
-                  <a
-                    href={`mailto:${contact.email}`}
-                    className="truncate"
-                    style={{ color: textColor || "#4B5563" }}
-                  >
-                    {contact.email}
-                  </a>
-                ) : (
+            // A value with nothing to copy (a preview placeholder) stays plain text.
+            if (!contact.email) {
+              return (
+                <p key="email" className="flex min-w-0 items-center gap-1.5">
+                  <Mail
+                    size={iconSize}
+                    strokeWidth={1.5}
+                    className="shrink-0"
+                    style={{ color: infoIconColor }}
+                  />
                   <span className="truncate italic text-gray-400">[Email]</span>
-                )}
-              </p>
+                </p>
+              );
+            }
+            return (
+              <CopyContactValue
+                key="email"
+                kind="email"
+                value={contact.email}
+                icon={
+                  <Mail
+                    size={iconSize}
+                    strokeWidth={1.5}
+                    className="shrink-0"
+                    style={{ color: infoIconColor }}
+                  />
+                }
+                className={cn("gap-1.5", alignCenter && "justify-center")}
+                textStyle={{ color: textColor || "#4B5563" }}
+                title="Copy email address"
+              />
             );
           }
           if (infoType === "phone") {
             if (contact.displayPhone === false) return null;
             if (!contact.phone && !showPlaceholders) return null;
-            return (
-              <p
-                key="phone"
-                className={cn(
-                  "flex min-w-0 items-center gap-1.5",
-                  alignCenter && "justify-center",
-                )}
-              >
-                <Phone
-                  size={iconSize}
-                  strokeWidth={1.5}
-                  className="shrink-0"
-                  style={{ color: effectiveSecondaryColor }}
-                />
-                {contact.phone ? (
-                  <a
-                    href={getBasePhoneForDialing(contact.phone)}
-                    className="truncate"
-                    style={{ color: textColor || "#4B5563" }}
-                  >
-                    {formatPhoneWithExtension(
-                      contact.phone,
-                      contact.phoneExtension,
-                    )}
-                  </a>
-                ) : (
+            if (!contact.phone) {
+              return (
+                <p key="phone" className="flex min-w-0 items-center gap-1.5">
+                  <Phone
+                    size={iconSize}
+                    strokeWidth={1.5}
+                    className="shrink-0"
+                    style={{ color: infoIconColor }}
+                  />
                   <span className="truncate italic text-gray-400">[Phone]</span>
+                </p>
+              );
+            }
+            return (
+              <CopyContactValue
+                key="phone"
+                kind="phone"
+                // The formatted number is what the reader sees, so it is what lands
+                // on the clipboard — extension included.
+                value={formatPhoneWithExtension(
+                  contact.phone,
+                  contact.phoneExtension,
                 )}
-              </p>
+                icon={
+                  <Phone
+                    size={iconSize}
+                    strokeWidth={1.5}
+                    className="shrink-0"
+                    style={{ color: infoIconColor }}
+                  />
+                }
+                className={cn("gap-1.5", alignCenter && "justify-center")}
+                textStyle={{ color: textColor || "#4B5563" }}
+                title="Copy phone number"
+              />
             );
           }
           return null;
@@ -765,7 +783,6 @@ export function SmallVerticalCard({
               >
                 {displayNameText}
               </h3>
-              {designationChips("text-[7px] px-1")}
               {!isTeamSupport && (
                 <p
                   className="truncate text-[11px] font-medium leading-snug font-red-hat"
@@ -779,6 +796,9 @@ export function SmallVerticalCard({
                   {displayTitleText}
                 </p>
               )}
+              {/* Designations sit UNDER the job title, the way credentials read on a
+                  business card. */}
+              {designationChips("text-[7px] px-1")}
               {(resolvedCardCompany || showPlaceholders) && (
                 <p
                   className="truncate text-[11px] font-semibold leading-snug font-dm-serif"
@@ -888,7 +908,6 @@ export function SmallVerticalCard({
         >
           {displayNameText}
         </h3>
-        {designationChips("text-[6px] px-1")}
         {!isTeamSupport && (
           <p
             className="w-full truncate text-center text-[9px] font-medium leading-snug font-red-hat"
@@ -902,6 +921,8 @@ export function SmallVerticalCard({
             {displayTitleText}
           </p>
         )}
+        {/* Designations sit UNDER the job title. */}
+        {designationChips("text-[6px] px-1")}
         {(resolvedCardCompany || showPlaceholders) && (
           <p
             className="w-full truncate text-center text-[9px] font-semibold leading-snug font-dm-serif"
@@ -964,56 +985,76 @@ export function SmallVerticalCard({
     if (infoType === "email") {
       if (contact.displayEmail === false) return null;
       if (!contact.email && !showPlaceholders) return null;
-      return (
-        <p key="email" className="flex min-w-0 items-center gap-1.5">
-          <Mail
-            size={infoIconSize}
-            strokeWidth={1.5}
-            className="shrink-0"
-            style={{ color: effectiveSecondaryColor }}
-          />
-          {contact.email ? (
-            <a
-              href={`mailto:${contact.email}`}
-              className="truncate transition-colors duration-200 hover:underline"
-              style={{ color: textColor || "#4B5563" }}
-              title={contact.email}
-            >
-              {contact.email}
-            </a>
-          ) : (
+      // Nothing to copy (a preview placeholder) stays plain text.
+      if (!contact.email) {
+        return (
+          <p key="email" className="flex min-w-0 items-center gap-1.5">
+            <Mail
+              size={infoIconSize}
+              strokeWidth={1.5}
+              className="shrink-0"
+              style={{ color: infoIconColor }}
+            />
             <span className="truncate italic text-gray-400">[Email]</span>
-          )}
-        </p>
+          </p>
+        );
+      }
+      return (
+        <CopyContactValue
+          key="email"
+          kind="email"
+          value={contact.email}
+          icon={
+            <Mail
+              size={infoIconSize}
+              strokeWidth={1.5}
+              className="shrink-0"
+              style={{ color: infoIconColor }}
+            />
+          }
+          className="gap-1.5"
+          textStyle={{ color: textColor || "#4B5563" }}
+          title="Copy email address"
+        />
       );
     }
     if (infoType === "phone") {
       if (contact.displayPhone === false) return null;
       if (!contact.phone && !showPlaceholders) return null;
-      return (
-        <p key="phone" className="flex min-w-0 items-center gap-1.5">
-          <Phone
-            size={infoIconSize}
-            strokeWidth={1.5}
-            className="shrink-0"
-            style={{ color: effectiveSecondaryColor }}
-          />
-          {contact.phone ? (
-            <a
-              href={getBasePhoneForDialing(contact.phone)}
-              className="truncate transition-colors duration-200 hover:underline"
-              style={{ color: textColor || "#4B5563" }}
-              title={formatPhoneWithExtension(
-                contact.phone,
-                contact.phoneExtension,
-              )}
-            >
-              {formatPhoneWithExtension(contact.phone, contact.phoneExtension)}
-            </a>
-          ) : (
+      if (!contact.phone) {
+        return (
+          <p key="phone" className="flex min-w-0 items-center gap-1.5">
+            <Phone
+              size={infoIconSize}
+              strokeWidth={1.5}
+              className="shrink-0"
+              style={{ color: infoIconColor }}
+            />
             <span className="truncate italic text-gray-400">[Phone]</span>
+          </p>
+        );
+      }
+      return (
+        <CopyContactValue
+          key="phone"
+          kind="phone"
+          // What the reader sees is what they get — formatted, extension included.
+          value={formatPhoneWithExtension(
+            contact.phone,
+            contact.phoneExtension,
           )}
-        </p>
+          icon={
+            <Phone
+              size={infoIconSize}
+              strokeWidth={1.5}
+              className="shrink-0"
+              style={{ color: infoIconColor }}
+            />
+          }
+          className="gap-1.5"
+          textStyle={{ color: textColor || "#4B5563" }}
+          title="Copy phone number"
+        />
       );
     }
     return null;
@@ -1174,6 +1215,26 @@ export function SmallVerticalCard({
               {displayNameText}
             </h3>
 
+            {!isTeamSupport && (
+              <p
+                className={cn(
+                  "mt-1 w-full truncate font-red-hat font-medium leading-snug",
+                  bodySize,
+                )}
+                style={{
+                  color:
+                    showPlaceholders && !resolvedCardTitle
+                      ? "#9CA3AF"
+                      : textColor || "#374151",
+                }}
+                title={displayTitleText}
+              >
+                {displayTitleText}
+              </p>
+            )}
+
+            {/* Designations sit UNDER the job title, the way credentials read on a
+                business card. */}
             {!isTeamSupport &&
               (contact.designations || []).some(
                 (value) => value && value.trim(),
@@ -1200,24 +1261,6 @@ export function SmallVerticalCard({
                     ))}
                 </div>
               )}
-
-            {!isTeamSupport && (
-              <p
-                className={cn(
-                  "mt-1 w-full truncate font-red-hat font-medium leading-snug",
-                  bodySize,
-                )}
-                style={{
-                  color:
-                    showPlaceholders && !resolvedCardTitle
-                      ? "#9CA3AF"
-                      : textColor || "#374151",
-                }}
-                title={displayTitleText}
-              >
-                {displayTitleText}
-              </p>
-            )}
           </div>
 
           {/* Right column — email, then phone (plus support hours for a line). */}

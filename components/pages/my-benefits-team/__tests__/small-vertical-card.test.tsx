@@ -94,8 +94,18 @@ function renderCard(
   );
 }
 
-function linkHrefs() {
-  return screen.getAllByRole("link").map((link) => link.getAttribute("href"));
+/**
+ * The copy-on-click email / phone values, as their accessible labels in DOM order.
+ *
+ * These were `mailto:` / `tel:` links; clicking now copies the value and shows a
+ * "Copied" chip, so the assertion is about what is ON the card rather than where it
+ * navigates.
+ */
+function copyValues() {
+  return screen
+    .queryAllByRole("button")
+    .map((button) => button.getAttribute("aria-label"))
+    .filter((label): label is string => !!label && label.startsWith("Copy "));
 }
 
 function buttonLabels() {
@@ -261,7 +271,10 @@ describe("SmallVerticalCard contact details", () => {
       phone: "5551234567",
     });
 
-    expect(linkHrefs()).toEqual(["mailto:ada@acme.test", "tel:+15551234567"]);
+    expect(copyValues()).toEqual([
+      "Copy email: ada@acme.test",
+      "Copy phone: (555) 123-4567",
+    ]);
   });
 
   it("honours a contact's contactInfoOrder", () => {
@@ -272,19 +285,26 @@ describe("SmallVerticalCard contact details", () => {
       contactInfoOrder: ["email", "phone"],
     });
 
-    expect(linkHrefs()).toEqual(["mailto:ada@acme.test", "tel:+15551234567"]);
+    expect(copyValues()).toEqual([
+      "Copy email: ada@acme.test",
+      "Copy phone: (555) 123-4567",
+    ]);
   });
 
-  it("formats the phone with its extension while dialling the digits only", () => {
+  it("copies the number the card prints, extension included", () => {
     renderCard({
       name: "Ada",
       phone: "5551234567",
       phoneExtension: "123",
     });
 
-    const link = screen.getByRole("link", { name: /Ext\. 123/ });
-    expect(link).toHaveTextContent("(555) 123-4567 Ext. 123");
-    expect(link).toHaveAttribute("href", "tel:+15551234567");
+    const phone = screen.getByRole("button", { name: /Ext\. 123/ });
+    expect(phone).toHaveTextContent("(555) 123-4567 Ext. 123");
+    // What is copied is what is shown — no hidden `tel:` rewriting.
+    expect(phone).toHaveAttribute(
+      "aria-label",
+      "Copy phone: (555) 123-4567 Ext. 123",
+    );
   });
 
   it("honours displayEmail/displayPhone when animations are disabled", () => {
@@ -534,11 +554,34 @@ describe("SmallVerticalCard visuals", () => {
     ).toBe(true);
   });
 
+  it("puts the designations under the job title", () => {
+    renderCard({
+      name: "Ada Lovelace",
+      title: "Benefits Advisor",
+      designations: ["CFP"],
+    });
+
+    const name = screen.getByRole("heading", { level: 3 });
+    const title = screen.getByText("Benefits Advisor");
+    // The chip renders the acronym with its ® suffix, so match the prefix.
+    const chip = screen.getByText(/^CFP/);
+
+    // Name → role → credentials, the order a business card reads in.
+    expect(
+      name.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(
+      title.compareDocumentPosition(chip) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
   it("fills a highlighted card and inverts its CTA", () => {
     renderCard(
       {
         name: "Ada Lovelace",
         title: "Benefits Advisor",
+        email: "ada@acme.test",
+        phone: "305-555-0100",
         enableContactButton: true,
         contactButtonType: "calendar",
         schedulingUrl: "https://cal.test/ada",
@@ -554,6 +597,16 @@ describe("SmallVerticalCard visuals", () => {
     expect(screen.getByRole("heading", { level: 3 }).style.color).toBe(
       "rgb(255, 255, 255)",
     );
+    // …the contact-detail icons invert with it, instead of keeping the plan's
+    // secondary colour (which sinks into the brand fill)…
+    for (const detail of ["ada@acme.test", "(305) 555-0100"]) {
+      const icon = screen
+        .getByText(detail)
+        .closest("button")
+        ?.querySelector("svg") as SVGElement | null;
+      expect(icon).not.toBeNull();
+      expect(icon!.style.color).toBe("rgb(255, 255, 255)");
+    }
     // …and the CTA is inverted, exactly like the primary "How Can We Help" card.
     const cta = screen.getByRole("button", { name: "Schedule Appt." });
     expect(cta.style.backgroundColor).toBe("rgb(255, 255, 255)");

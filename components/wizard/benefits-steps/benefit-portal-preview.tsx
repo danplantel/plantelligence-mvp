@@ -395,10 +395,13 @@ export function BenefitPortalPreview({
         .filter((sc: any) => sc.enabled !== false)
         .map((sc: any) => {
           const matched = rawContacts.find((c: any) => c.id === sc.contactId);
+          // The PERSON's name wins. `sc.title` is the advisor's per-contact label and
+          // routinely holds a role, so leading with it put a job title in the card's
+          // NAME slot (and the same role again on the line beneath it).
           const personName =
-            sc.title ||
             matched?.name ||
             `${matched?.firstName ?? ""} ${matched?.lastName ?? ""}`.trim() ||
+            sc.title ||
             "Support Contact";
           return {
             id: sc.contactId,
@@ -410,6 +413,8 @@ export function BenefitPortalPreview({
             // blurb is only a fallback.
             description:
               matched?.customRole || matched?.title || sc.description || "",
+            // Their credentials, drawn under the role exactly as on the live card.
+            designations: matched?.designations || undefined,
             email: matched?.email || "",
             phone: matched?.phone || "",
             phoneExtension: matched?.phoneExtension,

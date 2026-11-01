@@ -8,6 +8,7 @@ import { getSupportIcon } from "@/lib/support-icons";
 import { designationAcronym } from "@/config/onboarding/designations";
 import { motion } from "framer-motion";
 import { PrimaryVisual } from "@/components/pages/my-benefits-team/primary-visual";
+import { CopyContactValue } from "@/components/pages/my-benefits-team/copy-contact-value";
 import { readableColor, mix } from "polished";
 import {
   formatPhoneWithExtension,
@@ -363,50 +364,55 @@ export function PrimaryContactCard({
 
             {/* RIGHT inner column: the ways to reach them. */}
             <div className="flex min-w-0 flex-col gap-2">
-              {/* EMAIL (clickable) */}
+              {/* EMAIL (click to copy) */}
               {contact.email && contact.displayEmail !== false && (
-                <a
-                  href={`mailto:${contact.email}`}
-                  className="flex items-center gap-2.5 text-sm sm:text-base font-red-hat hover:opacity-80 transition-opacity group"
-                  style={{ color: textColor }}
-                >
-                  <span
-                    className={`flex items-center justify-center w-8 h-8 rounded-full ${iconChipBg} shrink-0 group-hover:scale-110 transition-transform`}
-                  >
-                    <Mail
-                      size={18}
-                      strokeWidth={1.5}
-                      className="w-[18px] h-[18px] shrink-0"
-                      style={{ color: effectiveBrandColor }}
-                    />
-                  </span>
-                  {contact.email}
-                </a>
+                <CopyContactValue
+                  kind="email"
+                  value={contact.email}
+                  icon={
+                    <span
+                      className={`flex items-center justify-center w-8 h-8 rounded-full ${iconChipBg} shrink-0 group-hover:scale-110 transition-transform`}
+                    >
+                      <Mail
+                        size={18}
+                        strokeWidth={1.5}
+                        className="w-[18px] h-[18px] shrink-0"
+                        style={{ color: effectiveBrandColor }}
+                      />
+                    </span>
+                  }
+                  className="group gap-2.5 text-sm sm:text-base font-red-hat"
+                  textStyle={{ color: textColor }}
+                  title={`Copy email address`}
+                />
               )}
 
-              {/* PHONE (clickable) */}
+              {/* PHONE (click to copy) */}
               {contact.phone && contact.displayPhone !== false && (
-                <a
-                  // `getBasePhoneForDialing` already carries the scheme.
-                  href={getBasePhoneForDialing(contact.phone)}
-                  className="flex items-center gap-2.5 text-sm sm:text-base font-red-hat hover:opacity-80 transition-opacity group"
-                  style={{ color: textColor }}
-                >
-                  <span
-                    className={`flex items-center justify-center w-8 h-8 rounded-full ${iconChipBg} shrink-0 group-hover:scale-110 transition-transform`}
-                  >
-                    <Phone
-                      size={18}
-                      strokeWidth={1.5}
-                      className="w-[18px] h-[18px] shrink-0"
-                      style={{ color: effectiveBrandColor }}
-                    />
-                  </span>
-                  {formatPhoneWithExtension(
+                <CopyContactValue
+                  kind="phone"
+                  // The formatted number is what the reader sees, so it is what they
+                  // get on the clipboard — extension included.
+                  value={formatPhoneWithExtension(
                     contact.phone,
                     contact.phoneExtension,
                   )}
-                </a>
+                  icon={
+                    <span
+                      className={`flex items-center justify-center w-8 h-8 rounded-full ${iconChipBg} shrink-0 group-hover:scale-110 transition-transform`}
+                    >
+                      <Phone
+                        size={18}
+                        strokeWidth={1.5}
+                        className="w-[18px] h-[18px] shrink-0"
+                        style={{ color: effectiveBrandColor }}
+                      />
+                    </span>
+                  }
+                  className="group gap-2.5 text-sm sm:text-base font-red-hat"
+                  textStyle={{ color: textColor }}
+                  title="Copy phone number"
+                />
               )}
 
               {/* SUPPORT HOURS */}
