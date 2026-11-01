@@ -26,6 +26,29 @@ export const KEY_CONTACT_CARD_STYLES: readonly KeyContactCardStyle[] = [
 ] as const;
 
 /**
+ * The two styles with the wording the previews and the editor show, in order.
+ *
+ * Shared so a preview's control cannot describe the style differently from the
+ * editor's Section 8 toggle.
+ */
+export const KEY_CONTACT_CARD_STYLE_CHOICES: {
+  value: KeyContactCardStyle;
+  label: string;
+  hint: string;
+}[] = [
+  {
+    value: "default",
+    label: "Default style",
+    hint: "The neutral card, like the rest of the row.",
+  },
+  {
+    value: "highlighted",
+    label: "Highlighted",
+    hint: "Filled with the plan's primary colour, contents inverted.",
+  },
+];
+
+/**
  * Narrow a stored value to a style the cards understand. Anything unrecognised —
  * null, "", a number, a value from another release — is the default style, never
  * an error, because a benefit must always render its contacts.

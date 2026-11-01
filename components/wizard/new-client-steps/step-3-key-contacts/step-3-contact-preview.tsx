@@ -44,10 +44,18 @@ import {
   rectSortingStrategy,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { LargeHorizontalCard } from "@/components/pages/my-benefits-team/large-horizontal-card";
-import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { PrimaryContactCard } from "@/components/pages/my-benefits-team/primary-contact-card";
-import { ContactCategoryBadge } from "@/components/ui/contact-category-badge";
+import { BenefitContactCard } from "@/components/pages/client-portal/sections/benefit-contact-card";
+import {
+  supportCardColumnClass,
+  supportCardSize,
+  supportContactShowsCta,
+  type SupportCardSize,
+} from "@/lib/support-card-layout";
+import {
+  KEY_CONTACT_CARD_STYLE_CHOICES,
+  type KeyContactCardStyle,
+} from "@/lib/key-contact-card-style";
 
 interface NewClientStep3dProps {
   errorFields?: string[];
@@ -64,7 +72,13 @@ interface LayoutOption {
 }
 
 /** Preview layout constants — mirrors step-2 pattern */
-const DESKTOP_PREVIEW_WIDTH = 1100;
+/**
+ * The preview canvas is 1200px wide: after its 2rem padding and the Card's own
+ * padding, the contact cards get the same ~1088px the portal's My Benefits Team
+ * page gives them (`mx-auto max-w-6xl px-8`), so a card in this preview is the
+ * size of the same card on the live page instead of a shrunken version of it.
+ */
+const DESKTOP_PREVIEW_WIDTH = 1200;
 const HEADER_HEIGHT = 72;
 const BOTTOM_NAV_HEIGHT = 72;
 
@@ -145,19 +159,17 @@ function SortablePreviewCard({
   children,
   isDragging: externalIsDragging,
   onEdit,
-  header,
-  headerMode = false,
   disabled = false,
 }: {
   id: string | number;
-  children: React.ReactNode;
+  /**
+   * The card to render. It receives the control row (drag handle at the start, Edit
+   * at the end) so the CONTROLS land INSIDE the card — the card components take them
+   * through their `topControls` slot.
+   */
+  children: (controls: React.ReactNode) => React.ReactNode;
   isDragging?: boolean;
   onEdit?: () => void;
-  /** Optional content (e.g. category label) shown in the header bar when headerMode is true */
-  header?: React.ReactNode;
-  /** When true, renders the drag handle + edit button in a header bar ABOVE the card
-   *  (mobile preview) instead of as absolute overlays inside the card. */
-  headerMode?: boolean;
   /** When true the card cannot be dragged (e.g. the static Main Contact). */
   disabled?: boolean;
 }) {
@@ -235,31 +247,20 @@ function SortablePreviewCard({
       {...(disabled ? {} : attributes)}
       {...(disabled ? {} : listeners)}
     >
-      {headerMode ? (
-        // Header bar ABOVE the card — keeps drag handle, category label, and
-        // Edit button from overlapping the card's top content on mobile.
-        <div className="flex items-center justify-between gap-2 mt-8 mb-1 px-0.5">
-          <div className="flex items-center gap-1.5 min-w-0">
+      {/* The control row: drag handle at the START, Edit button at the END, no
+          background of its own. It is handed to the card, which draws it inside its
+          own frame above the benefit pills, so nothing sits on top of the card and
+          nothing floats outside it. */}
+      {children(
+        <div className="flex w-full items-center justify-between gap-2">
+          <span className="opacity-70 transition-opacity group-hover:opacity-100">
             {dragHandle}
-            {header}
-          </div>
-          {editButton}
-        </div>
-      ) : (
-        <>
-          {/* Edit button — visible on hover, positioned next to drag handle */}
-          {onEdit && (
-            <div className="absolute top-2 left-12 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
-              {editButton}
-            </div>
-          )}
-          {/* Gray drag handle - visible on hover and when dragging */}
-          <div className="absolute top-2 left-2 z-10 opacity-70 group-hover:opacity-100">
-            {dragHandle}
-          </div>
-        </>
+          </span>
+          {/* Always visible: on a touch device there is no hover, and the advisor
+              should not have to guess that the card is editable. */}
+          {editButton && <span>{editButton}</span>}
+        </div>,
       )}
-      {children}
     </div>
   );
 }
@@ -276,8 +277,11 @@ function RenderCardBySlot({
   index,
   baselineBackgroundColor,
   compact,
-  hideCategoryBadge = false,
   mobileVariant,
+  highlighted = false,
+  cardSize,
+  equalHeight,
+  controls,
 }: {
   slot: CardSlot;
   contact: any;
@@ -290,10 +294,24 @@ function RenderCardBySlot({
   baselineBackgroundColor?: string;
   /** When true, SmallVerticalCard uses compact sizing (reduced padding, avatar, text) */
   compact?: boolean;
-  /** When true, skips the absolute-positioned category badge overlay (mobile preview shows it in the header bar instead) */
-  hideCategoryBadge?: boolean;
   /** Phone card design — same prop the live My Benefits Team mobile layouts pass. */
   mobileVariant?: "wide" | "compact";
+  /**
+   * The key-contact card style, previewed here: `true` fills the card with the
+   * plan's primary colour and inverts its contents. View-only — the real setting
+   * lives on each benefit (its Have Questions? section).
+   */
+  highlighted?: boolean;
+  /**
+   * Element tier for a support card, from how many share its row — the exact value
+   * the live page's rows compute (`supportCardSize(count)`), so a card is the same
+   * size here as it is on My Benefits Team.
+   */
+  cardSize?: SupportCardSize;
+  /** Level a row's cards when any of them draws a CTA — the live page's rule. */
+  equalHeight?: boolean;
+  /** The wizard's drag / Edit row, drawn INSIDE the card by its `topControls` slot. */
+  controls?: React.ReactNode;
 }) {
   // Use index to determine visual primary status (first item is always primary)
   const isPrimaryContact = index === 0;
@@ -302,18 +320,9 @@ function RenderCardBySlot({
     isPrimary: isPrimaryContact,
   };
 
-  // Category badge for the card (suppressed in header mode to avoid overlapping card content).
-  // One category is named; several collapse to "Multiple Categories" with the full list on
-  // hover — see `ContactCategoryBadge`.
-  const categoryBadge =
-    !hideCategoryBadge && contact.categoryLabel ? (
-      <div className="absolute top-2 right-2 z-10">
-        <ContactCategoryBadge
-          categories={contact.categoryList ?? [contact.categoryLabel]}
-          className="text-[10px] px-2 py-0.5 font-medium bg-white/90 dark:bg-gray-800/90 border-gray-200 dark:border-gray-600"
-        />
-      </div>
-    ) : null;
+  // NO category chip is drawn by the preview any more: both card types (the primary's
+  // `PrimaryContactCard` and the support cards' `BenefitContactCard`) print the pills
+  // themselves, exactly as the portal does, so an overlay here would double the tag.
 
   switch (slot.type) {
     case "primary":
@@ -323,7 +332,6 @@ function RenderCardBySlot({
         // which set cursor-pointer on their whole surface. Interactive children
         // (profile picture, links, CTA) keep their own pointers on top.
         <div className="relative w-full h-full cursor-pointer">
-          {categoryBadge}
           <PrimaryContactCard
             contact={contactWithProps}
             brandColor={brandColor}
@@ -333,46 +341,36 @@ function RenderCardBySlot({
             logoScale={logoScale}
             baselineBackgroundColor={baselineBackgroundColor}
             compact={true}
+            highlighted={highlighted}
+            topControls={controls}
           />
         </div>
       );
+    // Support cards (every card but the main contact) ARE the live page's card —
+    // same component, same props the My Benefits Team layouts pass — so a card in
+    // this preview cannot drift from the one the employee sees.
     case "large":
-      return (
-        <div className="relative w-full h-full">
-          {categoryBadge}
-          <LargeHorizontalCard
-            contact={contactWithProps}
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            appointmentLink={appointmentLink}
-            companyName={companyName}
-            index={index}
-            disableAnimation={true}
-            baselineBackgroundColor={baselineBackgroundColor}
-          />
-        </div>
-      );
     case "small":
       return (
-        <div className="relative w-full h-full">
-          {categoryBadge}
-          <SmallVerticalCard
-            contact={contactWithProps}
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            // The portal's CTAs wear the plan's PRIMARY colour (see
-            // `HaveQuestions`), so the preview must not fall back to secondary.
-            ctaColor={brandColor}
-            appointmentLink={appointmentLink}
-            companyName={companyName}
-            index={index}
-            disableAnimation={true}
-            baselineBackgroundColor={baselineBackgroundColor}
-            compact={compact}
-            mobileVariant={mobileVariant}
-            disableContactFormButton
-          />
-        </div>
+        <BenefitContactCard
+          contact={contactWithProps}
+          brandColor={brandColor}
+          secondaryColor={secondaryColor}
+          // The portal's CTAs wear the plan's PRIMARY colour (see `HaveQuestions`).
+          ctaColor={brandColor}
+          appointmentLink={appointmentLink}
+          companyName={companyName}
+          index={index}
+          disableAnimation={true}
+          baselineBackgroundColor={baselineBackgroundColor}
+          compact={compact}
+          size={cardSize}
+          equalHeight={equalHeight}
+          mobileVariant={mobileVariant}
+          placement="team"
+          highlighted={highlighted}
+          topControls={controls}
+        />
       );
     default:
       return null;
@@ -436,6 +434,16 @@ export function NewClientStep3d({
   const step3SubStep = (stepData as any)?.step3SubStep?.step3SubStep;
   const isStep3dActive = step3SubStep === "step3d";
   const [showPreviewSkeleton, setShowPreviewSkeleton] = useState(false);
+  /**
+   * PREVIEW ONLY — which key-contact card style the advisor is looking at.
+   *
+   * The saved style lives on each benefit (its Section 8), and this wizard step
+   * is plan-level: there is no benefit in scope to read it from. The control exists
+   * so the advisor can see both looks of the key contact's card here; nothing about
+   * it is persisted or saved with the client.
+   */
+  const [keyContactStyle, setKeyContactStyle] =
+    useState<KeyContactCardStyle>("default");
   useEffect(() => {
     if (isStep3dActive) {
       setShowPreviewSkeleton(true);
@@ -843,7 +851,8 @@ export function NewClientStep3d({
       // contact row can cover several categories (see `coalesceKeyContactsByPerson`), and
       // this badge is the only place the preview says which hub(s) they speak for.
       const displayCategory = (value: string): string => {
-        if (value === "Third Party Contact") return "External HR / Administrator";
+        if (value === "Third Party Contact")
+          return "External HR / Administrator";
         // Legacy spellings, folded to the labels the rest of the app shows.
         if (value === "Health Insurance") return "Group Health";
         if (value === "Life Insurance") return "Group Life";
@@ -1378,6 +1387,43 @@ export function NewClientStep3d({
       }
     }
 
+    // ── The row each card belongs to, exactly as the live page groups them ──
+    // A support card's element tier comes from how many cards share its row, and a
+    // row levels to its tallest card when any of them draws a CTA. Both rules are
+    // copied from the My Benefits Team layouts, so this preview cannot draw a card
+    // the portal would draw differently.
+    const renderedContacts = orderedContacts.slice(0, slots.length);
+    const showsCta = (entry: any) =>
+      supportContactShowsCta(entry as any, appointmentLink);
+    const rowShowsCta = (row: typeof renderedContacts) => row.some(showsCta);
+    const isDesktopPreview = previewMode !== "mobile";
+    const supportRow = renderedContacts.slice(1);
+    const bottomRow = renderedContacts.slice(2);
+
+    const tierFor = (index: number): SupportCardSize | undefined => {
+      if (!isDesktopPreview) return undefined;
+      if (currentDisplayStyle === 3)
+        return supportCardSize(renderedContacts.length);
+      if (currentDisplayStyle === 2) return supportCardSize(2);
+      if (currentDisplayStyle === 4)
+        return index < 2
+          ? supportCardSize(2)
+          : supportCardSize(Math.max(1, bottomRow.length));
+      // Default layout: the row that sits behind the main contact.
+      return supportCardSize(Math.max(1, supportRow.length));
+    };
+
+    const equalHeightFor = (index: number): boolean | undefined => {
+      if (!isDesktopPreview) return undefined;
+      if (currentDisplayStyle === 3 || currentDisplayStyle === 2)
+        return rowShowsCta(renderedContacts);
+      if (currentDisplayStyle === 4)
+        return rowShowsCta(
+          index < 2 ? renderedContacts.slice(0, 2) : bottomRow,
+        );
+      return index === 0 ? undefined : rowShowsCta(supportRow);
+    };
+
     // Render contacts in order, assigning slots by index
     const slotElements = orderedContacts
       .slice(0, slots.length)
@@ -1403,10 +1449,10 @@ export function NewClientStep3d({
           ? { ...slot, type: "small" as const }
           : mobileSlot;
 
-        // Use compact sizing for all mobile layouts so stacked cards have the same
-        // reduced padding, avatar, and text proportions as the Hero card in the
-        // Hero + Grid layout. Also use compact when large cards are converted.
-        const isCompact = previewMode === "mobile" || largeAsCompact;
+        // Only the phone preview asks for the compact card. On desktop the element
+        // tier comes from `size` (see `tierFor`), exactly as the live rows size
+        // their cards.
+        const isCompact = previewMode === "mobile";
 
         // Phone card design, mirroring the live page's MobileLayout exactly:
         // Stacked = every card full width; 2-Column = all narrow; Hero + Grid = a
@@ -1415,12 +1461,12 @@ export function NewClientStep3d({
           previewMode !== "mobile"
             ? undefined
             : mobileLayoutStyle === 1
-              ? "compact"
-              : mobileLayoutStyle === 2
-                ? index === 0
-                  ? "wide"
-                  : "compact"
-                : "wide";
+            ? "compact"
+            : mobileLayoutStyle === 2
+            ? index === 0
+              ? "wide"
+              : "compact"
+            : "wide";
 
         return (
           <SortablePreviewCard
@@ -1429,30 +1475,29 @@ export function NewClientStep3d({
             isDragging={activePreviewId === contact.id}
             disabled={mainContactId != null && contact.id === mainContactId}
             onEdit={() => handleCardClick(contact.id)}
-            headerMode={previewMode === "mobile"}
-            header={
-              previewMode === "mobile" && contact.categoryLabel ? (
-                <ContactCategoryBadge
-                  categories={contact.categoryList ?? [contact.categoryLabel]}
-                  className="text-[10px] px-2 py-0.5 font-medium bg-white/90 dark:bg-gray-800/90 border-gray-200 dark:border-gray-600"
-                />
-              ) : undefined
-            }
           >
-            <RenderCardBySlot
-              slot={effectiveSlot}
-              contact={contact}
-              brandColor={brandColor}
-              secondaryColor={secondaryColor}
-              appointmentLink={appointmentLink}
-              companyName={companyName}
-              logoScale={contact.logoScale}
-              index={index}
-              baselineBackgroundColor={globalBackgroundColor}
-              compact={isCompact}
-              hideCategoryBadge={previewMode === "mobile"}
-              mobileVariant={mobileVariant}
-            />
+            {(controls) => (
+              <RenderCardBySlot
+                slot={effectiveSlot}
+                contact={contact}
+                brandColor={brandColor}
+                secondaryColor={secondaryColor}
+                appointmentLink={appointmentLink}
+                companyName={companyName}
+                logoScale={contact.logoScale}
+                index={index}
+                baselineBackgroundColor={globalBackgroundColor}
+                compact={isCompact}
+                mobileVariant={mobileVariant}
+                cardSize={tierFor(index)}
+                equalHeight={equalHeightFor(index)}
+                // Only the KEY contact (the leading card) can wear the highlighted
+                // treatment — everyone else keeps the neutral card, exactly as on the
+                // live portal.
+                highlighted={index === 0 && keyContactStyle === "highlighted"}
+                controls={controls}
+              />
+            )}
           </SortablePreviewCard>
         );
       })
@@ -1515,8 +1560,17 @@ export function NewClientStep3d({
           {/* Primary card — compensate for PrimaryContactCard's built-in mt-10 */}
           <div className="w-full min-w-0 shrink-0 -mt-10">{primarySlot}</div>
           {smallSlots.length > 0 && (
-            <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-4 gap-4 [&>*]:min-w-0">
-              {smallSlots}
+            // The live page's support row: a centred flex row whose columns are
+            // sized from the card count (`supportCardColumnClass`), not a fixed grid.
+            <div className="flex w-full flex-wrap justify-center gap-4 sm:gap-6">
+              {smallSlots.map((el, i) => (
+                <div
+                  key={i}
+                  className={supportCardColumnClass(smallSlots.length)}
+                >
+                  {el}
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -1551,10 +1605,17 @@ export function NewClientStep3d({
     }
 
     if (currentDisplayStyle === 3) {
-      // Layout 3: All small
+      // Layout 3: one count-driven row of support cards — the live page's row.
       return (
-        <div className="grid w-full min-w-0 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 [&>*]:min-w-0">
-          {slotElements}
+        <div className="flex w-full flex-wrap justify-center gap-4 sm:gap-6">
+          {slotElements.map((el, i) => (
+            <div
+              key={i}
+              className={supportCardColumnClass(slotElements.length)}
+            >
+              {el}
+            </div>
+          ))}
         </div>
       );
     }
@@ -1574,6 +1635,7 @@ export function NewClientStep3d({
     handleCardClick,
     mobileLayoutStyle,
     previewMode,
+    keyContactStyle,
   ]);
 
   const totalFixedHeight = HEADER_HEIGHT + barHeight + BOTTOM_NAV_HEIGHT;
@@ -1685,8 +1747,8 @@ export function NewClientStep3d({
                 {/* Combined Preview Section with Collapsible Layout */}
                 <Card className="space-y-4 dark:bg-gray-800 dark:border-gray-700">
                   <CardHeader>
-                    <div className="flex items-center justify-between">
-                      <div>
+                    <div className="space-y-3">
+                      <div className="min-w-0">
                         <h2 className="text-xl font-semibold text-gray-900 mb-1 flex items-center gap-2 dark:text-gray-100">
                           <Palette className="w-5 h-5 text-accent-blue" />
                           Preview
@@ -1696,56 +1758,115 @@ export function NewClientStep3d({
                           drop to reorder contacts directly in the preview.
                         </p>
                       </div>
-                      <div className="flex items-center gap-2">
+
+                      {/* Divider between the description above and the controls below. */}
+                      <div
+                        className="h-px w-full bg-gray-200 dark:bg-gray-700"
+                        aria-hidden
+                      />
+
+                      {/* Controls — a row of self-sized groups that WRAPS instead of
+                          squeezing, so no label is ever clipped by a neighbour. Each
+                          group keeps `shrink-0` and `whitespace-nowrap` so its text
+                          always fits its own box. */}
+                      <div className="flex flex-wrap items-center gap-2">
                         {/* Desktop / Mobile Toggle */}
-                        <div className="flex items-center rounded-lg border border-gray-200 overflow-hidden dark:border-gray-600">
+                        <div className="inline-flex shrink-0 items-center overflow-hidden rounded-lg border border-gray-200 dark:border-gray-600">
                           <button
+                            type="button"
                             onClick={() => setPreviewMode("desktop")}
+                            aria-pressed={previewMode === "desktop"}
                             className={cn(
-                              "flex items-center gap-1.5 px-3 py-2 text-sm transition-all cursor-pointer",
+                              "flex items-center gap-1.5 whitespace-nowrap px-3 py-2 text-sm transition-all cursor-pointer",
                               previewMode === "desktop"
                                 ? "bg-accent-blue text-white"
                                 : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
                             )}
                           >
-                            <Monitor className="w-4 h-4" />
-                            <span className="hidden sm:inline">Desktop</span>
+                            <Monitor className="w-4 h-4 shrink-0" />
+                            Desktop
                           </button>
                           <button
+                            type="button"
                             onClick={() => setPreviewMode("mobile")}
+                            aria-pressed={previewMode === "mobile"}
                             className={cn(
-                              "flex items-center gap-1.5 px-3 py-2 text-sm transition-all cursor-pointer",
+                              "flex items-center gap-1.5 whitespace-nowrap px-3 py-2 text-sm transition-all cursor-pointer",
                               previewMode === "mobile"
                                 ? "bg-accent-blue text-white"
                                 : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
                             )}
                           >
-                            <Smartphone className="w-4 h-4" />
-                            <span className="hidden sm:inline">Mobile</span>
+                            <Smartphone className="w-4 h-4 shrink-0" />
+                            Mobile
                           </button>
                         </div>
 
                         {/* Collapsible Layout Button */}
                         <button
+                          type="button"
                           onClick={() =>
                             setIsLayoutSectionCollapsed(
                               !isLayoutSectionCollapsed,
                             )
                           }
-                          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 hover:border-gray-300 hover:bg-gray-50 transition-all cursor-pointer text-sm dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-700"
+                          aria-expanded={!isLayoutSectionCollapsed}
+                          className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-gray-200 px-3 py-2 text-sm transition-all cursor-pointer hover:border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-700"
                         >
-                          <LayoutGrid className="w-4 h-4 text-accent-blue" />
+                          <LayoutGrid className="w-4 h-4 shrink-0 text-accent-blue" />
                           <span className="text-gray-700 dark:text-gray-300">
                             {isLayoutSectionCollapsed
                               ? "Show Layout Options"
                               : "Hide Layout Options"}
                           </span>
                           {isLayoutSectionCollapsed ? (
-                            <ChevronDown className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                            <ChevronDown className="w-4 h-4 shrink-0 text-gray-500 dark:text-gray-400" />
                           ) : (
-                            <ChevronUp className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                            <ChevronUp className="w-4 h-4 shrink-0 text-gray-500 dark:text-gray-400" />
                           )}
                         </button>
+
+                        {/* Key-contact card style — sits in the header so the advisor
+                            can see both looks without opening the layout options.
+                            PREVIEW ONLY: the style itself lives on each benefit (its
+                            Have Questions? section), and this plan-level preview has
+                            no benefit to read it from, so the choice is not saved. */}
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <span className="whitespace-nowrap text-xs font-medium text-gray-500 dark:text-gray-400">
+                            Key contact
+                          </span>
+                          <div
+                            role="group"
+                            aria-label="Key Contact Card Style"
+                            className="inline-flex items-center overflow-hidden rounded-lg border border-gray-200 dark:border-gray-600"
+                          >
+                            {KEY_CONTACT_CARD_STYLE_CHOICES.map((choice) => {
+                              const isSelected =
+                                keyContactStyle === choice.value;
+                              return (
+                                <button
+                                  key={choice.value}
+                                  type="button"
+                                  aria-pressed={isSelected}
+                                  title={choice.hint}
+                                  onClick={() =>
+                                    setKeyContactStyle(choice.value)
+                                  }
+                                  className={cn(
+                                    "whitespace-nowrap px-3 py-2 text-sm font-medium transition-all cursor-pointer",
+                                    isSelected
+                                      ? "bg-accent-blue text-white"
+                                      : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
+                                  )}
+                                >
+                                  {choice.value === "default"
+                                    ? "Default"
+                                    : "Highlighted"}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </CardHeader>

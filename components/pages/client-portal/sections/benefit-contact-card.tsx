@@ -75,6 +75,12 @@ export interface BenefitContactCardProps {
    * the large primary card keeps its own design.
    */
   highlighted?: boolean;
+  /**
+   * Controls drawn INSIDE the card, in a row along its top edge — the wizard
+   * preview's drag handle (start) and Edit button (end). The portal never passes
+   * it, so published cards are unchanged.
+   */
+  topControls?: React.ReactNode;
 }
 
 /**
@@ -166,6 +172,7 @@ export function BenefitContactCard({
   customBenefitName,
   planBenefitLabels,
   highlighted = false,
+  topControls,
 }: BenefitContactCardProps) {
   // Category pages are content-dense, so their cards default to the compact
   // variant; the team page keeps whatever its layout asks for.
@@ -194,6 +201,8 @@ export function BenefitContactCard({
         compact={isCompact}
         categoryLabel={categoryLabel}
         categoryList={categoryList}
+        highlighted={highlighted}
+        topControls={topControls}
       />
     );
   }
@@ -216,6 +225,7 @@ export function BenefitContactCard({
       categoryLabel={categoryLabel}
       categoryList={categoryList}
       highlighted={highlighted}
+      topControls={topControls}
     />
   );
 }

@@ -2037,6 +2037,9 @@ export function BenefitsStep3({
                 secondaryColor={secondaryColor}
                 contacts={previewContacts}
                 companyLogo={planCompanyLogoUrl}
+                // Section 8's choice, so this preview draws the key contact's card
+                // exactly as the published hub will.
+                keyContactCardStyle={step1Data?.keyContactCardStyle}
                 // Label this benefit's key contact, exactly as the published hub
                 // will. "Custom" is the wizard's name for the stored category.
                 keyContacts={localContacts}

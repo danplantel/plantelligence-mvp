@@ -86,6 +86,19 @@ interface PrimaryContactCardProps {
    * `categoryLabel` remains supported for callers that only hold the joined string.
    */
   categoryList?: string[];
+  /**
+   * The "highlighted" key-contact style: fill the card with the plan's PRIMARY
+   * colour and draw everything on it in the readable colour for that fill, the same
+   * treatment the primary card in "How Can We Help You Today?" uses. Used by the
+   * plan-level contact previews, which can switch between this and the default look.
+   */
+  highlighted?: boolean;
+  /**
+   * Controls drawn INSIDE the card, along its top edge — the wizard preview's drag
+   * handle (start) and Edit button (end). Only the wizard passes it; every published
+   * card leaves it undefined.
+   */
+  topControls?: React.ReactNode;
 }
 
 export function PrimaryContactCard({
@@ -98,6 +111,8 @@ export function PrimaryContactCard({
   compact = false,
   categoryLabel,
   categoryList,
+  highlighted = false,
+  topControls,
 }: PrimaryContactCardProps) {
   const categoryListValues =
     categoryList && categoryList.length > 0
@@ -107,14 +122,34 @@ export function PrimaryContactCard({
       : [];
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
   const effectiveSecondaryColor = contact.cardSecondaryColor || secondaryColor;
-  // Card background defaults to the plan's secondary color; the primary color is used as the card's accent.
-  const backgroundColor =
-    contact.cardBackgroundColor ||
-    baselineBackgroundColor ||
-    effectiveSecondaryColor;
+  /** The colour everything ON a highlighted card is drawn in. */
+  const highlightFill = readableColor(effectiveBrandColor);
+  // Card background defaults to the plan's secondary color; the primary color is used
+  // as the card's accent — except in the highlighted style, where the primary colour
+  // IS the card.
+  const backgroundColor = highlighted
+    ? effectiveBrandColor
+    : contact.cardBackgroundColor ||
+      baselineBackgroundColor ||
+      effectiveSecondaryColor;
   const textColor = readableColor(backgroundColor);
-  // Icon chip background: translucent white on dark backgrounds, translucent black on light.
-  const iconChipBg = textColor === "#ffffff" ? "bg-black" : "bg-white";
+  /** Names, company and icons: the brand colour normally, the fill's readable
+   *  colour when highlighted (brand-on-brand would be invisible). */
+  const accentColor = highlighted ? highlightFill : effectiveBrandColor;
+  /**
+   * Whether the card is dark, i.e. its text had to become white.
+   *
+   * Compared as a palette rather than to one literal: `readableColor` returns the
+   * SHORT form (`#fff`), so `textColor === "#ffffff"` was false — the chip took the
+   * light background while the icons took white, and a highlighted (brand-filled)
+   * card showed two white circles with nothing in them.
+   */
+  const isDarkCard = /^#(?:fff|ffffff)$/i.test(textColor.trim());
+  // Icon chip background: dark on a dark card, white on a light one, so the icons
+  // always sit on the opposite tone. The highlighted style drops the chip entirely —
+  // the inverted glyph sits straight on the plan's fill, like the primary card in
+  // "How Can We Help You Today?".
+  const iconChipBg = highlighted ? "" : isDarkCard ? "bg-black" : "bg-white";
   // Determine which buttons to show and which is primary (first checked button becomes primary)
   // Use saved orders from contact or default orders
   type ContactInfoType = "phone" | "email";
@@ -237,6 +272,11 @@ export function PrimaryContactCard({
         borderRadius: portalRadiusValue(1.5),
       }}
     >
+      {/* Preview controls (drag / Edit) — inside the card's own frame, flush with its
+          top edge (no space above the row) and no background of its own. */}
+      {topControls && (
+        <div className="relative z-10 mb-2 w-full pb-2">{topControls}</div>
+      )}
       <div className="grid gap-8 sm:gap-10 lg:gap-14 grid-cols-1 lg:grid-cols-2 relative z-10">
         {/* LEFT: HEADSHOT */}
         <div className="flex items-center justify-center">
@@ -269,7 +309,7 @@ export function PrimaryContactCard({
             <div className="mb-1 flex items-center">
               <SupportIcon
                 className="w-8 h-8 sm:w-9 sm:h-9"
-                style={{ color: effectiveBrandColor }}
+                style={{ color: accentColor }}
               />
             </div>
           ) : (
@@ -293,15 +333,24 @@ export function PrimaryContactCard({
           )}
 
           {/* Two inner columns, laid out like the support cards: identity on the
-              left, the ways to reach them on the right, CTA underneath. */}
-          <div className="mt-2 h-px w-full bg-black/10" aria-hidden />
+              left, the ways to reach them on the right, CTA underneath. The rule
+              softens on a filled card, where a black hairline reads as a mistake. */}
+          <div
+            className={
+              highlighted
+                ? "mt-2 h-px w-full bg-white/25"
+                : "mt-2 h-px w-full bg-black/10"
+            }
+            aria-hidden
+          />
           <div className="grid w-full min-w-0 grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
             {/* LEFT inner column: who they are. */}
             <div className="min-w-0">
-              {/* NAME — brand (primary) color, matching SmallVerticalCard's card name. */}
+              {/* NAME — brand (primary) color, matching SmallVerticalCard's card name.
+                  On a highlighted card it takes the fill's readable colour instead. */}
               <h2
                 className="text-xl sm:text-2xl lg:text-3xl font-semibold font-dm-serif leading-tight w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis"
-                style={{ color: effectiveBrandColor }}
+                style={{ color: accentColor }}
               >
                 {contact.contactType === "team_support"
                   ? contact.displayName || contact.name
@@ -351,11 +400,12 @@ export function PrimaryContactCard({
               )}
 
               {/* COMPANY NAME — below the title, so the card reads name → designations
-              → title → company. Brand (primary) color, same as the name above. */}
+              → title → company. Brand (primary) color, same as the name above, and the
+              fill's readable colour on a highlighted card. */}
               {(contact.companyName || companyName) && (
                 <p
                   className="text-sm sm:text-base font-bold"
-                  style={{ color: effectiveBrandColor }}
+                  style={{ color: accentColor }}
                 >
                   {contact.companyName || companyName}
                 </p>
@@ -377,7 +427,7 @@ export function PrimaryContactCard({
                         size={18}
                         strokeWidth={1.5}
                         className="w-[18px] h-[18px] shrink-0"
-                        style={{ color: effectiveBrandColor }}
+                        style={{ color: accentColor }}
                       />
                     </span>
                   }
@@ -405,7 +455,7 @@ export function PrimaryContactCard({
                         size={18}
                         strokeWidth={1.5}
                         className="w-[18px] h-[18px] shrink-0"
-                        style={{ color: effectiveBrandColor }}
+                        style={{ color: accentColor }}
                       />
                     </span>
                   }
@@ -440,12 +490,17 @@ export function PrimaryContactCard({
                 const isPrimaryButton = idx === primaryIndex;
                 // Primary CTA wears the plan's PRIMARY colour — the same button
                 // colour the hub's support cards use, so the page and every portal
-                // preview agree (it used to take the secondary colour).
+                // preview agree (it used to take the secondary colour). On a
+                // highlighted card it inverts, because brand-on-brand is invisible.
                 const buttonBg = isPrimaryButton
-                  ? effectiveBrandColor
+                  ? highlighted
+                    ? highlightFill
+                    : effectiveBrandColor
                   : "#F3F4F6";
                 const buttonColor = isPrimaryButton
-                  ? "#ffffff"
+                  ? highlighted
+                    ? effectiveBrandColor
+                    : "#ffffff"
                   : readableColor(buttonBg);
 
                 return (

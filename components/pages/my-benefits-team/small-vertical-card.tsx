@@ -156,6 +156,13 @@ interface SmallVerticalCardProps {
    * card on the portal.
    */
   highlighted?: boolean;
+  /**
+   * Controls drawn INSIDE the card, in a row along its top edge above the benefit
+   * pills — the wizard's drag handle (start) and Edit button (end). Only the Create
+   * Client / Step 3D and Portal Preview surfaces pass it; no published portal card
+   * does, so the portal's cards are untouched by it.
+   */
+  topControls?: React.ReactNode;
 }
 
 /**
@@ -167,6 +174,17 @@ interface SmallVerticalCardProps {
  * a wide card are gated to `lg` so the same tier still reads correctly on a
  * phone, where every card is full width.
  */
+/**
+ * How far the preview's control band bleeds past the card's own padding, per tier, so
+ * the band reaches the card's edges instead of floating inside it. Mirrors the
+ * `padding` below.
+ */
+const CARD_TOP_CONTROLS_BLEED: Record<SupportCardSize, string> = {
+  sm: "-mx-3 -mt-3 px-3 sm:-mx-4 sm:-mt-4 sm:px-4",
+  md: "-mx-4 -mt-4 px-4 sm:-mx-6 sm:-mt-6 sm:px-6",
+  lg: "-mx-4 -mt-4 px-4 sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-7 lg:-mt-7 lg:px-7",
+};
+
 const CARD_SIZE_STYLES: Record<
   SupportCardSize,
   {
@@ -249,6 +267,7 @@ export function SmallVerticalCard({
   categoryLabel,
   categoryList,
   highlighted = false,
+  topControls,
 }: SmallVerticalCardProps) {
   const categoryListValues =
     categoryList && categoryList.length > 0
@@ -284,9 +303,10 @@ export function SmallVerticalCard({
   const cardBorderClass = highlighted
     ? "border-transparent"
     : "border-[#E5E5E5]";
-  /** The rule under the identity block, softened to suit the fill. */
+  /** The rule under the identity block, softened to suit the fill. `readableColor`
+   *  returns the SHORT form (`#fff`), so it is matched as a palette, not a literal. */
   const dividerClass = highlighted
-    ? highlightFill === "#ffffff"
+    ? /^#(?:fff|ffffff)$/i.test(highlightFill.trim())
       ? "bg-white/30"
       : "bg-black/15"
     : "bg-black/10";
@@ -767,6 +787,12 @@ export function SmallVerticalCard({
 
             {/* DETAILS COLUMN */}
             <div className="min-w-0 flex-1">
+              {/* Light-grey band for the preview's controls (see the desktop card). */}
+              {topControls && (
+                <div className="-mx-3 -mt-3 mb-2 rounded-t-md bg-gray-100 px-3 py-3">
+                  {topControls}
+                </div>
+              )}
               <ContactCategoryBadge
                 categories={categoryListValues}
                 layout="pills"
@@ -854,6 +880,14 @@ export function SmallVerticalCard({
         data-testid="contact-card"
         data-mobile-variant="compact"
       >
+        {/* Light-grey band for the preview's controls: pulled up to the card's top edge
+            (no space above it) with the same padding above and below the row. */}
+        {topControls && (
+          <div className="-mx-3 -mt-3 mb-2 rounded-t-md bg-gray-100 px-3 py-3">
+            {topControls}
+          </div>
+        )}
+
         <ContactCategoryBadge
           categories={categoryListValues}
           layout="pills"
@@ -1087,6 +1121,21 @@ export function SmallVerticalCard({
       data-testid="contact-card"
       data-card-size={cardSize}
     >
+      {/* Preview controls (drag / Edit) — inside the card, above the pills, on their
+          own light-grey band. The negative margins cancel the card's own padding so
+          the band reaches the card's edges (no space above it), and its padding is the
+          same above and below the row. */}
+      {topControls && (
+        <div
+          className={cn(
+            "mb-3 rounded-t-md bg-gray-100 py-3",
+            CARD_TOP_CONTROLS_BLEED[cardSize],
+          )}
+        >
+          {topControls}
+        </div>
+      )}
+
       {/* BENEFIT CATEGORY TAGS — the hubs are one benefit and skip it; My
           Benefits Team mixes every benefit, so each card names every one it
           covers, as a pill per benefit. */}

@@ -352,6 +352,23 @@ describe("PrimaryContactCard visuals", () => {
     expect(screen.queryByTestId("branding-image")).not.toBeInTheDocument();
   });
 
+  it("draws the email and phone icons straight on the fill when highlighted", () => {
+    const { container } = renderCard(
+      { name: "Ada", email: "ada@example.com", phone: "5551234567" },
+      { brandColor: "#123456", highlighted: true },
+    );
+
+    // White glyphs on the brand fill, and NO chip behind them: a chip filled this
+    // tone left the glyphs white-on-white, which is why only a circle showed.
+    ["mail", "phone"].forEach((name) => {
+      const icon = container.querySelector(`.lucide-${name}`);
+      expect(icon).not.toBeNull();
+      expect(icon!.parentElement?.className).not.toContain("bg-black");
+      expect(icon!.parentElement?.className).not.toContain("bg-white");
+      expect(icon).toHaveStyle({ color: "#fff" });
+    });
+  });
+
   it("uses the plan baseline for the card background, falling back to the secondary colour", () => {
     const baseline = renderCard(
       { name: "Ada" },

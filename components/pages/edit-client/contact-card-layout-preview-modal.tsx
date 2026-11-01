@@ -22,6 +22,10 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { resolveContactCompanyName } from "@/lib/resolve-contact-company-name";
+import {
+  KEY_CONTACT_CARD_STYLE_CHOICES,
+  type KeyContactCardStyle,
+} from "@/lib/key-contact-card-style";
 import type { KeyContact } from "@/types/new-client-wizard";
 import { LargeHorizontalCard } from "@/components/pages/my-benefits-team/large-horizontal-card";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
@@ -81,6 +85,7 @@ function RenderCardBySlot({
   compact,
   companyName,
   mobileVariant,
+  highlighted = false,
 }: {
   slot: CardSlot;
   contact: any;
@@ -92,6 +97,12 @@ function RenderCardBySlot({
   companyName?: string;
   /** Phone card design — the same prop the live My Benefits Team mobile layouts pass. */
   mobileVariant?: "wide" | "compact";
+  /**
+   * The key-contact card style, previewed in this modal: `true` fills the card with
+   * the plan's primary colour and inverts its contents. View-only — the real setting
+   * lives on each benefit.
+   */
+  highlighted?: boolean;
 }) {
   const contactWithProps = {
     ...contact,
@@ -115,6 +126,7 @@ function RenderCardBySlot({
           appointmentLink=""
           companyName={resolvedCompanyName}
           compact={true}
+          highlighted={highlighted}
         />
       );
     case "large":
@@ -127,6 +139,7 @@ function RenderCardBySlot({
           companyName={resolvedCompanyName}
           index={index}
           disableAnimation={true}
+          highlighted={highlighted}
         />
       );
     case "small":
@@ -144,6 +157,7 @@ function RenderCardBySlot({
           compact={compact}
           mobileVariant={mobileVariant}
           disableContactFormButton
+          highlighted={highlighted}
         />
       );
     default:
@@ -411,6 +425,16 @@ export function ContactCardLayoutPreviewModal({
   );
   const [selectedDesktopLayout, setSelectedDesktopLayout] =
     useState<number>(initialDesktopLayout);
+  /**
+   * PREVIEW ONLY — which key-contact card style the advisor is looking at.
+   *
+   * The saved style lives on each benefit (its Section 8), and this modal is
+   * plan-level: there is no benefit in scope to read it from. The control exists so
+   * the advisor can see both looks of the key contact's card here; nothing about it
+   * is persisted or confirmed.
+   */
+  const [keyContactStyle, setKeyContactStyle] =
+    useState<KeyContactCardStyle>("default");
   const [selectedMobileLayout, setSelectedMobileLayout] = useState<number>(
     mobileDisplayStyle ?? 0,
   );
@@ -502,12 +526,12 @@ export function ContactCardLayoutPreviewModal({
           previewMode !== "mobile"
             ? undefined
             : selectedMobileLayout === 1
-              ? "compact"
-              : selectedMobileLayout === 2
-                ? index === 0
-                  ? "wide"
-                  : "compact"
-                : "wide";
+            ? "compact"
+            : selectedMobileLayout === 2
+            ? index === 0
+              ? "wide"
+              : "compact"
+            : "wide";
 
         return (
           <div key={contact.id} className="w-full min-w-0">
@@ -520,6 +544,10 @@ export function ContactCardLayoutPreviewModal({
               compact={isCompact}
               companyName={companyName || ""}
               mobileVariant={mobileVariant}
+              // Only the KEY contact (the first card) can wear the highlighted
+              // treatment — everyone else keeps the neutral card, exactly as on the
+              // live page.
+              highlighted={index === 0 && keyContactStyle === "highlighted"}
             />
           </div>
         );
@@ -615,6 +643,7 @@ export function ContactCardLayoutPreviewModal({
     brandColor,
     previewMode,
     selectedMobileLayout,
+    keyContactStyle,
   ]);
 
   const currentThumbs =
@@ -638,8 +667,8 @@ export function ContactCardLayoutPreviewModal({
         {/* pr-14 reserves space for the Dialog's built-in Close (X) button at top-right */}
         <div className="shrink-0 bg-white dark:bg-gray-800 border-b dark:border-gray-700 px-6 py-3 pr-14">
           {/* ── Controls bar ── */}
-          <div className="flex items-center justify-between gap-4">
-            <div className="my-4">
+          <div className="my-3 space-y-3">
+            <div className="min-w-0">
               <DialogTitle className="text-lg m-0 dark:text-gray-100">
                 Contact Card Layout Preview
               </DialogTitle>
@@ -648,7 +677,50 @@ export function ContactCardLayoutPreviewModal({
                 between Desktop and Mobile to see both views.
               </DialogDescription>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
+
+            {/* Divider between the description above and the controls below. */}
+            <div
+              className="h-px w-full bg-gray-200 dark:bg-gray-700"
+              aria-hidden
+            />
+
+            <div className="flex flex-wrap items-center gap-2">
+              {/* Key-contact card style — sits in the header so the advisor can see
+                  both looks without opening the layout options. PREVIEW ONLY: the
+                  style itself lives on each benefit (its Have Questions? section),
+                  and this plan-level preview has no benefit to read it from. */}
+              <div className="flex items-center gap-1.5">
+                <span className="hidden text-xs font-medium text-gray-500 sm:inline dark:text-gray-400">
+                  Key contact
+                </span>
+                <div
+                  role="group"
+                  aria-label="Key Contact Card Style"
+                  className="inline-flex items-center rounded-lg border border-gray-200 overflow-hidden dark:border-gray-600"
+                >
+                  {KEY_CONTACT_CARD_STYLE_CHOICES.map((choice) => {
+                    const isSelected = keyContactStyle === choice.value;
+                    return (
+                      <button
+                        key={choice.value}
+                        type="button"
+                        aria-pressed={isSelected}
+                        title={choice.hint}
+                        onClick={() => setKeyContactStyle(choice.value)}
+                        className={cn(
+                          "px-3 py-2 text-sm font-medium transition-all cursor-pointer",
+                          isSelected
+                            ? "bg-accent-blue text-white"
+                            : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
+                        )}
+                      >
+                        {choice.value === "default" ? "Default" : "Highlighted"}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               {/* Desktop / Mobile Toggle */}
               <div className="inline-flex items-center rounded-lg border border-gray-200 overflow-hidden dark:border-gray-600">
                 <button

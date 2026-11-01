@@ -38,7 +38,11 @@ export interface ContactCategoryBadgeProps {
 }
 
 const BADGE_CLASS =
-  "inline-flex max-w-full items-center truncate rounded-full border border-black/5 bg-white/90 px-2.5 py-0.5 text-[11px] font-semibold text-gray-600 shadow-sm dark:border-white/10 dark:bg-gray-800/90 dark:text-gray-300";
+  // An OPAQUE white pill, not `bg-white/90`: the tag sits on whatever colour the card
+  // was given, and a translucent white picked that colour up (it read cream on a warm
+  // card and grey on the wizard preview's canvas). White on every card matches the pill
+  // the My Benefits Team page shows.
+  "inline-flex max-w-full items-center truncate rounded-full border border-black/5 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-gray-600 shadow-sm dark:border-white/10 dark:bg-gray-800 dark:text-gray-300";
 
 /**
  * Pill-width labels. A card pill has room for one short word, and the benefit is

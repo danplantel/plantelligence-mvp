@@ -72,6 +72,12 @@ interface LargeHorizontalCardProps {
   disableAnimation?: boolean; // Disable animation for preview
   baselineBackgroundColor?: string;
   baselineLogoScale?: number;
+  /**
+   * The "highlighted" key-contact style — the card filled with the plan's PRIMARY
+   * colour with its contents inverted. The plan-level contact previews switch to it
+   * so the advisor can see both looks of the key contact's card.
+   */
+  highlighted?: boolean;
 }
 
 export function LargeHorizontalCard({
@@ -84,19 +90,29 @@ export function LargeHorizontalCard({
   disableAnimation = false,
   baselineBackgroundColor,
   baselineLogoScale,
+  highlighted = false,
 }: LargeHorizontalCardProps) {
   const isPrimary = contact.isPrimary || false;
   const effectiveBrandColor = contact.cardPrimaryColor || brandColor;
   const effectiveSecondaryColor = contact.cardSecondaryColor || secondaryColor;
-  const backgroundColor =
-    contact.cardBackgroundColor || baselineBackgroundColor || "#ffffff";
-  const textColor =
-    isPrimary ||
-    (backgroundColor &&
-      backgroundColor !== "#ffffff" &&
-      backgroundColor !== "white")
-      ? readableColor(backgroundColor)
-      : undefined;
+  /** The colour everything ON a highlighted card is drawn in. */
+  const highlightFill = readableColor(effectiveBrandColor);
+  const backgroundColor = highlighted
+    ? effectiveBrandColor
+    : contact.cardBackgroundColor || baselineBackgroundColor || "#ffffff";
+  const textColor = highlighted
+    ? highlightFill
+    : isPrimary ||
+      (backgroundColor &&
+        backgroundColor !== "#ffffff" &&
+        backgroundColor !== "white")
+    ? readableColor(backgroundColor)
+    : undefined;
+  /** Names and the company line take the fill's readable colour when highlighted. */
+  const accentColor = highlighted ? highlightFill : effectiveBrandColor;
+  /** Contact-detail icons: the secondary colour normally, the fill's readable
+   *  colour when highlighted (secondary can sink into the brand fill). */
+  const infoIconColor = highlighted ? highlightFill : effectiveSecondaryColor;
 
   // Determine which buttons to show and which is primary (first checked button becomes primary)
   // Use saved orders from contact or default orders
@@ -220,7 +236,7 @@ export function LargeHorizontalCard({
           {isTeamSupport ? (
             <SupportIcon
               className="w-10 h-10 sm:w-12 sm:h-12"
-              style={{ color: effectiveBrandColor }}
+              style={{ color: accentColor }}
             />
           ) : (
             (contact.companyLogo || contact.logo) && (
@@ -237,7 +253,7 @@ export function LargeHorizontalCard({
         {/* NAME */}
         <h3
           className="text-2xl font-dm-serif font-semibold m-0 w-full max-w-full whitespace-nowrap overflow-hidden text-ellipsis"
-          style={{ color: effectiveBrandColor }}
+          style={{ color: accentColor }}
         >
           {contact.contactType === "team_support"
             ? contact.displayName || contact.name
@@ -292,7 +308,7 @@ export function LargeHorizontalCard({
         {(contact.companyName || companyName) && (
           <p
             className="text-base font-semibold m-0 font-dm-serif"
-            style={{ color: effectiveBrandColor }}
+            style={{ color: accentColor }}
           >
             {contact.companyName || companyName}
           </p>
@@ -316,7 +332,7 @@ export function LargeHorizontalCard({
                     size={18}
                     strokeWidth={1.5}
                     className="w-[18px] h-[18px] shrink-0"
-                    style={{ color: effectiveSecondaryColor }}
+                    style={{ color: infoIconColor }}
                   />
                   <a
                     href={`mailto:${contact.email}`}
@@ -350,7 +366,7 @@ export function LargeHorizontalCard({
                     size={18}
                     strokeWidth={1.5}
                     className="w-[18px] h-[18px] shrink-0"
-                    style={{ color: effectiveSecondaryColor }}
+                    style={{ color: infoIconColor }}
                   />
                   <a
                     href={getBasePhoneForDialing(contact.phone)}
@@ -404,14 +420,19 @@ export function LargeHorizontalCard({
 
               // Primary CTA wears the plan's PRIMARY colour — the same button
               // colour the hub's support cards use (it used to take the secondary
-              // colour), so this preview cannot disagree with the live page.
+              // colour), so this preview cannot disagree with the live page. On a
+              // highlighted card it inverts, or it would vanish into the fill.
               const buttonBg = isPrimaryButton
-                ? effectiveBrandColor
+                ? highlighted
+                  ? highlightFill
+                  : effectiveBrandColor
                 : isPrimary
                 ? mix(0.2, "#ffffff", effectiveBrandColor)
                 : "#F3F4F6";
               const buttonColor = isPrimaryButton
-                ? "#ffffff"
+                ? highlighted
+                  ? effectiveBrandColor
+                  : "#ffffff"
                 : readableColor(buttonBg);
 
               return (
