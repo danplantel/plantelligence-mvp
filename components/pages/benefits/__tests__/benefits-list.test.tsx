@@ -816,6 +816,71 @@ describe("BenefitsListPage", () => {
       expect(screen.getAllByTestId("headshot")).toHaveLength(3);
     });
 
+    it("names nobody on a benefit that was never created", async () => {
+      // The Custom hub used to show "Assigned to …" while no Custom benefit existed:
+      // a Company / Plan Sponsor person is a ROLE on the plan, not the owner of that
+      // benefit, and an all-categories collaborator is not assigned to a benefit that
+      // has no row yet.
+      mocks.benefitsData = {
+        benefits: [
+          row({
+            category: "Company / Plan Sponsor",
+            label: "Wellness Programs",
+            visibilityKey: "Other",
+            title: "Welcome to Acme!",
+            exists: false,
+            isEnabled: false,
+            keyContact: { id: "kc-sponsor", name: "Kai", headshot: null },
+          }),
+        ],
+      };
+      mocks.assignmentsData = {
+        assignments: [
+          {
+            assignmentId: "all-1",
+            name: "Cara",
+            categoryScope: "all",
+            categories: [],
+          },
+        ],
+      };
+      renderPage();
+
+      expect(await screen.findByText("Custom")).toBeInTheDocument();
+      expect(screen.getByText("Not created")).toBeInTheDocument();
+      expect(screen.queryByText(/Assigned to/)).not.toBeInTheDocument();
+      expect(screen.queryByTestId("headshot")).not.toBeInTheDocument();
+    });
+
+    it("never names a plan-sponsor contact as the Custom hub's assignee", async () => {
+      mocks.benefitsData = {
+        benefits: [
+          row({
+            category: "Company / Plan Sponsor",
+            label: "Wellness Programs",
+            visibilityKey: "Other",
+            title: "Mindfulness and Me",
+            keyContact: { id: "kc-sponsor", name: "Kai", headshot: null },
+          }),
+        ],
+      };
+      mocks.assignmentsData = {
+        assignments: [
+          {
+            assignmentId: "c1",
+            name: "Cara",
+            categoryScope: "selected",
+            categories: ["Company / Plan Sponsor"],
+          },
+        ],
+      };
+      renderPage();
+
+      // The collaborator who was given the hub is named; the plan sponsor is not.
+      expect(await screen.findByText("Assigned to Cara")).toBeInTheDocument();
+      expect(screen.queryByText(/Kai/)).not.toBeInTheDocument();
+    });
+
     it("reports the missing-field count once the row exists and is incomplete", async () => {
       mocks.benefitsData = {
         benefits: [

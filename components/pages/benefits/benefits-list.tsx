@@ -189,7 +189,9 @@ function LoadFailedCard({
         <AlertCircle className="h-5 w-5 text-muted-foreground" />
         <div className="space-y-1">
           <p className="text-sm font-medium">{title}</p>
-          <p className="max-w-md text-sm text-muted-foreground">{description}</p>
+          <p className="max-w-md text-sm text-muted-foreground">
+            {description}
+          </p>
         </div>
         <Button variant="outline" className="gap-2" onClick={onRetry}>
           <RefreshCw className="h-4 w-4" />
@@ -211,8 +213,8 @@ function NoActivePlansCard({ onViewPlans }: { onViewPlans: () => void }) {
     <Card>
       <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
         <p className="max-w-md text-sm text-muted-foreground">
-          No active plans. A plan has to be Active before its benefit pages can be
-          published — Draft and Archived plans are not offered above.
+          No active plans. A plan has to be Active before its benefit pages can
+          be published — Draft and Archived plans are not offered above.
         </p>
         <Button variant="outline" onClick={onViewPlans}>
           View Plans
@@ -351,12 +353,14 @@ export function BenefitsListPage({
   const rows: BenefitRow[] = benefitsData?.benefits ?? [];
   const plans: PlanSearchBarPlan[] = useMemo(
     () =>
-      ((planListData?.data as PlanSearchBarPlan[] | undefined) ?? []).map((p) => ({
-        id: p.id,
-        companyName: p.companyName,
-        slug: p.slug,
-        status: p.status,
-      })),
+      ((planListData?.data as PlanSearchBarPlan[] | undefined) ?? []).map(
+        (p) => ({
+          id: p.id,
+          companyName: p.companyName,
+          slug: p.slug,
+          status: p.status,
+        }),
+      ),
     [planListData],
   );
   /**
@@ -388,8 +392,12 @@ export function BenefitsListPage({
     if (selectedPlanId || selectablePlans.length === 0) return;
     const sticky = getLastPlanId("benefits");
     const remembered =
-      (sticky && selectablePlans.some((p) => p.id === sticky) ? sticky : null) ??
-      getRecentPlanIds().find((id) => selectablePlans.some((p) => p.id === id)) ??
+      (sticky && selectablePlans.some((p) => p.id === sticky)
+        ? sticky
+        : null) ??
+      getRecentPlanIds().find((id) =>
+        selectablePlans.some((p) => p.id === id),
+      ) ??
       selectablePlans[0].id;
     setSelectedPlanId(remembered);
   }, [selectedPlanId, selectablePlans]);
@@ -416,16 +424,16 @@ export function BenefitsListPage({
   const contentState: ContentState = !plansSettled
     ? "loading"
     : planListError && !hasPlans
-      ? "plans-failed"
-      : !hasPlans
-        ? "no-plans"
-        : !hasSelectablePlans
-          ? "no-active-plans"
-          : isPlanContentLoading
-            ? "loading"
-            : benefitsError && !benefitsData
-              ? "benefits-failed"
-              : "ready";
+    ? "plans-failed"
+    : !hasPlans
+    ? "no-plans"
+    : !hasSelectablePlans
+    ? "no-active-plans"
+    : isPlanContentLoading
+    ? "loading"
+    : benefitsError && !benefitsData
+    ? "benefits-failed"
+    : "ready";
 
   const failure =
     contentState === "plans-failed"
@@ -436,13 +444,13 @@ export function BenefitsListPage({
           onRetry: () => void mutatePlanList(),
         }
       : contentState === "benefits-failed"
-        ? {
-            title: "Couldn't load this plan's benefits",
-            description:
-              "The plan list loaded, but the benefit pages did not. Check your connection and try again.",
-            onRetry: () => void mutate(),
-          }
-        : null;
+      ? {
+          title: "Couldn't load this plan's benefits",
+          description:
+            "The plan list loaded, but the benefit pages did not. Check your connection and try again.",
+          onRetry: () => void mutate(),
+        }
+      : null;
 
   const planRows = useMemo(
     () => rows.filter((row) => row.planId === selectedPlanId),
@@ -454,7 +462,9 @@ export function BenefitsListPage({
   // in the organization.
   const { data: assignmentData } = useSWR(
     selectedPlanId
-      ? `/api/teammates/plan-assignments?planId=${encodeURIComponent(selectedPlanId)}`
+      ? `/api/teammates/plan-assignments?planId=${encodeURIComponent(
+          selectedPlanId,
+        )}`
       : null,
     fetcher,
     { keepPreviousData: true, revalidateOnFocus: false },
@@ -548,7 +558,9 @@ export function BenefitsListPage({
           body: JSON.stringify({ categoryPortalVisibility }),
         }),
         fetch(
-          `/api/clients/${row.planId}/benefits/${encodeURIComponent(row.category)}`,
+          `/api/clients/${row.planId}/benefits/${encodeURIComponent(
+            row.category,
+          )}`,
           {
             method: "PUT",
             headers: { "Content-Type": "application/json" },
@@ -562,11 +574,14 @@ export function BenefitsListPage({
         console.warn("Benefit isEnabled save returned", benefitRes.status);
       }
 
-      toast.success(checked ? `${row.label} published` : `${row.label} hidden`, {
-        description: checked
-          ? "This benefit is now visible on the Benefits Hub."
-          : "This benefit is now hidden on the Benefits Hub.",
-      });
+      toast.success(
+        checked ? `${row.label} published` : `${row.label} hidden`,
+        {
+          description: checked
+            ? "This benefit is now visible on the Benefits Hub."
+            : "This benefit is now hidden on the Benefits Hub.",
+        },
+      );
       mutate();
     } catch (error: any) {
       toast.error("Failed to save visibility", { description: error.message });
@@ -582,7 +597,6 @@ export function BenefitsListPage({
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
-
       {/* Plan picker — the ONE plan-selection control on this page, for every role.
           It used to branch: an advisor got this searchable picker, while a Collaborator got a
           bare row of plan-name buttons (or no picker at all with a single assignment). That
@@ -632,8 +646,8 @@ export function BenefitsListPage({
           <Card>
             <CardContent className="flex flex-col items-center gap-3 py-16 text-center">
               <p className="max-w-md text-sm text-muted-foreground">
-                You haven&rsquo;t been added to a plan yet. An advisor has to invite you to a
-                plan before its benefit pages appear here.
+                You haven&rsquo;t been added to a plan yet. An advisor has to
+                invite you to a plan before its benefit pages appear here.
               </p>
             </CardContent>
           </Card>
@@ -650,7 +664,10 @@ export function BenefitsListPage({
                 >
                   Create Plan
                 </Button>
-                <Button className="gap-2" onClick={() => router.push("/new-benefits")}>
+                <Button
+                  className="gap-2"
+                  onClick={() => router.push("/new-benefits")}
+                >
                   <Plus className="h-4 w-4" />
                   Create Benefit
                 </Button>
@@ -687,18 +704,8 @@ export function BenefitsListPage({
                   assigneesByCategory.get(
                     row.category.trim().toLowerCase().replace(/\s+/g, " "),
                   ) ?? [];
-                // The plan's Key Contact for this category — authored in Create Client,
-                // so it is named even while the benefit is still "Not created". The Custom
-                // hub never carries one (`/api/benefits` resolves none for it).
+                // The plan's Key Contact for this category — authored in Create Client.
                 const keyContact = row.keyContact ?? null;
-                const assigneeLabels = [
-                  ...assignees.map((a) => a.name),
-                  ...(keyContact ? [keyContact.name] : []),
-                ];
-                const assignmentMissingFields =
-                  assignees.length > 0 && row.exists && !row.isComplete
-                    ? row.missingInfo.length
-                    : 0;
                 // Headline is the benefit's own name — see isCustomBenefitTitle().
                 const customTitle = isCustomBenefitTitle(
                   row.title,
@@ -717,6 +724,30 @@ export function BenefitsListPage({
                 const displayName = isCustomHub
                   ? customTitle ?? "Custom"
                   : row.label;
+                /**
+                 * Who this section is assigned to.
+                 *
+                 * Only a row that EXISTS can have anyone on it: the Custom hub in
+                 * particular showed "Assigned to …" against a benefit the advisor had
+                 * never created, because a Company / Plan Sponsor person is a ROLE on
+                 * the plan — the plan's own contact row — not the owner of a Custom
+                 * benefit. With no benefit row there is nothing anybody is assigned to,
+                 * so the line is dropped entirely (the row already says "Not created").
+                 *
+                 * A plan-sponsor contact is never named as the Custom hub's assignee
+                 * either, for the same reason: that card's owner is whoever the advisor
+                 * assigned to the Custom benefit, not the plan sponsor.
+                 */
+                const assigneeLabels = row.exists
+                  ? [
+                      ...assignees.map((a) => a.name),
+                      ...(!isCustomHub && keyContact ? [keyContact.name] : []),
+                    ]
+                  : [];
+                const assignmentMissingFields =
+                  assignees.length > 0 && row.exists && !row.isComplete
+                    ? row.missingInfo.length
+                    : 0;
                 // The benefit's own page on the participant-facing portal — the deep link the
                 // plan-level "Open Portal" button has no way to express.
                 //
@@ -799,7 +830,9 @@ export function BenefitsListPage({
                                 />
                               </span>
                             ))}
-                            {keyContact ? (
+                            {/* Never the plan-sponsor contact on the Custom hub — it
+                                is a role on the plan, not an owner of that benefit. */}
+                            {!isCustomHub && keyContact ? (
                               <span
                                 key={`key-contact-${keyContact.id}`}
                                 className="block h-5 w-5 shrink-0 overflow-hidden rounded-full bg-muted ring-1 ring-background"
@@ -874,7 +907,9 @@ export function BenefitsListPage({
                           <span
                             className={cn(
                               "text-[11px] font-semibold",
-                              row.isEnabled ? "text-green-600" : "text-gray-400",
+                              row.isEnabled
+                                ? "text-green-600"
+                                : "text-gray-400",
                             )}
                           >
                             {row.isEnabled ? "Published" : "Hidden"}
@@ -948,7 +983,9 @@ export function BenefitsListPage({
                               // The flag wraps the FINISHED url, segment and all.
                               window.open(
                                 withCommentsRail(
-                                  portalSegment ? `${base}/${portalSegment}` : base,
+                                  portalSegment
+                                    ? `${base}/${portalSegment}`
+                                    : base,
                                 ),
                                 "_blank",
                                 "noopener,noreferrer",
@@ -992,7 +1029,6 @@ export function BenefitsListPage({
           </CardContent>
         </Card>
       )}
-
     </div>
   );
 }
