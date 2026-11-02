@@ -3,39 +3,20 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { Smartphone, Monitor, X } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
 import { ClientPortal } from "@/components/pages/client-portal/client-portal";
-import { MissionStatementFields } from "@/components/wizard/new-client-steps/sections/mission-statement-fields";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
-import { CompanyLogoCard } from "@/components/wizard/new-client-steps/sections/components/company-logo-card";
-import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
-import { ModalGallery } from "@/components/ui/modalGallery";
-import { SimpleImageEditorModal } from "@/components/ui/simple-image-editor-modal";
-import { HERO_RECOMMENDED_SIZE_LABEL } from "@/components/wizard/new-client-steps/sections/utils/hero-utils";
-import {
-  exportFullResolutionImage,
-  resolveBrandImageUrl,
-} from "@/components/wizard/new-client-steps/sections/utils/image-utils";
-import { HeroBackgroundCard, type HeroSegmentMode } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
-import { WelcomeStatementCard } from "@/components/wizard/new-client-steps/sections/components/welcome-statement-card";
-import { BannerOverlaySettingsCard } from "@/components/wizard/new-client-steps/sections/components/banner-overlay-settings-card";
-import { KeyContactImageCard } from "@/components/wizard/shared/key-contact-image-card";
-import { useHeroOverlaySettings } from "@/components/wizard/new-client-steps/sections/hooks/use-hero-overlay-settings";
-import { TypographySection } from "@/components/wizard/new-client-steps/sections/typography-section";
+import { usePlanPreviewEditorSections } from "@/components/wizard/new-client-steps/sections/components/plan-preview-editor-sections";
 import {
   applyTypographyToElement,
   getPortalShapeCssVars,
-  type TypographyThemeId,
 } from "@/lib/typography-themes";
 import { usePreviewEditorLayout } from "@/lib/preview-editor-layout";
 import type {
   CompanyBasicsData,
   CompanyLogoData,
-  BrandImageData,
   BrandImagesData,
   WelcomeStatementData,
-  MobileHeroPosition,
 } from "@/types/new-client-wizard";
 
 // ── Constants matching Step 2 ──
@@ -330,58 +311,11 @@ export function EditPlanPreviewSection({
   const togglePreviewMode = () =>
     setPreviewMode((prev) => (prev === "desktop" ? "mobile" : "desktop"));
 
-  // ── Hero segment mode (Desktop / Mobile tabs inside the Hero Banner Image card) ──
-  const [heroSegmentMode, setHeroSegmentMode] = useState<HeroSegmentMode>("desktop");
-
-  // ── Desktop hero background position — derived directly from companyData ──
-  const desktopHeroPosition: MobileHeroPosition =
-    (companyData as any)?.desktopHeroBackgroundPosition ?? { x: 50, y: 50 };
-
-  // ── Mobile hero background position — derived directly from companyData ──
-  const mobileHeroPosition: MobileHeroPosition =
-    (companyData as any)?.mobileHeroBackgroundPosition ?? { x: 50, y: 50 };
-
-  // ── Handle segment mode change: syncs the main preview to match ──
-  const handleHeroSegmentModeChange = useCallback(
-    (mode: HeroSegmentMode) => {
-      setHeroSegmentMode(mode);
-      if (mode === "mobile" && previewMode !== "mobile") {
-        setPreviewMode("mobile");
-      } else if (mode === "desktop" && previewMode !== "desktop") {
-        setPreviewMode("desktop");
-      }
-    },
-    [previewMode],
-  );
-
-  // ── Handle desktop hero position change ──
-  const handleDesktopHeroPositionChange = useCallback(
-    (position: MobileHeroPosition) => {
-      if (onCompanyDataChange) {
-        onCompanyDataChange("desktopHeroBackgroundPosition", position);
-      }
-    },
-    [onCompanyDataChange],
-  );
-
-  // ── Handle mobile hero position change ──
-  const handleMobileHeroPositionChange = useCallback(
-    (position: MobileHeroPosition) => {
-      if (onCompanyDataChange) {
-        onCompanyDataChange("mobileHeroBackgroundPosition", position);
-      }
-    },
-    [onCompanyDataChange],
-  );
-
   // ── Refs ──
   const barRef = useRef<HTMLDivElement>(null);
   const [barHeight, setBarHeight] = useState(52);
   const previewContentRef = useRef<HTMLDivElement>(null);
   const scrollableRef = useRef<HTMLDivElement>(null);
-  const logoCardRef = useRef<HTMLDivElement>(null);
-  const overlaySettingsCardRef = useRef<HTMLDivElement>(null);
-  const bannerTitleCardRef = useRef<HTMLDivElement>(null);
   const editorScrollContainerRef = useRef<HTMLDivElement>(null);
 
   // ── Scale state and calculations (desktop only) ──
@@ -596,365 +530,48 @@ export function EditPlanPreviewSection({
       window.removeEventListener("benefitsPreviewScrollTo", handlePreviewScroll);
   }, []);
 
-  // ── Overlay settings ──
-  const {
-    heroOverlayOpacity,
-    heroBackgroundOpacity,
-    heroContainerBackgroundOpacity,
-    heroContainerBlockOpacity,
-    heroContainerInverted,
-    heroBackgroundInverted,
-    heroUseGradient,
-    handleSettingsChange,
-  } = useHeroOverlaySettings(
-    companyData,
-    onCompanyDataChange,
-    undefined,
-    undefined,
-  );
-
   // ── Portal data for ClientPortal preview ──
   const portalData = useMemo(() => buildPortalData(companyData), [companyData]);
 
-  // ── Hero background: default-photo gallery + crop editor ──
-  // The wizard hosts this pair inside `BannerSectionEditor`; this panel has no such
-  // host, so it owns them here. Without them the hero card's "Choose Default Image"
-  // button had nothing to open and did nothing.
-  const [heroGalleryOpen, setHeroGalleryOpen] = useState(false);
-  const [isHeroModalOpen, setIsHeroModalOpen] = useState(false);
-  const [pendingHeroImageData, setPendingHeroImageData] =
-    useState<BrandImageData | null>(null);
-
-  // ── Image change handlers for editor cards ──
-  const handleHeroImageChange = useCallback(
-    (imageData: BrandImageData) => {
-      const currentBrandImages = companyData.brandImages || {};
-      if (onCompanyDataChange) {
-        onCompanyDataChange("brandImages", {
-          ...currentBrandImages,
-          header: imageData,
-        });
-      }
-    },
-    [companyData.brandImages, onCompanyDataChange],
-  );
-
-  const handleHeroImageRemove = useCallback(() => {
-    const currentBrandImages = companyData.brandImages || {};
-    if (onCompanyDataChange) {
-      onCompanyDataChange("brandImages", {
-        ...currentBrandImages,
-        header: null,
-      });
-    }
-  }, [companyData.brandImages, onCompanyDataChange]);
-
-  const handleLogoImageChange = useCallback(
-    (imageData: BrandImageData) => {
-      const logoData: CompanyLogoData = {
-        url: imageData.url,
-        fileName: imageData.fileName || "",
-        fileSize: imageData.fileSize || 0,
-        width: imageData.width || 0,
-        height: imageData.height || 0,
-        hasTransparency:
-          imageData.url.includes("data:image/png") ||
-          imageData.url.includes("data:image/svg"),
-        warnings: imageData.warnings || [],
-        cropData: imageData.cropData as any,
-      };
-      onLogoChange(logoData);
-    },
-    [onLogoChange],
-  );
-
-  const handleLogoImageRemove = useCallback(() => {
-    onLogoChange(null);
-  }, [onLogoChange]);
-
-  const handleWelcomeHeadlineChange = useCallback(
-    (value: string) => {
-      onCompanyDataChange("heroTitle", value);
-    },
-    [onCompanyDataChange],
-  );
-
-  const handleWelcomeBodyChange = useCallback(
-    (value: string) => {
-      onCompanyDataChange("heroDescription", value);
-    },
-    [onCompanyDataChange],
-  );
-
-  const handleToggleDefaultBody = useCallback(
-    (checked: boolean) => {
-      setUseDefaultWelcomeMessage(checked);
-      if (checked) {
-        onCompanyDataChange("heroDescription", defaultWelcomeMessage);
-      }
-    },
-    [setUseDefaultWelcomeMessage, onCompanyDataChange, defaultWelcomeMessage],
-  );
-
-  const heroImageData =
-    companyData?.brandImages?.header || null;
-
-  const welcomeCardData: WelcomeStatementData = {
-    headline:
-      (companyData as any)?.heroTitle ||
-      `Welcome to the ${companyData?.companyName || "Company Name"} Benefits Hub!`,
-    bodyText: (companyData as any)?.heroDescription || "",
-    isAIGenerated: false,
-  };
-
-  /**
-   * Persist a Featured Image change.
-   *
-   * The Edit Client page passes its R2-aware handler, so the crop the editor
-   * produces is uploaded to the same `brandImages.thumbnail` slot the Company
-   * tab's Brand Images area writes; without one, fall back to a plain field
-   * update so the preview panel still works standalone.
-   */
-  const handleBrandImagesChange =
-    onBrandImagesChange ??
-    ((next: BrandImagesData) => onCompanyDataChange("brandImages", next));
-
-  /**
-   * Open the crop editor on the ALREADY-saved hero image.
-   *
-   * The stored value is an R2 key (`org/…/uploads/branding/…`), which neither `<img>`
-   * nor Fabric can load — the browser resolves it as a relative path and 404s. Handing
-   * it over unresolved is why Edit did nothing here; resolve the three URL fields the
-   * editor reads, exactly as the Featured Image card does.
-   */
-  const handleHeroEditClick = useCallback(() => {
-    if (!heroImageData) return;
-    setPendingHeroImageData({
-      ...heroImageData,
-      url: resolveBrandImageUrl(heroImageData.url),
-      originalUrl: resolveBrandImageUrl(heroImageData.originalUrl) || undefined,
-      previewUrl: resolveBrandImageUrl(heroImageData.previewUrl) || undefined,
-    });
-    setIsHeroModalOpen(true);
-  }, [heroImageData]);
-
-  const handleHeroModalClose = useCallback(() => {
-    setIsHeroModalOpen(false);
-    setPendingHeroImageData(null);
-  }, []);
-
-  /**
-   * Persist a finished hero crop.
-   *
-   * Routed through `handleBrandImagesChange` rather than `handleHeroImageChange`, so a
-   * crop made here reaches R2 exactly like the Company tab's Hero Banner Image card:
-   * the data URL is applied first (the preview paints immediately, with no spinner
-   * over it) and the stored key is swapped in behind.
-   */
-  const handleHeroModalSave = useCallback(
-    (
-      value: string,
-      fileName: string,
-      cropData?: import("@/components/ui/simple-image-editor-modal").CropMetadata,
-    ) => {
-      const current = pendingHeroImageData;
-      const next: BrandImageData = {
-        url: value,
-        previewUrl: value,
-        originalUrl: cropData?.originalImage || current?.originalUrl || value,
-        fileName,
-        fileSize: current?.fileSize ?? 0,
-        width: current?.width ?? 0,
-        height: current?.height ?? 0,
-        recommendedSize: HERO_RECOMMENDED_SIZE_LABEL,
-        status: "ok",
-        warnings: [],
-        cropData,
-      };
-      const nextBrandImages = {
-        ...(companyData.brandImages || {}),
-        header: next,
-      } as BrandImagesData;
-      void handleBrandImagesChange(nextBrandImages);
-    },
-    [pendingHeroImageData, handleBrandImagesChange, companyData.brandImages],
-  );
-
   // ── Editor panel sections ──
-  const editorSections = [
-    {
-      title: "Typography",
-      content: (
-        <TypographySection
-          title="Typography Theme"
-          value={typographyTheme}
-          onChange={(id: TypographyThemeId) =>
-            onCompanyDataChange("typographyTheme", id)
-          }
-          compact
-          // Same AI suggestion as Create Plan, using this plan's saved website.
-          enableAiSuggestion
-          websiteUrl={companyData?.companyWebsite}
-          companyName={companyData?.companyName}
-        />
-      ),
-    },
-    {
-      title: "Images",
-      content: (
-        <div className="space-y-4">
-          <Card className="dark:bg-gray-800">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm dark:text-gray-100">Company Logo <span className="text-red-500">*</span></CardTitle>
-            </CardHeader>
-            <CardContent>
-              <CompanyLogoCard
-                ref={logoCardRef}
-                companyLogo={companyData?.companyLogo}
-                onLogoImageChange={handleLogoImageChange}
-                onLogoImageRemove={handleLogoImageRemove}
-                isHighlighted={false}
-                onFieldFocus={() => focusPreviewField("banner")}
-                // The Card above already says "Company Logo *", so the card's own
-                // heading would be the second one on screen.
-                showTitle={false}
-              />
-            </CardContent>
-          </Card>
-
-          <Card className="dark:bg-gray-800">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm dark:text-gray-100">Hero Banner Image <span className="text-red-500">*</span></CardTitle>
-            </CardHeader>
-            <CardContent>
-              <HeroBackgroundCard
-                heroImageData={heroImageData}
-                onImageChange={handleHeroImageChange}
-                onImageRemove={handleHeroImageRemove}
-                onEditClick={handleHeroEditClick}
-                onFileSelect={(data) => handleHeroImageChange(data)}
-                onDefaultPhotoClick={() => setHeroGalleryOpen(true)}
-                segmentMode={heroSegmentMode}
-                onSegmentModeChange={handleHeroSegmentModeChange}
-                desktopPosition={desktopHeroPosition}
-                onDesktopPositionChange={handleDesktopHeroPositionChange}
-                mobilePosition={mobileHeroPosition}
-                onMobilePositionChange={handleMobileHeroPositionChange}
-                onFieldFocus={() => focusPreviewField("banner")}
-              />
-            </CardContent>
-          </Card>
-
-          {/* The welcome banner's circular portrait. Left empty it shows the
-              category's key contact headshot, so this is purely an override. */}
-          <Card className="dark:bg-gray-800">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm dark:text-gray-100">Key Contact Image</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <KeyContactImageCard
-                value={(companyData as any)?.heroPortraitImage || ""}
-                defaultImage={keyContactHeadshot}
-                onChange={(url) =>
-                  onCompanyDataChange("heroPortraitImage", url)
-                }
-                clientId={clientId}
-                // The Card above already says "Key Contact Image".
-                showTitle={false}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      ),
-    },
-    {
-      title: "Hero Content",
-      content: (
-        <div className="space-y-4">
-          <Card className="dark:bg-gray-800">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm dark:text-gray-100">Welcome Message</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <WelcomeStatementCard
-                welcomeData={welcomeCardData}
-                companyName={companyData?.companyName || "Company Name"}
-                errorFields={errorFields}
-                useDefaultBody={useDefaultWelcomeMessage}
-                onToggleDefaultBody={handleToggleDefaultBody}
-                defaultBodyText={defaultWelcomeMessage}
-                onHeadlineChange={handleWelcomeHeadlineChange}
-                onBodyChange={handleWelcomeBodyChange}
-                onFieldFocus={() => focusPreviewField("banner")}
-              />
-            </CardContent>
-          </Card>
-
-          <Card className="dark:bg-gray-800" onMouseDown={() => focusPreviewField("banner")}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm dark:text-gray-100">Overlay Settings</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <BannerOverlaySettingsCard
-                ref={overlaySettingsCardRef}
-                backgroundOpacity={heroBackgroundOpacity}
-                containerBlockOpacity={heroContainerBlockOpacity}
-                containerInverted={heroContainerInverted}
-                backgroundInverted={heroBackgroundInverted}
-                useGradient={heroUseGradient}
-                onSettingsChange={handleSettingsChange}
-                isHighlighted={false}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      ),
-    },
-    {
-      title: "Mission Statement",
-      content: (
-        <div className="space-y-4">
-          {/* Featured Image — the section's first item, mirroring Create Plan's
-              Section 4. It is a brand image, so it reuses the very same uploader
-              and cropper the Company tab's Brand Images area uses: the slot's
-              9:10 guide lives in `constants/brand-image-guides`, so every
-              cropper of `brandImages.thumbnail` produces the same shape. */}
-          <BrandImagesSection
-            brandImages={companyData.brandImages}
-            visibleSlots={["thumbnail"]}
-            onBrandImagesChange={handleBrandImagesChange}
-          />
-          <Card className="dark:bg-gray-800">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm dark:text-gray-100">Mission Statement</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <MissionStatementFields
-                missionHeadline={missionHeadline}
-                missionBody={missionBody}
-                defaultBodyText={defaultBodyText}
-                useDefaultBody={useDefaultBody}
-                headlineCharCount={headlineCharCount}
-                bodyCharCount={bodyCharCount}
-                isHeadlineValid={isHeadlineValid}
-                isBodyValid={isBodyValid}
-                errorFields={errorFields}
-                headlineRef={headlineRef as any}
-                bodyTextRef={bodyTextRef as any}
-                onHeadlineChange={handleHeadlineChange}
-                onBodyChange={handleBodyChange}
-                onUseDefaultBodyChange={handleUseDefaultBody}
-                onGenerateMissionHeadline={handleGenerateMissionHeadline}
-                onGenerateMissionBody={handleGenerateMissionBody}
-                showUseDefault={false}
-                onFieldFocus={() => focusPreviewField("mission")}
-              />
-            </CardContent>
-          </Card>
-        </div>
-      ),
-    },
-  ];
+  // Shared with the portal's inline editor so Step 2, Edit Client's Preview tab
+  // and the portal render the exact same inputs and structure.
+  const { sections: editorSections, modals: editorModals } =
+    usePlanPreviewEditorSections({
+      companyData,
+      onCompanyDataChange,
+      onLogoChange,
+      defaultWelcomeMessage,
+      useDefaultWelcomeMessage,
+      setUseDefaultWelcomeMessage,
+      clientId,
+      keyContactHeadshot,
+      missionHeadline,
+      missionBody,
+      defaultBodyText,
+      useDefaultBody,
+      headlineRef,
+      bodyTextRef,
+      handleHeadlineChange,
+      handleBodyChange,
+      handleUseDefaultBody,
+      handleGenerateMissionHeadline,
+      handleGenerateMissionBody,
+      headlineCharCount,
+      bodyCharCount,
+      isHeadlineValid,
+      isBodyValid,
+      errorFields,
+      onBrandImagesChange,
+      onFieldFocus: focusPreviewField,
+      onHeroSegmentModeChange: (mode) => {
+        if (mode === "mobile" && previewMode !== "mobile") {
+          setPreviewMode("mobile");
+        } else if (mode === "desktop" && previewMode !== "desktop") {
+          setPreviewMode("desktop");
+        }
+      },
+    });
 
   return (
     <div className="w-full">
@@ -1180,84 +797,8 @@ export function EditPlanPreviewSection({
         }
       />
 
-      {/* ── Hero background: the default-photo picker and its crop editor ──
-          Create Plan raises both from `BannerSectionEditor`; this panel raises them
-          itself, so "Choose Default Image" opens the same gallery and the same hero
-          guidelines it does there. */}
-      <ModalGallery
-        open={heroGalleryOpen}
-        onOpenChange={setHeroGalleryOpen}
-        onSelect={async (url) => {
-          let fileName = "default-image.png";
-          let fileExtension = "png";
-          if (url.startsWith("data:image/")) {
-            const match = url.match(/data:image\/(\w+);/);
-            if (match && match[1]) {
-              fileExtension = match[1];
-              fileName = `default-image.${fileExtension}`;
-            }
-          } else {
-            const urlMatch = url.match(/\.(png|jpg|jpeg|gif|webp)(\?|$)/i);
-            if (urlMatch && urlMatch[1]) {
-              fileExtension = urlMatch[1].toLowerCase();
-              fileName = `default-image.${fileExtension}`;
-            }
-          }
-
-          // Hand the ORIGINAL, full-resolution photo to the crop editor — the same
-          // hand-off Create Plan makes — so the hero is framed to its own guidelines
-          // and nothing is applied until the user saves.
-          let dataUrl = url;
-          let width = 0;
-          let height = 0;
-          try {
-            const exported = await exportFullResolutionImage(url);
-            dataUrl = exported.dataUrl;
-            width = exported.width;
-            height = exported.height;
-          } catch (error) {
-            console.error("Failed to load default photo for editing:", error);
-          }
-
-          setPendingHeroImageData({
-            url: dataUrl,
-            originalUrl: url,
-            fileName,
-            fileSize: 0,
-            width,
-            height,
-            recommendedSize: HERO_RECOMMENDED_SIZE_LABEL,
-            status: "ok",
-            warnings: [],
-          });
-          setHeroGalleryOpen(false);
-          setIsHeroModalOpen(true);
-        }}
-      />
-
-      {pendingHeroImageData && (
-        <SimpleImageEditorModal
-          modalTitle="Hero Banner Image"
-          modalDescription="Upload and edit your image."
-          value={pendingHeroImageData.url || ""}
-          originalValue={pendingHeroImageData.originalUrl}
-          fileName={pendingHeroImageData.fileName || ""}
-          existingCropData={pendingHeroImageData.cropData}
-          onChange={handleHeroModalSave}
-          onRemove={handleHeroModalClose}
-          isOpen={isHeroModalOpen}
-          onClose={handleHeroModalClose}
-          saveButtonText="Save Hero Banner Image"
-          // The canvas, guide and export values the wizard's own hero editor uses, so
-          // a crop made here and one made in Create Plan are the same crop.
-          canvasWidth={640}
-          canvasHeight={600}
-          guidelineWidth={580}
-          guidelineHeight={240}
-          guidelinePadding={20}
-          exportScale={3}
-        />
-      )}
+      {/* ── Hero background: the default-photo picker and its crop editor ── */}
+      {editorModals}
     </div>
   );
 }

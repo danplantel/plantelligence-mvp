@@ -7,12 +7,18 @@ export function useHeroOverlaySettings(
   onCompanyDataChange?: (field: any, value: any) => void,
   saveStepDataLocally?: (key: string, data: any) => void,
   stepDataCompanyBasics?: any,
+  options?: { preferCompanyData?: boolean },
 ) {
   // Single source of truth: store data
   const storeCompanyBasics = useNewClientWizardStore((state) => state.stepData.companyBasics);
-  
-  // Get source data: store > stepDataCompanyBasics > companyData prop
+  const preferCompanyData = options?.preferCompanyData === true;
+
+  // Get source data: store > stepDataCompanyBasics > companyData prop.
+  // Hosts outside the Create Plan flow (the portal's inline editor) opt into
+  // reading `companyData` directly so a leftover wizard draft in localStorage
+  // cannot mask the plan's saved values.
   const getSourceData = () => {
+    if (preferCompanyData) return companyData;
     return storeCompanyBasics || stepDataCompanyBasics || companyData;
   };
 

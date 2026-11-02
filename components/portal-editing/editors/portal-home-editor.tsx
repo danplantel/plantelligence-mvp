@@ -3,55 +3,168 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { SectionHeader } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
+import { usePlanPreviewEditorSections } from "@/components/wizard/new-client-steps/sections/components/plan-preview-editor-sections";
+import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
+import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
+import { MISSION_STATEMENT_PRESETS } from "@/components/wizard/new-client-steps/constants/welcome-statements";
+import { HERO_RECOMMENDED_SIZE_LABEL } from "@/components/wizard/new-client-steps/sections/utils/hero-utils";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import {
   normalizeTypographyThemeId,
-  TYPOGRAPHY_THEME_LIST,
+  type TypographyThemeId,
 } from "@/lib/typography-themes";
-import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
+import { readPortalContacts, resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
+import type {
+  BrandImageData,
+  BrandImagesData,
+  CompanyBasicsData,
+  CompanyLogoData,
+} from "@/types/new-client-wizard";
 
-interface HomeDraft {
-  companyName: string;
-  companyWebsite: string;
-  brandColor: string;
-  secondaryColor: string;
-  typographyTheme: string;
-  heroTitle: string;
-  heroDescription: string;
-  missionHeadline: string;
-  missionBody: string;
-  appointmentLink: string;
-  disclaimers: string;
+const DEFAULT_WELCOME_MESSAGE =
+  MISSION_STATEMENT_PRESETS[0]?.bodyText ||
+  "This website was created as your central source for exploring and taking advantage of your company benefits. Our goal is to make it easy for you to stay informed, engaged, and confident in the resources available to you.\n\nWhether you're just getting started or continuing your journey, this site is here to help you make the most of everything our company has to offer.";
+
+const DEFAULT_MISSION_BODY =
+  MISSION_STATEMENT_PRESETS[0]?.bodyText ||
+  "When people are supported, great things happen. This hub was created to help you understand and take advantage of the opportunities available to you as a team member. From everyday resources to long-term planning tools, everything you need is right here.";
+
+/** Turn a legacy URL/name pair into the BrandImageData shape the cards read. */
+function brandImageFromLegacy(
+  url?: string | null,
+  fileName?: string | null,
+  recommendedSize = "",
+): BrandImageData | null {
+  if (!url) return null;
+  return {
+    url,
+    fileName: fileName ?? "",
+    fileSize: 0,
+    width: 0,
+    height: 0,
+    recommendedSize,
+    status: "ok",
+    warnings: [],
+  };
 }
 
-function draftFromClient(clientData: Record<string, any> | null): HomeDraft {
+/** Map the portal payload onto the same `CompanyBasicsData` the Step 2 panel uses. */
+function companyFromClient(
+  clientData: Record<string, any> | null,
+): CompanyBasicsData {
+  const rawBrandImages = (clientData?.brandImages ?? {}) as Record<string, any>;
+  const logoUrl =
+    typeof clientData?.companyLogo === "string" ? clientData.companyLogo : "";
+
+  const brandImages: BrandImagesData = {
+    header:
+      rawBrandImages.header ??
+      brandImageFromLegacy(
+        clientData?.backgroundImg,
+        clientData?.backgroundImgName,
+        HERO_RECOMMENDED_SIZE_LABEL,
+      ),
+    thumbnail:
+      rawBrandImages.thumbnail ??
+      brandImageFromLegacy(
+        clientData?.thumbnailImg,
+        clientData?.thumbnailImgName,
+      ),
+    secondaryBanner:
+      rawBrandImages.secondaryBanner ??
+      brandImageFromLegacy(
+        clientData?.secondaryBannerImg,
+        clientData?.secondaryBannerImgName,
+      ),
+    favicon: rawBrandImages.favicon ?? null,
+    employeeResourcesHero: rawBrandImages.employeeResourcesHero ?? null,
+  };
+
   return {
     companyName: String(clientData?.companyName ?? ""),
     companyWebsite: String(clientData?.companyWebsite ?? ""),
-    brandColor: String(clientData?.brandColor ?? "#1F3A60"),
+    companyLogo: logoUrl
+      ? {
+          url: logoUrl,
+          fileName: String(clientData?.logoFileName ?? ""),
+          fileSize: 0,
+          width: 0,
+          height: 0,
+          hasTransparency:
+            logoUrl.includes("data:image/png") ||
+            logoUrl.includes("data:image/svg"),
+          warnings: [],
+        }
+      : null,
+    primaryColor: String(clientData?.brandColor ?? "#1F3A60"),
     secondaryColor: String(clientData?.secondaryColor ?? "#6B7280"),
     typographyTheme: normalizeTypographyThemeId(
       clientData?.typographyTheme,
-    ),
+    ) as TypographyThemeId,
+    brandImages,
+    appointmentLink: String(clientData?.appointmentLink ?? ""),
     heroTitle: String(clientData?.heroTitle ?? ""),
     heroDescription: String(clientData?.heroDescription ?? ""),
     missionHeadline: String(clientData?.missionHeadline ?? ""),
     missionBody: String(clientData?.missionBody ?? ""),
-    appointmentLink: String(clientData?.appointmentLink ?? ""),
-    disclaimers: String(clientData?.disclaimers ?? ""),
+    heroOverlayOpacity: clientData?.heroOverlayOpacity,
+    heroBackgroundOpacity: clientData?.heroBackgroundOpacity,
+    heroContainerOpacity: clientData?.heroContainerOpacity,
+    heroContainerBackgroundOpacity:
+      clientData?.heroContainerBackgroundOpacity,
+    heroContainerBlockOpacity: clientData?.heroContainerBlockOpacity,
+    heroCompanyNameColor: clientData?.heroCompanyNameColor,
+    heroContainerInverted: clientData?.heroContainerInverted ?? false,
+    heroBackgroundInverted: clientData?.heroBackgroundInverted ?? false,
+    heroUseGradient: clientData?.heroUseGradient ?? false,
+    desktopHeroBackgroundPosition:
+      clientData?.desktopHeroBackgroundPosition,
+    mobileHeroBackgroundPosition:
+      clientData?.mobileHeroBackgroundPosition,
+    heroPortraitImage: String(clientData?.heroPortraitImage ?? ""),
   };
 }
 
+/** Fields the live portal reads directly — patched optimistically while typing. */
+function clientPatchForField(
+  field: string,
+  value: any,
+): Record<string, unknown> {
+  if (field === "primaryColor") return { brandColor: value };
+
+  if (field === "brandImages") {
+    const images = (value ?? {}) as BrandImagesData;
+    return {
+      brandImages: images,
+      backgroundImg: images.header?.url ?? "",
+      backgroundImgName: images.header?.fileName ?? "",
+      thumbnailImg: images.thumbnail?.url ?? "",
+      thumbnailImgName: images.thumbnail?.fileName ?? "",
+      secondaryBannerImg: images.secondaryBanner?.url ?? "",
+      secondaryBannerImgName: images.secondaryBanner?.fileName ?? "",
+    };
+  }
+
+  return { [field]: value };
+}
+
+/** The PUT payload for a single field. The route merges narrow payloads. */
+function payloadForField(
+  field: string,
+  value: any,
+): Record<string, unknown> {
+  if (field === "primaryColor") return { brandColor: value };
+  return { [field]: value };
+}
+
 /**
- * Home page editor — plan-level branding, hero and mission copy.
+ * Portal Home editor.
  *
- * Every keystroke patches the portal context so the live page repaints at once;
- * the PUT is debounced and the saved row remains the source of truth. A failed
- * save reverts the optimistic patch by refetching the portal.
+ * Renders the exact same Editing Panel sections as Create Plan Step 2 and Edit
+ * Client's Preview tab (`usePlanPreviewEditorSections`) against the plan's live
+ * portal data. Every change patches the portal context immediately, so the page
+ * beside the panel repaints at once; the PUT is debounced and the saved row
+ * remains the source of truth.
  */
 export function PortalHomeEditor() {
   const { clientData } = useClientPortal();
@@ -66,52 +179,125 @@ export function PortalHomeEditor() {
     refetchPortal,
   } = usePortalEditing();
 
-  const [draft, setDraft] = useState<HomeDraft>(() =>
-    draftFromClient(clientData as Record<string, any> | null),
+  const [companyData, setCompanyData] = useState<CompanyBasicsData>(() =>
+    companyFromClient(clientData as Record<string, any> | null),
   );
-  const hydratedIdRef = useRef<string | null>(null);
+  const [useDefaultWelcomeMessage, setUseDefaultWelcomeMessage] =
+    useState(false);
+  const [useDefaultBody, setUseDefaultBody] = useState(false);
+  const [revision, setRevision] = useState(0);
+
+  const headlineRef = useRef<HTMLInputElement>(null);
+  const bodyTextRef = useRef<HTMLTextAreaElement>(null);
+
+  // Pending save state. `pendingRef` merges every field touched since the last
+  // successful PUT; `versionRef` prevents an in-flight save from clearing edits
+  // made while it was running.
+  const pendingRef = useRef<Record<string, any>>({});
+  const versionRef = useRef(0);
   const dirtyRef = useRef(false);
+  const [saveTick, setSaveTick] = useState(0);
 
-  // Seed once per plan. Later `clientData` changes are the optimistic patches this
-  // editor itself wrote, so resetting here would fight the user's typing.
+  // Re-seed the local editor from the saved plan on first mount (and after a
+  // failed save refetch). Optimistic patches this editor made keep the same
+  // hydration key, so typing is never reset.
+  const hydrationKey = `${clientData?.id ?? ""}:${revision}`;
+  const hydratedKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    const id = clientData?.id ?? null;
-    if (!id || hydratedIdRef.current === id) return;
-    hydratedIdRef.current = id;
-    setDraft(draftFromClient(clientData as Record<string, any>));
-  }, [clientData]);
+    if (!clientData) return;
+    if (hydratedKeyRef.current === hydrationKey) return;
+    hydratedKeyRef.current = hydrationKey;
+    setCompanyData(companyFromClient(clientData as Record<string, any>));
+    setUseDefaultWelcomeMessage(
+      !clientData.heroDescription ||
+        clientData.heroDescription === DEFAULT_WELCOME_MESSAGE,
+    );
+    setUseDefaultBody(
+      !clientData.missionBody ||
+        clientData.missionBody === DEFAULT_MISSION_BODY,
+    );
+  }, [clientData, hydrationKey]);
 
-  const update = useCallback(
-    <K extends keyof HomeDraft>(field: K, value: HomeDraft[K]) => {
-      dirtyRef.current = true;
-      setDraft((previous) => ({ ...previous, [field]: value }));
-      patchClientData({ [field]: value });
+  const enqueueSave = useCallback((fields: Record<string, any>) => {
+    pendingRef.current = { ...pendingRef.current, ...fields };
+    versionRef.current += 1;
+    dirtyRef.current = true;
+    setSaveTick((tick) => tick + 1);
+  }, []);
+
+  const updateField = useCallback(
+    (field: string, value: any) => {
+      setCompanyData(
+        (previous) => ({ ...previous, [field]: value }) as CompanyBasicsData,
+      );
+      patchClientData(clientPatchForField(field, value));
+      enqueueSave(payloadForField(field, value));
     },
-    [patchClientData],
+    [patchClientData, enqueueSave],
   );
 
+  const handleLogoChange = useCallback(
+    (logoData: CompanyLogoData | null) => {
+      setCompanyData((previous) => ({ ...previous, companyLogo: logoData }));
+      patchClientData({
+        companyLogo: logoData?.url ?? "",
+        logoFileName: logoData?.fileName ?? "",
+      });
+      enqueueSave({ companyLogo: logoData });
+    },
+    [patchClientData, enqueueSave],
+  );
+
+  const handleBrandImagesChange = useCallback(
+    (next: BrandImagesData) => {
+      updateField("brandImages", next);
+    },
+    [updateField],
+  );
+
+  const savingRef = useRef(false);
   const save = useCallback(async () => {
-    if (!planId) return;
+    if (!planId || savingRef.current) return;
+    const payload = pendingRef.current;
+    const version = versionRef.current;
+    if (!Object.keys(payload).length) return;
+
+    savingRef.current = true;
     beginSave();
     try {
       const response = await fetch(`/api/clients/${planId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(draft),
+        body: JSON.stringify(payload),
       });
       if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error || "Could not save this page.");
+        const body = await response.json().catch(() => null);
+        throw new Error(body?.error || "Could not save this page.");
+      }
+      // Only clear what this request actually sent. Edits made while it was in
+      // flight stay queued for the next save.
+      if (versionRef.current === version) {
+        pendingRef.current = {};
       }
       finishSave();
     } catch (error) {
+      pendingRef.current = {};
       failSave(
         error instanceof Error ? error.message : "Could not save this page.",
       );
-      // The server is the source of truth — pull the rejected values back.
+      // The server is the source of truth — pull the rejected values back and
+      // re-seed the panel from them.
       await refetchPortal();
+      setRevision((value) => value + 1);
+    } finally {
+      savingRef.current = false;
+      // A debounce that fired mid-save returned early; flush what is still queued.
+      if (Object.keys(pendingRef.current).length > 0) {
+        dirtyRef.current = true;
+        setSaveTick((tick) => tick + 1);
+      }
     }
-  }, [planId, draft, beginSave, finishSave, failSave, refetchPortal]);
+  }, [planId, beginSave, finishSave, failSave, refetchPortal]);
 
   // Debounced autosave. The first render is not dirty, so opening the panel never
   // writes a no-op update.
@@ -122,177 +308,104 @@ export function PortalHomeEditor() {
       void save();
     }, 700);
     return () => clearTimeout(timer);
-  }, [draft, save]);
+  }, [saveTick, save]);
+
+  const missionHeadline = companyData.missionHeadline ?? "";
+  const missionBody = companyData.missionBody ?? "";
+  const headlineCharCount = missionHeadline.length;
+  const bodyCharCount = missionBody.length;
+
+  const handleGenerateMissionHeadline = useCallback(() => {
+    const preset =
+      MISSION_STATEMENT_PRESETS[
+        Math.floor(Math.random() * MISSION_STATEMENT_PRESETS.length)
+      ];
+    if (preset) updateField("missionHeadline", preset.headline);
+  }, [updateField]);
+
+  const handleGenerateMissionBody = useCallback(() => {
+    const preset =
+      MISSION_STATEMENT_PRESETS[
+        Math.floor(Math.random() * MISSION_STATEMENT_PRESETS.length)
+      ];
+    if (preset) {
+      updateField("missionBody", preset.bodyText);
+      setUseDefaultBody(false);
+    }
+  }, [updateField]);
+
+  const handleUseDefaultBody = useCallback(
+    (checked: boolean) => {
+      setUseDefaultBody(checked);
+      if (checked) updateField("missionBody", DEFAULT_MISSION_BODY);
+    },
+    [updateField],
+  );
+
+  const keyContacts = readPortalContacts(clientData?.keyContacts);
+  const keyContactHeadshot = String(
+    resolvePortalPrimaryContact(keyContacts)?.headshot || "",
+  );
+
+  const { sections, modals } = usePlanPreviewEditorSections({
+    companyData,
+    onCompanyDataChange: updateField,
+    onLogoChange: handleLogoChange,
+    defaultWelcomeMessage: DEFAULT_WELCOME_MESSAGE,
+    useDefaultWelcomeMessage,
+    setUseDefaultWelcomeMessage,
+    clientId: clientData?.id,
+    keyContactHeadshot,
+    // The Landing page has no Key Contact Image override card.
+    showKeyContactImage: false,
+    missionHeadline,
+    missionBody,
+    defaultBodyText: DEFAULT_MISSION_BODY,
+    useDefaultBody,
+    headlineRef,
+    bodyTextRef,
+    handleHeadlineChange: (value) => updateField("missionHeadline", value),
+    handleBodyChange: (value) => updateField("missionBody", value),
+    handleUseDefaultBody,
+    handleGenerateMissionHeadline,
+    handleGenerateMissionBody,
+    headlineCharCount,
+    bodyCharCount,
+    isHeadlineValid: headlineCharCount <= 60,
+    isBodyValid: bodyCharCount >= 250 && bodyCharCount <= 2000,
+    errorFields: [],
+    onBrandImagesChange: handleBrandImagesChange,
+    preferCompanyDataForOverlay: true,
+  });
+
+  const footer =
+    saveState === "saving" ? (
+      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        Saving…
+      </span>
+    ) : saveState === "error" ? (
+      <span className="text-xs text-red-500">
+        {saveError || "Could not save this page."}
+      </span>
+    ) : undefined;
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-end gap-1.5 text-[11px] text-muted-foreground">
-        {saveState === "saving" && (
-          <>
-            <Loader2 className="h-3 w-3 animate-spin" />
-            Saving…
-          </>
-        )}
-        {saveState === "saved" && <span>Saved</span>}
-        {saveState === "error" && (
-          <span className="text-red-500">{saveError || "Save failed"}</span>
-        )}
-      </div>
-
-      <section>
-        <SectionHeader number={1} title="Plan identity" />
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label className="text-xs">Company name</Label>
-            <Input
-              value={draft.companyName}
-              onChange={(event) => update("companyName", event.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Company website</Label>
-            <Input
-              value={draft.companyWebsite}
-              onChange={(event) =>
-                update("companyWebsite", event.target.value)
-              }
-              placeholder="https://example.com"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Primary colour</Label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  aria-label="Primary colour"
-                  value={draft.brandColor}
-                  onChange={(event) =>
-                    update("brandColor", event.target.value)
-                  }
-                  className="h-8 w-10 cursor-pointer rounded border border-input bg-transparent"
-                />
-                <Input
-                  value={draft.brandColor}
-                  onChange={(event) =>
-                    update("brandColor", event.target.value)
-                  }
-                  className="h-8 text-xs"
-                />
-              </div>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Secondary colour</Label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="color"
-                  aria-label="Secondary colour"
-                  value={draft.secondaryColor}
-                  onChange={(event) =>
-                    update("secondaryColor", event.target.value)
-                  }
-                  className="h-8 w-10 cursor-pointer rounded border border-input bg-transparent"
-                />
-                <Input
-                  value={draft.secondaryColor}
-                  onChange={(event) =>
-                    update("secondaryColor", event.target.value)
-                  }
-                  className="h-8 text-xs"
-                />
-              </div>
-            </div>
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Typography</Label>
-            <select
-              value={draft.typographyTheme}
-              onChange={(event) =>
-                update("typographyTheme", event.target.value)
-              }
-              className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-            >
-              {TYPOGRAPHY_THEME_LIST.map((theme) => (
-                <option key={theme.id} value={theme.id}>
-                  {theme.label}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <SectionHeader number={2} title="Hero" />
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label className="text-xs">Hero title</Label>
-            <Input
-              value={draft.heroTitle}
-              onChange={(event) => update("heroTitle", event.target.value)}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Hero description</Label>
-            <Textarea
-              value={draft.heroDescription}
-              onChange={(event) =>
-                update("heroDescription", event.target.value)
-              }
-              rows={3}
-            />
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <SectionHeader number={3} title="Mission" />
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label className="text-xs">Mission headline</Label>
-            <Input
-              value={draft.missionHeadline}
-              onChange={(event) =>
-                update("missionHeadline", event.target.value)
-              }
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Mission body</Label>
-            <Textarea
-              value={draft.missionBody}
-              onChange={(event) => update("missionBody", event.target.value)}
-              rows={4}
-            />
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <SectionHeader number={4} title="Calls to action" />
-        <div className="space-y-1">
-          <Label className="text-xs">Appointment link</Label>
-          <Input
-            value={draft.appointmentLink}
-            onChange={(event) =>
-              update("appointmentLink", event.target.value)
-            }
-            placeholder="https://calendly.com/..."
-          />
-        </div>
-      </section>
-
-      <section>
-        <SectionHeader number={5} title="Disclosures" />
-        <div className="space-y-1">
-          <Label className="text-xs">Footer disclaimers</Label>
-          <Textarea
-            value={draft.disclaimers}
-            onChange={(event) => update("disclaimers", event.target.value)}
-            rows={6}
-          />
-        </div>
-      </section>
-    </div>
+    <>
+      <PortalEditorShell
+        sections={sections}
+        footer={footer}
+        eyebrow="Plan Branding & Messaging"
+        title="Editing Panel"
+        headerBadge={
+          companyData.companyName.trim() ? (
+            <span className="inline-flex items-center rounded-md bg-accent-blue/10 px-2 py-0.5 text-xs font-semibold text-accent-blue">
+              {companyData.companyName}
+            </span>
+          ) : undefined
+        }
+      />
+      {modals}
+    </>
   );
 }
