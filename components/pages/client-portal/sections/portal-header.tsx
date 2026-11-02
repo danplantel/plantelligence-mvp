@@ -37,6 +37,11 @@ import {
   HEADER_LOGO_BAND_PX,
   HEADER_LOGO_MAX_WIDTH_PX,
 } from "@/lib/header-logo-band";
+import {
+  COMMENTS_RAIL_PARAM,
+  COMMENTS_RAIL_VALUE,
+  wantsCommentsRail,
+} from "@/lib/comments/portal-surface";
 
 /** Nav label -> visibility key in categoryPortalVisibility */
 const BENEFITS_NAV_TO_VISIBILITY_KEY: Record<string, string> = {
@@ -237,6 +242,21 @@ export function PortalHeader({
   const [isLogoHovered, setIsLogoHovered] = useState(false);
   const pathname = usePathname();
 
+  // Preserve the Comments/Editing-Panel flag across the portal's own navigation.
+  // The links below are Next `Link`s, which do not inherit the current query, so a
+  // click from `?comments=on` used to land on the plain portal and close the rail.
+  // Read the query in an effect rather than `useSearchParams` so the header does
+  // not need a Suspense boundary.
+  const [portalQuerySuffix, setPortalQuerySuffix] = useState("");
+  useEffect(() => {
+    setPortalQuerySuffix(
+      wantsCommentsRail(window.location.search)
+        ? `?${COMMENTS_RAIL_PARAM}=${COMMENTS_RAIL_VALUE}`
+        : "",
+    );
+  }, [pathname]);
+  const withPortalQuery = (href: string) => `${href}${portalQuerySuffix}`;
+
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const teamHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -409,7 +429,7 @@ export function PortalHeader({
             {/* Logo */}
             {enableNavigation ? (
               <Link
-                href={baseUrl}
+                href={withPortalQuery(baseUrl)}
                 className="flex h-full items-center gap-4 overflow-hidden"
               >
                 {companyData?.companyLogo && (
@@ -525,7 +545,7 @@ export function PortalHeader({
                             {benefitsNavItems.map((item) => (
                               <Link
                                 key={item.path}
-                                href={`${baseUrl}${item.path}`}
+                                href={withPortalQuery(`${baseUrl}${item.path}`)}
                               >
                                 <DropdownMenuItem>
                                   {item.label}
@@ -557,7 +577,7 @@ export function PortalHeader({
                   onMouseLeave={handleNewsEventsMouseLeave}
                 >
                   {enableNavigation ? (
-                    <Link href={`${baseUrl}/news-events`}>
+                    <Link href={withPortalQuery(`${baseUrl}/news-events`)}>
                       <Button
                         variant="ghost"
                         className={`font-medium transition-colors duration-200 ${
@@ -603,7 +623,7 @@ export function PortalHeader({
                 {/* Employee Resources (TF-6): after the categories, and only when the
                     plan has published the hub. */}
                 {employeeResourcesEnabled && (
-                  <Link href={`${baseUrl}/employee-resources`}>
+                  <Link href={withPortalQuery(`${baseUrl}/employee-resources`)}>
                     <Button
                       variant="ghost"
                       className={`font-medium transition-colors duration-200 ${
@@ -628,7 +648,7 @@ export function PortalHeader({
                   onMouseLeave={handleTeamMouseLeave}
                 >
                   {enableNavigation ? (
-                    <Link href={`${baseUrl}/my-benefits-team`}>
+                    <Link href={withPortalQuery(`${baseUrl}/my-benefits-team`)}>
                       <Button
                         variant="ghost"
                         className={`font-medium transition-colors duration-200 ${
@@ -757,7 +777,7 @@ export function PortalHeader({
                 {/* Home */}
                 {enableNavigation ? (
                   <Link
-                    href={baseUrl}
+                    href={withPortalQuery(baseUrl)}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                       isHomeActive
@@ -823,7 +843,7 @@ export function PortalHeader({
                         enableNavigation ? (
                           <Link
                             key={item.path}
-                            href={`${baseUrl}${item.path}`}
+                            href={withPortalQuery(`${baseUrl}${item.path}`)}
                             onClick={() => setMobileMenuOpen(false)}
                             className={`flex items-center rounded-lg px-3 py-2 text-sm transition-colors ${
                               isActive(item.path)
@@ -854,7 +874,7 @@ export function PortalHeader({
                 {/* News & Events */}
                 {enableNavigation ? (
                   <Link
-                    href={`${baseUrl}/news-events`}
+                    href={withPortalQuery(`${baseUrl}/news-events`)}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                       isActive("/news-events")
@@ -907,7 +927,7 @@ export function PortalHeader({
                 {employeeResourcesEnabled &&
                   (enableNavigation ? (
                     <Link
-                      href={`${baseUrl}/employee-resources`}
+                      href={withPortalQuery(`${baseUrl}/employee-resources`)}
                       onClick={() => setMobileMenuOpen(false)}
                       className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                         isActive("/employee-resources")
@@ -931,7 +951,7 @@ export function PortalHeader({
                 {/* My Benefits Team */}
                 {enableNavigation ? (
                   <Link
-                    href={`${baseUrl}/my-benefits-team`}
+                    href={withPortalQuery(`${baseUrl}/my-benefits-team`)}
                     onClick={() => setMobileMenuOpen(false)}
                     className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                       isActive("/my-benefits-team")

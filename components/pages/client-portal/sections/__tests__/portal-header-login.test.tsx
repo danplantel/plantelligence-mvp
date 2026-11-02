@@ -108,6 +108,63 @@ describe("PortalHeader login", () => {
 });
 
 /**
+ * The portal's own navigation must keep the Comments/Editing-Panel flag. A Next
+ * `Link` does not inherit the current query, so without this a click from
+ * `?comments=on` silently returned the reader to the plain portal.
+ */
+describe("PortalHeader preserves the comments flag", () => {
+  beforeEach(() => {
+    mocks.pathname = "/plan-1/retirement";
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+    window.history.replaceState({}, "", "/plan-1/retirement?comments=on");
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.unstubAllGlobals();
+    window.history.replaceState({}, "", "/");
+  });
+
+  it("keeps the flag on the company-logo link", () => {
+    render(
+      <PortalHeader
+        clientId="plan-1"
+        companyData={{ companyLogo: "/logo.png" }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: "Company Logo" }),
+    ).toHaveAttribute("href", "/plan-1?comments=on");
+  });
+
+  it("keeps the flag on the header nav links", () => {
+    render(<PortalHeader clientId="plan-1" />);
+
+    expect(
+      screen.getByRole("link", { name: "News & Events" }),
+    ).toHaveAttribute("href", "/plan-1/news-events?comments=on");
+    expect(
+      screen.getByRole("link", { name: "My Benefits Team" }),
+    ).toHaveAttribute("href", "/plan-1/my-benefits-team?comments=on");
+  });
+
+  it("does not append anything without the flag", () => {
+    window.history.replaceState({}, "", "/plan-1/retirement");
+    render(
+      <PortalHeader
+        clientId="plan-1"
+        companyData={{ companyLogo: "/logo.png" }}
+      />,
+    );
+
+    expect(
+      screen.getByRole("link", { name: "Company Logo" }),
+    ).toHaveAttribute("href", "/plan-1");
+  });
+});
+
+/**
  * The same slot, now a plan-level choice (Section 1 of the editing panel): Login,
  * a booking button, or nothing. `login` is the fallback, which is what the suite
  * above already covers — these pin the other two.
