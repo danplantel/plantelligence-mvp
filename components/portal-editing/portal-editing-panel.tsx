@@ -39,6 +39,8 @@ export function PortalEditingPanel() {
       onClose={closePanel}
       eyebrow="Portal Editing"
       title={target.label}
+      // A light grey tool surface makes the panel distinct from the white portal.
+      surfaceClassName="bg-gray-100 dark:bg-gray-900"
       headerBadge={
         <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
           Live

@@ -65,6 +65,9 @@ const MIN_SCALE = 0.5;
 /** The portal Editing Panel's reserved column, in CSS pixels (`36rem`). */
 const EDITOR_PANEL_PX = 36 * 16;
 
+/** A small clearance so the replica never touches the rail's left border. */
+const RAIL_CLEARANCE_PX = 8;
+
 export function PortalCommentsZoom({
   children,
 }: {
@@ -98,8 +101,15 @@ export function PortalCommentsZoom({
       // by every open tool column — the editor on the left, the rail on the
       // right. It is translated past the editor so the visible copy starts at
       // the panel's edge, exactly like the Create/Edit Client previews.
-      const next = (width - leftInset - (open ? RAIL_PX : 0)) / width;
-      setScale(Math.max(MIN_SCALE, Math.min(1, next)));
+      const rightInset = open
+        ? RAIL_PX + (editorOpen ? RAIL_CLEARANCE_PX : 0)
+        : 0;
+      const next = (width - leftInset - rightInset) / width;
+      // With BOTH panels open the exact ratio can be well below half. Keeping
+      // the 0.5 readability floor there left the replica wider than the gap and
+      // the Comments rail painted over it, so the editor case may shrink to fit.
+      const floor = editorOpen ? 0.1 : MIN_SCALE;
+      setScale(Math.max(floor, Math.min(1, next)));
     };
     update();
     window.addEventListener("resize", update);

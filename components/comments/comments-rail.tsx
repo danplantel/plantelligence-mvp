@@ -972,7 +972,7 @@ function CommentsPanel({
         // the wide mode — the plan you are commenting on does not move, which is what makes
         // the two readable side by side. `transition-[width]` interpolates because both ends
         // are plain rem lengths, and max-w keeps the wide state sane on a narrow window.
-        "fixed bottom-0 right-0 flex max-w-[92vw] flex-col overflow-hidden border-l border-border bg-background transition-[width,box-shadow,transform] duration-200 ease-out",
+        "fixed bottom-0 right-0 flex max-w-[92vw] flex-col overflow-hidden border-l border-border bg-gray-100 dark:bg-gray-900 transition-[width,box-shadow,transform] duration-200 ease-out",
         // z-50 only while wide, and only because the page's own fixed action bars (the
         // wizard footer, the edit pages' Save bar) are z-50 and sit exactly where the panel
         // grows — at z-40 they would paint over our composer. At z-50 the panel wins by DOM

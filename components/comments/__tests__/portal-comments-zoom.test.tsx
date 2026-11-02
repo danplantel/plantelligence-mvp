@@ -43,11 +43,11 @@ function expectedScale(width: number) {
 }
 
 function expectedEditorScale(width: number) {
-  return Math.max(0.5, Math.min(1, (width - EDITOR) / width));
+  return Math.max(0.1, Math.min(1, (width - EDITOR) / width));
 }
 
 function expectedEditorAndRailScale(width: number) {
-  return Math.max(0.5, Math.min(1, (width - EDITOR - RAIL) / width));
+  return Math.max(0.1, Math.min(1, (width - EDITOR - RAIL - 8) / width));
 }
 
 function setViewport(width: number) {

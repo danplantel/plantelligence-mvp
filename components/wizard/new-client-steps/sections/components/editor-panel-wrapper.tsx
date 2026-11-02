@@ -3,6 +3,7 @@
 import { CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
 export function SectionHeader({ number, title }: { number: number; title: string }) {
@@ -51,6 +52,12 @@ interface EditorPanelWrapperProps {
   eyebrow?: string;
   /** Panel title. Defaults to "Editing Panel". */
   title?: string;
+  /**
+   * Background surface for the panel and its footer. Defaults to the dashboard's
+   * white. The portal passes a light grey so the editor reads as its own tool
+   * column against the white participant page.
+   */
+  surfaceClassName?: string;
 }
 
 export function EditorPanelWrapper({
@@ -67,24 +74,28 @@ export function EditorPanelWrapper({
   headerBadge,
   eyebrow = "Plan Branding & Messaging",
   title = "Editing Panel",
+  surfaceClassName,
 }: EditorPanelWrapperProps) {
   if (!isOpen && !isAnimating) return null;
 
   const isInline = variant === 'inline';
+  const panelSurface = surfaceClassName ?? "bg-white dark:bg-gray-900";
 
   return (
     <div
-      className={
+      className={cn(
         isInline
-          ? `w-full h-full bg-white dark:bg-gray-900 flex flex-col overflow-hidden transition-opacity duration-300 ${
-              isAnimating ? "opacity-100" : "opacity-0"
-            }`
-          : `fixed left-0 top-0 bottom-4 w-full max-w-xl bg-white dark:bg-gray-900 z-[51] flex flex-col rounded-lg overflow-hidden transition-transform ${
-              isAnimating
-                ? "translate-x-0 duration-300"
-                : "-translate-x-full duration-200"
-            }`
-      }
+          ? "w-full h-full flex flex-col overflow-hidden transition-opacity duration-300"
+          : "fixed left-0 top-0 bottom-4 w-full max-w-xl z-[51] flex flex-col rounded-lg overflow-hidden transition-transform",
+        panelSurface,
+        isInline
+          ? isAnimating
+            ? "opacity-100"
+            : "opacity-0"
+          : isAnimating
+            ? "translate-x-0 duration-300"
+            : "-translate-x-full duration-200",
+      )}
       style={{
         marginTop: isInline ? undefined : `${topOffset}px`,
         left: isInline ? undefined : leftOffset,
@@ -123,7 +134,12 @@ export function EditorPanelWrapper({
         </div>
       </div>
       {footer != null ? (
-        <div className="flex-shrink-0 border-t bg-white dark:bg-gray-800 dark:border-gray-700 px-4 py-3 flex justify-end dark:text-gray-200">
+        <div
+          className={cn(
+            "flex-shrink-0 border-t dark:border-gray-700 px-4 py-3 flex justify-end dark:text-gray-200",
+            panelSurface,
+          )}
+        >
           {footer}
         </div>
       ) : null}
