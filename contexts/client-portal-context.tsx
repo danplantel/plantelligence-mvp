@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 
-interface ClientData {
+export interface ClientData {
   id: string;
   companyName: string;
   companyWebsite?: string;
@@ -63,6 +63,12 @@ interface ClientPortalContextType {
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
+  /**
+   * Merge a draft into the live portal data so an inline editor repaints before
+   * its save round-trip finishes. The server remains the source of truth; callers
+   * must revert through `refetch()` when a save fails.
+   */
+  patchClientData: (patch: Partial<ClientData>) => void;
 }
 
 const ClientPortalContext = createContext<ClientPortalContextType>({
@@ -71,6 +77,7 @@ const ClientPortalContext = createContext<ClientPortalContextType>({
   loading: true,
   error: null,
   refetch: async () => {},
+  patchClientData: () => {},
 });
 
 export function useClientPortal() {
@@ -203,6 +210,12 @@ export function ClientPortalProvider({
 
   const refetch = useCallback(() => fetchClient(true), [fetchClient]);
 
+  const patchClientData = useCallback((patch: Partial<ClientData>) => {
+    setClientData((previous) =>
+      previous ? { ...previous, ...patch } : previous,
+    );
+  }, []);
+
   useEffect(() => {
     if (!clientId) return;
 
@@ -296,7 +309,9 @@ export function ClientPortalProvider({
   }
 
   return (
-    <ClientPortalContext.Provider value={{ clientData, profile, loading, error, refetch }}>
+    <ClientPortalContext.Provider
+      value={{ clientData, profile, loading, error, refetch, patchClientData }}
+    >
       {children}
     </ClientPortalContext.Provider>
   );

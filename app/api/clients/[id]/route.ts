@@ -461,6 +461,32 @@ export async function PUT(
     let clientId = params.id;
     const body = await request.json();
 
+    // The portal's inline Editing Panel writes NARROW payloads — Home sends only
+    // plan-branding/hero/mission fields, My Benefits Team sends only keyContacts.
+    // Requiring that page's own function for those shapes closes the gap where a
+    // collaborator with key_contacts edit could not save, while a plan-branding
+    // teammate could save contacts. Mixed payloads (Edit Client, saveBenefit)
+    // keep the existing broad gate below.
+    const bodyKeys = Object.keys(body ?? {});
+    const isTeamOnly =
+      bodyKeys.length === 1 && bodyKeys[0] === "keyContacts";
+    const HOME_ONLY_KEYS = new Set([
+      "companyName",
+      "companyWebsite",
+      "brandColor",
+      "primaryColor",
+      "secondaryColor",
+      "typographyTheme",
+      "heroTitle",
+      "heroDescription",
+      "missionHeadline",
+      "missionBody",
+      "appointmentLink",
+      "disclaimers",
+    ]);
+    const isHomeOnly =
+      bodyKeys.length > 0 && bodyKeys.every((key) => HOME_ONLY_KEYS.has(key));
+
     // Dual lookup: primary key first, then slug. Deliberately NOT a single `OR` — the two
     // steps have different scoping (the id lookup is unscoped because the ownership check
     // below reports it distinctly), and the shape test that used to gate the first step no
@@ -501,15 +527,35 @@ export async function PUT(
         { status: access.reason === "plan_not_found" ? 404 : 403 },
       );
     }
-    if (
-      access.kind === "teammate" &&
-      !permissionAllows(access.permissionSet, "create_benefits", "edit") &&
-      !permissionAllows(access.permissionSet, "plan_details_branding", "edit")
-    ) {
-      return NextResponse.json(
-        { error: NO_ACCESS_MESSAGE, code: "permission_denied" },
-        { status: 403 },
+    if (access.kind === "teammate") {
+      const canEditHome = permissionAllows(
+        access.permissionSet,
+        "plan_details_branding",
+        "edit",
       );
+      const canEditBenefits = permissionAllows(
+        access.permissionSet,
+        "create_benefits",
+        "edit",
+      );
+      const canEditContacts = permissionAllows(
+        access.permissionSet,
+        "key_contacts",
+        "edit",
+      );
+
+      const allowed = isHomeOnly
+        ? canEditHome
+        : isTeamOnly
+          ? canEditContacts
+          : canEditHome || canEditBenefits;
+
+      if (!allowed) {
+        return NextResponse.json(
+          { error: NO_ACCESS_MESSAGE, code: "permission_denied" },
+          { status: 403 },
+        );
+      }
     }
 
     // After resolving by slug, use the actual MongoDB ObjectId for all subsequent DB queries

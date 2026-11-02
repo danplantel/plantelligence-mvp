@@ -29,6 +29,7 @@ const mocks = vi.hoisted(() => ({
     | "unauthenticated"
     | "loading",
   isDesktop: true,
+  canEdit: true,
   initialModes: [] as string[],
   mode: {
     canComment: true,
@@ -53,7 +54,21 @@ vi.mock("next/navigation", () => ({
 }));
 
 vi.mock("@/contexts/client-portal-context", () => ({
-  useClientPortal: () => ({ clientData: { companyName: "Acme Corp" } }),
+  useClientPortal: () => ({
+    clientData: { companyName: "Acme Corp" },
+    patchClientData: vi.fn(),
+    refetch: vi.fn(),
+  }),
+}));
+
+vi.mock("@/hooks/useViewerAccess", () => ({
+  useViewerAccess: () => ({
+    isCollaborator: false,
+    canManageTeam: false,
+    primaryAssignment: null,
+    isLoading: false,
+    can: () => mocks.canEdit,
+  }),
 }));
 
 vi.mock("@/hooks/useMediaQuery", () => ({
@@ -117,6 +132,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.sessionStatus = "authenticated";
   mocks.isDesktop = true;
+  mocks.canEdit = true;
   mocks.initialModes = [];
   mocks.mode = {
     canComment: true,
@@ -282,5 +298,26 @@ describe("PortalCommentsRail chrome", () => {
       right:
         "calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + 11.5rem)",
     });
+  });
+
+  it("mounts the Edit launcher left of Comments when the viewer may edit", () => {
+    setSearch("?comments=on");
+    renderRail();
+
+    expect(
+      screen.getByRole("button", { name: "Edit this page" }),
+    ).toBeInTheDocument();
+  });
+
+  it("disables the Edit launcher for a viewer without page edit rights", () => {
+    setSearch("?comments=on");
+    mocks.canEdit = false;
+    renderRail();
+
+    expect(
+      screen.getByRole("button", {
+        name: "You have view-only access to this page",
+      }),
+    ).toBeDisabled();
   });
 });

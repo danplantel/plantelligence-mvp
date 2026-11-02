@@ -245,7 +245,7 @@ describe("GET /api/marketing/assets", () => {
     ).toBe(403);
   });
 
-  it("filters by client, owner, type, and status", async () => {
+  it("filters by client, type, and status — not by creator", async () => {
     await getAssets(
       request(
         `/api/marketing/assets?clientId=${PLAN_ID}&type=flyer&status=Published`,
@@ -255,7 +255,6 @@ describe("GET /api/marketing/assets", () => {
     expect(mocks.prisma.marketingAsset.findMany).toHaveBeenCalledWith({
       where: {
         clientId: PLAN_ID,
-        userId: "user-1",
         type: "flyer",
         status: "Published",
       },
@@ -363,10 +362,28 @@ describe("PATCH /api/marketing/assets/[id]", () => {
     ).toBe(404);
   });
 
-  it("returns 403 for another user's asset", async () => {
+  it("allows another user's asset when the caller has plan marketing edit", async () => {
     mocks.prisma.marketingAsset.findUnique.mockResolvedValue({
       id: ASSET_ID,
       userId: "user-2",
+      clientId: PLAN_ID,
+    });
+
+    expect(
+      (await patchAsset(jsonRequest(`/api/marketing/assets/${ASSET_ID}`, "PATCH", { status: "Published" }), ctx(ASSET_ID)))
+        .status,
+    ).toBe(200);
+  });
+
+  it("returns 403 when plan marketing edit is denied", async () => {
+    mocks.prisma.marketingAsset.findUnique.mockResolvedValue({
+      id: ASSET_ID,
+      userId: "user-2",
+      clientId: PLAN_ID,
+    });
+    mocks.resolvePlanAccess.mockResolvedValue({
+      allowed: false,
+      message: "no marketing",
     });
 
     expect(
@@ -440,10 +457,27 @@ describe("DELETE /api/marketing/assets/[id]", () => {
     );
   });
 
-  it("returns 403 for another user's asset", async () => {
+  it("allows deleting another user's asset with plan marketing edit", async () => {
     mocks.prisma.marketingAsset.findUnique.mockResolvedValue({
       id: ASSET_ID,
       userId: "user-2",
+      clientId: PLAN_ID,
+    });
+
+    expect((await deleteAsset(request(`/api/marketing/assets/${ASSET_ID}`), ctx(ASSET_ID))).status).toBe(
+      200,
+    );
+  });
+
+  it("returns 403 when plan marketing edit is denied", async () => {
+    mocks.prisma.marketingAsset.findUnique.mockResolvedValue({
+      id: ASSET_ID,
+      userId: "user-2",
+      clientId: PLAN_ID,
+    });
+    mocks.resolvePlanAccess.mockResolvedValue({
+      allowed: false,
+      message: "no marketing",
     });
 
     expect((await deleteAsset(request(`/api/marketing/assets/${ASSET_ID}`), ctx(ASSET_ID))).status).toBe(

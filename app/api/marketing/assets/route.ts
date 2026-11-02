@@ -51,10 +51,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: gate.error }, { status: gate.status });
     }
 
-    const where: Record<string, unknown> = {
-      clientId,
-      userId,
-    };
+    // The plan is the scope, not who created the row: a Team Member granted
+    // `marketing: edit` must see and edit the plan's notices, pop-ups and posts
+    // even when the advisor created them. `assertOwnership` above already
+    // refuses a caller without access to this plan.
+    const where: Record<string, unknown> = { clientId };
     if (type) where.type = type;
     if (status) where.status = status;
 

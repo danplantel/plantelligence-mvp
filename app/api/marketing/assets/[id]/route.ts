@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
+import { resolvePlanAccess } from "@/lib/teammates/access.server";
 
 // ── PATCH /api/marketing/assets/[id] ──
 
@@ -22,8 +23,19 @@ export async function PATCH(
     if (!existing) {
       return NextResponse.json({ error: "Asset not found" }, { status: 404 });
     }
-    if (existing.userId !== userId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    // Marketing edits are a permission, not ownership: a Team Member granted
+    // `marketing: edit` may edit this plan's assets too.
+    const access = await resolvePlanAccess({
+      userId,
+      clientIdOrSlug: existing.clientId,
+      permission: "marketing",
+      level: "edit",
+    });
+    if (!access.allowed) {
+      return NextResponse.json(
+        { error: access.message, code: access.reason },
+        { status: 403 },
+      );
     }
 
     const body = await request.json();
@@ -104,8 +116,17 @@ export async function DELETE(
     if (!existing) {
       return NextResponse.json({ error: "Asset not found" }, { status: 404 });
     }
-    if (existing.userId !== userId) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const access = await resolvePlanAccess({
+      userId,
+      clientIdOrSlug: existing.clientId,
+      permission: "marketing",
+      level: "edit",
+    });
+    if (!access.allowed) {
+      return NextResponse.json(
+        { error: access.message, code: access.reason },
+        { status: 403 },
+      );
     }
 
     // Delete associated QR code from QR.io if one exists

@@ -23,17 +23,31 @@ import { PortalCommentsZoom } from "../portal-comments-zoom";
 
 const mocks = vi.hoisted(() => ({
   mode: undefined as { canComment: boolean; mode: "on" | "off" } | undefined,
+  editing: null as { isOpen: boolean; canEdit: boolean } | null,
 }));
 
 vi.mock("@/components/comments/comment-mode-provider", () => ({
   useOptionalCommentMode: () => mocks.mode,
 }));
 
+vi.mock("@/components/portal-editing/portal-editing-provider", () => ({
+  useOptionalPortalEditing: () => mocks.editing,
+}));
+
 const VIEWPORT = 1440;
 const RAIL = 384; // 24rem at the portal's 16px root
+const EDITOR = 576; // 36rem at the portal's 16px root
 
 function expectedScale(width: number) {
   return Math.max(0.5, Math.min(1, (width - RAIL) / width));
+}
+
+function expectedEditorScale(width: number) {
+  return Math.max(0.5, Math.min(1, (width - EDITOR) / width));
+}
+
+function expectedEditorAndRailScale(width: number) {
+  return Math.max(0.5, Math.min(1, (width - EDITOR - RAIL) / width));
 }
 
 function setViewport(width: number) {
@@ -63,6 +77,7 @@ function renderZoom() {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.mode = { canComment: true, mode: "on" };
+  mocks.editing = null;
   setViewport(VIEWPORT);
 });
 
@@ -85,6 +100,37 @@ describe("PortalCommentsZoom pass-through", () => {
 
     expect(content().style.transform).toBe("");
     expect(content().style.getPropertyValue("--comments-inset")).toBe("");
+  });
+});
+
+describe("PortalCommentsZoom editing panel", () => {
+  it("reserves the editor column and scales the portal beside it", () => {
+    mocks.mode = { canComment: true, mode: "off" };
+    mocks.editing = { isOpen: true, canEdit: true };
+    renderZoom();
+
+    // The replica is scaled down by the editor's left column and translated
+    // past it, exactly like the Create/Edit Client previews.
+    expect(content().style.transform).toBe(
+      `translateX(${EDITOR}px) scale(${expectedEditorScale(VIEWPORT)})`,
+    );
+  });
+
+  it("scales for both the editor and the comments rail", () => {
+    mocks.editing = { isOpen: true, canEdit: true };
+    renderZoom();
+
+    expect(content().style.transform).toBe(
+      `translateX(${EDITOR}px) scale(${expectedEditorAndRailScale(VIEWPORT)})`,
+    );
+  });
+
+  it("does not reserve the editor column for a view-only viewer", () => {
+    mocks.mode = { canComment: true, mode: "off" };
+    mocks.editing = { isOpen: true, canEdit: false };
+    renderZoom();
+
+    expect(content().style.transform).toBe("");
   });
 });
 

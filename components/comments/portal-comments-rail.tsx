@@ -47,6 +47,9 @@ import {
 import { CommentsRail } from "@/components/comments/comments-rail";
 import { MessagesModeProvider } from "@/components/messages/messages-mode-provider";
 import { MessagesRail } from "@/components/messages/messages-rail";
+import { PortalEditingProvider } from "@/components/portal-editing/portal-editing-provider";
+import { PortalEditingLauncher } from "@/components/portal-editing/portal-editing-launcher";
+import { PortalEditingPanel } from "@/components/portal-editing/portal-editing-panel";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import { cn } from "@/lib/utils";
@@ -146,16 +149,21 @@ export function PortalCommentsRail({
   return (
     <CommentModeProvider initialMode="on">
       <MessagesModeProvider>
-        {children}
-        <CommentsRail
-          surfaceLabel={surfaceLabel}
-          showViewer
-          showPanelSwitch
-        />
-        {/* Same column as Comments; `lib/right-panel.ts` keeps the two exclusive. */}
-        <MessagesRail showPanelSwitch />
-        {/* Inside the providers: the portal's single floating Comments button. */}
-        <PortalCommentsButton />
+        <PortalEditingProvider>
+          {children}
+          <CommentsRail
+            surfaceLabel={surfaceLabel}
+            showViewer
+            showPanelSwitch
+          />
+          {/* Same column as Comments; `lib/right-panel.ts` keeps the two exclusive. */}
+          <MessagesRail showPanelSwitch />
+          {/* Inside the providers: the portal's floating Comments button. */}
+          <PortalCommentsButton />
+          {/* The inline editor sits on the left and repaints the live page. */}
+          <PortalEditingLauncher />
+          <PortalEditingPanel />
+        </PortalEditingProvider>
       </MessagesModeProvider>
     </CommentModeProvider>
   );

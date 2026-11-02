@@ -44,6 +44,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { useOptionalCommentMode } from "@/components/comments/comment-mode-provider";
 import { useOptionalMessagesMode } from "@/components/messages/messages-mode-provider";
+import { useOptionalPortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import { COMMENTS_RAIL_WIDTH } from "@/lib/comments/comments-layout";
 
 /**
@@ -61,6 +62,9 @@ const RAIL_PX = (() => {
 /** Never shrink past this — below it the replica stops being readable. */
 const MIN_SCALE = 0.5;
 
+/** The portal Editing Panel's reserved column, in CSS pixels (`36rem`). */
+const EDITOR_PANEL_PX = 36 * 16;
+
 export function PortalCommentsZoom({
   children,
 }: {
@@ -68,12 +72,14 @@ export function PortalCommentsZoom({
 }) {
   const comments = useOptionalCommentMode();
   const messages = useOptionalMessagesMode();
+  const editing = useOptionalPortalEditing();
   // Comments and Direct Messages share the same right-hand column (see
   // lib/right-panel.ts), so the portal scales for either one.
   const open = Boolean(
     (comments?.canComment && comments.mode === "on") || messages?.open,
   );
-
+  const editorOpen = Boolean(editing?.isOpen && editing.canEdit);
+  const leftInset = editorOpen ? EDITOR_PANEL_PX : 0;
   const [scale, setScale] = useState(1);
   const [contentHeight, setContentHeight] = useState(0);
   const contentRef = useRef<HTMLDivElement | null>(null);
@@ -81,20 +87,24 @@ export function PortalCommentsZoom({
   // The scale is a pure function of the window width. `clientWidth` excludes the scrollbar, so the
   // replica ends at the rail's edge exactly rather than under it.
   useEffect(() => {
-    if (!open) {
+    if (!open && !editorOpen) {
       setScale(1);
       return;
     }
     const update = () => {
       const width = document.documentElement.clientWidth;
       if (!width) return;
-      const next = (width - RAIL_PX) / width;
+      // The replica is photographed at the full viewport width and scaled down
+      // by every open tool column — the editor on the left, the rail on the
+      // right. It is translated past the editor so the visible copy starts at
+      // the panel's edge, exactly like the Create/Edit Client previews.
+      const next = (width - leftInset - (open ? RAIL_PX : 0)) / width;
       setScale(Math.max(MIN_SCALE, Math.min(1, next)));
     };
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
-  }, [open]);
+  }, [open, editorOpen, leftInset]);
 
   // Measure the UNSCALED height. `offsetHeight` ignores transforms, which is exactly what the
   // wrapper has to be divided down by.
@@ -107,12 +117,15 @@ export function PortalCommentsZoom({
     const observer = new ResizeObserver(measure);
     observer.observe(element);
     return () => observer.disconnect();
-  }, [comments, messages]);
+  }, [comments, messages, editorOpen]);
 
   // No provider at all — an unarmed portal, or any dashboard page. Contribute nothing.
   if (!comments && !messages) return <>{children}</>;
 
-  const scaled = open && scale < 1;
+  const scaled = scale < 1;
+  const transform = editorOpen
+    ? `translateX(${EDITOR_PANEL_PX}px) scale(${scale})`
+    : `scale(${scale})`;
 
   return (
     <div
@@ -134,13 +147,15 @@ export function PortalCommentsZoom({
         style={
           scaled
             ? ({
-                transform: `scale(${scale})`,
+                transform,
                 transformOrigin: "top left",
                 transition: "transform 200ms cubic-bezier(0, 0, 0.2, 1)",
                 willChange: "transform",
-                // The scale already leaves the rail's column clear — see the file comment.
+                // The scale already leaves the rail's column and the editor's
+                // column clear — see the file comment.
                 "--comments-inset": "0px",
                 "--messages-inset": "0px",
+                "--portal-editor-inset": "0px",
               } as CSSProperties)
             : undefined
         }

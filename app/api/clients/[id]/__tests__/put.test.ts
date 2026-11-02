@@ -254,6 +254,64 @@ describe("PUT /api/clients/[id] authorization", () => {
     expect(mocks.prisma.client.update).toHaveBeenCalled();
   });
 
+  it("refuses a Home-only save from a teammate without plan-details edit", async () => {
+    mocks.resolvePlanAccess.mockResolvedValue({
+      allowed: true,
+      kind: "teammate",
+      permissionSet: { create_benefits: "edit" },
+    });
+    mocks.permissionAllows.mockImplementation(
+      (_set: unknown, permission: string) => permission === "create_benefits",
+    );
+
+    // The portal Home editor sends exactly this shape.
+    const response = await callPut({
+      companyName: "Acme",
+      heroTitle: "Welcome",
+      missionBody: "Our mission",
+    });
+
+    expect(response.status).toBe(403);
+    expect(mocks.prisma.client.update).not.toHaveBeenCalled();
+  });
+
+  it("accepts a key-contacts-only save from a teammate with key_contacts edit", async () => {
+    mocks.resolvePlanAccess.mockResolvedValue({
+      allowed: true,
+      kind: "teammate",
+      permissionSet: { key_contacts: "edit" },
+    });
+    mocks.permissionAllows.mockImplementation(
+      (_set: unknown, permission: string) => permission === "key_contacts",
+    );
+
+    const response = await callPut({
+      keyContacts: { contacts: [] },
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.prisma.client.update).toHaveBeenCalled();
+  });
+
+  it("refuses a key-contacts-only save without key_contacts edit", async () => {
+    mocks.resolvePlanAccess.mockResolvedValue({
+      allowed: true,
+      kind: "teammate",
+      permissionSet: { plan_details_branding: "edit" },
+    });
+    mocks.permissionAllows.mockImplementation(
+      (_set: unknown, permission: string) =>
+        permission === "plan_details_branding",
+    );
+
+    const response = await callPut({
+      keyContacts: { contacts: [] },
+    });
+
+    expect(response.status).toBe(403);
+    expect(mocks.prisma.client.update).not.toHaveBeenCalled();
+  });
+
   it("checks the plan's own assignment, not its owner id", async () => {
     await callPut({ companyName: "Acme" });
 

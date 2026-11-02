@@ -47,6 +47,10 @@ interface EditorPanelWrapperProps {
   leftOffset?: string;
   /** Optional extra content rendered to the right of the "Editing Panel" title (e.g. the benefit category badge) */
   headerBadge?: React.ReactNode;
+  /** Small label above the panel title. Defaults to the dashboard's wording. */
+  eyebrow?: string;
+  /** Panel title. Defaults to "Editing Panel". */
+  title?: string;
 }
 
 export function EditorPanelWrapper({
@@ -61,6 +65,8 @@ export function EditorPanelWrapper({
   topOffset = 0,
   leftOffset,
   headerBadge,
+  eyebrow = "Plan Branding & Messaging",
+  title = "Editing Panel",
 }: EditorPanelWrapperProps) {
   if (!isOpen && !isAnimating) return null;
 
@@ -87,11 +93,11 @@ export function EditorPanelWrapper({
       <CardHeader className="flex flex-row items-center justify-between px-4 py-4 border-b shadow-md dark:border-gray-700 dark:shadow-gray-950/60">
         <div className="flex flex-col gap-1">
           <Label className="text-xs uppercase text-muted-foreground tracking-wide font-medium dark:text-gray-400">
-            Plan Branding & Messaging
+            {eyebrow}
           </Label>
           <div className="flex items-center gap-2 mt-1">
             <Label className="text-lg font-semibold text-foreground dark:text-gray-100">
-              Editing Panel
+              {title}
             </Label>
             {headerBadge}
           </div>
