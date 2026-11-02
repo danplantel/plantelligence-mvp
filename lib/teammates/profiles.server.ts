@@ -58,6 +58,8 @@ export interface CreateTeammateProfileInput {
   displayPhone?: boolean;
   enableContactButton?: boolean;
   ctaType?: string | null;
+  /** Every action on the card, in the person's order — up to two. */
+  ctaTypes?: string[];
   schedulingUrl?: string | null;
   websiteUrl?: string | null;
   contactFormTopics?: ContactFormTopic[] | null;
@@ -205,6 +207,7 @@ export async function createTeammateProfile(
       displayPhone: input.displayPhone ?? null,
       enableContactButton: input.enableContactButton ?? null,
       ctaType: input.ctaType ?? null,
+      ctaTypes: input.ctaTypes ?? [],
       schedulingUrl: input.schedulingUrl ?? null,
       websiteUrl: input.websiteUrl ?? null,
       contactFormTopics:
@@ -263,6 +266,8 @@ export interface UpdateTeammateProfileInput {
   displayPhone?: boolean;
   enableContactButton?: boolean;
   ctaType?: string | null;
+  /** Every action on the card, in the person's order — up to two. */
+  ctaTypes?: string[];
   schedulingUrl?: string | null;
   websiteUrl?: string | null;
   contactFormTopics?: ContactFormTopic[] | null;
@@ -321,6 +326,7 @@ export async function updateTeammateProfile({
         ? { enableContactButton: data.enableContactButton }
         : {}),
       ...(data.ctaType !== undefined ? { ctaType: data.ctaType } : {}),
+      ...(data.ctaTypes !== undefined ? { ctaTypes: data.ctaTypes } : {}),
       ...(data.schedulingUrl !== undefined
         ? { schedulingUrl: data.schedulingUrl }
         : {}),

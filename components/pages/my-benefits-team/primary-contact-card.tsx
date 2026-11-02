@@ -509,7 +509,12 @@ export function PrimaryContactCard({
                   ? highlighted
                     ? highlightFill
                     : effectiveBrandColor
-                  : "#F3F4F6";
+                  : // Default style: white second action. On a highlighted card
+                    // the old neutral fill is kept for contrast against the
+                    // brand background.
+                    highlighted
+                  ? "#F3F4F6"
+                  : "#ffffff";
                 const buttonColor = isPrimaryButton
                   ? highlighted
                     ? effectiveBrandColor

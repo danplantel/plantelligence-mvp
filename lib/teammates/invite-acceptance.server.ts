@@ -131,6 +131,8 @@ export interface InvitationView {
   cardContactType?: "individual" | "team_support" | null;
   enableContactButton?: boolean;
   ctaType?: "schedule" | "call" | "email" | "contact" | null;
+  /** Every action on the seat's card, in the person's order — up to two. */
+  ctaTypes?: ("schedule" | "call" | "email" | "contact")[] | null;
   schedulingUrl?: string | null;
   websiteUrl?: string | null;
   contactFormTopics?: ContactFormTopic[] | null;
@@ -206,6 +208,7 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
       cardContactType: true,
       enableContactButton: true,
       ctaType: true,
+      ctaTypes: true,
       schedulingUrl: true,
       websiteUrl: true,
       contactFormTopics: true,
@@ -313,6 +316,9 @@ export async function loadInvitation(token: string): Promise<InvitationView> {
     ctaType:
       (profile.ctaType as "schedule" | "call" | "email" | "contact" | null) ??
       null,
+    ctaTypes: Array.isArray(profile.ctaTypes)
+      ? (profile.ctaTypes as ("schedule" | "call" | "email" | "contact")[])
+      : null,
     schedulingUrl: profile.schedulingUrl,
     websiteUrl: profile.websiteUrl,
     contactFormTopics: Array.isArray(profile.contactFormTopics)
@@ -371,6 +377,8 @@ export interface AcceptInvitationInput {
   cardContactType?: "individual" | "team_support" | null;
   enableContactButton?: boolean;
   ctaType?: "schedule" | "call" | "email" | "contact" | null;
+  /** The full two-action list; `ctaType` mirrors its first entry. */
+  ctaTypes?: ("schedule" | "call" | "email" | "contact")[] | null;
   schedulingUrl?: string | null;
   websiteUrl?: string | null;
   contactFormTopics?: ContactFormTopic[] | null;
@@ -576,6 +584,7 @@ export async function acceptInvitation(
       ? { enableContactButton: input.enableContactButton }
       : {}),
     ...(input.ctaType !== undefined ? { ctaType: input.ctaType } : {}),
+    ...(input.ctaTypes !== undefined ? { ctaTypes: input.ctaTypes ?? [] } : {}),
     ...(input.schedulingUrl !== undefined
       ? { schedulingUrl: (input.schedulingUrl ?? "").trim() || null }
       : {}),

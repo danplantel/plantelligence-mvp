@@ -479,6 +479,23 @@ describe("SmallVerticalCard action buttons", () => {
     expect(first.parentElement?.className).toContain("flex-row");
   });
 
+  it("draws the second CTA white in the default card style", () => {
+    renderCard({
+      name: "Ada",
+      enableContactButton: true,
+      contactButtonTypes: ["calendar", "url"],
+      schedulingUrl: "https://cal.test/ada",
+      websiteUrl: "https://ada.test",
+    });
+
+    // The primary button is the brand fill; the second is white, not the old
+    // brand tint or grey, so it reads as the secondary action on the card.
+    const primary = screen.getByRole("button", { name: "Schedule Appt." });
+    const secondary = screen.getByRole("button", { name: "Contact" });
+    expect(primary.style.backgroundColor).toBe("rgb(18, 52, 86)");
+    expect(secondary.style.backgroundColor).toBe("rgb(255, 255, 255)");
+  });
+
   it("draws the contact-form CTA inert in a wizard preview", () => {
     renderCard(
       {

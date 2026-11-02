@@ -97,6 +97,12 @@ import {
   CONTACT_VISIBILITY_HELPER_TEXT,
   hasReachableMethod,
 } from "@/lib/contact-form-copy";
+import {
+  toContactCtaOptions,
+  toStoredCtaTypes,
+  type ContactCtaOption,
+} from "@/lib/contact-cta";
+import { ContactCtaPicker } from "@/components/ui/contact-cta-picker";
 import { normalizeSupportIconId } from "@/lib/support-icons";
 import type { SupportIconId } from "@/lib/support-icons";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
@@ -568,7 +574,8 @@ function EditContactDialog({
     companyLogoFileName: string;
     isPrimary: boolean;
     enableContactButton: boolean;
-    ctaType: "schedule" | "call" | "email" | "contact";
+    /** The actions the card offers, in the advisor's order — up to two. */
+    ctaTypes: ContactCtaOption[];
     schedulingUrl: string;
     websiteUrl: string;
     displayEmail: boolean;
@@ -598,7 +605,7 @@ function EditContactDialog({
     companyLogoFileName: "",
     isPrimary: false,
     enableContactButton: false,
-    ctaType: "schedule",
+    ctaTypes: ["schedule"],
     schedulingUrl: "",
     websiteUrl: "",
     // "Show on contact card" starts unchecked — adding an email/phone must not
@@ -711,7 +718,7 @@ function EditContactDialog({
         companyLogoFileName: "",
         isPrimary: false,
         enableContactButton: false,
-        ctaType: "schedule",
+        ctaTypes: ["schedule"],
         schedulingUrl: "",
         websiteUrl: "",
         // "Show on contact card" starts unchecked (no auto-enable on email/phone).
@@ -749,14 +756,9 @@ function EditContactDialog({
       companyLogoFileName: (contact as any).companyLogoFileName || "",
       isPrimary: contact.isPrimaryOverall ?? contact.isPrimary ?? false,
       enableContactButton: contact.enableContactButton ?? false,
-      ctaType:
-        contact.contactButtonType === "phone"
-          ? "call"
-          : contact.contactButtonType === "email"
-            ? "email"
-            : contact.contactButtonType === "url"
-              ? "contact"
-              : "schedule",
+      // Every saved action (the array, else the legacy single value), capped at
+      // two by the shared helper so re-opening the editor cannot drop a button.
+      ctaTypes: toContactCtaOptions(contact),
       schedulingUrl: contact.schedulingUrl || "",
       websiteUrl: contact.websiteUrl || "",
       // Preserve an explicit saved preference, but never auto-enable based on
@@ -827,7 +829,7 @@ function EditContactDialog({
     }
     if (
       form.enableContactButton &&
-      form.ctaType === "schedule" &&
+      form.ctaTypes.includes("schedule") &&
       !form.schedulingUrl.trim()
     ) {
       errors.push("schedulingUrl");
@@ -835,7 +837,11 @@ function EditContactDialog({
     // The "Contact Form" CTA opens the Plantelligence-branded /contact page,
     // which emails the submission to this contact — so a valid email is required
     // whenever the Contact Form CTA is selected (the URL is derived from it).
-    if (form.enableContactButton && form.ctaType === "contact" && !emailValid) {
+    if (
+      form.enableContactButton &&
+      form.ctaTypes.includes("contact") &&
+      !emailValid
+    ) {
       if (!errors.includes("email")) errors.push("email");
     }
 
@@ -846,7 +852,10 @@ function EditContactDialog({
       !hasReachableMethod({
         displayEmail: form.displayEmail,
         displayPhone: form.displayPhone,
-        enableContactButton: form.enableContactButton,
+        // An enabled section with nothing selected draws no button, so it is
+        // not a way to reach the contact.
+        enableContactButton:
+          form.enableContactButton && form.ctaTypes.length > 0,
       })
     ) {
       errors.push(CONTACT_VISIBILITY_FIELD);
@@ -870,7 +879,7 @@ function EditContactDialog({
           : errors.includes(CONTACT_VISIBILITY_FIELD)
             ? CONTACT_VISIBILITY_HELPER_TEXT
             : form.enableContactButton &&
-                form.ctaType === "contact" &&
+                form.ctaTypes.includes("contact") &&
                 !emailValid
               ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
               : "Please fill out all required fields",
@@ -892,6 +901,11 @@ function EditContactDialog({
     // Contacts are no longer force-promoted to primary just for being a
     // Company / Plan Sponsor — the editor opts in with the primary toggle.
     const shouldBePrimary = form.isPrimary;
+
+    // Both actions the card will draw (at most two), in the advisor's order.
+    const storedCtaTypes = form.enableContactButton
+      ? toStoredCtaTypes(form.ctaTypes)
+      : [];
 
     const base: KeyContact =
       contact ??
@@ -974,28 +988,18 @@ function EditContactDialog({
       isPrimaryOverall: shouldBePrimary,
       displayEmail: form.displayEmail,
       displayPhone: form.displayPhone,
-      displayUrl: form.enableContactButton
-        ? form.ctaType === "contact"
-        : false,
-      displayScheduleAppointment: form.enableContactButton
-        ? form.ctaType === "schedule"
-        : false,
-      enableContactButton: form.enableContactButton,
-      contactButtonType: form.enableContactButton
-        ? ((form.ctaType === "schedule"
-            ? "calendar"
-            : form.ctaType === "call"
-              ? "phone"
-              : form.ctaType === "email"
-                ? "email"
-                : "url") as "calendar" | "phone" | "email" | "url")
+      displayUrl: storedCtaTypes.includes("url"),
+      displayScheduleAppointment: storedCtaTypes.includes("calendar"),
+      enableContactButton: storedCtaTypes.length > 0,
+      // The array is the source of truth; the single value keeps older readers
+      // working and always mirrors the first choice (see `lib/contact-cta`).
+      contactButtonType: storedCtaTypes[0],
+      contactButtonTypes: storedCtaTypes,
+      schedulingUrl: storedCtaTypes.includes("calendar")
+        ? form.schedulingUrl || undefined
         : undefined,
-      schedulingUrl:
-        form.enableContactButton && form.ctaType === "schedule"
-          ? form.schedulingUrl || undefined
-          : undefined,
       websiteUrl:
-        form.enableContactButton && form.ctaType === "contact"
+        storedCtaTypes.includes("url")
           ? buildContactFormHref(
               form.email,
               ctaCompany,
@@ -1024,6 +1028,12 @@ function EditContactDialog({
     onSave(updated);
     onOpenChange(false);
   };
+
+  // Same two-action shape the saved contact gets, so the preview cannot show
+  // one button while the card will show two.
+  const previewCtaTypes = form.enableContactButton
+    ? toStoredCtaTypes(form.ctaTypes)
+    : [];
 
   const previewContact = {
     id: contact?.id || "preview",
@@ -1063,22 +1073,14 @@ function EditContactDialog({
     isPrimary: form.isPrimary,
     displayEmail: form.displayEmail,
     displayPhone: form.displayPhone,
-    enableContactButton: form.enableContactButton,
-    contactButtonType: form.enableContactButton
-      ? (form.ctaType === "schedule"
-          ? "calendar"
-          : form.ctaType === "call"
-            ? "phone"
-            : form.ctaType === "email"
-              ? "email"
-              : "url")
+    enableContactButton: previewCtaTypes.length > 0,
+    contactButtonType: previewCtaTypes[0],
+    contactButtonTypes: previewCtaTypes,
+    schedulingUrl: previewCtaTypes.includes("calendar")
+      ? form.schedulingUrl
       : undefined,
-    schedulingUrl:
-      form.enableContactButton && form.ctaType === "schedule"
-        ? form.schedulingUrl
-        : undefined,
     websiteUrl:
-      form.enableContactButton && form.ctaType === "contact"
+      previewCtaTypes.includes("url")
         ? buildContactFormHref(
             form.email,
             ctaCompany,
@@ -1466,9 +1468,17 @@ function EditContactDialog({
                 <Checkbox
                   id="edit-contact-cta"
                   checked={form.enableContactButton}
-                  onCheckedChange={(checked) =>
-                    updateForm({ enableContactButton: checked === true })
-                  }
+                  onCheckedChange={(checked) => {
+                    const enabled = checked === true;
+                    updateForm({
+                      enableContactButton: enabled,
+                      // Re-opening the section with nothing chosen starts from
+                      // the familiar action rather than an empty button row.
+                      ...(enabled && form.ctaTypes.length === 0
+                        ? { ctaTypes: ["schedule" as const] }
+                        : {}),
+                    });
+                  }}
                 />
                 <Label
                   htmlFor="edit-contact-cta"
@@ -1480,34 +1490,15 @@ function EditContactDialog({
 
               {form.enableContactButton && (
                 <>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {(
-                      [
-                        { value: "schedule", label: "Schedule Appt." },
-                        { value: "call", label: "Call" },
-                        { value: "email", label: "Email" },
-                        { value: "contact", label: "Contact Form" },
-                      ] as const
-                    ).map((opt) => (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => updateForm({ ctaType: opt.value })}
-                        className={cn(
-                          "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-left transition-all",
-                          form.ctaType === opt.value
-                            ? "border-[#23919C] bg-[#23919C]/5 shadow-sm"
-                            : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-                        )}
-                      >
-                        <span className="text-[11px] font-medium">
-                          {opt.label}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
+                  {/* The shared two-CTA control — the same rule and wording as
+                      every other contact editor. The first pick is the card's
+                      primary button. */}
+                  <ContactCtaPicker
+                    value={form.ctaTypes}
+                    onChange={(next) => updateForm({ ctaTypes: next })}
+                  />
 
-                  {form.ctaType === "schedule" && (
+                  {form.ctaTypes.includes("schedule") && (
                     <div className="space-y-1">
                       <Label className="dark:text-gray-300 text-xs font-medium">
                         Scheduling URL <span className="text-red-500">*</span>
@@ -1536,7 +1527,7 @@ function EditContactDialog({
                     </div>
                   )}
 
-                  {form.ctaType === "contact" && (
+                  {form.ctaTypes.includes("contact") && (
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <Label className="dark:text-gray-300 text-xs font-medium">
@@ -1577,7 +1568,7 @@ function EditContactDialog({
                     </div>
                   )}
 
-                  {form.ctaType === "call" && (
+                  {form.ctaTypes.includes("call") && (
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5">
                       {form.phone
                         ? `${formatPhoneNumber(form.phone)}${
@@ -1589,7 +1580,7 @@ function EditContactDialog({
                     </p>
                   )}
 
-                  {form.ctaType === "email" && (
+                  {form.ctaTypes.includes("email") && (
                     <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5">
                       {form.email || "Complete the Email field above first"}
                     </p>

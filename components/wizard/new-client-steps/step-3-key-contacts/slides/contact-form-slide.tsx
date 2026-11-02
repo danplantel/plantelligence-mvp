@@ -77,6 +77,12 @@ import type { SupportIconId } from "@/lib/support-icons";
 import { ContactEmailConflictNotice } from "@/components/ui/contact-email-conflict-notice";
 import { useContactEmailConflict } from "@/hooks/useContactEmailConflict";
 import { mergeContactCategoryLists } from "@/lib/benefit-contacts";
+import {
+  normalizeContactCtaOptions,
+  toStoredCtaTypes,
+  type ContactCtaOption,
+} from "@/lib/contact-cta";
+import { ContactCtaPicker } from "@/components/ui/contact-cta-picker";
 
 // ==================== Types ====================
 
@@ -730,13 +736,18 @@ export function ContactFormSlide({
       Boolean(storedCustomContactLogo),
   );
 
-  // CTA state
+  // CTA state — a MULTI-select capped at two (see `lib/contact-cta`). The first
+  // choice stays the card's primary button and the legacy `contactButtonType`.
   const [enableCtaButton, setEnableCtaButton] = useState(
     step3bData.enableContactButton ?? false,
   );
-  const [ctaType, setCtaType] = useState<
-    "schedule" | "call" | "email" | "contact"
-  >(step3bData.ctaType || "schedule");
+  const [ctaTypes, setCtaTypes] = useState<ContactCtaOption[]>(() =>
+    normalizeContactCtaOptions(
+      (step3bData as any).ctaTypes ?? step3bData.ctaType ?? ["schedule"],
+    ),
+  );
+  const ctaType = ctaTypes[0] ?? "schedule";
+  const storedCtaTypes = enableCtaButton ? toStoredCtaTypes(ctaTypes) : [];
   const [schedulingUrl, setSchedulingUrl] = useState(
     step3bData.schedulingUrl || "",
   );
@@ -885,7 +896,11 @@ export function ContactFormSlide({
       setDisplayEmail(sb.displayEmail ?? false);
       setDisplayPhone(sb.displayPhone ?? false);
       setEnableCtaButton(sb.enableContactButton ?? false);
-      setCtaType(sb.ctaType || "schedule");
+      setCtaTypes(
+        normalizeContactCtaOptions(
+          (sb as any).ctaTypes ?? sb.ctaType ?? "schedule",
+        ),
+      );
       setSchedulingUrl(sb.schedulingUrl || "");
       setWebsiteUrl(sb.websiteUrl || "");
       setContactFormTopics(
@@ -994,6 +1009,7 @@ export function ContactFormSlide({
       displayPhone,
       enableContactButton: enableCtaButton,
       ctaType,
+      ctaTypes,
       schedulingUrl,
       websiteUrl,
       contactFormTopics,
@@ -1022,6 +1038,7 @@ export function ContactFormSlide({
     displayPhone,
     enableCtaButton,
     ctaType,
+    ctaTypes,
     schedulingUrl,
     websiteUrl,
     contactFormTopics,
@@ -1063,6 +1080,7 @@ export function ContactFormSlide({
         displayPhone,
         enableContactButton: enableCtaButton,
         ctaType,
+        ctaTypes,
         schedulingUrl,
         websiteUrl,
         contactFormTopics,
@@ -1094,6 +1112,7 @@ export function ContactFormSlide({
     displayPhone,
     enableCtaButton,
     ctaType,
+    ctaTypes,
     schedulingUrl,
     websiteUrl,
     contactFormTopics,
@@ -1271,26 +1290,19 @@ export function ContactFormSlide({
           : {}),
         displayEmail,
         displayPhone,
-        displayUrl: enableCtaButton ? ctaType === "contact" : false,
-        displayScheduleAppointment: enableCtaButton
-          ? ctaType === "schedule"
-          : false,
-        enableContactButton: enableCtaButton,
-        contactButtonType: enableCtaButton
-          ? ((ctaType === "schedule"
-              ? "calendar"
-              : ctaType === "call"
-              ? "phone"
-              : ctaType === "email"
-              ? "email"
-              : "url") as "calendar" | "phone" | "email" | "url")
+        // Every action the advisor chose, in their order — up to two. The
+        // single-value field carries the first for readers that predate the
+        // array (see `lib/contact-cta`).
+        displayUrl: storedCtaTypes.includes("url"),
+        displayScheduleAppointment: storedCtaTypes.includes("calendar"),
+        enableContactButton: storedCtaTypes.length > 0,
+        contactButtonType: storedCtaTypes[0],
+        contactButtonTypes: storedCtaTypes,
+        schedulingUrl: storedCtaTypes.includes("calendar")
+          ? schedulingUrl || undefined
           : undefined,
-        schedulingUrl:
-          enableCtaButton && ctaType === "schedule"
-            ? schedulingUrl || undefined
-            : undefined,
         websiteUrl:
-          enableCtaButton && ctaType === "contact"
+          storedCtaTypes.includes("url")
             ? buildContactFormHref(
                 email,
                 companyName,
@@ -1413,26 +1425,17 @@ export function ContactFormSlide({
       displayScope: "thisPortal" as const,
       displayEmail,
       displayPhone,
-      displayUrl: enableCtaButton ? ctaType === "contact" : false,
-      displayScheduleAppointment: enableCtaButton
-        ? ctaType === "schedule"
-        : false,
-      enableContactButton: enableCtaButton,
-      contactButtonType: enableCtaButton
-        ? ((ctaType === "schedule"
-            ? "calendar"
-            : ctaType === "call"
-            ? "phone"
-            : ctaType === "email"
-            ? "email"
-            : "url") as "calendar" | "phone" | "email" | "url")
+      // Same two-action shape as the edit branch above.
+      displayUrl: storedCtaTypes.includes("url"),
+      displayScheduleAppointment: storedCtaTypes.includes("calendar"),
+      enableContactButton: storedCtaTypes.length > 0,
+      contactButtonType: storedCtaTypes[0],
+      contactButtonTypes: storedCtaTypes,
+      schedulingUrl: storedCtaTypes.includes("calendar")
+        ? schedulingUrl || undefined
         : undefined,
-      schedulingUrl:
-        enableCtaButton && ctaType === "schedule"
-          ? schedulingUrl || undefined
-          : undefined,
       websiteUrl:
-        enableCtaButton && ctaType === "contact"
+        storedCtaTypes.includes("url")
           ? buildContactFormHref(
               email,
               companyName,
@@ -1495,6 +1498,7 @@ export function ContactFormSlide({
     isPrimary,
     enableCtaButton,
     ctaType,
+    ctaTypes,
     schedulingUrl,
     websiteUrl,
     contactFormTopics,
@@ -1572,15 +1576,20 @@ export function ContactFormSlide({
       errors.push("companyName");
     }
 
-    // Scheduling URL is required when the "Schedule Appt." CTA is enabled
-    if (enableCtaButton && ctaType === "schedule" && !schedulingUrl.trim()) {
+    // Scheduling URL is required when "Schedule Appt." is one of the chosen
+    // actions — whichever position it holds.
+    if (
+      enableCtaButton &&
+      ctaTypes.includes("schedule") &&
+      !schedulingUrl.trim()
+    ) {
       errors.push("schedulingUrl");
     }
 
     // The "Contact Form" CTA opens the Plantelligence-branded `/contact` page,
     // which emails the submission to this contact — so a valid email is
     // required whenever the Contact Form CTA is selected.
-    if (enableCtaButton && ctaType === "contact" && !emailValid) {
+    if (enableCtaButton && ctaTypes.includes("contact") && !emailValid) {
       if (!errors.includes("email")) errors.push("email");
     }
 
@@ -1592,7 +1601,9 @@ export function ContactFormSlide({
       !hasReachableMethod({
         displayEmail,
         displayPhone,
-        enableContactButton: enableCtaButton,
+        // An enabled section with nothing selected draws no button, so it does
+        // not count as a way to reach the contact.
+        enableContactButton: enableCtaButton && ctaTypes.length > 0,
       })
     ) {
       errors.push(CONTACT_VISIBILITY_FIELD);
@@ -1639,7 +1650,7 @@ export function ContactFormSlide({
           ? emailConflict.message
           : errors.includes(CONTACT_VISIBILITY_FIELD)
           ? CONTACT_VISIBILITY_HELPER_TEXT
-          : enableCtaButton && ctaType === "contact" && !emailValid
+          : enableCtaButton && ctaTypes.includes("contact") && !emailValid
           ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
           : "Please fill out all required fields",
       );
@@ -1659,7 +1670,7 @@ export function ContactFormSlide({
     displayEmail,
     displayPhone,
     enableCtaButton,
-    ctaType,
+    ctaTypes,
     schedulingUrl,
     websiteUrl,
     emailConflict,
@@ -2338,56 +2349,13 @@ export function ContactFormSlide({
 
                 {enableCtaButton && (
                   <>
-                    {/* CTA Type Radio Group */}
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {(
-                        [
-                          {
-                            value: "schedule",
-                            label: "Schedule Appt.",
-                            icon: Calendar,
-                          },
-                          { value: "call", label: "Call", icon: Phone },
-                          { value: "email", label: "Email", icon: Mail },
-                          {
-                            value: "contact",
-                            label: "Contact Form",
-                            icon: Globe,
-                          },
-                        ] as const
-                      ).map((opt) => {
-                        const isActive = ctaType === opt.value;
-                        const Icon = opt.icon;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            onClick={() => setCtaType(opt.value)}
-                            className={cn(
-                              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-left transition-all",
-                              isActive
-                                ? "border-accent-blue bg-accent-blue/5 shadow-sm"
-                                : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-                            )}
-                          >
-                            <Icon
-                              className={cn(
-                                "w-3.5 h-3.5 flex-shrink-0",
-                                isActive
-                                  ? "text-accent-blue"
-                                  : "text-gray-400 dark:text-gray-500",
-                              )}
-                            />
-                            <span className="text-[11px] font-medium">
-                              {opt.label}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                    {/* The shared two-CTA control — the same rule (and wording)
+                        every other contact editor uses. Selection order is the
+                        order the buttons appear in. */}
+                    <ContactCtaPicker value={ctaTypes} onChange={setCtaTypes} />
 
-                    {/* Conditional input based on type */}
-                    {ctaType === "schedule" && (
+                    {/* Conditional inputs for whichever actions are chosen. */}
+                    {ctaTypes.includes("schedule") && (
                       <div className="space-y-1" data-field="schedulingUrl">
                         <Label className="dark:text-gray-300 text-xs font-medium">
                           Scheduling URL <span className="text-red-500">*</span>
@@ -2447,7 +2415,7 @@ export function ContactFormSlide({
                       </div>
                     )}
 
-                    {ctaType === "contact" && (
+                    {ctaTypes.includes("contact") && (
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <Label className="dark:text-gray-300 text-xs font-medium">
@@ -2486,7 +2454,7 @@ export function ContactFormSlide({
                       </div>
                     )}
 
-                    {ctaType === "call" && (
+                    {ctaTypes.includes("call") && (
                       <div className="space-y-1">
                         <Label className="dark:text-gray-300 text-xs font-medium">
                           Phone Number
@@ -2499,7 +2467,7 @@ export function ContactFormSlide({
                       </div>
                     )}
 
-                    {ctaType === "email" && (
+                    {ctaTypes.includes("email") && (
                       <div className="space-y-1">
                         <Label className="dark:text-gray-300 text-xs font-medium">
                           Email
@@ -2561,27 +2529,19 @@ export function ContactFormSlide({
               isPrimary,
               displayEmail,
               displayPhone,
-              enableContactButton: enableCtaButton,
-              contactButtonType: enableCtaButton
-                ? ctaType === "schedule"
-                  ? "calendar"
-                  : ctaType === "call"
-                  ? "phone"
-                  : ctaType === "email"
-                  ? "email"
-                  : "url"
+              enableContactButton: storedCtaTypes.length > 0,
+              contactButtonType: storedCtaTypes[0],
+              contactButtonTypes: storedCtaTypes,
+              schedulingUrl: storedCtaTypes.includes("calendar")
+                ? schedulingUrl
                 : undefined,
-              schedulingUrl:
-                enableCtaButton && ctaType === "schedule"
-                  ? schedulingUrl
-                  : undefined,
               // For the preview, derive the contact-form URL live from the form's
               // email so the Contact Form CTA button actually renders (the saved
               // websiteUrl is only written on save).
               // The topic choices are embedded in the built URL below so the
               // preview card opens the same form employees will see.
               websiteUrl:
-                enableCtaButton && ctaType === "contact"
+                storedCtaTypes.includes("url")
                   ? buildContactFormHref(
                       email,
                       companyName,

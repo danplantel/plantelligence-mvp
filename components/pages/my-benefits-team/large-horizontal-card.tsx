@@ -430,9 +430,14 @@ export function LargeHorizontalCard({
                 ? highlighted
                   ? highlightFill
                   : effectiveBrandColor
-                : isPrimary
-                ? mix(0.2, "#ffffff", effectiveBrandColor)
-                : "#F3F4F6";
+                : // Default style: white second action; the highlighted card
+                  // keeps its tinted fill so it does not blend into the brand
+                  // background the way a second white pill would.
+                  highlighted
+                ? isPrimary
+                  ? mix(0.2, "#ffffff", effectiveBrandColor)
+                  : "#F3F4F6"
+                : "#ffffff";
               const buttonColor = isPrimaryButton
                 ? highlighted
                   ? effectiveBrandColor

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useState, memo } from "react";
-import { RotateCcw, ChevronDown, ChevronUp, Globe, Calendar, Mail, Phone, Building2, Trash2, Star, Save, Loader2 } from "lucide-react";
+import { RotateCcw, ChevronDown, ChevronUp, Mail, Phone, Building2, Trash2, Star, Save, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useNewClientWizardStore } from "@/lib/new-client-wizard-store";
 import { cn } from "@/lib/utils";
@@ -19,6 +19,11 @@ import {
   getDesignationOptions,
 } from "@/config/onboarding/designations";
 import { ContactEmailConflictHint } from "@/components/ui/contact-email-conflict-notice";
+import { ContactCtaPicker } from "@/components/ui/contact-cta-picker";
+import {
+  toContactCtaOptions,
+  toStoredCtaTypes,
+} from "@/lib/contact-cta";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { useEffect, useRef, useMemo } from "react";
 import { BenefitsCategory, KeyContact } from "@/types/new-client-wizard";
@@ -26,13 +31,6 @@ import { BenefitsCategory, KeyContact } from "@/types/new-client-wizard";
 interface ContactSectionEditorProps {
     errorFields?: string[];
 }
-
-const CTA_TYPES = [
-  { value: "schedule", label: "Schedule Appt.", icon: Calendar },
-  { value: "call", label: "Call", icon: Phone },
-  { value: "email", label: "Email", icon: Mail },
-  { value: "contact", label: "Contact Form", icon: Globe },
-] as const;
 
 /** The most designations one contact may carry — the same cap the contact form enforces. */
 const MAX_DESIGNATIONS = 5;
@@ -219,11 +217,10 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                         const contactName = contact.name || (contact.contactType === "individual" ? "New Individual" : "New Team");
                         const category = resolveCategory(contact);
                         const isPlanSponsor = category === "Company / Plan Sponsor";
-                        const ctaType = (contact.contactButtonType === "calendar" ? "schedule"
-                            : contact.contactButtonType === "phone" ? "call"
-                            : contact.contactButtonType === "email" ? "email"
-                            : contact.contactButtonType === "url" ? "contact"
-                            : "schedule") as "schedule" | "call" | "email" | "contact";
+                        // EVERY CTA this contact carries, in the advisor's order. A row
+                        // saved before the array existed falls back to its single value,
+                        // so an old contact still shows the button it always had.
+                        const ctaTypes = toContactCtaOptions(contact);
                         const hasCtaEnabled = !!(contact as any).enableContactButton;
 
                         return (
@@ -521,10 +518,23 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                                     checked={hasCtaEnabled}
                                                     onCheckedChange={(checked) => {
                                                         const enabled = checked === true;
+                                                        // Enabling with nothing chosen starts from
+                                                        // the familiar "Schedule Appt." so the
+                                                        // card is never left with a checked box
+                                                        // and no button; the picker then caps the
+                                                        // list at two.
+                                                        const next = enabled
+                                                            ? ctaTypes.length > 0
+                                                                ? ctaTypes
+                                                                : (["schedule"] as typeof ctaTypes)
+                                                            : [];
+                                                        const stored = toStoredCtaTypes(next);
                                                         handleUpdateContactFields(contact.id, {
                                                             enableContactButton: enabled,
-                                                            displayScheduleAppointment: enabled ? (ctaType === "schedule") : false,
-                                                            displayUrl: enabled ? (ctaType === "contact") : false,
+                                                            contactButtonType: stored[0],
+                                                            contactButtonTypes: stored,
+                                                            displayScheduleAppointment: stored.includes("calendar"),
+                                                            displayUrl: stored.includes("url"),
                                                         });
                                                     }}
                                                 />
@@ -538,47 +548,27 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
 
                                             {hasCtaEnabled && (
                                                 <>
-                                                    <div className="grid grid-cols-2 gap-1.5">
-                                                        {CTA_TYPES.map((opt) => {
-                                                            const isActive = ctaType === opt.value;
-                                                            const Icon = opt.icon;
-                                                            return (
-                                                                <button
-                                                                    key={opt.value}
-                                                                    type="button"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        const newContactButtonType =
-                                                                            opt.value === "schedule" ? "calendar"
-                                                                            : opt.value === "call" ? "phone"
-                                                                            : opt.value === "email" ? "email"
-                                                                            : "url";
-                                                                        handleUpdateContactFields(contact.id, {
-                                                                            contactButtonType: newContactButtonType,
-                                                                            displayScheduleAppointment: opt.value === "schedule",
-                                                                            displayUrl: opt.value === "contact",
-                                                                        });
-                                                                    }}
-                                                                    className={cn(
-                                                                        "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-left transition-all",
-                                                                        isActive
-                                                                            ? "border-accent-blue bg-accent-blue/5 dark:bg-accent-blue/10 shadow-sm"
-                                                                            : "border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-500",
-                                                                    )}
-                                                                >
-                                                                    <Icon
-                                                                        className={cn(
-                                                                            "w-3.5 h-3.5 flex-shrink-0",
-                                                                            isActive ? "text-accent-blue" : "text-gray-400 dark:text-gray-500",
-                                                                        )}
-                                                                    />
-                                                                    <span className="text-[11px] font-medium">{opt.label}</span>
-                                                                </button>
-                                                            );
-                                                        })}
+                                                    {/* The same two-CTA control every other
+                                                        contact editor renders. Selection is
+                                                        written through the shared helpers, so
+                                                        the array and the legacy single field
+                                                        can never disagree. */}
+                                                    <div onClick={(e) => e.stopPropagation()}>
+                                                        <ContactCtaPicker
+                                                            value={ctaTypes}
+                                                            onChange={(next) => {
+                                                                const stored = toStoredCtaTypes(next);
+                                                                handleUpdateContactFields(contact.id, {
+                                                                    contactButtonTypes: stored,
+                                                                    contactButtonType: stored[0],
+                                                                    displayScheduleAppointment: stored.includes("calendar"),
+                                                                    displayUrl: stored.includes("url"),
+                                                                });
+                                                            }}
+                                                        />
                                                     </div>
 
-                                                    {ctaType === "schedule" && (
+                                                    {ctaTypes.includes("schedule") && (
                                                         <div className="space-y-1">
                                                             <Label className="text-xs font-medium">Scheduling URL</Label>
                                                             <Input
@@ -590,7 +580,7 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                                         </div>
                                                     )}
 
-                                                    {ctaType === "contact" && (
+                                                    {ctaTypes.includes("contact") && (
                                                         <div className="space-y-1">
                                                             <Label className="text-xs font-medium">Contact Form URL</Label>
                                                             <Input
@@ -602,7 +592,7 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                                         </div>
                                                     )}
 
-                                                    {ctaType === "call" && (
+                                                    {ctaTypes.includes("call") && (
                                                         <div className="space-y-1">
                                                             <Label className="text-xs font-medium">Phone Number</Label>
                                                             <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded px-2.5 py-1.5">
@@ -611,7 +601,7 @@ export const ContactSectionEditor = memo(function ContactSectionEditor({ errorFi
                                                         </div>
                                                     )}
 
-                                                    {ctaType === "email" && (
+                                                    {ctaTypes.includes("email") && (
                                                         <div className="space-y-1">
                                                             <Label className="text-xs font-medium">Email</Label>
                                                             <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 rounded px-2.5 py-1.5">

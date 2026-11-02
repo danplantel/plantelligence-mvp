@@ -267,6 +267,9 @@ function transformContactToPreview(
     websiteUrl: contact.websiteUrl,
     enableContactButton: contact.enableContactButton,
     contactButtonType: contact.contactButtonType,
+    // Both chosen actions, so this preview cannot show one button while the
+    // portal card draws two (see `lib/contact-cta`).
+    contactButtonTypes: (contact as any).contactButtonTypes,
     // Carried through so the Contact Form CTA can resolve the contact's current
     // "Topic of Interest" configuration when clicked (see resolveContactFormUrl).
     contactFormTopics: (contact as any).contactFormTopics,

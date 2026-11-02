@@ -937,6 +937,9 @@ export function NewClientStep3d({
         websiteUrl: contact.websiteUrl,
         enableContactButton: contact.enableContactButton,
         contactButtonType: contact.contactButtonType,
+        // Both chosen actions, so the preview draws the same pair of buttons the
+        // saved contact (and the portal card) will.
+        contactButtonTypes: contact.contactButtonTypes,
         contactInfoOrder: contact.contactInfoOrder,
         actionButtonOrder: contact.actionButtonOrder,
       };

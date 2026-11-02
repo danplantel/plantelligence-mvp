@@ -1964,7 +1964,12 @@ model TeammateProfile {
   enableContactButton Boolean?
   // "schedule" | "call" | "email" | "contact", mirrored onto the card as the
   // legacy `contactButtonType` ("calendar" | "phone" | "email" | "url").
+  // The single value is the FIRST choice, kept for readers that predate the
+  // array below.
   ctaType             String?
+  // EVERY action on the seat's card, in the person's order — up to two, the same
+  // ceiling `lib/contact-cta` applies to every contact editor.
+  ctaTypes            String[]           @default([])
   schedulingUrl       String?
   websiteUrl          String?
   contactFormTopics   Json?

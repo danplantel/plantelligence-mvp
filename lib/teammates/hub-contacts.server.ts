@@ -99,6 +99,8 @@ export interface HubContactCard {
   enableContactButton?: boolean;
   /** Legacy card field: "calendar" | "phone" | "email" | "url" | null. */
   contactButtonType?: string | null;
+  /** Every action the card draws, up to two (see `lib/contact-cta`). */
+  contactButtonTypes?: string[];
   schedulingUrl?: string | null;
   websiteUrl?: string | null;
   contactFormTopics?: unknown;
@@ -255,12 +257,25 @@ export async function buildHubContacts(
         ? { displayPhone: profile.displayPhone }
         : {}),
       ...(profile.enableContactButton !== null
-        ? {
-            enableContactButton: profile.enableContactButton,
-            contactButtonType: cardButtonType(profile.ctaType),
-            schedulingUrl: profile.schedulingUrl,
-            websiteUrl: profile.websiteUrl,
-          }
+        ? (() => {
+            // Both actions the seat chose, in their order; a seat written before
+            // the array existed falls back to its single `ctaType`.
+            const cardTypes = (
+              Array.isArray(profile.ctaTypes) && profile.ctaTypes.length > 0
+                ? profile.ctaTypes
+                : [profile.ctaType]
+            )
+              .map((type) => cardButtonType(type))
+              .filter((type): type is string => Boolean(type))
+              .slice(0, 2);
+            return {
+              enableContactButton: profile.enableContactButton,
+              contactButtonType: cardTypes[0] ?? null,
+              contactButtonTypes: cardTypes,
+              schedulingUrl: profile.schedulingUrl,
+              websiteUrl: profile.websiteUrl,
+            };
+          })()
         : {}),
       ...(profile.contactFormTopics !== null
         ? { contactFormTopics: profile.contactFormTopics }

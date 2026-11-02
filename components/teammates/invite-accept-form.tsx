@@ -4,12 +4,10 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
-  Calendar,
   Check,
   CheckCircle2,
   Eye,
   EyeOff,
-  Globe,
   Info,
   Loader2,
   Lock,
@@ -38,6 +36,12 @@ import {
   hasReachableMethod,
 } from "@/lib/contact-form-copy";
 import { buildContactFormHref } from "@/lib/contact-form-link";
+import {
+  normalizeContactCtaOptions,
+  toStoredCtaTypes,
+  type ContactCtaOption,
+} from "@/lib/contact-cta";
+import { ContactCtaPicker } from "@/components/ui/contact-cta-picker";
 import {
   getActiveContactFormTopicLabels,
   type ContactFormTopic,
@@ -113,6 +117,8 @@ interface InvitationView {
   cardContactType?: "individual" | "team_support" | null;
   enableContactButton?: boolean;
   ctaType?: "schedule" | "call" | "email" | "contact" | null;
+  /** Every action on the seat's card, in the invitee's order — up to two. */
+  ctaTypes?: ("schedule" | "call" | "email" | "contact")[] | null;
   schedulingUrl?: string | null;
   websiteUrl?: string | null;
   contactFormTopics?: ContactFormTopic[] | null;
@@ -189,9 +195,10 @@ export function InviteAcceptForm({ token }: { token: string }) {
   const [displayEmail, setDisplayEmail] = useState(false);
   const [displayPhone, setDisplayPhone] = useState(false);
   const [enableCtaButton, setEnableCtaButton] = useState(false);
-  const [ctaType, setCtaType] = useState<
-    "schedule" | "call" | "email" | "contact"
-  >("schedule");
+  // A MULTI-select capped at two, shared with every other contact editor. The
+  // first choice is the card's primary button and the legacy `ctaType`.
+  const [ctaTypes, setCtaTypes] = useState<ContactCtaOption[]>(["schedule"]);
+  const storedCtaTypes = enableCtaButton ? toStoredCtaTypes(ctaTypes) : [];
   const [schedulingUrl, setSchedulingUrl] = useState("");
   const [contactFormTopics, setContactFormTopics] = useState<
     ContactFormTopic[]
@@ -250,7 +257,11 @@ export function InviteAcceptForm({ token }: { token: string }) {
         setDisplayEmail(invitation.displayEmail ?? false);
         setDisplayPhone(invitation.displayPhone ?? false);
         setEnableCtaButton(invitation.enableContactButton ?? false);
-        setCtaType(invitation.ctaType ?? "schedule");
+        setCtaTypes(
+          normalizeContactCtaOptions(
+            invitation.ctaTypes ?? invitation.ctaType ?? "schedule",
+          ),
+        );
         setSchedulingUrl(invitation.schedulingUrl ?? "");
         setContactFormTopics(invitation.contactFormTopics ?? []);
       }
@@ -338,11 +349,15 @@ export function InviteAcceptForm({ token }: { token: string }) {
         displayEmail,
         displayPhone,
         enableContactButton: enableCtaButton,
-        ctaType: enableCtaButton ? ctaType : null,
-        schedulingUrl:
-          enableCtaButton && ctaType === "schedule" ? schedulingUrl.trim() : "",
+        // The array is the source of truth; `ctaType` mirrors the first choice for
+        // readers that predate it (the seat's card reads both).
+        ctaType: enableCtaButton ? (ctaTypes[0] ?? null) : null,
+        ctaTypes: enableCtaButton ? ctaTypes : [],
+        schedulingUrl: storedCtaTypes.includes("calendar")
+          ? schedulingUrl.trim()
+          : "",
         websiteUrl:
-          enableCtaButton && ctaType === "contact"
+          storedCtaTypes.includes("url")
             ? buildContactFormHref(
                 view?.email ?? "",
                 view?.organizationName ?? "",
@@ -380,7 +395,7 @@ export function InviteAcceptForm({ token }: { token: string }) {
     if (
       !isCollaborator &&
       enableCtaButton &&
-      ctaType === "schedule" &&
+      ctaTypes.includes("schedule") &&
       !schedulingUrl.trim()
     ) {
       setError("Add a scheduling URL for the Schedule Appt. button.");
@@ -574,16 +589,8 @@ export function InviteAcceptForm({ token }: { token: string }) {
   // button names, exactly as the wizard's slide does.
   const previewName =
     `${firstName} ${lastName}`.trim() || view.email || "Your name";
-  const previewButtonType =
-    ctaType === "schedule"
-      ? "calendar"
-      : ctaType === "call"
-      ? "phone"
-      : ctaType === "email"
-      ? "email"
-      : "url";
   const previewWebsiteUrl =
-    enableCtaButton && ctaType === "contact"
+    storedCtaTypes.includes("url")
       ? buildContactFormHref(
           view.email ?? "",
           view.organizationName ?? "",
@@ -931,7 +938,10 @@ export function InviteAcceptForm({ token }: { token: string }) {
                         !hasReachableMethod({
                           displayEmail,
                           displayPhone,
-                          enableContactButton: enableCtaButton,
+                          // Enabled with nothing selected draws no button, so it
+                          // is not a way to reach the person.
+                          enableContactButton:
+                            enableCtaButton && ctaTypes.length > 0,
                         })
                         ? "text-red-500"
                         : "text-gray-400 dark:text-gray-500",
@@ -982,9 +992,15 @@ export function InviteAcceptForm({ token }: { token: string }) {
                     <Checkbox
                       id="enable-cta-button"
                       checked={enableCtaButton}
-                      onCheckedChange={(checked) =>
-                        setEnableCtaButton(checked === true)
-                      }
+                      onCheckedChange={(checked) => {
+                        const enabled = checked === true;
+                        setEnableCtaButton(enabled);
+                        // Nothing chosen yet? Start from the familiar action
+                        // rather than a checked box with no button.
+                        if (enabled && ctaTypes.length === 0) {
+                          setCtaTypes(["schedule"]);
+                        }
+                      }}
                       disabled={isSubmitting}
                     />
                     <Label
@@ -997,55 +1013,15 @@ export function InviteAcceptForm({ token }: { token: string }) {
 
                   {enableCtaButton && (
                     <>
-                      <div className="grid grid-cols-2 gap-1.5">
-                        {(
-                          [
-                            {
-                              value: "schedule",
-                              label: "Schedule Appt.",
-                              icon: Calendar,
-                            },
-                            { value: "call", label: "Call", icon: Phone },
-                            { value: "email", label: "Email", icon: Mail },
-                            {
-                              value: "contact",
-                              label: "Contact Form",
-                              icon: Globe,
-                            },
-                          ] as const
-                        ).map((opt) => {
-                          const isActive = ctaType === opt.value;
-                          const Icon = opt.icon;
-                          return (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              onClick={() => setCtaType(opt.value)}
-                              disabled={isSubmitting}
-                              className={cn(
-                                "flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-left transition-all",
-                                isActive
-                                  ? "border-accent-blue bg-accent-blue/5 shadow-sm"
-                                  : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-                              )}
-                            >
-                              <Icon
-                                className={cn(
-                                  "h-3.5 w-3.5 flex-shrink-0",
-                                  isActive
-                                    ? "text-accent-blue"
-                                    : "text-gray-400 dark:text-gray-500",
-                                )}
-                              />
-                              <span className="text-[11px] font-medium">
-                                {opt.label}
-                              </span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                      {/* The shared two-CTA control — the invitee configures the
+                          same card the Key Contact editors do, up to two actions
+                          in the order they pick them. */}
+                      <ContactCtaPicker
+                        value={ctaTypes}
+                        onChange={setCtaTypes}
+                      />
 
-                      {ctaType === "schedule" && (
+                      {ctaTypes.includes("schedule") && (
                         <div className="space-y-1" data-field="schedulingUrl">
                           <Label className="dark:text-gray-300 text-xs font-medium">
                             Scheduling URL{" "}
@@ -1064,7 +1040,7 @@ export function InviteAcceptForm({ token }: { token: string }) {
                         </div>
                       )}
 
-                      {ctaType === "contact" && (
+                      {ctaTypes.includes("contact") && (
                         <div className="space-y-2">
                           <p className="rounded bg-gray-50 px-2.5 py-1.5 text-[11px] leading-relaxed text-gray-500 dark:bg-gray-700/50 dark:text-gray-400">
                             This opens a Plantelligence-branded contact form.
@@ -1081,7 +1057,7 @@ export function InviteAcceptForm({ token }: { token: string }) {
                         </div>
                       )}
 
-                      {ctaType === "call" && (
+                      {ctaTypes.includes("call") && (
                         <p className="rounded bg-gray-50 px-2.5 py-1.5 text-[11px] text-gray-500 dark:bg-gray-700/50 dark:text-gray-400">
                           {phone
                             ? `Calls ${formatPhoneNumber(phone)}${
@@ -1091,7 +1067,7 @@ export function InviteAcceptForm({ token }: { token: string }) {
                         </p>
                       )}
 
-                      {ctaType === "email" && (
+                      {ctaTypes.includes("email") && (
                         <p className="rounded bg-gray-50 px-2.5 py-1.5 text-[11px] text-gray-500 dark:bg-gray-700/50 dark:text-gray-400">
                           Opens an email to {view.email ?? "this address"}.
                         </p>
@@ -1268,14 +1244,12 @@ export function InviteAcceptForm({ token }: { token: string }) {
                 contactType: cardContactType,
                 displayEmail,
                 displayPhone,
-                enableContactButton: enableCtaButton,
-                contactButtonType: enableCtaButton
-                  ? previewButtonType
+                enableContactButton: storedCtaTypes.length > 0,
+                contactButtonType: storedCtaTypes[0],
+                contactButtonTypes: storedCtaTypes,
+                schedulingUrl: storedCtaTypes.includes("calendar")
+                  ? schedulingUrl
                   : undefined,
-                schedulingUrl:
-                  enableCtaButton && ctaType === "schedule"
-                    ? schedulingUrl
-                    : undefined,
                 websiteUrl: previewWebsiteUrl,
               }}
               brandColor={PREVIEW_BRAND_COLOR}

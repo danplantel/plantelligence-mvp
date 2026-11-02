@@ -179,6 +179,19 @@ export async function POST(request: NextRequest) {
         body.ctaType === "contact"
           ? body.ctaType
           : undefined,
+      // The full two-action list. Unknown entries are dropped and the list is
+      // capped here, so a crafted request cannot store a third button.
+      ctaTypes: Array.isArray(body.ctaTypes)
+        ? body.ctaTypes
+            .filter(
+              (value: unknown): value is "schedule" | "call" | "email" | "contact" =>
+                value === "schedule" ||
+                value === "call" ||
+                value === "email" ||
+                value === "contact",
+            )
+            .slice(0, 2)
+        : undefined,
       schedulingUrl:
         typeof body.schedulingUrl === "string" ? body.schedulingUrl : undefined,
       websiteUrl:

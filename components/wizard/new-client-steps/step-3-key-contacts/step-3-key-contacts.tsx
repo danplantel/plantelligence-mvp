@@ -20,6 +20,7 @@ import {
   coalesceKeyContactsByPerson,
   resolveMergedContactId,
 } from "@/lib/benefit-contacts";
+import { toContactCtaOptions } from "@/lib/contact-cta";
 
 // ==================== Types ====================
 
@@ -460,6 +461,8 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             : existing.displayUrl
             ? ("contact" as const)
             : ("schedule" as const),
+        // EVERY saved action, so a second button survives opening the editor.
+        ctaTypes: toContactCtaOptions(existing),
         schedulingUrl: existing.schedulingUrl || "",
         websiteUrl: existing.websiteUrl || "",
         displayEmail: existing.displayEmail,
@@ -535,6 +538,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
               : existing.displayUrl
               ? ("contact" as const)
               : ("schedule" as const),
+          ctaTypes: toContactCtaOptions(existing),
           schedulingUrl: existing.schedulingUrl || "",
           websiteUrl: existing.websiteUrl || "",
           displayEmail: existing.displayEmail,
@@ -639,6 +643,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
             : existingMainContact.displayUrl
             ? ("contact" as const)
             : ("schedule" as const),
+        ctaTypes: toContactCtaOptions(existingMainContact),
         schedulingUrl: existingMainContact.schedulingUrl || "",
         websiteUrl: existingMainContact.websiteUrl || "",
         displayEmail: existingMainContact.displayEmail,
@@ -765,6 +770,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
                     : contact?.displayUrl
                     ? ("contact" as const)
                     : ("schedule" as const),
+                ctaTypes: toContactCtaOptions(contact),
                 schedulingUrl: contact?.schedulingUrl || "",
                 websiteUrl: contact?.websiteUrl || "",
                 displayEmail: contact?.displayEmail,
@@ -829,6 +835,7 @@ export function NewClientStep3({ errorFields = [] }: NewClientStep3Props) {
                     : existingMainContact?.displayUrl
                     ? ("contact" as const)
                     : ("schedule" as const),
+                ctaTypes: toContactCtaOptions(existingMainContact),
                 schedulingUrl: existingMainContact?.schedulingUrl || "",
                 websiteUrl: existingMainContact?.websiteUrl || "",
                 displayEmail: existingMainContact?.displayEmail,

@@ -14,6 +14,11 @@ import {
   areAllCategoriesHiddenInPortal,
   getCategoryPortalVisibility,
 } from "@/lib/portal-category-visibility";
+import {
+  normalizeContactCtaOptions,
+  toContactCtaOptions,
+  toStoredCtaTypes,
+} from "@/lib/contact-cta";
 
 const getFieldFromError = (message: string): string[] => {
   try {
@@ -573,8 +578,15 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
               displayScheduleAppointment: step3bData.displayScheduleAppointment,
               displayUrl: step3bData.displayUrl,
               // Carry over CTA fields so scheduling/contact-form URL validation works.
+              // Both chosen actions travel: the array is what the contact stores,
+              // and `ctaType` is the first one for older readers.
               enableContactButton: step3bData.enableContactButton,
               ctaType: step3bData.ctaType,
+              contactButtonTypes: toStoredCtaTypes(
+                normalizeContactCtaOptions(
+                  step3bData.ctaTypes ?? step3bData.ctaType,
+                ),
+              ),
               schedulingUrl: step3bData.schedulingUrl,
               websiteUrl: step3bData.websiteUrl,
             };
@@ -774,10 +786,15 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
 
             // Scheduling URL is required when the "Schedule Appt." CTA is enabled
             const enableContactButton = contact.enableContactButton === true;
-            const contactCtaType = contact.ctaType;
+            // Both actions the card will draw: the stored array when present,
+            // else the editor's single value (a contact written before the array).
+            const contactCtaTypes =
+              toContactCtaOptions(contact).length > 0
+                ? toContactCtaOptions(contact)
+                : normalizeContactCtaOptions(contact.ctaType);
             if (
               enableContactButton &&
-              contactCtaType === "schedule" &&
+              contactCtaTypes.includes("schedule") &&
               !(contact.schedulingUrl || "").trim()
             ) {
               step3Errors.push({
@@ -799,7 +816,11 @@ export const validateNewClientCurrentStepV2 = async (step: number, stepData: any
             // `contactFormCtaEmail` error lets the wizard surface a specific
             // toast tying the requirement to the CTA, while the plain `email`
             // error keeps the field highlighted/focused.
-            if (enableContactButton && contactCtaType === "contact" && !emailValid) {
+            if (
+              enableContactButton &&
+              contactCtaTypes.includes("contact") &&
+              !emailValid
+            ) {
               pushContactError("email");
               step3Errors.push({
                 field: `contactFormCtaEmail`,

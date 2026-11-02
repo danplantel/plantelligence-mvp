@@ -58,7 +58,13 @@ import { UniversalImageEditorModal } from "@/components/ui/universal-image-edito
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { buildContactFormHref } from "@/lib/contact-form-link";
-import { MAX_CTAS_PER_CONTACT } from "@/lib/contact-cta";
+import {
+  MAX_CTAS_PER_CONTACT,
+  toContactCtaOptions,
+  toStoredCtaTypes,
+  type ContactCtaOption,
+} from "@/lib/contact-cta";
+import { ContactCtaPicker } from "@/components/ui/contact-cta-picker";
 import {
   getActiveContactFormTopicLabels,
   normalizeContactTopicCategory,
@@ -176,43 +182,6 @@ interface ContactFormState {
   displayPhone: boolean;
   /** "Topic of Interest" choices for the Plantelligence /contact form. */
   contactFormTopics: ContactFormTopic[];
-}
-
-/**
- * The CTA actions the contact editor offers, in display order. `stored` is the
- * spelling the contact stores and the cards read (`lib/contact-cta`).
- */
-const CONTACT_CTA_OPTIONS = [
-  { value: "schedule", label: "Schedule Appt.", stored: "calendar" },
-  { value: "call", label: "Call", stored: "phone" },
-  { value: "email", label: "Email", stored: "email" },
-  { value: "contact", label: "Contact Form", stored: "url" },
-] as const;
-
-type ContactCtaOption = (typeof CONTACT_CTA_OPTIONS)[number]["value"];
-
-/** Editor choices → the values the contact stores. */
-function toStoredCtaTypes(
-  options: ContactCtaOption[],
-): ("calendar" | "phone" | "email" | "url")[] {
-  return options
-    .map((value) => CONTACT_CTA_OPTIONS.find((o) => o.value === value)?.stored)
-    .filter(
-      (value): value is "calendar" | "phone" | "email" | "url" => !!value,
-    );
-}
-
-/** A stored contact's CTAs → the editor's choices. */
-function toCtaOptions(contact: any): ContactCtaOption[] {
-  const stored: string[] = Array.isArray(contact?.contactButtonTypes)
-    ? contact.contactButtonTypes
-    : contact?.contactButtonType
-    ? [contact.contactButtonType]
-    : [];
-  const options = stored
-    .map((type) => CONTACT_CTA_OPTIONS.find((o) => o.stored === type)?.value)
-    .filter((value): value is ContactCtaOption => !!value);
-  return options;
 }
 
 const EMPTY_FORM: ContactFormState = {
@@ -494,7 +463,10 @@ export function BenefitContactDialog({
         // Every CTA the row carries (the array field, else the single legacy value).
         // One action stays selected by default, matching the old single-select.
         ctaTypes: (() => {
-          const saved = toCtaOptions(contact).slice(0, MAX_CTAS_PER_CONTACT);
+          const saved = toContactCtaOptions(contact).slice(
+            0,
+            MAX_CTAS_PER_CONTACT,
+          );
           return saved.length > 0
             ? saved
             : (["schedule"] as ContactCtaOption[]);
@@ -1214,74 +1186,13 @@ export function BenefitContactDialog({
 
                 {form.enableContactButton && (
                   <>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {(
-                        [
-                          { value: "schedule", label: "Schedule Appt." },
-                          { value: "call", label: "Call" },
-                          { value: "email", label: "Email" },
-                          { value: "contact", label: "Contact Form" },
-                        ] as const
-                      ).map((opt) => {
-                        const isActive = form.ctaTypes.includes(opt.value);
-                        const atLimit =
-                          !isActive &&
-                          form.ctaTypes.length >= MAX_CTAS_PER_CONTACT;
-                        return (
-                          <button
-                            key={opt.value}
-                            type="button"
-                            aria-pressed={isActive}
-                            // A third action is refused rather than silently replacing
-                            // one: the card shows two buttons in a single row.
-                            aria-disabled={atLimit}
-                            title={
-                              atLimit
-                                ? `A contact can show up to ${MAX_CTAS_PER_CONTACT} actions`
-                                : undefined
-                            }
-                            onClick={() => {
-                              if (atLimit) return;
-                              updateForm({
-                                ctaTypes: isActive
-                                  ? form.ctaTypes.filter(
-                                      (value) => value !== opt.value,
-                                    )
-                                  : [...form.ctaTypes, opt.value].slice(
-                                      0,
-                                      MAX_CTAS_PER_CONTACT,
-                                    ),
-                              });
-                            }}
-                            className={cn(
-                              "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-left transition-all",
-                              isActive
-                                ? "border-[#23919C] bg-[#23919C]/5 shadow-sm"
-                                : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
-                              atLimit &&
-                                "cursor-not-allowed opacity-50 hover:border-gray-200 dark:hover:border-gray-600",
-                            )}
-                          >
-                            <span className="text-[11px] font-medium">
-                              {opt.label}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* What the advisor can do here, stated plainly: the picker is a
-                        MULTI-select with a ceiling, and the order chosen is the order
-                        the buttons appear in. */}
-                    <p className="text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
-                      Choose up to {MAX_CTAS_PER_CONTACT} actions. They appear
-                      side by side as buttons on the contact&rsquo;s card, in
-                      the order you pick them; the first one is the highlighted
-                      button.
-                      {form.ctaTypes.length >= MAX_CTAS_PER_CONTACT
-                        ? " Deselect one to swap it for another."
-                        : ""}
-                    </p>
+                    {/* ONE shared control: a multi-select capped at two, in the order
+                        the advisor picks, so this editor and every other contact
+                        editor state the same rule (see `lib/contact-cta`). */}
+                    <ContactCtaPicker
+                      value={form.ctaTypes}
+                      onChange={(next) => updateForm({ ctaTypes: next })}
+                    />
 
                     {form.ctaTypes.includes("schedule") && (
                       <div className="space-y-1">

@@ -660,9 +660,15 @@ export function SmallVerticalCard({
               ? highlighted
                 ? highlightFill
                 : ctaColor || effectiveBrandColor
-              : isPrimary
-              ? mix(0.2, "#ffffff", effectiveBrandColor)
-              : "#F3F4F6";
+              : // Default style: the second action is white so it reads as a
+                // secondary button beside the brand-filled primary. The
+                // highlighted style keeps its tinted fill, because the card
+                // itself is already the brand colour.
+                highlighted
+              ? isPrimary
+                ? mix(0.2, "#ffffff", effectiveBrandColor)
+                : "#F3F4F6"
+              : "#ffffff";
             const buttonColor = isPrimaryButton
               ? highlighted
                 ? effectiveBrandColor
@@ -1362,9 +1368,12 @@ export function SmallVerticalCard({
               ? highlighted
                 ? highlightFill
                 : ctaColor || effectiveBrandColor
-              : isPrimary
-              ? mix(0.2, "#ffffff", effectiveBrandColor)
-              : "#F3F4F6";
+              : // Default style: white second action (see the mobile builder).
+                highlighted
+              ? isPrimary
+                ? mix(0.2, "#ffffff", effectiveBrandColor)
+                : "#F3F4F6"
+              : "#ffffff";
             const buttonColor = isPrimaryButton
               ? highlighted
                 ? effectiveBrandColor
