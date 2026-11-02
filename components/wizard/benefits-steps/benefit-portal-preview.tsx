@@ -425,9 +425,12 @@ export function BenefitPortalPreview({
             companyName: matched?.companyName || undefined,
             companyLogo: matched?.companyLogo || undefined,
             websiteUrl: matched?.websiteUrl || undefined,
-            // The CTA the advisor configured — passed through, never inferred.
+            // The CTA the advisor configured — passed through, never inferred. Both
+            // actions travel, so the preview shows the same pair of buttons the hub
+            // will.
             enableContactButton: matched?.enableContactButton,
             contactButtonType: matched?.contactButtonType,
+            contactButtonTypes: matched?.contactButtonTypes,
             // Which categories the person serves, so the plan-sponsor card can
             // borrow the plan's logo exactly as it does on the live hub.
             benefitsCategories: matched?.benefitsCategories || undefined,

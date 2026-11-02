@@ -17,11 +17,17 @@ import {
 import { withContactFormAvatar } from "@/lib/url-utils";
 import { resolveContactFormUrl } from "@/lib/contact-form-link";
 import { ContactCategoryBadge } from "@/components/ui/contact-category-badge";
+import { configuredContactCtas } from "@/lib/contact-cta";
 import { portalRadiusValue } from "@/lib/typography-themes";
 
 interface Contact {
   id?: string | number;
   name?: string;
+  /**
+   * Every CTA the card offers, in the advisor's order — up to two, drawn side by
+   * side (see `lib/contact-cta`).
+   */
+  contactButtonTypes?: string[];
   firstName?: string;
   lastName?: string;
   title?: string;
@@ -176,45 +182,46 @@ export function PrimaryContactCard({
   const isTeamSupport = contact.contactType === "team_support";
   const SupportIcon = getSupportIcon(contact.supportIcon);
 
-  // Check if a CTA button was explicitly configured via the wizard
-  const hasEnabledCta = contact.enableContactButton === true;
-  const ctaBtnType = contact.contactButtonType as string | undefined;
+  // The CTAs the advisor configured — up to two, in the order they were chosen (see
+  // `lib/contact-cta`); the first is the card's primary button.
+  const configuredCtas = configuredContactCtas(contact);
 
   // Build buttons based on CTA configuration
-  if (hasEnabledCta && ctaBtnType) {
-    // Explicit CTA button configured via wizard
-    if (ctaBtnType === "calendar") {
+  if (configuredCtas.length > 0) {
+    for (const cta of configuredCtas) {
       if (primaryIndex === -1) primaryIndex = buttons.length;
-      buttons.push({
-        type: "schedule",
-        label: "Schedule Appt.",
-        url: contact.schedulingUrl || appointmentLink,
-      });
-    } else if (ctaBtnType === "phone") {
-      if (primaryIndex === -1) primaryIndex = buttons.length;
-      buttons.push({
-        type: "call",
-        label: "Call Now",
-        // `getBasePhoneForDialing` already returns the `tel:` scheme, so adding
-        // one here produced `tel:tel:+1…` and the button dialled nothing.
-        url: contact.phone ? getBasePhoneForDialing(contact.phone) : "",
-      });
-    } else if (ctaBtnType === "email") {
-      if (primaryIndex === -1) primaryIndex = buttons.length;
-      buttons.push({
-        type: "email",
-        label: "Send Email",
-        url: contact.email ? `mailto:${contact.email}` : "",
-      });
-    } else if (ctaBtnType === "url") {
-      if (primaryIndex === -1) primaryIndex = buttons.length;
-      buttons.push({
-        type: "website",
-        label: "Contact",
-        url: withContactFormAvatar(contact.websiteUrl || "", contact.headshot),
-      });
+      if (cta === "calendar") {
+        buttons.push({
+          type: "schedule",
+          label: "Schedule Appt.",
+          url: contact.schedulingUrl || appointmentLink,
+        });
+      } else if (cta === "phone") {
+        buttons.push({
+          type: "call",
+          label: "Call Now",
+          // `getBasePhoneForDialing` already returns the `tel:` scheme, so adding
+          // one here produced `tel:tel:+1…` and the button dialled nothing.
+          url: contact.phone ? getBasePhoneForDialing(contact.phone) : "",
+        });
+      } else if (cta === "email") {
+        buttons.push({
+          type: "email",
+          label: "Send Email",
+          url: contact.email ? `mailto:${contact.email}` : "",
+        });
+      } else if (cta === "url") {
+        buttons.push({
+          type: "website",
+          label: "Contact",
+          url: withContactFormAvatar(
+            contact.websiteUrl || "",
+            contact.headshot,
+          ),
+        });
+      }
     }
-  } else {
+  } else if (contact.enableContactButton !== true) {
     // Legacy/fallback: use display flags for backward compatibility
     for (const buttonType of actionButtonOrder) {
       if (
@@ -243,9 +250,13 @@ export function PrimaryContactCard({
     }
   }
 
+  // At most TWO CTAs per contact, and they share one row — a third button would have
+  // to wrap, and the wizard's contact form only ever configures one. The first built
+  // button is the primary one, so the cut always keeps it.
+  const visibleButtons = buttons.slice(0, 2);
   // No CTA is ever invented: a contact that was never given one (no
   // `enableContactButton`, no legacy display flag) renders NO button.
-  const hasAnyButton = buttons.some((b) => !!b.url);
+  const hasAnyButton = visibleButtons.some((b) => !!b.url);
 
   const gridGap = compact
     ? "gap-4 sm:gap-6 lg:gap-8"
@@ -478,15 +489,15 @@ export function PrimaryContactCard({
             </div>
           </div>
 
-          {/* SCHEDULE APPOINTMENT BUTTON */}
-          <div className="w-full pt-2">
+          {/* CTA ROW — two buttons at most, side by side. */}
+          <div className="flex w-full flex-row items-stretch gap-2 pt-2">
             {/* Only live buttons are drawn. An explicitly disabled CTA, an
                 unknown CTA type, or a CTA whose URL could not be built (e.g.
                 "Call Now" with no number) renders nothing rather than a dead
                 button; contacts with no CTA config at all take the legacy
                 Schedule Appt. fallback pushed above. */}
             {hasAnyButton &&
-              buttons.map((button, idx) => {
+              visibleButtons.map((button, idx) => {
                 const isPrimaryButton = idx === primaryIndex;
                 // Primary CTA wears the plan's PRIMARY colour — the same button
                 // colour the hub's support cards use, so the page and every portal
@@ -506,7 +517,7 @@ export function PrimaryContactCard({
                 return (
                   <Button
                     key={idx}
-                    className="w-full rounded-lg px-5 py-3 text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat transition-all duration-200 hover:scale-105"
+                    className="min-w-0 flex-1 rounded-lg px-4 py-3 text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat transition-all duration-200 hover:scale-105"
                     style={{
                       backgroundColor: buttonBg,
                       color: buttonColor,

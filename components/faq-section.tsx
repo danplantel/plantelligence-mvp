@@ -37,6 +37,12 @@ export interface FAQContact {
    */
   enableContactButton?: boolean;
   contactButtonType?: "email" | "phone" | "calendar" | "url";
+  /**
+   * EVERY CTA the advisor chose, in their order — up to two, which the card draws
+   * side by side (`lib/contact-cta`). `contactButtonType` carries the first one for
+   * readers that predate this array.
+   */
+  contactButtonTypes?: string[];
   /** Company / organization shown on the card (logo bar). */
   companyName?: string;
   companyLogo?: string;
@@ -67,7 +73,8 @@ function normalizeHref(href: string): string {
   // Protocol-relative (starts with //) — keep as-is
   if (trimmed.startsWith("//")) return trimmed;
   // Anchor or javascript: — keep as-is
-  if (trimmed.startsWith("#") || trimmed.startsWith("javascript:")) return trimmed;
+  if (trimmed.startsWith("#") || trimmed.startsWith("javascript:"))
+    return trimmed;
   // Mailto: — keep as-is
   if (trimmed.startsWith("mailto:")) return trimmed;
   // Tel: — keep as-is
@@ -187,8 +194,7 @@ export function FAQSection({
 }: FAQSectionProps) {
   const [openId, setOpenId] = useState<string | null>(null);
 
-  const items =
-    faqs?.filter((faq) => faq.question && faq.answer) ?? [];
+  const items = faqs?.filter((faq) => faq.question && faq.answer) ?? [];
 
   const toggleItem = (id: string) => {
     setOpenId((prev) => (prev === id ? null : id));

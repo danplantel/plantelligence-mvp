@@ -308,6 +308,21 @@ describe("PrimaryContactCard action buttons", () => {
     expect(buttonLabels()).toEqual(["Contact", "Schedule Appt."]);
   });
 
+  it("puts the two CTAs side by side in one row", () => {
+    renderCard({
+      name: "Ada",
+      displayScheduleAppointment: true,
+      displayUrl: true,
+      websiteUrl: "https://ada.test",
+    });
+
+    const first = screen.getByRole("button", { name: "Schedule Appt." });
+    const second = screen.getByRole("button", { name: "Contact" });
+    // Same parent, and that parent is a row — the card used to stack them.
+    expect(first.parentElement).toBe(second.parentElement);
+    expect(first.parentElement?.className).toContain("flex-row");
+  });
+
   it("draws no CTA for a contact the advisor never configured", () => {
     // The plan's appointment link alone used to produce a Schedule button here.
     renderCard({ name: "Ada" });

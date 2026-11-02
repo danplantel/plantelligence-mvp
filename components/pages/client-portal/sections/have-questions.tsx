@@ -8,7 +8,7 @@ import {
   isHighlightedKeyContactStyle,
   type KeyContactCardStyle,
 } from "@/lib/key-contact-card-style";
-import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
+import { resolveFeaturedContactId } from "@/lib/portal-primary-contact";
 import { HAVE_QUESTIONS_SECTION_ID } from "@/lib/portal-section-anchors";
 import {
   supportCardColumnClass,
@@ -90,12 +90,19 @@ export function HaveQuestions({
   // section resolve it. No category means no key contact to point at: the
   // resolver would otherwise fall back to the plan's primary contact, labelling
   // someone the page never featured.
+  // Resolved exactly as the banner resolves it, then narrowed to a card this row
+  // actually draws (`resolveFeaturedContactId`): the key contact's card used to go
+  // unhighlighted whenever the resolver picked a plan-level contact who was not on
+  // this benefit, because no card could match their id.
   const keyContactId = category
-    ? String(
-        resolvePortalPrimaryContact(
-          keyContacts ?? (clientData as any)?.keyContacts,
-          category,
-        )?.id ?? "",
+    ? resolveFeaturedContactId(
+        (contacts ?? []).map((contact) => ({
+          id: contact.id,
+          benefitsCategory: undefined,
+          benefitsCategories: contact.benefitsCategories,
+        })),
+        keyContacts ?? (clientData as any)?.keyContacts,
+        category,
       )
     : "";
 
@@ -226,9 +233,12 @@ export function HaveQuestions({
                     // logo-less card beside cards that do have one.
                     companyLogo: contact.companyLogo || resolvedCompanyLogo,
                     websiteUrl: contact.websiteUrl,
-                    // The advisor's choice, untouched — no inferred CTA.
+                    // The advisor's choice, untouched — no inferred CTA. Both CTAs
+                    // travel (up to two, drawn side by side), with the single-value
+                    // field kept for readers that predate the array.
                     enableContactButton: contact.enableContactButton,
                     contactButtonType: contact.contactButtonType,
+                    contactButtonTypes: contact.contactButtonTypes,
                     isPrimary: false,
                   }}
                   brandColor={brandColor}

@@ -463,6 +463,22 @@ describe("SmallVerticalCard action buttons", () => {
     expect(buttonLabels()).toEqual(["Visit Website", "Schedule Appt."]);
   });
 
+  it("puts the two CTAs side by side in one row", () => {
+    renderCard({
+      name: "Ada",
+      displayScheduleAppointment: true,
+      schedulingUrl: "https://cal.test/ada",
+      displayUrl: true,
+      websiteUrl: "https://ada.test",
+    });
+
+    const first = screen.getByRole("button", { name: "Schedule Appt." });
+    const second = screen.getByRole("button", { name: "Visit Website" });
+    // Same parent, and that parent is a row — the card used to stack them.
+    expect(first.parentElement).toBe(second.parentElement);
+    expect(first.parentElement?.className).toContain("flex-row");
+  });
+
   it("draws the contact-form CTA inert in a wizard preview", () => {
     renderCard(
       {

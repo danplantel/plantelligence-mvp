@@ -165,6 +165,15 @@ export function buildFaqSupportContacts({
       ...(isContactButtonType(contact.contactButtonType)
         ? { contactButtonType: contact.contactButtonType }
         : {}),
+      // The full CTA list — up to two actions, which the card draws side by side.
+      // Without this the hub silently dropped the advisor's second button, keeping
+      // only the first (the single-value field above).
+      ...(() => {
+        const all = textArray(contact.contactButtonTypes).filter(
+          isContactButtonType,
+        );
+        return all.length > 0 ? { contactButtonTypes: all } : {};
+      })(),
       ...(text(contact.companyName)
         ? { companyName: text(contact.companyName) }
         : {}),

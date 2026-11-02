@@ -1,164 +1,145 @@
 import { describe, expect, it } from "vitest";
-
 import {
-  readPortalContacts,
+  contactServesCategory,
+  isCategoryKeyContact,
+  normalizePortalCategory,
+  resolveFeaturedContactId,
   resolvePortalPrimaryContact,
-} from "../portal-primary-contact";
+} from "@/lib/portal-primary-contact";
 
-/**
- * `resolvePortalPrimaryContact` is the portal's "who is this benefit's person?"
- * helper — the welcome banner and the video section both use it, so the person
- * they name must be the same one.
- *
- * It is **not** what My Benefits Team uses: that page treats the first visible
- * contact as primary. The two rules are pinned side by side (here and in the
- * page's own suite) so changing either is a decision rather than an accident.
- *
- * The ladder is: a primary tagged with the category → any contact tagged with
- * the category → the plan's primary → the first visible contact. A contact with
- * `showOnPortal: false` is excluded from every step.
- */
+const contacts = [
+  // A plain plan contact, tagged with the benefit but claiming nothing.
+  {
+    id: "jane",
+    name: "Jane Smith",
+    benefitsCategory: "Retirement",
+  },
+  // The advisor's own row: NOT the plan's general primary, but it claims Retirement.
+  {
+    id: "advisor",
+    name: "Eddie Taliaferro",
+    isPrimary: false,
+    isPrimaryOverall: false,
+    isPrimaryByCategory: { Retirement: true },
+    benefitsCategories: [
+      "Retirement",
+      "Group Health",
+      "Group Life",
+      "Company / Plan Sponsor",
+    ],
+  },
+];
 
-function contact(overrides: Record<string, unknown> = {}) {
-  return {
-    id: "c1",
-    name: "Ada",
-    showOnPortal: true,
-    ...overrides,
-  };
-}
-
-describe("readPortalContacts", () => {
-  it("reads a plain array, dropping non-objects", () => {
-    expect(
-      readPortalContacts([contact({ id: "a" }), null, "junk", contact({ id: "b" })]),
-    ).toEqual([contact({ id: "a" }), contact({ id: "b" })]);
+describe("normalizePortalCategory", () => {
+  it("folds the wizard's and the API's names for the custom hub together", () => {
+    expect(normalizePortalCategory("Custom")).toBe("company / plan sponsor");
+    expect(normalizePortalCategory("Other")).toBe("company / plan sponsor");
+    expect(normalizePortalCategory("Company / Plan Sponsor")).toBe(
+      "company / plan sponsor",
+    );
   });
 
-  it("reads the { contacts } envelope", () => {
-    expect(readPortalContacts({ contacts: [contact({ id: "a" })] })).toEqual([
-      contact({ id: "a" }),
-    ]);
+  it("folds the legacy health/life spellings", () => {
+    expect(normalizePortalCategory("Health Insurance")).toBe("group health");
+    expect(normalizePortalCategory("Life Insurance")).toBe("group life");
+  });
+});
+
+describe("contactServesCategory", () => {
+  it("reads the single value and the list", () => {
+    expect(contactServesCategory(contacts[0], "Retirement")).toBe(true);
+    expect(contactServesCategory(contacts[0], "Group Health")).toBe(false);
+    expect(contactServesCategory(contacts[1], "Group Life")).toBe(true);
   });
 
-  it("reads the legacy { Contacts } envelope", () => {
-    expect(readPortalContacts({ Contacts: [contact({ id: "a" })] })).toEqual([
-      contact({ id: "a" }),
-    ]);
+  it("ignores a missing category", () => {
+    expect(contactServesCategory(contacts[0], undefined)).toBe(false);
+  });
+});
+
+describe("isCategoryKeyContact", () => {
+  it("honours the per-benefit claim", () => {
+    expect(isCategoryKeyContact(contacts[1], "Retirement")).toBe(true);
+    expect(isCategoryKeyContact(contacts[1], "Group Health")).toBe(false);
   });
 
-  it("returns nothing for a missing or unusable payload", () => {
-    expect(readPortalContacts(null)).toEqual([]);
-    expect(readPortalContacts(undefined)).toEqual([]);
-    expect(readPortalContacts({})).toEqual([]);
-    expect(readPortalContacts("nope")).toEqual([]);
+  it("is false without a claim", () => {
+    expect(isCategoryKeyContact(contacts[0], "Retirement")).toBe(false);
   });
 });
 
 describe("resolvePortalPrimaryContact", () => {
-  it("prefers a primary contact tagged with the category", () => {
-    const result = resolvePortalPrimaryContact(
-      [
-        contact({ id: "other", benefitsCategories: ["Group Life"] }),
-        contact({
-          id: "health-primary",
-          isPrimary: true,
-          benefitsCategories: ["Group Health"],
-        }),
-      ],
-      "Group Health",
-    );
-
-    expect(result?.id).toBe("health-primary");
-  });
-
-  it("falls back to any contact tagged with the category", () => {
-    const result = resolvePortalPrimaryContact(
-      [
-        contact({ id: "plan-primary", isPrimary: true }),
-        contact({ id: "life", benefitsCategories: ["Group Life"] }),
-      ],
-      "Group Life",
-    );
-
-    expect(result?.id).toBe("life");
-  });
-
-  it("falls back to the plan's primary when no contact matches the category", () => {
-    const result = resolvePortalPrimaryContact(
-      [
-        contact({ id: "first" }),
-        contact({ id: "plan-primary", isPrimary: true }),
-      ],
-      "Retirement",
-    );
-
-    expect(result?.id).toBe("plan-primary");
-  });
-
-  it("falls back to the first visible contact with no category or match", () => {
-    expect(
-      resolvePortalPrimaryContact([contact({ id: "first" })], "Retirement")?.id,
-    ).toBe("first");
-    expect(resolvePortalPrimaryContact([contact({ id: "first" })])?.id).toBe(
-      "first",
-    );
-  });
-
-  it("never promotes a contact hidden from the portal", () => {
-    const result = resolvePortalPrimaryContact(
-      [
-        contact({
-          id: "hidden-primary",
-          isPrimary: true,
-          benefitsCategories: ["Retirement"],
-          showOnPortal: false,
-        }),
-        contact({
-          id: "visible",
-          benefitsCategories: ["Retirement"],
-        }),
-      ],
-      "Retirement",
-    );
-
-    expect(result?.id).toBe("visible");
-  });
-
-  it("matches the singular benefitsCategory, case-insensitively", () => {
-    const result = resolvePortalPrimaryContact(
-      [contact({ id: "health", benefitsCategory: "group health" })],
-      "Group Health",
-    );
-
-    expect(result?.id).toBe("health");
-  });
-
-  it("returns null when there is nobody to feature", () => {
-    expect(resolvePortalPrimaryContact(null)).toBeNull();
-    expect(resolvePortalPrimaryContact([])).toBeNull();
-    expect(
-      resolvePortalPrimaryContact([contact({ showOnPortal: false })]),
-    ).toBeNull();
-  });
-
-  it("differs from the team page's first-visible rule", () => {
-    const contacts = {
-      contacts: [
-        contact({ id: "first", name: "First" }),
-        contact({
-          id: "retirement",
-          name: "Retirement specialist",
-          benefitsCategories: ["Retirement"],
-        }),
-      ],
-    };
-
-    // The hub features the category's person…
+  it("picks the contact claiming the benefit over the first contact tagged with it", () => {
+    // The bug: the advisor's row is not the plan's general primary, so the resolver
+    // used to fall through to "anyone tagged with Retirement" and name a stranger.
     expect(resolvePortalPrimaryContact(contacts, "Retirement")?.id).toBe(
+      "advisor",
+    );
+  });
+
+  it("still prefers a general primary tagged with the category", () => {
+    const list = [
+      { id: "first", name: "First", benefitsCategory: "Retirement" },
+      {
+        id: "primary",
+        name: "Primary",
+        isPrimary: true,
+        benefitsCategory: "Retirement",
+      },
+    ];
+    expect(resolvePortalPrimaryContact(list, "Retirement")?.id).toBe("primary");
+  });
+
+  it("falls back to the first contact tagged with the category", () => {
+    const list = [
+      { id: "health", name: "Health", benefitsCategory: "Group Health" },
+      { id: "retirement", name: "Retirement", benefitsCategory: "Retirement" },
+    ];
+    expect(resolvePortalPrimaryContact(list, "Retirement")?.id).toBe(
       "retirement",
     );
-    // …while My Benefits Team marks the array's first visible contact as primary.
-    expect((contacts.contacts[0] as { id: string }).id).toBe("first");
+  });
+
+  it("skips a contact hidden from the portal", () => {
+    const list = [
+      {
+        id: "hidden",
+        name: "Hidden",
+        showOnPortal: false,
+        isPrimaryByCategory: { Retirement: true },
+        benefitsCategory: "Retirement",
+      },
+      { id: "shown", name: "Shown", benefitsCategory: "Retirement" },
+    ];
+    expect(resolvePortalPrimaryContact(list, "Retirement")?.id).toBe("shown");
+  });
+});
+
+describe("resolveFeaturedContactId", () => {
+  it("keeps the resolver's pick when that person has a card", () => {
+    expect(
+      resolveFeaturedContactId(
+        [{ id: "jane" }, { id: "advisor" }],
+        contacts,
+        "Retirement",
+      ),
+    ).toBe("advisor");
+  });
+
+  it("falls back to a card tagged with the benefit when the pick is not on the row", () => {
+    // The failure that left "Have Questions?" with NO featured card: the banner's
+    // pick was James, who is not one of this benefit's support contacts.
+    const row = [
+      { id: "advisor", benefitsCategories: ["Retirement"] },
+      { id: "other", benefitsCategories: ["Group Health"] },
+    ];
+    expect(resolveFeaturedContactId(row, contacts, "Retirement")).toBe(
+      "advisor",
+    );
+  });
+
+  it("returns nothing when no card covers the benefit", () => {
+    const row = [{ id: "other", benefitsCategories: ["Group Health"] }];
+    expect(resolveFeaturedContactId(row, contacts, "Retirement")).toBe("");
   });
 });

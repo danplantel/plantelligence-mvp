@@ -58,6 +58,7 @@ import { UniversalImageEditorModal } from "@/components/ui/universal-image-edito
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { buildContactFormHref } from "@/lib/contact-form-link";
+import { MAX_CTAS_PER_CONTACT } from "@/lib/contact-cta";
 import {
   getActiveContactFormTopicLabels,
   normalizeContactTopicCategory,
@@ -164,12 +165,54 @@ interface ContactFormState {
   companyLogoFileName: string;
   isPrimary: boolean;
   enableContactButton: boolean;
-  ctaType: "schedule" | "call" | "email" | "contact";
+  /**
+   * The actions the contact's card offers, in the order the advisor chose them.
+   *
+   * Up to `MAX_CTAS_PER_CONTACT` (two): the card draws them side by side in one row.
+   */
+  ctaTypes: ContactCtaOption[];
   schedulingUrl: string;
   displayEmail: boolean;
   displayPhone: boolean;
   /** "Topic of Interest" choices for the Plantelligence /contact form. */
   contactFormTopics: ContactFormTopic[];
+}
+
+/**
+ * The CTA actions the contact editor offers, in display order. `stored` is the
+ * spelling the contact stores and the cards read (`lib/contact-cta`).
+ */
+const CONTACT_CTA_OPTIONS = [
+  { value: "schedule", label: "Schedule Appt.", stored: "calendar" },
+  { value: "call", label: "Call", stored: "phone" },
+  { value: "email", label: "Email", stored: "email" },
+  { value: "contact", label: "Contact Form", stored: "url" },
+] as const;
+
+type ContactCtaOption = (typeof CONTACT_CTA_OPTIONS)[number]["value"];
+
+/** Editor choices → the values the contact stores. */
+function toStoredCtaTypes(
+  options: ContactCtaOption[],
+): ("calendar" | "phone" | "email" | "url")[] {
+  return options
+    .map((value) => CONTACT_CTA_OPTIONS.find((o) => o.value === value)?.stored)
+    .filter(
+      (value): value is "calendar" | "phone" | "email" | "url" => !!value,
+    );
+}
+
+/** A stored contact's CTAs → the editor's choices. */
+function toCtaOptions(contact: any): ContactCtaOption[] {
+  const stored: string[] = Array.isArray(contact?.contactButtonTypes)
+    ? contact.contactButtonTypes
+    : contact?.contactButtonType
+    ? [contact.contactButtonType]
+    : [];
+  const options = stored
+    .map((type) => CONTACT_CTA_OPTIONS.find((o) => o.stored === type)?.value)
+    .filter((value): value is ContactCtaOption => !!value);
+  return options;
 }
 
 const EMPTY_FORM: ContactFormState = {
@@ -191,7 +234,7 @@ const EMPTY_FORM: ContactFormState = {
   companyLogoFileName: "",
   isPrimary: true,
   enableContactButton: false,
-  ctaType: "schedule",
+  ctaTypes: ["schedule"],
   schedulingUrl: "",
   // "Show on contact card" starts unchecked — adding an email/phone must not
   // auto-enable these toggles.
@@ -375,7 +418,8 @@ export function BenefitContactDialog({
     const title = isTeam ? "" : form.title;
     const avatar = isTeam ? "" : form.headshot;
     const logo = isPlanSponsorContact ? planLogoUrl : form.companyLogo;
-    const active = form.enableContactButton && form.ctaType === "contact";
+    const active =
+      form.enableContactButton && form.ctaTypes.includes("contact");
     return {
       active,
       name,
@@ -447,14 +491,14 @@ export function BenefitContactDialog({
         companyLogoFileName: String((contact as any).companyLogoFileName || ""),
         isPrimary: contact.isPrimaryOverall ?? contact.isPrimary ?? false,
         enableContactButton: contact.enableContactButton === true,
-        ctaType:
-          contact.contactButtonType === "phone"
-            ? "call"
-            : contact.contactButtonType === "email"
-            ? "email"
-            : contact.contactButtonType === "url"
-            ? "contact"
-            : "schedule",
+        // Every CTA the row carries (the array field, else the single legacy value).
+        // One action stays selected by default, matching the old single-select.
+        ctaTypes: (() => {
+          const saved = toCtaOptions(contact).slice(0, MAX_CTAS_PER_CONTACT);
+          return saved.length > 0
+            ? saved
+            : (["schedule"] as ContactCtaOption[]);
+        })(),
         schedulingUrl: contact.schedulingUrl || "",
         displayEmail: contact.displayEmail ?? false,
         displayPhone: contact.displayPhone ?? false,
@@ -509,7 +553,8 @@ export function BenefitContactDialog({
       setForm((prev) => {
         const next = { ...prev };
         if (!next.companyName.trim()) next.companyName = branding.name;
-        if (!next.companyLogo && branding.logo) next.companyLogo = branding.logo;
+        if (!next.companyLogo && branding.logo)
+          next.companyLogo = branding.logo;
         return next;
       });
     })();
@@ -610,14 +655,12 @@ export function BenefitContactDialog({
     // valid email instead, because that CTA opens the Plantelligence-branded
     // /contact page and the link is derived from the contact while the submission
     // is delivered to that address (same rule as the Plan contact editor).
-    if (
-      form.enableContactButton &&
-      form.ctaType === "schedule" &&
-      !form.schedulingUrl.trim()
-    ) {
+    const selectedCtas = form.enableContactButton ? form.ctaTypes : [];
+    const hasCta = (option: ContactCtaOption) => selectedCtas.includes(option);
+    if (hasCta("schedule") && !form.schedulingUrl.trim()) {
       validationErrors.push("schedulingUrl");
     }
-    if (form.enableContactButton && form.ctaType === "contact" && !emailValid) {
+    if (hasCta("contact") && !emailValid) {
       if (!validationErrors.includes("email")) validationErrors.push("email");
     }
 
@@ -649,9 +692,7 @@ export function BenefitContactDialog({
       toast.error(
         validationErrors.includes(CONTACT_VISIBILITY_FIELD)
           ? CONTACT_VISIBILITY_HELPER_TEXT
-          : form.enableContactButton &&
-            form.ctaType === "contact" &&
-            !emailValid
+          : hasCta("contact") && !emailValid
           ? "Selecting the Contact Form CTA requires this contact's email, since form submissions are delivered to it."
           : "Please fill out all required fields",
       );
@@ -670,6 +711,12 @@ export function BenefitContactDialog({
     setErrors([]);
 
     const shouldBePrimary = isPlanSponsorContact || form.isPrimary === true;
+
+    // The stored CTA list: at most two, in the order the advisor chose them. The
+    // cards read this array (`lib/contact-cta`) and draw the buttons side by side.
+    const storedCtas = form.enableContactButton
+      ? toStoredCtaTypes(form.ctaTypes).slice(0, MAX_CTAS_PER_CONTACT)
+      : [];
 
     // ── Build the contact ──
     // Create starts from nothing (id + category membership + primary flags are ours to
@@ -748,24 +795,17 @@ export function BenefitContactDialog({
         : {}),
       displayEmail: form.displayEmail,
       displayPhone: form.displayPhone,
-      displayUrl: form.enableContactButton ? form.ctaType === "contact" : false,
-      displayScheduleAppointment: form.enableContactButton
-        ? form.ctaType === "schedule"
-        : false,
-      enableContactButton: form.enableContactButton,
-      contactButtonType: form.enableContactButton
-        ? ((form.ctaType === "schedule"
-            ? "calendar"
-            : form.ctaType === "call"
-            ? "phone"
-            : form.ctaType === "email"
-            ? "email"
-            : "url") as "calendar" | "phone" | "email" | "url")
+      // Legacy single-CTA flags, kept for readers that predate the array.
+      displayUrl: storedCtas.includes("url"),
+      displayScheduleAppointment: storedCtas.includes("calendar"),
+      enableContactButton: storedCtas.length > 0,
+      // The ORIGINAL single-value field carries the first choice, so an older reader
+      // still shows the advisor's primary action; the array carries all of them.
+      contactButtonType: storedCtas[0],
+      contactButtonTypes: storedCtas,
+      schedulingUrl: storedCtas.includes("calendar")
+        ? form.schedulingUrl || undefined
         : undefined,
-      schedulingUrl:
-        form.enableContactButton && form.ctaType === "schedule"
-          ? form.schedulingUrl || undefined
-          : undefined,
       // Derived first-party /contact link (carrying the advisor's topic choices),
       // not a typed URL — see `contactFormCta`.
       websiteUrl: contactFormCta.active
@@ -977,8 +1017,8 @@ export function BenefitContactDialog({
                   ) : (
                     <>
                       <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                        Upload a logo to display on this contact&rsquo;s portal card
-                        instead of the plan&rsquo;s company logo.
+                        Upload a logo to display on this contact&rsquo;s portal
+                        card instead of the plan&rsquo;s company logo.
                       </p>
                       <UniversalImageEditorModal
                         value={form.companyLogo || ""}
@@ -1067,8 +1107,8 @@ export function BenefitContactDialog({
                   />
                   {orgOffersBenefit && (
                     <p className="text-[10px] text-gray-400 dark:text-gray-500">
-                      Your organization offers this benefit, so the card uses your
-                      organization&rsquo;s name and logo.
+                      Your organization offers this benefit, so the card uses
+                      your organization&rsquo;s name and logo.
                     </p>
                   )}
                   {errors.includes("companyName") && (
@@ -1183,17 +1223,43 @@ export function BenefitContactDialog({
                           { value: "contact", label: "Contact Form" },
                         ] as const
                       ).map((opt) => {
-                        const isActive = form.ctaType === opt.value;
+                        const isActive = form.ctaTypes.includes(opt.value);
+                        const atLimit =
+                          !isActive &&
+                          form.ctaTypes.length >= MAX_CTAS_PER_CONTACT;
                         return (
                           <button
                             key={opt.value}
                             type="button"
-                            onClick={() => updateForm({ ctaType: opt.value })}
+                            aria-pressed={isActive}
+                            // A third action is refused rather than silently replacing
+                            // one: the card shows two buttons in a single row.
+                            aria-disabled={atLimit}
+                            title={
+                              atLimit
+                                ? `A contact can show up to ${MAX_CTAS_PER_CONTACT} actions`
+                                : undefined
+                            }
+                            onClick={() => {
+                              if (atLimit) return;
+                              updateForm({
+                                ctaTypes: isActive
+                                  ? form.ctaTypes.filter(
+                                      (value) => value !== opt.value,
+                                    )
+                                  : [...form.ctaTypes, opt.value].slice(
+                                      0,
+                                      MAX_CTAS_PER_CONTACT,
+                                    ),
+                              });
+                            }}
                             className={cn(
                               "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md border text-left transition-all",
                               isActive
                                 ? "border-[#23919C] bg-[#23919C]/5 shadow-sm"
                                 : "border-gray-200 bg-white hover:border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:hover:border-gray-500",
+                              atLimit &&
+                                "cursor-not-allowed opacity-50 hover:border-gray-200 dark:hover:border-gray-600",
                             )}
                           >
                             <span className="text-[11px] font-medium">
@@ -1204,7 +1270,20 @@ export function BenefitContactDialog({
                       })}
                     </div>
 
-                    {form.ctaType === "schedule" && (
+                    {/* What the advisor can do here, stated plainly: the picker is a
+                        MULTI-select with a ceiling, and the order chosen is the order
+                        the buttons appear in. */}
+                    <p className="text-[10px] leading-relaxed text-gray-500 dark:text-gray-400">
+                      Choose up to {MAX_CTAS_PER_CONTACT} actions. They appear
+                      side by side as buttons on the contact&rsquo;s card, in
+                      the order you pick them; the first one is the highlighted
+                      button.
+                      {form.ctaTypes.length >= MAX_CTAS_PER_CONTACT
+                        ? " Deselect one to swap it for another."
+                        : ""}
+                    </p>
+
+                    {form.ctaTypes.includes("schedule") && (
                       <div className="space-y-1">
                         <Label className="dark:text-gray-300 text-xs font-medium">
                           Scheduling URL <span className="text-red-500">*</span>
@@ -1233,7 +1312,7 @@ export function BenefitContactDialog({
                       </div>
                     )}
 
-                    {form.ctaType === "contact" && (
+                    {form.ctaTypes.includes("contact") && (
                       <div className="space-y-1">
                         <div className="flex items-center gap-2">
                           <Label className="dark:text-gray-300 text-xs font-medium">
@@ -1274,7 +1353,7 @@ export function BenefitContactDialog({
                       </div>
                     )}
 
-                    {form.ctaType === "call" && (
+                    {form.ctaTypes.includes("call") && (
                       <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5">
                         {form.phone
                           ? `${formatPhoneNumber(form.phone)}${
@@ -1286,7 +1365,7 @@ export function BenefitContactDialog({
                       </p>
                     )}
 
-                    {form.ctaType === "email" && (
+                    {form.ctaTypes.includes("email") && (
                       <p className="text-[11px] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 rounded px-2.5 py-1.5">
                         {form.email || "Complete the Email field above first"}
                       </p>
@@ -1406,18 +1485,25 @@ export function BenefitContactDialog({
                   isPrimary: isPlanSponsorContact || form.isPrimary,
                   displayEmail: form.displayEmail,
                   displayPhone: form.displayPhone,
-                  enableContactButton: form.enableContactButton,
+                  // The live preview reads the same shape the card will: both CTAs,
+                  // side by side (see `lib/contact-cta`).
+                  enableContactButton:
+                    form.enableContactButton && form.ctaTypes.length > 0,
+                  contactButtonTypes: form.enableContactButton
+                    ? toStoredCtaTypes(form.ctaTypes).slice(
+                        0,
+                        MAX_CTAS_PER_CONTACT,
+                      )
+                    : [],
                   contactButtonType: form.enableContactButton
-                    ? form.ctaType === "schedule"
-                      ? "calendar"
-                      : form.ctaType === "call"
-                      ? "phone"
-                      : form.ctaType === "email"
-                      ? "email"
-                      : "url"
+                    ? toStoredCtaTypes(form.ctaTypes).slice(
+                        0,
+                        MAX_CTAS_PER_CONTACT,
+                      )[0]
                     : undefined,
                   schedulingUrl:
-                    form.enableContactButton && form.ctaType === "schedule"
+                    form.enableContactButton &&
+                    form.ctaTypes.includes("schedule")
                       ? form.schedulingUrl
                       : undefined,
                   websiteUrl: contactFormCta.url || undefined,

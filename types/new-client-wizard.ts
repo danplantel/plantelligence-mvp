@@ -241,6 +241,14 @@ export interface KeyContact {
     | ("schedule" | "website")[];
   contactUrl?: string;
   contactButtonType?: "email" | "phone" | "calendar" | "url"; // Legacy
+  /**
+   * EVERY call-to-action this contact offers, in the advisor's order.
+   *
+   * Up to two: the contact card draws them side by side in one row (see
+   * `lib/contact-cta`). `contactButtonType` above keeps the first one for readers
+   * that predate this array.
+   */
+  contactButtonTypes?: string[];
   displayScope?: "futureUse" | "thisPortal";
   organization?: string;
   recordkeeper?: string;

@@ -818,10 +818,7 @@ export function BenefitsStep3({
         description: "",
         enabled: true,
       };
-      const nextContacts = [
-        ...currentStep3Data.supportContacts,
-        newContact,
-      ];
+      const nextContacts = [...currentStep3Data.supportContacts, newContact];
       saveStepData(3, {
         ...currentStep3Data,
         ...supportContactsContext,
@@ -1245,6 +1242,9 @@ export function BenefitsStep3({
         websiteUrl: matched?.websiteUrl,
         enableContactButton: matched?.enableContactButton,
         contactButtonType: matched?.contactButtonType,
+        // Both CTAs, so the contacts preview shows the same pair of buttons the hub
+        // will (see `lib/contact-cta`).
+        contactButtonTypes: matched?.contactButtonTypes,
         // Which categories the person serves, so a Company / Plan Sponsor card
         // can borrow the plan's logo exactly as it does on the live hub.
         benefitsCategories: matched?.benefitsCategories,

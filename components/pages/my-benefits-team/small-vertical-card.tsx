@@ -17,6 +17,7 @@ import {
 } from "@/lib/phone-utils";
 import { withContactFormAvatar } from "@/lib/url-utils";
 import { resolveContactFormUrl } from "@/lib/contact-form-link";
+import { configuredContactCtas } from "@/lib/contact-cta";
 import { ContactCategoryBadge } from "@/components/ui/contact-category-badge";
 import { portalRadiusValue } from "@/lib/typography-themes";
 import type { SupportCardSize } from "@/lib/support-card-layout";
@@ -24,6 +25,12 @@ import type { SupportCardSize } from "@/lib/support-card-layout";
 interface Contact {
   id?: string | number;
   name?: string;
+  /**
+   * Every CTA the card offers, in the advisor's order — up to two, drawn side by
+   * side (see `lib/contact-cta`). Set by the contact editor; `contactButtonType`
+   * carries the first one for older readers.
+   */
+  contactButtonTypes?: string[];
   firstName?: string;
   lastName?: string;
   title?: string;
@@ -395,55 +402,57 @@ export function SmallVerticalCard({
   // text placeholder of its own — only a missing headshot does.
   const showAvatarPlaceholder = showHeadshotPlaceholder;
 
-  // Check if a CTA button was explicitly configured via the wizard
-  const hasEnabledCta = contact.enableContactButton === true;
-  const ctaBtnType = contact.contactButtonType as string | undefined;
+  // The CTAs the advisor configured — up to two, in the order they were chosen (see
+  // `lib/contact-cta`); the first is the card's primary button.
+  const configuredCtas = configuredContactCtas(contact);
 
   // Build buttons based on CTA configuration
-  if (hasEnabledCta && ctaBtnType) {
-    // Explicit CTA button configured via wizard
-    if (ctaBtnType === "calendar") {
+  if (configuredCtas.length > 0) {
+    for (const cta of configuredCtas) {
       if (primaryIndex === -1) primaryIndex = buttons.length;
-      buttons.push({
-        type: "schedule",
-        label: "Schedule Appt.",
-        url: contact.schedulingUrl || appointmentLink,
-      });
-    } else if (ctaBtnType === "phone") {
-      if (primaryIndex === -1) primaryIndex = buttons.length;
-      buttons.push({
-        type: "call",
-        label: "Call Now",
-        // `getBasePhoneForDialing` already returns the `tel:` scheme, so adding
-        // one here produced `tel:tel:+1…` and the button dialled nothing.
-        url: contact.phone ? getBasePhoneForDialing(contact.phone) : "",
-      });
-    } else if (ctaBtnType === "email") {
-      if (primaryIndex === -1) primaryIndex = buttons.length;
-      buttons.push({
-        type: "email",
-        label: "Send Email",
-        url: contact.email ? `mailto:${contact.email}` : "",
-      });
-    } else if (ctaBtnType === "url") {
-      // `url` corresponds to the first-party Contact Form CTA — the button
-      // opens the branded /contact form (the saved websiteUrl is derived from
-      // the contact's email). Match the "Contact" label used by the other card
-      // variants.
-      if (primaryIndex === -1) primaryIndex = buttons.length;
-      buttons.push({
-        type: "website",
-        // Same CTA label for both contact types — Team/Support Line cards use
-        // "Contact" (not "Contact Support").
-        label: "Contact",
-        url: withContactFormAvatar(contact.websiteUrl || "", contact.headshot),
-        // Marks this button as the Contact Form CTA, so a preview can render it
-        // inert (see `disableContactFormButton`). The legacy website button below is
-        // also type "website" but is a real outbound link, and must keep working.
-        isContactForm: true,
-      });
+      if (cta === "calendar") {
+        buttons.push({
+          type: "schedule",
+          label: "Schedule Appt.",
+          url: contact.schedulingUrl || appointmentLink,
+        });
+      } else if (cta === "phone") {
+        buttons.push({
+          type: "call",
+          label: "Call Now",
+          // `getBasePhoneForDialing` already returns the `tel:` scheme, so adding
+          // one here produced `tel:tel:+1…` and the button dialled nothing.
+          url: contact.phone ? getBasePhoneForDialing(contact.phone) : "",
+        });
+      } else if (cta === "email") {
+        buttons.push({
+          type: "email",
+          label: "Send Email",
+          url: contact.email ? `mailto:${contact.email}` : "",
+        });
+      } else if (cta === "url") {
+        // `url` corresponds to the first-party Contact Form CTA — the button
+        // opens the branded /contact form (the saved websiteUrl is derived from
+        // the contact's email). Match the "Contact" label used by the other card
+        // variants.
+        buttons.push({
+          type: "website",
+          // Same CTA label for both contact types — Team/Support Line cards use
+          // "Contact" (not "Contact Support").
+          label: "Contact",
+          url: withContactFormAvatar(
+            contact.websiteUrl || "",
+            contact.headshot,
+          ),
+          // Marks this button as the Contact Form CTA, so a preview can render it
+          // inert (see `disableContactFormButton`). The legacy website button below
+          // is also type "website" but is a real outbound link, and must keep
+          // working.
+          isContactForm: true,
+        });
+      }
     }
-  } else {
+  } else if (contact.enableContactButton !== true) {
     // Legacy/fallback: use display flags for backward compatibility
     for (const buttonType of actionButtonOrder) {
       if (
@@ -473,10 +482,13 @@ export function SmallVerticalCard({
   }
 
   // No CTA is ever invented: a contact that was never given one (no
-  // `enableContactButton`, no legacy display flag) renders NO button. A default
-  // "Schedule Appt." used to fill that gap, which put a booking button on people
-  // the advisor never configured — the plan's contacts showed one everywhere.
-  const hasAnyButton = buttons.some((b) => !!b.url);
+  // `contactButtonTypes`, no single `contactButtonType`, no legacy display flag)
+  // renders NO button. A default "Schedule Appt." used to fill that gap, which put a
+  // booking button on people the advisor never configured.
+  //
+  // At most two anyway — they share one row (see `MAX_CTAS_PER_CONTACT`).
+  const visibleButtons = buttons.slice(0, 2);
+  const hasAnyButton = visibleButtons.some((b) => !!b.url);
 
   /**
    * PHONE CARD DESIGN — see `mobileVariant`.
@@ -629,21 +641,15 @@ export function SmallVerticalCard({
       </>
     );
 
-    /** Actions: side by side on the wide card, stacked on the narrow one. */
-    const actionButtons = (opts: {
-      twoUp: boolean;
-      text: string;
-      pad: string;
-    }) => {
+    /**
+     * Actions: ONE row, always — the contact has at most two CTAs and they sit side by
+     * side at every size (they used to stack on the narrow card).
+     */
+    const actionButtons = (opts: { text: string; pad: string }) => {
       if (!hasAnyButton) return null;
       return (
-        <div
-          className={cn(
-            "grid w-full gap-1.5",
-            opts.twoUp && buttons.length > 1 ? "grid-cols-2" : "grid-cols-1",
-          )}
-        >
-          {buttons.map((button, idx) => {
+        <div className="flex w-full flex-row items-stretch gap-1.5">
+          {visibleButtons.map((button, idx) => {
             const isPrimaryButton = idx === primaryIndex;
             // A highlighted card inverts its CTA, exactly like the primary card in
             // "How Can We Help You Today?": the readable fill as the button, the
@@ -664,7 +670,7 @@ export function SmallVerticalCard({
             const contactFormInert =
               disableContactFormButton && button.isContactForm === true;
             const actionClassName = cn(
-              "inline-flex w-full items-center justify-center rounded-lg text-center leading-tight font-semibold uppercase tracking-wide font-red-hat",
+              "inline-flex min-w-0 flex-1 items-center justify-center rounded-lg text-center leading-tight font-semibold uppercase tracking-wide font-red-hat",
               opts.text,
               opts.pad,
             );
@@ -850,7 +856,6 @@ export function SmallVerticalCard({
           {hasAnyButton && (
             <div className="mt-auto px-3 pb-3">
               {actionButtons({
-                twoUp: true,
                 text: "text-[9px]",
                 pad: "py-1.5",
               })}
@@ -980,7 +985,7 @@ export function SmallVerticalCard({
 
         {hasAnyButton && (
           <div className="mt-auto pt-1.5">
-            {actionButtons({ twoUp: false, text: "text-[8px]", pad: "py-1" })}
+            {actionButtons({ text: "text-[8px]", pad: "py-1" })}
           </div>
         )}
       </motion.div>
@@ -1340,7 +1345,8 @@ export function SmallVerticalCard({
       {hasAnyButton && (
         <div
           className={cn(
-            "flex w-full flex-col gap-1.5",
+            // ONE row: the contact's (at most two) CTAs sit side by side.
+            "flex w-full flex-row items-stretch gap-1.5",
             cardStyles.ctaSpacing,
             // A levelled row can leave slack on EVERY card, including the one
             // that carries the button. Draining it into `mt-auto` keeps the
@@ -1349,7 +1355,7 @@ export function SmallVerticalCard({
             equalHeight && "mt-auto",
           )}
         >
-          {buttons.map((button, idx) => {
+          {visibleButtons.map((button, idx) => {
             const isPrimaryButton = idx === primaryIndex;
             // Inverse CTA on a highlighted card — see the mobile builder above.
             const buttonBg = isPrimaryButton

@@ -16,10 +16,16 @@ import {
 } from "@/lib/phone-utils";
 import { withContactFormAvatar } from "@/lib/url-utils";
 import { resolveContactFormUrl } from "@/lib/contact-form-link";
+import { configuredContactCtas } from "@/lib/contact-cta";
 
 interface Contact {
   id?: string | number;
   name?: string;
+  /**
+   * Every CTA the card offers, in the advisor's order — up to two, drawn side by
+   * side (see `lib/contact-cta`).
+   */
+  contactButtonTypes?: string[];
   firstName?: string;
   lastName?: string;
   title?: string;
@@ -140,45 +146,46 @@ export function LargeHorizontalCard({
   const isTeamSupport = contact.contactType === "team_support";
   const SupportIcon = getSupportIcon(contact.supportIcon);
 
-  // Check if a CTA button was explicitly configured via the wizard
-  const hasEnabledCta = contact.enableContactButton === true;
-  const ctaBtnType = contact.contactButtonType as string | undefined;
+  // The CTAs the advisor configured — up to two, in the order they were chosen (see
+  // `lib/contact-cta`); the first is the card's primary button.
+  const configuredCtas = configuredContactCtas(contact);
 
   // Build buttons based on CTA configuration
-  if (hasEnabledCta && ctaBtnType) {
-    // Explicit CTA button configured via wizard
-    if (ctaBtnType === "calendar") {
+  if (configuredCtas.length > 0) {
+    for (const cta of configuredCtas) {
       if (primaryIndex === -1) primaryIndex = buttons.length;
-      buttons.push({
-        type: "schedule",
-        label: "Schedule Appt.",
-        url: contact.schedulingUrl || appointmentLink,
-      });
-    } else if (ctaBtnType === "phone") {
-      if (primaryIndex === -1) primaryIndex = buttons.length;
-      buttons.push({
-        type: "call",
-        label: "Call Now",
-        // `getBasePhoneForDialing` already returns the `tel:` scheme, so adding
-        // one here produced `tel:tel:+1…` and the button dialled nothing.
-        url: contact.phone ? getBasePhoneForDialing(contact.phone) : "",
-      });
-    } else if (ctaBtnType === "email") {
-      if (primaryIndex === -1) primaryIndex = buttons.length;
-      buttons.push({
-        type: "email",
-        label: "Send Email",
-        url: contact.email ? `mailto:${contact.email}` : "",
-      });
-    } else if (ctaBtnType === "url") {
-      if (primaryIndex === -1) primaryIndex = buttons.length;
-      buttons.push({
-        type: "website",
-        label: "Contact",
-        url: withContactFormAvatar(contact.websiteUrl || "", contact.headshot),
-      });
+      if (cta === "calendar") {
+        buttons.push({
+          type: "schedule",
+          label: "Schedule Appt.",
+          url: contact.schedulingUrl || appointmentLink,
+        });
+      } else if (cta === "phone") {
+        buttons.push({
+          type: "call",
+          label: "Call Now",
+          // `getBasePhoneForDialing` already returns the `tel:` scheme, so adding
+          // one here produced `tel:tel:+1…` and the button dialled nothing.
+          url: contact.phone ? getBasePhoneForDialing(contact.phone) : "",
+        });
+      } else if (cta === "email") {
+        buttons.push({
+          type: "email",
+          label: "Send Email",
+          url: contact.email ? `mailto:${contact.email}` : "",
+        });
+      } else if (cta === "url") {
+        buttons.push({
+          type: "website",
+          label: "Contact",
+          url: withContactFormAvatar(
+            contact.websiteUrl || "",
+            contact.headshot,
+          ),
+        });
+      }
     }
-  } else {
+  } else if (contact.enableContactButton !== true) {
     // Legacy/fallback: use display flags for backward compatibility
     for (const buttonType of actionButtonOrder) {
       if (
@@ -207,9 +214,12 @@ export function LargeHorizontalCard({
     }
   }
 
-  // No CTA is ever invented: a contact that was never given one (no
-  // `enableContactButton`, no legacy display flag) renders NO button.
-  const hasAnyButton = buttons.some((b) => !!b.url);
+  // No CTA is ever invented: a contact that was never given one (no configured CTA,
+  // no legacy display flag) renders NO button.
+  //
+  // At most two, sharing one row — see `MAX_CTAS_PER_CONTACT`.
+  const visibleButtons = buttons.slice(0, 2);
+  const hasAnyButton = visibleButtons.some((b) => !!b.url);
 
   const logoScaleEffective = contact.logoScale ?? baselineLogoScale ?? 1;
   /** Taller base than 80px so "2×" reads visually on wide cards (avatar column is up to ~200px tall) */
@@ -407,16 +417,9 @@ export function LargeHorizontalCard({
 
         {/* ACTION BUTTONS */}
         {hasAnyButton && (
-          <div
-            className={cn(
-              "grid w-full gap-2 m-0",
-              buttons.length === 1 ? "grid-cols-1" : "grid-cols-2",
-            )}
-          >
-            {buttons.map((button, idx) => {
+          <div className="m-0 flex w-full flex-row items-stretch gap-2">
+            {visibleButtons.map((button, idx) => {
               const isPrimaryButton = idx === primaryIndex;
-              const isLastButton = idx === buttons.length - 1;
-              const shouldSpanFullWidth = buttons.length >= 3 && isLastButton;
 
               // Primary CTA wears the plan's PRIMARY colour — the same button
               // colour the hub's support cards use (it used to take the secondary
@@ -438,10 +441,7 @@ export function LargeHorizontalCard({
               return (
                 <Button
                   key={idx}
-                  className={cn(
-                    "w-full m-0 rounded-lg px-3 py-2 sm:px-4 sm:py-2 lg:px-6 lg:py-3 text-xs sm:text-sm font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat",
-                    shouldSpanFullWidth && "col-span-2",
-                  )}
+                  className="m-0 min-w-0 flex-1 rounded-lg px-3 py-2 text-xs font-semibold uppercase tracking-wide hover:opacity-90 font-red-hat sm:px-4 sm:py-2 sm:text-sm lg:px-6 lg:py-3"
                   style={{
                     backgroundColor: buttonBg,
                     color: buttonColor,
