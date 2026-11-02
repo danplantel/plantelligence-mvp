@@ -27,6 +27,10 @@ vi.mock("@/components/ui/headshot", () => ({
 
 vi.mock("@/config/onboarding/designations", () => ({
   designationAcronym: (value: string) => value.split(/\s+/)[0].toUpperCase(),
+  // The chip's hover text, in the same shape the real helper produces: acronym first,
+  // then the expansion.
+  designationTitle: (value: string) =>
+    `${value.split(/\s+/)[0].toUpperCase()} — ${value}`,
 }));
 
 function contact(overrides: Record<string, unknown> = {}) {

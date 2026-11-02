@@ -38,66 +38,290 @@ export interface DesignationOption {
 
 export const DESIGNATIONS: DesignationOption[] = [
   // ── Retirement / wealth ────────────────────────────────────────────────────
-  { value: "CFP", label: "Certified Financial Planner", acronym: "CFP®", groups: ["retirement_wealth"] },
-  { value: "AIF", label: "Accredited Investment Fiduciary", acronym: "AIF®", groups: ["retirement_wealth"] },
-  { value: "AIFA", label: "Accredited Investment Fiduciary Analyst", acronym: "AIFA®", groups: ["retirement_wealth"] },
-  { value: "PPC", label: "Professional Plan Consultant", acronym: "PPC®", groups: ["retirement_wealth"] },
-  { value: "CPFA", label: "Certified Plan Fiduciary Advisor", acronym: "CPFA®", groups: ["retirement_wealth"] },
-  { value: "CIMA", label: "Certified Investment Management Analyst", acronym: "CIMA®", groups: ["retirement_wealth"] },
-  { value: "CPWA", label: "Certified Private Wealth Advisor", acronym: "CPWA®", groups: ["retirement_wealth"] },
-  { value: "RMA", label: "Retirement Management Advisor", acronym: "RMA®", groups: ["retirement_wealth"] },
-  { value: "ChFC", label: "Chartered Financial Consultant", acronym: "ChFC®", groups: ["retirement_wealth", "benefits_insurance"] },
-  { value: "CLU", label: "Chartered Life Underwriter", acronym: "CLU®", groups: ["retirement_wealth", "benefits_insurance"] },
-  { value: "RICP", label: "Retirement Income Certified Professional", acronym: "RICP®", groups: ["retirement_wealth"] },
-  { value: "WMCP", label: "Wealth Management Certified Professional", acronym: "WMCP®", groups: ["retirement_wealth"] },
-  { value: "FSCP", label: "Financial Services Certified Professional", acronym: "FSCP®", groups: ["retirement_wealth", "benefits_insurance"] },
-  { value: "CAP", label: "Chartered Advisor in Philanthropy", acronym: "CAP®", groups: ["retirement_wealth"] },
-  { value: "ChSNC", label: "Chartered Special Needs Consultant", acronym: "ChSNC®", groups: ["retirement_wealth"] },
-  { value: "AAMS", label: "Accredited Asset Management Specialist", acronym: "AAMS®", groups: ["retirement_wealth"] },
-  { value: "CRPC", label: "Chartered Retirement Planning Counselor", acronym: "CRPC®", groups: ["retirement_wealth"] },
-  { value: "CRPS", label: "Chartered Retirement Plans Specialist", acronym: "CRPS®", groups: ["retirement_wealth"] },
-  { value: "ABFP", label: "Accredited Behavioral Finance Professional", acronym: "ABFP®", groups: ["retirement_wealth"] },
-  { value: "APMA", label: "Accredited Portfolio Management Advisor", acronym: "APMA®", groups: ["retirement_wealth"] },
-  { value: "AWMA", label: "Accredited Wealth Management Advisor", acronym: "AWMA®", groups: ["retirement_wealth"] },
-  { value: "FPQP", label: "Financial Paraplanner Qualified Professional", acronym: "FPQP®", groups: ["retirement_wealth"] },
-  { value: "RSSA", label: "Registered Social Security Analyst", acronym: "RSSA®", groups: ["retirement_wealth"] },
+  {
+    value: "CFP",
+    label: "Certified Financial Planner",
+    acronym: "CFP®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "AIF",
+    label: "Accredited Investment Fiduciary",
+    acronym: "AIF®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "AIFA",
+    label: "Accredited Investment Fiduciary Analyst",
+    acronym: "AIFA®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "PPC",
+    label: "Professional Plan Consultant",
+    acronym: "PPC®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "CPFA",
+    label: "Certified Plan Fiduciary Advisor",
+    acronym: "CPFA®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "CIMA",
+    label: "Certified Investment Management Analyst",
+    acronym: "CIMA®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "CPWA",
+    label: "Certified Private Wealth Advisor",
+    acronym: "CPWA®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "RMA",
+    label: "Retirement Management Advisor",
+    acronym: "RMA®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "ChFC",
+    label: "Chartered Financial Consultant",
+    acronym: "ChFC®",
+    groups: ["retirement_wealth", "benefits_insurance"],
+  },
+  {
+    value: "CLU",
+    label: "Chartered Life Underwriter",
+    acronym: "CLU®",
+    groups: ["retirement_wealth", "benefits_insurance"],
+  },
+  {
+    value: "RICP",
+    label: "Retirement Income Certified Professional",
+    acronym: "RICP®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "WMCP",
+    label: "Wealth Management Certified Professional",
+    acronym: "WMCP®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "FSCP",
+    label: "Financial Services Certified Professional",
+    acronym: "FSCP®",
+    groups: ["retirement_wealth", "benefits_insurance"],
+  },
+  {
+    value: "CAP",
+    label: "Chartered Advisor in Philanthropy",
+    acronym: "CAP®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "ChSNC",
+    label: "Chartered Special Needs Consultant",
+    acronym: "ChSNC®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "AAMS",
+    label: "Accredited Asset Management Specialist",
+    acronym: "AAMS®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "CRPC",
+    label: "Chartered Retirement Planning Counselor",
+    acronym: "CRPC®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "CRPS",
+    label: "Chartered Retirement Plans Specialist",
+    acronym: "CRPS®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "ABFP",
+    label: "Accredited Behavioral Finance Professional",
+    acronym: "ABFP®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "APMA",
+    label: "Accredited Portfolio Management Advisor",
+    acronym: "APMA®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "AWMA",
+    label: "Accredited Wealth Management Advisor",
+    acronym: "AWMA®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "FPQP",
+    label: "Financial Paraplanner Qualified Professional",
+    acronym: "FPQP®",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "RSSA",
+    label: "Registered Social Security Analyst",
+    acronym: "RSSA®",
+    groups: ["retirement_wealth"],
+  },
   // Never take a mark (display exception).
-  { value: "CFA", label: "Chartered Financial Analyst", acronym: "CFA", groups: ["retirement_wealth"] },
-  { value: "CIPM", label: "Certificate in Investment Performance Measurement", acronym: "CIPM", groups: ["retirement_wealth"] },
+  {
+    value: "CFA",
+    label: "Chartered Financial Analyst",
+    acronym: "CFA",
+    groups: ["retirement_wealth"],
+  },
+  {
+    value: "CIPM",
+    label: "Certificate in Investment Performance Measurement",
+    acronym: "CIPM",
+    groups: ["retirement_wealth"],
+  },
 
   // ── HR ─────────────────────────────────────────────────────────────────────
-  { value: "SHRM_CP", label: "SHRM Certified Professional", acronym: "SHRM-CP®", groups: ["hr"] },
-  { value: "SHRM_SCP", label: "SHRM Senior Certified Professional", acronym: "SHRM-SCP®", groups: ["hr"] },
-  { value: "APHR", label: "Associate Professional in Human Resources", acronym: "aPHR®", groups: ["hr"] },
-  { value: "PHR", label: "Professional in Human Resources", acronym: "PHR®", groups: ["hr"] },
-  { value: "PHRCA", label: "Professional in Human Resources – California", acronym: "PHRca®", groups: ["hr"] },
-  { value: "SPHR", label: "Senior Professional in Human Resources", acronym: "SPHR®", groups: ["hr"] },
-  { value: "GPHR", label: "Global Professional in Human Resources", acronym: "GPHR®", groups: ["hr"] },
+  {
+    value: "SHRM_CP",
+    label: "SHRM Certified Professional",
+    acronym: "SHRM-CP®",
+    groups: ["hr"],
+  },
+  {
+    value: "SHRM_SCP",
+    label: "SHRM Senior Certified Professional",
+    acronym: "SHRM-SCP®",
+    groups: ["hr"],
+  },
+  {
+    value: "APHR",
+    label: "Associate Professional in Human Resources",
+    acronym: "aPHR®",
+    groups: ["hr"],
+  },
+  {
+    value: "PHR",
+    label: "Professional in Human Resources",
+    acronym: "PHR®",
+    groups: ["hr"],
+  },
+  {
+    value: "PHRCA",
+    label: "Professional in Human Resources – California",
+    acronym: "PHRca®",
+    groups: ["hr"],
+  },
+  {
+    value: "SPHR",
+    label: "Senior Professional in Human Resources",
+    acronym: "SPHR®",
+    groups: ["hr"],
+  },
+  {
+    value: "GPHR",
+    label: "Global Professional in Human Resources",
+    acronym: "GPHR®",
+    groups: ["hr"],
+  },
   // HRCI international credentials use ™.
-  { value: "APHRI", label: "Associate Professional in Human Resources – International", acronym: "aPHRi™", groups: ["hr"] },
-  { value: "PHRI", label: "Professional in Human Resources – International", acronym: "PHRi™", groups: ["hr"] },
-  { value: "SPHRI", label: "Senior Professional in Human Resources – International", acronym: "SPHRi™", groups: ["hr"] },
+  {
+    value: "APHRI",
+    label: "Associate Professional in Human Resources – International",
+    acronym: "aPHRi™",
+    groups: ["hr"],
+  },
+  {
+    value: "PHRI",
+    label: "Professional in Human Resources – International",
+    acronym: "PHRi™",
+    groups: ["hr"],
+  },
+  {
+    value: "SPHRI",
+    label: "Senior Professional in Human Resources – International",
+    acronym: "SPHRi™",
+    groups: ["hr"],
+  },
 
   // ── Benefits / insurance (CLU, ChFC, FSCP are shared above) ────────────────
-  { value: "CEBS", label: "Certified Employee Benefit Specialist", acronym: "CEBS®", groups: ["benefits_insurance"] },
-  { value: "REBC", label: "Registered Employee Benefits Consultant", acronym: "REBC®", groups: ["benefits_insurance"] },
-  { value: "CPCU", label: "Chartered Property Casualty Underwriter", acronym: "CPCU®", groups: ["benefits_insurance"] },
+  {
+    value: "CEBS",
+    label: "Certified Employee Benefit Specialist",
+    acronym: "CEBS®",
+    groups: ["benefits_insurance"],
+  },
+  {
+    value: "REBC",
+    label: "Registered Employee Benefits Consultant",
+    acronym: "REBC®",
+    groups: ["benefits_insurance"],
+  },
+  {
+    value: "CPCU",
+    label: "Chartered Property Casualty Underwriter",
+    acronym: "CPCU®",
+    groups: ["benefits_insurance"],
+  },
   // No symbol.
-  { value: "GBA", label: "Group Benefits Associate", acronym: "GBA", groups: ["benefits_insurance"] },
-  { value: "RPA", label: "Retirement Plans Associate", acronym: "RPA", groups: ["benefits_insurance"] },
+  {
+    value: "GBA",
+    label: "Group Benefits Associate",
+    acronym: "GBA",
+    groups: ["benefits_insurance"],
+  },
+  {
+    value: "RPA",
+    label: "Retirement Plans Associate",
+    acronym: "RPA",
+    groups: ["benefits_insurance"],
+  },
 
   // ── Recordkeeper / TPA (ASPPA/ARA — symbols to be confirmed) ───────────────
-  { value: "QPA", label: "Qualified Pension Administrator", acronym: "QPA", groups: ["recordkeeper_tpa"] },
-  { value: "QKA", label: "Qualified 401(k) Administrator", acronym: "QKA", groups: ["recordkeeper_tpa"] },
-  { value: "QPFC", label: "Qualified Plan Financial Consultant", acronym: "QPFC", groups: ["recordkeeper_tpa"] },
-  { value: "ERPA", label: "Enrolled Retirement Plan Agent", acronym: "ERPA", groups: ["recordkeeper_tpa"] },
-  { value: "CPC", label: "Certified Pension Consultant", acronym: "CPC", groups: ["recordkeeper_tpa"] },
+  {
+    value: "QPA",
+    label: "Qualified Pension Administrator",
+    acronym: "QPA",
+    groups: ["recordkeeper_tpa"],
+  },
+  {
+    value: "QKA",
+    label: "Qualified 401(k) Administrator",
+    acronym: "QKA",
+    groups: ["recordkeeper_tpa"],
+  },
+  {
+    value: "QPFC",
+    label: "Qualified Plan Financial Consultant",
+    acronym: "QPFC",
+    groups: ["recordkeeper_tpa"],
+  },
+  {
+    value: "ERPA",
+    label: "Enrolled Retirement Plan Agent",
+    acronym: "ERPA",
+    groups: ["recordkeeper_tpa"],
+  },
+  {
+    value: "CPC",
+    label: "Certified Pension Consultant",
+    acronym: "CPC",
+    groups: ["recordkeeper_tpa"],
+  },
 ];
 
 /** id → label, for display resolution. */
-export const DESIGNATION_LABEL_BY_ID: Record<string, string> = Object.fromEntries(
-  DESIGNATIONS.map((d) => [d.value, d.label]),
-);
+export const DESIGNATION_LABEL_BY_ID: Record<string, string> =
+  Object.fromEntries(DESIGNATIONS.map((d) => [d.value, d.label]));
 
 /** id → acronym (with mark), for chip + output rendering. */
 export const DESIGNATION_ACRONYM_BY_ID: Record<string, string> =
@@ -118,7 +342,13 @@ for (const d of DESIGNATIONS) {
   TEXT_TO_ID.set(d.label.trim().toLowerCase(), d.value);
   TEXT_TO_ID.set(d.acronym.trim().toLowerCase(), d.value);
   // Also match the acronym without its mark (e.g. "cfp" for "CFP®").
-  TEXT_TO_ID.set(d.acronym.replace(/[®™]/g, "").trim().toLowerCase(), d.value);
+  TEXT_TO_ID.set(
+    d.acronym
+      .replace(/[®™]/g, "")
+      .trim()
+      .toLowerCase(),
+    d.value,
+  );
 }
 for (const [alias, id] of Object.entries(LEGACY_LABEL_ALIASES)) {
   TEXT_TO_ID.set(alias, id);
@@ -152,6 +382,25 @@ export function designationAcronym(value: string): string {
 /** Map a list of stored designations to acronyms. */
 export function designationAcronyms(values?: string[] | null): string[] {
   return (values ?? []).map(designationAcronym).filter(Boolean);
+}
+
+/**
+ * What a designation chip explains on hover: the ACRONYM the chip already shows,
+ * followed by the credential it abbreviates — "CFP® — Certified Financial Planner".
+ *
+ * The acronym leads because it is the part already on screen: the reader starts where
+ * their eye already is, then reads the expansion.
+ *
+ * A free-text designation the dictionary does not know keeps its own words (there is
+ * no expansion to add), and one whose label already IS its acronym is shown once.
+ */
+export function designationTitle(value: string): string {
+  if (!value) return "";
+  const acronym = designationAcronym(value);
+  const label = designationLabel(value);
+  if (!label || label === acronym) return acronym || value;
+  if (!acronym || acronym === label) return label;
+  return `${acronym} — ${label}`;
 }
 
 /**

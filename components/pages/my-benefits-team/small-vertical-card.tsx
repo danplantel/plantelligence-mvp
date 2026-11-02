@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { Mail, Phone, Clock } from "lucide-react";
 import { getSupportIcon } from "@/lib/support-icons";
-import { designationAcronym } from "@/config/onboarding/designations";
+import { DesignationChip } from "@/components/pages/my-benefits-team/designation-chip";
 import { motion } from "framer-motion";
 import { ContactAvatar } from "@/components/pages/my-benefits-team/contact-avatar";
 import { CopyContactValue } from "@/components/pages/my-benefits-team/copy-contact-value";
@@ -519,8 +519,11 @@ export function SmallVerticalCard({
             {(contact.designations || [])
               .filter((value) => value && value.trim())
               .map((value, chipIndex) => (
-                <span
+                // Hovering names the full credential — "Certified Financial Planner
+                // (CFP®)" — since the chip only fits the acronym.
+                <DesignationChip
                   key={chipIndex}
+                  value={value}
                   className={cn(
                     "inline-block shrink-0 whitespace-nowrap rounded-full py-px text-center leading-none tracking-tight",
                     sizeClass,
@@ -531,9 +534,7 @@ export function SmallVerticalCard({
                       ? "rgba(255,255,255,0.16)"
                       : "#F3F4F6",
                   }}
-                >
-                  {designationAcronym(value)}
-                </span>
+                />
               ))}
           </div>
         </div>
@@ -1297,8 +1298,9 @@ export function SmallVerticalCard({
                   {(contact.designations || [])
                     .filter((value) => value && value.trim())
                     .map((value, chipIndex) => (
-                      <span
+                      <DesignationChip
                         key={chipIndex}
+                        value={value}
                         className={cn(
                           "inline-block shrink-0 whitespace-nowrap rounded-full py-px text-center leading-none tracking-tight",
                           cardStyles.chip,
@@ -1309,9 +1311,7 @@ export function SmallVerticalCard({
                             ? "rgba(255,255,255,0.16)"
                             : "#F3F4F6",
                         }}
-                      >
-                        {designationAcronym(value)}
-                      </span>
+                      />
                     ))}
                 </div>
               )}

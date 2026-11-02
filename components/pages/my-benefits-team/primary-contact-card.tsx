@@ -5,7 +5,7 @@ import { BrandingImage } from "@/components/ui/branding-image";
 import { HEADER_LOGO_MAX_WIDTH_PX } from "@/lib/header-logo-band";
 import { Mail, Phone } from "lucide-react";
 import { getSupportIcon } from "@/lib/support-icons";
-import { designationAcronym } from "@/config/onboarding/designations";
+import { DesignationChip } from "@/components/pages/my-benefits-team/designation-chip";
 import { motion } from "framer-motion";
 import { PrimaryVisual } from "@/components/pages/my-benefits-team/primary-visual";
 import { CopyContactValue } from "@/components/pages/my-benefits-team/copy-contact-value";
@@ -384,16 +384,18 @@ export function PrimaryContactCard({
                       {(contact.designations || [])
                         .filter((value) => value && value.trim())
                         .map((value, index) => (
-                          <span
+                          // Hovering names the full credential — "Certified
+                          // Financial Planner (CFP®)" — since the chip only fits the
+                          // acronym.
+                          <DesignationChip
                             key={index}
+                            value={value}
                             className="inline-block shrink-0 whitespace-nowrap rounded-full px-1 py-px text-center text-[8px] leading-none tracking-tight"
                             style={{
                               color: textColor,
                               backgroundColor: "rgba(255,255,255,0.16)",
                             }}
-                          >
-                            {designationAcronym(value)}
-                          </span>
+                          />
                         ))}
                     </div>
                   </div>

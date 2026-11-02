@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { Mail, Phone, Clock } from "lucide-react";
 import { getSupportIcon } from "@/lib/support-icons";
-import { designationAcronym } from "@/config/onboarding/designations";
+import { DesignationChip } from "@/components/pages/my-benefits-team/designation-chip";
 import { motion } from "framer-motion";
 import { readableColor, mix } from "polished";
 import { ContactAvatar } from "@/components/pages/my-benefits-team/contact-avatar";
@@ -286,8 +286,11 @@ export function LargeHorizontalCard({
                 {(contact.designations || [])
                   .filter((value) => value && value.trim())
                   .map((value, index) => (
-                    <span
+                    // Hovering names the full credential — "Certified Financial
+                    // Planner (CFP®)" — since the chip only fits the acronym.
+                    <DesignationChip
                       key={index}
+                      value={value}
                       className="inline-block shrink-0 whitespace-nowrap rounded-full px-1 py-px text-center text-[8px] leading-none tracking-tight"
                       style={{
                         color: textColor || "#4B5563",
@@ -295,9 +298,7 @@ export function LargeHorizontalCard({
                           ? "rgba(255,255,255,0.16)"
                           : "#F3F4F6",
                       }}
-                    >
-                      {designationAcronym(value)}
-                    </span>
+                    />
                   ))}
               </div>
             </div>
