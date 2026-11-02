@@ -1221,22 +1221,13 @@ export const navItems: NavItem[] = [
   //   ],
   // },
   {
+    // A LEAF link, not a group: clicking Benefits goes straight to the list. The
+    // Create Benefit wizard is reached from that page's own "Create Benefit"
+    // button, so the sidebar no longer carries a second `/new-benefits` entry.
     title: "Benefits",
     href: "/benefits",
     icon: "wand-sparkles",
     label: "Benefits",
-    items: [
-      {
-        title: "View Benefits",
-        href: "/benefits",
-        label: "All Benefits",
-      },
-      {
-        title: "Create Benefit",
-        href: "/new-benefits",
-        label: "Create New Benefit",
-      },
-    ],
   },
   {
     title: "Settings",
