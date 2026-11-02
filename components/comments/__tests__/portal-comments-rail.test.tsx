@@ -269,15 +269,18 @@ describe("PortalCommentsRail chrome", () => {
     expect(button).toBeDisabled();
   });
 
-  it("sits at the rail's left edge while either rail is open", () => {
+  it("sits left of the portal's Ask a question action", () => {
     setSearch("?comments=on");
     renderRail();
 
+    // The chatbot owns the bottom-right corner at z-[60]. The comments control
+    // keeps its rail-edge offset but clears the chat pill's width, so the two
+    // are visible side by side instead of stacked.
     expect(
       screen.getByRole("button", { name: "Turn comments off" }),
     ).toHaveStyle({
       right:
-        "calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)",
+        "calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + 11.5rem)",
     });
   });
 });
