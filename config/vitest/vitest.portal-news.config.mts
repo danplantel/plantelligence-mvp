@@ -17,6 +17,8 @@ const portalNewsTests = [
   "app/(portal)/[id]/news-events/__tests__/integration.test.tsx",
   // Malformed plan data: non-string banner, missing/empty id, defaults
   "app/(portal)/[id]/news-events/__tests__/page-error-paths.test.tsx",
+  // The portal Editing Panel's hero background (the Page Image Header slot)
+  "components/portal-editing/editors/__tests__/portal-news-editor-hero.test.tsx",
   // Published posts: loading/empty/sort, dates, backgrounds, CTA
   "components/pages/client-portal/sections/__tests__/news-post-list.test.tsx",
   // Post edge cases: publish window, invalid dates, CTA schemes, dead prop

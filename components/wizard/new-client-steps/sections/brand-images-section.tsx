@@ -37,6 +37,15 @@ interface BrandImagesSectionProps {
   /** Optional curated images shown in the "Choose a Default Image" modal. When
    *  omitted, the benefit-hub default backgrounds are used. */
   galleryImages?: GalleryBackground[];
+  /**
+   * Show the "Preview in News & Events Header" button and its mock-up dialog.
+   *
+   * On by default (the Create Plan wizard and Edit Client, where nothing else
+   * shows the finished page). The portal's Editing Panel turns it OFF: the live
+   * News & Events page is already beside the panel, so a second, static mock-up
+   * is noise.
+   */
+  showNewsEventsPreview?: boolean;
 }
 
 const BRAND_IMAGE_SLOTS = [
@@ -71,13 +80,17 @@ const BRAND_IMAGE_SLOTS = [
   {
     key: "secondaryBanner" as keyof BrandImagesData,
     title: "Page Image Header",
-    description: "Used as the header background on interior Benefits Hub pages, such as News & Events. If none is uploaded, the Hero Banner Image is used. ",
-    recommendedSize: "1600×600 px",
+    description:
+      "Used as the header background on interior Benefits Hub pages, such as News & Events, where it fills a 400 px tall band across the page. If none is uploaded, the Hero Banner Image is used.",
+    // The News & Events hero is `h-[400px]` across a 1440px desktop, so the
+    // recommendation and the preview both use that band (18:5) rather than a
+    // 16:9 photo — the advisor is cropping a banner, not a picture.
+    recommendedSize: "1440×400 px",
     required: false,
     accept: ".png,.jpg,.jpeg,.webp",
     defaultPhoteButton: true,
-    previewAspectRatio: 16 / 9,
-    previewLabel: "Banner preview (16:9)",
+    previewAspectRatio: 1440 / 400,
+    previewLabel: "Page header preview (18:5)",
   },
   {
     key: "employeeResourcesHero" as keyof BrandImagesData,
@@ -94,6 +107,16 @@ const BRAND_IMAGE_SLOTS = [
   },
 ];
 
+/**
+ * The Page Image Header's crop guide.
+ *
+ * 580 × 161 is 18:5 — the News & Events hero band itself (`h-[400px]` across a
+ * 1440px desktop) — so the rectangle the advisor drags is exactly what the page
+ * will show. The Hero Banner Image keeps its own 580 × 240 guide.
+ */
+const SECONDARY_BANNER_GUIDE_WIDTH = 580;
+const SECONDARY_BANNER_GUIDE_HEIGHT = 161;
+
 export function BrandImagesSection({
   brandImages,
   onBrandImagesChange,
@@ -103,6 +126,7 @@ export function BrandImagesSection({
   logoUrl,
   companyName,
   galleryImages,
+  showNewsEventsPreview = true,
 }: BrandImagesSectionProps) {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeSlotKey, setActiveSlotKey] = useState<
@@ -181,8 +205,8 @@ export function BrandImagesSection({
     };
     await onBrandImagesChange(updatedBrandImages);
 
-    // Open the combined preview dialog
-    setNewsEventsPreviewOpen(true);
+    // Open the combined preview dialog, where the host wants one.
+    if (showNewsEventsPreview) setNewsEventsPreviewOpen(true);
   };
 
   /**
@@ -333,7 +357,10 @@ export function BrandImagesSection({
         // When editing a secondary banner from the preview dialog,
         // re-open the preview after saving so the user sees the
         // adjusted image immediately.
-        if (pendingImageData.slotKey === "secondaryBanner") {
+        if (
+          showNewsEventsPreview &&
+          pendingImageData.slotKey === "secondaryBanner"
+        ) {
           setNewsEventsPreviewOpen(true);
         }
 
@@ -446,11 +473,17 @@ export function BrandImagesSection({
                   setGalleryOpen(true);
                 }}
                 onEditClick={() => {
-                  if (isSecondaryBanner && currentImage) {
+                  if (
+                    isSecondaryBanner &&
+                    currentImage &&
+                    showNewsEventsPreview
+                  ) {
                     // For secondary banner, edit opens the combined preview
                     // where the user can crop/adjust while seeing the header
                     setNewsEventsPreviewOpen(true);
                   } else {
+                    // Without that mock-up (the portal Editing Panel) the same
+                    // button goes straight to the crop editor.
                     handleEditClick(slot.key);
                   }
                 }}
@@ -464,7 +497,7 @@ export function BrandImagesSection({
                   }
                 }}
                 headerAction={
-                  isSecondaryBanner && currentImage ? (
+                  isSecondaryBanner && currentImage && showNewsEventsPreview ? (
                     <Button
                       type="button"
                       variant="outline"
@@ -660,18 +693,20 @@ export function BrandImagesSection({
           guidelineWidth={
             pendingImageData.slotKey === "thumbnail"
               ? THUMBNAIL_GUIDE_WIDTH
-              : pendingImageData.slotKey === "header" ||
-                pendingImageData.slotKey === "secondaryBanner"
-              ? 580
-              : 300
+              : pendingImageData.slotKey === "secondaryBanner"
+                ? SECONDARY_BANNER_GUIDE_WIDTH
+                : pendingImageData.slotKey === "header"
+                  ? 580
+                  : 300
           }
           guidelineHeight={
             pendingImageData.slotKey === "thumbnail"
               ? THUMBNAIL_GUIDE_HEIGHT
-              : pendingImageData.slotKey === "header" ||
-                pendingImageData.slotKey === "secondaryBanner"
-              ? 240
-              : 300
+              : pendingImageData.slotKey === "secondaryBanner"
+                ? SECONDARY_BANNER_GUIDE_HEIGHT
+                : pendingImageData.slotKey === "header"
+                  ? 240
+                  : 300
           }
           guidelinePadding={20}
           canvasOverlay={
@@ -692,7 +727,9 @@ export function BrandImagesSection({
         />
       )}
 
-      {/* News & Events Header Preview Dialog */}
+      {/* News & Events Header Preview Dialog — omitted when the host shows the
+          real page instead (the portal's Editing Panel). */}
+      {showNewsEventsPreview && (
       <Dialog open={newsEventsPreviewOpen} onOpenChange={setNewsEventsPreviewOpen}>
         {/* `portal-root` forces Light Mode regardless of the dashboard dark theme —
             the preview must look like the (always-light) employee portal. */}
@@ -737,9 +774,10 @@ export function BrandImagesSection({
               </nav>
             </div>
 
-            {/* Header — matches the 1008×350 px ratio of the News & Events
-                 header section (1008/350 ≈ 2.88:1). */}
-            <div className="relative w-full aspect-[72/25] overflow-hidden">
+            {/* Header — the News & Events hero's own band: `h-[400px]` across a
+                1440px desktop, i.e. 18:5. Same ratio as the slot card's preview
+                and the crop guide, so all three show what the page shows. */}
+            <div className="relative w-full aspect-[18/5] overflow-hidden">
               {/* Background image */}
               {resolvedSecondaryBannerUrl ? (
                 <img
@@ -809,6 +847,7 @@ export function BrandImagesSection({
           </div>
         </DialogContent>
       </Dialog>
+      )}
     </Card>
   );
 }

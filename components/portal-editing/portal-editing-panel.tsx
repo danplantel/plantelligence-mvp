@@ -39,6 +39,12 @@ export function PortalEditingPanel() {
     return <PortalBenefitEditor key={`benefit:${target.category ?? ""}`} />;
   }
 
+  // News & Events owns its panel too, because it carries the page's hero
+  // background and its own draft Save/Cancel bar.
+  if (target.page === "news") {
+    return <PortalNewsEditor />;
+  }
+
   return (
     <PortalEditorShell>
       <EditorForPage />
