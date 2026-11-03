@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { X, ChevronDown, Calendar, Pencil, Menu, LogIn } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -22,7 +23,7 @@ import {
   isPlaceholderBenefitName,
 } from "@/lib/benefit-custom-name";
 import { BrandingImage } from "@/components/ui/branding-image";
-import { readableColor } from "polished";
+import { mix, readableColor } from "polished";
 import {
   HAVE_QUESTIONS_SECTION_ID,
   HOW_CAN_WE_HELP_SECTION_ID,
@@ -37,6 +38,7 @@ import {
   HEADER_LOGO_BAND_PX,
   HEADER_LOGO_MAX_WIDTH_PX,
 } from "@/lib/header-logo-band";
+import { portalRadiusValue } from "@/lib/typography-themes";
 import {
   COMMENTS_RAIL_PARAM,
   COMMENTS_RAIL_VALUE,
@@ -237,8 +239,6 @@ export function PortalHeader({
   // The logo band is a fixed contract (see lib/header-logo-band), so the logo
   // never sizes the header.
   const [isBenefitsOpen, setIsBenefitsOpen] = useState(false);
-  const [isTeamHovered, setIsTeamHovered] = useState(false);
-  const [isNewsEventsHovered, setIsNewsEventsHovered] = useState(false);
   const [isLogoHovered, setIsLogoHovered] = useState(false);
   const pathname = usePathname();
 
@@ -258,12 +258,6 @@ export function PortalHeader({
   const withPortalQuery = (href: string) => `${href}${portalQuerySuffix}`;
 
   const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const teamHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
-    null,
-  );
-  const newsEventsHoverTimeoutRef = useRef<ReturnType<
-    typeof setTimeout
-  > | null>(null);
   const logoHoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
@@ -327,6 +321,44 @@ export function PortalHeader({
       !isActive("/news-events") &&
       !isActive("/my-benefits-team"));
 
+  /**
+   * The desktop nav's link treatment: an UNDERLINE in the plan's primary colour
+   * on the current page.
+   *
+   * It deliberately does not fill the link. The header carries exactly one
+   * filled button — the plan's call to action (Login / Schedule an appointment) —
+   * and a brand-coloured pill beside it read as a second, competing CTA. The
+   * underline marks where you are without claiming to be an action.
+   */
+  const navLinkClass = (active: boolean) =>
+    cn(
+      "h-auto border-b-2 px-2 py-1.5 font-medium transition-colors duration-200",
+      active
+        ? "text-gray-900"
+        : "border-transparent bg-transparent text-gray-600 hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900",
+    );
+  /**
+   * The link's surface: corner treatment, underline and tint.
+   *
+   * The radius comes from `portalRadiusValue()` — the plan's Typography Theme —
+   * so a "sharp" plan squares these links off exactly like the cards and buttons
+   * below them, and a "round" plan softens them. Set inline rather than with a
+   * `rounded-*` class because the Button's own `rounded-lg` would otherwise win
+   * on source order and pin every plan to one radius.
+   */
+  const navLinkStyle = (active: boolean) => ({
+    borderRadius: portalRadiusValue(),
+    ...(active
+      ? {
+          borderBottomColor: brandColor,
+          // A wash of the plan's primary colour, not the colour itself: the
+          // link reads as "current page" while the header's only strong fill
+          // stays its call to action.
+          backgroundColor: mix(0.88, "#ffffff", brandColor),
+        }
+      : {}),
+  });
+
   // Sync showBanner with showAlertBanner prop
   useEffect(() => {
     setShowBanner(showAlertBanner);
@@ -345,34 +377,6 @@ export function PortalHeader({
       setIsBenefitsOpen(false);
     }, 250);
   };
-  const handleTeamMouseEnter = () => {
-    if (teamHoverTimeoutRef.current) {
-      clearTimeout(teamHoverTimeoutRef.current);
-      teamHoverTimeoutRef.current = null;
-    }
-    setIsTeamHovered(true);
-  };
-
-  const handleTeamMouseLeave = () => {
-    teamHoverTimeoutRef.current = setTimeout(() => {
-      setIsTeamHovered(false);
-    }, 250);
-  };
-
-  const handleNewsEventsMouseEnter = () => {
-    if (newsEventsHoverTimeoutRef.current) {
-      clearTimeout(newsEventsHoverTimeoutRef.current);
-      newsEventsHoverTimeoutRef.current = null;
-    }
-    setIsNewsEventsHovered(true);
-  };
-
-  const handleNewsEventsMouseLeave = () => {
-    newsEventsHoverTimeoutRef.current = setTimeout(() => {
-      setIsNewsEventsHovered(false);
-    }, 250);
-  };
-
   const handleLogoMouseEnter = () => {
     if (logoHoverTimeoutRef.current) {
       clearTimeout(logoHoverTimeoutRef.current);
@@ -522,16 +526,14 @@ export function PortalHeader({
                       <DropdownMenuTrigger asChild>
                         <Button
                           variant="ghost"
-                          className={`font-medium transition-colors duration-200 ${
-                            isBenefitsActive
-                              ? "text-gray-900"
-                              : "text-gray-600 hover:text-gray-800"
-                          }`}
-                          style={
-                            isBenefitsOpen
-                              ? { background: brandColor, color: "#fff" }
-                              : undefined
-                          }
+                          // An open menu marks the group too, so the trigger
+                          // reads as "this is where you are" while browsing.
+                          className={navLinkClass(
+                            isBenefitsActive || isBenefitsOpen,
+                          )}
+                          style={navLinkStyle(
+                            isBenefitsActive || isBenefitsOpen,
+                          )}
                         >
                           Your Benefits <ChevronDown className="ml-1 h-4 w-4" />
                         </Button>
@@ -571,54 +573,29 @@ export function PortalHeader({
                   </div>
                 )}
 
-                <div
-                  className="relative"
-                  onMouseEnter={handleNewsEventsMouseEnter}
-                  onMouseLeave={handleNewsEventsMouseLeave}
-                >
-                  {enableNavigation ? (
-                    <Link href={withPortalQuery(`${baseUrl}/news-events`)}>
-                      <Button
-                        variant="ghost"
-                        className={`font-medium transition-colors duration-200 ${
-                          isActive("/news-events")
-                            ? ""
-                            : "text-gray-600 hover:text-gray-800"
-                        }`}
-                        style={
-                          isActive("/news-events") || isNewsEventsHovered
-                            ? {
-                                background: brandColor,
-                                color: "white",
-                              }
-                            : undefined
-                        }
-                      >
-                        News & Events
-                      </Button>
-                    </Link>
-                  ) : (
+                {enableNavigation ? (
+                  <Link href={withPortalQuery(`${baseUrl}/news-events`)}>
                     <Button
                       variant="ghost"
-                      className={`font-medium transition-colors duration-200 cursor-default ${
-                        isActive("/news-events")
-                          ? ""
-                          : "text-gray-600 hover:text-gray-800"
-                      }`}
-                      style={
-                        isActive("/news-events") || isNewsEventsHovered
-                          ? {
-                              background: brandColor,
-                              color: "white",
-                            }
-                          : undefined
-                      }
-                      onClick={(e) => e.preventDefault()}
+                      className={navLinkClass(isActive("/news-events"))}
+                      style={navLinkStyle(isActive("/news-events"))}
                     >
                       News & Events
                     </Button>
-                  )}
-                </div>
+                  </Link>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      navLinkClass(isActive("/news-events")),
+                      "cursor-default",
+                    )}
+                    style={navLinkStyle(isActive("/news-events"))}
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    News & Events
+                  </Button>
+                )}
 
                 {/* Employee Resources (TF-6): after the categories, and only when the
                     plan has published the hub. */}
@@ -626,70 +603,39 @@ export function PortalHeader({
                   <Link href={withPortalQuery(`${baseUrl}/employee-resources`)}>
                     <Button
                       variant="ghost"
-                      className={`font-medium transition-colors duration-200 ${
-                        isActive("/employee-resources")
-                          ? ""
-                          : "text-gray-600 hover:text-gray-800"
-                      }`}
-                      style={
-                        isActive("/employee-resources")
-                          ? { background: brandColor, color: "white" }
-                          : undefined
-                      }
+                      className={navLinkClass(
+                        isActive("/employee-resources"),
+                      )}
+                      style={navLinkStyle(isActive("/employee-resources"))}
                     >
                       Employee Resources
                     </Button>
                   </Link>
                 )}
 
-                <div
-                  className="relative"
-                  onMouseEnter={handleTeamMouseEnter}
-                  onMouseLeave={handleTeamMouseLeave}
-                >
-                  {enableNavigation ? (
-                    <Link href={withPortalQuery(`${baseUrl}/my-benefits-team`)}>
-                      <Button
-                        variant="ghost"
-                        className={`font-medium transition-colors duration-200 ${
-                          isActive("/my-benefits-team")
-                            ? ""
-                            : "text-gray-600 hover:text-gray-800"
-                        }`}
-                        style={
-                          isActive("/my-benefits-team") || isTeamHovered
-                            ? {
-                                background: brandColor,
-                                color: "white",
-                              }
-                            : undefined
-                        }
-                      >
-                        My Benefits Team
-                      </Button>
-                    </Link>
-                  ) : (
+                {enableNavigation ? (
+                  <Link href={withPortalQuery(`${baseUrl}/my-benefits-team`)}>
                     <Button
                       variant="ghost"
-                      className={`font-medium transition-colors duration-200 cursor-default ${
-                        isActive("/my-benefits-team")
-                          ? ""
-                          : "text-gray-600 hover:text-gray-800"
-                      }`}
-                      style={
-                        isActive("/my-benefits-team") || isTeamHovered
-                          ? {
-                              background: brandColor,
-                              color: "white",
-                            }
-                          : undefined
-                      }
-                      onClick={(e) => e.preventDefault()}
+                      className={navLinkClass(isActive("/my-benefits-team"))}
+                      style={navLinkStyle(isActive("/my-benefits-team"))}
                     >
                       My Benefits Team
                     </Button>
-                  )}
-                </div>
+                  </Link>
+                ) : (
+                  <Button
+                    variant="ghost"
+                    className={cn(
+                      navLinkClass(isActive("/my-benefits-team")),
+                      "cursor-default",
+                    )}
+                    style={navLinkStyle(isActive("/my-benefits-team"))}
+                    onClick={(e) => e.preventDefault()}
+                  >
+                    My Benefits Team
+                  </Button>
+                )}
               </nav>
 
               {/* "Ask a question" is no longer a header button — it is the portal's

@@ -333,3 +333,61 @@ describe("PortalHeader call to action", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+/**
+ * The current page is marked with an underline in the plan's primary colour and
+ * a light wash of it — not a solid brand pill, which sat beside the header's one
+ * call to action and read as a second, competing button. The link's corner
+ * treatment follows the plan's Typography Theme.
+ */
+describe("PortalHeader nav active state", () => {
+  beforeEach(() => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.unstubAllGlobals();
+  });
+
+  function navButton(name: string) {
+    const link = screen.getByRole("link", { name });
+    return link.querySelector("button") as HTMLElement;
+  }
+
+  it("underlines the current page in the plan's colour, over a light tint", () => {
+    mocks.pathname = "/plan-1/news-events";
+    render(<PortalHeader clientId="plan-1" brandColor="#abcdef" />);
+
+    const current = navButton("News & Events");
+    expect(current.className).toContain("border-b-2");
+    expect(current).toHaveStyle({ borderBottomColor: "#abcdef" });
+
+    // Tinted with the brand, but only a wash of it.
+    expect(current.style.backgroundColor).not.toBe("");
+    expect(current.style.backgroundColor).not.toBe("#abcdef");
+    expect(current.style.backgroundColor).not.toBe("rgb(171, 205, 239)");
+
+    // The radius is the theme's, not a fixed utility.
+    expect(current.getAttribute("style") ?? "").toContain("border-radius");
+  });
+
+  it("leaves the other links unmarked", () => {
+    mocks.pathname = "/plan-1/news-events";
+    render(<PortalHeader clientId="plan-1" brandColor="#abcdef" />);
+
+    const other = navButton("My Benefits Team");
+    expect(other.className).toContain("border-transparent");
+    expect(other.style.borderBottomColor).toBe("");
+    expect(other.style.backgroundColor).toBe("");
+  });
+
+  it("marks the benefit group while one of its hubs is open", () => {
+    mocks.pathname = "/plan-1/retirement";
+    render(<PortalHeader clientId="plan-1" brandColor="#abcdef" />);
+
+    const trigger = screen.getByRole("button", { name: "Your Benefits" });
+    expect(trigger).toHaveStyle({ borderBottomColor: "#abcdef" });
+    expect(trigger.style.backgroundColor).not.toBe("");
+  });
+});
