@@ -6,8 +6,11 @@
  * The rail is 24rem of a desktop window. Rather than reflowing the participant's page into the
  * narrower column (which re-wraps headlines and re-breaks every grid at a width the plan was never
  * designed for), the portal is drawn as a scaled-down replica of itself: every element keeps the
- * proportions it has on the employee's real screen, the header included, and the rail takes the
- * space that the scale gives back.
+ * proportions it has on the employee's real screen, and the rail takes the space that the scale
+ * gives back. The portal's fixed header is the one piece that stays OUTSIDE this transform — it is
+ * redrawn at the same scale by `app/(portal)/[id]/layout.tsx`, which is what lets it stay pinned
+ * while the page scrolls (a `fixed` bar inside a transform can only move on the JS frame that reads
+ * the scroll, so it visibly lags the compositor).
  *
  * HOW IT WORKS
  *
@@ -31,11 +34,11 @@
  *
  * WHAT THIS DELIBERATELY CHANGES
  *
- * A transformed ancestor becomes the containing block for `position: fixed` descendants, so the
- * portal's fixed header behaves like an absolutely positioned element INSIDE the replica: it is
- * scaled with everything else and scrolls with the page. That is the point — it is a preview of the
- * participant's screen, not a second chrome — and it is why this wrapper is only mounted on the
- * portal, where the rail is an inspection tool, never in the dashboard.
+ * A transformed ancestor becomes the containing block for `position: fixed` descendants, so nothing
+ * that must stay pinned to the viewport can live inside the replica. That is why the fixed header is
+ * a SIBLING of this component rather than one of its children: it keeps the participant's fixed
+ * behaviour and is drawn at this component's scale from the metrics published below. This wrapper is
+ * only mounted on the portal, where the rail is an inspection tool, never in the dashboard.
  *
  * The rail and its floating button are SIBLINGS of this component (see `portal-comments-rail.tsx`),
  * so neither is scaled, and both keep reading the real `--comments-inset`.
@@ -68,11 +71,28 @@ const EDITOR_PANEL_PX = 36 * 16;
 /** A small clearance so the replica never touches the rail's left border. */
 const RAIL_CLEARANCE_PX = 8;
 
-export function PortalCommentsZoom({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+/** How the portal page is being drawn right now. */
+export interface PortalReplicaGeometry {
+  /** The page is drawn scaled — a rail and/or the edit panel is open. */
+  scaled: boolean;
+  scale: number;
+  /** The replica's left edge in viewport pixels (the editor's reserved column). */
+  leftInsetPx: number;
+  /** The width the replica was laid out at (scrollbar excluded). */
+  pageWidthPx: number;
+  /** The portal Editing Panel is the reason for the left inset. */
+  editorOpen: boolean;
+}
+
+/**
+ * The replica's geometry.
+ *
+ * Read here to draw the scaled page, and by the portal layout to draw the fixed
+ * header at the same scale: the header has to live OUTSIDE the transform to stay
+ * genuinely fixed (`app/(portal)/[id]/layout.tsx`), so it cannot be told the
+ * scale by being a child of this component.
+ */
+export function usePortalReplicaGeometry(): PortalReplicaGeometry {
   const comments = useOptionalCommentMode();
   const messages = useOptionalMessagesMode();
   const editing = useOptionalPortalEditing();
@@ -82,10 +102,9 @@ export function PortalCommentsZoom({
     (comments?.canComment && comments.mode === "on") || messages?.open,
   );
   const editorOpen = Boolean(editing?.isOpen && editing.canEdit);
-  const leftInset = editorOpen ? EDITOR_PANEL_PX : 0;
+  const leftInsetPx = editorOpen ? EDITOR_PANEL_PX : 0;
   const [scale, setScale] = useState(1);
-  const [contentHeight, setContentHeight] = useState(0);
-  const contentRef = useRef<HTMLDivElement | null>(null);
+  const [pageWidthPx, setPageWidthPx] = useState(0);
 
   // The scale is a pure function of the window width. `clientWidth` excludes the scrollbar, so the
   // replica ends at the rail's edge exactly rather than under it.
@@ -97,6 +116,7 @@ export function PortalCommentsZoom({
     const update = () => {
       const width = document.documentElement.clientWidth;
       if (!width) return;
+      setPageWidthPx(width);
       // The replica is photographed at the full viewport width and scaled down
       // by every open tool column — the editor on the left, the rail on the
       // right. It is translated past the editor so the visible copy starts at
@@ -104,7 +124,7 @@ export function PortalCommentsZoom({
       const rightInset = open
         ? RAIL_PX + (editorOpen ? RAIL_CLEARANCE_PX : 0)
         : 0;
-      const next = (width - leftInset - rightInset) / width;
+      const next = (width - leftInsetPx - rightInset) / width;
       // With BOTH panels open the exact ratio can be well below half. Keeping
       // the 0.5 readability floor there left the replica wider than the gap and
       // the Comments rail painted over it, so the editor case may shrink to fit.
@@ -114,7 +134,21 @@ export function PortalCommentsZoom({
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
-  }, [open, editorOpen, leftInset]);
+  }, [open, editorOpen, leftInsetPx]);
+
+  return { scaled: scale < 1, scale, leftInsetPx, pageWidthPx, editorOpen };
+}
+
+export function PortalCommentsZoom({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const comments = useOptionalCommentMode();
+  const messages = useOptionalMessagesMode();
+  const { scaled, scale, editorOpen } = usePortalReplicaGeometry();
+  const [contentHeight, setContentHeight] = useState(0);
+  const contentRef = useRef<HTMLDivElement | null>(null);
 
   // Measure the UNSCALED height. `offsetHeight` ignores transforms, which is exactly what the
   // wrapper has to be divided down by.
@@ -132,7 +166,6 @@ export function PortalCommentsZoom({
   // No provider at all — an unarmed portal, or any dashboard page. Contribute nothing.
   if (!comments && !messages) return <>{children}</>;
 
-  const scaled = scale < 1;
   const transform = editorOpen
     ? `translateX(${EDITOR_PANEL_PX}px) scale(${scale})`
     : `scale(${scale})`;

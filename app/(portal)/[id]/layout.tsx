@@ -14,7 +14,10 @@ import {
   type CommentSurfaceInput,
 } from "@/components/comments/comment-mode-provider";
 import { PortalCommentsRail } from "@/components/comments/portal-comments-rail";
-import { PortalCommentsZoom } from "@/components/comments/portal-comments-zoom";
+import {
+  PortalCommentsZoom,
+  usePortalReplicaGeometry,
+} from "@/components/comments/portal-comments-zoom";
 import { PortalInstallApp } from "@/components/pages/client-portal/sections/portal-install-app";
 import { PortalPushOptIn } from "@/components/pwa/portal-push-optin";
 import { PortalChatbot } from "@/components/pages/client-portal/sections/portal-chatbot";
@@ -59,6 +62,16 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const fixedHeaderRef = useRef<HTMLDivElement>(null);
   const [fixedHeaderHeight, setFixedHeaderHeight] = useState(0);
+
+  // While the panel / rail is open the portal page is drawn as a scaled replica
+  // (`PortalCommentsZoom`). Nothing pinned to the viewport can live INSIDE that
+  // transform — a `fixed` bar there only moves on the JS frame that reads the
+  // scroll, so it visibly lags the compositor — so this header is a sibling of
+  // the replica and is redrawn at the same scale and width instead. That is the
+  // only change: it is still a real `position: fixed` bar.
+  const replica = usePortalReplicaGeometry();
+  const previewScaled = replica.scaled;
+  const previewScale = replica.scale > 0 ? replica.scale : 1;
 
   // Fetch published top banners (portal-notice type only)
   useEffect(() => {
@@ -456,28 +469,36 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
         // UI chrome (nav, buttons, labels, inputs) always uses Outfit in the
         // portal; headline/body text overrides this via the font utilities.
         fontFamily: "var(--font-ui)",
-        // Reserve the Comments rail's column while it is open (see
-        // portal-comments-rail.tsx). It sits on the ROOT so one declaration covers the page content
-        // and the footer. Absent — the common case — this resolves to 0px and the portal is exactly
-        // as it was. The FIXED header cannot inherit it and clears the column itself, below.
-        // While the rail is open this resolves to 0px too: `PortalCommentsZoom` scales the whole
-        // portal instead and overrides the variable inside its subtree (portal-comments-zoom.tsx).
-        // Comments and Direct Messages share the same right-hand column, so the
-        // page clears whichever one is open (they are never both open).
-        paddingRight:
-          "max(var(--comments-inset, 0px), var(--messages-inset, 0px))",
       }}
     >
       {/* `right` rather than `w-full`: with a rail open, `left-0 right-<inset>` is what shortens the
           header to the rail's edge. With no rail the variable is 0px, which is the full width
-          `w-full` used to give. */}
+          `w-full` used to give. A scaled replica draws the header at the replica's scale instead —
+          see the `previewScaled` branch below. */}
       <div
         ref={fixedHeaderRef}
-        className="fixed top-0 left-0 z-50"
-        style={{
-          right:
-            "max(var(--comments-inset, 0px), var(--messages-inset, 0px))",
-        }}
+        className="fixed left-0 z-50"
+        style={
+          previewScaled
+            ? {
+                // Drawn as part of the replica's picture, but outside its
+                // transform: same scale, same left edge (past the editor panel),
+                // same laid-out width, so it lines up with the scaled page
+                // exactly — and stays genuinely fixed while scrolling.
+                top: 0,
+                left: replica.leftInsetPx,
+                width: replica.pageWidthPx
+                  ? `${replica.pageWidthPx}px`
+                  : "100vw",
+                transform: `scale(${previewScale})`,
+                transformOrigin: "top left",
+              }
+            : {
+                top: 0,
+                right:
+                  "max(var(--comments-inset, 0px), var(--messages-inset, 0px))",
+              }
+        }
       >
         {/* Published Top Banner — rendered above the header */}
         {showBanner && (
@@ -590,34 +611,44 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
         />
       </div>
 
-      <div
-        style={
-          {
-            "--brand-color": brandColor,
-            "--secondary-color": secondaryColor,
-            paddingTop: fixedHeaderHeight || undefined,
-          } as React.CSSProperties
-        }
-      >
-        <AnimatePresence mode="wait">{children}</AnimatePresence>
-      </div>
+      {/* The page and its footer ARE the replica; the header above is chrome
+          pinned to the viewport. Keeping the header outside this transform is
+          what lets it stay genuinely fixed while the page scrolls. */}
+      <PortalCommentsZoom>
+        <div
+          style={
+            {
+              "--brand-color": brandColor,
+              "--secondary-color": secondaryColor,
+              paddingTop: fixedHeaderHeight || undefined,
+              // Reserve the rail's column while it is open. Inside the replica
+              // the zoom resets this to 0px — the scale already leaves the
+              // column clear — so this only ever applies to the flat portal.
+              paddingRight:
+                "max(var(--comments-inset, 0px), var(--messages-inset, 0px))",
+            } as React.CSSProperties
+          }
+        >
+          <AnimatePresence mode="wait">{children}</AnimatePresence>
+        </div>
 
-      {/* Pop-Up Overlay — displays published pop-up marketing assets across all portal pages */}
-      <PortalPopUpOverlay
-        clientId={clientId}
-        companyName={clientData?.companyName}
-        companyLogo={clientData?.companyLogo}
-        // Extra paths that count as "benefits" pages for pop-up targeting, so a
-        // pop-up scoped to the benefit hubs still shows on the Custom benefit page.
-        benefitPagePaths={customHubSlug ? [`/${customHubSlug}`] : []}
-      />
+        {/* Pop-Up Overlay — displays published pop-up marketing assets across all portal pages */}
+        <PortalPopUpOverlay
+          clientId={clientId}
+          companyName={clientData?.companyName}
+          companyLogo={clientData?.companyLogo}
+          // Extra paths that count as "benefits" pages for pop-up targeting, so a
+          // pop-up scoped to the benefit hubs still shows on the Custom benefit page.
+          benefitPagePaths={customHubSlug ? [`/${customHubSlug}`] : []}
+        />
 
-      <Footer
-        brandColor={footerBgColor}
-        disclosuresText={disclosuresText}
-        organizationName={organizationName}
-        companyName={clientData?.companyName || ""}
-      />
+        <Footer
+          brandColor={footerBgColor}
+          disclosuresText={disclosuresText}
+          organizationName={organizationName}
+          companyName={clientData?.companyName || ""}
+        />
+      </PortalCommentsZoom>
     </div>
   );
 }
@@ -632,13 +663,11 @@ export default function ClientViewLayout({
       {/* Arm the Comments rail. The provider renders its children untouched unless the link asked
           for the rail AND the visitor is a signed-in advisor on a desktop — so a participant, and
           anyone opening a plain portal link, gets exactly the portal that existed before this.
-          Inside it, `PortalCommentsZoom` scales the portal (header included) down while the rail is
-          open, so the page reads as the participant's screen rather than reflowing into the
-          remaining column. Both are no-ops when the rail is not armed. */}
+          Inside it, `ClientViewLayoutContent` draws the page as a scaled replica while the rail is
+          open, so it reads as the participant's screen rather than reflowing into the remaining
+          column. Both are no-ops when the rail is not armed. */}
       <PortalCommentsRail>
-        <PortalCommentsZoom>
-          <ClientViewLayoutContent>{children}</ClientViewLayoutContent>
-        </PortalCommentsZoom>
+        <ClientViewLayoutContent>{children}</ClientViewLayoutContent>
       </PortalCommentsRail>
       {/* Outside the zoom wrapper and outside the rail: the install prompt is chrome of its own,
           so the Comments preview must neither scale it nor scroll it away. It arms itself from

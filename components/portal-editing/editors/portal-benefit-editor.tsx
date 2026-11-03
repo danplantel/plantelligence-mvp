@@ -361,8 +361,10 @@ export function PortalBenefitEditor() {
       { revalidate: false },
     );
 
-    // Typography and the key-contact portrait live on the PLAN, not the Benefit
-    // row, and both are read straight off `clientData` by the hub chrome.
+    // Some of this panel edits the PLAN, not the Benefit row: the typography
+    // theme, the key-contact portrait and Section 1's header button. The hub
+    // chrome reads all three straight off `clientData`, so they are patched
+    // there as well — otherwise those sections would only change on reload.
     const planPatch: Record<string, unknown> = {};
     if (step1.typographyTheme !== undefined) {
       planPatch.typographyTheme = step1.typographyTheme;
@@ -371,6 +373,17 @@ export function PortalBenefitEditor() {
     // portrait" — so patch whenever the key exists, not only when it is truthy.
     if (typeof step1.heroPortraitImage === "string") {
       planPatch.heroPortraitImage = step1.heroPortraitImage;
+    }
+    const headerCta = (step1 as any).headerCta;
+    if (headerCta !== undefined) {
+      const currentPlan = (clientDataRef.current ?? {}) as Record<string, any>;
+      // `patchClientData` merges at the top level, so the blob is merged here to
+      // keep the rest of `employeePortalPreview` intact.
+      planPatch.employeePortalPreview = {
+        ...((currentPlan.employeePortalPreview as Record<string, unknown>) ??
+          {}),
+        headerCta,
+      };
     }
     if (Object.keys(planPatch).length) patchClientData(planPatch);
   }, [stepData, hydrated, benefitKey, mutate, patchClientData]);

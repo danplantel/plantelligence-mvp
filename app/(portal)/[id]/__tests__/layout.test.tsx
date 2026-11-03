@@ -31,6 +31,13 @@ const mocks = vi.hoisted(() => ({
   pathname: "/plan-1",
   fetch: vi.fn(),
   surfaces: [] as unknown[],
+  replica: {
+    scaled: false,
+    scale: 1,
+    leftInsetPx: 0,
+    pageWidthPx: 0,
+    editorOpen: false,
+  },
 }));
 
 vi.mock("next/navigation", () => ({
@@ -59,6 +66,9 @@ vi.mock("@/components/comments/portal-comments-zoom", () => ({
   PortalCommentsZoom: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="comments-zoom-wrapper">{children}</div>
   ),
+  // The layout asks the zoom how the replica is being drawn so the fixed header
+  // can be redrawn at the same scale. Controllable here so both states are covered.
+  usePortalReplicaGeometry: () => mocks.replica,
 }));
 
 vi.mock("@/components/pages/client-portal/sections/portal-install-app", () => ({
@@ -137,6 +147,13 @@ function lastSurface() {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.spyOn(console, "warn").mockImplementation(() => {});
+  mocks.replica = {
+    scaled: false,
+    scale: 1,
+    leftInsetPx: 0,
+    pageWidthPx: 0,
+    editorOpen: false,
+  };
   mocks.clientData = plan();
   mocks.session = { user: { organizationName: "Acme Advisory" } };
   mocks.pathname = "/plan-1";
@@ -191,6 +208,43 @@ describe("portal layout composition", () => {
     ) as HTMLElement;
     expect(content.style.getPropertyValue("--brand-color")).toBe("#123456");
     expect(content.style.getPropertyValue("--secondary-color")).toBe("#654321");
+  });
+
+  it("draws the fixed header at the replica's scale instead of moving it", () => {
+    // A `fixed` bar inside the zoom's transform can only move on the JS frame
+    // that reads the scroll, so it lagged the compositor. The header now lives
+    // OUTSIDE the transform and is redrawn at the replica's geometry: same
+    // scale, same left edge (past the editor panel), same laid-out width.
+    mocks.replica = {
+      scaled: true,
+      scale: 0.5,
+      leftInsetPx: 576,
+      pageWidthPx: 1440,
+      editorOpen: true,
+    };
+    renderLayout();
+
+    const header = screen.getByTestId("header-props")
+      .parentElement as HTMLElement;
+    expect(header.style.position).toBe(""); // `fixed` comes from the class
+    expect(header.className).toContain("fixed");
+    expect(header.style.transform).toBe("scale(0.5)");
+    expect(header.style.transformOrigin).toBe("top left");
+    expect(header.style.left).toBe("576px");
+    expect(header.style.width).toBe("1440px");
+    expect(header.style.top).toBe("0px");
+  });
+
+  it("keeps the header a plain viewport-fixed bar when the portal is not scaled", () => {
+    renderLayout();
+
+    const header = screen.getByTestId("header-props")
+      .parentElement as HTMLElement;
+    expect(header.style.transform).toBe("");
+    expect(header.style.top).toBe("0px");
+    expect(header.style.right).toBe(
+      "max(var(--comments-inset, 0px), var(--messages-inset, 0px))",
+    );
   });
 });
 
