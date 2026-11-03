@@ -11,9 +11,6 @@ import { PortalNewsEditor } from "@/components/portal-editing/editors/portal-new
 function EditorForPage() {
   const { target } = usePortalEditing();
   switch (target?.page) {
-    case "benefit":
-    case "videos":
-      return <PortalBenefitEditor />;
     case "team":
       return <PortalTeamEditor />;
     case "documents":
@@ -34,6 +31,12 @@ export function PortalEditingPanel() {
   // it owns its own panel shell (it needs to pass sections rather than children).
   if (target.page === "home") {
     return <PortalHomeEditor />;
+  }
+
+  // Benefit hubs render the exact Create/Edit Benefits panel, which owns its own
+  // `EditorPanelWrapper`. Remount per category so the store hydration is clean.
+  if (target.page === "benefit" || target.page === "videos") {
+    return <PortalBenefitEditor key={`benefit:${target.category ?? ""}`} />;
   }
 
   return (

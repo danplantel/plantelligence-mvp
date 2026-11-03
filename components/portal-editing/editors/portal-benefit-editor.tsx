@@ -1,18 +1,29 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { Loader2 } from "lucide-react";
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { SectionHeader } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
+import { BenefitsEditorPanel } from "@/components/wizard/benefits-steps/benefits-editor-panel";
+import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
+import { useClientPortal } from "@/contexts/client-portal-context";
 import {
-  KEY_CONTACT_CARD_STYLE_CHOICES,
-  normalizeKeyContactCardStyle,
-} from "@/lib/key-contact-card-style";
+  useBenefitsWizardStore,
+  type BenefitsStep1Data,
+  type BenefitsStep3Data,
+} from "@/lib/benefits-wizard-store";
+import { saveBenefit } from "@/lib/save-benefit";
+import { getCategoryPortalVisibility } from "@/lib/portal-category-visibility";
+import { normalizeKeyContactCardStyle } from "@/lib/key-contact-card-style";
+import {
+  normalizeTypographyThemeId,
+  type TypographyThemeId,
+} from "@/lib/typography-themes";
+import type {
+  BrandImageData,
+  CompanyLogoData,
+} from "@/types/new-client-wizard";
 
 const fetcher = (url: string) => fetch(url).then((response) => response.json());
 
@@ -21,294 +32,343 @@ export function portalBenefitApiCategory(category: string | null): string {
   return category === "Other" ? "Company / Plan Sponsor" : category || "";
 }
 
-interface BenefitDraft {
-  title: string;
-  shortDescription: string;
-  journeyHeader: string;
-  journeySubtitle: string;
-  journeyBodyText: string;
-  insurancePlanId: string;
-  insuranceLoginUrl: string;
-  planVideo: string;
-  planVideoLabel: string;
-  planVideoVisible: boolean;
-  keyContactCardStyle: "default" | "highlighted";
+function logoDataFromUrl(url: string | null | undefined): CompanyLogoData | null {
+  if (!url) return null;
+  return {
+    url,
+    fileName: "image.png",
+    fileSize: 0,
+    width: 0,
+    height: 0,
+    hasTransparency: false,
+    warnings: [],
+  };
 }
 
-function draftFromBenefit(benefit: Record<string, any> | null): BenefitDraft {
+function brandImageFromUrl(
+  url: string | null | undefined,
+): BrandImageData | null {
+  if (!url) return null;
   return {
-    title: String(benefit?.title ?? ""),
-    shortDescription: String(benefit?.shortDescription ?? ""),
-    journeyHeader: String(benefit?.journeyHeader ?? ""),
-    journeySubtitle: String(benefit?.journeySubtitle ?? ""),
-    journeyBodyText: String(benefit?.journeyBodyText ?? ""),
-    insurancePlanId: String(benefit?.insurancePlanId ?? ""),
-    insuranceLoginUrl: String(benefit?.insuranceLoginUrl ?? ""),
-    planVideo: String(benefit?.planVideo ?? ""),
-    planVideoLabel: String(benefit?.planVideoLabel ?? ""),
-    planVideoVisible: benefit?.planVideoVisible !== false,
-    keyContactCardStyle: normalizeKeyContactCardStyle(
-      benefit?.keyContactCardStyle,
-    ),
+    url,
+    fileName: "background.png",
+    fileSize: 0,
+    width: 0,
+    height: 0,
+    recommendedSize: "1920 px—1080 px",
+    status: "ok",
+    warnings: [],
   };
 }
 
 /**
- * Benefit hub editor — the page's own copy, materials and video source.
+ * Map a Benefit row + the live plan onto the same Step 1 state Create/Edit
+ * Benefits builds, so `BenefitsEditorPanel` renders its exact sections.
  *
- * The hub page reads the benefit through SWR, so an optimistic `mutate` of that
- * same key repaints the live page while typing. The PUT remains the save.
+ * Mirrors `handleCategoryChange` in `benefits-steps/step-1.tsx` for every field
+ * the editor panel reads. `selectedPlan.keyContacts` is deliberately omitted:
+ * `saveBenefit()` merges those into the plan's full contact list, and the portal
+ * payload only carries the contacts visible to participants.
+ */
+function step1FromBenefit(input: {
+  benefit: Record<string, any> | null;
+  clientData: Record<string, any> | null;
+  planId: string;
+  apiCategory: string;
+}): BenefitsStep1Data {
+  const { benefit, clientData, planId, apiCategory } = input;
+  const plan = clientData ?? {};
+  const visibility = getCategoryPortalVisibility(plan.categoryPortalVisibility);
+
+  const logoUrl =
+    typeof benefit?.partnerLogo === "string" ? benefit.partnerLogo : "";
+  const headerUrl =
+    benefit?.backgroundImage ||
+    benefit?.image ||
+    plan.backgroundImg ||
+    "";
+  const portrait =
+    typeof plan.heroPortraitImage === "string"
+      ? plan.heroPortraitImage.trim()
+      : "";
+
+  return {
+    planId,
+    benefitCategory: apiCategory,
+    typographyTheme: normalizeTypographyThemeId(
+      plan.typographyTheme,
+    ) as TypographyThemeId,
+    contactId: String(benefit?.contactId ?? ""),
+    benefitTitle: String(benefit?.title ?? ""),
+    shortDescription: String(benefit?.shortDescription ?? ""),
+    companyLogo: logoDataFromUrl(logoUrl),
+    landingCardImage: logoDataFromUrl(
+      typeof benefit?.landingCardImage === "string"
+        ? benefit.landingCardImage
+        : "",
+    ),
+    landingCardBody: String(benefit?.landingCardBody ?? ""),
+    brandImages: {
+      header: brandImageFromUrl(headerUrl),
+      thumbnail: null,
+      secondaryBanner: null,
+      favicon: null,
+    },
+    selectedPlan: { ...plan, keyContacts: undefined },
+    benefitVisibility: {
+      Retirement: visibility.Retirement !== false,
+      "Group Health": visibility["Group Health"] !== false,
+      "Group Life": visibility["Group Life"] !== false,
+      Custom: visibility.Other !== false,
+    },
+    helpCards: benefit?.helpCards || undefined,
+    insurancePlanId: String(benefit?.insurancePlanId ?? ""),
+    insuranceLoginUrl: String(benefit?.insuranceLoginUrl ?? ""),
+    insuranceBackgroundImage: String(benefit?.insuranceBackgroundImage ?? ""),
+    insuranceContainerBlockOpacity:
+      benefit?.insuranceContainerBlockOpacity ?? 0.8,
+    providerContact: benefit?.providerContact ?? null,
+    // Only carry the portrait when one exists: `saveBenefit` treats an explicit
+    // empty string as "clear the saved portrait".
+    ...(portrait ? { heroPortraitImage: portrait } : {}),
+    heroBackgroundOpacity:
+      benefit?.heroBackgroundOpacity ?? plan.heroBackgroundOpacity,
+    heroContainerBlockOpacity:
+      benefit?.heroContainerBlockOpacity ?? plan.heroContainerBlockOpacity,
+    heroContainerInverted:
+      benefit?.heroContainerInverted ?? plan.heroContainerInverted,
+    heroBackgroundInverted:
+      benefit?.heroBackgroundInverted ?? plan.heroBackgroundInverted,
+    heroUseGradient: benefit?.heroUseGradient ?? plan.heroUseGradient,
+    planVideo: benefit?.planVideo || undefined,
+    planVideoFileName: benefit?.planVideoFileName || undefined,
+    planVideoLabel: benefit?.planVideoLabel || undefined,
+    planVideoThumbnail: benefit?.planVideoThumbnail || undefined,
+    planVideoFallbackImage: benefit?.planVideoFallbackImage || undefined,
+    planVideoVisible: benefit?.planVideoVisible,
+    keyContactCardStyle: normalizeKeyContactCardStyle(
+      benefit?.keyContactCardStyle,
+    ),
+    journeyHeader: String(benefit?.journeyHeader ?? ""),
+    journeySubtitle: String(benefit?.journeySubtitle ?? ""),
+    journeyBodyText: String(benefit?.journeyBodyText ?? ""),
+    signatureMode: benefit?.signatureMode || "user",
+    customClosing: benefit?.customClosing || "",
+    customSignatureName: benefit?.customSignatureName || "",
+    customSignatureCompany: benefit?.customSignatureCompany || "",
+    customClosingBold: benefit?.customClosingBold ?? true,
+    customClosingItalic: benefit?.customClosingItalic ?? false,
+    customSignatureNameBold: benefit?.customSignatureNameBold ?? false,
+    customSignatureNameItalic: benefit?.customSignatureNameItalic ?? false,
+    customSignatureCompanyBold: benefit?.customSignatureCompanyBold ?? true,
+    customSignatureCompanyItalic:
+      benefit?.customSignatureCompanyItalic ?? false,
+  };
+}
+
+function step3FromBenefit(
+  benefit: Record<string, any> | null,
+  apiCategory: string,
+): BenefitsStep3Data {
+  const rawFaqs = benefit?.faqs;
+  const rawSupportContacts = benefit?.supportContacts;
+  const faqs: BenefitsStep3Data["faqs"] = Array.isArray(rawFaqs)
+    ? rawFaqs
+    : [];
+  const supportContacts: BenefitsStep3Data["supportContacts"] = Array.isArray(
+    rawSupportContacts,
+  )
+    ? rawSupportContacts
+    : [];
+  return {
+    faqs,
+    supportContacts,
+    faqsByCategory: apiCategory ? { [apiCategory]: faqs } : {},
+  };
+}
+
+/**
+ * Portal benefit hub editor.
+ *
+ * Hydrates the Create/Edit Benefits wizard store from this hub's live Benefit
+ * row and renders the exact same [`BenefitsEditorPanel`](components/wizard/benefits-steps/benefits-editor-panel.tsx)
+ * used by Create Benefits Step 2 and Edit Benefit's Preview tab — same sections,
+ * same inputs, same behaviour. Every change is autosaved through the shared
+ * `saveBenefit()` merge, so the live hub repaints from the same write path the
+ * dashboard uses.
  */
 export function PortalBenefitEditor() {
-  const { target, planId, canEditFunction, beginSave, finishSave, failSave, saveState, saveError } =
-    usePortalEditing();
+  const {
+    target,
+    planId,
+    canEditFunction,
+    isOpen,
+    closePanel,
+    beginSave,
+    finishSave,
+    failSave,
+    saveState,
+    saveError,
+  } = usePortalEditing();
+  const { clientData } = useClientPortal();
   const { mutate } = useSWRConfig();
+
+  const canEditBenefit = canEditFunction("create_benefits");
   const category = target?.category ?? null;
   const apiCategory = portalBenefitApiCategory(category);
-  const benefitKey = useMemo(
-    () =>
-      planId && apiCategory
-        ? `/api/clients/${planId}/benefits/${encodeURIComponent(apiCategory)}?forPortal=1&withTopics=1`
-        : null,
-    [planId, apiCategory],
-  );
-  const { data } = useSWR(benefitKey, fetcher, {
+  const benefitKey =
+    planId && apiCategory
+      ? `/api/clients/${planId}/benefits/${encodeURIComponent(apiCategory)}?forPortal=1&withTopics=1`
+      : null;
+
+  const { data, error } = useSWR(benefitKey, fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 60_000,
   });
 
-  const [draft, setDraft] = useState<BenefitDraft>(() =>
-    draftFromBenefit(data?.benefit ?? null),
-  );
-  const hydratedRef = useRef<string | null>(null);
+  const [hydrated, setHydrated] = useState(false);
+  const hydratedKeyRef = useRef<string | null>(null);
+  const skipFirstChangeRef = useRef(true);
   const dirtyRef = useRef(false);
+  const savingRef = useRef(false);
+  const versionRef = useRef(0);
+  const [saveTick, setSaveTick] = useState(0);
 
+  // The editor panel reads the wizard store directly, so hydration is what makes
+  // its sections show this hub's saved values.
   useEffect(() => {
-    if (!benefitKey || !data?.benefit) return;
-    if (hydratedRef.current === benefitKey) return;
-    hydratedRef.current = benefitKey;
-    setDraft(draftFromBenefit(data.benefit));
-  }, [benefitKey, data]);
+    if (!benefitKey || !clientData) return;
+    if (data === undefined && !error) return;
+    if (hydratedKeyRef.current === benefitKey) return;
 
-  const patchBenefit = useCallback(
-    (patch: Partial<BenefitDraft>) => {
-      dirtyRef.current = true;
-      setDraft((previous) => ({ ...previous, ...patch }));
-      if (benefitKey) {
-        void mutate(
-          benefitKey,
-          (current: any) =>
-            current?.benefit
-              ? {
-                  ...current,
-                  benefit: { ...current.benefit, ...patch },
-                }
-              : current,
-          { revalidate: false },
-        );
-      }
-    },
-    [benefitKey, mutate],
-  );
+    hydratedKeyRef.current = benefitKey;
+    setHydrated(false);
+
+    const benefit = (data?.benefit ?? null) as Record<string, any> | null;
+    const store = useBenefitsWizardStore.getState();
+    store.saveStepData(
+      1,
+      step1FromBenefit({
+        benefit,
+        clientData: clientData as Record<string, any>,
+        planId,
+        apiCategory,
+      }),
+    );
+    store.saveStepData(3, step3FromBenefit(benefit, apiCategory));
+
+    skipFirstChangeRef.current = true;
+    setHydrated(true);
+  }, [benefitKey, clientData, data, error, planId, apiCategory]);
+
+  const stepData = useBenefitsWizardStore((state) => state.stepData);
+
+  // Any store change after hydration is a user edit — queue the autosave.
+  useEffect(() => {
+    if (!hydrated) return;
+    if (skipFirstChangeRef.current) {
+      skipFirstChangeRef.current = false;
+      return;
+    }
+    dirtyRef.current = true;
+    versionRef.current += 1;
+    setSaveTick((tick) => tick + 1);
+  }, [stepData, hydrated]);
 
   const save = useCallback(async () => {
-    if (!planId || !apiCategory) return;
+    if (!planId || savingRef.current) return;
+    const snapshot = useBenefitsWizardStore.getState().stepData;
+    if (!snapshot.step1?.planId) return;
+
+    // The portal only owns Steps 1 and 3. Drop any Steps 4/5 left by an
+    // unrelated dashboard draft so this save can never rewrite another
+    // benefit's documents or disclaimers.
+    const portalStepData = {
+      ...snapshot,
+      step4: undefined,
+      step5: undefined,
+    };
+
+    const version = versionRef.current;
+    savingRef.current = true;
     beginSave();
     try {
-      const response = await fetch(
-        `/api/clients/${planId}/benefits/${encodeURIComponent(apiCategory)}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(draft),
-        },
-      );
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error || "Could not save this benefit.");
+      const result = await saveBenefit(portalStepData);
+      if (!result.success) {
+        throw new Error(result.error || "Could not save this benefit.");
       }
       finishSave();
       if (benefitKey) await mutate(benefitKey);
-    } catch (error) {
+    } catch (saveFailure) {
       failSave(
-        error instanceof Error ? error.message : "Could not save this benefit.",
+        saveFailure instanceof Error
+          ? saveFailure.message
+          : "Could not save this benefit.",
       );
       if (benefitKey) await mutate(benefitKey);
+    } finally {
+      savingRef.current = false;
+      // Edits made while the save was in flight need another pass.
+      if (versionRef.current !== version) {
+        dirtyRef.current = true;
+        setSaveTick((tick) => tick + 1);
+      }
     }
-  }, [
-    planId,
-    apiCategory,
-    draft,
-    benefitKey,
-    mutate,
-    beginSave,
-    finishSave,
-    failSave,
-  ]);
+  }, [planId, benefitKey, mutate, beginSave, finishSave, failSave]);
 
   useEffect(() => {
-    if (!dirtyRef.current) return;
+    if (!hydrated || !dirtyRef.current) return;
     const timer = setTimeout(() => {
       dirtyRef.current = false;
       void save();
-    }, 700);
+    }, 1200);
     return () => clearTimeout(timer);
-  }, [draft, save]);
+  }, [saveTick, hydrated, save]);
 
-  // The video fields save through the benefit row, so they need both the
-  // benefit-edit gate and the video grant. A video-only viewer gets the read-only
-  // page rather than a control whose save would be refused.
-  const canEditVideo =
-    canEditFunction("video") && canEditFunction("create_benefits");
+  const footer =
+    saveState === "saving" ? (
+      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Loader2 className="h-3 w-3 animate-spin" />
+        Saving…
+      </span>
+    ) : saveState === "error" ? (
+      <span className="text-xs text-red-500">
+        {saveError || "Could not save this benefit."}
+      </span>
+    ) : undefined;
+
+  if (!canEditBenefit) {
+    return (
+      <PortalEditorShell eyebrow="Benefit Editor" title="Editing Panel">
+        <p className="p-6 text-sm text-muted-foreground">
+          You don&rsquo;t have permission to edit this benefit&rsquo;s page
+          details.
+        </p>
+      </PortalEditorShell>
+    );
+  }
+
+  if (!hydrated) {
+    return (
+      <PortalEditorShell eyebrow="Benefit Editor" title="Editing Panel">
+        <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Loading benefit…
+        </div>
+      </PortalEditorShell>
+    );
+  }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-end gap-1.5 text-[11px] text-muted-foreground">
-        {saveState === "saving" && (
-          <>
-            <Loader2 className="h-3 w-3 animate-spin" />
-            Saving…
-          </>
-        )}
-        {saveState === "saved" && <span>Saved</span>}
-        {saveState === "error" && (
-          <span className="text-red-500">{saveError || "Save failed"}</span>
-        )}
-      </div>
-
-      <section>
-        <SectionHeader number={1} title="Hub copy" />
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label className="text-xs">Benefit title</Label>
-            <Input
-              value={draft.title}
-              onChange={(event) => patchBenefit({ title: event.target.value })}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Short description</Label>
-            <Textarea
-              value={draft.shortDescription}
-              onChange={(event) =>
-                patchBenefit({ shortDescription: event.target.value })
-              }
-              rows={3}
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Journey header</Label>
-            <Input
-              value={draft.journeyHeader}
-              onChange={(event) =>
-                patchBenefit({ journeyHeader: event.target.value })
-              }
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Journey subtitle</Label>
-            <Input
-              value={draft.journeySubtitle}
-              onChange={(event) =>
-                patchBenefit({ journeySubtitle: event.target.value })
-              }
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Journey body</Label>
-            <Textarea
-              value={draft.journeyBodyText}
-              onChange={(event) =>
-                patchBenefit({ journeyBodyText: event.target.value })
-              }
-              rows={4}
-            />
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <SectionHeader number={2} title="Access & materials" />
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label className="text-xs">Plan / Group ID</Label>
-            <Input
-              value={draft.insurancePlanId}
-              onChange={(event) =>
-                patchBenefit({ insurancePlanId: event.target.value })
-              }
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Login URL</Label>
-            <Input
-              value={draft.insuranceLoginUrl}
-              onChange={(event) =>
-                patchBenefit({ insuranceLoginUrl: event.target.value })
-              }
-              placeholder="https://..."
-            />
-          </div>
-        </div>
-      </section>
-
-      <section>
-        <SectionHeader number={3} title="Have Questions? card style" />
-        <select
-          value={draft.keyContactCardStyle}
-          onChange={(event) =>
-            patchBenefit({
-              keyContactCardStyle: event.target.value as
-                | "default"
-                | "highlighted",
-            })
-          }
-          className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
-        >
-          {KEY_CONTACT_CARD_STYLE_CHOICES.map((choice) => (
-            <option key={choice.value} value={choice.value}>
-              {choice.label}
-            </option>
-          ))}
-        </select>
-      </section>
-
-      {canEditVideo && (
-        <section>
-          <SectionHeader number={4} title="Video" />
-          <div className="space-y-3">
-            <div className="space-y-1">
-              <Label className="text-xs">Video URL</Label>
-              <Input
-                value={draft.planVideo}
-                onChange={(event) =>
-                  patchBenefit({ planVideo: event.target.value })
-                }
-                placeholder="https://..."
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Video label</Label>
-              <Input
-                value={draft.planVideoLabel}
-                onChange={(event) =>
-                  patchBenefit({ planVideoLabel: event.target.value })
-                }
-              />
-            </div>
-            <label className="flex items-center gap-2 text-xs">
-              <input
-                type="checkbox"
-                checked={draft.planVideoVisible}
-                onChange={(event) =>
-                  patchBenefit({ planVideoVisible: event.target.checked })
-                }
-              />
-              Show the video section
-            </label>
-          </div>
-        </section>
-      )}
-    </div>
+    <BenefitsEditorPanel
+      isOpen={isOpen}
+      isAnimating={isOpen}
+      onClose={closePanel}
+      planCompanyName={String(clientData?.companyName || "")}
+      companyWebsite={clientData?.companyWebsite || ""}
+      // A light grey tool surface, matching the portal's other editor panels.
+      surfaceClassName="bg-gray-100 dark:bg-gray-900"
+      footer={footer}
+    />
   );
 }

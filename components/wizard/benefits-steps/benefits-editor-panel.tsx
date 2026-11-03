@@ -129,6 +129,14 @@ interface BenefitsEditorPanelProps {
    * `var(--sidebar-width, 16rem)`; the other steps omit it and keep `left-0`.
    */
   leftOffset?: string;
+  /**
+   * Background surface for the panel and its footer. Defaults to the dashboard's
+   * white. The portal passes a light grey so the editor reads as its own tool
+   * column against the white participant page.
+   */
+  surfaceClassName?: string;
+  /** Optional footer (e.g. the portal's autosave status). */
+  footer?: React.ReactNode;
   /** Plan/company name shown next to the benefit category badge in the header */
   planCompanyName?: string;
   /** The plan's company website — analysis target for the AI typography suggestion */
@@ -152,6 +160,8 @@ export function BenefitsEditorPanel({
   editorScrollContainerRef: externalScrollRef,
   variant,
   leftOffset,
+  surfaceClassName,
+  footer,
   onHeroSegmentModeChange,
 }: BenefitsEditorPanelProps & { highlightedField?: string | null }) {
   const { stepData, saveStepData } = useBenefitsWizardStore();
@@ -764,6 +774,8 @@ export function BenefitsEditorPanel({
       editorScrollContainerRef={editorScrollContainerRef}
       variant={variant}
       leftOffset={leftOffset}
+      surfaceClassName={surfaceClassName}
+      footer={footer}
       headerBadge={
         planCompanyName || step1Data?.benefitCategory ? (
           <span className="inline-flex items-center gap-1.5 rounded-md bg-accent-blue/10 px-2 py-0.5 text-xs font-semibold text-accent-blue">
