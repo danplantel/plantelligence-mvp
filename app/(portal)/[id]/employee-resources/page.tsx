@@ -29,10 +29,14 @@ import type { ActionHubRow, ResolvedLocationTopics } from "@/types/topic";
  *
  * The header is the News & Events band rather than the welcome banner: this hub has
  * no plan mission statement to sign, and a short, image-led hero reads better for an
- * HR-resources index. Its background is the plan's own "Employee Resources Header"
+ * HR-resources index. Its background is this hub's OWN "Employee Resources Header"
  * image (`employeePortalPreview.employeeResourcesHeroImage`, chosen in Create Plan →
- * Branding or Edit Client → Branding), falling back to the Page Image Header and
- * then to a default of its own.
+ * Branding, Edit Client → Branding or the portal's Editing Panel), then a default of
+ * its own.
+ *
+ * It deliberately does NOT fall back to the Page Image Header: that slot belongs to
+ * the interior benefit pages (and to News & Events), so borrowing it meant setting a
+ * News & Events hero silently replaced this page's default.
  *
  * The page is opt-in per plan (`Client.employeeResourcesEnabled`). When the plan has not
  * switched it on, the API answers `enabled: false` and nothing renders — a URL that was
@@ -61,16 +65,15 @@ export default function EmployeeResourcesPage() {
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
 
-  // The hub's own header image, then the plan's Page Image Header, then the bundled
-  // default. Resolved through useBrandingImageUrl because the stored value can be an
-  // R2 key (`org/…`) as well as an absolute URL; a bare key would otherwise be
+  // This hub's own header image, then the bundled default of its own — never the
+  // plan's Page Image Header, which belongs to the interior benefit pages and to
+  // News & Events. Resolved through useBrandingImageUrl because the stored value can
+  // be an R2 key (`org/…`) as well as an absolute URL; a bare key would otherwise be
   // requested as the relative path /org/… and 404.
-  const storedHeaderImage = [
-    (clientData as any)?.employeePortalPreview?.employeeResourcesHeroImage,
-    (clientData as any)?.secondaryBannerImg,
-  ]
-    .map((value) => (typeof value === "string" ? value.trim() : ""))
-    .find((value) => value.length > 0);
+  const ownHeaderImage =
+    (clientData as any)?.employeePortalPreview?.employeeResourcesHeroImage;
+  const storedHeaderImage =
+    typeof ownHeaderImage === "string" ? ownHeaderImage.trim() : "";
   const { url: resolvedHeaderImageUrl } = useBrandingImageUrl(
     storedHeaderImage || null,
   );

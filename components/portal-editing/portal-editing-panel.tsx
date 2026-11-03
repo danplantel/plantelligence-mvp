@@ -5,7 +5,7 @@ import { usePortalEditing } from "@/components/portal-editing/portal-editing-pro
 import { PortalHomeEditor } from "@/components/portal-editing/editors/portal-home-editor";
 import { PortalBenefitEditor } from "@/components/portal-editing/editors/portal-benefit-editor";
 import { PortalTeamEditor } from "@/components/portal-editing/editors/portal-team-editor";
-import { PortalDocumentsEditor } from "@/components/portal-editing/editors/portal-documents-editor";
+import { PortalEmployeeResourcesEditor } from "@/components/portal-editing/editors/portal-employee-resources-editor";
 import { PortalNewsEditor } from "@/components/portal-editing/editors/portal-news-editor";
 
 function EditorForPage() {
@@ -13,8 +13,10 @@ function EditorForPage() {
   switch (target?.page) {
     case "team":
       return <PortalTeamEditor />;
+    // The `documents` target is the Employee Resources page: it owns that hub's
+    // hero background and the plan's document rows.
     case "documents":
-      return <PortalDocumentsEditor />;
+      return <PortalEmployeeResourcesEditor />;
     case "news":
       return <PortalNewsEditor />;
     default:

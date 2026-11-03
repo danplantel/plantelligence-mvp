@@ -96,7 +96,7 @@ const BRAND_IMAGE_SLOTS = [
     key: "employeeResourcesHero" as keyof BrandImagesData,
     title: "Employee Resources Header",
     description:
-      "The header band on the Employee Resources page. If none is uploaded, the Page Image Header is used, then a bundled default.",
+      "The header band on the Employee Resources page, and only that page. If none is uploaded, the page uses its own bundled default.",
     recommendedSize: "1600×600 px",
     required: false,
     accept: ".png,.jpg,.jpeg,.webp",

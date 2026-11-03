@@ -86,6 +86,17 @@ export interface QuickAnswersBuilderProps {
   className?: string;
   /** Called after a successful save so a caller can revalidate a preview. */
   onSaved?: () => void;
+  /**
+   * Which half of the board this instance edits.
+   *
+   * `"full"` (default) is Create/Edit Benefits: one builder for the whole board.
+   * The portal's Employee Resources panel presents the page's two sections
+   * separately — "How Can We Help You Today?" (the Featured cards) and "Quick
+   * Answers" (the grouped questions) — so it mounts two instances over the SAME
+   * board. Each edits only its own half, and every save still sends the complete
+   * board, which is what keeps one half from dropping the other.
+   */
+  mode?: "full" | "featured" | "answers";
 }
 
 function boardKey(planId: string, location: TopicLocation): string {
@@ -308,6 +319,7 @@ export function QuickAnswersBuilder({
   location,
   className,
   onSaved,
+  mode = "full",
 }: QuickAnswersBuilderProps) {
   const key = planId ? boardKey(planId, location) : null;
   const { data, error: loadError, isLoading } = useSWR<TopicsResponse>(
@@ -617,6 +629,55 @@ export function QuickAnswersBuilder({
     moveQuestion(topic, "ungrouped", target);
   };
 
+  /** Promote a library topic straight into the Featured cards. */
+  const addFeaturedFromLibrary = (item: LibraryItem) => {
+    if (!draft) return;
+    if (draft.featured.length >= draft.featuredCap) {
+      setSaveError(
+        `Featured holds ${draft.featuredCap} cards (3 rows of 4). Move one down to Quick Answers first.`,
+      );
+      return;
+    }
+    const topic: BoardTopic = {
+      topicId: item.slug,
+      placementId: "",
+      slug: item.slug,
+      location,
+      displayMode: "featured",
+      title: item.title,
+      ...(item.summary ? { summary: item.summary } : {}),
+      bodyBlocks: [],
+      tags: [],
+      isActionHub: item.isActionHub,
+      groupId: null,
+      sortOrder: draft.featured.length,
+    };
+    void persist({ ...draft, featured: [...draft.featured, topic] });
+  };
+
+  /** Move a Featured card one position — the card order IS the page order. */
+  const moveFeatured = (index: number, delta: number) => {
+    if (!draft) return;
+    const target = index + delta;
+    if (target < 0 || target >= draft.featured.length) return;
+    const featured = [...draft.featured];
+    const [moved] = featured.splice(index, 1);
+    featured.splice(target, 0, moved);
+    void persist({ ...draft, featured });
+  };
+
+  /** Demote a Featured card back to an ungrouped Quick Answer. */
+  const demoteFeatured = (topic: BoardTopic) => {
+    if (!draft) return;
+    void persist({
+      ...draft,
+      featured: draft.featured.filter(
+        (entry) => entry.topicId !== topic.topicId,
+      ),
+      ungrouped: [...draft.ungrouped, { ...topic, groupId: null }],
+    });
+  };
+
   /**
    * Write this LOCATION's Action Hub sub-link onto one question.
    *
@@ -664,6 +725,10 @@ export function QuickAnswersBuilder({
   const questionCount = countQuestions(draft);
   const isBare =
     questionCount === 0 && draft.hidden.length === 0 && draft.featured.length === 0;
+  // Which halves this instance shows (see `mode`).
+  const showFeatured = mode !== "answers";
+  const showAnswers = mode !== "featured";
+  const featuredOnly = showFeatured && !showAnswers;
 
   const moveOptions = (current: string) => (
     <>
@@ -687,15 +752,20 @@ export function QuickAnswersBuilder({
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <Label className="text-xs font-bold text-foreground">
-            Quick Answers
+            {featuredOnly ? "How Can We Help You Today?" : "Quick Answers"}
           </Label>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Grouped questions shown below the Featured cards. A question lives here
-            or in Featured — never both.
+            {featuredOnly
+              ? "The cards at the top of the page, in the order participants see them. A question lives here or in Quick Answers — never both."
+              : "Grouped questions shown below the Featured cards. A question lives here or in Featured — never both."}
           </p>
         </div>
         <span className="text-[11px] font-semibold text-muted-foreground">
-          {saving ? "Saving…" : `${questionCount} question${questionCount === 1 ? "" : "s"}`}
+          {saving
+            ? "Saving…"
+            : featuredOnly
+              ? `${draft.featured.length} card${draft.featured.length === 1 ? "" : "s"}`
+              : `${questionCount} question${questionCount === 1 ? "" : "s"}`}
         </span>
       </div>
 
@@ -708,7 +778,7 @@ export function QuickAnswersBuilder({
         </p>
       )}
 
-      {isBare ? (
+      {showAnswers && isBare ? (
         <div className="rounded-lg border border-dashed border-muted p-4 text-center">
           <p className="text-[13px] text-muted-foreground">
             This benefit has no Quick Answers yet. Start from the questions we ship
@@ -725,6 +795,61 @@ export function QuickAnswersBuilder({
         </div>
       ) : (
         <>
+          {showFeatured && (
+            <div className="rounded-lg border border-muted bg-white p-3 dark:bg-gray-800">
+              {draft.featured.length === 0 ? (
+                <p className="text-[12px] text-muted-foreground">
+                  No cards on this page yet. Add one from the library below.
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {draft.featured.map((topic, index) => (
+                    <div
+                      key={topic.topicId}
+                      className="flex flex-wrap items-center gap-1.5 rounded-md border border-muted/60 px-2 py-1.5"
+                    >
+                      <span className="min-w-0 flex-1 truncate text-[12px] font-medium">
+                        {topic.title}
+                      </span>
+                      {topic.isActionHub && <ActionHubBadge />}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        aria-label={`Move ${topic.title} up`}
+                        disabled={index === 0 || saving}
+                        onClick={() => moveFeatured(index, -1)}
+                      >
+                        ↑
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        aria-label={`Move ${topic.title} down`}
+                        disabled={index === draft.featured.length - 1 || saving}
+                        onClick={() => moveFeatured(index, 1)}
+                      >
+                        ↓
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={saving}
+                        onClick={() => demoteFeatured(topic)}
+                      >
+                        Move to Quick Answers
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {showAnswers && (
+            <div className="space-y-4">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -888,10 +1013,13 @@ export function QuickAnswersBuilder({
               </div>
             </div>
           )}
+            </div>
+          )}
         </>
       )}
 
-      {/* New group */}
+      {/* New group — only meaningful for the Quick Answers half. */}
+      {showAnswers && (
       <div className="flex items-end gap-2">
         <div className="flex-1 space-y-1">
           <Label htmlFor="quick-answers-new-group" className="text-[11px]">
@@ -910,6 +1038,7 @@ export function QuickAnswersBuilder({
           Add group
         </Button>
       </div>
+      )}
 
       {/* Library drawer */}
       <div className="rounded-lg border border-muted bg-white p-3 dark:bg-gray-800">
@@ -939,29 +1068,45 @@ export function QuickAnswersBuilder({
                 <span className="min-w-0 flex-1 truncate text-[12px] font-medium">
                   {item.title}
                 </span>
-                <select
-                  aria-label={`Group for ${item.title}`}
-                  value={addTarget}
-                  onChange={(event) => setAddTarget(event.target.value)}
-                  className="h-7 rounded-md border border-muted bg-white px-1 text-[11px] dark:bg-gray-900"
-                >
-                  <option value="">Choose a group</option>
-                  {draft.groups.map((group) => (
-                    <option key={group.id} value={group.id}>
-                      {group.name}
-                    </option>
-                  ))}
-                  <option value={UNGROUPED_KEY}>Questions (ungrouped)</option>
-                </select>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={!addTarget || saving}
-                  onClick={() => addFromLibrary(item, addTarget)}
-                >
-                  Add
-                </Button>
+                {featuredOnly ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={saving}
+                    onClick={() => addFeaturedFromLibrary(item)}
+                  >
+                    Add as card
+                  </Button>
+                ) : (
+                  <>
+                    <select
+                      aria-label={`Group for ${item.title}`}
+                      value={addTarget}
+                      onChange={(event) => setAddTarget(event.target.value)}
+                      className="h-7 rounded-md border border-muted bg-white px-1 text-[11px] dark:bg-gray-900"
+                    >
+                      <option value="">Choose a group</option>
+                      {draft.groups.map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.name}
+                        </option>
+                      ))}
+                      <option value={UNGROUPED_KEY}>
+                        Questions (ungrouped)
+                      </option>
+                    </select>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={!addTarget || saving}
+                      onClick={() => addFromLibrary(item, addTarget)}
+                    >
+                      Add
+                    </Button>
+                  </>
+                )}
               </div>
             ))}
           </div>

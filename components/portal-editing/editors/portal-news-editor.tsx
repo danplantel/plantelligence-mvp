@@ -11,11 +11,9 @@ import { PortalEditorShell } from "@/components/portal-editing/portal-editor-she
 import { SectionHeader } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
+import { brandImagesFromClient } from "@/components/portal-editing/portal-brand-images";
 import { useClientPortal } from "@/contexts/client-portal-context";
-import type {
-  BrandImageData,
-  BrandImagesData,
-} from "@/types/new-client-wizard";
+import type { BrandImagesData } from "@/types/new-client-wizard";
 
 const fetcher = (url: string) => fetch(url).then((response) => response.json());
 
@@ -29,53 +27,6 @@ interface MarketingAssetDraft {
   headline: string;
   body: string;
   ctaText: string;
-}
-
-/** Turn a legacy URL/name pair into the BrandImageData shape the cards read. */
-function brandImageFromLegacy(
-  url?: string | null,
-  fileName?: string | null,
-): BrandImageData | null {
-  if (!url) return null;
-  return {
-    url,
-    fileName: fileName ?? "",
-    fileSize: 0,
-    width: 0,
-    height: 0,
-    recommendedSize: "1440×400 px",
-    status: "ok",
-    warnings: [],
-  };
-}
-
-/** The plan's brand images, in the shape `BrandImagesSection` expects. */
-function brandImagesFromClient(
-  clientData: Record<string, any> | null,
-): BrandImagesData {
-  const raw = (clientData?.brandImages ?? {}) as Record<string, any>;
-  return {
-    header:
-      raw.header ??
-      brandImageFromLegacy(
-        clientData?.backgroundImg,
-        clientData?.backgroundImgName,
-      ),
-    thumbnail:
-      raw.thumbnail ??
-      brandImageFromLegacy(
-        clientData?.thumbnailImg,
-        clientData?.thumbnailImgName,
-      ),
-    secondaryBanner:
-      raw.secondaryBanner ??
-      brandImageFromLegacy(
-        clientData?.secondaryBannerImg,
-        clientData?.secondaryBannerImgName,
-      ),
-    favicon: raw.favicon ?? null,
-    employeeResourcesHero: raw.employeeResourcesHero ?? null,
-  } as BrandImagesData;
 }
 
 /**
