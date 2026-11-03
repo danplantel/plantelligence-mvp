@@ -62,7 +62,8 @@ interface ClientPortalContextType {
   profile: ClientPortalProfile | null;
   loading: boolean;
   error: string | null;
-  refetch: () => Promise<void>;
+  /** Silent refetch; resolves with the fresh portal payload (or null on failure). */
+  refetch: () => Promise<ClientData | null>;
   /**
    * Merge a draft into the live portal data so an inline editor repaints before
    * its save round-trip finishes. The server remains the source of truth; callers
@@ -76,7 +77,7 @@ const ClientPortalContext = createContext<ClientPortalContextType>({
   profile: null,
   loading: true,
   error: null,
-  refetch: async () => {},
+  refetch: async () => null,
   patchClientData: () => {},
 });
 
@@ -116,8 +117,8 @@ export function ClientPortalProvider({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchClient = useCallback(async (silent = false) => {
-    if (!clientId) return;
+  const fetchClient = useCallback(async (silent = false): Promise<ClientData | null> => {
+    if (!clientId) return null;
     try {
       const url = silent
         ? `/api/clients/${clientId}?t=${Date.now()}&forPortal=1`
@@ -130,7 +131,7 @@ export function ClientPortalProvider({
         } else {
           setError("Failed to load client data");
         }
-        return;
+        return null;
       }
 
       const result = await response.json();
@@ -140,7 +141,7 @@ export function ClientPortalProvider({
         const s = String(result.data.status ?? "");
         if (s === "Archived") {
           setError("Client not found");
-          return;
+          return null;
         }
         setClientData(result.data);
 
@@ -154,14 +155,19 @@ export function ClientPortalProvider({
         ) {
           const suffix = pathname.replace(/^\/[^/]+/, "");
           router.replace(`/${result.canonicalSlug}${suffix}`);
-          return;
+          // The payload is still valid — a draft being reverted may use it.
+          return (result.data as ClientData) ?? null;
         }
-      } else {
-        setError("Failed to load client data");
+
+        return (result.data as ClientData) ?? null;
       }
+
+      setError("Failed to load client data");
+      return null;
     } catch (err) {
       console.error("Error fetching client:", err);
       setError("Failed to load client data");
+      return null;
     }
   }, [clientId, pathname, router]);
 

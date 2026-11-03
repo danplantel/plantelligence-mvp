@@ -135,8 +135,14 @@ interface BenefitsEditorPanelProps {
    * column against the white participant page.
    */
   surfaceClassName?: string;
-  /** Optional footer (e.g. the portal's autosave status). */
+  /** Optional footer (e.g. a save status line). */
   footer?: React.ReactNode;
+  /**
+   * Called after the Quick Answers builder saves its placements. That builder
+   * writes through its own endpoint rather than the Steps 1/3 draft, so a live
+   * preview has to revalidate to show the change.
+   */
+  onTopicsSaved?: () => void;
   /** Plan/company name shown next to the benefit category badge in the header */
   planCompanyName?: string;
   /** The plan's company website — analysis target for the AI typography suggestion */
@@ -162,6 +168,7 @@ export function BenefitsEditorPanel({
   leftOffset,
   surfaceClassName,
   footer,
+  onTopicsSaved,
   onHeroSegmentModeChange,
 }: BenefitsEditorPanelProps & { highlightedField?: string | null }) {
   const { stepData, saveStepData } = useBenefitsWizardStore();
@@ -2214,6 +2221,7 @@ export function BenefitsEditorPanel({
               <QuickAnswersBuilder
                 planId={step1Data.planId}
                 location={quickAnswersLocation}
+                onSaved={onTopicsSaved}
               />
             </div>
           </div>

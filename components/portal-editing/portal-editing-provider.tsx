@@ -11,7 +11,10 @@ import {
 } from "react";
 import { useParams, usePathname } from "next/navigation";
 
-import { useClientPortal } from "@/contexts/client-portal-context";
+import {
+  useClientPortal,
+  type ClientData,
+} from "@/contexts/client-portal-context";
 import { useViewerAccess } from "@/hooks/useViewerAccess";
 import { benefitCategoryToVisibilityKey } from "@/lib/portal-category-visibility";
 import {
@@ -49,10 +52,15 @@ interface PortalEditingContextValue {
   beginSave: () => void;
   finishSave: () => void;
   failSave: (message: string) => void;
+  /** Return the bar to idle — a cancelled draft has nothing left to report. */
+  resetSave: () => void;
   /** Merge a draft into the live portal data for immediate repaint. */
   patchClientData: (patch: Record<string, unknown>) => void;
-  /** Pull the saved truth back after a failed save. */
-  refetchPortal: () => Promise<void>;
+  /**
+   * Pull the saved truth back after a cancelled draft or failed save, resolving
+   * with the fresh payload so the editor can re-seed itself from it.
+   */
+  refetchPortal: () => Promise<ClientData | null>;
 }
 
 const PortalEditingContext = createContext<PortalEditingContextValue | null>(
@@ -169,6 +177,10 @@ export function PortalEditingProvider({ children }: { children: ReactNode }) {
     setSaveState("error");
     setSaveError(message);
   }, []);
+  const resetSave = useCallback(() => {
+    setSaveState("idle");
+    setSaveError(null);
+  }, []);
 
   const value = useMemo<PortalEditingContextValue>(
     () => ({
@@ -185,6 +197,7 @@ export function PortalEditingProvider({ children }: { children: ReactNode }) {
       beginSave,
       finishSave,
       failSave,
+      resetSave,
       patchClientData: patchClientData as (
         patch: Record<string, unknown>,
       ) => void,
@@ -204,6 +217,7 @@ export function PortalEditingProvider({ children }: { children: ReactNode }) {
       beginSave,
       finishSave,
       failSave,
+      resetSave,
       patchClientData,
       refetch,
     ],

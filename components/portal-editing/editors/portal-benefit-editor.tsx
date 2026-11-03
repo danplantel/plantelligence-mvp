@@ -5,6 +5,7 @@ import useSWR, { useSWRConfig } from "swr";
 import { Loader2 } from "lucide-react";
 
 import { BenefitsEditorPanel } from "@/components/wizard/benefits-steps/benefits-editor-panel";
+import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import { useClientPortal } from "@/contexts/client-portal-context";
@@ -188,14 +189,73 @@ function step3FromBenefit(
 }
 
 /**
+ * The Benefit-row fields a Step 1/3 draft changes, in the shape the hub reads.
+ *
+ * The live hub renders from the Benefit API object SWR has cached, so a draft
+ * only becomes visible beside the panel if it is written into that cache entry.
+ * Every field this maps is one the panel owns; anything else on the row is left
+ * untouched. The real write still happens in `saveBenefit()` on Save.
+ */
+function benefitPatchFromStepData(
+  step1: BenefitsStep1Data,
+  step3: BenefitsStep3Data,
+): Record<string, any> {
+  return {
+    title: step1.benefitTitle,
+    shortDescription: step1.shortDescription,
+    partnerLogo: step1.companyLogo?.url ?? "",
+    landingCardImage: step1.landingCardImage?.url ?? "",
+    landingCardBody: step1.landingCardBody,
+    backgroundImage: step1.brandImages?.header?.url ?? "",
+    contactId: step1.contactId,
+    insurancePlanId: step1.insurancePlanId,
+    insuranceLoginUrl: step1.insuranceLoginUrl,
+    insuranceBackgroundImage: step1.insuranceBackgroundImage,
+    insuranceContainerBlockOpacity: step1.insuranceContainerBlockOpacity,
+    providerContact: step1.providerContact,
+    helpCards: step1.helpCards,
+    heroBackgroundOpacity: step1.heroBackgroundOpacity,
+    heroContainerBlockOpacity: step1.heroContainerBlockOpacity,
+    heroContainerInverted: step1.heroContainerInverted,
+    heroBackgroundInverted: step1.heroBackgroundInverted,
+    heroUseGradient: step1.heroUseGradient,
+    planVideo: step1.planVideo ?? "",
+    planVideoFileName: step1.planVideoFileName ?? "",
+    planVideoLabel: step1.planVideoLabel ?? "",
+    planVideoThumbnail: step1.planVideoThumbnail ?? "",
+    planVideoFallbackImage: step1.planVideoFallbackImage ?? "",
+    planVideoVisible: step1.planVideoVisible,
+    keyContactCardStyle: step1.keyContactCardStyle,
+    journeyHeader: step1.journeyHeader,
+    journeySubtitle: step1.journeySubtitle,
+    journeyBodyText: step1.journeyBodyText,
+    signatureMode: step1.signatureMode,
+    customClosing: step1.customClosing,
+    customSignatureName: step1.customSignatureName,
+    customSignatureCompany: step1.customSignatureCompany,
+    customClosingBold: step1.customClosingBold,
+    customClosingItalic: step1.customClosingItalic,
+    customSignatureNameBold: step1.customSignatureNameBold,
+    customSignatureNameItalic: step1.customSignatureNameItalic,
+    customSignatureCompanyBold: step1.customSignatureCompanyBold,
+    customSignatureCompanyItalic: step1.customSignatureCompanyItalic,
+    faqs: step3.faqs,
+    supportContacts: step3.supportContacts,
+  };
+}
+
+/**
  * Portal benefit hub editor.
  *
  * Hydrates the Create/Edit Benefits wizard store from this hub's live Benefit
  * row and renders the exact same [`BenefitsEditorPanel`](components/wizard/benefits-steps/benefits-editor-panel.tsx)
  * used by Create Benefits Step 2 and Edit Benefit's Preview tab — same sections,
- * same inputs, same behaviour. Every change is autosaved through the shared
- * `saveBenefit()` merge, so the live hub repaints from the same write path the
- * dashboard uses.
+ * same inputs, same behaviour.
+ *
+ * The store is a DRAFT: each change is mapped onto the cached Benefit object (and
+ * the plan-level slices the hub reads) so the page beside the panel repaints at
+ * once, but nothing is written until Save. Cancel refetches the saved row and
+ * re-seeds the panel from it.
  */
 export function PortalBenefitEditor() {
   const {
@@ -207,8 +267,9 @@ export function PortalBenefitEditor() {
     beginSave,
     finishSave,
     failSave,
-    saveState,
-    saveError,
+    resetSave,
+    patchClientData,
+    refetchPortal,
   } = usePortalEditing();
   const { clientData } = useClientPortal();
   const { mutate } = useSWRConfig();
@@ -227,12 +288,32 @@ export function PortalBenefitEditor() {
   });
 
   const [hydrated, setHydrated] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
   const hydratedKeyRef = useRef<string | null>(null);
   const skipFirstChangeRef = useRef(true);
-  const dirtyRef = useRef(false);
   const savingRef = useRef(false);
-  const versionRef = useRef(0);
-  const [saveTick, setSaveTick] = useState(0);
+  // The draft effect needs the newest plan without re-subscribing on every patch.
+  const clientDataRef = useRef(clientData);
+  clientDataRef.current = clientData;
+
+  /** Re-seed both steps from a Benefit row + plan, without marking a draft. */
+  const hydrateFrom = useCallback(
+    (
+      benefit: Record<string, any> | null,
+      plan: Record<string, any> | null,
+    ) => {
+      setHydrated(false);
+      const store = useBenefitsWizardStore.getState();
+      store.saveStepData(
+        1,
+        step1FromBenefit({ benefit, clientData: plan, planId, apiCategory }),
+      );
+      store.saveStepData(3, step3FromBenefit(benefit, apiCategory));
+      skipFirstChangeRef.current = true;
+      setHydrated(true);
+    },
+    [planId, apiCategory],
+  );
 
   // The editor panel reads the wizard store directly, so hydration is what makes
   // its sections show this hub's saved values.
@@ -242,39 +323,59 @@ export function PortalBenefitEditor() {
     if (hydratedKeyRef.current === benefitKey) return;
 
     hydratedKeyRef.current = benefitKey;
-    setHydrated(false);
-
-    const benefit = (data?.benefit ?? null) as Record<string, any> | null;
-    const store = useBenefitsWizardStore.getState();
-    store.saveStepData(
-      1,
-      step1FromBenefit({
-        benefit,
-        clientData: clientData as Record<string, any>,
-        planId,
-        apiCategory,
-      }),
+    hydrateFrom(
+      (data?.benefit ?? null) as Record<string, any> | null,
+      clientData as Record<string, any>,
     );
-    store.saveStepData(3, step3FromBenefit(benefit, apiCategory));
-
-    skipFirstChangeRef.current = true;
-    setHydrated(true);
-  }, [benefitKey, clientData, data, error, planId, apiCategory]);
+  }, [benefitKey, clientData, data, error, hydrateFrom]);
 
   const stepData = useBenefitsWizardStore((state) => state.stepData);
 
-  // Any store change after hydration is a user edit — queue the autosave.
+  /**
+   * Any store change after hydration is a user edit. Repaint the hub from the
+   * draft (SWR cache + the plan-level slices the page reads) and light up the
+   * action bar; nothing is written until Save.
+   */
   useEffect(() => {
     if (!hydrated) return;
     if (skipFirstChangeRef.current) {
       skipFirstChangeRef.current = false;
       return;
     }
-    dirtyRef.current = true;
-    versionRef.current += 1;
-    setSaveTick((tick) => tick + 1);
-  }, [stepData, hydrated]);
 
+    setIsDirty(true);
+
+    const step1 = stepData.step1 as BenefitsStep1Data | undefined;
+    if (!benefitKey || !step1) return;
+
+    const patch = benefitPatchFromStepData(
+      step1,
+      (stepData.step3 ?? {}) as BenefitsStep3Data,
+    );
+    void mutate(
+      benefitKey,
+      (current: any) =>
+        current?.benefit
+          ? { ...current, benefit: { ...current.benefit, ...patch } }
+          : current,
+      { revalidate: false },
+    );
+
+    // Typography and the key-contact portrait live on the PLAN, not the Benefit
+    // row, and both are read straight off `clientData` by the hub chrome.
+    const planPatch: Record<string, unknown> = {};
+    if (step1.typographyTheme !== undefined) {
+      planPatch.typographyTheme = step1.typographyTheme;
+    }
+    // `""` is meaningful here — `saveBenefit` treats it as "clear the saved
+    // portrait" — so patch whenever the key exists, not only when it is truthy.
+    if (typeof step1.heroPortraitImage === "string") {
+      planPatch.heroPortraitImage = step1.heroPortraitImage;
+    }
+    if (Object.keys(planPatch).length) patchClientData(planPatch);
+  }, [stepData, hydrated, benefitKey, mutate, patchClientData]);
+
+  /** Write the drafted Steps 1/3 through the shared benefit save path. */
   const save = useCallback(async () => {
     if (!planId || savingRef.current) return;
     const snapshot = useBenefitsWizardStore.getState().stepData;
@@ -289,7 +390,6 @@ export function PortalBenefitEditor() {
       step5: undefined,
     };
 
-    const version = versionRef.current;
     savingRef.current = true;
     beginSave();
     try {
@@ -297,45 +397,42 @@ export function PortalBenefitEditor() {
       if (!result.success) {
         throw new Error(result.error || "Could not save this benefit.");
       }
+      setIsDirty(false);
       finishSave();
+      // The saved row is the source of truth now — drop the optimistic cache.
       if (benefitKey) await mutate(benefitKey);
     } catch (saveFailure) {
+      // Keep the draft and its live preview so the advisor can retry.
       failSave(
         saveFailure instanceof Error
           ? saveFailure.message
           : "Could not save this benefit.",
       );
-      if (benefitKey) await mutate(benefitKey);
     } finally {
       savingRef.current = false;
-      // Edits made while the save was in flight need another pass.
-      if (versionRef.current !== version) {
-        dirtyRef.current = true;
-        setSaveTick((tick) => tick + 1);
-      }
     }
   }, [planId, benefitKey, mutate, beginSave, finishSave, failSave]);
 
-  useEffect(() => {
-    if (!hydrated || !dirtyRef.current) return;
-    const timer = setTimeout(() => {
-      dirtyRef.current = false;
-      void save();
-    }, 1200);
-    return () => clearTimeout(timer);
-  }, [saveTick, hydrated, save]);
+  /**
+   * Throw the draft away: refetch the saved Benefit row and the plan, then
+   * re-seed both wizard steps. The hub repaints from the refetched sources.
+   */
+  const cancel = useCallback(async () => {
+    if (savingRef.current) return;
+    setIsDirty(false);
+    resetSave();
 
-  const footer =
-    saveState === "saving" ? (
-      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Loader2 className="h-3 w-3 animate-spin" />
-        Saving…
-      </span>
-    ) : saveState === "error" ? (
-      <span className="text-xs text-red-500">
-        {saveError || "Could not save this benefit."}
-      </span>
-    ) : undefined;
+    const fresh = await refetchPortal();
+    const refreshed = benefitKey ? await mutate(benefitKey) : undefined;
+    const benefit = ((refreshed as any)?.benefit ??
+      data?.benefit ??
+      null) as Record<string, any> | null;
+    const plan = (fresh ?? clientDataRef.current ?? null) as Record<
+      string,
+      any
+    > | null;
+    hydrateFrom(benefit, plan);
+  }, [benefitKey, mutate, refetchPortal, resetSave, data, hydrateFrom]);
 
   if (!canEditBenefit) {
     return (
@@ -368,7 +465,19 @@ export function PortalBenefitEditor() {
       companyWebsite={clientData?.companyWebsite || ""}
       // A light grey tool surface, matching the portal's other editor panels.
       surfaceClassName="bg-gray-100 dark:bg-gray-900"
-      footer={footer}
+      // The Save/Cancel row docks to the panel's own footer, not the portal.
+      footer={
+        <PortalEditorActionBar
+          isDirty={isDirty}
+          onSave={() => void save()}
+          onCancel={() => void cancel()}
+        />
+      }
+      // Quick Answers writes placements through its own endpoint, so a
+      // revalidation is what brings them into the live hub.
+      onTopicsSaved={() => {
+        if (benefitKey) void mutate(benefitKey);
+      }}
     />
   );
 }

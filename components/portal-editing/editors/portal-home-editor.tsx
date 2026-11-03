@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
 
 import { usePlanPreviewEditorSections } from "@/components/wizard/new-client-steps/sections/components/plan-preview-editor-sections";
+import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import { MISSION_STATEMENT_PRESETS } from "@/components/wizard/new-client-steps/constants/welcome-statements";
@@ -163,8 +163,8 @@ function payloadForField(
  * Renders the exact same Editing Panel sections as Create Plan Step 2 and Edit
  * Client's Preview tab (`usePlanPreviewEditorSections`) against the plan's live
  * portal data. Every change patches the portal context immediately, so the page
- * beside the panel repaints at once; the PUT is debounced and the saved row
- * remains the source of truth.
+ * beside the panel repaints at once — but nothing is written until Save. Cancel
+ * discards the draft by refetching the saved row.
  */
 export function PortalHomeEditor() {
   const { clientData } = useClientPortal();
@@ -173,8 +173,7 @@ export function PortalHomeEditor() {
     beginSave,
     finishSave,
     failSave,
-    saveState,
-    saveError,
+    resetSave,
     patchClientData,
     refetchPortal,
   } = usePortalEditing();
@@ -190,13 +189,12 @@ export function PortalHomeEditor() {
   const headlineRef = useRef<HTMLInputElement>(null);
   const bodyTextRef = useRef<HTMLTextAreaElement>(null);
 
-  // Pending save state. `pendingRef` merges every field touched since the last
-  // successful PUT; `versionRef` prevents an in-flight save from clearing edits
-  // made while it was running.
+  // The draft. `pendingRef` merges every field touched since the last successful
+  // PUT, so Save sends one payload; `isDirty` drives the action bar and the live
+  // preview itself comes from `patchClientData`.
   const pendingRef = useRef<Record<string, any>>({});
-  const versionRef = useRef(0);
-  const dirtyRef = useRef(false);
-  const [saveTick, setSaveTick] = useState(0);
+  const savingRef = useRef(false);
+  const [isDirty, setIsDirty] = useState(false);
 
   // Re-seed the local editor from the saved plan on first mount (and after a
   // failed save refetch). Optimistic patches this editor made keep the same
@@ -218,11 +216,9 @@ export function PortalHomeEditor() {
     );
   }, [clientData, hydrationKey]);
 
-  const enqueueSave = useCallback((fields: Record<string, any>) => {
+  const queueChange = useCallback((fields: Record<string, any>) => {
     pendingRef.current = { ...pendingRef.current, ...fields };
-    versionRef.current += 1;
-    dirtyRef.current = true;
-    setSaveTick((tick) => tick + 1);
+    setIsDirty(true);
   }, []);
 
   const updateField = useCallback(
@@ -230,10 +226,11 @@ export function PortalHomeEditor() {
       setCompanyData(
         (previous) => ({ ...previous, [field]: value }) as CompanyBasicsData,
       );
+      // Live preview first — the page beside the panel repaints before Save.
       patchClientData(clientPatchForField(field, value));
-      enqueueSave(payloadForField(field, value));
+      queueChange(payloadForField(field, value));
     },
-    [patchClientData, enqueueSave],
+    [patchClientData, queueChange],
   );
 
   const handleLogoChange = useCallback(
@@ -243,9 +240,9 @@ export function PortalHomeEditor() {
         companyLogo: logoData?.url ?? "",
         logoFileName: logoData?.fileName ?? "",
       });
-      enqueueSave({ companyLogo: logoData });
+      queueChange({ companyLogo: logoData });
     },
-    [patchClientData, enqueueSave],
+    [patchClientData, queueChange],
   );
 
   const handleBrandImagesChange = useCallback(
@@ -255,12 +252,14 @@ export function PortalHomeEditor() {
     [updateField],
   );
 
-  const savingRef = useRef(false);
+  /** Write the queued draft. Only the bar's Save button calls this. */
   const save = useCallback(async () => {
     if (!planId || savingRef.current) return;
     const payload = pendingRef.current;
-    const version = versionRef.current;
-    if (!Object.keys(payload).length) return;
+    if (!Object.keys(payload).length) {
+      setIsDirty(false);
+      return;
+    }
 
     savingRef.current = true;
     beginSave();
@@ -274,41 +273,48 @@ export function PortalHomeEditor() {
         const body = await response.json().catch(() => null);
         throw new Error(body?.error || "Could not save this page.");
       }
-      // Only clear what this request actually sent. Edits made while it was in
-      // flight stay queued for the next save.
-      if (versionRef.current === version) {
-        pendingRef.current = {};
-      }
+      // Everything queued was in this payload, and the live preview already
+      // shows exactly what the server accepted.
+      pendingRef.current = {};
+      setIsDirty(false);
       finishSave();
     } catch (error) {
-      pendingRef.current = {};
+      // Keep the draft (and its live preview) so the advisor can retry; the
+      // action bar carries the message.
       failSave(
         error instanceof Error ? error.message : "Could not save this page.",
       );
-      // The server is the source of truth — pull the rejected values back and
-      // re-seed the panel from them.
-      await refetchPortal();
-      setRevision((value) => value + 1);
     } finally {
       savingRef.current = false;
-      // A debounce that fired mid-save returned early; flush what is still queued.
-      if (Object.keys(pendingRef.current).length > 0) {
-        dirtyRef.current = true;
-        setSaveTick((tick) => tick + 1);
-      }
     }
-  }, [planId, beginSave, finishSave, failSave, refetchPortal]);
+  }, [planId, beginSave, finishSave, failSave]);
 
-  // Debounced autosave. The first render is not dirty, so opening the panel never
-  // writes a no-op update.
-  useEffect(() => {
-    if (!dirtyRef.current) return;
-    const timer = setTimeout(() => {
-      dirtyRef.current = false;
-      void save();
-    }, 700);
-    return () => clearTimeout(timer);
-  }, [saveTick, save]);
+  /**
+   * Throw the draft away: refetch the saved plan and re-seed the panel from it.
+   * The optimistic patches made by this editor are replaced by the fresh payload,
+   * so the portal beside the panel reverts too. The panel stays open.
+   */
+  const cancel = useCallback(async () => {
+    if (savingRef.current) return;
+    pendingRef.current = {};
+    setIsDirty(false);
+    resetSave();
+
+    const fresh = await refetchPortal();
+    if (fresh) {
+      setCompanyData(companyFromClient(fresh as Record<string, any>));
+      setUseDefaultWelcomeMessage(
+        !fresh.heroDescription ||
+          fresh.heroDescription === DEFAULT_WELCOME_MESSAGE,
+      );
+      setUseDefaultBody(
+        !fresh.missionBody || fresh.missionBody === DEFAULT_MISSION_BODY,
+      );
+      return;
+    }
+    // The refetch failed — fall back to re-seeding from the context's last copy.
+    setRevision((value) => value + 1);
+  }, [refetchPortal, resetSave]);
 
   const missionHeadline = companyData.missionHeadline ?? "";
   const missionBody = companyData.missionBody ?? "";
@@ -378,23 +384,10 @@ export function PortalHomeEditor() {
     preferCompanyDataForOverlay: true,
   });
 
-  const footer =
-    saveState === "saving" ? (
-      <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-        <Loader2 className="h-3 w-3 animate-spin" />
-        Saving…
-      </span>
-    ) : saveState === "error" ? (
-      <span className="text-xs text-red-500">
-        {saveError || "Could not save this page."}
-      </span>
-    ) : undefined;
-
   return (
     <>
       <PortalEditorShell
         sections={sections}
-        footer={footer}
         eyebrow="Plan Branding & Messaging"
         title="Editing Panel"
         headerBadge={
@@ -403,6 +396,14 @@ export function PortalHomeEditor() {
               {companyData.companyName}
             </span>
           ) : undefined
+        }
+        // The Save/Cancel row docks to the panel's own footer, not the portal.
+        footer={
+          <PortalEditorActionBar
+            isDirty={isDirty}
+            onSave={() => void save()}
+            onCancel={() => void cancel()}
+          />
         }
       />
       {modals}
