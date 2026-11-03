@@ -175,10 +175,30 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     const hadDark = root.classList.contains("dark");
     const prevColorScheme = root.style.colorScheme;
 
-    root.classList.remove("dark");
-    root.style.colorScheme = "light";
+    const enforceLight = () => {
+      if (root.classList.contains("dark")) root.classList.remove("dark");
+      if (root.style.colorScheme !== "light") {
+        root.style.colorScheme = "light";
+      }
+    };
+
+    enforceLight();
+
+    /**
+     * next-themes re-applies the stored class when it mounts (and on every theme
+     * change), which lands AFTER this effect and left the portal's own tooling —
+     * the floating Edit / Comments buttons, which sit outside `.portal-root` and
+     * so were not covered by its light-theme overrides — rendering in dark mode.
+     * Keep the class off for as long as the portal is mounted.
+     */
+    const observer = new MutationObserver(enforceLight);
+    observer.observe(root, {
+      attributes: true,
+      attributeFilter: ["class", "style"],
+    });
 
     return () => {
+      observer.disconnect();
       root.classList.toggle("dark", hadDark);
       root.style.colorScheme = prevColorScheme;
     };

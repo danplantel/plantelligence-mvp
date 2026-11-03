@@ -426,6 +426,21 @@ describe("portal layout back-to-dashboard overlay", () => {
 });
 
 describe("portal layout light mode", () => {
+  it("keeps the portal light when the theme provider re-applies the class", async () => {
+    renderLayout();
+
+    // next-themes applies the stored class AFTER the portal's own effect has
+    // run, which is what left the floating Edit / Comments buttons dark over a
+    // light portal. The layout keeps removing it.
+    document.documentElement.classList.add("dark");
+    document.documentElement.style.colorScheme = "dark";
+
+    await waitFor(() =>
+      expect(document.documentElement.classList.contains("dark")).toBe(false),
+    );
+    expect(document.documentElement.style.colorScheme).toBe("light");
+  });
+
   it("strips dark mode for the portal and restores it afterwards", () => {
     document.documentElement.classList.add("dark");
     document.documentElement.style.colorScheme = "dark";

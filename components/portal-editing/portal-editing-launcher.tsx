@@ -34,11 +34,15 @@ export function PortalEditingLauncher() {
         right:
           "calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + 15.5rem)",
       }}
+      // Fixed light colours rather than the theme tokens: this button sits
+      // OUTSIDE `.portal-root`, so the portal's light-theme overrides do not
+      // reach it — with the dashboard in dark mode the tokens rendered it dark
+      // against a light portal.
       className={cn(
-        "fixed bottom-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors",
+        "fixed bottom-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-gray-200 bg-white shadow-lg transition-colors",
         isOpen
           ? "text-accent-blue"
-          : "text-muted-foreground hover:text-foreground",
+          : "text-gray-500 hover:text-gray-900",
         !canEdit && "cursor-not-allowed opacity-60",
       )}
     >

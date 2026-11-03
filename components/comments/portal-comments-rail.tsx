@@ -209,11 +209,14 @@ function PortalCommentsButton() {
       style={{
         right: `calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + ${PORTAL_CHATBOT_CLEARANCE})`,
       }}
+      // Fixed light colours, for the same reason as the Edit button beside it:
+      // this sits outside `.portal-root`, so its theme tokens follow the
+      // dashboard and would render it dark over a light portal.
       className={cn(
-        "fixed bottom-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-background shadow-lg transition-colors",
+        "fixed bottom-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-gray-200 bg-white shadow-lg transition-colors",
         active
           ? "text-accent-blue"
-          : "text-muted-foreground hover:text-foreground",
+          : "text-gray-500 hover:text-gray-900",
         !canComment && "cursor-not-allowed opacity-60",
       )}
     >
