@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { X, ChevronDown, Calendar, Pencil, Menu, LogIn } from "lucide-react";
@@ -126,6 +127,25 @@ interface PortalHeaderProps {
   scale?: number;
   /** Design width the header content is laid out at before being scaled. */
   referenceWidth?: number;
+}
+
+/**
+ * A portal that `AnimatePresence` can see.
+ *
+ * `AnimatePresence` only tracks React ELEMENTS, and `createPortal` returns a
+ * portal object, which `isValidElement` rejects — a bare `createPortal(...)`
+ * child is silently dropped, which is exactly what left the drawer failing to
+ * open. Wrapping the call in a component keeps it in the presence tree, so the
+ * slide-out still runs when the menu closes.
+ */
+function PortalInto({
+  host,
+  children,
+}: {
+  host: HTMLElement;
+  children: ReactNode;
+}) {
+  return createPortal(children, host);
 }
 
 export function PortalHeader({
@@ -313,13 +333,19 @@ export function PortalHeader({
     headerCtaSetting.mode === "schedule" &&
     Boolean(headerCtaHref.href) &&
     !isPreviewChrome;
-  // "Home" is the landing page: not one of the benefit hubs, news, or the team page.
+  // Every hub route that owns its own link. A path in this list marks that link
+  // instead of Home's — the drawer lists Home beside the hubs, so a hub the list
+  // forgets lights up two rows at once. `/employee-resources` was exactly that.
+  const hubPaths = [
+    ...benefitsPaths,
+    "/news-events",
+    "/employee-resources",
+    "/my-benefits-team",
+  ];
+  // "Home" is the landing page: not one of the hubs, news, resources, or team.
   const isHomeActive =
     pathname === baseUrl ||
-    (!!pathname &&
-      !benefitsPaths.some((path) => isActive(path)) &&
-      !isActive("/news-events") &&
-      !isActive("/my-benefits-team"));
+    (!!pathname && !hubPaths.some((path) => isActive(path)));
 
   /**
    * The desktop nav's link treatment: an UNDERLINE in the plan's primary colour
@@ -358,6 +384,49 @@ export function PortalHeader({
         }
       : {}),
   });
+  /**
+   * The mobile drawer repeats the desktop treatment on a full-width row — the
+   * same underline in the plan's colour over the same wash of it, with the same
+   * theme-driven corners — so "where am I" never means one thing on desktop and
+   * another on mobile. `nested` is the benefit group's own list, which sits one
+   * indent deeper and a step smaller.
+   */
+  const drawerLinkClass = (active: boolean, nested = false) =>
+    cn(
+      navLinkClass(active),
+      // `navLinkClass` styles the desktop links, which are `Button`s and so
+      // already `inline-flex`. The drawer's rows are plain links and divs, so
+      // the display utility has to be stated here — without it they fall back
+      // to inline and flow beside each other, wrapping into one another.
+      "flex w-full items-center px-3",
+      nested
+        ? cn("py-2 text-sm", active ? "font-medium" : "font-normal")
+        : "py-2.5 text-sm",
+    );
+
+  /**
+   * Where the mobile drawer is drawn.
+   *
+   * It is opened from the header, and the header lives inside the layout's
+   * `fixed z-50` wrapper — which is a stacking context. Anything drawn inside
+   * one is capped at its ancestor's z-index, no matter its own, which is why the
+   * chatbot's `z-[60]` pill painted over the open drawer despite the drawer's
+   * `z-[200]`. Rendering the drawer into `.portal-root` (the layout's root,
+   * which is not a stacking context) puts it on the chatbot's own footing and
+   * lets its z-index win.
+   *
+   * `.portal-root` rather than `document.body` so the drawer keeps inheriting
+   * the plan's theme variables — the corner radius above is one of them.
+   * `document.body` is the fallback for the wizard previews, which render this
+   * header outside a portal root.
+   */
+  const headerRef = useRef<HTMLElement | null>(null);
+  const [drawerHost, setDrawerHost] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setDrawerHost(
+      headerRef.current?.closest<HTMLElement>(".portal-root") ?? document.body,
+    );
+  }, []);
 
   // Sync showBanner with showAlertBanner prop
   useEffect(() => {
@@ -407,6 +476,7 @@ export function PortalHeader({
     <>
       {/* Header */}
       <header
+        ref={headerRef}
         className="bg-white shadow-md transition-all duration-300 overflow-hidden"
         style={
           isScaled && naturalHeaderHeight != null
@@ -685,91 +755,74 @@ export function PortalHeader({
         </div>
       </header>
 
-      {/* Mobile side nav drawer with animation */}
+      {/* Mobile side nav drawer with animation. Drawn through `drawerHost`, so
+          its high z-index is not confined by the header's `fixed z-50` wrapper
+          — see the note on `drawerHost` above. */}
       <AnimatePresence>
-        {mobileMenuOpen && (
-          <div className="fixed inset-0 z-[200] md:hidden">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="absolute inset-0 bg-black/50"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-            {/* Drawer */}
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              className="absolute right-0 top-0 h-full w-[280px] bg-white shadow-2xl flex flex-col"
+        {mobileMenuOpen && drawerHost ? (
+          <PortalInto host={drawerHost}>
+            <div
+              data-testid="portal-mobile-drawer"
+              className="fixed inset-0 z-[200] md:hidden"
             >
-              {/* Drawer header — logo removed, compact */}
-              <div className="flex items-center justify-end px-4 py-1.5 border-b min-h-0">
-                <button
-                  type="button"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="rounded-lg p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
-                  aria-label="Close menu"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-
-              {/* Drawer navigation links — tighter spacing */}
-              <nav className="flex-1 overflow-y-auto py-2 px-3 space-y-0.5">
-                {/* Home */}
-                {enableNavigation ? (
-                  <Link
-                    href={withPortalQuery(baseUrl)}
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.2 }}
+                className="absolute inset-0 bg-black/50"
+                onClick={() => setMobileMenuOpen(false)}
+              />
+              {/* Drawer — full-bleed on phones: the menu is the whole screen
+                  there, so it slides in as a page rather than a side sheet. */}
+              <motion.div
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                className="absolute inset-y-0 right-0 flex w-full flex-col bg-white shadow-2xl"
+              >
+                {/* Drawer header — the plan's logo on the left, the close
+                    control on the right. Taller than the old strip so the logo
+                    reads as branding instead of a clipped thumbnail. The logo
+                    is not a link here: Home is the first row below, and two
+                    ways home in a 280px-wide menu is one too many. */}
+                <div className="flex min-h-[4rem] items-center justify-between gap-3 border-b px-4 py-3">
+                  {companyData?.companyLogo ? (
+                    <BrandingImage
+                      src={companyData.companyLogo}
+                      alt="Company Logo"
+                      className="object-contain"
+                      style={{
+                        maxHeight: HEADER_LOGO_BAND_PX,
+                        maxWidth: HEADER_LOGO_MAX_WIDTH_PX,
+                      }}
+                    />
+                  ) : (
+                    <span aria-hidden="true" />
+                  )}
+                  <button
+                    type="button"
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                      isHomeActive
-                        ? "text-white"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                    }`}
-                    style={
-                      isHomeActive ? { backgroundColor: brandColor } : undefined
-                    }
+                    className="rounded-lg p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
+                    aria-label="Close menu"
                   >
-                    <svg
-                      className="mr-3 h-5 w-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                      <polyline points="9 22 9 12 15 12 15 22" />
-                    </svg>
-                    Home
-                  </Link>
-                ) : (
-                  <span className="flex items-center rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600">
-                    <svg
-                      className="mr-3 h-5 w-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-                      <polyline points="9 22 9 12 15 12 15 22" />
-                    </svg>
-                    Home
-                  </span>
-                )}
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
 
-                {/* Your Benefits sub-links */}
-                {benefitsNavItems.length > 0 && (
-                  <div className="space-y-0.5">
-                    <div className="flex items-center rounded-lg px-3 py-2 text-sm font-medium text-gray-600">
+                {/* Drawer navigation links — tighter spacing */}
+                <nav className="flex-1 overflow-y-auto py-2 px-3 space-y-0.5">
+                  {/* Home */}
+                  {enableNavigation ? (
+                    <Link
+                      href={withPortalQuery(baseUrl)}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={drawerLinkClass(isHomeActive)}
+                      style={navLinkStyle(isHomeActive)}
+                      aria-current={isHomeActive ? "page" : undefined}
+                    >
                       <svg
                         className="mr-3 h-5 w-5"
                         viewBox="0 0 24 24"
@@ -779,187 +832,214 @@ export function PortalHeader({
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       >
-                        <path d="M12 20h9" />
-                        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        <polyline points="9 22 9 12 15 12 15 22" />
                       </svg>
-                      Your Benefits
-                    </div>
-                    <div className="ml-4 space-y-0.5 border-l border-gray-200 pl-3">
-                      {benefitsNavItems.map((item) =>
-                        enableNavigation ? (
-                          <Link
-                            key={item.path}
-                            href={withPortalQuery(`${baseUrl}${item.path}`)}
-                            onClick={() => setMobileMenuOpen(false)}
-                            className={`flex items-center rounded-lg px-3 py-2 text-sm transition-colors ${
-                              isActive(item.path)
-                                ? "text-white font-medium"
-                                : "text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                            }`}
-                            style={
-                              isActive(item.path)
-                                ? { backgroundColor: brandColor }
-                                : undefined
-                            }
-                          >
-                            {item.label}
-                          </Link>
-                        ) : (
-                          <span
-                            key={item.path}
-                            className="flex items-center rounded-lg px-3 py-2 text-sm text-gray-500"
-                          >
-                            {item.label}
-                          </span>
-                        ),
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* News & Events */}
-                {enableNavigation ? (
-                  <Link
-                    href={withPortalQuery(`${baseUrl}/news-events`)}
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                      isActive("/news-events")
-                        ? "text-white"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                    }`}
-                    style={
-                      isActive("/news-events")
-                        ? { backgroundColor: brandColor }
-                        : undefined
-                    }
-                  >
-                    <svg
-                      className="mr-3 h-5 w-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                      <line x1="16" y1="2" x2="16" y2="6" />
-                      <line x1="8" y1="2" x2="8" y2="6" />
-                      <line x1="3" y1="10" x2="21" y2="10" />
-                    </svg>
-                    News & Events
-                  </Link>
-                ) : (
-                  <span className="flex items-center rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600">
-                    <svg
-                      className="mr-3 h-5 w-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
-                      <line x1="16" y1="2" x2="16" y2="6" />
-                      <line x1="8" y1="2" x2="8" y2="6" />
-                      <line x1="3" y1="10" x2="21" y2="10" />
-                    </svg>
-                    News & Events
-                  </span>
-                )}
-
-                {/* Employee Resources (TF-6) */}
-                {employeeResourcesEnabled &&
-                  (enableNavigation ? (
-                    <Link
-                      href={withPortalQuery(`${baseUrl}/employee-resources`)}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                        isActive("/employee-resources")
-                          ? "text-white"
-                          : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                      }`}
-                      style={
-                        isActive("/employee-resources")
-                          ? { backgroundColor: brandColor }
-                          : undefined
-                      }
-                    >
-                      Employee Resources
+                      Home
                     </Link>
                   ) : (
                     <span className="flex items-center rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600">
-                      Employee Resources
+                      <svg
+                        className="mr-3 h-5 w-5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                        <polyline points="9 22 9 12 15 12 15 22" />
+                      </svg>
+                      Home
                     </span>
-                  ))}
+                  )}
 
-                {/* My Benefits Team */}
-                {enableNavigation ? (
-                  <Link
-                    href={withPortalQuery(`${baseUrl}/my-benefits-team`)}
+                  {/* Your Benefits sub-links */}
+                  {benefitsNavItems.length > 0 && (
+                    <div className="space-y-0.5">
+                      {/* The group row marks itself while one of its hubs is
+                          open — the mobile counterpart of the desktop trigger. */}
+                      <div
+                        className={drawerLinkClass(isBenefitsActive)}
+                        style={navLinkStyle(isBenefitsActive)}
+                      >
+                        <svg
+                          className="mr-3 h-5 w-5"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M12 20h9" />
+                          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+                        </svg>
+                        Your Benefits
+                      </div>
+                      <div className="ml-4 space-y-0.5 border-l border-gray-200 pl-3">
+                        {benefitsNavItems.map((item) =>
+                          enableNavigation ? (
+                            <Link
+                              key={item.path}
+                              href={withPortalQuery(`${baseUrl}${item.path}`)}
+                              onClick={() => setMobileMenuOpen(false)}
+                              className={drawerLinkClass(
+                                isActive(item.path),
+                                true,
+                              )}
+                              style={navLinkStyle(isActive(item.path))}
+                              aria-current={
+                                isActive(item.path) ? "page" : undefined
+                              }
+                            >
+                              {item.label}
+                            </Link>
+                          ) : (
+                            <span
+                              key={item.path}
+                              className="flex items-center rounded-lg px-3 py-2 text-sm text-gray-500"
+                            >
+                              {item.label}
+                            </span>
+                          ),
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* News & Events */}
+                  {enableNavigation ? (
+                    <Link
+                      href={withPortalQuery(`${baseUrl}/news-events`)}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={drawerLinkClass(isActive("/news-events"))}
+                      style={navLinkStyle(isActive("/news-events"))}
+                      aria-current={
+                        isActive("/news-events") ? "page" : undefined
+                      }
+                    >
+                      <svg
+                        className="mr-3 h-5 w-5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                        <line x1="16" y1="2" x2="16" y2="6" />
+                        <line x1="8" y1="2" x2="8" y2="6" />
+                        <line x1="3" y1="10" x2="21" y2="10" />
+                      </svg>
+                      News & Events
+                    </Link>
+                  ) : (
+                    <span className="flex items-center rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600">
+                      <svg
+                        className="mr-3 h-5 w-5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+                        <line x1="16" y1="2" x2="16" y2="6" />
+                        <line x1="8" y1="2" x2="8" y2="6" />
+                        <line x1="3" y1="10" x2="21" y2="10" />
+                      </svg>
+                      News & Events
+                    </span>
+                  )}
+
+                  {/* Employee Resources (TF-6) */}
+                  {employeeResourcesEnabled &&
+                    (enableNavigation ? (
+                      <Link
+                        href={withPortalQuery(`${baseUrl}/employee-resources`)}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={drawerLinkClass(
+                          isActive("/employee-resources"),
+                        )}
+                        style={navLinkStyle(isActive("/employee-resources"))}
+                        aria-current={
+                          isActive("/employee-resources") ? "page" : undefined
+                        }
+                      >
+                        Employee Resources
+                      </Link>
+                    ) : (
+                      <span className="flex items-center rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600">
+                        Employee Resources
+                      </span>
+                    ))}
+
+                  {/* My Benefits Team */}
+                  {enableNavigation ? (
+                    <Link
+                      href={withPortalQuery(`${baseUrl}/my-benefits-team`)}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={drawerLinkClass(isActive("/my-benefits-team"))}
+                      style={navLinkStyle(isActive("/my-benefits-team"))}
+                      aria-current={
+                        isActive("/my-benefits-team") ? "page" : undefined
+                      }
+                    >
+                      <svg
+                        className="mr-3 h-5 w-5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </svg>
+                      My Benefits Team
+                    </Link>
+                  ) : (
+                    <span className="flex items-center rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600">
+                      <svg
+                        className="mr-3 h-5 w-5"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                        <circle cx="9" cy="7" r="4" />
+                        <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
+                        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                      </svg>
+                      My Benefits Team
+                    </span>
+                  )}
+                </nav>
+
+                {/* Drawer footer close button — compact */}
+                <div className="px-4 py-2.5 border-t border-gray-100">
+                  <button
+                    type="button"
                     onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                      isActive("/my-benefits-team")
-                        ? "text-white"
-                        : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
-                    }`}
-                    style={
-                      isActive("/my-benefits-team")
-                        ? { backgroundColor: brandColor }
-                        : undefined
-                    }
+                    className="w-full rounded-lg py-2.5 text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-colors"
                   >
-                    <svg
-                      className="mr-3 h-5 w-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                    </svg>
-                    My Benefits Team
-                  </Link>
-                ) : (
-                  <span className="flex items-center rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600">
-                    <svg
-                      className="mr-3 h-5 w-5"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-                      <circle cx="9" cy="7" r="4" />
-                      <path d="M22 21v-2a4 4 0 0 0-3-3.87" />
-                      <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-                    </svg>
-                    My Benefits Team
-                  </span>
-                )}
-              </nav>
-
-              {/* Drawer footer close button — compact */}
-              <div className="px-4 py-2.5 border-t border-gray-100">
-                <button
-                  type="button"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full rounded-lg py-2.5 text-sm font-semibold text-gray-600 border border-gray-200 hover:bg-gray-50 hover:text-gray-900 transition-colors"
-                >
-                  Close
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
+                    Close
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          </PortalInto>
+        ) : null}
       </AnimatePresence>
     </>
   );

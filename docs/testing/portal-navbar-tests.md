@@ -6,7 +6,7 @@ The landing page hides `ClientPortal`'s own header and footer, so **this file is
 
 ## Summary
 
-- **Unit tests:** 116 passing in 9 files
+- **Unit tests:** 185 passing in 11 files
 - **E2E:** none yet (see [Remaining coverage](#remaining-coverage))
 - **Runner:** Vitest + React Testing Library + jsdom
 
@@ -32,7 +32,7 @@ The default export wraps everything in this order — worth asserting because ea
 ## Running these tests
 
 ```bash
-pnpm test:portal-navbar           # all chrome suites (116 tests)
+pnpm test:portal-navbar           # all chrome suites (185 tests)
 pnpm test:portal-navbar:watch     # watch mode
 pnpm test:portal-navbar:coverage  # suites + V8 coverage
 ```
@@ -41,17 +41,38 @@ Backed by [`config/vitest/vitest.portal-navbar.config.mts`](../../config/vitest/
 
 ## Test inventory
 
-| #   | Suite                                                         | Tests | Focus                                                                     |
-| --- | ------------------------------------------------------------- | ----: | ------------------------------------------------------------------------- |
-| 1   | `app/(portal)/[id]/__tests__/layout.test.tsx`                 |    30 | Composition, banner, back links, light mode, comment surface, disclosures |
-| 2   | `components/comments/__tests__/portal-comments-rail.test.tsx` |    11 | The three arming gates and the on/off control                             |
-| 3   | `components/comments/__tests__/portal-comments-zoom.test.tsx` |    10 | Scale clamp, height division, inset override, observer lifecycle          |
-| 4   | `components/layout/__tests__/footer.test.tsx`                 |    13 | Trust bar, disclosure text, copyright, text colour                        |
-| 5   | `lib/__tests__/portal-banner.test.ts`                         |    10 | CTA normalisation and countdown arithmetic                                |
-| 6   | `lib/__tests__/benefit-custom-name.test.ts`                   |    20 | Custom hub naming, placeholders, route segment                            |
-| 7   | `lib/__tests__/typography-themes.test.ts`                     |     9 | CSS variables, Classic fallback, apply/restore                            |
-| 8   | `lib/__tests__/light-surface-text-color.test.ts`              |     7 | Footer text colour vs maximum contrast                                    |
-| 9   | `app/(portal)/[id]/not-found/__tests__/page.test.tsx`         |     6 | The portal's own 404, inside this chrome                                  |
+| #   | Suite                                                                            | Tests | Focus                                                                     |
+| --- | -------------------------------------------------------------------------------- | ----: | ------------------------------------------------------------------------- |
+| 1   | `app/(portal)/[id]/__tests__/layout.test.tsx`                                     |    35 | Composition, banner, back links, light mode, comment surface, disclosures |
+| 2   | `components/pages/client-portal/sections/__tests__/portal-header-login.test.tsx`   |    37 | Header CTA modes, comments flag, active nav state, the mobile drawer      |
+| 3   | `components/pages/client-portal/sections/__tests__/portal-chatbot.test.tsx`        |    10 | The chat pill, its panel, the plan's colours                              |
+| 4   | `components/comments/__tests__/portal-comments-rail.test.tsx`                      |    15 | The three arming gates and the on/off control                             |
+| 5   | `components/comments/__tests__/portal-comments-zoom.test.tsx`                      |    13 | Scale clamp, height division, inset override, observer lifecycle          |
+| 6   | `components/layout/__tests__/footer.test.tsx`                                      |    13 | Trust bar, disclosure text, copyright, text colour                        |
+| 7   | `lib/__tests__/portal-banner.test.ts`                                              |    10 | CTA normalisation and countdown arithmetic                                |
+| 8   | `lib/__tests__/benefit-custom-name.test.ts`                                        |    20 | Custom hub naming, placeholders, route segment                            |
+| 9   | `lib/__tests__/typography-themes.test.ts`                                          |    18 | CSS variables, Classic fallback, apply/restore                            |
+| 10  | `lib/__tests__/light-surface-text-color.test.ts`                                   |     7 | Footer text colour vs maximum contrast                                    |
+| 11  | `app/(portal)/[id]/not-found/__tests__/page.test.tsx`                              |     7 | The portal's own 404, inside this chrome                                  |
+
+## The mobile drawer
+
+Two contracts are pinned by `portal-header-login.test.tsx`, both of which have
+already regressed once:
+
+1. **It wears the desktop treatment.** The current page is underlined in the
+   plan's colour over a wash of it, with the plan's Typography-Theme corner
+   radius — never a solid brand pill, which competed with the header's one call
+   to action. The "Your Benefits" row marks itself on all four hubs, and exactly
+   one row is ever current: `/employee-resources` is in the same list as the
+   hubs, so Home does not light up beside it.
+2. **It is drawn above the chatbot.** The header lives in the layout's
+   `fixed z-50` wrapper, which is a stacking context, so a drawer nested inside
+   it was capped at 50 and the chatbot's `z-[60]` pill painted over the open
+   menu. The drawer is portalled to `.portal-root` instead — beside the chatbot,
+   where its own `z-[200]` wins — which also keeps it inheriting the plan's
+   theme variables. `AnimatePresence` drops a bare `createPortal(...)` child
+   (it is not a React element), so the call is wrapped in `PortalInto`.
 
 ## Remaining coverage
 

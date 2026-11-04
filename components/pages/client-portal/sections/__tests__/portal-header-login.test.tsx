@@ -1,6 +1,6 @@
 import React from "react";
 
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -382,12 +382,152 @@ describe("PortalHeader nav active state", () => {
     expect(other.style.backgroundColor).toBe("");
   });
 
-  it("marks the benefit group while one of its hubs is open", () => {
-    mocks.pathname = "/plan-1/retirement";
+  it.each([
+    ["Retirement", "/plan-1/retirement"],
+    ["Health Insurance", "/plan-1/health-insurance"],
+    ["Life Insurance", "/plan-1/life-insurance"],
+    ["Custom benefit", "/plan-1/wellness-programs"],
+  ])("marks the benefit group on the %s hub", (_hub, pathname) => {
+    mocks.pathname = pathname;
     render(<PortalHeader clientId="plan-1" brandColor="#abcdef" />);
 
     const trigger = screen.getByRole("button", { name: "Your Benefits" });
     expect(trigger).toHaveStyle({ borderBottomColor: "#abcdef" });
     expect(trigger.style.backgroundColor).not.toBe("");
+  });
+});
+
+/**
+ * The drawer is the same navigation in a narrower viewport, so it wears the
+ * same treatment: an underline in the plan's colour over a wash of it, with the
+ * plan's corner radius.
+ *
+ * It is also drawn through a portal rather than inside the header, because the
+ * header sits in the layout's `fixed z-50` wrapper. That wrapper is a stacking
+ * context, so a `z-[200]` drawer nested in it was still painted BELOW the
+ * chatbot's `z-[60]` pill — the menu opened underneath "Ask a question".
+ */
+describe("PortalHeader mobile drawer", () => {
+  beforeEach(() => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+  });
+
+  afterEach(() => {
+    // Unmount BEFORE clearing the DOM. These tests portal the drawer outside
+    // React's own container, so wiping the body out from under the tree makes
+    // the unmount throw "node to be removed is not a child of this node".
+    cleanup();
+    document.body.innerHTML = "";
+    vi.unstubAllGlobals();
+  });
+
+  async function openDrawer(options?: { container?: HTMLElement }) {
+    const user = userEvent.setup();
+    render(
+      <PortalHeader
+        clientId="plan-1"
+        brandColor="#abcdef"
+        employeeResourcesEnabled
+      />,
+      options,
+    );
+    await user.click(screen.getByRole("button", { name: "Open menu" }));
+    return within(screen.getByTestId("portal-mobile-drawer"));
+  }
+
+  it("underlines the current page in the plan's colour, over a light tint", async () => {
+    mocks.pathname = "/plan-1/news-events";
+    const drawer = await openDrawer();
+
+    const current = drawer.getByRole("link", { name: "News & Events" });
+    expect(current.className).toContain("border-b-2");
+    expect(current).toHaveStyle({ borderBottomColor: "#abcdef" });
+    expect(current.style.backgroundColor).not.toBe("");
+    expect(current.style.backgroundColor).not.toBe("#abcdef");
+    // The radius is the theme's, not a fixed utility.
+    expect(current.getAttribute("style") ?? "").toContain("border-radius");
+    expect(current.getAttribute("aria-current")).toBe("page");
+  });
+
+  it("leaves the other rows unmarked", async () => {
+    mocks.pathname = "/plan-1/news-events";
+    const drawer = await openDrawer();
+
+    const other = drawer.getByRole("link", { name: "My Benefits Team" });
+    expect(other.className).toContain("border-transparent");
+    expect(other.style.borderBottomColor).toBe("");
+    expect(other.style.backgroundColor).toBe("");
+    expect(other.getAttribute("aria-current")).toBeNull();
+  });
+
+  it.each([
+    ["Retirement", "/plan-1/retirement"],
+    ["Health Insurance", "/plan-1/health-insurance"],
+    ["Life Insurance", "/plan-1/life-insurance"],
+    ["Custom benefit", "/plan-1/wellness-programs"],
+  ])("marks the Your Benefits row on the %s hub", async (_hub, pathname) => {
+    mocks.pathname = pathname;
+    const drawer = await openDrawer();
+
+    const group = drawer.getByText("Your Benefits");
+    expect(group).toHaveStyle({ borderBottomColor: "#abcdef" });
+    expect(group.style.backgroundColor).not.toBe("");
+  });
+
+  it("leaves the Your Benefits row unmarked away from the hubs", async () => {
+    mocks.pathname = "/plan-1/news-events";
+    const drawer = await openDrawer();
+
+    const group = drawer.getByText("Your Benefits");
+    expect(group.className).toContain("border-transparent");
+    expect(group.style.backgroundColor).toBe("");
+  });
+
+  it("marks only the hub you are on — never Home as well", async () => {
+    mocks.pathname = "/plan-1/employee-resources";
+    const drawer = await openDrawer();
+
+    const current = drawer.getByRole("link", { name: "Employee Resources" });
+    expect(current).toHaveStyle({ borderBottomColor: "#abcdef" });
+    expect(current.getAttribute("aria-current")).toBe("page");
+
+    // Home used to light up too: `/employee-resources` was missing from the
+    // list of routes that own a link of their own, so the page looked like a
+    // child of the landing page.
+    const home = drawer.getByRole("link", { name: "Home" });
+    expect(home.className).toContain("border-transparent");
+    expect(home.style.backgroundColor).toBe("");
+    expect(home.getAttribute("aria-current")).toBeNull();
+  });
+
+  it("fills the phone's screen", async () => {
+    mocks.pathname = "/plan-1";
+    await openDrawer();
+
+    const overlay = screen.getByTestId("portal-mobile-drawer");
+    const panel = overlay.lastElementChild as HTMLElement;
+    expect(panel.className).toContain("w-full");
+    expect(panel.className).not.toContain("w-[280px]");
+  });
+
+  it("is drawn outside the header's stacking context, so it covers the chatbot", async () => {
+    // The layout's structure: a `.portal-root` wrapping the `fixed z-50` header
+    // slot. A drawer left inside the slot is capped at 50…
+    const root = document.createElement("div");
+    root.className = "portal-root";
+    const headerSlot = document.createElement("div");
+    headerSlot.className = "fixed left-0 z-50";
+    root.appendChild(headerSlot);
+    document.body.appendChild(root);
+
+    mocks.pathname = "/plan-1";
+    await openDrawer({ container: headerSlot });
+
+    // …but the drawer is a child of the portal root, beside the header slot,
+    // where its own z-index is compared against the chatbot's directly.
+    const drawer = screen.getByTestId("portal-mobile-drawer");
+    expect(headerSlot.contains(drawer)).toBe(false);
+    expect(root.contains(drawer)).toBe(true);
+    expect(drawer.className).toContain("z-[200]");
   });
 });
