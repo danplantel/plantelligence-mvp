@@ -559,6 +559,9 @@ export function EditBenefitPreviewSection({
                 selectedPlan?.employeePortalPreview?.headerCta ??
                 null
               }
+              // The header is mounted beside the preview root, so it needs the
+              // theme itself to follow the plan's corner treatment.
+              typographyTheme={typographyTheme}
               enableNavigation={false}
               scale={scale}
               referenceWidth={contentWidth}
@@ -611,6 +614,7 @@ export function EditBenefitPreviewSection({
                           selectedPlan?.employeePortalPreview?.headerCta ??
                           null
                         }
+                        typographyTheme={typographyTheme}
                         enableNavigation={false}
                       />
                     </div>

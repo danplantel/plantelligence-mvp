@@ -1390,6 +1390,8 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
               clientId={draftClientId}
               categoryPortalVisibility={null}
               benefits={null}
+              // The header sits beside the themed preview root, not inside it.
+              typographyTheme={typographyTheme}
               enableNavigation={false}
               scale={scale}
               referenceWidth={DESKTOP_WIDTH}
@@ -1437,6 +1439,7 @@ export function NewClientStep2({ errorFields = [] }: NewClientStep2Props) {
                         clientId={draftClientId}
                         categoryPortalVisibility={null}
                         benefits={null}
+                        typographyTheme={typographyTheme}
                         enableNavigation={false}
                       />
                     </div>

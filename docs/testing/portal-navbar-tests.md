@@ -6,7 +6,7 @@ The landing page hides `ClientPortal`'s own header and footer, so **this file is
 
 ## Summary
 
-- **Unit tests:** 185 passing in 11 files
+- **Unit tests:** 188 passing in 11 files
 - **E2E:** none yet (see [Remaining coverage](#remaining-coverage))
 - **Runner:** Vitest + React Testing Library + jsdom
 
@@ -32,7 +32,7 @@ The default export wraps everything in this order — worth asserting because ea
 ## Running these tests
 
 ```bash
-pnpm test:portal-navbar           # all chrome suites (185 tests)
+pnpm test:portal-navbar           # all chrome suites (188 tests)
 pnpm test:portal-navbar:watch     # watch mode
 pnpm test:portal-navbar:coverage  # suites + V8 coverage
 ```
@@ -44,7 +44,7 @@ Backed by [`config/vitest/vitest.portal-navbar.config.mts`](../../config/vitest/
 | #   | Suite                                                                            | Tests | Focus                                                                     |
 | --- | -------------------------------------------------------------------------------- | ----: | ------------------------------------------------------------------------- |
 | 1   | `app/(portal)/[id]/__tests__/layout.test.tsx`                                     |    35 | Composition, banner, back links, light mode, comment surface, disclosures |
-| 2   | `components/pages/client-portal/sections/__tests__/portal-header-login.test.tsx`   |    37 | Header CTA modes, comments flag, active nav state, the mobile drawer      |
+| 2   | `components/pages/client-portal/sections/__tests__/portal-header-login.test.tsx`   |    40 | Header CTA modes, comments flag, active nav state, drawer, theme          |
 | 3   | `components/pages/client-portal/sections/__tests__/portal-chatbot.test.tsx`        |    10 | The chat pill, its panel, the plan's colours                              |
 | 4   | `components/comments/__tests__/portal-comments-rail.test.tsx`                      |    15 | The three arming gates and the on/off control                             |
 | 5   | `components/comments/__tests__/portal-comments-zoom.test.tsx`                      |    13 | Scale clamp, height division, inset override, observer lifecycle          |
@@ -73,6 +73,20 @@ already regressed once:
    where its own `z-[200]` wins — which also keeps it inheriting the plan's
    theme variables. `AnimatePresence` drops a bare `createPortal(...)` child
    (it is not a React element), so the call is wrapped in `PortalInto`.
+
+## The header and the typography theme
+
+`PortalHeader` takes an optional `typographyTheme` and publishes it on its own
+`<header>` (and on the portalled drawer) as `--portal-radius` plus
+`font-family: var(--font-ui)`. The live portal already does this on
+`.portal-root`, but every editor preview mounts the header **beside** its themed
+preview root — so before this, changing the theme in Create/Edit Benefits left
+the header's nav and its call to action untouched. Two consequences are pinned:
+
+- the call to action uses `portalRadiusValue(2)`, not `rounded-full`: a `round`
+  plan reads pill-like, a `sharp` plan squares it off.
+- the theme reaches the nav links through `portalRadiusValue()` on each row, so
+  the header follows a theme change made in the Portal Edit Panel live.
 
 ## Remaining coverage
 

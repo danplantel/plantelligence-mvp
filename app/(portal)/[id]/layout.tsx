@@ -628,6 +628,10 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
           // whole `employeePortalPreview` blob already ships in the portal payload,
           // so no extra fetch is needed; the header normalizes it (absent ⇒ Login).
           headerCta={(clientData as any)?.employeePortalPreview?.headerCta}
+          // The plan's typography theme, so the header's own buttons and links
+          // follow its corner treatment — including while the editing panel
+          // changes it.
+          typographyTheme={typographyTheme}
         />
       </div>
 

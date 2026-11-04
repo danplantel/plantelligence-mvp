@@ -531,3 +531,57 @@ describe("PortalHeader mobile drawer", () => {
     expect(drawer.className).toContain("z-[200]");
   });
 });
+
+/**
+ * The plan's typography theme owns the header's chrome — its corner treatment
+ * and its `ui` font.
+ *
+ * The live portal publishes those variables on `.portal-root`, but the editors
+ * mount the header BESIDE their themed preview root, so the plan's shape used to
+ * reach every button on the page except the header's own. The header now carries
+ * the theme itself, which is what makes changing the theme in Create/Edit
+ * Benefits (and in the Portal Edit Panel) show up on the nav and the CTA.
+ */
+describe("PortalHeader typography theme", () => {
+  beforeEach(() => {
+    vi.stubGlobal("ResizeObserver", ResizeObserverStub);
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.unstubAllGlobals();
+  });
+
+  it("publishes the plan's theme on the header itself", () => {
+    mocks.pathname = "/plan-1/retirement";
+    render(<PortalHeader clientId="plan-1" typographyTheme="classic" />);
+
+    const style =
+      (document.querySelector("header") as HTMLElement).getAttribute("style") ??
+      "";
+    // Classic is the sharp theme: every rounded utility squares off.
+    expect(style).toContain("--portal-radius");
+    expect(style).toContain("0px");
+    expect(style).toContain("var(--font-ui)");
+  });
+
+  it("gives the call to action the theme's corner treatment", () => {
+    mocks.pathname = "/plan-1/retirement";
+    render(<PortalHeader clientId="plan-1" typographyTheme="classic" />);
+
+    const cta = screen.getByRole("button", { name: "Login" });
+    const style = cta.getAttribute("style") ?? "";
+    // A calc off the variable, not a pinned `rounded-full`.
+    expect(style).toContain("border-radius");
+    expect(style).toContain("--portal-radius");
+    expect(cta.className).not.toContain("rounded-full");
+  });
+
+  it("leaves the theme alone when the caller does not pass one", () => {
+    mocks.pathname = "/plan-1/retirement";
+    render(<PortalHeader clientId="plan-1" />);
+
+    const header = document.querySelector("header") as HTMLElement;
+    expect(header.getAttribute("style") ?? "").not.toContain("--portal-radius");
+  });
+});

@@ -651,6 +651,8 @@ export function EditPlanPreviewSection({
               // The plan's own header button (Login / Schedule / None), so this
               // preview matches what the portal will render.
               headerCta={(portalData as any)?.employeePortalPreview?.headerCta}
+              // The header sits beside the themed preview root, not inside it.
+              typographyTheme={typographyTheme}
               enableNavigation={false}
               scale={scale}
               referenceWidth={contentWidth}
@@ -702,6 +704,7 @@ export function EditPlanPreviewSection({
                         headerCta={
                           (portalData as any)?.employeePortalPreview?.headerCta
                         }
+                        typographyTheme={typographyTheme}
                         enableNavigation={false}
                       />
                     </div>

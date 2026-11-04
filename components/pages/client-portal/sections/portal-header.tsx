@@ -39,7 +39,10 @@ import {
   HEADER_LOGO_BAND_PX,
   HEADER_LOGO_MAX_WIDTH_PX,
 } from "@/lib/header-logo-band";
-import { portalRadiusValue } from "@/lib/typography-themes";
+import {
+  getPortalThemeCssVars,
+  portalRadiusValue,
+} from "@/lib/typography-themes";
 import {
   COMMENTS_RAIL_PARAM,
   COMMENTS_RAIL_VALUE,
@@ -127,6 +130,16 @@ interface PortalHeaderProps {
   scale?: number;
   /** Design width the header content is laid out at before being scaled. */
   referenceWidth?: number;
+  /**
+   * The plan's typography theme.
+   *
+   * The live portal already publishes these variables on `.portal-root`, but an
+   * editor preview mounts the header BESIDE its preview root rather than inside
+   * it — so the plan's corner treatment reached everything on the page except
+   * the header's own buttons and links. Passing the theme makes the header
+   * theme-aware wherever it is mounted.
+   */
+  typographyTheme?: string | null;
 }
 
 /**
@@ -163,8 +176,24 @@ export function PortalHeader({
   headerCta,
   scale = 1,
   referenceWidth = 1400,
+  typographyTheme,
 }: PortalHeaderProps) {
   const visibility = getCategoryPortalVisibility(categoryPortalVisibilityRaw);
+
+  /**
+   * The plan's theme, scoped to the header itself.
+   *
+   * `fontFamily` rides along because the theme's `ui` role owns navigation,
+   * buttons and labels: the live portal sets it on `.portal-root`, and without
+   * it here a preview's header would fall back to the app's font while the page
+   * beneath it used the plan's.
+   */
+  const themeStyle = typographyTheme
+    ? ({
+        ...getPortalThemeCssVars(typographyTheme),
+        fontFamily: "var(--font-ui)",
+      } as React.CSSProperties)
+    : undefined;
 
   // ── The header's one call to action ──
   // `schedule` is a plan-wide booking button, so it renders on every page; `login`
@@ -181,10 +210,15 @@ export function PortalHeader({
         : HAVE_QUESTIONS_SECTION_ID,
     );
   const headerCtaClass =
-    "order-1 gap-2 rounded-full px-4 text-xs font-semibold shadow-sm transition-opacity hover:opacity-90 sm:text-sm md:order-2";
+    "order-1 gap-2 px-4 text-xs font-semibold shadow-sm transition-opacity hover:opacity-90 sm:text-sm md:order-2";
   const headerCtaStyle = {
     backgroundColor: brandColor,
     color: readableColor(brandColor),
+    // The theme's corner treatment at the CTA's own weight: a `round` plan keeps
+    // it pill-like, a `sharp` plan squares it off. `rounded-full` used to pin
+    // the header's most prominent button to one shape for every plan, which is
+    // why changing the theme appeared to leave the header untouched.
+    borderRadius: portalRadiusValue(2),
   };
   // `showHeaderCta` / `headerCtaAsLink` are derived further down, once
   // `isBenefitsActive` exists — they need it.
@@ -480,8 +514,8 @@ export function PortalHeader({
         className="bg-white shadow-md transition-all duration-300 overflow-hidden"
         style={
           isScaled && naturalHeaderHeight != null
-            ? { height: naturalHeaderHeight * scale }
-            : undefined
+            ? { ...themeStyle, height: naturalHeaderHeight * scale }
+            : themeStyle
         }
       >
         {/* Content is laid out at `referenceWidth` and scaled down when the
@@ -761,9 +795,12 @@ export function PortalHeader({
       <AnimatePresence>
         {mobileMenuOpen && drawerHost ? (
           <PortalInto host={drawerHost}>
+            {/* The drawer is portalled out of the header, so it carries the
+                theme's variables of its own to keep the same corners. */}
             <div
               data-testid="portal-mobile-drawer"
               className="fixed inset-0 z-[200] md:hidden"
+              style={themeStyle}
             >
               {/* Backdrop */}
               <motion.div
