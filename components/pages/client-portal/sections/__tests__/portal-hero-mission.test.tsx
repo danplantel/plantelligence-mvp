@@ -191,6 +191,74 @@ describe("PortalHero", () => {
     expect(screen.getByText("--------")).toBeInTheDocument();
   });
 
+  it("washes the whole hero on phones instead of just the text card", () => {
+    renderHero({
+      companyData: { companyName: "Acme" },
+      useGradient: true,
+      containerBlockOpacity: 0.5,
+    });
+
+    // Full-bleed: the section's own box, hidden from `sm` up.
+    const wash = screen.getByTestId("hero-mobile-gradient");
+    expect(wash.className).toContain("absolute");
+    expect(wash.className).toContain("inset-0");
+    expect(wash.className).toContain("sm:hidden");
+    expect(wash).toHaveStyle({ opacity: "0.5" });
+
+    // …and the card stops painting its own copy of it below `sm`, so the two
+    // do not stack into a double-dark rectangle around the text.
+    const cardWash = document.querySelector(
+      '[data-container="true"] > div[aria-hidden="true"]',
+    ) as HTMLElement;
+    expect(cardWash.className).toContain("hidden");
+    expect(cardWash.className).toContain("sm:block");
+  });
+
+  it("extends a flat overlay across the hero on phones too", () => {
+    renderHero({
+      companyData: { companyName: "Acme" },
+      containerBlockOpacity: 0.4,
+    });
+
+    // Even without `useGradient` the wash belongs to the hero on a phone…
+    const wash = screen.getByTestId("hero-mobile-gradient");
+    expect(wash.className).toContain("sm:hidden");
+    expect(wash).toHaveStyle({ opacity: "0.4" });
+
+    // …and the card's plate is off below `sm` either way, so it can never show
+    // up again as a rectangle around the text.
+    const cardWash = document.querySelector(
+      '[data-container="true"] > div[aria-hidden="true"]',
+    ) as HTMLElement;
+    expect(cardWash.className).toContain("hidden");
+    expect(cardWash).toHaveStyle({ opacity: "0.4" });
+  });
+
+  it("left-aligns the body copy on phones", () => {
+    renderHero({
+      companyData: { companyName: "Acme" },
+      heroDescription: "Everything in one place",
+    });
+
+    const body = document.querySelector("p.text-content") as HTMLElement;
+    expect(body.className).toContain("text-left");
+    expect(body.className).toContain("sm:text-center");
+  });
+
+  it("left-aligns a multi-paragraph body on phones", () => {
+    renderHero({
+      companyData: { companyName: "Acme" },
+      heroDescription: "First line\n\nSecond line",
+    });
+
+    // Several paragraphs share one wrapper, which owns the alignment; the
+    // paragraphs themselves inherit it.
+    const block = (document.querySelector("p.text-content") as HTMLElement)
+      .parentElement as HTMLElement;
+    expect(block.className).toContain("text-left");
+    expect(block.className).toContain("sm:text-center");
+  });
+
   it("makes the headline and description editable in preview", async () => {
     const user = userEvent.setup();
     const onHeroTitleClick = vi.fn();

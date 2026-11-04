@@ -111,6 +111,31 @@ export function PortalHero({
     : (backgroundImg ?? backgroundImgRaw) || undefined;
   const hasBackgroundImage = Boolean(backgroundImgRaw?.trim());
 
+  /**
+   * The wash colour, as an RGB triplet — white when the plan inverted the
+   * container, black otherwise. Both washes below are built from it so they can
+   * never drift apart.
+   */
+  const washRgb = containerInverted ? "255, 255, 255" : "0, 0, 0";
+  /**
+   * What the text card paints behind itself, from `sm` up: the plan's gradient
+   * when it asked for one, a flat plate when it did not.
+   */
+  const cardWash = useGradient
+    ? `linear-gradient(to bottom, rgb(${washRgb}), rgba(${washRgb}, 0.2))`
+    : `rgb(${washRgb})`;
+  /**
+   * What a phone paints across the WHOLE hero — always the gradient form.
+   *
+   * On a narrow screen the card is nearly the page's width, so its plate read as
+   * a hard-edged rectangle floating in the middle of the photograph. Full-bleed
+   * reads as the image's own treatment instead. It is always the gradient, even
+   * for a plan that chose a flat plate: a flat fill stretched over 600px of
+   * photograph would black it out, while the gradient keeps the image legible
+   * under the text and clears towards the bottom.
+   */
+  const mobileWash = `linear-gradient(to bottom, rgb(${washRgb}), rgba(${washRgb}, 0.2))`;
+
   // Use a unique ID so the media‑query style can target this section precisely
   const sectionId = "hero-bg-section";
 
@@ -280,6 +305,15 @@ export function PortalHero({
         )}
       </div>
 
+      {/* Phone-only wash, across the whole hero — see `mobileWash`. Above `sm`
+          this layer is off and the text card carries the wash instead. */}
+      <div
+        aria-hidden="true"
+        data-testid="hero-mobile-gradient"
+        className="pointer-events-none absolute inset-0 z-[1] sm:hidden"
+        style={{ background: mobileWash, opacity: containerBlockOpacity }}
+      />
+
       <div className="z-10 relative flex justify-center items-center px-2 sm:px-6 lg:px-8 box-border h-full w-full">
         <div
           data-container="true"
@@ -314,19 +348,15 @@ export function PortalHero({
           }}
           {...containerInteractiveProps}
         >
-          {/* Container background layer - separate layer with opacity */}
+          {/* Container background layer - separate layer with opacity.
+              Desktop and tablet only: on phones the wash is the hero-wide layer
+              above, and painting this too would double it over the text. */}
           <div
             aria-hidden="true"
-            className="absolute inset-0 rounded-md pointer-events-none"
+            className="absolute inset-0 hidden rounded-md pointer-events-none sm:block"
             style={{
               borderRadius: portalRadiusValue(),
-              background: useGradient
-                ? containerInverted
-                  ? `linear-gradient(to bottom, rgb(255, 255, 255), rgba(255, 255, 255, 0.2))`
-                  : `linear-gradient(to bottom, rgb(0, 0, 0), rgba(0, 0, 0, 0.2))`
-                : containerInverted
-                ? "rgb(255, 255, 255)"
-                : "rgb(0, 0, 0)",
+              background: cardWash,
               opacity: containerBlockOpacity,
             }}
           />
@@ -432,6 +462,10 @@ export function PortalHero({
                 })()}
               </h1>
             )}
+            {/* Phone: the body copy is left-aligned so it sits flush against
+                the image's edge instead of floating in a centred column; from
+                `sm` up it returns to the centred layout the card was built
+                for. */}
             {heroDescriptionSlot ||
               (() => {
                 const description = heroDescription || defaultDescription;
@@ -441,7 +475,7 @@ export function PortalHero({
 
                 return paragraphs.length > 1 ? (
                   <div
-                    className={`w-full text-center relative z-10 ${
+                    className={`w-full text-left sm:text-center relative z-10 ${
                       onHeroDescriptionClick
                         ? `cursor-pointer transition-all ${
                             showEditIndicators
@@ -492,7 +526,7 @@ export function PortalHero({
                   </div>
                 ) : (
                   <p
-                    className={`text-content font-red-hat text-sm sm:text-base leading-relaxed transition-all duration-600 ease-out opacity-100 translate-y-0 w-full sm:w-4/5 relative z-10 ${
+                    className={`text-content font-red-hat text-sm sm:text-base leading-relaxed transition-all duration-600 ease-out opacity-100 translate-y-0 w-full text-left sm:w-4/5 sm:text-center relative z-10 ${
                       onHeroDescriptionClick
                         ? `cursor-pointer transition-all ${
                             showEditIndicators
