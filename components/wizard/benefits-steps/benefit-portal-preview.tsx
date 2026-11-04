@@ -626,6 +626,9 @@ export function BenefitPortalPreview({
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             category={category}
+            // Section 1's Key Contact, live: the preview must name the person the
+            // advisor just picked, not whoever the plan's contact records flag.
+            primaryContactId={step1Data?.contactId}
             customHeadline={
               step1Data?.benefitTitle || `Welcome to your ${category} benefits!`
             }
@@ -727,6 +730,7 @@ export function BenefitPortalPreview({
               secondaryColor={secondaryColor}
               keyContacts={previewKeyContacts}
               category={category}
+              primaryContactId={step1Data?.contactId}
               // Omitted → the section fills in its per-category default headline and
               // subhead, the same strings the live hub shows.
               mainTitle={step1Data?.journeyHeader || undefined}
@@ -885,6 +889,7 @@ export function BenefitPortalPreview({
             category={
               category === "Custom" ? "Company / Plan Sponsor" : category
             }
+            primaryContactId={step1Data?.contactId}
           />
         </div>
       </main>

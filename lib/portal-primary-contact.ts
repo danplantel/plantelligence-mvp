@@ -102,21 +102,40 @@ export function isCategoryKeyContact(
 /**
  * The category's key contact:
  *
+ *  0. `primaryContactId` — the benefit row's own pick (see
+ *     `benefitPrimaryContactId` in lib/benefit-contacts),
  *  1. the contact CLAIMING that benefit (`isPrimaryByCategory[category]`),
  *  2. a primary contact tagged with the category,
  *  3. any contact tagged with the category,
  *  4. the plan's primary contact,
  *  5. the first visible contact.
  *
+ * Step 0 exists because the advisor can name a Key Contact in TWO places:
+ * Create/Edit Benefit (Section 1) writes `Benefit.supportContacts[].isPrimary`,
+ * while Edit Client → Key Contacts writes the contact's `isPrimaryByCategory`.
+ * Nothing keeps those two records in step, so a benefit whose contact had just
+ * been changed kept featuring the person the OTHER screen had flagged. The
+ * benefit's own pick is the more specific statement — and the more recent one —
+ * so it wins.
+ *
  * Contacts with `showOnPortal === false` are excluded from every step.
  */
 export function resolvePortalPrimaryContact(
   keyContacts: unknown,
   category?: string | null,
+  primaryContactId?: string | null,
 ): PortalContact | null {
   const visible = readPortalContacts(keyContacts).filter(
     (contact) => contact.showOnPortal !== false,
   );
+
+  const explicitId = String(primaryContactId || "").trim();
+  if (explicitId) {
+    const chosen = visible.find(
+      (contact) => String(contact.id) === explicitId,
+    );
+    if (chosen) return chosen;
+  }
 
   let primary: PortalContact | undefined;
   if (category) {
@@ -151,9 +170,11 @@ export function resolveFeaturedContactId(
   contacts: { id?: unknown }[],
   keyContacts: unknown,
   category?: string | null,
+  primaryContactId?: string | null,
 ): string {
   const resolvedId = String(
-    resolvePortalPrimaryContact(keyContacts, category)?.id ?? "",
+    resolvePortalPrimaryContact(keyContacts, category, primaryContactId)?.id ??
+      "",
   );
   const hasResolved = contacts.some(
     (contact) => String(contact.id) === resolvedId,

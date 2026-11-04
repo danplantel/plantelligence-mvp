@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  benefitPrimaryContactId,
   canonicalContactCategory,
   mergeContactCategoryLists,
 } from "../benefit-contacts";
@@ -75,5 +76,59 @@ describe("mergeContactCategoryLists", () => {
     expect(mergeContactCategoryLists(["", "  "], ["Retirement"])).toEqual([
       "Retirement",
     ]);
+  });
+});
+
+/**
+ * The Key Contact a benefit row names.
+ *
+ * This is the choice made in Create/Edit Benefit Section 1, which
+ * `save-benefit` writes as `supportContacts[].isPrimary`. The portal resolves the
+ * featured person from it, so changing the Key Contact on a benefit has to move
+ * this id — otherwise every hub keeps naming the previous person.
+ */
+describe("benefitPrimaryContactId", () => {
+  it("reads the entry marked primary", () => {
+    expect(
+      benefitPrimaryContactId({
+        supportContacts: [
+          { contactId: "jane", title: "", description: "", enabled: true },
+          {
+            contactId: "advisor",
+            title: "",
+            description: "",
+            enabled: true,
+            isPrimary: true,
+          },
+        ],
+      }),
+    ).toBe("advisor");
+  });
+
+  it("ignores a primary the advisor disabled", () => {
+    expect(
+      benefitPrimaryContactId({
+        supportContacts: [
+          {
+            contactId: "advisor",
+            title: "",
+            description: "",
+            enabled: false,
+            isPrimary: true,
+          },
+        ],
+      }),
+    ).toBe("");
+  });
+
+  it("falls back to the legacy preview mirror's contactId", () => {
+    expect(benefitPrimaryContactId({ contactId: "legacy-jane" })).toBe(
+      "legacy-jane",
+    );
+  });
+
+  it("returns nothing for a benefit with no key contact", () => {
+    expect(benefitPrimaryContactId(null)).toBe("");
+    expect(benefitPrimaryContactId({ supportContacts: null })).toBe("");
   });
 });

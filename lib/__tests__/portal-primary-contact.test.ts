@@ -143,3 +143,48 @@ describe("resolveFeaturedContactId", () => {
     expect(resolveFeaturedContactId(row, contacts, "Retirement")).toBe("");
   });
 });
+
+/**
+ * The benefit's own Key Contact.
+ *
+ * Create/Edit Benefit writes the advisor's pick to `Benefit.supportContacts[].isPrimary`;
+ * the contact records' `isPrimaryByCategory` flags come from Edit Client → Key
+ * Contacts. Nothing keeps those two in step, so a benefit whose Key Contact had
+ * just been changed kept featuring the person the OTHER screen had flagged — the
+ * banner signed them, the journey section scheduled with them, and the closing row
+ * highlighted their card.
+ */
+describe("the benefit's own key contact", () => {
+  it("outranks a contact that claims the category", () => {
+    expect(resolvePortalPrimaryContact(contacts, "Retirement", "jane")?.id).toBe(
+      "jane",
+    );
+  });
+
+  it("ignores an id the plan does not own", () => {
+    expect(
+      resolvePortalPrimaryContact(contacts, "Retirement", "someone-else")?.id,
+    ).toBe("advisor");
+  });
+
+  it("ignores a contact hidden from the portal", () => {
+    const list = [
+      { id: "hidden", showOnPortal: false, benefitsCategory: "Retirement" },
+      { id: "shown", benefitsCategory: "Retirement" },
+    ];
+    expect(resolvePortalPrimaryContact(list, "Retirement", "hidden")?.id).toBe(
+      "shown",
+    );
+  });
+
+  it("carries into the card the closing row features", () => {
+    expect(
+      resolveFeaturedContactId(
+        [{ id: "jane" }, { id: "advisor" }],
+        contacts,
+        "Retirement",
+        "jane",
+      ),
+    ).toBe("jane");
+  });
+});

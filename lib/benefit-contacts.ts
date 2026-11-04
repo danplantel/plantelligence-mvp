@@ -81,6 +81,36 @@ export function contactServesCategory(
 }
 
 /**
+ * The contact a benefit row names as its Key Contact.
+ *
+ * This is the choice made in Create/Edit Benefit Section 1, persisted as
+ * `supportContacts[].isPrimary` by `lib/save-benefit`. It is NOT the same record
+ * as the contact's own `isPrimaryByCategory` flag (Edit Client → Key Contacts),
+ * which is what the portal used to resolve the featured person from — so changing
+ * the Key Contact on a benefit left every hub still naming the old one.
+ *
+ * A disabled entry does not count (the advisor took the person off the benefit),
+ * and `contactId` covers rows saved before the entry existed.
+ */
+export function benefitPrimaryContactId(
+  benefit?:
+    | {
+        supportContacts?: SupportContact[] | null;
+        /** Legacy `employeePortalPreview.benefits[]` mirror. */
+        contactId?: string | null;
+      }
+    | null,
+): string {
+  const entries: SupportContact[] = Array.isArray(benefit?.supportContacts)
+    ? benefit!.supportContacts
+    : [];
+  const primary = entries.find(
+    (entry) => entry && entry.enabled !== false && entry.isPrimary === true,
+  );
+  return String(primary?.contactId || benefit?.contactId || "").trim();
+}
+
+/**
  * Is this contact the *category's* primary? Prefers the explicit per-category
  * flags; falls back to the legacy `isPrimary` only when the contact serves that
  * one category, so a plan-wide primary can't claim every category's card.

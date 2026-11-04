@@ -30,6 +30,7 @@ import {
   mapMergedRowsToBenefitHubItems,
 } from "@/lib/map-plan-documents-for-benefit-hub";
 import { getBenefitFromPreview } from "@/lib/benefit-data-helpers";
+import { benefitPrimaryContactId } from "@/lib/benefit-contacts";
 import type { BenefitData } from "@/types/benefit";
 import type { TopicsPayload } from "@/types/topic";
 
@@ -154,6 +155,11 @@ export default function LifeInsurancePage() {
     [benefitData?.supportContacts, clientData?.keyContacts],
   );
 
+  // The Key Contact chosen for this benefit in Create/Edit Benefit. The banner,
+  // the journey section and the closing row all feature this person, so it is
+  // resolved once and handed to each — see `benefitPrimaryContactId`.
+  const keyContactId = benefitPrimaryContactId(benefitData);
+
   return (
     <div className="min-h-screen w-full">
       <CompletenessAutoTrigger
@@ -170,6 +176,7 @@ export default function LifeInsurancePage() {
           customHeadline={benefitData?.title}
           customDescription={benefitData?.shortDescription ?? undefined}
           category="Group Life"
+          primaryContactId={keyContactId}
           // "Schedule with …" scrolls to the key contact's card below instead of
           // opening the scheduling URL in another tab.
           onScheduleClick={() =>
@@ -184,6 +191,7 @@ export default function LifeInsurancePage() {
             secondaryColor={secondaryColor}
             keyContacts={clientData?.keyContacts}
             category="Group Life"
+            primaryContactId={keyContactId}
             videoLabel={benefitData?.planVideoLabel ?? undefined}
             videoThumbnail={benefitData?.planVideoThumbnail ?? undefined}
             // No plan copy → the section's Group Life defaults fill these in.
@@ -259,6 +267,7 @@ export default function LifeInsurancePage() {
           keyContactCardStyle={benefitData?.keyContactCardStyle ?? undefined}
           keyContacts={clientData?.keyContacts}
           category="Group Life"
+          primaryContactId={keyContactId}
         />
       </main>
     </div>

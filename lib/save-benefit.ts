@@ -178,28 +178,42 @@ export async function saveBenefit(
       (step1Data?.benefitVisibility ?? {})[step1Data?.benefitCategory || ""] ??
       true;
 
-    // Support contacts for this category, with the Step 1 primary always seeded in.
-    // Step 3 is where the advisor toggles contacts on/off, but when they never did,
-    // the category page would render nothing while My Benefits Team already showed
-    // that person. So the category's primary is persisted as a member here, and the
-    // same list is written to both the Benefit row and the legacy preview mirror so
-    // the two read paths can never disagree. Existing entries are left untouched.
+    // Support contacts for this category, with the Step 1 Key Contact always seeded
+    // in and marked as THE primary. Step 3 is where the advisor toggles contacts
+    // on/off, but when they never did, the category page would render nothing while
+    // My Benefits Team already showed that person — so the primary is persisted as
+    // a member here, and the same list is written to both the Benefit row and the
+    // legacy preview mirror so the two read paths cannot disagree.
+    //
+    // Exactly one entry carries `isPrimary`. This used to only *add* the primary
+    // when it was missing, so changing the Key Contact left the previous person
+    // flagged too, and the portal kept featuring them. The benefit's pick is what
+    // every hub resolves from (see `benefitPrimaryContactId`), so it has to be
+    // exclusive.
     const categorySupportContacts = (() => {
       // Read through a local: TypeScript will not carry the optional-chain
       // narrowing into the array spread.
       const rawStep3Contacts = step3Data?.supportContacts;
       const list = Array.isArray(rawStep3Contacts) ? [...rawStep3Contacts] : [];
       const primaryId = (step1Data?.contactId || "").trim();
-      if (primaryId && !list.some((sc: any) => sc?.contactId === primaryId)) {
-        list.unshift({
+      if (!primaryId) return list;
+      const withSinglePrimary = list.map((entry: any) => ({
+        ...entry,
+        isPrimary: String(entry?.contactId || "") === primaryId,
+      }));
+      if (withSinglePrimary.some((entry: any) => entry.isPrimary)) {
+        return withSinglePrimary;
+      }
+      return [
+        {
           contactId: primaryId,
           title: "",
           description: "",
           enabled: true,
           isPrimary: true,
-        });
-      }
-      return list;
+        },
+        ...withSinglePrimary,
+      ];
     })();
 
     // Include Step 3 FAQs and support contacts for this benefit category

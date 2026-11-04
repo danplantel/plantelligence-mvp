@@ -51,6 +51,12 @@ interface HaveQuestionsProps {
    * there is no "key contact for this benefit" to label.
    */
   category?: string;
+  /**
+   * The benefit editor's Key Contact for this category. It outranks the contact
+   * records' own `isPrimaryByCategory` flags (a different screen writes those),
+   * so the highlighted card follows a Key Contact changed in Create/Edit Benefit.
+   */
+  primaryContactId?: string | null;
 }
 
 /**
@@ -77,6 +83,7 @@ export function HaveQuestions({
   companyLogo,
   keyContacts,
   category,
+  primaryContactId,
 }: HaveQuestionsProps) {
   // The hub pages render this inside the portal provider; the wizard preview and
   // tests do not, hence the optional read.
@@ -103,6 +110,7 @@ export function HaveQuestions({
         })),
         keyContacts ?? (clientData as any)?.keyContacts,
         category,
+        primaryContactId,
       )
     : "";
 

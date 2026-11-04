@@ -30,6 +30,7 @@ import {
   mapMergedRowsToBenefitHubItems,
 } from "@/lib/map-plan-documents-for-benefit-hub";
 import { getBenefitFromPreview } from "@/lib/benefit-data-helpers";
+import { benefitPrimaryContactId } from "@/lib/benefit-contacts";
 import type { BenefitData } from "@/types/benefit";
 import type { TopicsPayload } from "@/types/topic";
 
@@ -79,6 +80,13 @@ export default function RetirementPage() {
   // than each reaching into a different source.
   const planGroupIdLabel = formatPlanGroupIdLabel(benefitData?.insurancePlanId);
   const accountAccessHref = benefitData?.insuranceLoginUrl || undefined;
+
+  // The Key Contact chosen for this benefit in Create/Edit Benefit. The banner,
+  // the journey section and the closing "Have Questions?" row all feature this
+  // person, so it is resolved once here and handed to each of them — otherwise
+  // they fall back to the plan's contact flags, which a different screen owns,
+  // and a Key Contact changed in the editor never reaches the hub.
+  const keyContactId = benefitPrimaryContactId(benefitData);
 
   // TF-2: this hub's resolved topic placements. `source` says whether participants
   // WOULD have been reading placements before the FAQ accordion was retired; the page
@@ -179,6 +187,7 @@ export default function RetirementPage() {
           customHeadline={benefitData?.title}
           customDescription={benefitData?.shortDescription ?? undefined}
           category="Retirement"
+          primaryContactId={keyContactId}
           // "Schedule with …" scrolls to the key contact's card below instead of
           // opening the scheduling URL in another tab.
           onScheduleClick={() =>
@@ -193,6 +202,7 @@ export default function RetirementPage() {
             secondaryColor={secondaryColor}
             keyContacts={clientData?.keyContacts}
             category="Retirement"
+            primaryContactId={keyContactId}
             videoLabel={benefitData?.planVideoLabel ?? undefined}
             videoThumbnail={benefitData?.planVideoThumbnail ?? undefined}
             // No plan copy → the section's Retirement defaults fill these in.
@@ -269,6 +279,7 @@ export default function RetirementPage() {
           keyContactCardStyle={benefitData?.keyContactCardStyle ?? undefined}
           keyContacts={clientData?.keyContacts}
           category="Retirement"
+          primaryContactId={keyContactId}
         />
       </main>
     </div>

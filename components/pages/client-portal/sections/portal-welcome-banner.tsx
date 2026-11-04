@@ -45,6 +45,16 @@ interface PortalWelcomeBannerProps {
   } | null;
   category?: string;
   /**
+   * The contact the benefit editor's Section 1 named as this category's Key
+   * Contact (`Benefit.supportContacts[].isPrimary`).
+   *
+   * The plan's contact records carry their own `isPrimaryByCategory` flags from
+   * Edit Client → Key Contacts, and nothing keeps the two records in step — so
+   * without this the banner kept signing whichever person THAT screen had
+   * flagged, even after the benefit's Key Contact was changed.
+   */
+  primaryContactId?: string | null;
+  /**
    * When set, "Schedule with …" becomes a button that runs this instead of opening
    * the contact's scheduling URL. The hub pages use it to scroll to the
    * "Have Questions?" band, where that contact's card lives.
@@ -114,6 +124,7 @@ export function PortalWelcomeBanner({
   customImageAlt,
   portraitImage,
   category,
+  primaryContactId,
   onScheduleClick,
   backgroundOpacity = 1.0,
   containerBlockOpacity = 0.67,
@@ -191,9 +202,14 @@ export function PortalWelcomeBanner({
 
   // The category's key contact. Shared with the video section's Schedule button
   // so both name the same person for the same benefit.
+  //
+  // The benefit's own pick wins (`primaryContactId`); the legacy mirror carries
+  // the same id as `benefits[].contactId`, which covers the previews and any page
+  // that predates the prop.
   const primaryContact = resolvePortalPrimaryContact(
     clientData?.keyContacts,
     category,
+    primaryContactId ?? (categoryBenefit as any)?.contactId ?? null,
   );
 
   // Hero CTAs. The schedule button names the category's key contact (first name

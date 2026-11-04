@@ -103,6 +103,12 @@ interface BenefitsVideoSectionProps {
   /** Benefit category used to pick the key contact. */
   category?: string;
   /**
+   * The benefit editor's Key Contact for this category. Wins over the contact
+   * records' own flags, which a different screen (Edit Client → Key Contacts)
+   * owns — see `resolvePortalPrimaryContact`.
+   */
+  primaryContactId?: string | null;
+  /**
    * When set, "Schedule with …" becomes a button that runs this instead of opening
    * the contact's scheduling URL. The hub pages use it to scroll to the
    * "Have Questions?" band, where that contact's card (and its links) live.
@@ -140,6 +146,7 @@ export function BenefitsVideoSection({
   videoLabel = "This benefit",
   keyContacts,
   category,
+  primaryContactId,
   onScheduleClick,
   webinarsPlacement,
   clientId,
@@ -242,8 +249,8 @@ export function BenefitsVideoSection({
 
   // The category's key contact — the same person the welcome banner signs.
   const primaryContact = useMemo(
-    () => resolvePortalPrimaryContact(keyContacts, category),
-    [keyContacts, category],
+    () => resolvePortalPrimaryContact(keyContacts, category, primaryContactId),
+    [keyContacts, category, primaryContactId],
   );
   const contactFirstName =
     String(primaryContact?.fullName || primaryContact?.name || "")
