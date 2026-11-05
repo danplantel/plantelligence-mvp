@@ -6,7 +6,7 @@ The page is a composition layer. It reads the portal's plan context, chooses bra
 
 ## Summary
 
-- **Unit tests:** 207 passing across 21 files.
+- **Unit tests:** 208 passing across 21 files.
   - page composition: 12
   - page + real header integration: 8
   - page error paths: 5
@@ -21,8 +21,9 @@ The page is a composition layer. It reads the portal's plan context, chooses bra
   - `shouldShowPopUpOnPage`: 9
   - the portal Edit Panel: hero background 5 + creators (assets, meeting,
     webinar), sections, the meetings accordions with edit and delete, the
-    in-flight spinner, counters and date windows 27
-  - the meeting creator: its property set, the draft path, the required set 3
+    in-flight spinner, counters and date windows 28
+  - the meeting creator: its property set, the draft path, the required set,
+    and its edit path keeping a live schedule 4
   - the webinar creator: its property set, the required set, the title cap 3
   - the meeting time picker's arithmetic: parsing, slots, durations 9
   - the publishing statuses and their chip colours: 3
@@ -62,12 +63,37 @@ Notices (5)** — one per asset type. A second pop-up appends a row to "Pop-Ups"
 rather than inserting another numbered section and renumbering everything below
 it, and each row is a collapsed accordion titled with its headline, its date
 window, its status and two header controls. An empty type shows "No pop-ups yet —
-start one above." instead of a heading over nothing.
+start one above." instead of a heading over nothing. A sixth section lists the
+plan's meetings the same way, with edit and delete on the header.
+
+## Validation and error reporting
+
+An audit of the four ways this panel writes, and where a failure is reported.
+Every row covers **both** creating and editing — the two share one code path, so
+a rule cannot apply to a new record and be skipped by an existing one:
+
+| Path | Validation | Reported by |
+| --- | --- | --- |
+| Portal Notice / News post / Pop-up (`MarketingAssetModal`) | Per type — required headline, body, dates, target pages. Applied identically to create and edit; only the four-post cap is create-only | That modal's own `toast.error`, plus its per-field messages; `Failed to save asset` on an API error |
+| Meeting (`MeetingCreateDialog`) | Required type, date, an end after the start, format (+ platform / location / link as the format demands). Enforced whenever the record will be `Upcoming`, so "Update meeting" validates too | Inline line beside the fields **and** `toast.error`; the API's message on failure, `toast.success` on save ("Meeting scheduled" / "Meeting updated") |
+| Webinar (`WebinarCreateDialog`) | Required title, date, thumbnail, source, and a placement; 10 MB upload guard; image-only thumbnails. Create-only for now — the panel has no webinar edit path yet | Inline line **and** `toast.error`; `toast.success` on save |
+| Delete (any row) | Confirmation first | Row dims and spins, `toast.error` on failure, the panel's own error bar too |
+
+The rule the two extracted dialogs follow: a validation message is shown twice —
+inline, beside the field it is about, and as a toast, because the footer button
+can be far from the field that is wrong.
+
+One asymmetry was found by this audit and closed: **Save as draft** on an
+existing `Upcoming` meeting skipped the `Upcoming` rules, filled every blank field
+with a default and quietly downgraded a scheduled session. It is now offered only
+while creating, or while the row is still a draft — which
+[`meeting-create-dialog.test.tsx`](../../components/meetings/__tests__/meeting-create-dialog.test.tsx:1)
+pins along with the PUT that keeps an edit's date, time and end time.
 
 ## Running these tests
 
 ```bash
-pnpm test:portal-news            # all 172 unit tests in the scoped config
+pnpm test:portal-news            # all 208 unit tests in the scoped config
 pnpm test:portal-news:watch
 pnpm test:portal-news:coverage
 E2E_BASE_URL=… E2E_PORTAL_SLUG=… pnpm exec playwright test e2e/portal-news-events.spec.ts

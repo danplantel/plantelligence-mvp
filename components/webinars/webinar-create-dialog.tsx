@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -142,7 +143,9 @@ export function WebinarCreateDialog({
       });
       setThumbnail(compressed);
     } catch {
-      setError("That image could not be processed.");
+      const message = "That image could not be processed.";
+      setError(message);
+      toast.error(message);
     }
   }, []);
 
@@ -153,7 +156,9 @@ export function WebinarCreateDialog({
     event.target.value = "";
     if (!file) return;
     if (!file.type.startsWith("image/")) {
-      setError("The thumbnail must be an image.");
+      const message = "The thumbnail must be an image.";
+      setError(message);
+      toast.error(message);
       return;
     }
     const dataUrl = await new Promise<string | null>((resolve) => {
@@ -163,7 +168,9 @@ export function WebinarCreateDialog({
       reader.readAsDataURL(file);
     });
     if (!dataUrl) {
-      setError("That image could not be read.");
+      const message = "That image could not be read.";
+      setError(message);
+      toast.error(message);
       return;
     }
     await applyThumbnail(dataUrl);
@@ -188,9 +195,10 @@ export function WebinarCreateDialog({
     event.target.value = "";
     if (!file) return;
     if (file.size > MAX_FILE_BYTES) {
-      setError(
-        "That file is over 10 MB. Upload it to YouTube or Vimeo and use the URL option instead.",
-      );
+      const message =
+        "That file is over 10 MB. Upload it to YouTube or Vimeo and use the URL option instead.";
+      setError(message);
+      toast.error(message);
       return;
     }
     setError(null);
@@ -220,7 +228,9 @@ export function WebinarCreateDialog({
     if (sourceType === "url" && !videoUrl.trim()) problems.push("a video URL");
     if (placements.length === 0) problems.push("at least one page");
     if (problems.length > 0) {
-      setError(`This webinar still needs ${problems.join(", ")}.`);
+      const message = `This webinar still needs ${problems.join(", ")}.`;
+      setError(message);
+      toast.error(message);
       return;
     }
 
@@ -270,14 +280,16 @@ export function WebinarCreateDialog({
         throw new Error(payload?.error || "Could not save this webinar.");
       }
 
+      toast.success("Webinar added", { description: planName });
       onOpenChange(false);
       onCreated?.();
     } catch (saveError) {
-      setError(
+      const message =
         saveError instanceof Error
           ? saveError.message
-          : "Could not save this webinar.",
-      );
+          : "Could not save this webinar.";
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }

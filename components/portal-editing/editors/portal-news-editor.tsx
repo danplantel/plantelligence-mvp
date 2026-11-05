@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { useSWRConfig } from "swr";
 import { Loader2, PenLine, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 
 import { cn } from "@/lib/utils";
 import { marketingAssetStatusClass } from "@/lib/marketing/asset-status";
@@ -374,11 +375,14 @@ export function PortalNewsEditor() {
       }
       await refreshMeetings();
     } catch (error) {
-      failSave(
+      const message =
         error instanceof Error
           ? error.message
-          : "Could not delete this meeting.",
-      );
+          : "Could not delete this meeting.";
+      // The panel's bar sits at the bottom, out of sight once the list scrolled;
+      // the toast is what the advisor actually sees.
+      failSave(message);
+      toast.error(message);
     } finally {
       setDeletingMeetingId(null);
     }
@@ -415,11 +419,12 @@ export function PortalNewsEditor() {
       await refreshAssets();
     } catch (error) {
       // The panel's own error bar: the row is still there, and so is the reason.
-      failSave(
+      const message =
         error instanceof Error
           ? error.message
-          : "Could not delete this asset.",
-      );
+          : "Could not delete this asset.";
+      failSave(message);
+      toast.error(message);
     } finally {
       setDeletingAssetId(null);
     }

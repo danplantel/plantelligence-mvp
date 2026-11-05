@@ -94,6 +94,51 @@ describe("MeetingCreateDialog", () => {
     expect(body.time).toBe("12:00");
   });
 
+  it("edits an existing meeting, keeping its schedule", async () => {
+    const user = userEvent.setup();
+    render(
+      <MeetingCreateDialog
+        open
+        onOpenChange={() => {}}
+        planId="db-plan-1"
+        planName="Acme Corp"
+        editing={{
+          id: "meeting-1",
+          meeting: "Open Enrollment",
+          meetingType: "Open Enrollment",
+          date: "2026-03-03",
+          time: "09:00",
+          endTime: "10:00",
+          format: "Virtual",
+          platform: "Zoom",
+          meetingLink: "https://zoom.test/abc",
+          status: "Upcoming",
+        }}
+      />,
+    );
+
+    // Update PUTs the row rather than creating another one.
+    await user.click(screen.getByRole("button", { name: "Update meeting" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalled());
+    const [url, init] = fetchMock.mock.calls[0] as unknown as [
+      string,
+      { method: string; body: string },
+    ];
+    expect(url).toBe("/api/meetings/meeting-1");
+    expect(init.method).toBe("PUT");
+    const body = JSON.parse(init.body);
+    expect(body.date).toBe("2026-03-03");
+    expect(body.time).toBe("09:00");
+    expect(body.endTime).toBe("10:00");
+    expect(body.status).toBe("Upcoming");
+
+    // An upcoming meeting is not offered the draft escape hatch.
+    expect(
+      screen.queryByRole("button", { name: "Save as draft" }),
+    ).toBeNull();
+  });
+
   it("refuses to schedule without the schedule, and says what is missing", async () => {
     const user = userEvent.setup();
     renderDialog();

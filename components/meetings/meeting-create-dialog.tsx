@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import { AddressSearch } from "@/components/ui/address-search";
 import { Button } from "@/components/ui/button";
@@ -253,6 +254,11 @@ export function MeetingCreateDialog({
       if (!type) problems.push("a meeting type");
       if (!date) problems.push("a date");
       if (!startTime || !endTime) problems.push("a start and end time");
+      // A reversed pair derives no duration, and the card would print no length
+      // at all — the dashboard refuses it for the same reason.
+      if (startTime && endTime && !duration) {
+        problems.push("an end time after the start");
+      }
       if (!format) problems.push("a format");
       if (format === "Virtual" && !platform) problems.push("a platform");
       if (
@@ -268,7 +274,11 @@ export function MeetingCreateDialog({
         problems.push("a meeting link");
       }
       if (problems.length > 0) {
-        setError(`This meeting still needs ${problems.join(", ")}.`);
+        const message = `This meeting still needs ${problems.join(", ")}.`;
+        setError(message);
+        // Said twice on purpose: the inline line sits beside the fields that
+        // need it, the toast catches the advisor who scrolled to the button.
+        toast.error(message);
         return;
       }
     }
@@ -317,14 +327,19 @@ export function MeetingCreateDialog({
         throw new Error(payload?.error || "Could not save this meeting.");
       }
 
+      toast.success(
+        editing ? "Meeting updated" : "Meeting scheduled",
+        { description: planName },
+      );
       onOpenChange(false);
       onCreated?.();
     } catch (saveError) {
-      setError(
+      const message =
         saveError instanceof Error
           ? saveError.message
-          : "Could not save this meeting.",
-      );
+          : "Could not save this meeting.";
+      setError(message);
+      toast.error(message);
     } finally {
       setIsSaving(false);
     }
@@ -577,14 +592,20 @@ export function MeetingCreateDialog({
           >
             Cancel
           </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={isSaving}
-            onClick={() => void save("Draft")}
-          >
-            Save as draft
-          </Button>
+          {/* Only offered while creating, or while the row IS still a draft.
+              On an upcoming meeting it would be a trap: `save("Draft")` skips
+              validation and fills blank fields with defaults, so one click could
+              quietly downgrade a scheduled session and blank its location. */}
+          {(!editing || editing.status === "Draft") && (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={isSaving}
+              onClick={() => void save("Draft")}
+            >
+              Save as draft
+            </Button>
+          )}
           <Button
             type="button"
             disabled={isSaving}
