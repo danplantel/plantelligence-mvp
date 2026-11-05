@@ -23,6 +23,11 @@ import MarketingAssetModal, {
   type PortalNoticeElement,
 } from "@/components/pages/marketing/marketing-asset-modal";
 import {
+  MARKETING_ASSET_STATUSES,
+  MARKETING_ASSET_STATUS_CLASSES,
+  type MarketingAssetStatus,
+} from "@/lib/marketing/asset-status";
+import {
   renderFlyerPreviewToSvg,
   svgElementToDataUrl,
   generateFlyerPdfBlob,
@@ -43,31 +48,11 @@ interface Client {
   status?: string;
 }
 
-export type MarketingAssetStatus =
-  | "Draft"
-  | "Ready for Review"
-  | "Published"
-  | "Scheduled"
-  | "Hidden"
-  | "Archived";
-
-const ASSET_STATUSES: MarketingAssetStatus[] = [
-  "Draft",
-  "Ready for Review",
-  "Published",
-  "Scheduled",
-  "Hidden",
-  "Archived",
-];
-
-const STATUS_COLORS: Record<MarketingAssetStatus, string> = {
-  Draft: "bg-gray-100 text-gray-700 border-gray-300",
-  "Ready for Review": "bg-amber-50 text-amber-700 border-amber-300",
-  Published: "bg-green-50 text-green-700 border-green-300",
-  Scheduled: "bg-blue-50 text-blue-700 border-blue-300",
-  Hidden: "bg-yellow-50 text-yellow-700 border-yellow-300",
-  Archived: "bg-red-50 text-red-700 border-red-300",
-};
+// One status list and one colour map, shared with the portal's News & Events
+// panel (lib/marketing/asset-status) so the two can never disagree.
+export type { MarketingAssetStatus };
+const ASSET_STATUSES = MARKETING_ASSET_STATUSES;
+const STATUS_COLORS = MARKETING_ASSET_STATUS_CLASSES;
 
 interface MarketingOption {
   id: string;

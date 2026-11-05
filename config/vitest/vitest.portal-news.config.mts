@@ -19,6 +19,15 @@ const portalNewsTests = [
   "app/(portal)/[id]/news-events/__tests__/page-error-paths.test.tsx",
   // The portal Editing Panel's hero background (the Page Image Header slot)
   "components/portal-editing/editors/__tests__/portal-news-editor-hero.test.tsx",
+  // The publishing statuses and their chip colours, shared with Marketing
+  "lib/__tests__/marketing-asset-status.test.ts",
+  // Creating an announcement / news post / pop-up from the same panel
+  "components/portal-editing/editors/__tests__/portal-news-editor-create.test.tsx",
+  // The meeting and webinar creators the panel hosts in place
+  "components/meetings/__tests__/meeting-create-dialog.test.tsx",
+  "components/webinars/__tests__/webinar-create-dialog.test.tsx",
+  // The quarter-hour arithmetic behind the meeting form's time picker
+  "lib/__tests__/meeting-time-slots.test.ts",
   // Published posts: loading/empty/sort, dates, backgrounds, CTA
   "components/pages/client-portal/sections/__tests__/news-post-list.test.tsx",
   // Post edge cases: publish window, invalid dates, CTA schemes, dead prop

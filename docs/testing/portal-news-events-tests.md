@@ -6,7 +6,7 @@ The page is a composition layer. It reads the portal's plan context, chooses bra
 
 ## Summary
 
-- **Unit tests:** 157 passing across 15 files.
+- **Unit tests:** 207 passing across 21 files.
   - page composition: 12
   - page + real header integration: 8
   - page error paths: 5
@@ -19,14 +19,55 @@ The page is a composition layer. It reads the portal's plan context, chooses bra
   - `VideosCardSection`: 13
   - `useMarketingAssets` / `useNewsPostAssets`: 7
   - `shouldShowPopUpOnPage`: 9
+  - the portal Edit Panel: hero background 5 + creators (assets, meeting,
+    webinar), sections, the meetings accordions with edit and delete, the
+    in-flight spinner, counters and date windows 27
+  - the meeting creator: its property set, the draft path, the required set 3
+  - the webinar creator: its property set, the required set, the title cap 3
+  - the meeting time picker's arithmetic: parsing, slots, durations 9
+  - the publishing statuses and their chip colours: 3
 - **E2E:** 4, env-gated on `E2E_BASE_URL` + `E2E_PORTAL_SLUG` ([`e2e/portal-news-events.spec.ts`](../../e2e/portal-news-events.spec.ts:1)).
 - **Runner:** `pnpm test:portal-news` / `:watch` / `:coverage` — [`config/vitest/vitest.portal-news.config.mts`](../../config/vitest/vitest.portal-news.config.mts:1) driven by [`scripts/tests/run-portal-news-tests.mjs`](../../scripts/tests/run-portal-news-tests.mjs:1).
 - Seven defects were found and fixed while writing the suites (see [Fixed while writing these suites](#fixed-while-writing-these-suites)).
 
+## Creating content from the Edit Panel
+
+The panel edits rows that already exist; the only way to START one is the
+dashboard's `MarketingAssetModal`, mounted from the panel's **Section 2 — Create
+Content** for Portal Notice (its Top Banner element), News post and Pop-up. Three
+rules are load-bearing and pinned by
+[`portal-news-editor-create.test.tsx`](../../components/portal-editing/editors/__tests__/portal-news-editor-create.test.tsx:1):
+
+1. **One creator, two hosts.** The same component the Marketing page opens is
+   mounted here — no second form, no second set of rules (the four-post cap, the
+   background gallery, the top-banner/pop-up/post picker all stay in one place).
+2. **The plan's database id, not the route slug.** `POST /api/marketing/assets`
+   resolves the plan with `findUnique({ where: { id } })`, while the portal route
+   addresses plans by slug; the panel passes `clientData.id`.
+3. **A raised stacking tier.** The panel is `fixed z-[51]` — above the dialog
+   tier — so the modal is opened with `dialogZClass="z-[110]"`, overlay included,
+   or it renders underneath the panel it was launched from. It also clears the
+   published pop-up (`z-[100]`): an action the advisor asked for beats an
+   unsolicited dialog.
+
+Meetings and webinars are created in place too, through
+[`MeetingCreateDialog`](../../components/meetings/meeting-create-dialog.tsx:1)
+and
+[`WebinarCreateDialog`](../../components/webinars/webinar-create-dialog.tsx:1) —
+the portal-facing halves of their Communications creators, lifted out so the form
+exists once and can be hosted by both the dashboard page and this panel.
+
+Below them sit three FIXED sections — **Pop-Ups (3), News Posts (4), Portal
+Notices (5)** — one per asset type. A second pop-up appends a row to "Pop-Ups"
+rather than inserting another numbered section and renumbering everything below
+it, and each row is a collapsed accordion titled with its headline, its date
+window, its status and two header controls. An empty type shows "No pop-ups yet —
+start one above." instead of a heading over nothing.
+
 ## Running these tests
 
 ```bash
-pnpm test:portal-news            # all 157 unit tests in the scoped config
+pnpm test:portal-news            # all 172 unit tests in the scoped config
 pnpm test:portal-news:watch
 pnpm test:portal-news:coverage
 E2E_BASE_URL=… E2E_PORTAL_SLUG=… pnpm exec playwright test e2e/portal-news-events.spec.ts

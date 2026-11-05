@@ -1,5 +1,5 @@
 import React from "react";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -181,6 +181,18 @@ describe("portal layout composition", () => {
     // The floating "Ask a question" action is chrome of its own, mounted beside
     // the install prompt and outside the comments zoom.
     expect(screen.getByTestId("portal-chatbot")).toBeInTheDocument();
+  });
+
+  it("draws the published pop-up outside the scaled replica", () => {
+    renderLayout();
+
+    // The pop-up is a `fixed inset-0` dialog. Inside the zoom it inherited the
+    // replica's transform, so it was drawn at the replica's scale and centred on
+    // the replica's box — tiny and off to one side while the Editing Panel was
+    // open.
+    const zoom = screen.getByTestId("comments-zoom-wrapper");
+    expect(within(zoom).queryByTestId("popup-props")).toBeNull();
+    expect(screen.getByTestId("popup-props")).toBeInTheDocument();
   });
 
   it("passes the plan's identity and hub set to the header", () => {

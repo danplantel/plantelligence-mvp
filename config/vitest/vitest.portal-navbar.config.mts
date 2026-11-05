@@ -23,6 +23,8 @@ const portalNavbarTests = [
   "components/comments/__tests__/portal-comments-rail.test.tsx",
   // Scale + height math for the scaled portal
   "components/comments/__tests__/portal-comments-zoom.test.tsx",
+  // The published pop-up: viewport-sized, but confined to the portal's column
+  "components/pages/client-portal/sections/__tests__/portal-popup-overlay.test.tsx",
   // The floating eye that hides/restores BOTH advisor surfaces at once
   "components/portal-editing/__tests__/portal-visibility-toggle.test.tsx",
   // The floating Edit button: light colours, skeleton while access is in flight

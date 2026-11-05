@@ -656,16 +656,6 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
           <AnimatePresence mode="wait">{children}</AnimatePresence>
         </div>
 
-        {/* Pop-Up Overlay — displays published pop-up marketing assets across all portal pages */}
-        <PortalPopUpOverlay
-          clientId={clientId}
-          companyName={clientData?.companyName}
-          companyLogo={clientData?.companyLogo}
-          // Extra paths that count as "benefits" pages for pop-up targeting, so a
-          // pop-up scoped to the benefit hubs still shows on the Custom benefit page.
-          benefitPagePaths={customHubSlug ? [`/${customHubSlug}`] : []}
-        />
-
         <Footer
           brandColor={footerBgColor}
           disclosuresText={disclosuresText}
@@ -673,6 +663,21 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
           companyName={clientData?.companyName || ""}
         />
       </PortalCommentsZoom>
+
+      {/* The published pop-up — a viewport-centred dialog, so it is CHROME, not
+          part of the replica. Left inside the zoom it inherited the replica's
+          transform: `fixed inset-0` resolved against the replica's box and the
+          card was drawn at the replica's scale, so with the Editing Panel or the
+          Comments rail open it appeared tiny and off to one side. Same reason the
+          header is drawn outside the transform. */}
+      <PortalPopUpOverlay
+        clientId={clientId}
+        companyName={clientData?.companyName}
+        companyLogo={clientData?.companyLogo}
+        // Extra paths that count as "benefits" pages for pop-up targeting, so a
+        // pop-up scoped to the benefit hubs still shows on the Custom benefit page.
+        benefitPagePaths={customHubSlug ? [`/${customHubSlug}`] : []}
+      />
     </div>
   );
 }

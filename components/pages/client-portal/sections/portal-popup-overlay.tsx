@@ -166,11 +166,21 @@ export function PortalPopUpOverlay({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-300"
+      className="fixed inset-y-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm transition-opacity duration-300"
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
       aria-label={popUp.headline || "Announcement"}
+      style={{
+        // Confined to the PORTAL's column. The Editing Panel on the left publishes
+        // its width as `--portal-editor-inset`; the Comments and Messages rails
+        // publish theirs on the right. A participant sees neither, so the pop-up —
+        // and the dimming behind it — covers only the page area they would see,
+        // instead of stretching across the advisor's own panels. Both resolve to
+        // `0px` when closed, which is the plain full-viewport case.
+        left: "var(--portal-editor-inset, 0px)",
+        right: "max(var(--comments-inset, 0px), var(--messages-inset, 0px))",
+      }}
     >
       <div
         className="relative mx-4 w-full max-w-md animate-in fade-in zoom-in-95 duration-300"

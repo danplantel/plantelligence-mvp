@@ -7,6 +7,10 @@ import { useRouter } from "next/navigation";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { downloadFlyerPdf } from "@/lib/marketing/flyer-pdf";
 import {
+  PORTAL_ASSET_BODY_MAX,
+  PORTAL_ASSET_HEADLINE_MAX,
+} from "@/lib/marketing/asset-limits";
+import {
   Dialog,
   DialogContent,
   DialogTitle,
@@ -102,6 +106,17 @@ interface MarketingAssetModalProps {
   previewOnly?: boolean;
   /** Called when the Edit button is clicked in preview-only mode */
   onEditFromPreview?: () => void;
+  /**
+   * Stacking tier for this modal AND the compliance attestation it opens.
+   *
+   * The default is the app's dialog tier (`z-50`), which is right on the
+   * dashboard. The portal's inline Editing Panel sits at `z-[51]` — above that
+   * tier — with the floating controls at `z-50` and the chat pill at `z-[60]`,
+   * so a host rendering this over that panel passes `z-[70]`. The attestation
+   * inherits the same tier and still wins on mount order, exactly as it does
+   * today one tier down.
+   */
+  dialogZClass?: string;
 }
 
 interface Meeting {
@@ -237,6 +252,7 @@ export default function MarketingAssetModal({
   editingAsset,
   previewOnly,
   onEditFromPreview,
+  dialogZClass,
 }: MarketingAssetModalProps) {
   const router = useRouter();
   const { toast } = useToast();
@@ -1624,8 +1640,8 @@ export default function MarketingAssetModal({
               Headline
               <span className="text-red-500 ml-0.5">*</span>
             </Label>
-            <Input id="pn-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} maxLength={80} />
-            <p className="text-[11px] text-muted-foreground text-right tabular-nums">{headline.length}/80</p>
+            <Input id="pn-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} maxLength={PORTAL_ASSET_HEADLINE_MAX} />
+            <p className="text-[11px] text-muted-foreground text-right tabular-nums">{headline.length}/{PORTAL_ASSET_HEADLINE_MAX}</p>
           </div>
           {/* Date range — shown directly under the headline for Top Banner */}
           <div className="grid grid-cols-2 gap-3">
@@ -1740,9 +1756,9 @@ export default function MarketingAssetModal({
                 Body text
                 <span className="text-red-500 ml-0.5">*</span>
               </Label>
-              <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/300</span>
+              <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/{PORTAL_ASSET_BODY_MAX}</span>
             </div>
-            <Textarea id="body" rows={4} placeholder="Write your message…" value={body} onChange={(e) => setBody(e.target.value)} maxLength={300} className="dark:bg-gray-800" />
+            <Textarea id="body" rows={4} placeholder="Write your message…" value={body} onChange={(e) => setBody(e.target.value)} maxLength={PORTAL_ASSET_BODY_MAX} className="dark:bg-gray-800" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="pu-cta-text">Button text</Label>
@@ -1844,9 +1860,9 @@ export default function MarketingAssetModal({
                 Body text
                 <span className="text-red-500 ml-0.5">*</span>
               </Label>
-              <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/300</span>
+              <span className="text-[11px] text-muted-foreground tabular-nums">{body.length}/{PORTAL_ASSET_BODY_MAX}</span>
             </div>
-            <Textarea id="np-body" rows={4} placeholder="Write your message…" value={body} onChange={(e) => setBody(e.target.value)} maxLength={300} className="dark:bg-gray-800" />
+            <Textarea id="np-body" rows={4} placeholder="Write your message…" value={body} onChange={(e) => setBody(e.target.value)} maxLength={PORTAL_ASSET_BODY_MAX} className="dark:bg-gray-800" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="category">
@@ -1945,7 +1961,14 @@ export default function MarketingAssetModal({
   return (
     <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn("max-w-6xl p-0 flex flex-col max-h-[95vh] [&>button.absolute]:hidden", previewOnly && "max-w-3xl")}>
+      <DialogContent
+        overlayClassName={dialogZClass}
+        className={cn(
+          "max-w-6xl p-0 flex flex-col max-h-[95vh] [&>button.absolute]:hidden",
+          previewOnly && "max-w-3xl",
+          dialogZClass,
+        )}
+      >
         {/* Fixed header */}
         <div className="flex items-center justify-between border-b px-6 py-4 shrink-0">
           <div>
@@ -2341,7 +2364,10 @@ export default function MarketingAssetModal({
 
     {/* Review & Compliance Attestation — required before saving/publishing a flyer */}
     <Dialog open={showAttestation} onOpenChange={setShowAttestation}>
-      <DialogContent className="sm:max-w-lg z-[60]">
+      <DialogContent
+        overlayClassName={dialogZClass}
+        className={cn("sm:max-w-lg z-[60]", dialogZClass)}
+      >
         <DialogTitle className="text-lg font-semibold">Review & Compliance Attestation</DialogTitle>
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">

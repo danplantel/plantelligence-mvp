@@ -25,6 +25,7 @@ import {
 import { WebinarHoverPreviewLayer } from "@/components/webinars/webinar-hover-preview";
 import { cn } from "@/lib/utils";
 import { portalRadiusValue } from "@/lib/typography-themes";
+import { PORTAL_MEETINGS_CHANGED } from "@/lib/portal-data-events";
 
 /**
  * The empty state shared by the three meeting/webinar sections.
@@ -1085,8 +1086,11 @@ export function VideosCardSection({
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingReplays, setIsLoadingReplays] = useState(true);
 
-  useEffect(() => {
-    const fetchPlanMeetings = async () => {
+  // Hoisted out of the effect so the portal's Edit Panel can ask for a re-read:
+  // a meeting scheduled there is written through the API, and this section would
+  // otherwise keep showing the list it fetched on mount.
+  const fetchPlanMeetings = useCallback(async () => {
+    {
       if (!clientId) {
         setUpcomingWebinars([]);
         setPastMeetings([]);
@@ -1139,10 +1143,19 @@ export function VideosCardSection({
       } finally {
         setIsLoading(false);
       }
-    };
-
-    fetchPlanMeetings();
+    }
   }, [clientId]);
+
+  useEffect(() => {
+    void fetchPlanMeetings();
+  }, [fetchPlanMeetings]);
+
+  useEffect(() => {
+    const onMeetingsChanged = () => void fetchPlanMeetings();
+    window.addEventListener(PORTAL_MEETINGS_CHANGED, onMeetingsChanged);
+    return () =>
+      window.removeEventListener(PORTAL_MEETINGS_CHANGED, onMeetingsChanged);
+  }, [fetchPlanMeetings]);
 
   useEffect(() => {
     const fetchWebinarReplays = async () => {

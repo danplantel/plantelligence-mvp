@@ -6,7 +6,7 @@ The landing page hides `ClientPortal`'s own header and footer, so **this file is
 
 ## Summary
 
-- **Unit tests:** 204 passing in 13 files
+- **Unit tests:** 206 passing in 14 files
 - **E2E:** none yet (see [Remaining coverage](#remaining-coverage))
 - **Runner:** Vitest + React Testing Library + jsdom
 
@@ -32,7 +32,7 @@ The default export wraps everything in this order — worth asserting because ea
 ## Running these tests
 
 ```bash
-pnpm test:portal-navbar           # all chrome suites (204 tests)
+pnpm test:portal-navbar           # all chrome suites (206 tests)
 pnpm test:portal-navbar:watch     # watch mode
 pnpm test:portal-navbar:coverage  # suites + V8 coverage
 ```
