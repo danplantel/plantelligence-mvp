@@ -43,6 +43,14 @@ interface PortalEditingContextValue {
   canEdit: boolean;
   /** May this viewer edit one specific function on this page? */
   canEditFunction: (permission: PermissionFunction) => boolean;
+  /**
+   * The access summary is still in flight.
+   *
+   * The floating Edit control renders a SKELETON while this is true instead of a
+   * disabled button: "not answered yet" and "not allowed" are different things,
+   * and showing the second while the first is true read as a broken control.
+   */
+  isAccessLoading: boolean;
   isOpen: boolean;
   openPanel: () => void;
   closePanel: () => void;
@@ -188,6 +196,7 @@ export function PortalEditingProvider({ children }: { children: ReactNode }) {
       planId,
       canEdit,
       canEditFunction,
+      isAccessLoading,
       isOpen,
       openPanel,
       closePanel,
@@ -208,6 +217,7 @@ export function PortalEditingProvider({ children }: { children: ReactNode }) {
       planId,
       canEdit,
       canEditFunction,
+      isAccessLoading,
       isOpen,
       openPanel,
       closePanel,

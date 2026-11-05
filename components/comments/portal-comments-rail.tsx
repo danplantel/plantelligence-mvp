@@ -51,6 +51,7 @@ import { PortalEditingProvider } from "@/components/portal-editing/portal-editin
 import { PortalEditingLauncher } from "@/components/portal-editing/portal-editing-launcher";
 import { PortalEditingPanel } from "@/components/portal-editing/portal-editing-panel";
 import { PortalVisibilityToggle } from "@/components/portal-editing/portal-visibility-toggle";
+import { PortalChromeButtonSkeleton } from "@/components/portal-editing/portal-chrome-button-skeleton";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import { cn } from "@/lib/utils";
@@ -193,20 +194,37 @@ export function PortalCommentsRail({
  */
 const PORTAL_CHATBOT_CLEARANCE = "11.5rem";
 function PortalCommentsButton() {
-  const { canComment, mode, needsDraft, toggleMode } = useCommentMode();
+  const { canComment, mode, needsDraft, toggleMode, hasSurface, surfaceResolved } =
+    useCommentMode();
   const active = canComment && mode === "on";
+
+  // The page registers its surface in an effect, so it is unknown for the first
+  // frame. Wait as a skeleton: a disabled button in that window read as
+  // "comments are unavailable on this page", which is a different and permanent
+  // thing. Once the page has answered, the button is always a button.
+  if (!surfaceResolved) {
+    return (
+      <PortalChromeButtonSkeleton
+        label="Checking whether comments are available…"
+        style={{
+          right: `calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + ${PORTAL_CHATBOT_CLEARANCE})`,
+        }}
+      />
+    );
+  }
 
   const label = needsDraft
     ? "Save a draft to turn on comments"
-    : active
-      ? "Turn comments off"
-      : "Turn comments on";
+    : !hasSurface
+      ? "This page doesn't take comments"
+      : active
+        ? "Turn comments off"
+        : "Turn comments on";
 
   return (
     <button
       type="button"
       onClick={toggleMode}
-      disabled={!canComment}
       aria-pressed={active}
       aria-label={label}
       title={label}
@@ -216,12 +234,15 @@ function PortalCommentsButton() {
       // Fixed light colours, for the same reason as the Edit button beside it:
       // this sits outside `.portal-root`, so its theme tokens follow the
       // dashboard and would render it dark over a light portal.
+      //
+      // Never `disabled`: an unsaved draft or a surface that cannot take
+      // comments is said in the label, and the provider keeps the rail shut.
       className={cn(
         "fixed bottom-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-gray-200 bg-white shadow-lg transition-colors",
         active
           ? "text-accent-blue"
           : "text-gray-500 hover:text-gray-900",
-        !canComment && "cursor-not-allowed opacity-60",
+        !canComment && "text-gray-400",
       )}
     >
       <MessageSquare className="h-5 w-5" />

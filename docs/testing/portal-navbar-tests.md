@@ -6,7 +6,7 @@ The landing page hides `ClientPortal`'s own header and footer, so **this file is
 
 ## Summary
 
-- **Unit tests:** 195 passing in 12 files
+- **Unit tests:** 204 passing in 13 files
 - **E2E:** none yet (see [Remaining coverage](#remaining-coverage))
 - **Runner:** Vitest + React Testing Library + jsdom
 
@@ -32,7 +32,7 @@ The default export wraps everything in this order — worth asserting because ea
 ## Running these tests
 
 ```bash
-pnpm test:portal-navbar           # all chrome suites (195 tests)
+pnpm test:portal-navbar           # all chrome suites (204 tests)
 pnpm test:portal-navbar:watch     # watch mode
 pnpm test:portal-navbar:coverage  # suites + V8 coverage
 ```
@@ -95,10 +95,22 @@ Edit, and — furthest left — the eye. The eye exists because reviewing a page
 way an employee sees it used to mean clicking two buttons and remembering what
 had been open; it closes **both** surfaces in one click and restores both in one
 click. It only drives what the viewer may use: no edit panel for a view-only
-collaborator, no comments while an unsaved draft blocks commenting, and a
-disabled button rather than a silent no-op when neither is available. All three
-buttons carry fixed light colours, because they sit outside `.portal-root` and
-theme tokens would otherwise follow the dashboard's dark mode.
+collaborator, no comments while an unsaved draft blocks commenting.
+
+**None of the three is ever `disabled`.** A disabled control conflated two very
+different states — "the answer has not arrived" and "you may not do this" — and
+read as broken. Instead:
+
+- while a state is still resolving (the viewer-access summary in flight, the page
+  not yet registered as a comment surface) the control is a **skeleton** in the
+  same 48px circle at the same offset, so the cluster cannot shift when the real
+  button replaces it (`PortalChromeButtonSkeleton`);
+- once resolved, an action that cannot run is said in the **label** — "You have
+  view-only access to this page", "Save a draft to turn on comments", "This page
+  doesn't take comments" — and the provider refuses it, so nothing opens.
+
+All three buttons carry fixed light colours, because they sit outside
+`.portal-root` and theme tokens would otherwise follow the dashboard's dark mode.
 
 ## Remaining coverage
 

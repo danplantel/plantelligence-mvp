@@ -5,6 +5,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useCommentMode } from "@/components/comments/comment-mode-provider";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
+import { PortalChromeButtonSkeleton } from "@/components/portal-editing/portal-chrome-button-skeleton";
 
 /**
  * The floating "eye" — one control that hides or restores the advisor chrome.
@@ -35,8 +36,10 @@ export function PortalVisibilityToggle() {
     isOpen: editorOpen,
     openPanel,
     closePanel,
+    isAccessLoading,
   } = usePortalEditing();
-  const { canComment, mode, needsDraft, setMode } = useCommentMode();
+  const { canComment, mode, needsDraft, setMode, surfaceResolved } =
+    useCommentMode();
 
   // Only the armed portal mounts this (inside `PortalCommentsRail`), and only
   // pages that own an editing surface get the button at all.
@@ -47,13 +50,13 @@ export function PortalVisibilityToggle() {
 
   const canOpenEditor = canEdit;
   const canOpenComments = canComment && !needsDraft;
-  const disabled = !canOpenEditor && !canOpenComments && !chromeOpen;
+  const canOpenAnything = canOpenEditor || canOpenComments;
 
   const label = chromeOpen
     ? "Hide the editor and comments"
-    : disabled
-      ? "You have view-only access to this page"
-      : "Show the editor and comments";
+    : canOpenAnything
+      ? "Show the editor and comments"
+      : "You have view-only access to this page";
 
   const toggle = () => {
     if (chromeOpen) {
@@ -65,20 +68,30 @@ export function PortalVisibilityToggle() {
     if (canOpenComments) setMode("on");
   };
 
+  const right =
+    // The Edit button's own offset, plus one button width and the gap between
+    // them, so this one always lands to its left.
+    "calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + 19.5rem)";
+
+  // Either answer still in flight: wait as a skeleton, like its two neighbours,
+  // rather than offering a control that cannot do anything yet.
+  if (isAccessLoading || !surfaceResolved) {
+    return (
+      <PortalChromeButtonSkeleton
+        label="Checking what you can edit…"
+        style={{ right }}
+      />
+    );
+  }
+
   return (
     <button
       type="button"
       onClick={toggle}
-      disabled={disabled}
       aria-pressed={chromeOpen}
       aria-label={label}
       title={label}
-      style={{
-        // The Edit button's own offset, plus one button width and the gap
-        // between them, so this one always lands to its left.
-        right:
-          "calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + 19.5rem)",
-      }}
+      style={{ right }}
       // Fixed light colours, for the same reason as its two neighbours: this
       // sits outside `.portal-root`, so theme tokens would follow the dashboard
       // and render it dark over a light portal.
@@ -87,7 +100,9 @@ export function PortalVisibilityToggle() {
         chromeOpen
           ? "text-accent-blue"
           : "text-gray-500 hover:text-gray-900",
-        disabled && "cursor-not-allowed opacity-60",
+        // Never `disabled`: a viewer who can open neither surface gets the
+        // reason in the label instead of a greyed-out control.
+        !canOpenAnything && "text-gray-400",
       )}
     >
       {chromeOpen ? (

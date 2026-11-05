@@ -13,9 +13,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   theme: "light" as "light" | "dark",
   editing: {
-    target: { page: "home", label: "Home" },
+    target: { page: "home", label: "Home" } as {
+      page: string;
+      label: string;
+    } | null,
     canEdit: true,
     isOpen: false,
+    isAccessLoading: false,
     togglePanel: vi.fn(),
   },
 }));
@@ -37,6 +41,8 @@ import { PortalEditingLauncher } from "@/components/portal-editing/portal-editin
 describe("PortalEditingLauncher theme", () => {
   beforeEach(() => {
     mocks.editing.isOpen = false;
+    mocks.editing.isAccessLoading = false;
+    mocks.editing.canEdit = true;
   });
 
   it("is light with the dashboard in light mode", () => {
@@ -71,5 +77,31 @@ describe("PortalEditingLauncher theme", () => {
     });
     expect(button.className).toContain("text-accent-blue");
     expect(button.className).toContain("bg-white");
+  });
+
+  it("waits as a skeleton while the access summary is in flight", () => {
+    mocks.editing.isAccessLoading = true;
+    render(<PortalEditingLauncher />);
+
+    // "Not answered yet" is not "not allowed": no disabled button, and the
+    // skeleton sits at the button's own offset so the cluster cannot shift.
+    expect(
+      screen.getByRole("status", { name: "Checking your access…" }),
+    ).toHaveStyle({
+      right:
+        "calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + 15.5rem)",
+    });
+    expect(screen.queryByRole("button", { name: "Edit this page" })).toBeNull();
+  });
+
+  it("stays enabled for a viewer without page edit rights", () => {
+    mocks.editing.canEdit = false;
+    render(<PortalEditingLauncher />);
+
+    expect(
+      screen.getByRole("button", {
+        name: "You have view-only access to this page",
+      }),
+    ).toBeEnabled();
   });
 });

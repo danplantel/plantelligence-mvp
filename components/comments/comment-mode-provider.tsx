@@ -48,6 +48,15 @@ export interface CommentSurfaceInput {
 interface CommentModeValue {
   /** True once a page has registered a surface (comments may or may not be available). */
   hasSurface: boolean;
+  /**
+   * The page has ANSWERED the surface question, even if the answer was "none".
+   *
+   * The floating Comments control waits as a skeleton while this is false — that
+   * is the first frame, before the page's effect runs. Once it is true and
+   * `hasSurface` is still false, the page genuinely takes no comments and the
+   * control says so instead of waiting forever.
+   */
+  surfaceResolved: boolean;
   /** True when the surface has a persisted row, so commenting is possible. */
   canComment: boolean;
   mode: CommentMode;
@@ -131,6 +140,7 @@ export function CommentModeProvider({
   initialMode?: CommentMode;
 }) {
   const [surface, setSurface] = useState<CommentSurfaceInput | null>(null);
+  const [surfaceResolved, setSurfaceResolved] = useState(false);
   const [mode, setModeState] = useState<CommentMode>(initialMode ?? "off");
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const { data: session } = useSession();
@@ -159,6 +169,9 @@ export function CommentModeProvider({
 
   const registerSurface = useCallback((next: CommentSurfaceInput | null) => {
     setSurface(next);
+    // Even a `null` is an answer: this page takes no comments. The control
+    // needs to tell "still asking" from "asked, and the answer is no".
+    setSurfaceResolved(true);
   }, []);
 
   const hasSurface = surface !== null;
@@ -278,6 +291,7 @@ export function CommentModeProvider({
   const value = useMemo<CommentModeValue>(
     () => ({
       hasSurface,
+      surfaceResolved,
       canComment,
       mode,
       needsDraft,
@@ -306,6 +320,7 @@ export function CommentModeProvider({
     }),
     [
       hasSurface,
+      surfaceResolved,
       canComment,
       mode,
       needsDraft,

@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
     } | null,
     canEdit: true,
     isOpen: false,
+    isAccessLoading: false,
     openPanel: vi.fn(),
     closePanel: vi.fn(),
   },
@@ -27,6 +28,8 @@ const mocks = vi.hoisted(() => ({
     canComment: true,
     mode: "off" as "on" | "off",
     needsDraft: false,
+    hasSurface: true,
+    surfaceResolved: true,
     setMode: vi.fn(),
   },
 }));
@@ -47,9 +50,12 @@ describe("PortalVisibilityToggle", () => {
     mocks.editing.target = { page: "home", label: "Home" };
     mocks.editing.canEdit = true;
     mocks.editing.isOpen = false;
+    mocks.editing.isAccessLoading = false;
     mocks.comments.canComment = true;
     mocks.comments.mode = "off";
     mocks.comments.needsDraft = false;
+    mocks.comments.hasSurface = true;
+    mocks.comments.surfaceResolved = true;
   });
 
   it("opens both surfaces from a closed page", async () => {
@@ -122,16 +128,38 @@ describe("PortalVisibilityToggle", () => {
     expect(mocks.comments.setMode).not.toHaveBeenCalled();
   });
 
-  it("is disabled when the viewer can use neither surface", () => {
+  it("stays enabled and explains view-only access", () => {
     mocks.editing.canEdit = false;
     mocks.comments.canComment = false;
     render(<PortalVisibilityToggle />);
 
+    // Never disabled: the label carries the reason, and the click opens nothing.
     expect(
       screen.getByRole("button", {
         name: "You have view-only access to this page",
       }),
-    ).toBeDisabled();
+    ).toBeEnabled();
+  });
+
+  it("waits as a skeleton while the access summary is in flight", () => {
+    mocks.editing.isAccessLoading = true;
+    render(<PortalVisibilityToggle />);
+
+    expect(
+      screen.getByRole("status", { name: "Checking what you can edit…" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Show the editor and comments" }),
+    ).toBeNull();
+  });
+
+  it("waits as a skeleton until the page answers whether it takes comments", () => {
+    mocks.comments.surfaceResolved = false;
+    render(<PortalVisibilityToggle />);
+
+    expect(
+      screen.getByRole("status", { name: "Checking what you can edit…" }),
+    ).toBeInTheDocument();
   });
 
   it("renders nothing on a page without an editing surface", () => {

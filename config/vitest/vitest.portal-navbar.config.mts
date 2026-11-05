@@ -25,6 +25,8 @@ const portalNavbarTests = [
   "components/comments/__tests__/portal-comments-zoom.test.tsx",
   // The floating eye that hides/restores BOTH advisor surfaces at once
   "components/portal-editing/__tests__/portal-visibility-toggle.test.tsx",
+  // The floating Edit button: light colours, skeleton while access is in flight
+  "components/portal-editing/__tests__/portal-editing-launcher.test.tsx",
   // The footer the layout passes its resolved disclosure text to
   "components/layout/__tests__/footer.test.tsx",
   // Banner CTA normalisation and countdown arithmetic

@@ -35,6 +35,8 @@ const mocks = vi.hoisted(() => ({
     canComment: true,
     mode: "on" as "on" | "off",
     needsDraft: false,
+    hasSurface: true,
+    surfaceResolved: true,
     toggleMode: vi.fn(),
   },
   messagesMode: {
@@ -138,6 +140,8 @@ beforeEach(() => {
     canComment: true,
     mode: "on",
     needsDraft: false,
+    hasSurface: true,
+    surfaceResolved: true,
     toggleMode: vi.fn(),
   };
   mocks.messagesMode = {
@@ -274,7 +278,7 @@ describe("PortalCommentsRail chrome", () => {
     expect(button).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("explains why the control is unavailable before a draft exists", () => {
+  it("explains the unsaved draft without disabling the control", () => {
     setSearch("?comments=on");
     mocks.mode = { ...mocks.mode, canComment: false, needsDraft: true };
     renderRail();
@@ -282,7 +286,32 @@ describe("PortalCommentsRail chrome", () => {
     const button = screen.getByRole("button", {
       name: "Save a draft to turn on comments",
     });
-    expect(button).toBeDisabled();
+    // Never disabled: the label carries the reason, and the provider keeps the
+    // rail shut while the surface has no row.
+    expect(button).toBeEnabled();
+  });
+
+  it("waits as a skeleton until the page answers whether it takes comments", () => {
+    setSearch("?comments=on");
+    mocks.mode = { ...mocks.mode, hasSurface: false, surfaceResolved: false };
+    renderRail();
+
+    expect(
+      screen.getByRole("status", {
+        name: "Checking whether comments are available…",
+      }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Turn comments off" })).toBeNull();
+  });
+
+  it("says so — without disabling — on a page that takes no comments", () => {
+    setSearch("?comments=on");
+    mocks.mode = { ...mocks.mode, hasSurface: false, surfaceResolved: true };
+    renderRail();
+
+    expect(
+      screen.getByRole("button", { name: "This page doesn't take comments" }),
+    ).toBeEnabled();
   });
 
   it("sits left of the portal's Ask a question action", () => {
@@ -309,7 +338,7 @@ describe("PortalCommentsRail chrome", () => {
     ).toBeInTheDocument();
   });
 
-  it("disables the Edit launcher for a viewer without page edit rights", () => {
+  it("explains view-only access without disabling the Edit launcher", () => {
     setSearch("?comments=on");
     mocks.canEdit = false;
     renderRail();
@@ -318,6 +347,6 @@ describe("PortalCommentsRail chrome", () => {
       screen.getByRole("button", {
         name: "You have view-only access to this page",
       }),
-    ).toBeDisabled();
+    ).toBeEnabled();
   });
 });
