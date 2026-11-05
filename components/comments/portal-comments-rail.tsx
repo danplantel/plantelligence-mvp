@@ -50,6 +50,7 @@ import { MessagesRail } from "@/components/messages/messages-rail";
 import { PortalEditingProvider } from "@/components/portal-editing/portal-editing-provider";
 import { PortalEditingLauncher } from "@/components/portal-editing/portal-editing-launcher";
 import { PortalEditingPanel } from "@/components/portal-editing/portal-editing-panel";
+import { PortalVisibilityToggle } from "@/components/portal-editing/portal-visibility-toggle";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import { cn } from "@/lib/utils";
@@ -162,6 +163,9 @@ export function PortalCommentsRail({
           <PortalCommentsButton />
           {/* The inline editor sits on the left and repaints the live page. */}
           <PortalEditingLauncher />
+          {/* Furthest left: one click hides (or restores) BOTH surfaces, so the
+              advisor can review the page exactly as an employee sees it. */}
+          <PortalVisibilityToggle />
           <PortalEditingPanel />
         </PortalEditingProvider>
       </MessagesModeProvider>

@@ -6,7 +6,7 @@ The landing page hides `ClientPortal`'s own header and footer, so **this file is
 
 ## Summary
 
-- **Unit tests:** 188 passing in 11 files
+- **Unit tests:** 195 passing in 12 files
 - **E2E:** none yet (see [Remaining coverage](#remaining-coverage))
 - **Runner:** Vitest + React Testing Library + jsdom
 
@@ -32,7 +32,7 @@ The default export wraps everything in this order — worth asserting because ea
 ## Running these tests
 
 ```bash
-pnpm test:portal-navbar           # all chrome suites (188 tests)
+pnpm test:portal-navbar           # all chrome suites (195 tests)
 pnpm test:portal-navbar:watch     # watch mode
 pnpm test:portal-navbar:coverage  # suites + V8 coverage
 ```
@@ -87,6 +87,18 @@ the header's nav and its call to action untouched. Two consequences are pinned:
   plan reads pill-like, a `sharp` plan squares it off.
 - the theme reaches the nav links through `portalRadiusValue()` on each row, so
   the header follows a theme change made in the Portal Edit Panel live.
+
+## The floating controls
+
+An armed portal (`?comments=on`) draws three fixed buttons in one row: Comments,
+Edit, and — furthest left — the eye. The eye exists because reviewing a page the
+way an employee sees it used to mean clicking two buttons and remembering what
+had been open; it closes **both** surfaces in one click and restores both in one
+click. It only drives what the viewer may use: no edit panel for a view-only
+collaborator, no comments while an unsaved draft blocks commenting, and a
+disabled button rather than a silent no-op when neither is available. All three
+buttons carry fixed light colours, because they sit outside `.portal-root` and
+theme tokens would otherwise follow the dashboard's dark mode.
 
 ## Remaining coverage
 

@@ -23,6 +23,8 @@ const portalNavbarTests = [
   "components/comments/__tests__/portal-comments-rail.test.tsx",
   // Scale + height math for the scaled portal
   "components/comments/__tests__/portal-comments-zoom.test.tsx",
+  // The floating eye that hides/restores BOTH advisor surfaces at once
+  "components/portal-editing/__tests__/portal-visibility-toggle.test.tsx",
   // The footer the layout passes its resolved disclosure text to
   "components/layout/__tests__/footer.test.tsx",
   // Banner CTA normalisation and countdown arithmetic
