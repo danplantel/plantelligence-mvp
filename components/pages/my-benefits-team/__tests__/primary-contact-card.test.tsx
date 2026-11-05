@@ -367,6 +367,28 @@ describe("PrimaryContactCard visuals", () => {
     expect(screen.queryByTestId("branding-image")).not.toBeInTheDocument();
   });
 
+  it("labels BOTH CTAs in the brand colour on a highlighted card", () => {
+    renderCard(
+      {
+        name: "Ada",
+        email: "ada@example.com",
+        phone: "5551234567",
+        enableContactButton: true,
+        contactButtonTypes: ["calendar", "phone"],
+        schedulingUrl: "https://cal.test/ada",
+      },
+      { brandColor: "#123456", highlighted: true },
+    );
+
+    // One button in the brand colour and one in near-black read as two different
+    // buttons from two different palettes. Both take the plan's primary colour.
+    for (const label of ["Schedule Appt.", "Call Now"]) {
+      expect(screen.getByRole("button", { name: label }).style.color).toBe(
+        "rgb(18, 52, 86)",
+      );
+    }
+  });
+
   it("draws the email and phone icons straight on the fill when highlighted", () => {
     const { container } = renderCard(
       { name: "Ada", email: "ada@example.com", phone: "5551234567" },

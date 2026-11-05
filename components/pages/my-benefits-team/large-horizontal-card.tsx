@@ -438,11 +438,14 @@ export function LargeHorizontalCard({
                   ? mix(0.2, "#ffffff", effectiveBrandColor)
                   : "#F3F4F6"
                 : "#ffffff";
-              const buttonColor = isPrimaryButton
-                ? highlighted
-                  ? effectiveBrandColor
-                  : "#ffffff"
-                : readableColor(buttonBg);
+              // A highlighted card labels BOTH of its buttons in the plan's
+              // primary colour — the second one used to be `readableColor`, which
+              // is near black and reads as a colour the plan never chose.
+              const buttonColor = highlighted
+                ? effectiveBrandColor
+                : isPrimaryButton
+                  ? "#ffffff"
+                  : readableColor(buttonBg);
 
               return (
                 <Button

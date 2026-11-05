@@ -183,6 +183,25 @@ describe("LargeHorizontalCard contact details", () => {
 });
 
 describe("LargeHorizontalCard action buttons", () => {
+  it("labels BOTH CTAs in the brand colour on a highlighted card", () => {
+    renderCard(
+      {
+        name: "Ada",
+        phone: "5551234567",
+        enableContactButton: true,
+        contactButtonTypes: ["calendar", "phone"],
+        schedulingUrl: "https://cal.test/ada",
+      },
+      { highlighted: true },
+    );
+
+    for (const label of ["Schedule Appt.", "Call Now"]) {
+      expect(screen.getByRole("button", { name: label }).style.color).toBe(
+        "rgb(18, 52, 86)",
+      );
+    }
+  });
+
   it("opens the configured calendar CTA", async () => {
     const user = userEvent.setup();
     renderCard({

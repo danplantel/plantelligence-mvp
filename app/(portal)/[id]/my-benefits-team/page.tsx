@@ -21,6 +21,7 @@ import {
   type CategoryPortalVisibility,
 } from "@/lib/portal-category-visibility";
 import { portalRadiusValue } from "@/lib/typography-themes";
+import { isHighlightedKeyContactStyle } from "@/lib/key-contact-card-style";
 import {
   supportCardColumnClass,
   supportCardSize,
@@ -249,6 +250,19 @@ export default function MyBenefitsTeamPage() {
           : undefined;
     }
   }
+
+  /**
+   * Section 1 of the Edit Panel: whether the MAIN contact's card is filled with
+   * the plan's primary colour and drawn in the readable colour for that fill.
+   *
+   * It rides the `keyContacts` blob with the contacts themselves, so the panel
+   * writes it through the same plan PUT. Anything unrecognised — a plan saved
+   * before this existed, a bare-array `keyContacts`, a value from another release
+   * — reads as the neutral card every page has always drawn.
+   */
+  const highlightedPrimary = isHighlightedKeyContactStyle(
+    (clientData?.keyContacts as any)?.mainContactStyle,
+  );
 
   // 1) Visibility from server (Category Display Show/Hide)
   const visibility = useMemo(() => {
@@ -490,6 +504,7 @@ export default function MyBenefitsTeamPage() {
         <div className="hidden md:block">
           {displayStyle === 0 && (
             <DefaultLayout
+              highlightedPrimary={highlightedPrimary}
               primaryContact={primaryContact}
               rest={rest}
               visibility={visibility}
@@ -504,6 +519,7 @@ export default function MyBenefitsTeamPage() {
           )}
           {displayStyle === 2 && (
             <Layout2
+              highlightedPrimary={highlightedPrimary}
               contacts={visibleContacts}
               visibility={visibility}
               brandColor={brandColor}
@@ -517,6 +533,7 @@ export default function MyBenefitsTeamPage() {
           )}
           {displayStyle === 3 && (
             <Layout3
+              highlightedPrimary={highlightedPrimary}
               contacts={visibleContacts}
               visibility={visibility}
               brandColor={brandColor}
@@ -530,6 +547,7 @@ export default function MyBenefitsTeamPage() {
           )}
           {displayStyle === 4 && (
             <Layout4
+              highlightedPrimary={highlightedPrimary}
               primaryContact={primaryContact}
               rest={rest}
               visibility={visibility}
@@ -544,6 +562,7 @@ export default function MyBenefitsTeamPage() {
           )}
           {displayStyle === null && (
             <DefaultLayout
+              highlightedPrimary={highlightedPrimary}
               primaryContact={primaryContact}
               rest={rest}
               visibility={visibility}
@@ -561,6 +580,7 @@ export default function MyBenefitsTeamPage() {
         {/* MOBILE LAYOUT (below md) — uses mobileDisplayStyle (mirrors step-3d mobile preview) */}
         <div className="md:hidden">
           <MobileLayout
+            highlightedPrimary={highlightedPrimary}
             contacts={visibleContacts}
             mobileDisplayStyle={mobileDisplayStyle}
             brandColor={brandColor}
@@ -597,6 +617,7 @@ export default function MyBenefitsTeamPage() {
  * headline layout.
  */
 function SupportCardsRow({
+  highlightedPrimary = false,
   contacts,
   visibility,
   brandColor,
@@ -608,6 +629,9 @@ function SupportCardsRow({
   planBenefitLabels,
   startIndex = 1,
 }: {
+  /** Paint the row's FIRST card as the main contact. Only Layout 3 puts the main
+   *  contact in this row; the default layout passes nothing. */
+  highlightedPrimary?: boolean;
   contacts: Contact[];
   visibility: CategoryPortalVisibility;
   brandColor: string;
@@ -642,6 +666,7 @@ function SupportCardsRow({
         >
           <BenefitContactCard
             contact={{ ...contact, isPrimary: false }}
+            highlighted={highlightedPrimary && index === 0}
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             ctaColor={brandColor}
@@ -665,6 +690,7 @@ function SupportCardsRow({
 // Mirrors step-3d.tsx displayStyle 4 EXACTLY — step-3d converts "large" slots
 // to compact SmallVerticalCard on desktop, so every card renders vertically.
 function Layout4({
+  highlightedPrimary = false,
   primaryContact,
   rest,
   visibility,
@@ -676,6 +702,7 @@ function Layout4({
   customBenefitName,
   planBenefitLabels,
 }: {
+  highlightedPrimary?: boolean;
   primaryContact?: Contact;
   rest: Contact[];
   visibility: CategoryPortalVisibility;
@@ -708,6 +735,7 @@ function Layout4({
       <div className="grid w-full min-w-0 grid-cols-1 md:grid-cols-2 gap-4 [&>*]:min-w-0">
         {showPrimary && primaryContact && (
           <BenefitContactCard
+            highlighted={highlightedPrimary}
             contact={{
               ...primaryContact,
               isPrimary: true,
@@ -782,6 +810,7 @@ function Layout4({
 // Mirrors step-3d.tsx displayStyle 2 EXACTLY — step-3d converts "large"
 // slots to compact SmallVerticalCard for Layout 2 on desktop.
 function Layout2({
+  highlightedPrimary = false,
   contacts,
   visibility,
   brandColor,
@@ -792,6 +821,7 @@ function Layout2({
   customBenefitName,
   planBenefitLabels,
 }: {
+  highlightedPrimary?: boolean;
   contacts: Contact[];
   visibility: CategoryPortalVisibility;
   brandColor: string;
@@ -823,6 +853,7 @@ function Layout2({
         <BenefitContactCard
           key={contact.id || index}
           contact={contact}
+          highlighted={highlightedPrimary && index === 0}
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           ctaColor={brandColor}
@@ -844,6 +875,7 @@ function Layout2({
 // Layout 3 (displayStyle 3): 8 small vertical (responsive grid)
 // Mirrors step-3d.tsx displayStyle 3 EXACTLY.
 function Layout3({
+  highlightedPrimary = false,
   contacts,
   visibility,
   brandColor,
@@ -854,6 +886,7 @@ function Layout3({
   customBenefitName,
   planBenefitLabels,
 }: {
+  highlightedPrimary?: boolean;
   contacts: Contact[];
   visibility: CategoryPortalVisibility;
   brandColor: string;
@@ -875,6 +908,7 @@ function Layout3({
   // Same count-driven row as the hub: this layout is one row of support cards.
   return (
     <SupportCardsRow
+      highlightedPrimary={highlightedPrimary}
       contacts={contactsWithPrimary}
       visibility={visibility}
       brandColor={brandColor}
@@ -892,6 +926,7 @@ function Layout3({
 // Default layout (displayStyle 0): 1 primary + 4 small vertical (responsive grid)
 // Mirrors step-3d.tsx displayStyle 0 EXACTLY.
 function DefaultLayout({
+  highlightedPrimary = false,
   primaryContact,
   rest,
   visibility,
@@ -903,6 +938,7 @@ function DefaultLayout({
   customBenefitName,
   planBenefitLabels,
 }: {
+  highlightedPrimary?: boolean;
   primaryContact?: Contact;
   rest: Contact[];
   visibility: CategoryPortalVisibility;
@@ -927,6 +963,7 @@ function DefaultLayout({
       {showPrimary && primaryContact && (
         <BenefitContactCard
           asPrimary
+          highlighted={highlightedPrimary}
           contact={{ ...primaryContact, cardBackgroundColor: "#ffffffea" }}
           brandColor={brandColor}
           secondaryColor={secondaryColor}
@@ -960,6 +997,7 @@ function DefaultLayout({
 // Mobile layout (below md breakpoint) — mirrors step-3d.tsx mobile preview EXACTLY.
 // mobileDisplayStyle: 0 = Stacked (single column), 1 = 2-Column Grid, 2 = Hero + Grid.
 function MobileLayout({
+  highlightedPrimary = false,
   contacts,
   mobileDisplayStyle,
   brandColor,
@@ -970,6 +1008,7 @@ function MobileLayout({
   customBenefitName,
   planBenefitLabels,
 }: {
+  highlightedPrimary?: boolean;
   contacts: Contact[];
   mobileDisplayStyle: number;
   brandColor: string;
@@ -998,6 +1037,7 @@ function MobileLayout({
     <BenefitContactCard
       key={contact.id || index}
       contact={contact}
+      highlighted={highlightedPrimary && index === 0}
       brandColor={brandColor}
       secondaryColor={secondaryColor}
       // Same CTA colour the hub's support cards use.

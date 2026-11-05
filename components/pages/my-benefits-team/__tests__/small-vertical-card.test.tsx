@@ -608,6 +608,26 @@ describe("SmallVerticalCard visuals", () => {
     ).toBeTruthy();
   });
 
+  it("labels BOTH CTAs in the brand colour on a highlighted card", () => {
+    renderCard(
+      {
+        name: "Ada Lovelace",
+        email: "ada@acme.test",
+        phone: "305-555-0100",
+        enableContactButton: true,
+        contactButtonTypes: ["calendar", "phone"],
+        schedulingUrl: "https://cal.test/ada",
+      },
+      { highlighted: true },
+    );
+
+    for (const label of ["Schedule Appt.", "Call Now"]) {
+      expect(screen.getByRole("button", { name: label }).style.color).toBe(
+        "rgb(18, 52, 86)",
+      );
+    }
+  });
+
   it("fills a highlighted card and inverts its CTA", () => {
     renderCard(
       {

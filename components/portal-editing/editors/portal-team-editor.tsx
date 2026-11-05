@@ -2,24 +2,29 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { SectionHeader } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
-import { ContactCtaPicker } from "@/components/ui/contact-cta-picker";
-import { useClientPortal } from "@/contexts/client-portal-context";
+import { KeyContactsEditor } from "@/components/contacts/key-contacts-editor";
+import { MainContactStyleSection } from "@/components/contacts/main-contact-style-section";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
+import { useClientPortal } from "@/contexts/client-portal-context";
 import {
-  toContactCtaOptions,
-  toStoredCtaTypes,
-  type ContactCtaOption,
-} from "@/lib/contact-cta";
+  normalizeKeyContactCardStyle,
+  type KeyContactCardStyle,
+} from "@/lib/key-contact-card-style";
 import type { KeyContact } from "@/types/new-client-wizard";
 
 interface KeyContactsBlob {
   contacts: KeyContact[];
   displayStyle?: number | null;
   mobileDisplayStyle?: number | null;
+  contactDisplayOrder?: (string | number)[];
+  /**
+   * How the MAIN contact's card is drawn on this page — `default` or
+   * `highlighted`. It rides the same blob as the contacts, so it is saved by the
+   * same plan PUT.
+   */
+  mainContactStyle?: KeyContactCardStyle;
   [key: string]: unknown;
 }
 
@@ -43,17 +48,25 @@ function normalizeBlob(raw: unknown): KeyContactsBlob {
   return { contacts: [] };
 }
 
-function contactName(contact: KeyContact): string {
-  const composed = `${contact.firstName || ""} ${contact.lastName || ""}`.trim();
-  return composed || contact.displayName || contact.name || "Contact";
-}
+/** How long a keystroke waits before the blob is written, in ms. */
+const AUTOSAVE_DELAY = 700;
 
 /**
  * My Benefits Team editor — the contacts the plan shows on its cards.
  *
- * Card presentation (visibility and CTAs) is edited here as well, so the portal
- * repaints the same cards the participants see. Saves the plan's `keyContacts`
- * blob through the plan PUT.
+ * The form is
+ * [`KeyContactsEditor`](../../contacts/key-contacts-editor.tsx:1), the same
+ * component Create Plan's Step 3 Edit Panel renders, so the two surfaces cannot
+ * drift: same accordions, same designation pills, same contact details, same CTA
+ * picker. This component is only the PORTAL HOST — it feeds the form the plan's
+ * `keyContacts` blob and writes every edit back through the plan PUT.
+ *
+ * Two speeds on purpose:
+ *
+ *  - typing patches the blob AND the portal's plan data, so the cards beside the
+ *    panel repaint on the keystroke, and a debounced PUT persists it;
+ *  - "Save Changes" writes at once and says so, which is what the panel's own
+ *    button promises.
  */
 export function PortalTeamEditor() {
   const { clientData } = useClientPortal();
@@ -74,6 +87,11 @@ export function PortalTeamEditor() {
   const dirtyRef = useRef(false);
   const hydratedRef = useRef<string | null>(null);
 
+  // The latest blob for handlers that must not close over a stale render (a
+  // keystroke and the "Save Changes" press can land in the same tick).
+  const blobRef = useRef(blob);
+  blobRef.current = blob;
+
   useEffect(() => {
     const id = clientData?.id ?? null;
     if (!id || hydratedRef.current === id) return;
@@ -81,11 +99,62 @@ export function PortalTeamEditor() {
     setBlob(normalizeBlob(clientData?.keyContacts));
   }, [clientData]);
 
-  const updateContacts = useCallback(
-    (updater: (contacts: KeyContact[]) => KeyContact[]) => {
+  /** Write the blob to the plan. Reports whether the server accepted it. */
+  const persist = useCallback(
+    async (next: KeyContactsBlob) => {
+      if (!planId) return false;
+      beginSave();
+      try {
+        const response = await fetch(`/api/clients/${planId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ keyContacts: next }),
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => null);
+          throw new Error(payload?.error || "Could not save the team.");
+        }
+        finishSave();
+        return true;
+      } catch (error) {
+        failSave(
+          error instanceof Error ? error.message : "Could not save the team.",
+        );
+        return false;
+      }
+    },
+    [planId, beginSave, finishSave, failSave],
+  );
+
+  /**
+   * The debounced write behind typing. A failure re-reads the plan, so the panel
+   * cannot keep showing a version of a contact the server rejected.
+   */
+  const autosave = useCallback(async () => {
+    const accepted = await persist(blobRef.current);
+    if (!accepted) await refetchPortal();
+  }, [persist, refetchPortal]);
+
+  useEffect(() => {
+    if (!dirtyRef.current) return;
+    const timer = setTimeout(() => {
+      dirtyRef.current = false;
+      void autosave();
+    }, AUTOSAVE_DELAY);
+    return () => clearTimeout(timer);
+  }, [blob, autosave]);
+
+  /**
+   * One changed field: update the draft, push it into the portal's plan data so
+   * the cards repaint immediately, and let the debounce write it.
+   */
+  const patchContact = useCallback(
+    (contactId: string | number, updates: Record<string, any>) => {
       dirtyRef.current = true;
       setBlob((previous) => {
-        const contacts = updater(previous.contacts);
+        const contacts = previous.contacts.map((contact) =>
+          contact.id === contactId ? { ...contact, ...updates } : contact,
+        );
         const next = { ...previous, contacts };
         patchClientData({ keyContacts: next });
         return next;
@@ -94,47 +163,69 @@ export function PortalTeamEditor() {
     [patchClientData],
   );
 
-  const updateContact = useCallback(
-    (id: string, patch: Partial<KeyContact>) => {
-      updateContacts((contacts) =>
-        contacts.map((contact) =>
-          contact.id === id ? { ...contact, ...patch } : contact,
-        ),
-      );
+  /**
+   * Section 1's two choices. The style is a plan-level field on the same blob, so
+   * it previews on the click and is written by the same debounce as a contact
+   * edit.
+   */
+  const setMainContactStyle = useCallback(
+    (next: KeyContactCardStyle) => {
+      dirtyRef.current = true;
+      setBlob((previous) => {
+        const updated: KeyContactsBlob = {
+          ...previous,
+          mainContactStyle: next,
+        };
+        patchClientData({ keyContacts: updated });
+        return updated;
+      });
     },
-    [updateContacts],
+    [patchClientData],
   );
 
-  const save = useCallback(async () => {
-    if (!planId) return;
-    beginSave();
-    try {
-      const response = await fetch(`/api/clients/${planId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ keyContacts: blob }),
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(payload?.error || "Could not save the team.");
-      }
-      finishSave();
-    } catch (error) {
-      failSave(
-        error instanceof Error ? error.message : "Could not save the team.",
-      );
-      await refetchPortal();
-    }
-  }, [planId, blob, beginSave, finishSave, failSave, refetchPortal]);
-
-  useEffect(() => {
-    if (!dirtyRef.current) return;
-    const timer = setTimeout(() => {
+  /**
+   * The row's own "Save Changes": the explicit press is the write, so it commits
+   * the whole blob at once and cancels the pending debounce.
+   */
+  const saveContact = useCallback(
+    async (contactId: string | number) => {
+      void contactId;
       dirtyRef.current = false;
-      void save();
-    }, 700);
-    return () => clearTimeout(timer);
-  }, [blob, save]);
+      const accepted = await persist(blobRef.current);
+      if (!accepted) {
+        toast.error("Could not save this contact. Please try again.");
+        return false;
+      }
+      toast.success("Contact saved");
+      return true;
+    },
+    [persist],
+  );
+
+  const deleteContact = useCallback(
+    async (contactId: string | number) => {
+      dirtyRef.current = false;
+      const previous = blobRef.current;
+      const contacts = previous.contacts.filter(
+        (contact) => contact.id !== contactId,
+      );
+      const contactDisplayOrder = Array.isArray(previous.contactDisplayOrder)
+        ? previous.contactDisplayOrder.filter((id) => id !== contactId)
+        : contacts.map((contact) => contact.id);
+      const next: KeyContactsBlob = { ...previous, contacts, contactDisplayOrder };
+
+      setBlob(next);
+      patchClientData({ keyContacts: next });
+
+      const accepted = await persist(next);
+      if (!accepted) {
+        toast.error("Could not delete that contact. Please try again.");
+        return;
+      }
+      toast.success("Contact removed");
+    },
+    [patchClientData, persist],
+  );
 
   return (
     <div className="space-y-8">
@@ -151,101 +242,24 @@ export function PortalTeamEditor() {
         )}
       </div>
 
-      {blob.contacts.length === 0 ? (
-        <p className="text-sm text-muted-foreground">
-          This plan has no contacts yet. Add them from Edit Client → Contacts.
-        </p>
-      ) : (
-        blob.contacts.map((contact, index) => {
-          const ctaOptions = toContactCtaOptions(contact);
-          return (
-            <section key={contact.id || index}>
-              <SectionHeader number={index + 1} title={contactName(contact)} />
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <Label className="text-xs">Title</Label>
-                  <Input
-                    value={contact.title || ""}
-                    onChange={(event) =>
-                      updateContact(contact.id, { title: event.target.value })
-                    }
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Email</Label>
-                    <Input
-                      value={contact.email || ""}
-                      onChange={(event) =>
-                        updateContact(contact.id, {
-                          email: event.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Phone</Label>
-                    <Input
-                      value={contact.phone || ""}
-                      onChange={(event) =>
-                        updateContact(contact.id, {
-                          phone: event.target.value,
-                        })
-                      }
-                    />
-                  </div>
-                </div>
+      <MainContactStyleSection
+        value={normalizeKeyContactCardStyle(blob.mainContactStyle)}
+        onChange={setMainContactStyle}
+      />
 
-                <div className="flex flex-wrap items-center gap-4 text-xs">
-                  <label className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      checked={contact.displayEmail === true}
-                      onChange={(event) =>
-                        updateContact(contact.id, {
-                          displayEmail: event.target.checked,
-                        })
-                      }
-                    />
-                    Show email
-                  </label>
-                  <label className="flex items-center gap-1.5">
-                    <input
-                      type="checkbox"
-                      checked={contact.displayPhone === true}
-                      onChange={(event) =>
-                        updateContact(contact.id, {
-                          displayPhone: event.target.checked,
-                        })
-                      }
-                    />
-                    Show phone
-                  </label>
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label className="text-xs">Card actions</Label>
-                  <ContactCtaPicker
-                    value={ctaOptions}
-                    compact
-                    onChange={(next: ContactCtaOption[]) => {
-                      const stored = toStoredCtaTypes(next);
-                      updateContact(contact.id, {
-                        enableContactButton: next.length > 0,
-                        contactButtonTypes: stored,
-                        contactButtonType: stored[0],
-                        displayScheduleAppointment:
-                          stored.includes("calendar"),
-                        displayUrl: stored.includes("url"),
-                      });
-                    }}
-                  />
-                </div>
-              </div>
-            </section>
-          );
-        })
-      )}
+      {/* The wizard's own contact form, numbered as this panel's second section. */}
+      <KeyContactsEditor
+        sectionNumber={2}
+        contacts={blob.contacts}
+        onPatch={patchContact}
+        onSaveContact={saveContact}
+        onDeleteContact={deleteContact}
+        emptyMessage={
+          <p className="text-sm text-muted-foreground">
+            This plan has no contacts yet. Add them from Edit Client → Contacts.
+          </p>
+        }
+      />
     </div>
   );
 }

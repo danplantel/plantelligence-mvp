@@ -9,7 +9,7 @@ The page is two things at once, and that is what the tests have to separate:
 
 ## Summary
 
-- **Unit tests:** 162 across 12 suites (`pnpm test:portal-team`), all passing
+- **Unit tests:** 211 across 13 suites (`pnpm test:portal-team`), all passing
 - **E2E:** 3, env-gated on `E2E_BASE_URL` + `E2E_PORTAL_SLUG` (`e2e/portal-team.spec.ts`)
 - **Runner:** `pnpm test:portal-team` / `:watch` / `:coverage` — [`config/vitest/vitest.portal-team.config.mts`](../../config/vitest/vitest.portal-team.config.mts:1) driven by [`scripts/tests/run-portal-team-tests.mjs`](../../scripts/tests/run-portal-team-tests.mjs:1)
 - Four card defects were found and fixed while writing the suites (see [Fixed while writing these suites](#fixed-while-writing-these-suites))
@@ -17,7 +17,7 @@ The page is two things at once, and that is what the tests have to separate:
 ## Commands
 
 ```bash
-pnpm test:portal-team             # all 162 unit tests in the scoped config
+pnpm test:portal-team             # all 211 unit tests in the scoped config
 pnpm test:portal-team:watch
 pnpm test:portal-team:coverage
 E2E_BASE_URL=… E2E_PORTAL_SLUG=… pnpm exec playwright test e2e/portal-team.spec.ts
@@ -70,20 +70,82 @@ E2E_BASE_URL=… E2E_PORTAL_SLUG=… pnpm exec playwright test e2e/portal-team.s
 
 Colours default to `#0D315F` / `#C89B5B`, and `appointmentLink` defaults to a hard-coded OnceHub URL.
 
+## The Edit Panel
+
+Opening **Edit** on this page mounts
+[`PortalTeamEditor`](../../components/portal-editing/editors/portal-team-editor.tsx:1),
+which renders the panel in two numbered sections:
+
+| Section | What it holds | Where it is stored |
+| --- | --- | --- |
+| **1 — Main Contact Highlight Style** | `Default style` or `Highlighted` for the main contact's card | `keyContacts.mainContactStyle` |
+| **2 — Contact Details** | The contact accordions — the wizard's own form | `keyContacts.contacts` |
+
+Section 1 chooses between the neutral card and the treatment a benefit gives its
+key contact in "Have Questions?" (Section 8): the card is filled with the plan's
+PRIMARY colour and everything on it is drawn in the readable colour for that fill.
+The two choices and their hints come from
+[`lib/key-contact-card-style.ts`](../../lib/key-contact-card-style.ts:34), so the
+panel, the benefit editor and the wizard's preview cannot describe them
+differently. `normalizeKeyContactCardStyle` reads anything unrecognised — a plan
+saved before this existed, a bare-array `keyContacts`, a value from another
+release — as the neutral card, so no page can lose its main contact to a bad value.
+
+The page honours it in **all seven layouts**: the main contact's card is the only
+one that can be filled (the primary card in the default and 2-across layouts, the
+first card of the row in Layout 3, the top-left card in Layout 4, and the first
+card on mobile).
+
+Inside Section 2 it is the **same form as Create Plan's Step 3 Edit Panel** — the
+same rows in the same order, each on a single square-edged frame. (A row used to
+be a `Card`, whose rounded frame sat underneath a `ring` while the row was open,
+which read as two borders: one rounded, one sharp. The open row is now marked by
+that one border changing colour.)
+
+The same form, in three pieces:
+
+| Piece            | Where                                                                                                  | Role                                        |
+| ---------------- | ------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| The form         | [`components/contacts/key-contacts-editor.tsx`](../../components/contacts/key-contacts-editor.tsx:1)   | One collapsible card per contact, no storage |
+| Wizard host      | [`contact-section-editor.tsx`](../../components/wizard/new-client-steps/sections/components/contact-section-editor.tsx:1) | Binds it to the draft store, the step endpoint and the draft |
+| Portal host      | [`portal-team-editor.tsx`](../../components/portal-editing/editors/portal-team-editor.tsx:1)            | Binds it to the plan's `keyContacts` blob and the plan PUT |
+
+There is one form because there were two. The panel used to be a hand-written
+list of Title / Email / Phone inputs, so the buttons a participant sees could be
+changed in the wizard and not here. Now the accordion body is the wizard's own:
+contact type, the name/title fields, the headshot, the designation pills, the
+company and its logo, the contact details and the CTA picker.
+
+The host supplies three behaviours and the form owns everything else:
+
+1. **`onPatch`** — every keystroke. The portal host merges the field into its blob
+   and calls `patchClientData`, so the cards beside the panel repaint immediately;
+   a **700 ms debounce** then PUTs the blob.
+2. **`onSaveContact`** — the row's own **Save Changes**. It writes the blob at once,
+   cancels the pending debounce and toasts `Contact saved` (or the failure).
+3. **`onDeleteContact`** — removes the row **and its place in
+   `contactDisplayOrder`**, so the card order the advisor chose survives a deletion.
+
+Name derivation lives in the form, not in either host: editing a first or last name
+rewrites `name`, and a team / support line's `displayName` is its name. Marking a
+contact primary is written as two patches — the promoted row, then whichever row
+led that category before — so both hosts persist it through their normal path.
+
 ## Landed inventory
 
 | Suite                                                                                                                                  | Tests | Focus                                                                          |
 | -------------------------------------------------------------------------------------------------------------------------------------- | ----: | ------------------------------------------------------------------------------ |
-| [`lib/__tests__/portal-primary-contact.test.ts`](../../lib/__tests__/portal-primary-contact.test.ts:1)                                 |    12 | Which contact the portal promotes to "primary" (the ladder the page ignores)   |
-| [`lib/__tests__/benefit-contact-categories.test.ts`](../../lib/__tests__/benefit-contact-categories.test.ts:1)                         |     9 | `canonicalContactCategory` and `mergeContactCategoryLists`                     |
+| [`lib/__tests__/portal-primary-contact.test.ts`](../../lib/__tests__/portal-primary-contact.test.ts:1)                                 |    17 | Which contact the portal promotes to "primary" (the ladder the page ignores)   |
+| [`lib/__tests__/benefit-contact-categories.test.ts`](../../lib/__tests__/benefit-contact-categories.test.ts:1)                         |    13 | `canonicalContactCategory` and `mergeContactCategoryLists`                     |
 | [`lib/__tests__/resolve-contact-company-name.test.ts`](../../lib/__tests__/resolve-contact-company-name.test.ts:1)                     |     8 | Whose company name wins, and the own-row email match                           |
 | [`lib/__tests__/contact-form-link.test.ts`](../../lib/__tests__/contact-form-link.test.ts:1)                                           |     8 | The first-party `/contact` CTA URL (topics, avatar, company, plan)             |
 | [`lib/__tests__/fetch-profile.test.ts`](../../lib/__tests__/fetch-profile.test.ts:1)                                                   |     6 | Single-flight, 60 s cache, `invalidateProfileCache`                            |
 | [`config/onboarding/__tests__/designations.test.ts`](../../config/onboarding/__tests__/designations.test.ts:1)                         |    22 | Designation chips: ® / ™ rules, free-text passthrough, title → group routing |
-| [`.../sections/__tests__/benefit-contact-card.test.tsx`](../../components/pages/client-portal/sections/benefit-contact-card.tsx:1)     |    11 | The shared entry point: `asPrimary`, `compact`, team vs category placement     |
-| [`.../my-benefits-team/__tests__/small-vertical-card.test.tsx`](../../components/pages/my-benefits-team/small-vertical-card.tsx:1)     |    32 | The compact card, its two render paths, preview placeholders                   |
-| [`.../my-benefits-team/__tests__/primary-contact-card.test.tsx`](../../components/pages/my-benefits-team/primary-contact-card.tsx:1)   |    22 | The wide primary card                                                          |
-| [`.../my-benefits-team/__tests__/large-horizontal-card.test.tsx`](../../components/pages/my-benefits-team/large-horizontal-card.tsx:1) |    19 | The one-contact-per-row card                                                   |
+| [`.../sections/__tests__/benefit-contact-card.test.tsx`](../../components/pages/client-portal/sections/benefit-contact-card.tsx:1)     |    19 | The shared entry point: `asPrimary`, `compact`, team vs category placement     |
+| [`.../my-benefits-team/__tests__/small-vertical-card.test.tsx`](../../components/pages/my-benefits-team/small-vertical-card.tsx:1)     |    48 | The compact card, its two render paths, preview placeholders                   |
+| [`.../my-benefits-team/__tests__/primary-contact-card.test.tsx`](../../components/pages/my-benefits-team/primary-contact-card.tsx:1)   |    25 | The wide primary card                                                          |
+| [`.../editors/__tests__/portal-team-editor.test.tsx`](../../components/portal-editing/editors/__tests__/portal-team-editor.test.tsx:1)  |    12 | The Edit Panel: its two sections, the wizard's contact form, saving the style  |
+| [`.../my-benefits-team/__tests__/large-horizontal-card.test.tsx`](../../components/pages/my-benefits-team/large-horizontal-card.tsx:1) |    20 | The one-contact-per-row card                                                   |
 | [`.../my-benefits-team/__tests__/contact-avatar.test.tsx`](../../components/pages/my-benefits-team/contact-avatar.tsx:1)               |     7 | Circular slot: headshot / `teamImage` / company logo / support icon            |
 | [`.../my-benefits-team/__tests__/primary-visual.test.tsx`](../../components/pages/my-benefits-team/primary-visual.tsx:1)               |     6 | Large circular slot on the primary card                                        |
 | [`e2e/portal-team.spec.ts`](../../e2e/portal-team.spec.ts:1)                                                                           |     3 | Real plan: heading, cards, and only well-formed `tel:`/`mailto:` links         |
@@ -154,6 +216,7 @@ they cover is still untested at the page level (the card layer is covered).
 - **`SmallVerticalCard`**: name from `firstName`/`lastName` then stored `name`; team cards use `displayName`, drop the role line and designation chips, and show the support icon instead of a person avatar; designations render as acronyms with blanks filtered; phone/email order follows `contactInfoOrder` (default phone first); phone display keeps the extension while the `tel:` link drops it; CTA construction for `calendar`/`phone`/`email`/`url` and the legacy display flags; the fallback "Schedule Appt." button; the inert contact-form CTA in previews; logo scale via `transform` in the animated path and via the box height in the no-animation path; background `contact → baseline → #ffffff`; `[First & Last Name]`/`[Job Title]`/`[Company / Organization]`/`[Email]`/`[Phone]`/`[Upload Company Logo]`/`[Headshot]` placeholders.
 - **`PrimaryContactCard`**: `name` (or `displayName` for a support line), title, company, designation chips, email/phone links honouring the display flags, support hours, the CTA labels (`Schedule Appt.` fallback, `Call Now`, `Send Email`, `Contact`, legacy `Contact`), background `contact → baseline → secondary`, and the logo height `48px × contact.logoScale` capped at `60px`.
 - **`LargeHorizontalCard`**: the same identity/contact/CTA/background rules, with its logo slot at `120px × (contact.logoScale ?? baselineLogoScale ?? 1)`.
+- **CTA label colour on a highlighted card**: both buttons take the plan's primary colour. The second one used to fall through to `readableColor(buttonBg)` (near black), so a two-CTA contact showed one brand-coloured button beside one drawn in a colour the plan never chose. Pinned in all three card suites.
 - **`ContactAvatar` / `PrimaryVisual`**: person → headshot (`ContactAvatar` also accepts the legacy `teamImage`), otherwise initials; support line → company logo, otherwise the chosen support icon. `PrimaryVisual` never reads `teamImage`.
 - **`designationAcronym` / `designationLabel` / `resolveDesignationId`**: known ids and legacy labels map both ways; typed acronyms with or without the mark resolve in any case; CFA, CIPM, GBA, RPA and QPA keep no symbol; the HRCI international credentials keep ™; unknown free text passes through unchanged and never gains a mark; `getRelevantDesignations` routes recordkeeper/TPA/compliance titles first, then HR, then benefits, then advisor/planner/wealth, returns nothing for relationship/client-success roles, and falls back to the whole dictionary.
 - **`buildContactFormHref`**: carries `to`, `company`, `name`, `title`, `avatar`, `logo`, `category` and `plan`; skips `data:` images; encodes the topic list; an explicit empty `topics=` is preserved while an absent one is omitted.
@@ -205,6 +268,17 @@ GET /api/profile                     # current user's logo/org/designations (thi
 - [ ] Email opens the mail client; the phone row dials.
 - [ ] "Schedule" uses the plan's appointment link, or the default when unset.
 - [ ] The contact-form CTA resolves this plan's topics.
+
+### 5. Edit Panel
+
+- [ ] The panel opens on **Section 1: Main Contact Highlight Style**, with Section 2 below it.
+- [ ] Choosing **Highlighted** fills the main contact's card with the plan's primary colour straight away; **Default style** puts it back.
+- [ ] The choice survives a reload, and every layout (including mobile) draws it.
+- [ ] Edit opens a panel whose accordions are the ones Create Plan's Step 3 shows — same fields, same order.
+- [ ] Typing a new name or title repaints the card beside the panel before anything is saved.
+- [ ] **Save Changes** says "Contact saved"; a forced failure says so instead of failing silently.
+- [ ] **Delete contact** removes the card from the page and the panel, and the remaining cards keep their order.
+- [ ] Marking a contact primary demotes the previous primary for that same category.
 
 ## Known gaps
 

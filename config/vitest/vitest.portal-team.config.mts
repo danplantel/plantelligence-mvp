@@ -33,6 +33,8 @@ const portalTeamTests = [
   "components/pages/my-benefits-team/__tests__/primary-contact-card.test.tsx",
   // The one-contact-per-row card
   "components/pages/my-benefits-team/__tests__/large-horizontal-card.test.tsx",
+  // The Edit Panel: Create Plan's own contact form, hosted by the portal
+  "components/portal-editing/editors/__tests__/portal-team-editor.test.tsx",
   // The circular avatar slot (headshot / company logo / support icon)
   "components/pages/my-benefits-team/__tests__/contact-avatar.test.tsx",
   // The large circular slot on the primary card

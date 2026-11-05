@@ -669,11 +669,14 @@ export function SmallVerticalCard({
                 ? mix(0.2, "#ffffff", effectiveBrandColor)
                 : "#F3F4F6"
               : "#ffffff";
-            const buttonColor = isPrimaryButton
-              ? highlighted
-                ? effectiveBrandColor
-                : "#ffffff"
-              : readableColor(buttonBg);
+            // On a HIGHLIGHTED card both buttons take the plan's primary colour as
+            // their label (the second one used to be `readableColor(buttonBg)`,
+            // i.e. near black). See the same rule on the desktop builder below.
+            const buttonColor = highlighted
+              ? effectiveBrandColor
+              : isPrimaryButton
+                ? "#ffffff"
+                : readableColor(buttonBg);
             const contactFormInert =
               disableContactFormButton && button.isContactForm === true;
             const actionClassName = cn(
@@ -1374,11 +1377,13 @@ export function SmallVerticalCard({
                 ? mix(0.2, "#ffffff", effectiveBrandColor)
                 : "#F3F4F6"
               : "#ffffff";
-            const buttonColor = isPrimaryButton
-              ? highlighted
-                ? effectiveBrandColor
-                : "#ffffff"
-              : readableColor(buttonBg);
+            // Same rule as the mobile builder above: a highlighted card labels BOTH
+            // of its buttons in the plan's primary colour.
+            const buttonColor = highlighted
+              ? effectiveBrandColor
+              : isPrimaryButton
+                ? "#ffffff"
+                : readableColor(buttonBg);
             // A preview draws the Contact Form CTA but does not act on it, so an
             // advisor cannot navigate out of the wizard mid-edit.
             const contactFormInert =

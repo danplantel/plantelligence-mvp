@@ -515,11 +515,16 @@ export function PrimaryContactCard({
                     highlighted
                   ? "#F3F4F6"
                   : "#ffffff";
-                const buttonColor = isPrimaryButton
-                  ? highlighted
-                    ? effectiveBrandColor
-                    : "#ffffff"
-                  : readableColor(buttonBg);
+                // On a HIGHLIGHTED card both buttons are drawn the same way — the
+                // fill's readable tone behind, the plan's primary colour as the
+                // label. The second button used to fall back to `readableColor`
+                // (near black), so a two-CTA contact showed one button in the
+                // brand colour and one in a colour the plan never chose.
+                const buttonColor = highlighted
+                  ? effectiveBrandColor
+                  : isPrimaryButton
+                    ? "#ffffff"
+                    : readableColor(buttonBg);
 
                 return (
                   <Button
