@@ -253,6 +253,23 @@ export function portalRadiusValue(scale = 1): string {
 }
 
 /**
+ * The theme's shape as a corner radius for a surface that is either a CIRCLE or
+ * a SQUARE.
+ *
+ * The key-contact portrait in the welcome banner is the only such surface:
+ * `rounded-full` used to pin it to a circle for every plan. A `sharp` theme now
+ * squares it off — the same statement `--portal-radius: 0px` makes everywhere
+ * else — while `round` keeps the circle.
+ *
+ * `portalRadiusValue()` is the wrong tool here: on a round theme it returns a
+ * 1.5rem corner (at scale 2), which would turn the portrait into a rounded
+ * square and lose the silhouette the banner is built around.
+ */
+export function portalPortraitRadius(id?: string | null): string {
+  return resolveTypographyTheme(id).shape === "sharp" ? "0px" : "50%";
+}
+
+/**
  * Apply a theme's variables directly to a DOM element (e.g.
  * `document.documentElement` while a Step 2 preview is mounted, so iframe-based
  * mobile previews — which copy root custom properties — pick the theme up).

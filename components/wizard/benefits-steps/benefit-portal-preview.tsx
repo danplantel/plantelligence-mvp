@@ -629,6 +629,9 @@ export function BenefitPortalPreview({
             // Section 1's Key Contact, live: the preview must name the person the
             // advisor just picked, not whoever the plan's contact records flag.
             primaryContactId={step1Data?.contactId}
+            // The theme's shape, live: the portrait frame squares off for a sharp
+            // theme and stays a circle for a round one.
+            typographyTheme={step1Data?.typographyTheme}
             customHeadline={
               step1Data?.benefitTitle || `Welcome to your ${category} benefits!`
             }

@@ -7,7 +7,10 @@ import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { toNextImageSrc } from "@/lib/branding-image-url";
 import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
-import { portalRadiusValue } from "@/lib/typography-themes";
+import {
+  portalPortraitRadius,
+  portalRadiusValue,
+} from "@/lib/typography-themes";
 import {
   DEFAULT_WELCOME_BG,
   CATEGORY_DEFAULT_BGS,
@@ -29,6 +32,8 @@ interface PortalWelcomeBannerProps {
     secondaryBannerImg?: string;
     /** The portrait chosen in the Editing Panel. Falls back to the key contact's headshot. */
     heroPortraitImage?: string;
+    /** The plan's typography theme, which decides the portrait frame's shape. */
+    typographyTheme?: string | null;
     employeePortalPreview?: any;
     keyContacts?: {
       fullName?: string;
@@ -85,10 +90,17 @@ interface PortalWelcomeBannerProps {
   customImage?: string; // Override right-side Benefits Logo
   customImageAlt?: string;
   /**
-   * An image the advisor chose for the banner's circular portrait. Takes
-   * precedence over the key contact's headshot, which stays the default.
+   * An image the advisor chose for the banner's portrait. Takes precedence over
+   * the key contact's headshot, which stays the default.
    */
   portraitImage?: string;
+  /**
+   * The plan's typography theme. The live portal also carries it on `clientData`;
+   * the editor previews pass it here because their hand-built `clientData` has
+   * no theme. Either way it decides the portrait frame: a circle on a `round`
+   * theme, a square on a `sharp` one.
+   */
+  typographyTheme?: string | null;
   // Hero overlay settings
   backgroundOpacity?: number;
   containerBlockOpacity?: number;
@@ -123,6 +135,7 @@ export function PortalWelcomeBanner({
   customImage,
   customImageAlt,
   portraitImage,
+  typographyTheme,
   category,
   primaryContactId,
   onScheduleClick,
@@ -318,6 +331,12 @@ export function PortalWelcomeBanner({
   const effectiveBackgroundInverted =
     epPreview?.heroBackgroundInverted ?? backgroundInverted;
   const effectiveUseGradient = epPreview?.heroUseGradient ?? useGradient;
+
+  // The portrait frame's shape, from the plan's Typography Theme: a circle on a
+  // `round` theme, a square on a `sharp` one (see `portalPortraitRadius`).
+  const portraitRadius = portalPortraitRadius(
+    typographyTheme ?? clientData?.typographyTheme,
+  );
 
   // Compute dynamic overlay styles
   const backgroundOverlayStyle = effectiveBackgroundInverted
@@ -664,12 +683,15 @@ export function PortalWelcomeBanner({
                 image) in a circular frame, with the company logo beneath it. */}
             <div className="order-1 flex flex-col items-center justify-center gap-5 px-4 py-10 lg:order-1 lg:pl-16 lg:pr-4">
               <div className="relative">
+                {/* Circle for a `round` theme, square for a `sharp` one. */}
                 <div
-                  className={`h-[200px] w-[200px] shrink-0 overflow-hidden rounded-full shadow-2xl ring-4 ${
+                  data-testid="welcome-banner-portrait-frame"
+                  className={`h-[200px] w-[200px] shrink-0 overflow-hidden shadow-2xl ring-4 ${
                     effectiveContainerInverted
                       ? "ring-gray-200"
                       : "ring-white/30"
                   }`}
+                  style={{ borderRadius: portraitRadius }}
                 >
                   {portraitSrc ? (
                     <img

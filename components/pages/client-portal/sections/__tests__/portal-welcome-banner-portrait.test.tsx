@@ -120,3 +120,42 @@ describe("PortalWelcomeBanner portrait", () => {
     expect(heroCard.style.borderRadius).toContain("--portal-radius");
   });
 });
+
+/**
+ * The portrait frame follows the theme's SHAPE, as a binary: a square on a
+ * `sharp` theme, the circle the banner has always drawn on a `round` one.
+ *
+ * `rounded-full` used to pin it to a circle for every plan. The frame cannot use
+ * `portalRadiusValue()` either — on a round theme that would give a rounded
+ * square and lose the portrait silhouette.
+ */
+describe("PortalWelcomeBanner portrait frame", () => {
+  function frame() {
+    return screen.getByTestId("welcome-banner-portrait-frame");
+  }
+
+  it("squares the frame off on a sharp theme", () => {
+    banner({ typographyTheme: "classic" });
+
+    expect(frame()).toHaveStyle({ borderRadius: "0px" });
+  });
+
+  it("keeps the circle on a round theme", () => {
+    banner({ typographyTheme: "modern" });
+
+    expect(frame()).toHaveStyle({ borderRadius: "50%" });
+  });
+
+  it("reads the theme from the plan when no prop is passed", () => {
+    banner({}, { typographyTheme: "modern" });
+
+    expect(frame()).toHaveStyle({ borderRadius: "50%" });
+  });
+
+  it("falls back to the sharp default the portal would publish", () => {
+    banner();
+
+    // Classic is the default theme, and it squares every corner.
+    expect(frame()).toHaveStyle({ borderRadius: "0px" });
+  });
+});

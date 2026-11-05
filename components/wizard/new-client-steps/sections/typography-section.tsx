@@ -142,9 +142,13 @@ export function TypographySection({
           <TypeIcon className="w-5 h-5 text-accent-blue" />
           {title}
         </CardTitle>
+        {/* The section's whole contract, stated once at the top: fonts, the
+            corner style, and the surfaces that follow it — the key contact photo
+            included, which is the only shape that flips between a circle and a
+            square. */}
         <p className="text-sm text-muted-foreground dark:text-gray-400">
           {description ??
-            "Choose a style for this plan's portal. The headline and body fonts change together across every page."}
+            "Choose a style for this plan's portal. The headline and body fonts change together across every page, and each theme sets the portal's corner style — Classic and Contemporary are sharp, Modern and Editorial are rounded — so buttons, navigation, form labels and the key contact photo follow it too. Other interface text always uses Outfit regardless of the theme."}
         </p>
       </CardHeader>
       <CardContent>
@@ -335,13 +339,6 @@ export function TypographySection({
             );
           })}
         </div>
-
-        <p className="mt-3 text-xs text-muted-foreground dark:text-gray-400">
-          Buttons, navigation, form labels, and other interface elements always
-          use Outfit regardless of the selected theme. Each theme also sets the
-          portal&rsquo;s corner style — Classic and Contemporary are sharp, Modern
-          and Editorial are rounded.
-        </p>
       </CardContent>
     </Card>
   );
