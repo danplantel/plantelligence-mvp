@@ -33,6 +33,12 @@ export function portalSectionId(title: string): string {
 export const portalEditAnchor = {
   /** The Landing Page's Featured Image (first card of "Mission Statement"). */
   featuredImage: "featured-image",
+  /**
+   * The Landing Page's hero photograph ("Hero Banner Image", second card of
+   * "Images"). NOT a section: "Hero Content" holds the welcome statement and the
+   * banner-overlay settings, so pointing the photograph at it landed on the copy.
+   */
+  heroBackground: "hero-background",
   /** News & Events' hero background (Section 1 of that page's panel). */
   newsEventsHero: "news-events-hero",
 } as const;
@@ -45,6 +51,8 @@ export const portalEditAnchor = {
  */
 export const PORTAL_SECTION_IDS = {
   heroContent: portalSectionId("Hero Content"),
+  /** The hero photograph, addressed as an anchor inside "Images". */
+  heroBackground: portalEditAnchor.heroBackground,
   missionStatement: portalSectionId("Mission Statement"),
   disclosure: portalSectionId("Disclosure"),
   /**

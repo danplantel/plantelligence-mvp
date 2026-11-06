@@ -289,6 +289,50 @@ describe("PortalHero", () => {
     expect(screen.queryByRole("button", { name: "All of them" })).toBeNull();
   });
 
+  it("routes a click on the photograph to the background handler", async () => {
+    const user = userEvent.setup();
+    const onBackgroundClick = vi.fn();
+    const onHeroTitleClick = vi.fn();
+    const { container } = renderHero({
+      companyData: { companyName: "Acme", backgroundImg: "/hero.jpg" },
+      heroTitle: "Your benefits",
+      onHeroTitleClick,
+      onBackgroundClick,
+    });
+
+    // The photograph's region is the wrapper that owns the click, not the <img>.
+    const region = container
+      .querySelector("#hero-bg-img")
+      ?.closest('[role="button"]') as HTMLElement;
+    expect(region).not.toBeNull();
+
+    await user.click(region);
+
+    expect(onBackgroundClick).toHaveBeenCalledTimes(1);
+    expect(onHeroTitleClick).not.toHaveBeenCalled();
+  });
+
+  it("shows the photograph's affordance when it is the only region wired", async () => {
+    // The Landing Page wires the photograph on its own. `isEditable` used to
+    // count only the copy handlers, so the ring and pencil never appeared and
+    // the button existed without ever being visible.
+    const user = userEvent.setup();
+    const { container } = renderHero({
+      companyData: { companyName: "Acme", backgroundImg: "/hero.jpg" },
+      heroTitle: "Your benefits",
+      onBackgroundClick: vi.fn(),
+    });
+
+    const region = container
+      .querySelector("#hero-bg-img")
+      ?.closest('[role="button"]') as HTMLElement;
+    expect(region.className).not.toContain("ring-2");
+
+    await user.hover(region);
+
+    expect(region.className).toContain("ring-2");
+  });
+
   it("scrolls down when the mission section is not on the page", async () => {
     const user = userEvent.setup();
     renderHero({ companyData: { companyName: "Acme" } });

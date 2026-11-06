@@ -83,6 +83,11 @@ interface ClientPortalProps {
   clientId?: string;
   onHeroTitleClick?: () => void;
   onHeroDescriptionClick?: () => void;
+  /**
+   * The hero PHOTOGRAPH (behind the banner). It is edited by the "Hero Banner
+   * Image" card, not by the Hero Content section, so it needs its own handler.
+   */
+  onHeroBackgroundClick?: () => void;
   onMissionHeadlineClick?: () => void;
   onMissionBodyClick?: () => void;
   showEditIndicators?: boolean;
@@ -172,6 +177,7 @@ export function ClientPortal({
   clientId,
   onHeroTitleClick,
   onHeroDescriptionClick,
+  onHeroBackgroundClick,
   onMissionHeadlineClick,
   onMissionBodyClick,
   showEditIndicators = true,
@@ -266,6 +272,7 @@ export function ClientPortal({
           }
           onHeroTitleClick={onHeroTitleClick}
           onHeroDescriptionClick={onHeroDescriptionClick}
+          onBackgroundClick={onHeroBackgroundClick}
           showEditIndicators={showEditIndicators}
         />
       </div>

@@ -59,6 +59,9 @@ vi.mock("@/components/pages/client-portal/client-portal", () => ({
       <button type="button" onClick={props.onHeroDescriptionClick}>
         Edit hero description
       </button>
+      <button type="button" onClick={props.onHeroBackgroundClick}>
+        Edit hero background
+      </button>
       <button type="button" onClick={props.onMissionHeadlineClick}>
         Edit mission headline
       </button>
@@ -93,6 +96,20 @@ describe("ViewClientPage — blue edit affordances", () => {
       ["hero-content"],
       ["hero-content"],
     ]);
+  });
+
+  it("asks for the Hero Banner Image card when the photograph is clicked", async () => {
+    // The photograph is not in "Hero Content" — that section holds the welcome
+    // statement and the banner overlay. It is the "Hero Banner Image" card, the
+    // second one in "Images", so it is addressed by its own anchor.
+    const user = userEvent.setup();
+    render(<ViewClientPage />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Edit hero background" }),
+    );
+
+    expect(mocks.focusSection.mock.calls).toEqual([["hero-background"]]);
   });
 
   it("asks for the mission section when the mission copy is clicked", async () => {

@@ -3,8 +3,10 @@
 import { Button } from "@/components/ui/button";
 import { ChevronDown, Pencil, Search } from "lucide-react";
 import { useRef, KeyboardEvent, ReactNode, useState } from "react";
+import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { isR2BrandingKey } from "@/lib/branding-image-url";
+import { PORTAL_SECTION_IDS } from "@/lib/portal-editor-sections";
 import { portalRadiusValue } from "@/lib/typography-themes";
 import { readableColor } from "polished";
 
@@ -141,7 +143,13 @@ export function PortalHero({
 
   const isEditable = Boolean(
     showEditIndicators &&
-      (onHeroTitleClick || onHeroDescriptionClick || onContainerClick),
+      (onHeroTitleClick ||
+        onHeroDescriptionClick ||
+        onContainerClick ||
+        // The photograph behind the banner is its own region — the "Hero Banner
+        // Image" card — so a hero wired ONLY to it must still show the ring and
+        // the pencil, or the affordance would exist without ever appearing.
+        onBackgroundClick),
   );
 
   const handleInteractiveKeyDown = (
@@ -292,18 +300,27 @@ export function PortalHero({
                 }}
               />
 
-              {/* Edit icon indicator */}
-              {isEditable && hoveredElement === "background" && (
-                <div className="absolute top-2 left-2 z-20 bg-blue-500 rounded-full p-1.5 shadow-lg">
-                  <Pencil className="w-3 h-3 text-white" strokeWidth={2.5} />
-                </div>
-              )}
             </div>
           </>
         ) : (
           <div className="w-full h-full bg-white" />
         )}
       </div>
+
+      {/* The photograph's own affordance, on the left like the pencil it replaces:
+          a labelled button, because "the photograph" is not guessable from a bare
+          icon, and it names the card it opens — "Hero Banner Image", the second
+          card of the panel's Images section. Renders only for an advisor; see
+          PortalSectionEditButton. */}
+      {hasBackgroundImage && (
+        <PortalSectionEditButton
+          sectionId={PORTAL_SECTION_IDS.heroBackground}
+          label="Edit Hero Banner Image"
+          // `top-4`, not a header-sized offset: the layout already pads the page
+          // by the fixed header's height, so the hero's own top edge is clear.
+          className="left-4 top-4"
+        />
+      )}
 
       {/* Phone-only wash, across the whole hero — see `mobileWash`. Above `sm`
           this layer is off and the text card carries the wash instead. */}

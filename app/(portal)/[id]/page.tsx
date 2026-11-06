@@ -32,6 +32,14 @@ export default function ViewClientPage() {
   const editHero = focusSection
     ? () => focusSection(PORTAL_SECTION_IDS.heroContent)
     : undefined;
+  /**
+   * The hero PHOTOGRAPH is not in Hero Content — that section holds the welcome
+   * statement and the banner overlay. The picture is "Hero Banner Image", the
+   * second card of "Images", so it is addressed by an anchor of its own.
+   */
+  const editHeroBackground = focusSection
+    ? () => focusSection(PORTAL_SECTION_IDS.heroBackground)
+    : undefined;
   const editMission = focusSection
     ? () => focusSection(PORTAL_SECTION_IDS.missionStatement)
     : undefined;
@@ -204,6 +212,7 @@ export default function ViewClientPage() {
         showEditIndicators={canEditPortal}
         onHeroTitleClick={editHero}
         onHeroDescriptionClick={editHero}
+        onHeroBackgroundClick={editHeroBackground}
         onMissionHeadlineClick={editMission}
         onMissionBodyClick={editMission}
       />

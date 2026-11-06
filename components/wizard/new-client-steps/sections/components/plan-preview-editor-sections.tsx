@@ -401,30 +401,35 @@ export function usePlanPreviewEditorSections({
             </CardContent>
           </Card>
 
-          <Card className="dark:bg-gray-800">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm dark:text-gray-100">
-                Hero Banner Image <span className="text-red-500">*</span>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <HeroBackgroundCard
-                heroImageData={heroImageData}
-                onImageChange={handleHeroImageChange}
-                onImageRemove={handleHeroImageRemove}
-                onEditClick={handleHeroEditClick}
-                onFileSelect={(data) => handleHeroImageChange(data)}
-                onDefaultPhotoClick={() => setHeroGalleryOpen(true)}
-                segmentMode={heroSegmentMode}
-                onSegmentModeChange={handleHeroSegmentModeChange}
-                desktopPosition={desktopHeroPosition}
-                onDesktopPositionChange={handleDesktopHeroPositionChange}
-                mobilePosition={mobileHeroPosition}
-                onMobilePositionChange={handleMobileHeroPositionChange}
-                onFieldFocus={() => onFieldFocus?.("banner")}
-              />
-            </CardContent>
-          </Card>
+          {/* Addressed by the Landing Page's hero photograph — the "Edit hero
+              background" affordance scrolls here. An anchor, not a section: the
+              "Images" section also holds the Company Logo card above. */}
+          <div data-edit-anchor={portalEditAnchor.heroBackground}>
+            <Card className="dark:bg-gray-800">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm dark:text-gray-100">
+                  Hero Banner Image <span className="text-red-500">*</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <HeroBackgroundCard
+                  heroImageData={heroImageData}
+                  onImageChange={handleHeroImageChange}
+                  onImageRemove={handleHeroImageRemove}
+                  onEditClick={handleHeroEditClick}
+                  onFileSelect={(data) => handleHeroImageChange(data)}
+                  onDefaultPhotoClick={() => setHeroGalleryOpen(true)}
+                  segmentMode={heroSegmentMode}
+                  onSegmentModeChange={handleHeroSegmentModeChange}
+                  desktopPosition={desktopHeroPosition}
+                  onDesktopPositionChange={handleDesktopHeroPositionChange}
+                  mobilePosition={mobileHeroPosition}
+                  onMobilePositionChange={handleMobileHeroPositionChange}
+                  onFieldFocus={() => onFieldFocus?.("banner")}
+                />
+              </CardContent>
+            </Card>
+          </div>
 
           {/* The welcome banner's circular portrait. Left empty it shows the
               category's key contact headshot, so this is purely an override.

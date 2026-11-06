@@ -42,9 +42,11 @@ describe("PORTAL_SECTION_IDS", () => {
       heroContent: "hero-content",
       missionStatement: "mission-statement",
       disclosure: "disclosure",
-      // Not a section: the Featured Image is the first card of "Mission
-      // Statement", so it is addressed as an anchor inside it.
+      // Not sections, but anchors inside one: the Featured Image is the first
+      // card of "Mission Statement", and the hero photograph is the second card
+      // of "Images" — not of "Hero Content", which holds the banner copy.
       featuredImage: "featured-image",
+      heroBackground: "hero-background",
     });
   });
 });
@@ -52,5 +54,17 @@ describe("PORTAL_SECTION_IDS", () => {
 describe("portalEditAnchor", () => {
   it("addresses cards that live inside a section", () => {
     expect(portalEditAnchor.featuredImage).toBe("featured-image");
+    expect(portalEditAnchor.heroBackground).toBe("hero-background");
+    expect(portalEditAnchor.newsEventsHero).toBe("news-events-hero");
+  });
+
+  it("keeps every anchor distinct from the section ids", () => {
+    const sectionIds = [
+      PORTAL_SECTION_IDS.heroContent,
+      PORTAL_SECTION_IDS.missionStatement,
+      PORTAL_SECTION_IDS.disclosure,
+    ];
+    expect(sectionIds).not.toContain(PORTAL_SECTION_IDS.heroBackground);
+    expect(sectionIds).not.toContain(PORTAL_SECTION_IDS.featuredImage);
   });
 });

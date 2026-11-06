@@ -130,4 +130,25 @@ describe("PortalSectionEditButton", () => {
     expect(mocks.focusSection).toHaveBeenCalledWith("images");
     expect(onRegionClick).not.toHaveBeenCalled();
   });
+
+  it("paints its label and uses it as the tooltip", async () => {
+    // The hero photograph's button names the card it opens in words, because
+    // "the photograph" is not guessable from a bare pencil on a large surface.
+    const user = userEvent.setup();
+    render(
+      <PortalSectionEditButton
+        sectionId="hero-background"
+        label="Edit Hero Banner Image"
+      />,
+    );
+
+    const button = screen.getByRole("button", {
+      name: "Edit Hero Banner Image",
+    });
+    expect(button).toHaveTextContent("Edit Hero Banner Image");
+    expect(button).toHaveAttribute("title", "Edit Hero Banner Image");
+
+    await user.click(button);
+    expect(mocks.focusSection).toHaveBeenCalledWith("hero-background");
+  });
 });

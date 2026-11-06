@@ -102,11 +102,18 @@ owns it.
 
 | Region | Affordance | Opens |
 | --- | --- | --- |
-| Hero (title, description, background) | hover ring + blue pencil (from `PortalHero`) | `hero-content` |
+| Hero copy (title, description) | hover ring + blue pencil (from `PortalHero`) | `hero-content` |
+| **Hero photograph** | blue **Edit Hero Banner Image** button (top-left, always visible) | the Hero Banner Image card (`hero-background`) |
 | Mission copy | hover ring + blue pencil (from `PortalMission`) | `mission-statement` |
 | **Featured image** | blue **Edit featured image** button | the Featured Image card |
 | **Footer** | blue **Edit footer** button (rendered by the layout, so every portal page has it) | `disclosure` — or, from another portal page, a trip here (below) |
 | **Your Benefits at a Glance** cards | hover note (advisor only) | — nothing to open: these cards live on Benefit rows |
+
+**The photograph is named.** Its button reads **Edit Hero Banner Image** rather
+than "Edit image" or a bare pencil: the region edited is a card two levels inside
+the panel (the second card of *Images*), so the label has to carry that. The whole
+photograph stays clickable too (hover ring) — both paths call the provider's
+`focusSection` with `hero-background`.
 
 **The cards.** "Your Benefits at a Glance" has no controls in this panel because
 each card is drawn from a Benefit row. Hovering a card shows an advisor-only note
@@ -126,9 +133,11 @@ its own body to that element.
 the Featured Image is the first item of "Mission Statement", while the "Images"
 section holds Company Logo and the Hero Banner. Pointing the image's button at
 `images` therefore landed on Company Logo — the bug that produced
-`portalEditAnchor`. The wrapper now looks for `[data-section-id]` first and then
-for `[data-edit-anchor]`, and the Featured Image card carries
-`data-edit-anchor="featured-image"`.
+`portalEditAnchor`. The same trap sits on the hero: the photograph is "Hero Banner
+Image", the second card of "Images", NOT the "Hero Content" section (which holds
+the welcome statement and the banner-overlay settings). The wrapper looks for
+`[data-section-id]` first and then for `[data-edit-anchor]`, and the two cards
+carry `data-edit-anchor="featured-image"` and `data-edit-anchor="hero-background"`.
 
 **The red "Live" badge.** Every portal panel wears the same badge in its header
 ([`portal-editor-shell.tsx`](../../components/portal-editing/portal-editor-shell.tsx:52)),
