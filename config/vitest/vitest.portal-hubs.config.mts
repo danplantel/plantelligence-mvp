@@ -45,6 +45,10 @@ const portalHubTests = [
   "components/portal-editing/editors/__tests__/portal-benefit-editor-disclosure.test.tsx",
   // Employee Resources' three blue buttons: each names its own panel section
   "app/(portal)/[id]/employee-resources/__tests__/page-edit-affordances.test.tsx",
+  // A benefit hub's five blue buttons (one template, four pages)
+  "app/(portal)/[id]/retirement/__tests__/page-edit-affordances.test.tsx",
+  // The welcome banner's per-element pencils and the anchors they name
+  "components/pages/client-portal/sections/__tests__/portal-welcome-banner-edit-pencils.test.tsx",
 ];
 
 const baseTest = (baseConfig as { test?: Record<string, unknown> }).test ?? {};

@@ -13,17 +13,61 @@ The first three are the same page with different constants; the fourth adds a UR
 
 ## Summary
 
-- **Unit tests:** 286 passing in 17 files (the sections the four pages render, the portal benefit read, the hub Edit Panel's Disclosure section and Employee Resources' blue buttons)
+- **Unit tests:** 294 passing in 19 files (the sections the four pages render, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
 - **E2E:** none yet
 - **Runner:** Vitest + React Testing Library + jsdom
 
 ```bash
-pnpm test:portal-hubs           # the hub sections + portal benefit read (286 tests)
+pnpm test:portal-hubs           # the hub sections + portal benefit read (294 tests)
 pnpm test:portal-hubs:watch
 pnpm test:portal-hubs:coverage
 ```
 
 Backed by [`config/vitest/vitest.portal-hubs.config.mts`](../../config/vitest/vitest.portal-hubs.config.mts) and [`scripts/tests/run-portal-hubs-tests.mjs`](../../scripts/tests/run-portal-hubs-tests.mjs).
+
+## A benefit hub's five blue buttons
+
+Each of the four hub pages (Retirement, Group Health, Group Life, Custom) draws the
+same five regions, and each carries a blue button that opens THIS page's Edit Panel
+on the section that owns it:
+
+| Region | Button | Panel anchor | Panel section |
+| --- | --- | --- | --- |
+| Banner photograph | **Edit header background** | `benefit-hero-image` | 3 — Branding (header background card) |
+| Journey section | **Edit video section** | `benefit-video` | 5 — Video Source |
+| "How Can We Help You Today?" | **Edit how we can help** | `benefit-help` | 6 — How Can We Help You Today? |
+| Quick Answers | **Edit quick answers** | `benefit-quick-answers` | 7 — Get Quick Answers… |
+| "Have Questions?" | **Edit have questions** | `benefit-have-questions` | 8 — Have Questions? |
+
+The layout's **Edit footer** on a hub needed no change: its Disclosure is Section 9
+of the same panel, addressed by the section id the `extraSections` wrapper renders.
+
+**The scroll had to be wired twice.** `BenefitsEditorPanel` renders its own
+`EditorPanelWrapper`, so the provider's `focusRequest` stopped at
+`PortalBenefitEditor` and every button opened the panel at the top. The panel now
+takes `focusRequest` and hands it to the wrapper; the sections carry
+`data-edit-anchor` because they are rendered as children, not through the
+wrapper's `sections` list.
+
+## The welcome banner's per-element pencils
+
+Inside the banner's card, every editable element has its own icon-only pencil —
+headline, description, closing/signature, the key-contact portrait and the provider
+logo. The banner does not know which panel owns what: the page passes
+[`editTargets`](../../components/pages/client-portal/sections/portal-welcome-banner.tsx:117)
+and the banner draws a pencil on each anchor it is given (nothing for a region it
+was not given, nothing without an editing provider). The hubs pass:
+
+| Element | Anchor |
+| --- | --- |
+| Headline, description | `benefit-messaging` (Section 4) |
+| Closing + signature | — plan-level: not in the benefit panel, so no pencil |
+| Key-contact portrait | `benefit-key-contact-image` (Section 3) |
+| Provider logo | `benefit-provider-logo` (Section 3) |
+
+The pencils are revealed with **CSS** (`opacity-0 group-hover:opacity-100`), not
+state. A state-rendered pencil unmounted the moment the pointer left the region to
+reach it — the button was visible and unclickable.
 
 ## Employee Resources' three blue buttons
 

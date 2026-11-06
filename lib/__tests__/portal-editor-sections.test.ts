@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  benefitEditAnchor,
   contactIdFromAnchor,
   keyContactAnchor,
   portalEditAnchor,
@@ -66,6 +67,28 @@ describe("keyContactAnchor", () => {
     expect(contactIdFromAnchor("disclosure")).toBeNull();
     expect(contactIdFromAnchor("hero-background")).toBeNull();
     expect(contactIdFromAnchor(null)).toBeNull();
+  });
+});
+
+describe("benefitEditAnchor", () => {
+  it("names the regions a hub page points at", () => {
+    expect(benefitEditAnchor).toEqual({
+      heroImage: "benefit-hero-image",
+      providerLogo: "benefit-provider-logo",
+      keyContactImage: "benefit-key-contact-image",
+      messaging: "benefit-messaging",
+      video: "benefit-video",
+      help: "benefit-help",
+      quickAnswers: "benefit-quick-answers",
+      haveQuestions: "benefit-have-questions",
+    });
+  });
+
+  it("never collides with the portal's own anchors", () => {
+    const portal = Object.values(portalEditAnchor);
+    for (const anchor of Object.values(benefitEditAnchor)) {
+      expect(portal).not.toContain(anchor);
+    }
   });
 });
 

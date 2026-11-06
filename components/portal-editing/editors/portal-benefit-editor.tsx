@@ -288,6 +288,7 @@ export function PortalBenefitEditor() {
     resetSave,
     patchClientData,
     refetchPortal,
+    focusRequest,
   } = usePortalEditing();
   const { clientData } = useClientPortal();
   const { mutate } = useSWRConfig();
@@ -540,6 +541,9 @@ export function PortalBenefitEditor() {
       onClose={closePanel}
       planCompanyName={String(clientData?.companyName || "")}
       companyWebsite={clientData?.companyWebsite || ""}
+      // A hub page's blue button (and the layout's "Edit footer") asks for a
+      // section; the panel scrolls its own body to that anchor.
+      focusRequest={focusRequest}
       // A light grey tool surface, matching the portal's other editor panels.
       surfaceClassName="bg-gray-100 dark:bg-gray-900"
       // The Save/Cancel row docks to the panel's own footer, not the portal.

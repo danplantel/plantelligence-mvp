@@ -6,7 +6,7 @@ import { HelpCardLayoutEditor } from "./help-card-layout-editor";
 import { QuickAnswersBuilder } from "./quick-answers-builder";
 import { topicLocationForCategory } from "@/lib/topic-locations";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
-import { portalSectionId } from "@/lib/portal-editor-sections";
+import { benefitEditAnchor, portalSectionId } from "@/lib/portal-editor-sections";
 import {
   BENEFIT_CATEGORY_GALLERY,
   toCategoryGalleryKey,
@@ -160,6 +160,14 @@ interface BenefitsEditorPanelProps {
    * never fill.
    */
   extraSections?: { title: string; content: React.ReactNode }[];
+  /**
+   * "Open on this section", from the portal page's blue button.
+   *
+   * The panel scrolls itself, so the request has to reach the wrapper: this
+   * component owns that wrapper and would otherwise drop it, which is exactly why
+   * every hub button opened the panel at the top.
+   */
+  focusRequest?: { id: string; nonce: number } | null;
 }
 
 export function BenefitsEditorPanel({
@@ -180,6 +188,7 @@ export function BenefitsEditorPanel({
   onTopicsSaved,
   onHeroSegmentModeChange,
   extraSections,
+  focusRequest,
 }: BenefitsEditorPanelProps & { highlightedField?: string | null }) {
   const { stepData, saveStepData } = useBenefitsWizardStore();
   const step1Data = (stepData.step1 || {}) as BenefitsStep1Data;
@@ -793,6 +802,9 @@ export function BenefitsEditorPanel({
       leftOffset={leftOffset}
       surfaceClassName={surfaceClassName}
       footer={footer}
+      // The page's blue buttons (and the footer's) ask for a section by anchor;
+      // without this the panel would open at the top.
+      focusRequest={focusRequest}
       headerBadge={
         planCompanyName || step1Data?.benefitCategory ? (
           <span className="inline-flex items-center gap-1.5 rounded-md bg-accent-blue/10 px-2 py-0.5 text-xs font-semibold text-accent-blue">
@@ -959,6 +971,8 @@ export function BenefitsEditorPanel({
                 isFieldInvalid("companyLogo") &&
                   "ring-2 ring-red-500 ring-offset-2 ring-offset-background p-2 -m-2",
               )}
+              // The benefit provider's logo — printed under the banner's portrait.
+              data-edit-anchor={benefitEditAnchor.providerLogo}
               data-field="companyLogo"
               ref={companyLogoRef}
               onMouseDown={() => focusPreviewField("companyLogo")}
@@ -1015,6 +1029,9 @@ export function BenefitsEditorPanel({
                 isFieldInvalid("brandImages.header") &&
                   "ring-2 ring-red-500 ring-offset-2 ring-offset-background p-2 -m-2",
               )}
+              // The hero photograph — where a hub page's "Edit hero background"
+              // button lands. The section above it holds the provider logo.
+              data-edit-anchor={benefitEditAnchor.heroImage}
               data-field="brandImages.header"
               ref={brandImagesHeaderRef}
               onMouseDownCapture={() => focusPreviewField("brandImagesHeader")}
@@ -1072,6 +1089,8 @@ export function BenefitsEditorPanel({
                 key contact headshot, which is the default — this is only an
                 override. Plan-level, so Step 2 writes it through to the plan. */}
             <div
+              // The banner's circular portrait override.
+              data-edit-anchor={benefitEditAnchor.keyContactImage}
               className="space-y-4 rounded-xl transition-all duration-300"
               onMouseDown={() => focusPreviewField("messaging")}
             >
@@ -1109,6 +1128,7 @@ export function BenefitsEditorPanel({
         {/* Messaging Section */}
         <div
           ref={sectionsRef.messaging}
+          data-edit-anchor={benefitEditAnchor.messaging}
           className={cn(
             "transition-all duration-500 rounded-xl",
             highlightedSection === "messaging"
@@ -1547,6 +1567,7 @@ export function BenefitsEditorPanel({
         {/* Plan Video Section */}
         <div
           ref={sectionsRef.planVideo}
+          data-edit-anchor={benefitEditAnchor.video}
           className={cn(
             "transition-all duration-500 rounded-xl",
             highlightedSection === "planVideo"
@@ -2032,6 +2053,7 @@ export function BenefitsEditorPanel({
             cannot disagree. */}
         <div
           ref={sectionsRef.helpCards}
+          data-edit-anchor={benefitEditAnchor.help}
           className={cn(
             "transition-all duration-500 rounded-xl",
             highlightedSection === "helpCards"
@@ -2211,6 +2233,7 @@ export function BenefitsEditorPanel({
         {quickAnswersLocation && step1Data.planId && (
           <div
             ref={sectionsRef.quickAnswers}
+            data-edit-anchor={benefitEditAnchor.quickAnswers}
             className={cn(
               "transition-all duration-500 rounded-xl",
               highlightedSection === "quickAnswers"
@@ -2242,6 +2265,7 @@ export function BenefitsEditorPanel({
             `keyContactCardStyle` out to whichever hub page renders this benefit. */}
         <div
           ref={sectionsRef.haveQuestions}
+          data-edit-anchor={benefitEditAnchor.haveQuestions}
           className={cn(
             "transition-all duration-500 rounded-xl",
             highlightedSection === "haveQuestions"

@@ -17,6 +17,13 @@ export interface PortalSectionEditButtonProps {
   /** Positioning, from the caller (the button is absolutely positioned). */
   className?: string;
   /**
+   * Render the pencil alone, in a circle. `label` stays as the accessible name and
+   * the tooltip, but is not painted — for a button pinned to a small region (the
+   * welcome banner's headline, its portrait, the company logo) where a labelled
+   * pill would cover the thing it edits.
+   */
+  iconOnly?: boolean;
+  /**
    * Where the section is actually edited, when that is NOT this page.
    *
    * The footer disclosure, for instance, belongs to the Landing Page's panel: on
@@ -50,6 +57,7 @@ export function PortalSectionEditButton({
   sectionId,
   label,
   className,
+  iconOnly = false,
   editPath,
   editHref,
   sourceLabel,
@@ -99,12 +107,17 @@ export function PortalSectionEditButton({
       aria-label={label}
       title={label}
       className={cn(
-        "absolute z-30 inline-flex items-center gap-1.5 rounded-full bg-blue-500 px-3 py-1.5 text-[11px] font-semibold leading-none text-white shadow-lg transition-colors hover:bg-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70",
+        "absolute z-30 inline-flex items-center gap-1.5 rounded-full bg-blue-500 text-[11px] font-semibold leading-none text-white shadow-lg transition-colors hover:bg-blue-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70",
+        iconOnly ? "h-7 w-7 justify-center p-0" : "px-3 py-1.5",
         className,
       )}
     >
-      <Pencil className="h-3 w-3" strokeWidth={2.5} />
-      {label}
+      <Pencil
+        className={iconOnly ? "h-3.5 w-3.5" : "h-3 w-3"}
+        strokeWidth={2.5}
+        aria-hidden
+      />
+      {iconOnly ? null : label}
     </button>
   );
 }

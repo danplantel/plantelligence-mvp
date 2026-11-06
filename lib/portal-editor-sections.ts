@@ -30,6 +30,38 @@ export function portalSectionId(title: string): string {
  * "Mission Statement", not a section of its own. The panel marks those cards with
  * `data-edit-anchor`, and the scroll looks for one when no section matches.
  */
+/**
+ * The BENEFIT editor's sections, as its four hub pages address them.
+ *
+ * That panel numbers eight sections, but a hub page is only five regions: the
+ * banner's photograph, the journey section's video, "How Can We Help You Today?",
+ * Quick Answers, and the closing band whose key contact it styles. The other three
+ * (Portal Header Button, Typography, Benefit Messaging) belong to the panel's own
+ * list rather than to a region a participant can point at.
+ *
+ * Anchors, not section ids: this panel renders its sections as children of the
+ * wrapper (like Employee Resources), so the wrapper's automatic `[data-section-id]`
+ * never applies to them.
+ */
+export const benefitEditAnchor = {
+  /** Section 3 — the hero photograph behind the welcome copy. */
+  heroImage: "benefit-hero-image",
+  /** Section 3 — the benefit provider's logo, printed under the banner's portrait. */
+  providerLogo: "benefit-provider-logo",
+  /** Section 3 — the welcome banner's circular portrait override. */
+  keyContactImage: "benefit-key-contact-image",
+  /** Section 4 — the banner's headline and description. */
+  messaging: "benefit-messaging",
+  /** Section 5 — the journey section's video, poster and fallback image. */
+  video: "benefit-video",
+  /** Section 6 — the "How Can We Help You Today?" cards and Account Access. */
+  help: "benefit-help",
+  /** Section 7 — the Quick Answers groups. */
+  quickAnswers: "benefit-quick-answers",
+  /** Section 8 — how the closing band's key contact is drawn. */
+  haveQuestions: "benefit-have-questions",
+} as const;
+
 /** The prefix every contact row's anchor carries. */
 const KEY_CONTACT_PREFIX = "key-contact-";
 

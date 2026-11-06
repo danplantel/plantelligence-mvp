@@ -7,6 +7,8 @@ import useSWR from "swr";
 import { buildFaqSupportContacts } from "@/lib/faq-support-contacts";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
+import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
+import { benefitEditAnchor } from "@/lib/portal-editor-sections";
 import { BenefitsVideoSection } from "@/components/pages/client-portal/sections/benefits-video-section";
 import {
   HowCanWeHelpSection,
@@ -168,82 +170,122 @@ export default function LifeInsurancePage() {
         clientId={clientId}
       />
       <main className="w-full">
-        <PortalWelcomeBanner
-          clientData={clientData}
-          profile={profile}
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          customHeadline={benefitData?.title}
-          customDescription={benefitData?.shortDescription ?? undefined}
-          category="Group Life"
-          primaryContactId={keyContactId}
-          // "Schedule with …" scrolls to the key contact's card below instead of
-          // opening the scheduling URL in another tab.
-          onScheduleClick={() =>
-            scrollToPortalSection(HAVE_QUESTIONS_SECTION_ID)
-          }
-        />
-
-        {/* Hidden entirely when the editor's "Show on page" toggle is off. */}
-        {benefitData?.planVideoVisible !== false && (
-          <BenefitsVideoSection
+        {/* Each region the benefit panel edits carries a blue button, which opens
+            that panel on the section that owns it. The wrappers are `relative`
+            because PortalSectionEditButton is positioned. */}
+        <div className="relative">
+          <PortalWelcomeBanner
+            clientData={clientData}
+            profile={profile}
             brandColor={brandColor}
             secondaryColor={secondaryColor}
-            keyContacts={clientData?.keyContacts}
+            customHeadline={benefitData?.title}
+            customDescription={benefitData?.shortDescription ?? undefined}
             category="Group Life"
             primaryContactId={keyContactId}
-            videoLabel={benefitData?.planVideoLabel ?? undefined}
-            videoThumbnail={benefitData?.planVideoThumbnail ?? undefined}
-            // No plan copy → the section's Group Life defaults fill these in.
-            mainTitle={(benefitData as any)?.journeyHeader || undefined}
-            subtitle={(benefitData as any)?.journeySubtitle || undefined}
-            description={
-              (benefitData as any)?.journeyBodyText ||
-              "Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."
-            }
-            planVideoUrl={benefitData?.planVideo as string | undefined}
-            // The plan's own no-video image; when unset the section uses the
-            // category's stock image (lib/benefits-video-fallback.ts).
-            planVideoFallbackImage={
-              benefitData?.planVideoFallbackImage ?? undefined
-            }
-            // "Schedule with …" scrolls to this contact's card in "Have Questions?"
-            // rather than opening another tab.
+            // A pencil on each editable element of the card, each naming the panel
+            // section that owns it: the copy lives in "Benefit Messaging", the
+            // portrait and the provider logo in "Branding".
+            editTargets={{
+              title: benefitEditAnchor.messaging,
+              description: benefitEditAnchor.messaging,
+              portrait: benefitEditAnchor.keyContactImage,
+              logo: benefitEditAnchor.providerLogo,
+            }}
+            // "Schedule with …" scrolls to the key contact's card below instead of
+            // opening the scheduling URL in another tab.
             onScheduleClick={() =>
               scrollToPortalSection(HAVE_QUESTIONS_SECTION_ID)
             }
-            // Videos published to this page from Communications → Webinars, as the
-            // closing rail of this section.
-            webinarsPlacement="life-insurance"
           />
+          <PortalSectionEditButton
+            sectionId={benefitEditAnchor.heroImage}
+            label="Edit header background"
+            className="right-4 top-4"
+          />
+        </div>
+
+        {/* Hidden entirely when the editor's "Show on page" toggle is off. */}
+        {benefitData?.planVideoVisible !== false && (
+          <div className="relative">
+            <BenefitsVideoSection
+              brandColor={brandColor}
+              secondaryColor={secondaryColor}
+              keyContacts={clientData?.keyContacts}
+              category="Group Life"
+              primaryContactId={keyContactId}
+              videoLabel={benefitData?.planVideoLabel ?? undefined}
+              videoThumbnail={benefitData?.planVideoThumbnail ?? undefined}
+              // No plan copy → the section's Group Life defaults fill these in.
+              mainTitle={(benefitData as any)?.journeyHeader || undefined}
+              subtitle={(benefitData as any)?.journeySubtitle || undefined}
+              description={
+                (benefitData as any)?.journeyBodyText ||
+                "Protect what matters most. Our life insurance resources help you understand your coverage options and ensure your loved ones are financially secure, no matter what life brings. Explore term life, whole life, and supplemental coverage tailored to your needs."
+              }
+              planVideoUrl={benefitData?.planVideo as string | undefined}
+              // The plan's own no-video image; when unset the section uses the
+              // category's stock image (lib/benefits-video-fallback.ts).
+              planVideoFallbackImage={
+                benefitData?.planVideoFallbackImage ?? undefined
+              }
+              // "Schedule with …" scrolls to this contact's card in "Have Questions?"
+              // rather than opening another tab.
+              onScheduleClick={() =>
+                scrollToPortalSection(HAVE_QUESTIONS_SECTION_ID)
+              }
+              // Videos published to this page from Communications → Webinars, as the
+              // closing rail of this section.
+              webinarsPlacement="life-insurance"
+            />
+            <PortalSectionEditButton
+              sectionId={benefitEditAnchor.video}
+              label="Edit video section"
+              className="right-4 top-4"
+            />
+          </div>
         )}
 
         {/* The journey section comes first, then "How Can We Help You Today?" —
             the header's Login button scrolls to this section. */}
-        <HowCanWeHelpSection
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          clientId={clientId}
-          category="Group Life"
-          // Plan / Group ID, login URL and provider — the same three fields the
-          // editor panel writes.
-          provider={benefitData?.providerContact ?? null}
-          planIdLabel={planGroupIdLabel || undefined}
-          accountAccessHref={accountAccessHref}
-          topics={topics?.featured}
-          actionHubPanels={topics?.actionHubPanels}
-          cards={(benefitData as any)?.helpCards ?? undefined}
-        />
+        <div className="relative">
+          <HowCanWeHelpSection
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            clientId={clientId}
+            category="Group Life"
+            // Plan / Group ID, login URL and provider — the same three fields the
+            // editor panel writes.
+            provider={benefitData?.providerContact ?? null}
+            planIdLabel={planGroupIdLabel || undefined}
+            accountAccessHref={accountAccessHref}
+            topics={topics?.featured}
+            actionHubPanels={topics?.actionHubPanels}
+            cards={(benefitData as any)?.helpCards ?? undefined}
+          />
+          <PortalSectionEditButton
+            sectionId={benefitEditAnchor.help}
+            label="Edit how we can help"
+            className="right-4 top-4"
+          />
+        </div>
 
         {/* Quick Answers replaces the FAQ accordion on this hub. It renders nothing at
             all when the plan has no questions, so the section cannot appear empty. */}
-        <QuickAnswersSection
-          groups={topics?.groups ?? []}
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          basePath={`/${clientId}`}
-          actionHubPanels={topics?.actionHubPanels}
-        />
+        <div className="relative">
+          <QuickAnswersSection
+            groups={topics?.groups ?? []}
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            basePath={`/${clientId}`}
+            actionHubPanels={topics?.actionHubPanels}
+          />
+          <PortalSectionEditButton
+            sectionId={benefitEditAnchor.quickAnswers}
+            label="Edit quick answers"
+            className="right-4 top-4"
+          />
+        </div>
 
         <BenefitDocumentSection
           brandColor={brandColor}
@@ -259,16 +301,23 @@ export default function LifeInsurancePage() {
             scoped to this benefit (see `supportContactsForFAQ`). The plan's
             contacts come along so the section can label this benefit's key
             contact (the person the banner and the journey section feature). */}
-        <HaveQuestions
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          contacts={supportContactsForFAQ}
-          // Section 8 of the benefit editor: how this benefit's key contact is drawn.
-          keyContactCardStyle={benefitData?.keyContactCardStyle ?? undefined}
-          keyContacts={clientData?.keyContacts}
-          category="Group Life"
-          primaryContactId={keyContactId}
-        />
+        <div className="relative">
+          <HaveQuestions
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            contacts={supportContactsForFAQ}
+            // Section 8 of the benefit editor: how this benefit's key contact is drawn.
+            keyContactCardStyle={benefitData?.keyContactCardStyle ?? undefined}
+            keyContacts={clientData?.keyContacts}
+            category="Group Life"
+            primaryContactId={keyContactId}
+          />
+          <PortalSectionEditButton
+            sectionId={benefitEditAnchor.haveQuestions}
+            label="Edit have questions"
+            className="right-4 top-4"
+          />
+        </div>
       </main>
     </div>
   );

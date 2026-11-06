@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { designationAcronym } from "@/config/onboarding/designations";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { BrandingImage } from "@/components/ui/branding-image";
+import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
 import { toNextImageSrc } from "@/lib/branding-image-url";
 import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
 import {
@@ -118,6 +119,28 @@ interface PortalWelcomeBannerProps {
   desktopHeroBackgroundPosition?: { x: number; y: number };
   /** Mobile background image focal point (percentage) */
   mobileHeroBackgroundPosition?: { x: number; y: number };
+  /**
+   * Where each editable element of the banner is changed, as an Edit Panel anchor.
+   *
+   * The banner is shared: on a benefit hub the headline and description live in the
+   * benefit panel's "Benefit Messaging", the portrait and provider logo in
+   * "Branding". The host knows that, so it passes the anchors and this component
+   * only draws a pencil on each one it is given. Anything omitted gets no pencil —
+   * and with no editing provider mounted (previews, participants) the button draws
+   * nothing at all.
+   */
+  editTargets?: {
+    /** The headline (Section 4's intro headline). */
+    title?: string;
+    /** The description paragraphs. */
+    description?: string;
+    /** The closing line and the signature block under it. */
+    closing?: string;
+    /** The circular key-contact portrait. */
+    portrait?: string;
+    /** The provider logo printed beneath the portrait. */
+    logo?: string;
+  };
 }
 
 export function PortalWelcomeBanner({
@@ -152,6 +175,7 @@ export function PortalWelcomeBanner({
   customSignatureCompanyItalic = true,
   desktopHeroBackgroundPosition,
   mobileHeroBackgroundPosition,
+  editTargets,
 }: PortalWelcomeBannerProps) {
   // Auto-fetch the logged-in user's profile data from /api/profile when the
   // caller doesn't pass them explicitly (e.g. live portal pages). The Step 2
@@ -366,24 +390,10 @@ export function PortalWelcomeBanner({
       }
     : { backgroundColor: `rgba(0, 0, 0, ${effectiveContainerBlockOpacity})` };
 
-  const [hoveredField, setHoveredField] = useState<string | null>(null);
-
-  const EditPencil = () => (
-    <div className="absolute -top-2 -left-2 z-20 bg-[#3b82f6] rounded-full p-1.5 shadow-lg border border-white/20">
-      <svg
-        className="w-3 h-3 text-white"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke="currentColor"
-        strokeWidth={2.5}
-      >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-        />
-      </svg>
-    </div>
+  /** True when this region can be opened in an Edit Panel at all. */
+  const editableTitle = Boolean(onTitleClick || editTargets?.title);
+  const editableDescription = Boolean(
+    onDescriptionClick || editTargets?.description,
   );
 
   // ── Full-bleed welcome banner background ────────────────────────────────
@@ -506,16 +516,26 @@ export function PortalWelcomeBanner({
               {/* Title */}
               <div
                 className={`relative ${
-                  onTitleClick ? "cursor-pointer group" : ""
+                  editableTitle ? "cursor-pointer group" : ""
                 }`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onTitleClick?.();
                 }}
-                onMouseEnter={() => onTitleClick && setHoveredField("title")}
-                onMouseLeave={() => onTitleClick && setHoveredField(null)}
               >
-                {onTitleClick && hoveredField === "title" && <EditPencil />}
+                {/* The pencil is a BUTTON of its own: the headline's wrapper opens
+                    the editor too, but the pencil names the exact panel section.
+                    Revealed on hover through CSS rather than state — a
+                    state-rendered button unmounts the moment the pointer leaves
+                    the region to reach it. */}
+                {editTargets?.title && (
+                  <PortalSectionEditButton
+                    sectionId={editTargets.title}
+                    label="Edit headline"
+                    iconOnly
+                    className="-left-2 -top-2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                  />
+                )}
                 <h1
                   className={`font-unna font-dm-serif text-3xl leading-tight sm:text-4xl lg:text-5xl ${
                     effectiveContainerInverted ? "text-gray-900" : "text-white"
@@ -528,19 +548,22 @@ export function PortalWelcomeBanner({
               {/* Description paragraphs */}
               <div
                 className={`relative ${
-                  onDescriptionClick ? "cursor-pointer group mt-6" : "mt-6"
+                  editableDescription
+                    ? "cursor-pointer group mt-6"
+                    : "mt-6"
                 }`}
                 onClick={(e) => {
                   e.stopPropagation();
                   onDescriptionClick?.();
                 }}
-                onMouseEnter={() =>
-                  onDescriptionClick && setHoveredField("description")
-                }
-                onMouseLeave={() => onDescriptionClick && setHoveredField(null)}
               >
-                {onDescriptionClick && hoveredField === "description" && (
-                  <EditPencil />
+                {editTargets?.description && (
+                  <PortalSectionEditButton
+                    sectionId={editTargets.description}
+                    label="Edit description"
+                    iconOnly
+                    className="-left-2 -top-2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                  />
                 )}
                 <div className="text-base font-red-hat space-y-4">
                   {descriptionParagraphs.map((para, idx) => (
@@ -550,7 +573,15 @@ export function PortalWelcomeBanner({
               </div>
 
               {/* Closing & Signature */}
-              <div className="pt-5">
+              <div className="group relative pt-5">
+                {editTargets?.closing && (
+                  <PortalSectionEditButton
+                    sectionId={editTargets.closing}
+                    label="Edit closing and signature"
+                    iconOnly
+                    className="-left-2 -top-2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                  />
+                )}
                 <p
                   className={`text-lg font-red-hat ${
                     customClosingBold ? "font-bold" : "font-normal"
@@ -682,7 +713,15 @@ export function PortalWelcomeBanner({
             {/* LEFT: key contact headshot (falls back to the category's stock
                 image) in a circular frame, with the company logo beneath it. */}
             <div className="order-1 flex flex-col items-center justify-center gap-5 px-4 py-10 lg:order-1 lg:pl-16 lg:pr-4">
-              <div className="relative">
+              <div className="group relative">
+                {editTargets?.portrait && (
+                  <PortalSectionEditButton
+                    sectionId={editTargets.portrait}
+                    label="Edit key contact portrait"
+                    iconOnly
+                    className="-left-2 -top-2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                  />
+                )}
                 {/* Circle for a `round` theme, square for a `sharp` one. */}
                 <div
                   data-testid="welcome-banner-portrait-frame"
@@ -718,6 +757,15 @@ export function PortalWelcomeBanner({
               {/* Company logo — beneath the circular key-contact portrait.
                   Priority: per-category partnerLogo (set via wizard Provider Logo
                   upload) → plan-level companyLogo → fallback "LOGO HERE". */}
+              <div className="group relative">
+              {editTargets?.logo && (
+                <PortalSectionEditButton
+                  sectionId={editTargets.logo}
+                  label="Edit provider logo"
+                  iconOnly
+                  className="-left-2 -top-2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                />
+              )}
               {(() => {
                 const resolvedLogo =
                   categoryBenefit?.partnerLogo || clientData?.companyLogo;
@@ -742,6 +790,7 @@ export function PortalWelcomeBanner({
                   </p>
                 );
               })()}
+              </div>
             </div>
           </motion.div>
         </div>
