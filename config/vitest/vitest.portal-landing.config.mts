@@ -30,6 +30,17 @@ const portalLandingTests = [
   // The Landing panel itself: every edit previews live, and the Disclosure
   // section is carried as the panel's last one
   "components/portal-editing/editors/__tests__/portal-home-editor-live-preview.test.tsx",
+  // The page's blue edit affordances: hero → Hero Content, mission → Mission
+  // Statement, and nothing at all for a participant
+  "app/(portal)/[id]/__tests__/page-edit-affordances.test.tsx",
+  // The address the page and the panel agree on
+  "lib/__tests__/portal-editor-sections.test.ts",
+  // The panel scrolling itself to the requested section (or to an anchor inside one)
+  "components/wizard/new-client-steps/sections/__tests__/editor-panel-focus.test.tsx",
+  // The blue Edit button: hidden for participants, opens the named section
+  "components/portal-editing/__tests__/portal-section-edit-button.test.tsx",
+  // The hover note on the "Your Benefits at a Glance" cards
+  "components/portal-editing/__tests__/portal-benefit-edit-hint.test.tsx",
 ];
 
 const baseTest = (baseConfig as { test?: Record<string, unknown> }).test ?? {};

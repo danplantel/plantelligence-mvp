@@ -6,6 +6,7 @@ import { HelpCardLayoutEditor } from "./help-card-layout-editor";
 import { QuickAnswersBuilder } from "./quick-answers-builder";
 import { topicLocationForCategory } from "@/lib/topic-locations";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
+import { portalSectionId } from "@/lib/portal-editor-sections";
 import {
   BENEFIT_CATEGORY_GALLERY,
   toCategoryGalleryKey,
@@ -2344,7 +2345,9 @@ export function BenefitsEditorPanel({
       {extraSections?.map((section, index) => (
         <div
           key={section.title}
-          data-section-id={`extra-${index}`}
+          // The same address the page beside the panel uses to scroll here, so the
+          // page's blue edit affordances work on this panel too.
+          data-section-id={portalSectionId(section.title)}
           className="mt-8 border-t pt-6"
         >
           <SectionHeader number={9 + index} title={section.title} />

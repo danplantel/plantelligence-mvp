@@ -24,6 +24,8 @@ import { PortalChatbot } from "@/components/pages/client-portal/sections/portal-
 import { portalCommentsSurface } from "@/lib/comments/portal-surface";
 import { Button } from "@/components/ui/button";
 import { PortalPopUpOverlay } from "@/components/pages/client-portal/sections/portal-popup-overlay";
+import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
+import { PORTAL_SECTION_IDS } from "@/lib/portal-editor-sections";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   resolveDefaultDisclosuresText,
@@ -656,12 +658,23 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
           <AnimatePresence mode="wait">{children}</AnimatePresence>
         </div>
 
-        <Footer
-          brandColor={footerBgColor}
-          disclosuresText={disclosuresText}
-          organizationName={organizationName}
-          companyName={clientData?.companyName || ""}
-        />
+        {/* The footer carries the portal-wide (or this hub's) disclosure, so it is
+            a region the advisor edits — the blue button takes them straight to the
+            Disclosure section of whichever panel this page opens. It renders
+            nothing for a participant. */}
+        <div className="relative">
+          <Footer
+            brandColor={footerBgColor}
+            disclosuresText={disclosuresText}
+            organizationName={organizationName}
+            companyName={clientData?.companyName || ""}
+          />
+          <PortalSectionEditButton
+            sectionId={PORTAL_SECTION_IDS.disclosure}
+            label="Edit footer"
+            className="right-4 top-4"
+          />
+        </div>
       </PortalCommentsZoom>
 
       {/* The published pop-up — a viewport-centred dialog, so it is CHROME, not

@@ -1,7 +1,9 @@
 "use client";
 
 import { ClientPortal } from "@/components/pages/client-portal/client-portal";
+import { useOptionalPortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import { useClientPortal } from "@/contexts/client-portal-context";
+import { PORTAL_SECTION_IDS } from "@/lib/portal-editor-sections";
 import { useParams, useRouter } from "next/navigation";
 import {
   getCategoryPortalVisibility,
@@ -14,6 +16,25 @@ export default function ViewClientPage() {
   const { clientData, loading } = useClientPortal();
   const params = useParams();
   const clientId = params.id as string;
+
+  /**
+   * The blue edit affordances, exactly as Create/Edit Client and Benefits Step 2
+   * have them: hovering the hero or the mission outlines it and shows a pencil,
+   * and clicking it opens the Edit Panel already scrolled to the section that owns
+   * that copy.
+   *
+   * `useOptionalPortalEditing` because this page renders for participants too,
+   * where no provider is mounted and there is nothing to edit.
+   */
+  const editing = useOptionalPortalEditing();
+  const canEditPortal = Boolean(editing?.canEdit);
+  const focusSection = editing?.focusSection;
+  const editHero = focusSection
+    ? () => focusSection(PORTAL_SECTION_IDS.heroContent)
+    : undefined;
+  const editMission = focusSection
+    ? () => focusSection(PORTAL_SECTION_IDS.missionStatement)
+    : undefined;
 
   // Loading skeleton while client data is being fetched
   if (!clientData) {
@@ -178,6 +199,13 @@ export default function ViewClientPage() {
         hideHeader={true}
         hideFooter={true}
         clientId={clientId}
+        // The blue edit affordances (hover the hero or the mission → pencil →
+        // the panel opens on that section). Only when this viewer may edit.
+        showEditIndicators={canEditPortal}
+        onHeroTitleClick={editHero}
+        onHeroDescriptionClick={editHero}
+        onMissionHeadlineClick={editMission}
+        onMissionBodyClick={editMission}
       />
     </>
   );

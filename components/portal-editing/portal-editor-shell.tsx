@@ -33,7 +33,7 @@ export function PortalEditorShell({
   eyebrow,
   headerBadge,
 }: PortalEditorShellProps) {
-  const { isOpen, closePanel, target } = usePortalEditing();
+  const { isOpen, closePanel, target, focusRequest } = usePortalEditing();
   if (!target) return null;
 
   return (
@@ -54,6 +54,9 @@ export function PortalEditorShell({
       }
       sections={sections}
       footer={footer}
+      // The page's blue edit affordances ask the provider to open the panel at a
+      // section; the wrapper owns the scrolling.
+      focusRequest={focusRequest}
     >
       {children}
     </EditorPanelWrapper>

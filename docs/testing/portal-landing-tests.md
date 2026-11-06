@@ -6,7 +6,7 @@ Unlike Edit Plan, this page owns almost no UI of its own. It is a **projection**
 
 ## Summary
 
-- **Unit tests:** 161 passing in 9 files
+- **Unit tests:** 182 passing in 14 files
 - **E2E:** none yet — see [Remaining coverage](#remaining-coverage)
 - **Runner:** Vitest + React Testing Library + jsdom
 
@@ -21,7 +21,7 @@ Unlike Edit Plan, this page owns almost no UI of its own. It is a **projection**
 ## Running these tests
 
 ```bash
-pnpm test:portal-landing           # all Portal Landing suites (161 tests)
+pnpm test:portal-landing           # all Portal Landing suites (182 tests)
 pnpm test:portal-landing:watch     # watch mode
 pnpm test:portal-landing:coverage  # suites + V8 coverage
 ```
@@ -41,6 +41,11 @@ Backed by [`config/vitest/vitest.portal-landing.config.mts`](../../config/vitest
 | 7   | `lib/__tests__/portal-disclosures.test.ts`                                       |    22 | Which footer row each scope reads (landing and per-benefit), and the writes          |
 | 8   | `components/portal-editing/__tests__/portal-disclosure-section.test.tsx`         |    12 | The Disclosure section: both scopes, the text, the footer background, its notices     |
 | 9   | `components/portal-editing/editors/__tests__/portal-home-editor-live-preview.test.tsx` | 2 | Every panel edit previews live, and Disclosure rides as the last section        |
+| 10  | `app/(portal)/[id]/__tests__/page-edit-affordances.test.tsx`                             | 3 | Hero → Hero Content, mission → Mission Statement, nothing for a participant     |
+| 11  | `lib/__tests__/portal-editor-sections.test.ts`                                          | 5 | The section ids the page and the panel agree on, and the in-section anchors     |
+| 12  | `components/wizard/new-client-steps/sections/__tests__/editor-panel-focus.test.tsx`     | 5 | The panel scrolling itself to a section — or to an anchor inside one            |
+| 13  | `components/portal-editing/__tests__/portal-section-edit-button.test.tsx`               | 4 | The blue button: hidden for participants, opens the named section              |
+| 14  | `components/portal-editing/__tests__/portal-benefit-edit-hint.test.tsx`                 | 4 | The hover note on the "At a Glance" cards: advisor-only, names the real place   |
 
 ## The Edit Panel's Disclosure section
 
@@ -88,6 +93,46 @@ organization-only default, and the three background choices.
 `portal-home-editor-live-preview.test.tsx`: the section is carried as the panel's
 last one, and typing in it emits a `disclaimers` patch whose first row is
 `Home Page`.
+
+## Blue edit affordances
+
+The page behaves like Create/Edit Client and Benefits Step 2: the advisor clicks
+the part of the page they want to change and the panel opens on the section that
+owns it.
+
+| Region | Affordance | Opens |
+| --- | --- | --- |
+| Hero (title, description, background) | hover ring + blue pencil (from `PortalHero`) | `hero-content` |
+| Mission copy | hover ring + blue pencil (from `PortalMission`) | `mission-statement` |
+| **Featured image** | blue **Edit featured image** button | the Featured Image card |
+| **Footer** | blue **Edit footer** button (rendered by the layout, so every portal page has it) | `disclosure` |
+| **Your Benefits at a Glance** cards | hover note (advisor only) | — nothing to open: these cards live on Benefit rows |
+
+**The cards.** "Your Benefits at a Glance" has no controls in this panel because
+each card is drawn from a Benefit row. Hovering a card shows an advisor-only note
+([`PortalBenefitEditHint`](../../components/portal-editing/portal-benefit-edit-hint.tsx:1))
+saying so and naming the place: **Create Benefit / Edit Benefit → Branding →
+Landing Page Card**. It is `pointer-events-none` so the card still opens its hub,
+and it does not render at all for a participant.
+
+**How it works.** [`PortalSectionEditButton`](../../components/portal-editing/portal-section-edit-button.tsx:1)
+calls `focusSection(id)` on the editing provider, which opens the panel and stores
+`{ id, nonce }`; `nonce` is what makes a second click on the same region scroll
+again. [`EditorPanelWrapper`](../../components/wizard/new-client-steps/sections/components/editor-panel-wrapper.tsx:25)
+renders every section as `[data-section-id={portalSectionId(title)}]` and scrolls
+its own body to that element.
+
+**Sections vs anchors.** Some regions are a CARD inside a section, not a section:
+the Featured Image is the first item of "Mission Statement", while the "Images"
+section holds Company Logo and the Hero Banner. Pointing the image's button at
+`images` therefore landed on Company Logo — the bug that produced
+`portalEditAnchor`. The wrapper now looks for `[data-section-id]` first and then
+for `[data-edit-anchor]`, and the Featured Image card carries
+`data-edit-anchor="featured-image"`.
+
+Everything here is inert for a participant: the hook is the OPTIONAL variant, so
+no provider (and no edit permission) means no rings, no buttons, no handlers — the
+suite asserts a participant gets `showEditIndicators={false}` and no buttons.
 
 ## Remaining coverage
 

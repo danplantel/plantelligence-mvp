@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+
 import { CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { portalSectionId } from "@/lib/portal-editor-sections";
 import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 
@@ -58,6 +61,15 @@ interface EditorPanelWrapperProps {
    * column against the white participant page.
    */
   surfaceClassName?: string;
+  /**
+   * A request to scroll to one of `sections`, addressed by
+   * [`portalSectionId`](../../../../lib/portal-editor-sections.ts:14).
+   *
+   * The portal's page raises it when the advisor clicks the blue edit affordance
+   * on the part of the page they want to change; `nonce` makes a second click on
+   * the same region scroll again.
+   */
+  focusRequest?: { id: string; nonce: number } | null;
 }
 
 export function EditorPanelWrapper({
@@ -75,7 +87,50 @@ export function EditorPanelWrapper({
   eyebrow = "Plan Branding & Messaging",
   title = "Editing Panel",
   surfaceClassName,
+  focusRequest,
 }: EditorPanelWrapperProps) {
+  /**
+   * The scroll container the focus effect drives. Callers may hand one in; when
+   * they do not, this is the panel's own.
+   */
+  const innerScrollRef = useRef<HTMLDivElement>(null);
+  const scrollRef = editorScrollContainerRef ?? innerScrollRef;
+
+  /**
+   * Scroll to the section the page asked for.
+   *
+   * Placed before the `isOpen` guard below because hooks cannot follow a return.
+   * The effect measures the section against the container rather than trusting
+   * `offsetTop`, so it lands the same whether the panel is the fixed overlay or an
+   * inline column.
+   */
+  useEffect(() => {
+    if (!isOpen || !focusRequest?.id) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    // A section first; then an anchor INSIDE one, for a region edited by a card
+    // part-way down a section (the Featured Image sits in "Mission Statement").
+    const target =
+      container.querySelector<HTMLElement>(
+        `[data-section-id="${focusRequest.id}"]`,
+      ) ??
+      container.querySelector<HTMLElement>(
+        `[data-edit-anchor="${focusRequest.id}"]`,
+      );
+    if (!target) return;
+
+    const frame = requestAnimationFrame(() => {
+      const top =
+        target.getBoundingClientRect().top -
+        container.getBoundingClientRect().top +
+        container.scrollTop;
+      container.scrollTo({ top, behavior: "smooth" });
+    });
+    return () => cancelAnimationFrame(frame);
+    // `nonce` re-runs this when the same region is clicked again.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, focusRequest?.id, focusRequest?.nonce]);
+
   if (!isOpen && !isAnimating) return null;
 
   const isInline = variant === 'inline';
@@ -118,14 +173,20 @@ export function EditorPanelWrapper({
         </Button>
       </CardHeader>
       <div
-        ref={editorScrollContainerRef}
+        ref={scrollRef}
         className="flex-1 overflow-y-auto px-4 py-4 min-h-0 dark:text-gray-200 dark:bg-gray-900"
         data-lenis-wrapper
       >
         <div data-lenis-content className="space-y-4 dark:text-gray-200">
           {sections
             ? sections.map((section, i) => (
-                <div key={i} data-section-index={i}>
+                <div
+                  key={i}
+                  data-section-index={i}
+                  // The address the page beside the panel scrolls to — derived from
+                  // the title, so a page and the panel cannot disagree.
+                  data-section-id={portalSectionId(section.title)}
+                >
                   <SectionHeader number={i + 1} title={section.title} />
                   {section.content}
                 </div>

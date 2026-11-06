@@ -55,6 +55,22 @@ interface PortalEditingContextValue {
   openPanel: () => void;
   closePanel: () => void;
   togglePanel: () => void;
+  /**
+   * The section the panel should scroll to, as
+   * [`portalSectionId`](../../lib/portal-editor-sections.ts:14) writes it.
+   *
+   * `nonce` exists so clicking the same region twice scrolls again — without it
+   * the id would not change and the effect would not re-run.
+   */
+  focusRequest: { id: string; nonce: number } | null;
+  /**
+   * Open the panel at one of its sections.
+   *
+   * This is the portal's version of the blue edit affordances in Create/Edit
+   * Client and Benefits Step 2: click the part of the page you want to change and
+   * the panel comes up already scrolled to it.
+   */
+  focusSection: (sectionId: string) => void;
   saveState: SaveState;
   saveError: string | null;
   beginSave: () => void;
@@ -170,6 +186,26 @@ export function PortalEditingProvider({ children }: { children: ReactNode }) {
     setIsOpen(true);
   }, [canEdit]);
 
+  /**
+   * The last section the page asked for. `nonce` is what makes clicking the same
+   * region twice scroll again — the id alone would not change.
+   */
+  const [focusRequest, setFocusRequest] = useState<{
+    id: string;
+    nonce: number;
+  } | null>(null);
+
+  const focusSection = useCallback(
+    (sectionId: string) => {
+      if (!canEdit) return;
+      setSaveState("idle");
+      setSaveError(null);
+      setFocusRequest({ id: sectionId, nonce: Date.now() });
+      setIsOpen(true);
+    },
+    [canEdit],
+  );
+
   const closePanel = useCallback(() => setIsOpen(false), []);
   const togglePanel = useCallback(() => {
     if (!canEdit) return;
@@ -201,6 +237,8 @@ export function PortalEditingProvider({ children }: { children: ReactNode }) {
       openPanel,
       closePanel,
       togglePanel,
+      focusRequest,
+      focusSection,
       saveState,
       saveError,
       beginSave,
@@ -222,6 +260,8 @@ export function PortalEditingProvider({ children }: { children: ReactNode }) {
       openPanel,
       closePanel,
       togglePanel,
+      focusRequest,
+      focusSection,
       saveState,
       saveError,
       beginSave,

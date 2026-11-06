@@ -5,6 +5,8 @@ import { useRef, useState, KeyboardEvent } from "react";
 import { Pencil } from "lucide-react";
 import { readableColor } from "polished";
 import { BrandingImage } from "@/components/ui/branding-image";
+import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
+import { PORTAL_SECTION_IDS } from "@/lib/portal-editor-sections";
 import { portalRadiusValue } from "@/lib/typography-themes";
 
 interface PortalMissionProps {
@@ -74,7 +76,7 @@ export function PortalMission({
       <div className="max-w-[1400px] mx-auto w-full grid grid-cols-1 lg:grid-cols-[42%_58%] gap-8 lg:gap-12">
 
         {/* ── Left column: Image ── */}
-        <div className="w-full">
+        <div className="relative w-full">
           {/* 9:10, and sized by the column rather than a fixed height.
            *
            * The slot is a 9:10 crop, so the frame has to be 9:10 too: it shows
@@ -105,6 +107,15 @@ export function PortalMission({
               />
             )}
           </div>
+
+          {/* The blue Edit affordance for the featured image. It edits the plan's
+              brand images (the panel's Images section) and renders nothing for a
+              participant — see PortalSectionEditButton. */}
+          <PortalSectionEditButton
+            sectionId={PORTAL_SECTION_IDS.featuredImage}
+            label="Edit featured image"
+            className="right-3 top-3"
+          />
         </div>
 
         {/* ── Right column: Text + Button (animated) ── */}

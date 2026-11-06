@@ -22,6 +22,7 @@ import {
 } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
 import { WelcomeStatementCard } from "@/components/wizard/new-client-steps/sections/components/welcome-statement-card";
 import type { EditorSection } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
+import { portalEditAnchor } from "@/lib/portal-editor-sections";
 import type {
   BrandImageData,
   BrandImagesData,
@@ -508,11 +509,13 @@ export function usePlanPreviewEditorSections({
           {/* Featured Image — the section's first item, mirroring Create Plan's
               Section 4. It is a brand image, so it reuses the very same uploader
               and cropper the Company tab's Brand Images area uses. */}
-          <BrandImagesSection
-            brandImages={companyData.brandImages}
-            visibleSlots={["thumbnail"]}
-            onBrandImagesChange={handleBrandImagesChange}
-          />
+          <div data-edit-anchor={portalEditAnchor.featuredImage}>
+            <BrandImagesSection
+              brandImages={companyData.brandImages}
+              visibleSlots={["thumbnail"]}
+              onBrandImagesChange={handleBrandImagesChange}
+            />
+          </div>
           <Card className="dark:bg-gray-800">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm dark:text-gray-100">
