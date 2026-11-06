@@ -5,9 +5,14 @@ import useSWR, { useSWRConfig } from "swr";
 import { Loader2 } from "lucide-react";
 
 import { BenefitsEditorPanel } from "@/components/wizard/benefits-steps/benefits-editor-panel";
+import { PortalDisclosureSection } from "@/components/portal-editing/portal-disclosure-section";
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
+import type {
+  BenefitDisclosureCategory,
+  PortalDisclaimersEnvelope,
+} from "@/lib/portal-disclosures";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import {
   useBenefitsWizardStore,
@@ -32,6 +37,19 @@ const fetcher = (url: string) => fetch(url).then((response) => response.json());
 export function portalBenefitApiCategory(category: string | null): string {
   return category === "Other" ? "Company / Plan Sponsor" : category || "";
 }
+
+/**
+ * Which `disclaimers.byCategory` key this hub's footer reads.
+ *
+ * The same four keys the benefit editor writes and the portal layout reads first
+ * on a hub page; the Custom benefit is stored under "Other".
+ */
+const BENEFIT_DISCLOSURE_CATEGORY: Record<string, BenefitDisclosureCategory> = {
+  Retirement: "Retirement",
+  "Group Health": "Group Health",
+  "Group Life": "Group Life",
+  "Company / Plan Sponsor": "Other",
+};
 
 function logoDataFromUrl(url: string | null | undefined): CompanyLogoData | null {
   if (!url) return null;
@@ -296,6 +314,30 @@ export function PortalBenefitEditor() {
   const clientDataRef = useRef(clientData);
   clientDataRef.current = clientData;
 
+  /**
+   * The footer disclosure is a PLAN field, not a Benefit row: the hub page reads
+   * `byCategory[thisCategory]` off `clientData`, and `saveBenefit()` deliberately
+   * drops Step 5 so a portal save can never rewrite another benefit's documents or
+   * disclaimers. So it is patched for the live footer and written to the plan in
+   * the same Save, tracked by this flag.
+   */
+  const disclaimersDirtyRef = useRef(false);
+  const disclosureCategory =
+    BENEFIT_DISCLOSURE_CATEGORY[apiCategory] ?? "Other";
+  const disclosureLabel =
+    String((data?.benefit as { title?: string } | undefined)?.title || "").trim() ||
+    (category === "Other" ? "Custom Benefit" : category || apiCategory);
+
+  const handleDisclaimersChange = useCallback(
+    (next: PortalDisclaimersEnvelope) => {
+      disclaimersDirtyRef.current = true;
+      setIsDirty(true);
+      // Live preview: the layout resolves this hub's footer from this value.
+      patchClientData({ disclaimers: next });
+    },
+    [patchClientData],
+  );
+
   /** Re-seed both steps from a Benefit row + plan, without marking a draft. */
   const hydrateFrom = useCallback(
     (
@@ -410,6 +452,27 @@ export function PortalBenefitEditor() {
       if (!result.success) {
         throw new Error(result.error || "Could not save this benefit.");
       }
+
+      // The disclosure rides the plan, not the Benefit row (see
+      // `disclaimersDirtyRef`): written here so one Save commits both.
+      if (disclaimersDirtyRef.current) {
+        const response = await fetch(`/api/clients/${planId}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            disclaimers: clientDataRef.current?.disclaimers,
+          }),
+        });
+        if (!response.ok) {
+          const body = await response.json().catch(() => null);
+          throw new Error(
+            body?.error ||
+              "This benefit was saved, but its footer disclosure was not.",
+          );
+        }
+        disclaimersDirtyRef.current = false;
+      }
+
       setIsDirty(false);
       finishSave();
       // The saved row is the source of truth now — drop the optimistic cache.
@@ -433,6 +496,7 @@ export function PortalBenefitEditor() {
   const cancel = useCallback(async () => {
     if (savingRef.current) return;
     setIsDirty(false);
+    disclaimersDirtyRef.current = false;
     resetSave();
 
     const fresh = await refetchPortal();
@@ -491,6 +555,37 @@ export function PortalBenefitEditor() {
       onTopicsSaved={() => {
         if (benefitKey) void mutate(benefitKey);
       }}
+      // Section 9: this hub's own footer disclosure. The benefit editor has no
+      // footer, so the section is supplied by this panel.
+      extraSections={[
+        {
+          title: "Disclosure",
+          content: (
+            <PortalDisclosureSection
+              value={(clientData as { disclaimers?: unknown } | null)?.disclaimers}
+              fallbackText={String(
+                (clientData as { advisorDisclaimer?: string } | null)
+                  ?.advisorDisclaimer || "",
+              )}
+              organizationName={
+                String(
+                  (clientData as { branding?: { organizationName?: string } } | null)
+                    ?.branding?.organizationName || "",
+                ) || String(clientData?.companyName || "")
+              }
+              companyName={String(clientData?.companyName || "")}
+              brandColor={String(clientData?.brandColor || "#1F3A60")}
+              secondaryColor={String(clientData?.secondaryColor || "#6B7280")}
+              scope={{
+                kind: "benefit",
+                category: disclosureCategory,
+                label: disclosureLabel,
+              }}
+              onChange={handleDisclaimersChange}
+            />
+          ),
+        },
+      ]}
     />
   );
 }

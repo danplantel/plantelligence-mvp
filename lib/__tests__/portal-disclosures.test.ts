@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  findBenefitDisclosure,
   findLandingDisclosure,
   landingDisclosureSeed,
   parseDisclaimersEnvelope,
+  readBenefitDisclosureText,
   readLandingDisclosureText,
+  withBenefitDisclosureText,
   withFooterBackground,
   withLandingDisclosureText,
 } from "@/lib/portal-disclosures";
@@ -178,6 +181,63 @@ describe("withFooterBackground", () => {
     });
     expect(next.disclaimers).toEqual(envelope.disclaimers);
     expect(next.byCategory).toEqual(envelope.byCategory);
+  });
+});
+
+describe("a benefit's own disclosure (byCategory)", () => {
+  const byCategoryEnvelope = {
+    disclaimers: [landingRow],
+    byCategory: {
+      Retirement: { id: "r", text: "Retirement footer", locations: ["Retirement"] },
+      "Group Health": { text: "Health footer" },
+    },
+    footerBackground: { mode: "primary", customColor: "" },
+  };
+
+  it("reads only this benefit's row", () => {
+    expect(readBenefitDisclosureText(byCategoryEnvelope, "Retirement")).toBe(
+      "Retirement footer",
+    );
+    expect(readBenefitDisclosureText(byCategoryEnvelope, "Group Life")).toBeNull();
+  });
+
+  it("keeps the row's own fields when it is read", () => {
+    expect(findBenefitDisclosure(byCategoryEnvelope, "Retirement")?.row).toEqual({
+      id: "r",
+      text: "Retirement footer",
+      locations: ["Retirement"],
+    });
+  });
+
+  it("writes one category, leaving the others and the landing row alone", () => {
+    const next = withBenefitDisclosureText(
+      byCategoryEnvelope,
+      "Retirement",
+      "New retirement footer",
+    );
+    const byCategory = next.byCategory as Record<string, any>;
+    expect(byCategory.Retirement).toMatchObject({
+      id: "r",
+      text: "New retirement footer",
+      locations: ["Retirement"],
+    });
+    expect(byCategory["Group Health"]).toEqual({ text: "Health footer" });
+    expect(next.disclaimers).toEqual(byCategoryEnvelope.disclaimers);
+    expect(next.footerBackground).toEqual({ mode: "primary", customColor: "" });
+  });
+
+  it("creates the category's row when the benefit has none", () => {
+    const next = withBenefitDisclosureText(
+      { disclaimers: [landingRow] },
+      "Group Life",
+      "Life footer",
+    );
+    expect((next.byCategory as Record<string, any>)["Group Life"]).toMatchObject({
+      text: "Life footer",
+      locations: ["Group Life"],
+      scope: "plan",
+    });
+    expect(next.disclaimers).toEqual([landingRow]);
   });
 });
 

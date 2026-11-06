@@ -189,3 +189,79 @@ export function landingDisclosureSeed(
 
   return (advisorDisclaimer || "").trim();
 }
+
+/**
+ * A benefit's own disclosure, stored in `byCategory`.
+ *
+ * These are the four keys the benefit editor writes and
+ * [`layout.tsx`](<../../app/(portal)/[id]/layout.tsx:310>) reads FIRST on a hub
+ * page — before the landing row, the advisor's text and the universal default — so
+ * a benefit page's footer is its own record, not the portal-wide one.
+ */
+export type BenefitDisclosureCategory =
+  | "Retirement"
+  | "Group Health"
+  | "Group Life"
+  | "Other";
+
+/** The `byCategory` row for one benefit, with its text. */
+export function findBenefitDisclosure(
+  raw: unknown,
+  category: BenefitDisclosureCategory,
+): { row: PortalDisclosureRow; text: string } | null {
+  const envelope = parseDisclaimersEnvelope(raw);
+  const byCategory = envelope?.byCategory;
+  if (!byCategory || typeof byCategory !== "object") return null;
+
+  const row = (byCategory as Record<string, unknown>)[category];
+  if (!row || typeof row !== "object") return null;
+
+  const entry = row as PortalDisclosureRow;
+  return { row: entry, text: typeof entry.text === "string" ? entry.text : "" };
+}
+
+/** The disclosure text this benefit's page shows, or null when it has none of its own. */
+export function readBenefitDisclosureText(
+  raw: unknown,
+  category: BenefitDisclosureCategory,
+): string | null {
+  const found = findBenefitDisclosure(raw, category);
+  if (!found || !found.text.trim()) return null;
+  return found.text;
+}
+
+/**
+ * Write one benefit's disclosure text.
+ *
+ * Only that category's entry is touched: the other benefits keep theirs, the
+ * landing row is left alone, and `footerBackground` — which is plan-wide — is
+ * preserved. Fields the benefit editor already put on the row (`id`, `locations`,
+ * `scope`) are kept, so this writes the same record from a second place.
+ */
+export function withBenefitDisclosureText(
+  raw: unknown,
+  category: BenefitDisclosureCategory,
+  text: string,
+): PortalDisclaimersEnvelope {
+  const envelope = parseDisclaimersEnvelope(raw) ?? {};
+  const byCategory =
+    envelope.byCategory && typeof envelope.byCategory === "object"
+      ? { ...(envelope.byCategory as Record<string, unknown>) }
+      : {};
+
+  const existing = byCategory[category];
+  byCategory[category] = {
+    ...(existing && typeof existing === "object"
+      ? (existing as Record<string, unknown>)
+      : {
+          id: Date.now().toString(),
+          locations: [category],
+          customLocation: "",
+          scope: "plan",
+          apply_all_benefits_categories: false,
+        }),
+    text,
+  };
+
+  return { ...envelope, byCategory };
+}

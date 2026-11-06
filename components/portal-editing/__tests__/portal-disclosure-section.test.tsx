@@ -22,10 +22,12 @@ function Harness({
   initial = {},
   onChange,
   fallbackText = "Advisor default text.",
+  scope,
 }: {
   initial?: unknown;
   onChange: (next: any) => void;
   fallbackText?: string;
+  scope?: PortalDisclosureSectionProps["scope"];
 }) {
   const [value, setValue] = useState<unknown>(initial);
   return (
@@ -36,6 +38,7 @@ function Harness({
       companyName="Acme Corp"
       brandColor="#0D315F"
       secondaryColor="#C89B5B"
+      scope={scope}
       onChange={(next) => {
         onChange(next);
         setValue(next);
@@ -187,5 +190,86 @@ describe("PortalDisclosureSection — the footer disclosure", () => {
       "aria-pressed",
       "false",
     );
+  });
+});
+
+describe("PortalDisclosureSection — a benefit's own disclosure", () => {
+  const benefitEnvelope = {
+    disclaimers: [
+      {
+        id: "home",
+        text: "Portal-wide footer.",
+        locations: ["Home Page"],
+      },
+    ],
+    byCategory: {
+      Retirement: {
+        id: "r",
+        text: "Retirement footer.",
+        locations: ["Retirement"],
+      },
+      "Group Health": { text: "Health footer." },
+    },
+  };
+
+  const benefitScope = {
+    kind: "benefit" as const,
+    category: "Retirement" as const,
+    label: "Retirement",
+  };
+
+  it("names THIS page, and contrasts it with the shared footer", () => {
+    render(
+      <Harness initial={benefitEnvelope} onChange={vi.fn()} scope={benefitScope} />,
+    );
+
+    expect(screen.getByText(/the Retirement page/)).toBeInTheDocument();
+    expect(screen.getByText(/share a separate disclosure/i)).toBeInTheDocument();
+    expect(screen.getByText(/Every other benefit keeps its own/i)).toBeInTheDocument();
+  });
+
+  it("shows this benefit's text, not the portal-wide one", () => {
+    render(
+      <Harness initial={benefitEnvelope} onChange={vi.fn()} scope={benefitScope} />,
+    );
+
+    expect(screen.getByLabelText("Benefit disclosure")).toHaveValue(
+      "Retirement footer.",
+    );
+  });
+
+  it("writes into byCategory, leaving the landing row and other benefits alone", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <Harness initial={benefitEnvelope} onChange={onChange} scope={benefitScope} />,
+    );
+
+    await user.clear(screen.getByLabelText("Benefit disclosure"));
+    await user.type(screen.getByLabelText("Benefit disclosure"), "New.");
+
+    const envelope = lastEnvelope(onChange);
+    expect(envelope.byCategory.Retirement).toMatchObject({
+      id: "r",
+      text: "New.",
+      locations: ["Retirement"],
+    });
+    expect(envelope.byCategory["Group Health"]).toEqual({ text: "Health footer." });
+    expect(envelope.disclaimers).toEqual(benefitEnvelope.disclaimers);
+  });
+
+  it("fills the hub default, which names the plan sponsor too", async () => {
+    const onChange = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <Harness initial={benefitEnvelope} onChange={onChange} scope={benefitScope} />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /Use the default/i }));
+
+    const text = lastEnvelope(onChange).byCategory.Retirement.text as string;
+    expect(text).toContain("Acme Benefits");
+    // A hub page names the employer; the four non-hub pages do not.
+    expect(text).toContain("Acme Corp");
   });
 });

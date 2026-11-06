@@ -13,12 +13,12 @@ The first three are the same page with different constants; the fourth adds a UR
 
 ## Summary
 
-- **Unit tests:** 190 passing in 12 files (the sections the four pages render, plus the portal benefit read)
+- **Unit tests:** 281 passing in 16 files (the sections the four pages render, the portal benefit read, and the hub Edit Panel's Disclosure section)
 - **E2E:** none yet
 - **Runner:** Vitest + React Testing Library + jsdom
 
 ```bash
-pnpm test:portal-hubs           # the hub sections + portal benefit read (190 tests)
+pnpm test:portal-hubs           # the hub sections + portal benefit read (281 tests)
 pnpm test:portal-hubs:watch
 pnpm test:portal-hubs:coverage
 ```
@@ -52,6 +52,47 @@ In render order, each page:
 | Fallback video image    | unsplash `photo-1454496522488…`                                              | unsplash `photo-1576091160399…`                                                  | unsplash `photo-1511895426328…`                                                                                   | unsplash `photo-1545205597…`                                                                 |
 
 Every other prop is identical, which is why a shared harness can cover three of the four pages almost entirely through this table.
+
+## The hub Edit Panel's Disclosure section
+
+Opening **Edit** on any hub mounts
+[`PortalBenefitEditor`](../../components/portal-editing/editors/portal-benefit-editor.tsx:1),
+which renders Create/Edit Benefit's own editor **plus a ninth section: Disclosure**.
+[`BenefitsEditorPanel`](../../components/wizard/benefits-steps/benefits-editor-panel.tsx:116)
+takes an `extraSections` prop for exactly this — the benefits wizard has no footer,
+so the portal supplies the section rather than the wizard growing one it would
+never fill.
+
+**What it edits.** This hub's own row, `Client.disclaimers.byCategory[<category>]` —
+the record the benefit editor's Step 5 writes and
+[`layout.tsx`](<../../app/(portal)/[id]/layout.tsx:310>) reads FIRST on a hub page.
+The Custom benefit is stored under `Other`. The other benefits, the portal-wide
+"Home Page" row and `footerBackground` are untouched; the helper preserves them and
+the suite asserts it.
+
+| Scope | Key | Notice says |
+| --- | --- | --- |
+| Benefit hub | `byCategory.Retirement` / `Group Health` / `Group Life` / `Other` | The footer of **this** page only; the four non-hub pages share a separate disclosure |
+| Landing panel | the "Home Page" row | The four non-hub footers at once; benefits keep their own |
+
+The footer **background** beside the text is plan-wide (it paints every portal page)
+and is edited from whichever panel is open — the same behaviour Step 5 has, and the
+section says so.
+
+**How it saves.** `saveBenefit()` deliberately drops Step 5 so one hub's save can
+never rewrite another benefit's disclosures, so the panel writes the disclosure to
+the plan itself: editing patches `clientData.disclaimers` (the footer repaints at
+once) and flags a draft; **Save** runs `saveBenefit()` and then
+`PUT /api/clients/:id { disclaimers }`, where `mergeDisclaimersPayload` merges it in.
+Cancel clears the flag and the refetch reverts the footer.
+
+**What the suites pin.**
+[`portal-benefit-editor-disclosure.test.tsx`](../../components/portal-editing/editors/__tests__/portal-benefit-editor-disclosure.test.tsx:1)
+— the section is offered and scoped to this hub (named by the benefit's own title),
+typing writes `byCategory.Retirement` while leaving the landing row and the other
+benefit intact, and Save PUTs the edited disclosure to the plan after the benefit
+save. The shared helpers and the section's two scopes are covered by the landing
+suite (`portal-disclosures.test.ts`, `portal-disclosure-section.test.tsx`).
 
 ## Test inventory
 

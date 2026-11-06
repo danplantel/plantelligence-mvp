@@ -40,6 +40,9 @@ const portalHubTests = [
   "components/__tests__/faq-section.test.tsx",
   // The portal read the hubs make: GET .../benefits/[category]?forPortal=1
   "app/api/clients/[id]/benefits/[category]/__tests__/portal-get.test.ts",
+  // The hub Edit Panel's Disclosure section: this benefit's own row, written to
+  // the plan on Save
+  "components/portal-editing/editors/__tests__/portal-benefit-editor-disclosure.test.tsx",
 ];
 
 const baseTest = (baseConfig as { test?: Record<string, unknown> }).test ?? {};

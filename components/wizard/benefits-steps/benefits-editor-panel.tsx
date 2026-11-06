@@ -151,6 +151,14 @@ interface BenefitsEditorPanelProps {
   errorFields?: string[];
   /** Lenis-backed scroll for the editor panel (falls back to native scroll) */
   onScrollEditorTo?: (top: number) => void;
+  /**
+   * Sections appended AFTER Section 8, numbered from 9.
+   *
+   * Create/Edit Benefits has no footer of its own, so the portal's panel passes
+   * its Disclosure section here instead of the wizard growing a section it would
+   * never fill.
+   */
+  extraSections?: { title: string; content: React.ReactNode }[];
 }
 
 export function BenefitsEditorPanel({
@@ -170,6 +178,7 @@ export function BenefitsEditorPanel({
   footer,
   onTopicsSaved,
   onHeroSegmentModeChange,
+  extraSections,
 }: BenefitsEditorPanelProps & { highlightedField?: string | null }) {
   const { stepData, saveStepData } = useBenefitsWizardStore();
   const step1Data = (stepData.step1 || {}) as BenefitsStep1Data;
@@ -2331,6 +2340,17 @@ export function BenefitsEditorPanel({
           });
         }}
       />
+
+      {extraSections?.map((section, index) => (
+        <div
+          key={section.title}
+          data-section-id={`extra-${index}`}
+          className="mt-8 border-t pt-6"
+        >
+          <SectionHeader number={9 + index} title={section.title} />
+          {section.content}
+        </div>
+      ))}
     </EditorPanelWrapper>
   );
 }

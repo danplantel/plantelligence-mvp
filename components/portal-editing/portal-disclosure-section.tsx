@@ -13,20 +13,43 @@ import {
   type PortalFooterBackgroundMode,
 } from "@/lib/portal-footer-color";
 import {
+  findBenefitDisclosure,
   findLandingDisclosure,
+  withBenefitDisclosureText,
   withFooterBackground,
   withLandingDisclosureText,
+  type BenefitDisclosureCategory,
   type PortalDisclaimersEnvelope,
 } from "@/lib/portal-disclosures";
 import { cn } from "@/lib/utils";
+
+/**
+ * Which footer this section edits.
+ *
+ * - `landing` — the portal-wide row the four NON-hub pages render (Landing, My
+ *   Benefits Team, News & Events, Employee Resources).
+ * - `benefit` — one hub's `byCategory` row, which takes precedence on that page
+ *   only.
+ *
+ * Both are the same record (`Client.disclaimers`) and the same envelope; only the
+ * row differs, which is why the notice has to say which footers it paints.
+ */
+export type PortalDisclosureScope =
+  | { kind: "landing" }
+  | {
+      kind: "benefit";
+      category: BenefitDisclosureCategory;
+      /** The page's own name, for the notice ("Retirement", "Wellness Programs", …). */
+      label: string;
+    };
 
 export interface PortalDisclosureSectionProps {
   /** The plan's stored `disclaimers` value, exactly as the API returned it. */
   value: unknown;
   /**
-   * What the footer shows while no disclosure is stored — the advisor's own
-   * disclaimer, or a legacy plain-text row. Prefilling it means the advisor edits
-   * the words participants actually read, not an empty box.
+   * What the footer shows while this scope has no disclosure stored — the
+   * advisor's own disclaimer, or a legacy plain-text row. Prefilling it means the
+   * advisor edits the words participants actually read, not an empty box.
    */
   fallbackText?: string;
   /** Resolved names for the "use the default disclosure" button. */
@@ -34,6 +57,8 @@ export interface PortalDisclosureSectionProps {
   companyName: string;
   brandColor: string;
   secondaryColor: string;
+  /** Defaults to the portal-wide (landing) row. */
+  scope?: PortalDisclosureScope;
   /** Called with the next envelope on every edit — the host previews and queues it. */
   onChange: (next: PortalDisclaimersEnvelope) => void;
 }
@@ -48,14 +73,13 @@ const BACKGROUND_CHOICES: {
 ];
 
 /**
- * "Section N — Disclosure": the footer disclosure, edited where the advisor can
- * see it.
+ * "Section N — Disclosure": a footer disclosure, edited where the advisor can see
+ * it.
  *
- * This is the same record Create Plan's Step 5 and Edit Client's Disclosures tab
- * write (`Client.disclaimers` → the "Home Page" row), plus the footer background
- * preference that sits beside it. One difference in scope, and it is the reason
- * the notice below exists: that one row is the footer for the FOUR non-hub portal
- * pages at once, while each benefit hub keeps its own.
+ * The text is the same record Create Plan's Step 5 / Edit Client's Disclosures tab
+ * write — the Home Page row for the portal-wide footer, or one benefit's
+ * `byCategory` row for a hub. The footer background beside it is plan-wide and
+ * paints every portal page, whichever panel it is changed from.
  *
  * Fully controlled: the text and the preference are read from `value` on every
  * render, so the host's Save/Cancel (and its refetch on Cancel) is the only state
@@ -68,12 +92,21 @@ export function PortalDisclosureSection({
   companyName,
   brandColor,
   secondaryColor,
+  scope = { kind: "landing" },
   onChange,
 }: PortalDisclosureSectionProps) {
-  const stored = findLandingDisclosure(value);
+  const isBenefit = scope.kind === "benefit";
+
   // A stored (even empty) row wins over the fallback: otherwise clearing the
   // textarea would snap the box back to the advisor's text mid-typing.
-  const text = stored ? String(stored.row.text ?? "") : fallbackText;
+  const storedText = isBenefit
+    ? findBenefitDisclosure(value, scope.category)
+    : findLandingDisclosure(value);
+  const text = storedText
+    ? isBenefit
+      ? (storedText as { text: string }).text
+      : String((storedText as { row: { text?: unknown } }).row.text ?? "")
+    : fallbackText;
 
   const background = parseFooterBackgroundPreference(value) ?? {};
   const mode = (background.mode as PortalFooterBackgroundMode) || "primary";
@@ -84,13 +117,18 @@ export function PortalDisclosureSection({
     secondaryColor,
   );
 
-  const write = (next: PortalDisclaimersEnvelope) => onChange(next);
+  const writeText = (next: string) =>
+    onChange(
+      isBenefit
+        ? withBenefitDisclosureText(value, scope.category, next)
+        : withLandingDisclosureText(value, next),
+    );
 
   const setBackground = (
     nextMode: PortalFooterBackgroundMode,
     nextCustomColor = customColor,
   ) => {
-    write(
+    onChange(
       withFooterBackground(value, {
         mode: nextMode,
         customColor: nextCustomColor,
@@ -100,23 +138,41 @@ export function PortalDisclosureSection({
 
   return (
     <div className="space-y-4">
-      {/* Where this text lands. Required context: one record paints four footers. */}
+      {/* Where this text lands. One record, a specific set of footers. */}
       <div className="flex items-start gap-2 rounded-md border border-accent-blue/25 bg-accent-blue/5 p-3 text-xs leading-relaxed text-gray-700">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-accent-blue" />
         <div className="space-y-1">
-          <p className="font-semibold text-gray-900">Where this disclosure appears</p>
-          <p>
-            The band at the very bottom of the portal — the footer of{" "}
-            <strong>the Landing Page</strong>, <strong>My Benefits Team</strong>,{" "}
-            <strong>News & Events</strong> and{" "}
-            <strong>Employee Resources</strong>. One disclosure covers all four, so
-            editing it here changes every one of those footers.
+          <p className="font-semibold text-gray-900">
+            Where this disclosure appears
           </p>
-          <p className="text-gray-600">
-            The benefit pages (Retirement, Group Health, Life and the Custom
-            benefit) keep their own disclosure, set per benefit in that
-            benefit&rsquo;s editor — this text does not change them.
-          </p>
+          {isBenefit ? (
+            <>
+              <p>
+                The footer of <strong>the {scope.label} page</strong> only — the
+                band at the very bottom, under &ldquo;Have Questions?&rdquo;.
+              </p>
+              <p className="text-gray-600">
+                The Landing Page, My Benefits Team, News & Events and Employee
+                Resources share a separate disclosure, set on the Landing Page&rsquo;s
+                panel. Every other benefit keeps its own.
+              </p>
+            </>
+          ) : (
+            <>
+              <p>
+                The band at the very bottom of the portal — the footer of{" "}
+                <strong>the Landing Page</strong>, <strong>My Benefits Team</strong>,{" "}
+                <strong>News & Events</strong> and{" "}
+                <strong>Employee Resources</strong>. One disclosure covers all four,
+                so editing it here changes every one of those footers.
+              </p>
+              <p className="text-gray-600">
+                The benefit pages (Retirement, Group Health, Life and the Custom
+                benefit) keep their own disclosure, set per benefit in that
+                benefit&rsquo;s editor — this text does not change them.
+              </p>
+            </>
+          )}
         </div>
       </div>
 
@@ -184,7 +240,7 @@ export function PortalDisclosureSection({
             aria-hidden
           />
           <span className="text-[11px] text-muted-foreground">
-            The portal footer paints{" "}
+            Every portal footer paints{" "}
             <span className="font-mono text-[11px] text-gray-700">
               {resolvedBackground}
             </span>
@@ -198,7 +254,7 @@ export function PortalDisclosureSection({
             htmlFor="portal-footer-disclosure"
             className="text-xs font-medium"
           >
-            Footer disclosure
+            {isBenefit ? "Benefit disclosure" : "Footer disclosure"}
           </Label>
           <span className="text-[10px] text-muted-foreground">
             {text.length} characters
@@ -208,9 +264,7 @@ export function PortalDisclosureSection({
           id="portal-footer-disclosure"
           value={text}
           rows={8}
-          onChange={(event) =>
-            write(withLandingDisclosureText(value, event.target.value))
-          }
+          onChange={(event) => writeText(event.target.value)}
           placeholder="e.g. For educational and informational purposes only. Not intended as ERISA, tax, legal or investment advice…"
           className="min-h-[10rem] text-xs leading-relaxed"
         />
@@ -224,16 +278,13 @@ export function PortalDisclosureSection({
             size="sm"
             className="h-7 gap-1 px-2 text-[11px]"
             onClick={() =>
-              write(
-                withLandingDisclosureText(
-                  value,
-                  resolveDefaultDisclosuresText(
-                    organizationName,
-                    companyName,
-                    // These four pages use the organization name only — the same
-                    // rule the portal layout applies to them.
-                    false,
-                  ),
+              writeText(
+                resolveDefaultDisclosuresText(
+                  organizationName,
+                  companyName,
+                  // A benefit page names the plan sponsor too; the four non-hub
+                  // pages use the organization name only.
+                  isBenefit,
                 ),
               )
             }

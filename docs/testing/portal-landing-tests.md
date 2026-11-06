@@ -6,7 +6,7 @@ Unlike Edit Plan, this page owns almost no UI of its own. It is a **projection**
 
 ## Summary
 
-- **Unit tests:** 153 passing in 9 files
+- **Unit tests:** 161 passing in 9 files
 - **E2E:** none yet — see [Remaining coverage](#remaining-coverage)
 - **Runner:** Vitest + React Testing Library + jsdom
 
@@ -21,7 +21,7 @@ Unlike Edit Plan, this page owns almost no UI of its own. It is a **projection**
 ## Running these tests
 
 ```bash
-pnpm test:portal-landing           # all Portal Landing suites (153 tests)
+pnpm test:portal-landing           # all Portal Landing suites (161 tests)
 pnpm test:portal-landing:watch     # watch mode
 pnpm test:portal-landing:coverage  # suites + V8 coverage
 ```
@@ -38,8 +38,8 @@ Backed by [`config/vitest/vitest.portal-landing.config.mts`](../../config/vitest
 | 4   | `components/pages/client-portal/sections/__tests__/portal-hero-mission.test.tsx` |    20 | Hero/mission copy fallbacks and the preview-only edit affordances                   |
 | 5   | `lib/__tests__/benefit-completeness.test.ts`                                     |    24 | The completeness matrix behind the "finish this benefit" dialog                     |
 | 6   | `lib/__tests__/disclaimer-constants.test.ts`                                     |    30 | Footer text, placeholder resolution, disclaimer-envelope shapes                     |
-| 7   | `lib/__tests__/portal-disclosures.test.ts`                                       |    18 | Which footer row the four non-hub pages read, and the two writes the panel makes     |
-| 8   | `components/portal-editing/__tests__/portal-disclosure-section.test.tsx`         |     8 | The Edit Panel's Disclosure section: text, footer background, its scope notice       |
+| 7   | `lib/__tests__/portal-disclosures.test.ts`                                       |    22 | Which footer row each scope reads (landing and per-benefit), and the writes          |
+| 8   | `components/portal-editing/__tests__/portal-disclosure-section.test.tsx`         |    12 | The Disclosure section: both scopes, the text, the footer background, its notices     |
 | 9   | `components/portal-editing/editors/__tests__/portal-home-editor-live-preview.test.tsx` | 2 | Every panel edit previews live, and Disclosure rides as the last section        |
 
 ## The Edit Panel's Disclosure section
@@ -55,8 +55,12 @@ the footer it paints.
 | The record | [`lib/portal-disclosures.ts`](../../lib/portal-disclosures.ts:1) | Which row the four non-hub footers read, and the two writes |
 | The host | [`portal-home-editor.tsx`](../../components/portal-editing/editors/portal-home-editor.tsx:1) | Live preview (`patchClientData`) and the queued `disclaimers` PUT |
 
-**Which footers it changes.** One disclosure covers the four **non-hub** portal
-pages — the Landing Page, My Benefits Team, News & Events and Employee Resources.
+**Which footers it changes.** This section edits the **landing** scope: one
+disclosure covers the four **non-hub** portal pages — the Landing Page, My
+Benefits Team, News & Events and Employee Resources. The identical section is
+mounted on every benefit hub with the *benefit* scope, editing that hub's
+`byCategory` row instead; see
+[`portal-benefit-hub-tests.md`](portal-benefit-hub-tests.md).
 [`layout.tsx`](<../../app/(portal)/[id]/layout.tsx:332>) picks their text with one
 rule: the first row whose location is "Home Page" or "Global", or that applies to
 every benefit category. `findLandingDisclosure` mirrors that rule exactly, so the
