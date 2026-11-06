@@ -32,6 +32,7 @@ import { notifyPortalMeetingsChanged } from "@/lib/portal-data-events";
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
 import { SectionHeader } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
+import { portalEditAnchor } from "@/lib/portal-editor-sections";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import MarketingAssetModal, {
   type AssetType,
@@ -633,7 +634,13 @@ export function PortalNewsEditor() {
       <div className="space-y-8">
         {/* The page's hero background — the same "Page Image Header" slot Create
             Client Step 1 offers, with the same upload / gallery / crop flow. */}
-        <section className="space-y-4">
+        <section
+          className="space-y-4"
+          // The address the page's blue "Edit hero background" button scrolls
+          // to. This panel renders its own sections (it owns its Save bar), so
+          // the wrapper has no `data-section-id` to find here.
+          data-edit-anchor={portalEditAnchor.newsEventsHero}
+        >
           <SectionHeader number={1} title="Hero Background" />
           <p className="text-[12px] leading-relaxed text-muted-foreground">
             The image behind this page&rsquo;s &ldquo;News & Events&rdquo;

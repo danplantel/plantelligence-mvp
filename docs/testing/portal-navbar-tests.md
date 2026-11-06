@@ -6,7 +6,7 @@ The landing page hides `ClientPortal`'s own header and footer, so **this file is
 
 ## Summary
 
-- **Unit tests:** 206 passing in 14 files
+- **Unit tests:** 207 passing in 14 files
 - **E2E:** none yet (see [Remaining coverage](#remaining-coverage))
 - **Runner:** Vitest + React Testing Library + jsdom
 
@@ -32,7 +32,7 @@ The default export wraps everything in this order — worth asserting because ea
 ## Running these tests
 
 ```bash
-pnpm test:portal-navbar           # all chrome suites (206 tests)
+pnpm test:portal-navbar           # all chrome suites (207 tests)
 pnpm test:portal-navbar:watch     # watch mode
 pnpm test:portal-navbar:coverage  # suites + V8 coverage
 ```
@@ -46,7 +46,7 @@ Backed by [`config/vitest/vitest.portal-navbar.config.mts`](../../config/vitest/
 | 1   | `app/(portal)/[id]/__tests__/layout.test.tsx`                                     |    35 | Composition, banner, back links, light mode, comment surface, disclosures |
 | 2   | `components/pages/client-portal/sections/__tests__/portal-header-login.test.tsx`   |    40 | Header CTA modes, comments flag, active nav state, drawer, theme          |
 | 3   | `components/pages/client-portal/sections/__tests__/portal-chatbot.test.tsx`        |    10 | The chat pill, its panel, the plan's colours                              |
-| 4   | `components/comments/__tests__/portal-comments-rail.test.tsx`                      |    15 | The three arming gates and the on/off control                             |
+| 4   | `components/comments/__tests__/portal-comments-rail.test.tsx`                      |    18 | The three arming gates, the edit-intent open mode and the on/off control  |
 | 5   | `components/comments/__tests__/portal-comments-zoom.test.tsx`                      |    13 | Scale clamp, height division, inset override, observer lifecycle          |
 | 6   | `components/layout/__tests__/footer.test.tsx`                                      |    13 | Trust bar, disclosure text, copyright, text colour                        |
 | 7   | `lib/__tests__/portal-banner.test.ts`                                              |    10 | CTA normalisation and countdown arithmetic                                |
@@ -126,7 +126,7 @@ All three buttons carry fixed light colours, because they sit outside
 
 **Layout** — provider → rail → zoom → content → install composition; header props (logo, colours, `clientId`, visibility, `benefitHubs`); `--brand-color`/`--secondary-color`; the banner fetch URL, first-asset rule, dismiss, CTA link vs inert text (a `mailto:` survives), and the countdown reaching **Expired**; the back buttons appearing only with the `sessionStorage` flag (and consuming it); `html.dark` removed and restored; the comment surface for the landing page, a hub, the custom hub (plus `benefitPagePaths`) and `null` elsewhere; the footer receiving resolved names, colour and disclaimer; and the typography variables on `.portal-root`. The disclosure chain is asserted end to end: per-category → Home Page → advisor → category row → apply-all → universal, including the landing page's early return for any Home Page / Global / apply-all row and the case-insensitive de-duplication.
 
-**Comments rail** — plain portal without the flag, with `?comments=1`, without a session, while the session loads, and below desktop; armed with all three; `--comments-rail-top` set and removed; `initialMode="on"`; the three button labels, `aria-pressed`, disabled state and right-offset.
+**Comments rail** — plain portal without the flag, with `?comments=1`, without a session, while the session loads, and below desktop; armed with all three; `--comments-rail-top` set and removed; `initialMode="on"`; `initialMode="off"` when the URL carries an edit intent (`?comments=on&editSection=…`, the footer's "Edit footer" arriving from another portal page) — armed, because the provider tree lives inside that gate, but not covering the page; the three button labels, `aria-pressed`, disabled state and right-offset.
 
 **Comments zoom** — pass-through without a provider and while closed; `(width − 384) / width` with the `0.5…1` clamp; a zero-width viewport ignored; resize recompute; reset when closed; `--comments-inset: 0px` inside the subtree; wrapper height `offsetHeight × scale` with `100dvh`; observer observe/disconnect.
 

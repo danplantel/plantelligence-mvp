@@ -103,30 +103,52 @@ export function EditorPanelWrapper({
    * The effect measures the section against the container rather than trusting
    * `offsetTop`, so it lands the same whether the panel is the fixed overlay or an
    * inline column.
+   *
+   * The panel's body can mount a commit LATER than the request: on the portal the
+   * panel renders nothing while closed, and the editors that build the sections
+   * seed themselves from the plan. A one-shot lookup would therefore fall through
+   * and the panel would open at the top — the advisor arriving from another page's
+   * "Edit footer" would land nowhere near the Disclosure. So the lookup retries for
+   * roughly half a second and gives up only if the section never appears.
    */
   useEffect(() => {
     if (!isOpen || !focusRequest?.id) return;
-    const container = scrollRef.current;
-    if (!container) return;
-    // A section first; then an anchor INSIDE one, for a region edited by a card
-    // part-way down a section (the Featured Image sits in "Mission Statement").
-    const target =
-      container.querySelector<HTMLElement>(
-        `[data-section-id="${focusRequest.id}"]`,
-      ) ??
-      container.querySelector<HTMLElement>(
-        `[data-edit-anchor="${focusRequest.id}"]`,
-      );
-    if (!target) return;
+    const id = focusRequest.id;
 
-    const frame = requestAnimationFrame(() => {
+    let frame: number | null = null;
+    let attempts = 0;
+    let cancelled = false;
+
+    const land = (entry: HTMLElement, container: HTMLElement) => {
       const top =
-        target.getBoundingClientRect().top -
+        entry.getBoundingClientRect().top -
         container.getBoundingClientRect().top +
         container.scrollTop;
       container.scrollTo({ top, behavior: "smooth" });
-    });
-    return () => cancelAnimationFrame(frame);
+    };
+
+    const tryScroll = () => {
+      if (cancelled) return;
+      const container = scrollRef.current;
+      // A section first; then an anchor INSIDE one, for a region edited by a card
+      // part-way down a section (the Featured Image sits in "Mission Statement").
+      const target =
+        container?.querySelector<HTMLElement>(`[data-section-id="${id}"]`) ??
+        container?.querySelector<HTMLElement>(`[data-edit-anchor="${id}"]`);
+      if (container && target) {
+        land(target, container);
+        return;
+      }
+      attempts += 1;
+      if (attempts > 30) return;
+      frame = requestAnimationFrame(tryScroll);
+    };
+
+    frame = requestAnimationFrame(tryScroll);
+    return () => {
+      cancelled = true;
+      if (frame != null) cancelAnimationFrame(frame);
+    };
     // `nonce` re-runs this when the same region is clicked again.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, focusRequest?.id, focusRequest?.nonce]);

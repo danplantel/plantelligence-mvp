@@ -105,4 +105,48 @@ describe("EditorPanelWrapper — focus a section", () => {
 
     expect(scrollTo).not.toHaveBeenCalled();
   });
+
+  it("lands on the section when the request arrives before the panel opens", async () => {
+    // The portal's panel renders nothing while closed, so the request and the
+    // opening can land in different commits — and a one-shot lookup would then
+    // find no body to scroll and silently open the panel at the top.
+    const { rerender } = renderPanel({
+      isOpen: false,
+      focusRequest: { id: "mission-statement", nonce: 1 },
+    });
+    expect(scrollTo).not.toHaveBeenCalled();
+
+    rerender(
+      <EditorPanelWrapper
+        isOpen
+        isAnimating={false}
+        onClose={() => {}}
+        sections={sections}
+        focusRequest={{ id: "mission-statement", nonce: 1 }}
+      />,
+    );
+
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledTimes(1));
+  });
+
+  it("keeps looking for a section that mounts after the panel opened", async () => {
+    // The editors seed themselves from the plan, so the sections can appear a
+    // commit after the panel does (the footer Disclosure is one of them).
+    const { rerender } = renderPanel({
+      focusRequest: { id: "disclosure", nonce: 1 },
+    });
+    expect(scrollTo).not.toHaveBeenCalled();
+
+    rerender(
+      <EditorPanelWrapper
+        isOpen
+        isAnimating={false}
+        onClose={() => {}}
+        sections={[{ title: "Disclosure", content: <p>footer</p> }]}
+        focusRequest={{ id: "disclosure", nonce: 1 }}
+      />,
+    );
+
+    await waitFor(() => expect(scrollTo).toHaveBeenCalledTimes(1));
+  });
 });

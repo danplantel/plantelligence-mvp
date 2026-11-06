@@ -17,6 +17,8 @@ const portalNewsTests = [
   "app/(portal)/[id]/news-events/__tests__/integration.test.tsx",
   // Malformed plan data: non-string banner, missing/empty id, defaults
   "app/(portal)/[id]/news-events/__tests__/page-error-paths.test.tsx",
+  // The hero background's blue edit button (advisor only, opens Section 1)
+  "app/(portal)/[id]/news-events/__tests__/page-edit-affordances.test.tsx",
   // The portal Editing Panel's hero background (the Page Image Header slot)
   "components/portal-editing/editors/__tests__/portal-news-editor-hero.test.tsx",
   // The publishing statuses and their chip colours, shared with Marketing

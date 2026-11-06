@@ -59,6 +59,7 @@ import {
   portalCommentsSurface,
   wantsCommentsRail,
 } from "@/lib/comments/portal-surface";
+import { hasPortalEditIntent } from "@/lib/portal-editor-intent";
 import { benefitCategoryToVisibilityKey } from "@/lib/portal-category-visibility";
 import {
   customBenefitNameToSlug,
@@ -82,8 +83,17 @@ export function PortalCommentsRail({
   // for a panel it is about to be told it cannot have.
   const isDesktop = useMediaQuery(DESKTOP_QUERY, false);
 
+  /**
+   * True when another page sent the advisor here to edit a section (the footer
+   * disclosure). The flag still arms this tree — without it there would be no
+   * provider and no panel — but the rail itself opens CLOSED: they came to edit,
+   * not to read comments.
+   */
+  const [editingIntent, setEditingIntent] = useState(false);
+
   useEffect(() => {
     setFlagged(wantsCommentsRail(window.location.search));
+    setEditingIntent(hasPortalEditIntent(window.location.search));
   }, []);
 
   const armed = flagged && status === "authenticated" && isDesktop;
@@ -149,7 +159,7 @@ export function PortalCommentsRail({
   if (!armed) return <>{children}</>;
 
   return (
-    <CommentModeProvider initialMode="on">
+    <CommentModeProvider initialMode={editingIntent ? "off" : "on"}>
       <MessagesModeProvider>
         <PortalEditingProvider>
           {children}

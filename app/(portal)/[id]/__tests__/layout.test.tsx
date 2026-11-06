@@ -83,6 +83,9 @@ vi.mock("@/components/comments/comment-mode-provider", () => ({
   useCommentSurface: (surface: unknown) => {
     mocks.surfaces.push(surface);
   },
+  // The editing provider asks for the rail's mode when it applies an
+  // `?editSection=` request; there is no rail in this suite.
+  useOptionalCommentMode: () => null,
 }));
 
 vi.mock("@/components/pages/client-portal/sections/portal-header", () => ({

@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => ({
     hasSurface: true,
     surfaceResolved: true,
     toggleMode: vi.fn(),
+    setMode: vi.fn(),
   },
   messagesMode: {
     open: false,
@@ -100,6 +101,10 @@ vi.mock("@/components/comments/comment-mode-provider", () => ({
     return <div data-testid="comment-mode-provider">{children}</div>;
   },
   useCommentMode: () => mocks.mode,
+  // `PortalEditingProvider` (rendered inside the armed tree) closes the rail for
+  // an "open this section" arrival, and asks for the mode OPTIONALLY because the
+  // dashboard mounts that provider outside this one.
+  useOptionalCommentMode: () => mocks.mode,
 }));
 
 vi.mock("@/components/messages/messages-mode-provider", () => ({
@@ -143,6 +148,7 @@ beforeEach(() => {
     hasSurface: true,
     surfaceResolved: true,
     toggleMode: vi.fn(),
+    setMode: vi.fn(),
   };
   mocks.messagesMode = {
     open: false,
@@ -209,6 +215,18 @@ describe("PortalCommentsRail gates", () => {
     expect(screen.getByTestId("comments-rail")).toBeInTheDocument();
     expect(screen.getByText("portal content")).toBeInTheDocument();
     expect(mocks.initialModes).toEqual(["on"]);
+  });
+
+  it("arms but opens CLOSED when another page sent the advisor to edit a section", () => {
+    // The footer's Edit button on My Benefits Team / News & Events links here with
+    // `?comments=on&editSection=disclosure`: the flag still has to arm the chrome
+    // (there is no provider tree without it), but the advisor came to edit, so the
+    // rail must not cover the page it is opening the panel beside.
+    setSearch("?comments=on&editSection=disclosure&editFrom=News+%26+Events");
+    renderRail();
+
+    expect(screen.getByTestId("comments-rail")).toBeInTheDocument();
+    expect(mocks.initialModes).toEqual(["off"]);
   });
 
   it("names the plan/benefit conversation and shows the reader's identity", () => {

@@ -3,6 +3,10 @@
 import { Pencil } from "lucide-react";
 
 import { useOptionalPortalEditing } from "@/components/portal-editing/portal-editing-provider";
+import {
+  buildPortalEditHref,
+  portalPageLabel,
+} from "@/lib/portal-editor-intent";
 import { cn } from "@/lib/utils";
 
 export interface PortalSectionEditButtonProps {
@@ -12,6 +16,22 @@ export interface PortalSectionEditButtonProps {
   label: string;
   /** Positioning, from the caller (the button is absolutely positioned). */
   className?: string;
+  /**
+   * Where the section is actually edited, when that is NOT this page.
+   *
+   * The footer disclosure, for instance, belongs to the Landing Page's panel: on
+   * My Benefits Team, News & Events and Employee Resources this button navigates
+   * there and opens the panel on arrival (the intent travels in `sessionStorage`,
+   * see [`portal-editor-intent`](../../lib/portal-editor-intent.ts:1)).
+   */
+  editPath?: string;
+  /** The URL pushed when `editPath` differs — may carry a hash to scroll to. */
+  editHref?: string;
+  /**
+   * The page the advisor is clicking from, in words. Defaults to the current
+   * path's name; the landing page uses it to explain why they were moved.
+   */
+  sourceLabel?: string;
 }
 
 /**
@@ -30,6 +50,9 @@ export function PortalSectionEditButton({
   sectionId,
   label,
   className,
+  editPath,
+  editHref,
+  sourceLabel,
 }: PortalSectionEditButtonProps) {
   const editing = useOptionalPortalEditing();
   if (!editing?.canEdit) return null;
@@ -42,6 +65,35 @@ export function PortalSectionEditButton({
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
+
+        // Edited somewhere else: remember what to open, go there, and let the
+        // panel on that page consume the intent. `editPath` stays hash-free so it
+        // matches the arriving `pathname`.
+        if (
+          editPath &&
+          typeof window !== "undefined" &&
+          window.location.pathname !== editPath
+        ) {
+          // The request rides the URL: `?editSection=…&editFrom=…`. `comments` is
+          // dropped on the way — the advisor is going there to edit, so the rail
+          // must stay shut — and the provider on that page opens the panel on the
+          // section and explains the move.
+          //
+          // A full navigation on purpose: the sections this button redirects to
+          // (the footer disclosure) live in ANOTHER route's panel, and a fresh
+          // load is what guarantees that panel exists and can scroll itself.
+          window.location.assign(
+            buildPortalEditHref({
+              search: window.location.search,
+              editPath,
+              editHref,
+              sectionId,
+              sourceLabel: sourceLabel || portalPageLabel(window.location.pathname),
+            }),
+          );
+          return;
+        }
+
         editing.focusSection(sectionId);
       }}
       aria-label={label}

@@ -47,7 +47,9 @@ export function PortalEditorShell({
       surfaceClassName="bg-gray-100 dark:bg-gray-900"
       headerBadge={
         headerBadge ?? (
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+          // Red, not neutral: this badge says the panel is editing the LIVE page,
+          // and every portal panel wears the same one.
+          <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm">
             Live
           </span>
         )

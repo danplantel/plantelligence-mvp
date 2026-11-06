@@ -132,6 +132,27 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   })();
 
   /**
+   * Where the FOOTER's blue edit button should send the advisor.
+   *
+   * The footer disclosure is edited in the panel that owns this page — except on
+   * My Benefits Team, News & Events and Employee Resources, which have no
+   * Disclosure section of their own. There the button goes to the Landing Page,
+   * whose panel holds it (the intent travels in `sessionStorage`, so the panel
+   * opens on the section rather than at the top).
+   */
+  const isLandingPage = !!basePath && pathname === basePath;
+  const isBenefitHub =
+    !!basePath &&
+    [
+      `${basePath}/retirement`,
+      `${basePath}/health-insurance`,
+      `${basePath}/life-insurance`,
+      customHubSlug ? `${basePath}/${customHubSlug}` : "",
+    ].includes(pathname ?? "");
+  const footerEditPath =
+    isLandingPage || isBenefitHub || !basePath ? undefined : basePath;
+
+  /**
    * Register this portal page as a comment surface.
    *
    * Called UNCONDITIONALLY: `useCommentSurface` is a no-op when no provider is mounted, so the flag,
@@ -662,7 +683,7 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
             a region the advisor edits — the blue button takes them straight to the
             Disclosure section of whichever panel this page opens. It renders
             nothing for a participant. */}
-        <div className="relative">
+        <div id="portal-footer" className="relative">
           <Footer
             brandColor={footerBgColor}
             disclosuresText={disclosuresText}
@@ -673,6 +694,10 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
             sectionId={PORTAL_SECTION_IDS.disclosure}
             label="Edit footer"
             className="right-4 top-4"
+            // On a page with no Disclosure section of its own, this navigates to
+            // the Landing Page (scrolled to its footer) and opens the panel there.
+            editPath={footerEditPath}
+            editHref={footerEditPath ? `${footerEditPath}#portal-footer` : undefined}
           />
         </div>
       </PortalCommentsZoom>

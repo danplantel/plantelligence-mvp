@@ -5,7 +5,9 @@ import { WebinarsDashboard } from "@/components/pages/client-portal/sections/web
 import { NewsEventsHeader } from "@/components/pages/client-portal/sections/news-events-header";
 import { NewsEventsResources } from "@/components/pages/client-portal/sections/news-events-resources";
 import { NewsPostList } from "@/components/pages/client-portal/sections/news-post-list";
+import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
+import { portalEditAnchor } from "@/lib/portal-editor-sections";
 
 export default function NewsEventsPage() {
   const { clientData } = useClientPortal();
@@ -38,9 +40,19 @@ export default function NewsEventsPage() {
   return (
     <div className="min-h-screen pb-10 bg-white">
       <main>
-        <NewsEventsHeader
-          backgroundImage={resolvedSecondaryBannerUrl ?? undefined}
-        />
+        {/* The hero carries its own blue edit affordance: clicking it opens the
+            panel on Section 1, where the Page Image Header is chosen. It renders
+            nothing for a participant. */}
+        <div className="relative">
+          <NewsEventsHeader
+            backgroundImage={resolvedSecondaryBannerUrl ?? undefined}
+          />
+          <PortalSectionEditButton
+            sectionId={portalEditAnchor.newsEventsHero}
+            label="Edit hero background"
+            className="right-4 top-4"
+          />
+        </div>
 
         {/* Published news posts from Marketing */}
         <NewsPostList

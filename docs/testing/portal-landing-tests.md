@@ -6,7 +6,7 @@ Unlike Edit Plan, this page owns almost no UI of its own. It is a **projection**
 
 ## Summary
 
-- **Unit tests:** 182 passing in 14 files
+- **Unit tests:** 186 passing in 14 files
 - **E2E:** none yet — see [Remaining coverage](#remaining-coverage)
 - **Runner:** Vitest + React Testing Library + jsdom
 
@@ -21,7 +21,7 @@ Unlike Edit Plan, this page owns almost no UI of its own. It is a **projection**
 ## Running these tests
 
 ```bash
-pnpm test:portal-landing           # all Portal Landing suites (182 tests)
+pnpm test:portal-landing           # all Portal Landing suites (186 tests)
 pnpm test:portal-landing:watch     # watch mode
 pnpm test:portal-landing:coverage  # suites + V8 coverage
 ```
@@ -43,8 +43,8 @@ Backed by [`config/vitest/vitest.portal-landing.config.mts`](../../config/vitest
 | 9   | `components/portal-editing/editors/__tests__/portal-home-editor-live-preview.test.tsx` | 2 | Every panel edit previews live, and Disclosure rides as the last section        |
 | 10  | `app/(portal)/[id]/__tests__/page-edit-affordances.test.tsx`                             | 3 | Hero → Hero Content, mission → Mission Statement, nothing for a participant     |
 | 11  | `lib/__tests__/portal-editor-sections.test.ts`                                          | 5 | The section ids the page and the panel agree on, and the in-section anchors     |
-| 12  | `components/wizard/new-client-steps/sections/__tests__/editor-panel-focus.test.tsx`     | 5 | The panel scrolling itself to a section — or to an anchor inside one            |
-| 13  | `components/portal-editing/__tests__/portal-section-edit-button.test.tsx`               | 4 | The blue button: hidden for participants, opens the named section              |
+| 12  | `components/wizard/new-client-steps/sections/__tests__/editor-panel-focus.test.tsx`     | 7 | The panel scrolling itself to a section — or to an anchor inside one            |
+| 13  | `components/portal-editing/__tests__/portal-section-edit-button.test.tsx`               | 6 | The blue button: hidden for participants, opens in place or navigates           |
 | 14  | `components/portal-editing/__tests__/portal-benefit-edit-hint.test.tsx`                 | 4 | The hover note on the "At a Glance" cards: advisor-only, names the real place   |
 
 ## The Edit Panel's Disclosure section
@@ -105,7 +105,7 @@ owns it.
 | Hero (title, description, background) | hover ring + blue pencil (from `PortalHero`) | `hero-content` |
 | Mission copy | hover ring + blue pencil (from `PortalMission`) | `mission-statement` |
 | **Featured image** | blue **Edit featured image** button | the Featured Image card |
-| **Footer** | blue **Edit footer** button (rendered by the layout, so every portal page has it) | `disclosure` |
+| **Footer** | blue **Edit footer** button (rendered by the layout, so every portal page has it) | `disclosure` — or, from another portal page, a trip here (below) |
 | **Your Benefits at a Glance** cards | hover note (advisor only) | — nothing to open: these cards live on Benefit rows |
 
 **The cards.** "Your Benefits at a Glance" has no controls in this panel because
@@ -129,6 +129,35 @@ section holds Company Logo and the Hero Banner. Pointing the image's button at
 `portalEditAnchor`. The wrapper now looks for `[data-section-id]` first and then
 for `[data-edit-anchor]`, and the Featured Image card carries
 `data-edit-anchor="featured-image"`.
+
+**The red "Live" badge.** Every portal panel wears the same badge in its header
+([`portal-editor-shell.tsx`](../../components/portal-editing/portal-editor-shell.tsx:52)),
+and it is red (`bg-red-500`, white uppercase text) rather than neutral grey: the
+badge means "these edits change the LIVE page", and that is a warning colour. The
+Home panel overrides only the *company-name* badge beside the title, never this one.
+
+## Editing the footer from another page
+
+The footer is **one record shared by four pages** — the Landing Page, My Benefits
+Team, News & Events and Employee Resources — and only the Landing Page's panel
+edits it. So on the other three, the same blue **Edit footer** button does not open
+a panel; it **navigates to the Landing Page** with the intent in the URL, closes the
+Comments rail, opens the panel and scrolls it to Disclosure.
+
+| Step | Where | What happens |
+| --- | --- | --- |
+| 1 | the page the advisor is on | the button builds `/{plan}?comments=on&editSection=disclosure&editFrom=…` ([`lib/portal-editor-intent.ts`](../../lib/portal-editor-intent.ts:42)) and assigns it |
+| 2 | `PortalCommentsRail` | `?comments=on` **arms** the editing chrome (without it there is no provider and no panel), while `hasPortalEditIntent` opens the rail with comments **OFF** |
+| 3 | `PortalEditingProvider` | reads `?editSection=`, calls `setMode("off")`, `focusSection("disclosure")`, and toasts which page the advisor came from — once per `pathname:section` |
+| 4 | `EditorPanelWrapper` | opens on the Disclosure section, retrying for ~0.5 s because the panel body can mount a commit after the request |
+
+The toast is the part that stops the page change reading as a bug: *"The footer is
+edited on the Landing Page — News & Events has no footer of its own…"*.
+
+`buildPortalEditHref` **forces** `comments=on` even though the intent asks for no
+rail: the flag is the gate, not a preference. Dropping it was the bug behind three
+earlier attempts — the page loaded as a plain portal, with neither provider nor
+panel, and the toast was all the advisor saw.
 
 Everything here is inert for a participant: the hook is the OPTIONAL variant, so
 no provider (and no edit permission) means no rings, no buttons, no handlers — the

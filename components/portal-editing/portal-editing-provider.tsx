@@ -6,6 +6,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -16,6 +17,12 @@ import {
   type ClientData,
 } from "@/contexts/client-portal-context";
 import { useViewerAccess } from "@/hooks/useViewerAccess";
+import { useOptionalCommentMode } from "@/components/comments/comment-mode-provider";
+import {
+  PORTAL_EDIT_FROM_PARAM,
+  PORTAL_EDIT_SECTION_PARAM,
+} from "@/lib/portal-editor-intent";
+import { toast } from "sonner";
 import { benefitCategoryToVisibilityKey } from "@/lib/portal-category-visibility";
 import {
   customBenefitNameToSlug,
@@ -205,6 +212,54 @@ export function PortalEditingProvider({ children }: { children: ReactNode }) {
     },
     [canEdit],
   );
+
+  /**
+   * An intent left by another page's blue Edit button.
+   *
+   * The footer disclosure lives on the Landing Page's panel, so its button on My
+   * Benefits Team / News & Events / Employee Resources navigates here and asks for
+   * the Disclosure section. Consumed only once the access check has ANSWERED: an
+   * unanswered read must not swallow the request (`canEdit` is still false then).
+   */
+  const comments = useOptionalCommentMode();
+  /**
+   * The section named by `?editSection=…`, applied once.
+   *
+   * Read from `window.location.search` rather than a hook: the rail arms itself
+   * the same way, and this must work without wrapping the portal in Suspense.
+   * The ref keeps a re-render (or a remount of this provider) from re-opening the
+   * panel after the advisor has closed it.
+   */
+  const appliedEditSectionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (isAccessLoading || !canEdit) return;
+    const params = new URLSearchParams(
+      typeof window === "undefined" ? "" : window.location.search,
+    );
+    const sectionId = params.get(PORTAL_EDIT_SECTION_PARAM);
+    if (!sectionId) return;
+    const appliedKey = `${pathname}:${sectionId}`;
+    if (appliedEditSectionRef.current === appliedKey) return;
+    appliedEditSectionRef.current = appliedKey;
+
+    // The advisor came here to edit the footer, not to read comments. (The link
+    // they followed has `comments` removed for the same reason; this covers a
+    // link that still carries it.)
+    comments?.setMode("off");
+
+    focusSection(sectionId);
+
+    // Say WHY the page changed under them: the footer is one record shared by
+    // four pages, and the Landing Page is the one whose panel edits it.
+    const from = params.get(PORTAL_EDIT_FROM_PARAM);
+    if (from) {
+      toast.info("The footer is edited on the Landing Page", {
+        description: `${from} has no footer of its own. Its disclosure is the Landing Page footer, which is now open at the Disclosure section.`,
+        duration: 8000,
+      });
+    }
+  }, [canEdit, comments, focusSection, isAccessLoading, pathname]);
 
   const closePanel = useCallback(() => setIsOpen(false), []);
   const togglePanel = useCallback(() => {

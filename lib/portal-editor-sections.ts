@@ -31,7 +31,10 @@ export function portalSectionId(title: string): string {
  * `data-edit-anchor`, and the scroll looks for one when no section matches.
  */
 export const portalEditAnchor = {
+  /** The Landing Page's Featured Image (first card of "Mission Statement"). */
   featuredImage: "featured-image",
+  /** News & Events' hero background (Section 1 of that page's panel). */
+  newsEventsHero: "news-events-hero",
 } as const;
 
 /**

@@ -6,7 +6,7 @@ The page is a composition layer. It reads the portal's plan context, chooses bra
 
 ## Summary
 
-- **Unit tests:** 208 passing across 21 files.
+- **Unit tests:** 211 passing across 22 files.
   - page composition: 12
   - page + real header integration: 8
   - page error paths: 5
@@ -30,6 +30,23 @@ The page is a composition layer. It reads the portal's plan context, chooses bra
 - **E2E:** 4, env-gated on `E2E_BASE_URL` + `E2E_PORTAL_SLUG` ([`e2e/portal-news-events.spec.ts`](../../e2e/portal-news-events.spec.ts:1)).
 - **Runner:** `pnpm test:portal-news` / `:watch` / `:coverage` — [`config/vitest/vitest.portal-news.config.mts`](../../config/vitest/vitest.portal-news.config.mts:1) driven by [`scripts/tests/run-portal-news-tests.mjs`](../../scripts/tests/run-portal-news-tests.mjs:1).
 - Seven defects were found and fixed while writing the suites (see [Fixed while writing these suites](#fixed-while-writing-these-suites)).
+
+## The page's two blue edit affordances
+
+The advisor changes this page from two places, and each has its own rule.
+
+| Region | Button | What it does |
+| --- | --- | --- |
+| Hero background | **Edit hero background** (blue, over the header) | opens THIS page's panel on `news-events-hero` — an anchor on Section 1, not a section id, because the hero is the first card of it |
+| Footer | **Edit footer** (blue, bottom-right, rendered by the layout) | does **not** open this page's panel: it navigates to `/{plan}` and opens the Landing Page's Disclosure section |
+
+**Why the footer leaves the page.** The disclosure is one record shared by four
+portal pages, and only the Landing Page's panel edits it. So the button on this
+page builds `?comments=on&editSection=disclosure&editFrom=News+%26+Events`, the
+Landing Page arms its editing chrome, keeps the Comments rail **closed**, opens the
+panel at Disclosure and toasts that this page has no footer of its own. The whole
+flow — and why `comments=on` must survive the trip — is documented in
+[`portal-landing-tests.md`](portal-landing-tests.md#editing-the-footer-from-another-page).
 
 ## Creating content from the Edit Panel
 

@@ -139,6 +139,10 @@ describe("PortalNewsEditor hero background", () => {
 
     // `SectionHeader` renders "Section 1: Hero Background" as several nodes.
     expect(screen.getByText(/Hero Background/)).toBeInTheDocument();
+    // The hero section carries the anchor the page's blue edit button scrolls to.
+    expect(
+      document.querySelector('[data-edit-anchor="news-events-hero"]'),
+    ).toBeInTheDocument();
     const slot = screen.getByTestId("upload-header");
     expect(slot.dataset.slots).toBe("secondaryBanner");
     // The stored legacy column is handed to the section as its current value.
