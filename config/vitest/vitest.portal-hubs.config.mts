@@ -43,6 +43,8 @@ const portalHubTests = [
   // The hub Edit Panel's Disclosure section: this benefit's own row, written to
   // the plan on Save
   "components/portal-editing/editors/__tests__/portal-benefit-editor-disclosure.test.tsx",
+  // Employee Resources' three blue buttons: each names its own panel section
+  "app/(portal)/[id]/employee-resources/__tests__/page-edit-affordances.test.tsx",
 ];
 
 const baseTest = (baseConfig as { test?: Record<string, unknown> }).test ?? {};

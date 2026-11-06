@@ -72,6 +72,12 @@ export const portalEditAnchor = {
   heroBackground: "hero-background",
   /** News & Events' hero background (Section 1 of that page's panel). */
   newsEventsHero: "news-events-hero",
+  /** Employee Resources' header photograph (panel Section 1). */
+  employeeResourcesHero: "employee-resources-hero",
+  /** Employee Resources' "How Can We Help You Today?" cards (Section 2). */
+  employeeResourcesHelp: "employee-resources-help",
+  /** Employee Resources' Quick Answers groups (Section 3). */
+  employeeResourcesQuickAnswers: "employee-resources-quick-answers",
 } as const;
 
 /**

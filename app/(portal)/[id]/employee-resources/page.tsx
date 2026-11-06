@@ -11,9 +11,11 @@ import {
 } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import { QuickAnswersSection } from "@/components/pages/client-portal/sections/quick-answers-section";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
+import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
 import { buildFaqSupportContacts } from "@/lib/faq-support-contacts";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { EMPLOYEE_RESOURCES_DEFAULT_BG } from "@/lib/portal-category-hero-background";
+import { portalEditAnchor } from "@/lib/portal-editor-sections";
 import { HAVE_QUESTIONS_SECTION_ID } from "@/lib/portal-section-anchors";
 import { portalRadiusValue } from "@/lib/typography-themes";
 import type { ActionHubRow, ResolvedLocationTopics } from "@/types/topic";
@@ -115,33 +117,58 @@ export default function EmployeeResourcesPage() {
   return (
     <div className="min-h-screen w-full">
       <main className="w-full">
-        <NewsEventsHeader
-          title="Employee Resources"
-          // Its OWN default, never the News & Events band: two interior pages that
-          // open with the same photograph read as the same page.
-          backgroundImage={
-            resolvedHeaderImageUrl ?? EMPLOYEE_RESOURCES_DEFAULT_BG
-          }
-          backgroundImageAlt="Employee resources"
-        />
+        {/* Each region the panel edits gets its own blue button, which opens the
+            panel on that section: this page's three sections are Section 1 (the
+            header photograph), 2 (the help cards) and 3 (the quick answers).
+            `relative` wrappers are the button's anchor — it is positioned. */}
+        <div className="relative">
+          <NewsEventsHeader
+            title="Employee Resources"
+            // Its OWN default, never the News & Events band: two interior pages that
+            // open with the same photograph read as the same page.
+            backgroundImage={
+              resolvedHeaderImageUrl ?? EMPLOYEE_RESOURCES_DEFAULT_BG
+            }
+            backgroundImageAlt="Employee resources"
+          />
+          <PortalSectionEditButton
+            sectionId={portalEditAnchor.employeeResourcesHero}
+            label="Edit hero background"
+            className="right-4 top-4"
+          />
+        </div>
 
         {/* Placements drive both question areas, exactly like a benefit hub. */}
-        <HowCanWeHelpSection
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          clientId={clientId}
-          category={CATEGORY}
-          topics={topics?.featured}
-          actionHubPanels={topics?.actionHubPanels}
-        />
+        <div className="relative">
+          <HowCanWeHelpSection
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            clientId={clientId}
+            category={CATEGORY}
+            topics={topics?.featured}
+            actionHubPanels={topics?.actionHubPanels}
+          />
+          <PortalSectionEditButton
+            sectionId={portalEditAnchor.employeeResourcesHelp}
+            label="Edit how we can help"
+            className="right-4 top-4"
+          />
+        </div>
 
-        <QuickAnswersSection
-          groups={topics?.groups ?? []}
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          basePath={`/${clientId}`}
-          actionHubPanels={topics?.actionHubPanels}
-        />
+        <div className="relative">
+          <QuickAnswersSection
+            groups={topics?.groups ?? []}
+            brandColor={brandColor}
+            secondaryColor={secondaryColor}
+            basePath={`/${clientId}`}
+            actionHubPanels={topics?.actionHubPanels}
+          />
+          <PortalSectionEditButton
+            sectionId={portalEditAnchor.employeeResourcesQuickAnswers}
+            label="Edit quick answers"
+            className="right-4 top-4"
+          />
+        </div>
 
         <HaveQuestions
           brandColor={brandColor}

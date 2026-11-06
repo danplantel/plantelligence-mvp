@@ -10,6 +10,7 @@ import { BrandImagesSection } from "@/components/wizard/new-client-steps/section
 import { QuickAnswersBuilder } from "@/components/wizard/benefits-steps/quick-answers-builder";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import { useClientPortal } from "@/contexts/client-portal-context";
+import { portalEditAnchor } from "@/lib/portal-editor-sections";
 import type { BrandImagesData } from "@/types/new-client-wizard";
 
 /**
@@ -165,7 +166,13 @@ export function PortalEmployeeResourcesEditor() {
       }
     >
       <div className="space-y-8">
-        <section className="space-y-4">
+        {/* This panel renders its sections as children rather than through the
+            wrapper's `sections` list, so each one carries its own anchor — the
+            address the page's three blue buttons scroll to. */}
+        <section
+          className="space-y-4"
+          data-edit-anchor={portalEditAnchor.employeeResourcesHero}
+        >
           <SectionHeader number={1} title="Hero Background" />
           <p className="text-[12px] leading-relaxed text-muted-foreground">
             The image behind this page&rsquo;s &ldquo;Employee
@@ -187,7 +194,10 @@ export function PortalEmployeeResourcesEditor() {
           </div>
         </section>
 
-        <section className="space-y-4">
+        <section
+          className="space-y-4"
+          data-edit-anchor={portalEditAnchor.employeeResourcesHelp}
+        >
           <SectionHeader number={2} title="How Can We Help You Today?" />
           <p className="text-[12px] leading-relaxed text-muted-foreground">
             The cards participants choose from, in the order they appear. Promote
@@ -203,7 +213,10 @@ export function PortalEmployeeResourcesEditor() {
           </div>
         </section>
 
-        <section className="space-y-4">
+        <section
+          className="space-y-4"
+          data-edit-anchor={portalEditAnchor.employeeResourcesQuickAnswers}
+        >
           <SectionHeader number={3} title="Quick Answers" />
           <p className="text-[12px] leading-relaxed text-muted-foreground">
             The grouped questions below the cards — the same board as above, so a

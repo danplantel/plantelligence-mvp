@@ -13,17 +13,41 @@ The first three are the same page with different constants; the fourth adds a UR
 
 ## Summary
 
-- **Unit tests:** 281 passing in 16 files (the sections the four pages render, the portal benefit read, and the hub Edit Panel's Disclosure section)
+- **Unit tests:** 286 passing in 17 files (the sections the four pages render, the portal benefit read, the hub Edit Panel's Disclosure section and Employee Resources' blue buttons)
 - **E2E:** none yet
 - **Runner:** Vitest + React Testing Library + jsdom
 
 ```bash
-pnpm test:portal-hubs           # the hub sections + portal benefit read (281 tests)
+pnpm test:portal-hubs           # the hub sections + portal benefit read (286 tests)
 pnpm test:portal-hubs:watch
 pnpm test:portal-hubs:coverage
 ```
 
 Backed by [`config/vitest/vitest.portal-hubs.config.mts`](../../config/vitest/vitest.portal-hubs.config.mts) and [`scripts/tests/run-portal-hubs-tests.mjs`](../../scripts/tests/run-portal-hubs-tests.mjs).
+
+## Employee Resources' three blue buttons
+
+The fifth hub (`/{plan}/employee-resources`) is built from the same sections but
+has its own Edit Panel, so each of its three regions gets a blue button that opens
+that panel on the region it sits on:
+
+| Region | Button | Panel anchor | Panel section |
+| --- | --- | --- | --- |
+| Header photograph | **Edit hero background** | `employee-resources-hero` | 1 — Hero Background |
+| "How Can We Help You Today?" | **Edit how we can help** | `employee-resources-help` | 2 — How Can We Help You Today? |
+| Quick Answers | **Edit quick answers** | `employee-resources-quick-answers` | 3 — Quick Answers |
+
+Two details make it work. The panel renders its sections as **children**, not
+through `EditorPanelWrapper`'s `sections` list, so each `<section>` carries its own
+`data-edit-anchor` — the wrapper's scroll looks for a section id first and then for
+an anchor. And each region on the page sits in a `relative` wrapper, because
+`PortalSectionEditButton` is absolutely positioned.
+
+The buttons render nothing for a participant (no editing provider ⇒ no button), and
+the anchors live in [`lib/portal-editor-sections.ts`](../../lib/portal-editor-sections.ts:33)
+so the page and the panel cannot spell one differently.
+[`page-edit-affordances.test.tsx`](<../../app/(portal)/[id]/employee-resources/__tests__/page-edit-affordances.test.tsx:1>)
+pins all three: one button per region in page order, each asking for its own anchor.
 
 ## What every hub does
 

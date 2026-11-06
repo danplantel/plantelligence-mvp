@@ -76,6 +76,19 @@ describe("portalEditAnchor", () => {
     expect(portalEditAnchor.newsEventsHero).toBe("news-events-hero");
   });
 
+  it("names Employee Resources' three panel sections, one anchor each", () => {
+    expect(portalEditAnchor.employeeResourcesHero).toBe(
+      "employee-resources-hero",
+    );
+    expect(portalEditAnchor.employeeResourcesHelp).toBe("employee-resources-help");
+    expect(portalEditAnchor.employeeResourcesQuickAnswers).toBe(
+      "employee-resources-quick-answers",
+    );
+
+    const anchors = Object.values(portalEditAnchor);
+    expect(new Set(anchors).size).toBe(anchors.length);
+  });
+
   it("keeps every anchor distinct from the section ids", () => {
     const sectionIds = [
       PORTAL_SECTION_IDS.heroContent,
