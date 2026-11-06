@@ -6,7 +6,7 @@ Unlike Edit Plan, this page owns almost no UI of its own. It is a **projection**
 
 ## Summary
 
-- **Unit tests:** 115 passing in 6 files
+- **Unit tests:** 153 passing in 9 files
 - **E2E:** none yet — see [Remaining coverage](#remaining-coverage)
 - **Runner:** Vitest + React Testing Library + jsdom
 
@@ -21,7 +21,7 @@ Unlike Edit Plan, this page owns almost no UI of its own. It is a **projection**
 ## Running these tests
 
 ```bash
-pnpm test:portal-landing           # all Portal Landing suites (115 tests)
+pnpm test:portal-landing           # all Portal Landing suites (153 tests)
 pnpm test:portal-landing:watch     # watch mode
 pnpm test:portal-landing:coverage  # suites + V8 coverage
 ```
@@ -34,10 +34,56 @@ Backed by [`config/vitest/vitest.portal-landing.config.mts`](../../config/vitest
 | --- | -------------------------------------------------------------------------------- | ----: | ----------------------------------------------------------------------------------- |
 | 1   | `app/(portal)/[id]/__tests__/page.test.tsx`                                      |    17 | Contact projection, visibility fallback, footer preference, props to `ClientPortal` |
 | 2   | `contexts/__tests__/client-portal-context.test.tsx`                              |    14 | `forPortal` fetch, archived/alias, error states, profile, refetch events            |
-| 3   | `components/pages/client-portal/sections/__tests__/portal-benefits.test.tsx`     |    21 | Four hub cards, visibility, partner branding, completeness gate                     |
-| 4   | `components/pages/client-portal/sections/__tests__/portal-hero-mission.test.tsx` |    16 | Hero/mission copy fallbacks and the preview-only edit affordances                   |
+| 3   | `components/pages/client-portal/sections/__tests__/portal-benefits.test.tsx`     |    20 | Four hub cards, visibility, partner branding, completeness gate                     |
+| 4   | `components/pages/client-portal/sections/__tests__/portal-hero-mission.test.tsx` |    20 | Hero/mission copy fallbacks and the preview-only edit affordances                   |
 | 5   | `lib/__tests__/benefit-completeness.test.ts`                                     |    24 | The completeness matrix behind the "finish this benefit" dialog                     |
-| 6   | `lib/__tests__/disclaimer-constants.test.ts`                                     |    23 | Footer text, placeholder resolution, disclaimer-envelope shapes                     |
+| 6   | `lib/__tests__/disclaimer-constants.test.ts`                                     |    30 | Footer text, placeholder resolution, disclaimer-envelope shapes                     |
+| 7   | `lib/__tests__/portal-disclosures.test.ts`                                       |    18 | Which footer row the four non-hub pages read, and the two writes the panel makes     |
+| 8   | `components/portal-editing/__tests__/portal-disclosure-section.test.tsx`         |     8 | The Edit Panel's Disclosure section: text, footer background, its scope notice       |
+| 9   | `components/portal-editing/editors/__tests__/portal-home-editor-live-preview.test.tsx` | 2 | Every panel edit previews live, and Disclosure rides as the last section        |
+
+## The Edit Panel's Disclosure section
+
+The Landing Page Edit Panel ends with **Disclosure** (the panel numbers it, so it
+is the last `Section N`). It edits the very record Create Plan's **Step 5
+(Disclosures)** and Edit Client's **Disclosures** tab write — but in place, beside
+the footer it paints.
+
+| Piece | Where | Owns |
+| --- | --- | --- |
+| The section | [`portal-disclosure-section.tsx`](../../components/portal-editing/portal-disclosure-section.tsx:1) | The textarea, the footer background choice, and the scope notice |
+| The record | [`lib/portal-disclosures.ts`](../../lib/portal-disclosures.ts:1) | Which row the four non-hub footers read, and the two writes |
+| The host | [`portal-home-editor.tsx`](../../components/portal-editing/editors/portal-home-editor.tsx:1) | Live preview (`patchClientData`) and the queued `disclaimers` PUT |
+
+**Which footers it changes.** One disclosure covers the four **non-hub** portal
+pages — the Landing Page, My Benefits Team, News & Events and Employee Resources.
+[`layout.tsx`](<../../app/(portal)/[id]/layout.tsx:332>) picks their text with one
+rule: the first row whose location is "Home Page" or "Global", or that applies to
+every benefit category. `findLandingDisclosure` mirrors that rule exactly, so the
+panel edits the row that is actually on the page — and it appends one when the plan
+has none. The benefit hubs keep the disclosure set per benefit in
+`disclaimers.byCategory`; this section never touches it, which the suite pins by
+asserting `byCategory` survives every write. The section says all of this in its
+notice, because "one edit, four pages" is not guessable from the field alone.
+
+**How it saves.** The section is fully controlled: the text and the preference are
+derived from `clientData.disclaimers` on every render. An edit patches the portal
+context (so the footer band repaints on the keystroke) and queues
+`{ disclaimers: <envelope> }`; the panel's Save PUTs that to
+`/api/clients/:id`, where `mergeDisclaimersPayload` merges it into the stored
+envelope. Cancel refetches, which reverts both the field and the footer.
+
+**What the suites pin.** `portal-disclosures.test.ts`: the envelope parse (object,
+JSON string, legacy plain text, array, broken JSON); the row the layout reads
+(Home Page, Global, apply-all, text-before-empty ordering, a benefit row being
+ignored); updating that row while keeping its id and every other key; appending one
+when there is none; and the footer-background write.
+`portal-disclosure-section.test.tsx`: the scope notice naming all four pages,
+the stored text, the advisor-text prefill, typing into the Home Page row, the
+organization-only default, and the three background choices.
+`portal-home-editor-live-preview.test.tsx`: the section is carried as the panel's
+last one, and typing in it emits a `disclaimers` patch whose first row is
+`Home Page`.
 
 ## Remaining coverage
 

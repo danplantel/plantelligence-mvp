@@ -81,4 +81,27 @@ describe("PortalHomeEditor live preview", () => {
       expect.objectContaining({ heroTitle: "Hello team!" }),
     );
   });
+
+  it("carries the footer disclosure as the panel's own last section", async () => {
+    const user = userEvent.setup();
+    render(<PortalHomeEditor />);
+
+    // The section is there, numbered by the panel, with the scope notice that says
+    // which four footers it paints.
+    expect(screen.getByText(/Section \d+: Disclosure/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Where this disclosure appears/i),
+    ).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Footer disclosure"), "T");
+
+    // The edit is a `disclaimers` patch — the value the portal layout resolves the
+    // footer from — and it creates the Home Page row the non-hub pages read.
+    const patches = mocks.patchClientData.mock.calls.map(([patch]) => patch);
+    const last = patches.at(-1) as {
+      disclaimers?: { disclaimers?: { locations?: string[] }[] };
+    };
+    expect(last.disclaimers?.disclaimers).toHaveLength(1);
+    expect(last.disclaimers?.disclaimers?.[0].locations).toEqual(["Home Page"]);
+  });
 });

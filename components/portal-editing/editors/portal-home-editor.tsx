@@ -3,9 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { usePlanPreviewEditorSections } from "@/components/wizard/new-client-steps/sections/components/plan-preview-editor-sections";
+import { PortalDisclosureSection } from "@/components/portal-editing/portal-disclosure-section";
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
+import type { PortalDisclaimersEnvelope } from "@/lib/portal-disclosures";
 import { MISSION_STATEMENT_PRESETS } from "@/components/wizard/new-client-steps/constants/welcome-statements";
 import { HERO_RECOMMENDED_SIZE_LABEL } from "@/components/wizard/new-client-steps/sections/utils/hero-utils";
 import { useClientPortal } from "@/contexts/client-portal-context";
@@ -252,6 +254,23 @@ export function PortalHomeEditor() {
     [updateField],
   );
 
+  /**
+   * The footer disclosure. It is not a plan column like the hero fields — it lives
+   * inside the `disclaimers` envelope, which also carries every benefit's own
+   * disclosure and the footer background — so it is patched and queued whole.
+   * The envelope the server merges on PUT is the one sent here, so a footer edit
+   * can never rewrite a benefit's row.
+   */
+  const handleDisclaimersChange = useCallback(
+    (next: PortalDisclaimersEnvelope) => {
+      // Live preview: the portal layout resolves the footer from this value, so
+      // the band at the bottom of the page repaints on the keystroke.
+      patchClientData({ disclaimers: next });
+      queueChange({ disclaimers: next });
+    },
+    [patchClientData, queueChange],
+  );
+
   /** Write the queued draft. Only the bar's Save button calls this. */
   const save = useCallback(async () => {
     if (!planId || savingRef.current) return;
@@ -353,6 +372,34 @@ export function PortalHomeEditor() {
     resolvePortalPrimaryContact(keyContacts)?.headshot || "",
   );
 
+  /**
+   * The panel's LAST section: the footer disclosure.
+   *
+   * Appended here rather than added to `usePlanPreviewEditorSections`, because that
+   * builder mirrors Create Plan Step 2 / Edit Client's Preview tab, which has no
+   * footer. This section is the portal panel's own — but it writes the very record
+   * Step 5 and Edit Client's Disclosures tab write, so the two can never disagree.
+   */
+  const organizationName =
+    String((clientData as any)?.branding?.organizationName || "") ||
+    companyData.companyName;
+  const disclosureSection = {
+    title: "Disclosure",
+    content: (
+      <PortalDisclosureSection
+        value={(clientData as any)?.disclaimers}
+        // What the footer shows while the plan has no disclosure of its own — the
+        // advisor's profile disclaimer, exactly as the portal layout falls back to it.
+        fallbackText={String((clientData as any)?.advisorDisclaimer || "")}
+        organizationName={organizationName}
+        companyName={companyData.companyName}
+        brandColor={companyData.primaryColor}
+        secondaryColor={companyData.secondaryColor}
+        onChange={handleDisclaimersChange}
+      />
+    ),
+  };
+
   const { sections, modals } = usePlanPreviewEditorSections({
     companyData,
     onCompanyDataChange: updateField,
@@ -387,7 +434,7 @@ export function PortalHomeEditor() {
   return (
     <>
       <PortalEditorShell
-        sections={sections}
+        sections={[...sections, disclosureSection]}
         eyebrow="Plan Branding & Messaging"
         title="Editing Panel"
         headerBadge={

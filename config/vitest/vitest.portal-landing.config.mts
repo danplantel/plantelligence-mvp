@@ -22,6 +22,14 @@ const portalLandingTests = [
   "lib/__tests__/benefit-completeness.test.ts",
   // Footer disclaimer text/placeholder resolution
   "lib/__tests__/disclaimer-constants.test.ts",
+  // The footer disclosure record: which row the four non-hub pages read, and the
+  // two writes the Edit Panel makes to it
+  "lib/__tests__/portal-disclosures.test.ts",
+  // The Edit Panel's Disclosure section (text, footer background, its notice)
+  "components/portal-editing/__tests__/portal-disclosure-section.test.tsx",
+  // The Landing panel itself: every edit previews live, and the Disclosure
+  // section is carried as the panel's last one
+  "components/portal-editing/editors/__tests__/portal-home-editor-live-preview.test.tsx",
 ];
 
 const baseTest = (baseConfig as { test?: Record<string, unknown> }).test ?? {};
