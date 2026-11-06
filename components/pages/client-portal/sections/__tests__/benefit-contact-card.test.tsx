@@ -1,5 +1,6 @@
 import React from "react";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { BenefitContactCard } from "../benefit-contact-card";
@@ -19,6 +20,15 @@ import { BenefitContactCard } from "../benefit-contact-card";
  * Both leaf cards are stubbed to JSON dumps, so the assertions are about what
  * the wrapper passed down.
  */
+
+const editing = vi.hoisted(() => ({
+  value: null as null | { canEdit: boolean; focusSection: (id: string) => void },
+  focusSection: vi.fn(),
+}));
+
+vi.mock("@/components/portal-editing/portal-editing-provider", () => ({
+  useOptionalPortalEditing: () => editing.value,
+}));
 
 vi.mock("@/components/pages/my-benefits-team/primary-contact-card", () => ({
   PrimaryContactCard: (props: Record<string, unknown>) => (
@@ -264,5 +274,52 @@ describe("BenefitContactCard pass-through", () => {
       companyName: "Acme",
       baselineBackgroundColor: "#eeeeee",
     });
+  });
+});
+
+describe("BenefitContactCard edit affordance", () => {
+  beforeEach(() => {
+    editing.value = { canEdit: true, focusSection: editing.focusSection };
+  });
+
+  it("opens the contact's own panel row when the page names one", async () => {
+    const user = userEvent.setup();
+    renderCard({ editSectionId: "key-contact-c1" });
+
+    const button = screen.getByRole("button", { name: "Edit contact" });
+    // Hover-only: present, but transparent (and click-through) until the card is
+    // hovered — a permanent pill on every card buried the page in buttons.
+    expect(button.className).toContain("opacity-0");
+    expect(button.className).toContain("group-hover:opacity-100");
+    expect(button.className).toContain("pointer-events-none");
+
+    await user.click(button);
+
+    expect(editing.focusSection).toHaveBeenCalledWith("key-contact-c1");
+  });
+
+  it("carries the button on the primary card too", () => {
+    renderCard({ asPrimary: true, editSectionId: "key-contact-c1" });
+
+    expect(
+      screen.getByRole("button", { name: "Edit contact" }),
+    ).toBeInTheDocument();
+  });
+
+  it("draws no button without an anchor — the benefit hubs pass none", () => {
+    renderCard({ placement: "category" });
+
+    expect(
+      screen.queryByRole("button", { name: "Edit contact" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("draws no button for a participant", () => {
+    editing.value = null;
+    renderCard({ editSectionId: "key-contact-c1" });
+
+    expect(
+      screen.queryByRole("button", { name: "Edit contact" }),
+    ).not.toBeInTheDocument();
   });
 });

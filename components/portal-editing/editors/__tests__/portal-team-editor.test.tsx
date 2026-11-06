@@ -14,6 +14,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   patchClientData: vi.fn(),
   refetchPortal: vi.fn(async () => null),
+  /** The section/contact a page's blue button asked the panel to open. */
+  focusRequest: null as null | { id: string; nonce: number },
   beginSave: vi.fn(),
   finishSave: vi.fn(),
   failSave: vi.fn(),
@@ -82,6 +84,10 @@ vi.mock("@/components/portal-editing/portal-editing-provider", () => {
     saveError: null,
     patchClientData: mocks.patchClientData,
     refetchPortal: mocks.refetchPortal,
+    // A getter: the request is per-render, and each test sets its own.
+    get focusRequest() {
+      return mocks.focusRequest;
+    },
   };
   return {
     usePortalEditing: () => value,
@@ -131,6 +137,7 @@ function putBodies() {
 describe("PortalTeamEditor — the Create Plan contact panel, hosted on the portal", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.focusRequest = null;
     portal.clientData = JSON.parse(JSON.stringify(portal.original));
     vi.stubGlobal("fetch", mocks.fetch);
   });
@@ -291,6 +298,36 @@ describe("PortalTeamEditor — the Create Plan contact panel, hosted on the port
     expect(blob.contacts[0].id).toBe(1);
     expect(blob.contactDisplayOrder).toEqual([1]);
     expect(mocks.toastSuccess).toHaveBeenCalledWith("Contact removed");
+  });
+
+  it("opens the accordion of the contact a card's edit button named", () => {
+    // My Benefits Team renders one blue button per contact card; pressing one
+    // sends `key-contact-<id>` through the provider, and THAT row must already be
+    // open when the panel scrolls to it.
+    mocks.focusRequest = { id: "key-contact-2", nonce: 1 };
+    render(<PortalTeamEditor />);
+
+    const opened = document.querySelector('[data-edit-anchor="key-contact-2"]');
+    const other = document.querySelector('[data-edit-anchor="key-contact-1"]');
+    expect(opened).toHaveTextContent("Support Line");
+    expect(other).toHaveTextContent("Dana Reid");
+
+    // The fields are the proof: only an expanded row renders them.
+    expect(opened).toHaveTextContent("Contact Type");
+    expect(other).not.toHaveTextContent("Contact Type");
+  });
+
+  it("names every row with the anchor its card's button uses", () => {
+    render(<PortalTeamEditor />);
+
+    // Same helper on both sides — the page builds `key-contact-<id>` from the
+    // contact, and the row renders exactly that.
+    expect(
+      document.querySelector('[data-edit-anchor="key-contact-1"]'),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-edit-anchor="key-contact-2"]'),
+    ).toBeInTheDocument();
   });
 
   it("says when the plan has no contacts", () => {

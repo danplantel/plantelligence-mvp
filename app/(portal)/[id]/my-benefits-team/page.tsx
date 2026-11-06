@@ -20,6 +20,7 @@ import {
   getContactCategories as getContactCategoriesFromLib,
   type CategoryPortalVisibility,
 } from "@/lib/portal-category-visibility";
+import { keyContactAnchor } from "@/lib/portal-editor-sections";
 import { portalRadiusValue } from "@/lib/typography-themes";
 import { isHighlightedKeyContactStyle } from "@/lib/key-contact-card-style";
 import {
@@ -27,6 +28,18 @@ import {
   supportCardSize,
   supportContactShowsCta,
 } from "@/lib/support-card-layout";
+
+/**
+ * The panel row that edits one contact, for the card's own blue button.
+ *
+ * `undefined` when the plan has no id for it (a hand-written row): a button that
+ * cannot name its row would open the panel at the top and lie about it, so the
+ * card simply carries none.
+ */
+function editAnchorFor(contact: Contact): string | undefined {
+  if (contact.id === undefined || contact.id === null) return undefined;
+  return keyContactAnchor(contact.id);
+}
 
 /** True if contact should be hidden by Category Display (Show/Hide). Use: fetch → filter by !isHidden → render. */
 function isContactHiddenByCategory(
@@ -666,6 +679,7 @@ function SupportCardsRow({
         >
           <BenefitContactCard
             contact={{ ...contact, isPrimary: false }}
+            editSectionId={editAnchorFor(contact)}
             highlighted={highlightedPrimary && index === 0}
             brandColor={brandColor}
             secondaryColor={secondaryColor}
@@ -736,6 +750,7 @@ function Layout4({
         {showPrimary && primaryContact && (
           <BenefitContactCard
             highlighted={highlightedPrimary}
+            editSectionId={editAnchorFor(primaryContact)}
             contact={{
               ...primaryContact,
               isPrimary: true,
@@ -756,6 +771,7 @@ function Layout4({
         )}
         {first && (
           <BenefitContactCard
+            editSectionId={editAnchorFor(first)}
             contact={{
               ...first,
               isPrimary: false,
@@ -786,6 +802,7 @@ function Layout4({
                 ...contact,
                 isPrimary: false,
               }}
+              editSectionId={editAnchorFor(contact)}
               brandColor={brandColor}
               secondaryColor={secondaryColor}
               ctaColor={brandColor}
@@ -853,6 +870,7 @@ function Layout2({
         <BenefitContactCard
           key={contact.id || index}
           contact={contact}
+          editSectionId={editAnchorFor(contact)}
           highlighted={highlightedPrimary && index === 0}
           brandColor={brandColor}
           secondaryColor={secondaryColor}
@@ -964,6 +982,10 @@ function DefaultLayout({
         <BenefitContactCard
           asPrimary
           highlighted={highlightedPrimary}
+          // The main contact is the one card that is NOT in a support row, so it
+          // needed this passed here too — otherwise the headline card was the only
+          // one on the page without an edit button.
+          editSectionId={editAnchorFor(primaryContact)}
           contact={{ ...primaryContact, cardBackgroundColor: "#ffffffea" }}
           brandColor={brandColor}
           secondaryColor={secondaryColor}
@@ -1037,6 +1059,7 @@ function MobileLayout({
     <BenefitContactCard
       key={contact.id || index}
       contact={contact}
+      editSectionId={editAnchorFor(contact)}
       highlighted={highlightedPrimary && index === 0}
       brandColor={brandColor}
       secondaryColor={secondaryColor}

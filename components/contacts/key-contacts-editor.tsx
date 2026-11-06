@@ -21,6 +21,7 @@ import { ChipTypeahead } from "@/components/ui/chip-typeahead";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
+import { keyContactAnchor } from "@/lib/portal-editor-sections";
 import { SectionHeader } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import {
   designationAcronym,
@@ -97,6 +98,19 @@ export interface KeyContactsEditorProps {
    * Details"). Omitted in the wizard, whose panel lists this form on its own.
    */
   sectionNumber?: number;
+  /**
+   * The contact whose card the host asked to OPEN.
+   *
+   * The portal's My Benefits Team draws a card per contact, each with its own blue
+   * edit button; pressing one opens the panel here with that contact named, and the
+   * matching row must already be expanded when the panel scrolls to it. Compared by
+   * STRING because ids read back from the plan's JSON can be numbers.
+   *
+   * `focusContactNonce` re-opens the same row when the advisor presses the same
+   * card twice — the id alone would not change.
+   */
+  focusContactId?: string | number | null;
+  focusContactNonce?: number;
 }
 
 /**
@@ -118,6 +132,8 @@ export const KeyContactsEditor = memo(function KeyContactsEditor({
   emptyMessage,
   heading = "Contact Details",
   sectionNumber,
+  focusContactId = null,
+  focusContactNonce,
 }: KeyContactsEditorProps) {
   // Which contact's card is open. Only one at a time, as the wizard has it.
   const [expandedContactId, setExpandedContactId] = useState<
@@ -154,6 +170,23 @@ export const KeyContactsEditor = memo(function KeyContactsEditor({
     window.addEventListener("focusContact", handleFocusContact);
     return () => window.removeEventListener("focusContact", handleFocusContact);
   }, []);
+
+  /**
+   * Open the row the host named (the portal's per-card blue button).
+   *
+   * It only EXPANDS: the panel that hosts this form scrolls its own body to the
+   * row's `data-edit-anchor`, and two scrolls would fight. `contacts` is left out
+   * of the dependencies on purpose — every keystroke rebuilds it, and re-expanding
+   * on each one would slam the row open while the advisor is closing it.
+   */
+  useEffect(() => {
+    if (focusContactId === null || focusContactId === undefined) return;
+    const match = contacts.find(
+      (entry) => String(entry.id) === String(focusContactId),
+    );
+    if (match) setExpandedContactId(match.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusContactId, focusContactNonce]);
 
   /**
    * Patch one contact.
@@ -277,6 +310,9 @@ export const KeyContactsEditor = memo(function KeyContactsEditor({
               <div
                 key={contact.id}
                 data-testid="key-contact-row"
+                // The address the page's blue button scrolls to: one row per
+                // contact, named by the same helper the button builds its id with.
+                data-edit-anchor={keyContactAnchor(contact.id)}
                 ref={(el) => {
                   contactRefs.current[contact.id] = el;
                 }}

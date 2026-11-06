@@ -9,7 +9,7 @@ The page is two things at once, and that is what the tests have to separate:
 
 ## Summary
 
-- **Unit tests:** 211 across 13 suites (`pnpm test:portal-team`), all passing
+- **Unit tests:** 217 across 13 suites (`pnpm test:portal-team`), all passing
 - **E2E:** 3, env-gated on `E2E_BASE_URL` + `E2E_PORTAL_SLUG` (`e2e/portal-team.spec.ts`)
 - **Runner:** `pnpm test:portal-team` / `:watch` / `:coverage` — [`config/vitest/vitest.portal-team.config.mts`](../../config/vitest/vitest.portal-team.config.mts:1) driven by [`scripts/tests/run-portal-team-tests.mjs`](../../scripts/tests/run-portal-team-tests.mjs:1)
 - Four card defects were found and fixed while writing the suites (see [Fixed while writing these suites](#fixed-while-writing-these-suites))
@@ -17,7 +17,7 @@ The page is two things at once, and that is what the tests have to separate:
 ## Commands
 
 ```bash
-pnpm test:portal-team             # all 211 unit tests in the scoped config
+pnpm test:portal-team             # all 217 unit tests in the scoped config
 pnpm test:portal-team:watch
 pnpm test:portal-team:coverage
 E2E_BASE_URL=… E2E_PORTAL_SLUG=… pnpm exec playwright test e2e/portal-team.spec.ts
@@ -69,6 +69,29 @@ E2E_BASE_URL=… E2E_PORTAL_SLUG=… pnpm exec playwright test e2e/portal-team.s
 `normalizeDisplayStyle` maps `null`/`""`/non-numeric to "no preference", keeps `2`/`3`/`4`, and folds anything else numeric (including legacy `1`) to `0`. `normalizeMobileDisplayStyle` keeps `1`/`2` and folds everything else to `0`.
 
 Colours default to `#0D315F` / `#C89B5B`, and `appointmentLink` defaults to a hard-coded OnceHub URL.
+
+## Each card's own edit button
+
+Every contact card carries a blue **Edit contact** button, revealed on hover (it
+is `opacity-0` and `pointer-events-none` until the card is hovered, so it can
+never swallow a click on the card's own top-right corner). Pressing it opens the
+panel and **expands that contact's accordion**, scrolled into view.
+
+| Piece | Where | Owns |
+| --- | --- | --- |
+| The anchor | [`keyContactAnchor()`](../../lib/portal-editor-sections.ts:33) | `key-contact-<id>` — one spelling, read by the button, the panel row and the parse back |
+| The button | [`benefit-contact-card.tsx`](../../components/pages/client-portal/sections/benefit-contact-card.tsx:1) | Rendered once, for every layout, from the `editSectionId` prop |
+| The row | [`key-contacts-editor.tsx`](../../components/contacts/key-contacts-editor.tsx:1) | `data-edit-anchor` + `focusContactId`, which expands the row |
+| The host | [`portal-team-editor.tsx`](../../components/portal-editing/editors/portal-team-editor.tsx:1) | Turns `focusRequest` into `focusContactId` (via `contactIdFromAnchor`) |
+
+The page passes `editSectionId` only where it draws a card, and the card returns
+the plain element when it is absent — so the benefit hubs, which share this card,
+draw no button at all. A participant gets none either: the button is
+`PortalSectionEditButton`, which renders nothing without an editing provider.
+
+Ids are compared as **strings** end to end. `contact.id` read back from the
+plan's JSON can be a number, while the anchor is always a string, so a
+`===` comparison would silently open nothing.
 
 ## The Edit Panel
 
@@ -144,7 +167,7 @@ led that category before — so both hosts persist it through their normal path.
 | [`.../sections/__tests__/benefit-contact-card.test.tsx`](../../components/pages/client-portal/sections/benefit-contact-card.tsx:1)     |    19 | The shared entry point: `asPrimary`, `compact`, team vs category placement     |
 | [`.../my-benefits-team/__tests__/small-vertical-card.test.tsx`](../../components/pages/my-benefits-team/small-vertical-card.tsx:1)     |    48 | The compact card, its two render paths, preview placeholders                   |
 | [`.../my-benefits-team/__tests__/primary-contact-card.test.tsx`](../../components/pages/my-benefits-team/primary-contact-card.tsx:1)   |    25 | The wide primary card                                                          |
-| [`.../editors/__tests__/portal-team-editor.test.tsx`](../../components/portal-editing/editors/__tests__/portal-team-editor.test.tsx:1)  |    12 | The Edit Panel: its two sections, the wizard's contact form, saving the style  |
+| [`.../editors/__tests__/portal-team-editor.test.tsx`](../../components/portal-editing/editors/__tests__/portal-team-editor.test.tsx:1)  |    14 | The Edit Panel: its two sections, the wizard's contact form, the row a card's button opens |
 | [`.../my-benefits-team/__tests__/large-horizontal-card.test.tsx`](../../components/pages/my-benefits-team/large-horizontal-card.tsx:1) |    20 | The one-contact-per-row card                                                   |
 | [`.../my-benefits-team/__tests__/contact-avatar.test.tsx`](../../components/pages/my-benefits-team/contact-avatar.tsx:1)               |     7 | Circular slot: headshot / `teamImage` / company logo / support icon            |
 | [`.../my-benefits-team/__tests__/primary-visual.test.tsx`](../../components/pages/my-benefits-team/primary-visual.tsx:1)               |     6 | Large circular slot on the primary card                                        |
@@ -274,6 +297,8 @@ GET /api/profile                     # current user's logo/org/designations (thi
 - [ ] The panel opens on **Section 1: Main Contact Highlight Style**, with Section 2 below it.
 - [ ] Choosing **Highlighted** fills the main contact's card with the plan's primary colour straight away; **Default style** puts it back.
 - [ ] The choice survives a reload, and every layout (including mobile) draws it.
+- [ ] Hovering any card — including the main contact's — reveals its **Edit contact** button; nothing shows when the pointer is elsewhere.
+- [ ] Pressing it opens the panel with THAT contact's accordion already expanded, scrolled into view.
 - [ ] Edit opens a panel whose accordions are the ones Create Plan's Step 3 shows — same fields, same order.
 - [ ] Typing a new name or title repaints the card beside the panel before anything is saved.
 - [ ] **Save Changes** says "Contact saved"; a forced failure says so instead of failing silently.

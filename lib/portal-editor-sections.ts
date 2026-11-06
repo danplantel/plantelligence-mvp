@@ -30,6 +30,37 @@ export function portalSectionId(title: string): string {
  * "Mission Statement", not a section of its own. The panel marks those cards with
  * `data-edit-anchor`, and the scroll looks for one when no section matches.
  */
+/** The prefix every contact row's anchor carries. */
+const KEY_CONTACT_PREFIX = "key-contact-";
+
+/**
+ * The anchor that addresses ONE contact row inside the team panel.
+ *
+ * My Benefits Team draws a card per contact, and the panel draws the same contacts
+ * as collapsible rows. The page's blue button names the row, the panel opens it,
+ * and the scroll lands on it — all three read this one function, so a row can never
+ * be addressed by two spellings.
+ */
+export function keyContactAnchor(contactId: string | number): string {
+  return `${KEY_CONTACT_PREFIX}${contactId}`;
+}
+
+/**
+ * The contact id inside a contact anchor, or `null` for any other id.
+ *
+ * The panel needs this to tell "open this contact" apart from the section ids it
+ * also receives through the same request. Always a string: ids read back from the
+ * plan's JSON can be numbers, and comparing them by value would silently miss.
+ */
+export function contactIdFromAnchor(
+  anchor: string | null | undefined,
+): string | null {
+  const value = String(anchor ?? "");
+  return value.startsWith(KEY_CONTACT_PREFIX)
+    ? value.slice(KEY_CONTACT_PREFIX.length)
+    : null;
+}
+
 export const portalEditAnchor = {
   /** The Landing Page's Featured Image (first card of "Mission Statement"). */
   featuredImage: "featured-image",

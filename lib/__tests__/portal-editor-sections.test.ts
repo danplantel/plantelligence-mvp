@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  contactIdFromAnchor,
+  keyContactAnchor,
   portalEditAnchor,
   portalSectionId,
   PORTAL_SECTION_IDS,
@@ -48,6 +50,22 @@ describe("PORTAL_SECTION_IDS", () => {
       featuredImage: "featured-image",
       heroBackground: "hero-background",
     });
+  });
+});
+
+describe("keyContactAnchor", () => {
+  it("names one contact row from the contact's own id", () => {
+    expect(keyContactAnchor("c1")).toBe("key-contact-c1");
+    expect(keyContactAnchor(42)).toBe("key-contact-42");
+  });
+
+  it("reads the id back out, so the panel can tell a contact from a section", () => {
+    expect(contactIdFromAnchor(keyContactAnchor(42))).toBe("42");
+    expect(contactIdFromAnchor("key-contact-c1")).toBe("c1");
+    // Anything else is not a contact request.
+    expect(contactIdFromAnchor("disclosure")).toBeNull();
+    expect(contactIdFromAnchor("hero-background")).toBeNull();
+    expect(contactIdFromAnchor(null)).toBeNull();
   });
 });
 

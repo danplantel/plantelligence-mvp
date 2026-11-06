@@ -2,6 +2,7 @@
 
 import { PrimaryContactCard } from "@/components/pages/my-benefits-team/primary-contact-card";
 import { SmallVerticalCard } from "@/components/pages/my-benefits-team/small-vertical-card";
+import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
 import {
   getContactCategories,
   isNonHubContactCategory,
@@ -81,6 +82,15 @@ export interface BenefitContactCardProps {
    * it, so published cards are unchanged.
    */
   topControls?: React.ReactNode;
+  /**
+   * The panel row that edits this contact (`keyContactAnchor(contact.id)`).
+   *
+   * When set, the card carries its own blue edit button — the portal's My Benefits
+   * Team renders one card per contact and each one must lead to that contact's
+   * accordion. Omitted by the benefit hubs and the previews, which pass nothing and
+   * therefore draw no button at all.
+   */
+  editSectionId?: string;
 }
 
 /**
@@ -173,6 +183,7 @@ export function BenefitContactCard({
   planBenefitLabels,
   highlighted = false,
   topControls,
+  editSectionId,
 }: BenefitContactCardProps) {
   // Category pages are content-dense, so their cards default to the compact
   // variant; the team page keeps whatever its layout asks for.
@@ -189,25 +200,21 @@ export function BenefitContactCard({
       : [];
   const categoryLabel = categoryList.join(" · ");
 
-  if (asPrimary) {
-    return (
-      <PrimaryContactCard
-        contact={contact as any}
-        brandColor={brandColor}
-        secondaryColor={secondaryColor}
-        appointmentLink={appointmentLink}
-        companyName={companyName}
-        baselineBackgroundColor={baselineBackgroundColor}
-        compact={isCompact}
-        categoryLabel={categoryLabel}
-        categoryList={categoryList}
-        highlighted={highlighted}
-        topControls={topControls}
-      />
-    );
-  }
-
-  return (
+  const card = asPrimary ? (
+    <PrimaryContactCard
+      contact={contact as any}
+      brandColor={brandColor}
+      secondaryColor={secondaryColor}
+      appointmentLink={appointmentLink}
+      companyName={companyName}
+      baselineBackgroundColor={baselineBackgroundColor}
+      compact={isCompact}
+      categoryLabel={categoryLabel}
+      categoryList={categoryList}
+      highlighted={highlighted}
+      topControls={topControls}
+    />
+  ) : (
     <SmallVerticalCard
       contact={contact as any}
       brandColor={brandColor}
@@ -227,5 +234,26 @@ export function BenefitContactCard({
       highlighted={highlighted}
       topControls={topControls}
     />
+  );
+
+  if (!editSectionId) return card;
+
+  // The card's own edit affordance. Rendered here rather than in each layout, so
+  // all six of the page's layouts get it from one place — and it renders nothing
+  // for a participant (see PortalSectionEditButton).
+  //
+  // It shows on HOVER, like the affordances on the "Your Benefits at a Glance"
+  // cards: a permanent pill on every card turned the page into a wall of buttons.
+  // While hidden it also stops taking pointer events, so it can never swallow a
+  // click on the card's own top-right corner (the CTA area).
+  return (
+    <div className="group relative w-full">
+      {card}
+      <PortalSectionEditButton
+        sectionId={editSectionId}
+        label="Edit contact"
+        className="right-3 top-3 opacity-0 transition-opacity duration-150 pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100 focus-visible:pointer-events-auto focus-visible:opacity-100"
+      />
+    </div>
   );
 }

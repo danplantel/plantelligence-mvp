@@ -8,6 +8,7 @@ import { KeyContactsEditor } from "@/components/contacts/key-contacts-editor";
 import { MainContactStyleSection } from "@/components/contacts/main-contact-style-section";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import { useClientPortal } from "@/contexts/client-portal-context";
+import { contactIdFromAnchor } from "@/lib/portal-editor-sections";
 import {
   normalizeKeyContactCardStyle,
   type KeyContactCardStyle,
@@ -79,7 +80,18 @@ export function PortalTeamEditor() {
     saveError,
     patchClientData,
     refetchPortal,
+    focusRequest,
   } = usePortalEditing();
+
+  /**
+   * The contact a page's blue button asked to open.
+   *
+   * My Benefits Team puts one button on each contact card; pressing it sends
+   * `key-contact-<id>` through `focusSection`, which opens this panel. The id is
+   * parsed off the same anchor the form renders on its rows, so the button, the
+   * scroll and the accordion cannot address different things.
+   */
+  const focusContactId = contactIdFromAnchor(focusRequest?.id);
 
   const [blob, setBlob] = useState<KeyContactsBlob>(() =>
     normalizeBlob(clientData?.keyContacts),
@@ -254,6 +266,9 @@ export function PortalTeamEditor() {
         onPatch={patchContact}
         onSaveContact={saveContact}
         onDeleteContact={deleteContact}
+        // Opened by a card's own edit button; `nonce` re-opens the same row.
+        focusContactId={focusContactId}
+        focusContactNonce={focusRequest?.nonce}
         emptyMessage={
           <p className="text-sm text-muted-foreground">
             This plan has no contacts yet. Add them from Edit Client → Contacts.
