@@ -6,7 +6,7 @@ Unlike Edit Plan, this page owns almost no UI of its own. It is a **projection**
 
 ## Summary
 
-- **Unit tests:** 186 passing in 14 files
+- **Unit tests:** 199 passing in 14 files
 - **E2E:** none yet — see [Remaining coverage](#remaining-coverage)
 - **Runner:** Vitest + React Testing Library + jsdom
 
@@ -21,7 +21,7 @@ Unlike Edit Plan, this page owns almost no UI of its own. It is a **projection**
 ## Running these tests
 
 ```bash
-pnpm test:portal-landing           # all Portal Landing suites (186 tests)
+pnpm test:portal-landing           # all Portal Landing suites (199 tests)
 pnpm test:portal-landing:watch     # watch mode
 pnpm test:portal-landing:coverage  # suites + V8 coverage
 ```
@@ -45,7 +45,51 @@ Backed by [`config/vitest/vitest.portal-landing.config.mts`](../../config/vitest
 | 11  | `lib/__tests__/portal-editor-sections.test.ts`                                          | 5 | The section ids the page and the panel agree on, and the in-section anchors     |
 | 12  | `components/wizard/new-client-steps/sections/__tests__/editor-panel-focus.test.tsx`     | 7 | The panel scrolling itself to a section — or to an anchor inside one            |
 | 13  | `components/portal-editing/__tests__/portal-section-edit-button.test.tsx`               | 6 | The blue button: hidden for participants, opens in place or navigates           |
-| 14  | `components/portal-editing/__tests__/portal-benefit-edit-hint.test.tsx`                 | 4 | The hover note on the "At a Glance" cards: advisor-only, names the real place   |
+| 14  | `components/portal-editing/__tests__/portal-benefits-glance-section.test.tsx`           | 7 | Section 5: four card accordions, their saves, and the Create Benefit link      |
+
+## The Edit Panel's "Your Benefits at a Glance" section
+
+Section **5** of the Landing panel. Each of the page's four cards is drawn from a
+BENEFIT row (`landingCardImage` / `landingCardBody`), so this section is the
+portal's copy of Create/Edit Benefit → Step 1 → Branding → **Your Benefits at a
+Glance Card** — one accordion per category, the same two fields, plus a one-press
+"use the suggested text".
+
+| Piece | Where | Owns |
+| --- | --- | --- |
+| The section | [`portal-benefits-glance-section.tsx`](../../components/portal-editing/portal-benefits-glance-section.tsx:1) | Four accordions, four independent saves |
+| The rows | `GET /api/clients/:id/benefits/:category?forPortal=1` | Whether each category HAS a benefit, and its card fields |
+| The write | `PUT …?updateOnly=1` | `landingCardImage` + `landingCardBody` only |
+
+Three decisions are load-bearing:
+
+1. **A missing benefit cannot be created here.** A Benefit row brings its own
+   pages, topics and contacts — that is Step 1's job — so a category with no row
+   gets an explanation and a link to
+   `/new-benefits?planId=…&category=…` (opened in a new tab, so the portal being
+   edited stays put). The Custom card links with `category=Custom`, the deep
+   link's alias for the sponsor hub.
+2. **`?updateOnly=1`.** The route upserts by default; the card editor must never
+   re-create a Benefit the advisor deleted, so it asks for the update-only path.
+   `undefined` leaves a column untouched and `""` clears it — which is exactly
+   what `JSON.stringify` does with the fields the advisor did not touch.
+3. **These saves are their own.** The panel's Save bar writes the PLAN; the cards
+   live on Benefit rows. Each card has its own Save, and after a successful write
+   the section re-reads its rows and refetches the portal, so the cards beside the
+   panel repaint.
+4. **The image is the Featured Image's control.** `BrandImageUpload` gives Choose
+   File / Choose Default Image while empty, then Edit / New / Delete once set, with
+   the same 3:2 (1200×800) crop editor and the default-image gallery. One uploader,
+   one set of rules.
+
+**Live preview.** Typing or choosing an image mirrors the draft into
+`employeePortalPreview.benefits` — the array the cards beside the panel render from
+— so the page repaints before anything is saved. Only an EXISTING mirror row is
+patched: pushing one would conjure a card for a category the plan has no benefit
+for. Nothing is written until that card's Save.
+
+The section is inserted BEFORE the disclosure, which is why the footer is now
+Section 6.
 
 ## The Edit Panel's Disclosure section
 
@@ -107,7 +151,7 @@ owns it.
 | Mission copy | hover ring + blue pencil (from `PortalMission`) | `mission-statement` |
 | **Featured image** | blue **Edit featured image** button | the Featured Image card |
 | **Footer** | blue **Edit footer** button (rendered by the layout, so every portal page has it) | `disclosure` — or, from another portal page, a trip here (below) |
-| **Your Benefits at a Glance** cards | hover note (advisor only) | — nothing to open: these cards live on Benefit rows |
+| **Your Benefits at a Glance** cards | — (no hover note) | edited in the panel's Section 5, below |
 
 **The photograph is named.** Its button reads **Edit Hero Banner Image** rather
 than "Edit image" or a bare pencil: the region edited is a card two levels inside
@@ -115,14 +159,11 @@ the panel (the second card of *Images*), so the label has to carry that. The who
 photograph stays clickable too (hover ring) — both paths call the provider's
 `focusSection` with `hero-background`.
 
-**The cards.** "Your Benefits at a Glance" has no controls in this panel because
-each card is drawn from a Benefit row. Hovering a card shows an advisor-only note
-([`PortalBenefitEditHint`](../../components/portal-editing/portal-benefit-edit-hint.tsx:1))
-saying so and naming the place: **Create Benefit / Edit Benefit → Branding →
-Your Benefits at a Glance Card**. (That accordion was labelled "Landing Page
-Card"; the label, the validation toast and this hint were renamed together.) It is
-`pointer-events-none` so the card still opens its hub, and it does not render at
-all for a participant.
+**The cards.** "Your Benefits at a Glance" carries no affordance ON the page: each
+card opens its own benefit, and its two fields are edited in the panel's **Section
+5** (below). The old advisor-only hover note was retired when that section landed —
+the panel now says where a card comes from, and repeating it over the card itself
+only fought with the card's own click.
 
 **How it works.** [`PortalSectionEditButton`](../../components/portal-editing/portal-section-edit-button.tsx:1)
 calls `focusSection(id)` on the editing provider, which opens the panel and stores

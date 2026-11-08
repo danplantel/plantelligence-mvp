@@ -4,9 +4,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { usePlanPreviewEditorSections } from "@/components/wizard/new-client-steps/sections/components/plan-preview-editor-sections";
 import { PortalDisclosureSection } from "@/components/portal-editing/portal-disclosure-section";
+import { PortalBenefitsGlanceSection } from "@/components/portal-editing/portal-benefits-glance-section";
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
+import { customBenefitTitleFromHubs } from "@/lib/benefit-custom-name";
 import type { PortalDisclaimersEnvelope } from "@/lib/portal-disclosures";
 import { MISSION_STATEMENT_PRESETS } from "@/components/wizard/new-client-steps/constants/welcome-statements";
 import { HERO_RECOMMENDED_SIZE_LABEL } from "@/components/wizard/new-client-steps/sections/utils/hero-utils";
@@ -383,6 +385,26 @@ export function PortalHomeEditor() {
   const organizationName =
     String((clientData as any)?.branding?.organizationName || "") ||
     companyData.companyName;
+  /**
+   * Section 5: the four "Your Benefits at a Glance" cards.
+   *
+   * They are Benefit rows, not plan fields, so this section carries its own saves
+   * (one per card) instead of feeding the panel's plan PUT. It sits BEFORE the
+   * disclosure so the footer stays the panel's last section (6).
+   */
+  const glanceSection = {
+    title: "Your Benefits at a Glance",
+    content: (
+      <PortalBenefitsGlanceSection
+        planId={String(clientData?.id || "")}
+        // The Custom card wears the advisor's own name for that benefit.
+        customBenefitName={customBenefitTitleFromHubs(
+          (clientData as any)?.benefitHubs,
+        )}
+      />
+    ),
+  };
+
   const disclosureSection = {
     title: "Disclosure",
     content: (
@@ -434,7 +456,7 @@ export function PortalHomeEditor() {
   return (
     <>
       <PortalEditorShell
-        sections={[...sections, disclosureSection]}
+        sections={[...sections, glanceSection, disclosureSection]}
         eyebrow="Plan Branding & Messaging"
         title="Editing Panel"
         headerBadge={

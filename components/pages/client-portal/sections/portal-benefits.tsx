@@ -15,7 +15,6 @@ import {
 } from "@/types/new-client-wizard";
 import { getBenefitCompleteness } from "@/lib/benefit-completeness";
 import { getDefaultLandingCardBody } from "@/lib/landing-card-defaults";
-import { PortalBenefitEditHint } from "@/components/portal-editing/portal-benefit-edit-hint";
 import { IncompleteBenefitDialog } from "./incomplete-benefit-dialog";
 import {
   getCategoryPortalVisibility,
@@ -434,7 +433,6 @@ export function PortalBenefits({
                       </p>
                     </div>
 
-                    <PortalBenefitEditHint benefitName={benefit.title} />
                   </Card>
                 ) : (
                   /* ── Live Benefit Card ── */
@@ -542,7 +540,6 @@ export function PortalBenefits({
                       </div>
                     </div>
 
-                    <PortalBenefitEditHint benefitName={benefit.title} />
                   </div>
                 )}
               </motion.div>

@@ -39,8 +39,9 @@ const portalLandingTests = [
   "components/wizard/new-client-steps/sections/__tests__/editor-panel-focus.test.tsx",
   // The blue Edit button: hidden for participants, opens the named section
   "components/portal-editing/__tests__/portal-section-edit-button.test.tsx",
-  // The hover note on the "Your Benefits at a Glance" cards
-  "components/portal-editing/__tests__/portal-benefit-edit-hint.test.tsx",
+  // The panel's "Your Benefits at a Glance" section: four cards edited in place,
+  // and the Create Benefit link a missing category gets instead
+  "components/portal-editing/__tests__/portal-benefits-glance-section.test.tsx",
 ];
 
 const baseTest = (baseConfig as { test?: Record<string, unknown> }).test ?? {};
