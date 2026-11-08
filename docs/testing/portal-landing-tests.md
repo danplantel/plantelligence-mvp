@@ -21,7 +21,7 @@ Unlike Edit Plan, this page owns almost no UI of its own. It is a **projection**
 ## Running these tests
 
 ```bash
-pnpm test:portal-landing           # all Portal Landing suites (199 tests)
+pnpm test:portal-landing           # all Portal Landing suites (203 tests)
 pnpm test:portal-landing:watch     # watch mode
 pnpm test:portal-landing:coverage  # suites + V8 coverage
 ```
@@ -34,18 +34,18 @@ Backed by [`config/vitest/vitest.portal-landing.config.mts`](../../config/vitest
 | --- | -------------------------------------------------------------------------------- | ----: | ----------------------------------------------------------------------------------- |
 | 1   | `app/(portal)/[id]/__tests__/page.test.tsx`                                      |    17 | Contact projection, visibility fallback, footer preference, props to `ClientPortal` |
 | 2   | `contexts/__tests__/client-portal-context.test.tsx`                              |    14 | `forPortal` fetch, archived/alias, error states, profile, refetch events            |
-| 3   | `components/pages/client-portal/sections/__tests__/portal-benefits.test.tsx`     |    20 | Four hub cards, visibility, partner branding, completeness gate                     |
-| 4   | `components/pages/client-portal/sections/__tests__/portal-hero-mission.test.tsx` |    20 | Hero/mission copy fallbacks and the preview-only edit affordances                   |
+| 3   | `components/pages/client-portal/sections/__tests__/portal-benefits.test.tsx`     |    22 | Four hub cards, visibility, partner branding, completeness gate, its Section 5 button |
+| 4   | `components/pages/client-portal/sections/__tests__/portal-hero-mission.test.tsx` |    22 | Hero/mission copy fallbacks and the preview-only edit affordances                   |
 | 5   | `lib/__tests__/benefit-completeness.test.ts`                                     |    24 | The completeness matrix behind the "finish this benefit" dialog                     |
 | 6   | `lib/__tests__/disclaimer-constants.test.ts`                                     |    30 | Footer text, placeholder resolution, disclaimer-envelope shapes                     |
 | 7   | `lib/__tests__/portal-disclosures.test.ts`                                       |    22 | Which footer row each scope reads (landing and per-benefit), and the writes          |
 | 8   | `components/portal-editing/__tests__/portal-disclosure-section.test.tsx`         |    12 | The Disclosure section: both scopes, the text, the footer background, its notices     |
 | 9   | `components/portal-editing/editors/__tests__/portal-home-editor-live-preview.test.tsx` | 2 | Every panel edit previews live, and Disclosure rides as the last section        |
-| 10  | `app/(portal)/[id]/__tests__/page-edit-affordances.test.tsx`                             | 3 | Hero → Hero Content, mission → Mission Statement, nothing for a participant     |
-| 11  | `lib/__tests__/portal-editor-sections.test.ts`                                          | 5 | The section ids the page and the panel agree on, and the in-section anchors     |
+| 10  | `app/(portal)/[id]/__tests__/page-edit-affordances.test.tsx`                             | 4 | Hero → Hero Content and the Hero Banner Image, mission → Mission Statement      |
+| 11  | `lib/__tests__/portal-editor-sections.test.ts`                                          | 11 | The section ids the page and the panel agree on, and the in-section anchors     |
 | 12  | `components/wizard/new-client-steps/sections/__tests__/editor-panel-focus.test.tsx`     | 7 | The panel scrolling itself to a section — or to an anchor inside one            |
-| 13  | `components/portal-editing/__tests__/portal-section-edit-button.test.tsx`               | 6 | The blue button: hidden for participants, opens in place or navigates           |
-| 14  | `components/portal-editing/__tests__/portal-benefits-glance-section.test.tsx`           | 7 | Section 5: four card accordions, their saves, and the Create Benefit link      |
+| 13  | `components/portal-editing/__tests__/portal-section-edit-button.test.tsx`               | 7 | The blue button: hidden for participants, opens in place or navigates           |
+| 14  | `components/portal-editing/__tests__/portal-benefits-glance-section.test.tsx`           | 9 | Section 5: four card accordions, their saves, preview, and the Create Benefit link |
 
 ## The Edit Panel's "Your Benefits at a Glance" section
 
@@ -151,7 +151,7 @@ owns it.
 | Mission copy | hover ring + blue pencil (from `PortalMission`) | `mission-statement` |
 | **Featured image** | blue **Edit featured image** button | the Featured Image card |
 | **Footer** | blue **Edit footer** button (rendered by the layout, so every portal page has it) | `disclosure` — or, from another portal page, a trip here (below) |
-| **Your Benefits at a Glance** cards | — (no hover note) | edited in the panel's Section 5, below |
+| **Your Benefits at a Glance** section | blue **Edit benefits at a glance** button (top-right) | `your-benefits-at-a-glance` — the panel's Section 5, below |
 
 **The photograph is named.** Its button reads **Edit Hero Banner Image** rather
 than "Edit image" or a bare pencil: the region edited is a card two levels inside
@@ -159,11 +159,16 @@ the panel (the second card of *Images*), so the label has to carry that. The who
 photograph stays clickable too (hover ring) — both paths call the provider's
 `focusSection` with `hero-background`.
 
-**The cards.** "Your Benefits at a Glance" carries no affordance ON the page: each
-card opens its own benefit, and its two fields are edited in the panel's **Section
-5** (below). The old advisor-only hover note was retired when that section landed —
-the panel now says where a card comes from, and repeating it over the card itself
-only fought with the card's own click.
+**One button for the whole section.** "Your Benefits at a Glance" draws a single
+blue button for the SECTION rather than one per card, because the four cards are
+edited together in the panel's **Section 5** (below) — a per-card button would open
+the same accordion list four times. The cards themselves keep their own click
+(each still links to its hub page), so the button sits above them. Its id is
+derived from the section title the panel gives it
+(`portalSectionId("Your Benefits at a Glance")`), so the page and the panel cannot
+disagree about the spelling. The old advisor-only hover note was retired when that
+section landed — the panel now says where a card comes from, and repeating it over
+the card itself only fought with the card's own click.
 
 **How it works.** [`PortalSectionEditButton`](../../components/portal-editing/portal-section-edit-button.tsx:1)
 calls `focusSection(id)` on the editing provider, which opens the panel and stores
