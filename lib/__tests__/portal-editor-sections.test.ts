@@ -44,6 +44,7 @@ describe("PORTAL_SECTION_IDS", () => {
     expect(PORTAL_SECTION_IDS).toEqual({
       heroContent: "hero-content",
       missionStatement: "mission-statement",
+      benefitsGlance: "your-benefits-at-a-glance",
       disclosure: "disclosure",
       // Not sections, but anchors inside one: the Featured Image is the first
       // card of "Mission Statement", and the hero photograph is the second card

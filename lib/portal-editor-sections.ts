@@ -123,6 +123,12 @@ export const PORTAL_SECTION_IDS = {
   /** The hero photograph, addressed as an anchor inside "Images". */
   heroBackground: portalEditAnchor.heroBackground,
   missionStatement: portalSectionId("Mission Statement"),
+  /**
+   * Section 5 — the four "Your Benefits at a Glance" cards. Derived from the
+   * section TITLE the Landing panel gives it, so the page's button and the panel's
+   * `[data-section-id]` cannot be spelled differently.
+   */
+  benefitsGlance: portalSectionId("Your Benefits at a Glance"),
   disclosure: portalSectionId("Disclosure"),
   /**
    * The plan's Featured Image (the `thumbnail` brand slot). It is edited by the

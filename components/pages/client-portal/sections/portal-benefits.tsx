@@ -15,6 +15,8 @@ import {
 } from "@/types/new-client-wizard";
 import { getBenefitCompleteness } from "@/lib/benefit-completeness";
 import { getDefaultLandingCardBody } from "@/lib/landing-card-defaults";
+import { PORTAL_SECTION_IDS } from "@/lib/portal-editor-sections";
+import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
 import { IncompleteBenefitDialog } from "./incomplete-benefit-dialog";
 import {
   getCategoryPortalVisibility,
@@ -313,7 +315,15 @@ export function PortalBenefits({
   }
 
   return (
-    <section className="bg-white py-8 sm:py-10 lg:py-12 box-border flex flex-col items-center justify-center">
+    <section className="relative bg-white py-8 sm:py-10 lg:py-12 box-border flex flex-col items-center justify-center">
+      {/* The advisor's way into Section 5 of the Landing panel, which edits these
+          four cards. Renders nothing without an editing provider, so a participant
+          never sees it. */}
+      <PortalSectionEditButton
+        sectionId={PORTAL_SECTION_IDS.benefitsGlance}
+        label="Edit benefits at a glance"
+        className="right-4 top-4"
+      />
       <div className="text-center mb-8 sm:mb-12 lg:mb-16 px-4">
         <h2
           // `text-gray-900`, matching "How Can We Help You Today?" — one colour for

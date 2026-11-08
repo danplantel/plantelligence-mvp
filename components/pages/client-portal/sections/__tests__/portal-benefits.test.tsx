@@ -32,6 +32,18 @@ const mocks = vi.hoisted(() => ({
   merge: vi.fn((benefit: Record<string, unknown>) => benefit),
   defaultBody: vi.fn((_category: string): string => ""),
   defaultImage: vi.fn((_category: string): string => ""),
+  /** The portal editing provider, as the page's blue buttons see it. */
+  editing: {
+    value: null as null | {
+      canEdit: boolean;
+      focusSection: (id: string) => void;
+    },
+  },
+  focusSection: vi.fn(),
+}));
+
+vi.mock("@/components/portal-editing/portal-editing-provider", () => ({
+  useOptionalPortalEditing: () => mocks.editing.value,
 }));
 
 vi.mock("next/navigation", () => ({
@@ -345,6 +357,33 @@ describe("PortalBenefits incomplete benefits", () => {
     expect(mocks.push).toHaveBeenCalledWith(
       "/new-benefits?planId=plan-1&category=Retirement",
     );
+  });
+
+  it("opens the panel's Section 5 from the section's blue button", async () => {
+    const user = userEvent.setup();
+    mocks.editing.value = {
+      canEdit: true,
+      focusSection: mocks.focusSection,
+    };
+    renderBenefits();
+
+    await user.click(
+      screen.getByRole("button", { name: "Edit benefits at a glance" }),
+    );
+
+    expect(mocks.focusSection).toHaveBeenCalledWith(
+      "your-benefits-at-a-glance",
+    );
+    mocks.editing.value = null;
+  });
+
+  it("draws no button at all for a participant", () => {
+    mocks.editing.value = null;
+    renderBenefits();
+
+    expect(
+      screen.queryByRole("button", { name: "Edit benefits at a glance" }),
+    ).not.toBeInTheDocument();
   });
 
   it("skips the completeness gate entirely in preview mode", async () => {
