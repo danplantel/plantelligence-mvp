@@ -312,19 +312,19 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
       toast.error("Plan ID missing. Cannot save benefit.");
       return;
     }
-    // The Landing Page Card is required. Its image and body live on Step 1's
-    // Branding tab, which may not be the tab the Save button was pressed from,
-    // so point at the section rather than leaving the advisor to hunt for it.
+    // The Your Benefits at a Glance Card is required. Its image and body live on
+    // Step 1's Branding tab, which may not be the tab the Save button was pressed
+    // from, so point at the section rather than leaving the advisor to hunt for it.
     const landingCardMissing: string[] = [];
     if (!stepData.step1?.landingCardImage?.url?.trim())
       landingCardMissing.push("image");
     if (!(stepData.step1?.landingCardBody || "").trim())
       landingCardMissing.push("body text");
     if (landingCardMissing.length > 0) {
-      toast.error("Landing Page Card is required", {
+      toast.error("Your Benefits at a Glance Card is required", {
         description: `Add the card ${landingCardMissing.join(
           " and ",
-        )} in Branding → Landing Page Card before saving.`,
+        )} in Branding → Your Benefits at a Glance Card before saving.`,
       });
       return;
     }

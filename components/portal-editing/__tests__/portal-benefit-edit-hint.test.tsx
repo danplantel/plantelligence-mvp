@@ -44,8 +44,9 @@ describe("PortalBenefitEditHint", () => {
     expect(hint).toHaveTextContent("Retirement");
     expect(hint).toHaveTextContent(/edited on the dashboard/i);
     expect(hint).toHaveTextContent(/Create Benefit or Edit Benefit/i);
-    // The exact place the card's properties live.
-    expect(hint).toHaveTextContent(/Branding → Landing Page Card/i);
+    // The exact place the card's properties live — named the way the Create/Edit
+    // Benefit flow now labels that accordion.
+    expect(hint).toHaveTextContent(/Branding → Your Benefits at a Glance Card/i);
     expect(hint).toHaveTextContent(/Your Benefits at a Glance/i);
     // A hover note must never swallow the click that opens the hub.
     expect(hint).toHaveClass("pointer-events-none");

@@ -609,7 +609,7 @@ function NewBenefitsPageInner() {
       if (!step1Data?.benefitTitle?.trim()) missingFields.push("benefitTitle");
       if (!step1Data?.shortDescription?.trim())
         missingFields.push("shortDescription");
-      // The Landing Page Card is required, not optional.
+      // The Your Benefits at a Glance Card is required, not optional.
       if (!step1Data?.landingCardImage?.url?.trim())
         missingFields.push("landingCardImage");
       if (!step1Data?.landingCardBody?.trim())
@@ -631,7 +631,7 @@ function NewBenefitsPageInner() {
         }
         toast.error("Please fill in all required fields", {
           description:
-            "Select a plan, category, contact, upload a logo, complete the Intro Headline & Message, and add the Landing Page Card image and text.",
+            "Select a plan, category, contact, upload a logo, complete the Intro Headline & Message, and add the Your Benefits at a Glance Card image and text.",
         });
         return;
       }

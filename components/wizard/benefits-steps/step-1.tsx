@@ -3600,8 +3600,8 @@ export function BenefitsStep1({
               </AccordionItem>
             )}
 
-            {/* 3. Landing Page Card — the image and body copy shown on the
-                portal's "Your Benefits at a Glance" card. Independent of the
+            {/* 3. Your Benefits at a Glance Card — the image and body copy shown on
+                the portal's "Your Benefits at a Glance" cards. Independent of the
                 hub's key-contact portrait and Intro Message; when left empty it
                 falls back to the category's stock card image and copy. */}
             {showSection("landing-card") && (
@@ -3618,11 +3618,11 @@ export function BenefitsStep1({
                       </div>
                       <div>
                         <h3 className="text-lg font-bold text-foreground group-hover:text-[#23919C]">
-                          Landing Page Card
+                          Your Benefits at a Glance Card
                         </h3>
                         <p className="text-xs text-muted-foreground font-normal">
                           {
-                            'Image and text on the "Your Benefits at a Glance" card'
+                            'Image and text on the "Your Benefits at a Glance" card on the Portal Landing Page'
                           }
                         </p>
                       </div>
@@ -4134,7 +4134,7 @@ export function BenefitsStep1({
           onRemove={() => setLandingPendingImage(null)}
           isOpen={Boolean(landingPendingImage)}
           onClose={() => setLandingPendingImage(null)}
-          modalTitle="Landing Page Card Image"
+          modalTitle="Your Benefits at a Glance Card Image"
           modalDescription={`Frame the image to the card's 3:2 shape (${LANDING_CARD_IMAGE_WIDTH}×${LANDING_CARD_IMAGE_HEIGHT} px).`}
           saveButtonText="Save Card Image"
           canvasWidth={640}

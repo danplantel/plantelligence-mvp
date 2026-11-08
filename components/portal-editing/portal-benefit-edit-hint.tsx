@@ -14,8 +14,9 @@ export interface PortalBenefitEditHintProps {
  *
  * Those cards are NOT part of the Landing Page's own panel — each one is drawn
  * from a Benefit row, so its image, title and copy are edited on the dashboard at
- * Create Benefit / Edit Benefit → Branding → Landing Page Card. Without saying so,
- * an advisor opens the panel, finds no card controls, and assumes the card is
+ * Create Benefit / Edit Benefit → Branding → Your Benefits at a Glance Card.
+ * Without saying so, an advisor opens the panel, finds no card controls, and
+ * assumes the card is
  * broken; the note is the answer to "where do I change this?" placed exactly where
  * the question is asked.
  *
@@ -42,7 +43,10 @@ export function PortalBenefitEditHint({
         <span>
           <span className="font-semibold">{name}</span> is edited on the dashboard,
           not from this panel — open Create Benefit or Edit Benefit →{" "}
-          <span className="font-semibold">Branding → Landing Page Card</span> for
+          <span className="font-semibold">
+            Branding → Your Benefits at a Glance Card
+          </span>{" "}
+          for
           this benefit to change the image, title and copy in &ldquo;Your Benefits
           at a Glance&rdquo;.
         </span>

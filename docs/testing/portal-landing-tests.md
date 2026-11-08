@@ -119,8 +119,10 @@ photograph stays clickable too (hover ring) — both paths call the provider's
 each card is drawn from a Benefit row. Hovering a card shows an advisor-only note
 ([`PortalBenefitEditHint`](../../components/portal-editing/portal-benefit-edit-hint.tsx:1))
 saying so and naming the place: **Create Benefit / Edit Benefit → Branding →
-Landing Page Card**. It is `pointer-events-none` so the card still opens its hub,
-and it does not render at all for a participant.
+Your Benefits at a Glance Card**. (That accordion was labelled "Landing Page
+Card"; the label, the validation toast and this hint were renamed together.) It is
+`pointer-events-none` so the card still opens its hub, and it does not render at
+all for a participant.
 
 **How it works.** [`PortalSectionEditButton`](../../components/portal-editing/portal-section-edit-button.tsx:1)
 calls `focusSection(id)` on the editing provider, which opens the panel and stores
