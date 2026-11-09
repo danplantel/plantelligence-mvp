@@ -106,6 +106,7 @@ New `components/portal-editing/portal-editing-provider.tsx`:
 - Default to `useBenefitsWizardStore` for the wizard and Edit Benefit; the portal supplies an adapter hydrated from `GET /api/clients/[id]/benefits/[category]?forPortal=1&withTopics=1`.
 - Sections map 1:1 to the existing panel: Portal Header Button, Typography, Branding, Benefit Messaging, Video Source, How Can We Help, Quick Answers, Have Questions.
 - Save through `saveBenefit`; revalidate the hub’s SWR key and call `refetchPortal()`.
+- **The Disclosure section is the same full-width dialog**, supplied through `extraSections` with `scope={{ kind: "benefit", category, label }}`. It reads and writes only this hub's `disclaimers.byCategory[category]` row — never the Landing Page row, and never another benefit's. Because the benefit panel already owns a draft, the dialog has no `onSave`: **Done** closes and the panel's Save commits the benefit and its disclosure together; **Cancel** runs the panel's cancel (refetch + re-hydrate).
 
 ### My Benefits Team
 

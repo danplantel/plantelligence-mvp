@@ -79,15 +79,19 @@ vi.mock("@/components/portal-editing/portal-editing-provider", () => ({
 }));
 
 vi.mock("swr", () => ({
-  default: () => ({ data: { benefit: { title: "Retirement Plan" } }, error: undefined }),
+  default: () => ({
+    data: { benefit: { title: "Retirement Plan" } },
+    error: undefined,
+  }),
   useSWRConfig: () => ({ mutate: mocks.mutate }),
 }));
 
 const stepData = { step1: { planId: "plan-1" }, step3: {} };
 
 vi.mock("@/lib/benefits-wizard-store", () => {
-  const store = (selector?: (state: { stepData: typeof stepData }) => unknown) =>
-    selector ? selector({ stepData }) : { stepData };
+  const store = (
+    selector?: (state: { stepData: typeof stepData }) => unknown,
+  ) => (selector ? selector({ stepData }) : { stepData });
   (store as any).getState = () => ({
     stepData,
     saveStepData: mocks.saveStepData,
@@ -114,6 +118,19 @@ vi.mock("@/components/wizard/benefits-steps/benefits-editor-panel", () => ({
       {footer}
     </div>
   ),
+}));
+
+// The Disclosure section is now the same full-width dialog as every other
+// portal panel. A plain conditional wrapper keeps this suite about the
+// `byCategory` write, not Radix's portal machinery.
+vi.mock("@/components/ui/dialog", () => ({
+  Dialog: ({ open, children }: any) =>
+    open ? <div role="dialog">{children}</div> : null,
+  DialogContent: ({ children }: any) => <div>{children}</div>,
+  DialogDescription: ({ children }: any) => <p>{children}</p>,
+  DialogFooter: ({ children }: any) => <div>{children}</div>,
+  DialogHeader: ({ children }: any) => <div>{children}</div>,
+  DialogTitle: ({ children }: any) => <h2>{children}</h2>,
 }));
 
 vi.mock("@/components/portal-editing/portal-editor-action-bar", () => ({
@@ -153,14 +170,21 @@ describe("PortalBenefitEditor — the hub's own disclosure", () => {
     vi.stubGlobal("fetch", mocks.fetch);
   });
 
-  it("offers the section, scoped to this hub", () => {
+  it("offers the section, scoped to this hub", async () => {
+    const user = userEvent.setup();
     render(<PortalBenefitEditor />);
 
-    expect(screen.getByText(/Where this disclosure appears/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/the Retirement Plan page/i),
-    ).toBeInTheDocument();
-    expect(screen.getByLabelText("Benefit disclosure")).toHaveValue(
+    // The panel card names THIS page…
+    expect(screen.getByText("Retirement Plan page")).toBeInTheDocument();
+
+    // …and the dialog edits this hub's own row.
+    await user.click(
+      screen.getByRole("button", { name: /Open footer editor/i }),
+    );
+    // The dialog's "Applies to:" pill names THIS hub, and the editor is scoped to
+    // its `byCategory.Retirement` row.
+    expect(screen.getByText("Applies to:")).toBeInTheDocument();
+    expect(screen.getByLabelText("Disclosure Text")).toHaveValue(
       "Retirement footer.",
     );
   });
@@ -169,7 +193,10 @@ describe("PortalBenefitEditor — the hub's own disclosure", () => {
     const user = userEvent.setup();
     render(<PortalBenefitEditor />);
 
-    await user.type(screen.getByLabelText("Benefit disclosure"), "!");
+    await user.click(
+      screen.getByRole("button", { name: /Open footer editor/i }),
+    );
+    await user.type(screen.getByLabelText("Disclosure Text"), "!");
 
     const patch = mocks.patchClientData.mock.calls.at(-1)?.[0] as {
       disclaimers: { byCategory: Record<string, any>; disclaimers: unknown[] };
@@ -189,7 +216,10 @@ describe("PortalBenefitEditor — the hub's own disclosure", () => {
     const user = userEvent.setup();
     render(<PortalBenefitEditor />);
 
-    await user.type(screen.getByLabelText("Benefit disclosure"), "!");
+    await user.click(
+      screen.getByRole("button", { name: /Open footer editor/i }),
+    );
+    await user.type(screen.getByLabelText("Disclosure Text"), "!");
     await user.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => expect(mocks.saveBenefit).toHaveBeenCalledTimes(1));

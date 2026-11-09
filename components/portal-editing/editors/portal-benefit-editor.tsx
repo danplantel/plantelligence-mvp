@@ -5,7 +5,7 @@ import useSWR, { useSWRConfig } from "swr";
 import { Loader2 } from "lucide-react";
 
 import { BenefitsEditorPanel } from "@/components/wizard/benefits-steps/benefits-editor-panel";
-import { PortalDisclosureSection } from "@/components/portal-editing/portal-disclosure-section";
+import { PortalFooterDialog } from "@/components/portal-editing/portal-footer-dialog";
 import { PortalLiveBadge } from "@/components/portal-editing/portal-live-badge";
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
@@ -560,13 +560,15 @@ export function PortalBenefitEditor() {
       onTopicsSaved={() => {
         if (benefitKey) void mutate(benefitKey);
       }}
-      // Section 9: this hub's own footer disclosure. The benefit editor has no
-      // footer, so the section is supplied by this panel.
+      // Section 9: this hub's own footer disclosure, as the same full-width
+      // dialog the other portal panels use — scoped to THIS benefit's
+      // `byCategory` row. There is no `onSave`: the panel's own Save bar writes
+      // the benefit and the disclosure together, exactly as before.
       extraSections={[
         {
           title: "Disclosure",
           content: (
-            <PortalDisclosureSection
+            <PortalFooterDialog
               value={
                 (clientData as { disclaimers?: unknown } | null)?.disclaimers
               }
@@ -592,6 +594,7 @@ export function PortalBenefitEditor() {
                 label: disclosureLabel,
               }}
               onChange={handleDisclaimersChange}
+              onCancel={() => void cancel()}
             />
           ),
         },
