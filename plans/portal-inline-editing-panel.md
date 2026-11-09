@@ -8,19 +8,21 @@ Editing is **role-gated per page** using the existing permission grid. The flag 
 
 ## Permission map
 
-| Portal page | Route | What the panel edits | Permission |
-|---|---|---|---|
-| Home | `/[slug]` | Hero, welcome banner, mission, benefit visibility, branding, typography, disclaimers | `plan_details_branding: edit` |
-| Benefit hub | `/[slug]/retirement`, `/health-insurance`, `/life-insurance`, `/[custom-benefit]` | Header CTA, welcome banner, typography, branding, messaging, plan video, help cards, quick answers, key contact card style | `create_benefits: edit` |
-| Documents | Document sections inside a benefit hub (and Employee Resources) | Upload, reorder, category, visibility, delete | `documents: edit` |
-| My Benefits Team | `/[slug]/my-benefits-team` | Contact cards, visibility toggles, CTA buttons, contact form topics | `key_contacts: edit` |
-| News & Events | `/[slug]/news-events` | Portal notices, pop-ups/news posts, CTA text/link, publish window | `marketing: edit` |
-| Videos | Video sections inside a benefit hub and Employee Resources | Plan video source, hero video, employee-resource videos | `video: edit` |
+| Portal page      | Route                                                                             | What the panel edits                                                                                                       | Permission                    |
+| ---------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Home             | `/[slug]`                                                                         | Hero, welcome banner, mission, benefit visibility, branding, typography, disclaimers                                       | `plan_details_branding: edit` |
+| Benefit hub      | `/[slug]/retirement`, `/health-insurance`, `/life-insurance`, `/[custom-benefit]` | Header CTA, welcome banner, typography, branding, messaging, plan video, help cards, quick answers, key contact card style | `create_benefits: edit`       |
+| Documents        | Document sections inside a benefit hub (and Employee Resources)                   | Upload, reorder, category, visibility, delete                                                                              | `documents: edit`             |
+| My Benefits Team | `/[slug]/my-benefits-team`                                                        | Contact cards, visibility toggles, CTA buttons, contact form topics                                                        | `key_contacts: edit`          |
+| News & Events    | `/[slug]/news-events`                                                             | Portal notices, pop-ups/news posts, CTA text/link, publish window                                                          | `marketing: edit`             |
+| Videos           | Video sections inside a benefit hub and Employee Resources                        | Plan video source, hero video, employee-resource videos                                                                    | `video: edit`                 |
 
 Notes:
+
 - Webinar replays are created by the marketing surface today (`/api/webinars` is gated on `marketing: edit`), so News & Events stays `marketing`.
 - Owner and Team Member continue to short-circuit; a Collaborator must be assigned to the plan **and** hold `edit` on that function.
 - A page the viewer cannot edit still opens the panel in a read-only state with a clear “View only” explanation, or the launcher is disabled with a tooltip. No write control is rendered.
+- **The shared footer is a `plan_details_branding` write.** Every panel that carries it — Home, each benefit hub, My Benefits Team, News & Events and Employee Resources — gates its Disclosure section on `plan_details_branding: edit` even when the page's own function differs. The provider exposes `canEditBranding` for this direct check, because `canEditFunction` is scoped to the target's permission list (which is `marketing`, `key_contacts` or `documents` on those pages). The footer's blue **Edit footer** button now opens the current page's Disclosure section instead of navigating to the Landing Page.
 
 ## Architecture
 
@@ -95,6 +97,7 @@ New `components/portal-editing/portal-editing-provider.tsx`:
 - Extract the reusable sections from [`edit-plan-preview-section.tsx`](components/wizard/new-client-steps/sections/edit-plan-preview-section.tsx:298) into a `PlanHomeEditor` that accepts `clientData` and `onPatch` instead of reading `useNewClientWizardStore` directly.
 - Sections: Hero background and overlay, welcome statement, mission statement, company logo, brand images, typography, disclaimers.
 - Save through the plan PUT route; tighten that route so home fields require `plan_details_branding: edit` rather than accepting `create_benefits`.
+- **Disclosure is a dialog, not an inline section.** The panel's 36rem column (plus the Comments rail on the right) leaves the live footer at the bottom of the page as a sliver, so the legal copy cannot be proof-read while the panel is open. The Disclosure section therefore keeps only a heading, the scope line (with the painted pages in bold) and an **Open footer editor** button; the editor opens in a wide [`PortalFooterDialog`](components/portal-editing/portal-footer-dialog.tsx:65) with side gutters, capped at 110rem. The dialog starts at Create Client Step 5's **Applies to:** pill and keeps Step 5's [`DisclosureFooterEditor`](components/wizard/steps/sections/disclosure-footer-editor.tsx:67) — footer-background choices, **Use Default** / **Add my own** (checked automatically when the live footer is a custom disclosure), and the textarea embedded inside the real footer so preview and editor are one surface. Its fixed bottom bar carries **Cancel** (the panel's own discard + refetch) and **Done**. The page's `Edit footer` affordance raises `PORTAL_SECTION_IDS.disclosure`, and the dialog opens as the panel arrives at that section. The draft/Save contract is unchanged: typing repaints the preview and the live page, and only the panel's Save writes the envelope. Panels without a general Save bar (My Benefits Team, News & Events, Employee Resources) host the same dialog through [`PortalFooterSection`](components/portal-editing/portal-footer-section.tsx:29): **Done** performs the plan PUT, disables itself with a **Saving…** spinner while in flight, and is guarded so one press produces one save and one toast.
 
 ### Benefit hubs
 
@@ -105,7 +108,7 @@ New `components/portal-editing/portal-editing-provider.tsx`:
 
 ### My Benefits Team
 
-- Extract the contact list editor from [`edit-client/[id]/page.tsx`](app/(dashboard)/edit-client/[id]/page.tsx:1711) into a shared `KeyContactsEditor` with props for `contacts`, `onChange`, `planId`, and `categories`.
+- Extract the contact list editor from [`edit-client/[id]/page.tsx`](<app/(dashboard)/edit-client/[id]/page.tsx:1711>) into a shared `KeyContactsEditor` with props for `contacts`, `onChange`, `planId`, and `categories`.
 - The portal editor reuses [`BenefitContactDialog`](components/wizard/benefits-steps/benefit-contact-dialog.tsx:288) for add/edit.
 - Writes the plan’s `keyContacts` blob; the portal’s `clientData` and the seat overlay already resolve the cards.
 - Server route must require `key_contacts: edit` for `keyContacts` writes instead of only accepting `create_benefits` or `plan_details_branding`.
@@ -132,15 +135,15 @@ New `components/portal-editing/portal-editing-provider.tsx`:
 
 Client-side gating only hides controls. Each save endpoint must be audited and, where needed, tightened:
 
-| Write | Current gate | Required gate |
-|---|---|---|
-| Plan home fields | `create_benefits` or `plan_details_branding` edit | `plan_details_branding` edit |
-| Plan `keyContacts` | `create_benefits` or `plan_details_branding` edit | `key_contacts` edit |
-| Benefit row | `create_benefits` edit | already correct |
-| Documents | verify per route | `documents` edit |
-| Marketing assets | `marketing` edit | already correct |
-| Videos | verify per route | `video` edit |
-| Webinars | `marketing` edit | keep `marketing` |
+| Write              | Current gate                                      | Required gate                |
+| ------------------ | ------------------------------------------------- | ---------------------------- |
+| Plan home fields   | `create_benefits` or `plan_details_branding` edit | `plan_details_branding` edit |
+| Plan `keyContacts` | `create_benefits` or `plan_details_branding` edit | `key_contacts` edit          |
+| Benefit row        | `create_benefits` edit                            | already correct              |
+| Documents          | verify per route                                  | `documents` edit             |
+| Marketing assets   | `marketing` edit                                  | already correct              |
+| Videos             | verify per route                                  | `video` edit                 |
+| Webinars           | `marketing` edit                                  | keep `marketing`             |
 
 Collaborators remain scoped by assignment and category scope; the existing `resolvePlanAccess` path is the one gate. `?comments=on` never grants access on its own.
 

@@ -137,6 +137,14 @@ describe("PortalNewsEditor hero background", () => {
   it("offers the Page Image Header slot for this page's hero", () => {
     render(<PortalNewsEditor />);
 
+    // Section 7 is the shared footer disclosure, on the page's own anchor.
+    expect(
+      screen.getByRole("button", { name: /Open footer editor/i }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-edit-anchor="disclosure"]'),
+    ).toBeInTheDocument();
+
     // `SectionHeader` renders "Section 1: Hero Background" as several nodes.
     expect(screen.getByText(/Hero Background/)).toBeInTheDocument();
     // The hero section carries the anchor the page's blue edit button scrolls to.

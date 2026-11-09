@@ -19,7 +19,9 @@ const mocks = vi.hoisted(() => ({
   finishSave: vi.fn(),
   failSave: vi.fn(),
   resetSave: vi.fn(),
-  uploadBrandingToR2: vi.fn(async () => "org/plan-1/branding/employeeResourcesHero.png"),
+  uploadBrandingToR2: vi.fn(
+    async () => "org/plan-1/branding/employeeResourcesHero.png",
+  ),
   fetch: vi.fn(async (_input: unknown, _init?: RequestInit) => ({
     ok: true,
     json: async () => ({ success: true }),
@@ -151,6 +153,14 @@ describe("PortalEmployeeResourcesEditor hero background", () => {
   it("offers the header slot plus the page's two question sections", () => {
     render(<PortalEmployeeResourcesEditor />);
 
+    // Section 4 is the shared footer disclosure, on the page's own anchor.
+    expect(
+      screen.getByRole("button", { name: /Open footer editor/i }),
+    ).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-edit-anchor="disclosure"]'),
+    ).toBeInTheDocument();
+
     const slot = screen.getByTestId("upload-header");
     expect(slot.dataset.slots).toBe("employeeResourcesHero");
     // No header of its own yet, so the slot is empty (the page falls back).
@@ -165,9 +175,10 @@ describe("PortalEmployeeResourcesEditor hero background", () => {
       "featured",
       "answers",
     ]);
-    expect(
-      builders.map((node) => node.dataset.location),
-    ).toEqual(["employee_resources", "employee_resources"]);
+    expect(builders.map((node) => node.dataset.location)).toEqual([
+      "employee_resources",
+      "employee_resources",
+    ]);
     expect(builders.map((node) => node.dataset.plan)).toEqual([
       "plan-1",
       "plan-1",

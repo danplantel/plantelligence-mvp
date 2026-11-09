@@ -37,7 +37,10 @@ const clientData = {
 };
 
 vi.mock("@/contexts/client-portal-context", () => ({
-  useClientPortal: () => ({ clientData, patchClientData: mocks.patchClientData }),
+  useClientPortal: () => ({
+    clientData,
+    patchClientData: mocks.patchClientData,
+  }),
 }));
 
 const editingValue = {
@@ -58,6 +61,18 @@ const editingValue = {
 vi.mock("@/components/portal-editing/portal-editing-provider", () => ({
   usePortalEditing: () => editingValue,
   useOptionalPortalEditing: () => editingValue,
+}));
+
+// The Disclosure section now opens a full-width dialog. A plain conditional
+// wrapper keeps the test about the draft, not about Radix's portal machinery.
+vi.mock("@/components/ui/dialog", () => ({
+  Dialog: ({ open, children }: any) =>
+    open ? <div role="dialog">{children}</div> : null,
+  DialogContent: ({ children }: any) => <div>{children}</div>,
+  DialogDescription: ({ children }: any) => <p>{children}</p>,
+  DialogFooter: ({ children }: any) => <div>{children}</div>,
+  DialogHeader: ({ children }: any) => <div>{children}</div>,
+  DialogTitle: ({ children }: any) => <h2>{children}</h2>,
 }));
 
 import { PortalHomeEditor } from "@/components/portal-editing/editors/portal-home-editor";
@@ -82,18 +97,25 @@ describe("PortalHomeEditor live preview", () => {
     );
   });
 
-  it("carries the footer disclosure as the panel's own last section", async () => {
+  it("carries the footer disclosure as the panel's own last section, opened at full width", async () => {
     const user = userEvent.setup();
     render(<PortalHomeEditor />);
 
-    // The section is there, numbered by the panel, with the scope notice that says
-    // which four footers it paints.
+    // The section is there, numbered by the panel, but the narrow column only
+    // holds a preview card — the editor itself opens in the full-width dialog.
     expect(screen.getByText(/Section \d+: Disclosure/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Disclosure Text")).not.toBeInTheDocument();
+
+    await user.click(
+      screen.getByRole("button", { name: /Open footer editor/i }),
+    );
+
+    // …and the dialog carries Create Client Step 5's editor.
     expect(
-      screen.getByText(/Where this disclosure appears/i),
+      screen.getByRole("radio", { name: /Use Default/i }),
     ).toBeInTheDocument();
 
-    await user.type(screen.getByLabelText("Footer disclosure"), "T");
+    await user.type(screen.getByLabelText("Disclosure Text"), "T");
 
     // The edit is a `disclaimers` patch — the value the portal layout resolves the
     // footer from — and it creates the Home Page row the non-hub pages read.

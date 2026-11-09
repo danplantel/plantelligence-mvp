@@ -51,6 +51,16 @@ interface PortalEditingContextValue {
   /** May this viewer edit one specific function on this page? */
   canEditFunction: (permission: PermissionFunction) => boolean;
   /**
+   * May this viewer edit the plan's BRANDING (and therefore the footer
+   * disclosure), independent of the page's own function?
+   *
+   * `canEditFunction` is scoped to the target's `permissions` list, which does not
+   * include `plan_details_branding` on News & Events, My Benefits Team or
+   * Employee Resources. The Disclosure section those panels now carry is still a
+   * branding write, so it checks the grid directly through this flag.
+   */
+  canEditBranding: boolean;
+  /**
    * The access summary is still in flight.
    *
    * The floating Edit control renders a SKELETON while this is true instead of a
@@ -144,10 +154,7 @@ export function PortalEditingProvider({ children }: { children: ReactNode }) {
     [pathname, planId, customHubSlug],
   );
 
-  const viewer = useMemo(
-    () => ({ isCollaborator: false, can }),
-    [can],
-  );
+  const viewer = useMemo(() => ({ isCollaborator: false, can }), [can]);
   // Wait for the access summary before showing an edit affordance. The hook is
   // fail-open while loading, so rendering from it would flash the editor for a
   // viewer whose real grid is view-only.
@@ -157,9 +164,15 @@ export function PortalEditingProvider({ children }: { children: ReactNode }) {
   );
   const canEditFunction = useCallback(
     (permission: PermissionFunction) =>
-      !isAccessLoading &&
-      canEditPortalFunction(target, viewer, permission),
+      !isAccessLoading && canEditPortalFunction(target, viewer, permission),
     [isAccessLoading, target, viewer],
+  );
+  // Page-independent: the footer disclosure is a `plan_details_branding` write
+  // even when it is opened from a panel whose own function is `marketing`,
+  // `key_contacts` or `documents`.
+  const canEditBranding = useMemo(
+    () => !isAccessLoading && can("plan_details_branding", "edit"),
+    [isAccessLoading, can],
   );
 
   const [isOpen, setIsOpen] = useState(false);
@@ -287,6 +300,7 @@ export function PortalEditingProvider({ children }: { children: ReactNode }) {
       planId,
       canEdit,
       canEditFunction,
+      canEditBranding,
       isAccessLoading,
       isOpen,
       openPanel,
@@ -310,6 +324,7 @@ export function PortalEditingProvider({ children }: { children: ReactNode }) {
       planId,
       canEdit,
       canEditFunction,
+      canEditBranding,
       isAccessLoading,
       isOpen,
       openPanel,

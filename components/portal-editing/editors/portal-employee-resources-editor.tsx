@@ -4,13 +4,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
+import { PortalFooterSection } from "@/components/portal-editing/portal-footer-section";
 import { brandImagesFromClient } from "@/components/portal-editing/portal-brand-images";
 import { SectionHeader } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import { QuickAnswersBuilder } from "@/components/wizard/benefits-steps/quick-answers-builder";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import { useClientPortal } from "@/contexts/client-portal-context";
-import { portalEditAnchor } from "@/lib/portal-editor-sections";
+import {
+  PORTAL_SECTION_IDS,
+  portalEditAnchor,
+} from "@/lib/portal-editor-sections";
 import type { BrandImagesData } from "@/types/new-client-wizard";
 
 /**
@@ -51,9 +55,8 @@ export function PortalEmployeeResourcesEditor() {
     () => brandImagesFromClient(clientData as Record<string, any> | null),
     [clientData],
   );
-  const [brandImages, setBrandImages] = useState<BrandImagesData>(
-    savedBrandImages,
-  );
+  const [brandImages, setBrandImages] =
+    useState<BrandImagesData>(savedBrandImages);
   const [isDirty, setIsDirty] = useState(false);
   const brandImagesRef = useRef<BrandImagesData>(savedBrandImages);
   const heroDirtyRef = useRef(false);
@@ -175,9 +178,9 @@ export function PortalEmployeeResourcesEditor() {
         >
           <SectionHeader number={1} title="Hero Background" />
           <p className="text-[12px] leading-relaxed text-muted-foreground">
-            The image behind this page&rsquo;s &ldquo;Employee
-            Resources&rdquo; title. It fills a band 400&nbsp;px tall on a desktop
-            screen (1440&times;400 is the recommended image), so keep the subject
+            The image behind this page&rsquo;s &ldquo;Employee Resources&rdquo;
+            title. It fills a band 400&nbsp;px tall on a desktop screen
+            (1440&times;400 is the recommended image), so keep the subject
             centred. When none is set, this page uses its own bundled default
             &mdash; the Page Image Header is not borrowed.
           </p>
@@ -200,9 +203,9 @@ export function PortalEmployeeResourcesEditor() {
         >
           <SectionHeader number={2} title="How Can We Help You Today?" />
           <p className="text-[12px] leading-relaxed text-muted-foreground">
-            The cards participants choose from, in the order they appear. Promote
-            a question here, reorder the cards, or move one down to Quick
-            Answers.
+            The cards participants choose from, in the order they appear.
+            Promote a question here, reorder the cards, or move one down to
+            Quick Answers.
           </p>
           <div className="rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
             <QuickAnswersBuilder
@@ -219,8 +222,8 @@ export function PortalEmployeeResourcesEditor() {
         >
           <SectionHeader number={3} title="Quick Answers" />
           <p className="text-[12px] leading-relaxed text-muted-foreground">
-            The grouped questions below the cards — the same board as above, so a
-            question is always in exactly one place.
+            The grouped questions below the cards — the same board as above, so
+            a question is always in exactly one place.
           </p>
           <div className="rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
             <QuickAnswersBuilder
@@ -229,6 +232,15 @@ export function PortalEmployeeResourcesEditor() {
               mode="answers"
             />
           </div>
+        </section>
+
+        {/* Section 4 — the footer disclosure shared by the four non-hub pages. */}
+        <section
+          className="space-y-4"
+          data-edit-anchor={PORTAL_SECTION_IDS.disclosure}
+        >
+          <SectionHeader number={4} title="Disclosure" />
+          <PortalFooterSection />
         </section>
       </div>
     </PortalEditorShell>

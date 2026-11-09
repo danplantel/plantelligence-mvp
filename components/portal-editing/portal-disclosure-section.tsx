@@ -73,6 +73,31 @@ const BACKGROUND_CHOICES: {
 ];
 
 /**
+ * The text this scope's footer is showing, for a given stored envelope.
+ *
+ * A stored (even empty) row wins over the fallback: otherwise clearing the
+ * textarea would snap the box back to the advisor's text mid-typing. Exported so
+ * a footer PREVIEW (the full-width dialog that hosts this section) resolves the
+ * exact same words the controls edit — the two can never disagree.
+ */
+export function resolvePortalDisclosureText(
+  value: unknown,
+  scope: PortalDisclosureScope = { kind: "landing" },
+  fallbackText = "",
+): string {
+  const isBenefit = scope.kind === "benefit";
+  const storedText = isBenefit
+    ? findBenefitDisclosure(value, scope.category)
+    : findLandingDisclosure(value);
+
+  return storedText
+    ? isBenefit
+      ? (storedText as { text: string }).text
+      : String((storedText as { row: { text?: unknown } }).row.text ?? "")
+    : fallbackText;
+}
+
+/**
  * "Section N — Disclosure": a footer disclosure, edited where the advisor can see
  * it.
  *
@@ -96,17 +121,7 @@ export function PortalDisclosureSection({
   onChange,
 }: PortalDisclosureSectionProps) {
   const isBenefit = scope.kind === "benefit";
-
-  // A stored (even empty) row wins over the fallback: otherwise clearing the
-  // textarea would snap the box back to the advisor's text mid-typing.
-  const storedText = isBenefit
-    ? findBenefitDisclosure(value, scope.category)
-    : findLandingDisclosure(value);
-  const text = storedText
-    ? isBenefit
-      ? (storedText as { text: string }).text
-      : String((storedText as { row: { text?: unknown } }).row.text ?? "")
-    : fallbackText;
+  const text = resolvePortalDisclosureText(value, scope, fallbackText);
 
   const background = parseFooterBackgroundPreference(value) ?? {};
   const mode = (background.mode as PortalFooterBackgroundMode) || "primary";
@@ -153,18 +168,19 @@ export function PortalDisclosureSection({
               </p>
               <p className="text-gray-600">
                 The Landing Page, My Benefits Team, News & Events and Employee
-                Resources share a separate disclosure, set on the Landing Page&rsquo;s
-                panel. Every other benefit keeps its own.
+                Resources share a separate disclosure, set on the Landing
+                Page&rsquo;s panel. Every other benefit keeps its own.
               </p>
             </>
           ) : (
             <>
               <p>
                 The band at the very bottom of the portal — the footer of{" "}
-                <strong>the Landing Page</strong>, <strong>My Benefits Team</strong>,{" "}
+                <strong>the Landing Page</strong>,{" "}
+                <strong>My Benefits Team</strong>,{" "}
                 <strong>News & Events</strong> and{" "}
-                <strong>Employee Resources</strong>. One disclosure covers all four,
-                so editing it here changes every one of those footers.
+                <strong>Employee Resources</strong>. One disclosure covers all
+                four, so editing it here changes every one of those footers.
               </p>
               <p className="text-gray-600">
                 The benefit pages (Retirement, Group Health, Life and the Custom
@@ -186,8 +202,8 @@ export function PortalDisclosureSection({
               choice.value === "primary"
                 ? brandColor
                 : choice.value === "secondary"
-                  ? secondaryColor
-                  : customColor || brandColor;
+                ? secondaryColor
+                : customColor || brandColor;
             return (
               <button
                 key={choice.value}

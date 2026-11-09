@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { usePlanPreviewEditorSections } from "@/components/wizard/new-client-steps/sections/components/plan-preview-editor-sections";
-import { PortalDisclosureSection } from "@/components/portal-editing/portal-disclosure-section";
+import { PortalFooterDialog } from "@/components/portal-editing/portal-footer-dialog";
 import { PortalBenefitsGlanceSection } from "@/components/portal-editing/portal-benefits-glance-section";
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
@@ -17,7 +17,10 @@ import {
   normalizeTypographyThemeId,
   type TypographyThemeId,
 } from "@/lib/typography-themes";
-import { readPortalContacts, resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
+import {
+  readPortalContacts,
+  resolvePortalPrimaryContact,
+} from "@/lib/portal-primary-contact";
 import type {
   BrandImageData,
   BrandImagesData,
@@ -114,17 +117,14 @@ function companyFromClient(
     heroOverlayOpacity: clientData?.heroOverlayOpacity,
     heroBackgroundOpacity: clientData?.heroBackgroundOpacity,
     heroContainerOpacity: clientData?.heroContainerOpacity,
-    heroContainerBackgroundOpacity:
-      clientData?.heroContainerBackgroundOpacity,
+    heroContainerBackgroundOpacity: clientData?.heroContainerBackgroundOpacity,
     heroContainerBlockOpacity: clientData?.heroContainerBlockOpacity,
     heroCompanyNameColor: clientData?.heroCompanyNameColor,
     heroContainerInverted: clientData?.heroContainerInverted ?? false,
     heroBackgroundInverted: clientData?.heroBackgroundInverted ?? false,
     heroUseGradient: clientData?.heroUseGradient ?? false,
-    desktopHeroBackgroundPosition:
-      clientData?.desktopHeroBackgroundPosition,
-    mobileHeroBackgroundPosition:
-      clientData?.mobileHeroBackgroundPosition,
+    desktopHeroBackgroundPosition: clientData?.desktopHeroBackgroundPosition,
+    mobileHeroBackgroundPosition: clientData?.mobileHeroBackgroundPosition,
     heroPortraitImage: String(clientData?.heroPortraitImage ?? ""),
   };
 }
@@ -153,10 +153,7 @@ function clientPatchForField(
 }
 
 /** The PUT payload for a single field. The route merges narrow payloads. */
-function payloadForField(
-  field: string,
-  value: any,
-): Record<string, unknown> {
+function payloadForField(field: string, value: any): Record<string, unknown> {
   if (field === "primaryColor") return { brandColor: value };
   return { [field]: value };
 }
@@ -381,6 +378,12 @@ export function PortalHomeEditor() {
    * builder mirrors Create Plan Step 2 / Edit Client's Preview tab, which has no
    * footer. This section is the portal panel's own — but it writes the very record
    * Step 5 and Edit Client's Disclosures tab write, so the two can never disagree.
+   *
+   * The section itself is a compact card: the panel is only 36rem wide and the
+   * Comments rail can take the other side, so the live footer is a sliver while
+   * the panel is open. The actual editor lives in a full-width dialog
+   * ([`PortalFooterDialog`](../portal-footer-dialog.tsx:52)) whose preview IS the
+   * real footer, so the text can be proof-read at the size participants see it.
    */
   const organizationName =
     String((clientData as any)?.branding?.organizationName || "") ||
@@ -408,7 +411,7 @@ export function PortalHomeEditor() {
   const disclosureSection = {
     title: "Disclosure",
     content: (
-      <PortalDisclosureSection
+      <PortalFooterDialog
         value={(clientData as any)?.disclaimers}
         // What the footer shows while the plan has no disclosure of its own — the
         // advisor's profile disclaimer, exactly as the portal layout falls back to it.
@@ -418,6 +421,9 @@ export function PortalHomeEditor() {
         brandColor={companyData.primaryColor}
         secondaryColor={companyData.secondaryColor}
         onChange={handleDisclaimersChange}
+        // The dialog's Cancel is the panel's Cancel: throw the draft away and
+        // refetch the saved plan, then close over the reverted page.
+        onCancel={() => void cancel()}
       />
     ),
   };

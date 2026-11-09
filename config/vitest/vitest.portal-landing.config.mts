@@ -27,6 +27,11 @@ const portalLandingTests = [
   "lib/__tests__/portal-disclosures.test.ts",
   // The Edit Panel's Disclosure section (text, footer background, its notice)
   "components/portal-editing/__tests__/portal-disclosure-section.test.tsx",
+  // The Disclosure section's full-width footer dialog: compact card in the panel,
+  // real footer + editor over the page, and the section's "arrive open" behaviour
+  "components/portal-editing/__tests__/portal-footer-dialog.test.tsx",
+  // The same section on non-branding pages, gated on `plan_details_branding`
+  "components/portal-editing/__tests__/portal-footer-section.test.tsx",
   // The Landing panel itself: every edit previews live, and the Disclosure
   // section is carried as the panel's last one
   "components/portal-editing/editors/__tests__/portal-home-editor-live-preview.test.tsx",

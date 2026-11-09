@@ -31,8 +31,12 @@ import { WebinarCreateDialog } from "@/components/webinars/webinar-create-dialog
 import { notifyPortalMeetingsChanged } from "@/lib/portal-data-events";
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
+import { PortalFooterSection } from "@/components/portal-editing/portal-footer-section";
 import { SectionHeader } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
-import { portalEditAnchor } from "@/lib/portal-editor-sections";
+import {
+  PORTAL_SECTION_IDS,
+  portalEditAnchor,
+} from "@/lib/portal-editor-sections";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
 import MarketingAssetModal, {
   type AssetType,
@@ -88,7 +92,10 @@ function parseDay(value: string | null | undefined): Date | null {
  * would expand the accordion underneath it.
  */
 function headerAction(action: () => void) {
-  const run = (event: { preventDefault: () => void; stopPropagation: () => void }) => {
+  const run = (event: {
+    preventDefault: () => void;
+    stopPropagation: () => void;
+  }) => {
     event.preventDefault();
     event.stopPropagation();
     action();
@@ -114,7 +121,9 @@ const MEETING_STATUS_CLASSES: Record<string, string> = {
 };
 
 function meetingStatusClass(status?: string | null): string {
-  return MEETING_STATUS_CLASSES[status ?? ""] ?? MEETING_STATUS_CLASSES.Upcoming;
+  return (
+    MEETING_STATUS_CLASSES[status ?? ""] ?? MEETING_STATUS_CLASSES.Upcoming
+  );
 }
 
 /** "Tue, Mar 3" — the day a meeting sits on, as a local calendar day. */
@@ -311,7 +320,9 @@ export function PortalNewsEditor() {
    * validation and preview the dashboard shows, instead of a second copy of
    * forty fields that would drift from it.
    */
-  const [fullEditor, setFullEditor] = useState<MarketingAssetDraft | null>(null);
+  const [fullEditor, setFullEditor] = useState<MarketingAssetDraft | null>(
+    null,
+  );
 
   /** The meeting / webinar creator that is open, if any. */
   const [inlineCreator, setInlineCreator] = useState<
@@ -421,9 +432,7 @@ export function PortalNewsEditor() {
     } catch (error) {
       // The panel's own error bar: the row is still there, and so is the reason.
       const message =
-        error instanceof Error
-          ? error.message
-          : "Could not delete this asset.";
+        error instanceof Error ? error.message : "Could not delete this asset.";
       failSave(message);
       toast.error(message);
     } finally {
@@ -438,9 +447,8 @@ export function PortalNewsEditor() {
     () => brandImagesFromClient(clientData as Record<string, any> | null),
     [clientData],
   );
-  const [brandImages, setBrandImages] = useState<BrandImagesData>(
-    savedBrandImages,
-  );
+  const [brandImages, setBrandImages] =
+    useState<BrandImagesData>(savedBrandImages);
   const brandImagesRef = useRef<BrandImagesData>(savedBrandImages);
   const heroDirtyRef = useRef(false);
   const dirtyAssetsRef = useRef<Set<string>>(new Set());
@@ -600,10 +608,21 @@ export function PortalNewsEditor() {
     } catch (error) {
       // Keep the draft and its preview so the advisor can retry.
       failSave(
-        error instanceof Error ? error.message : "Could not save these changes.",
+        error instanceof Error
+          ? error.message
+          : "Could not save these changes.",
       );
     }
-  }, [planId, key, mutateList, mutate, beginSave, finishSave, failSave, refetchPortal]);
+  }, [
+    planId,
+    key,
+    mutateList,
+    mutate,
+    beginSave,
+    finishSave,
+    failSave,
+    refetchPortal,
+  ]);
 
   /** Throw the draft away: revalidate both sources and re-seed from them. */
   const cancel = useCallback(async () => {
@@ -670,10 +689,10 @@ export function PortalNewsEditor() {
         <section className="space-y-4">
           <SectionHeader number={2} title="Create Content" />
           <p className="text-[12px] leading-relaxed text-muted-foreground">
-            A new item is saved the moment its editor saves — the Save bar at the
-            bottom of this panel covers the fields below, not what you create
-            here. A news post needs a headline, a body and its own background
-            image, and a plan can carry up to four.
+            A new item is saved the moment its editor saves — the Save bar at
+            the bottom of this panel covers the fields below, not what you
+            create here. A news post needs a headline, a body and its own
+            background image, and a plan can carry up to four.
           </p>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             {CREATE_OPTIONS.map((option) => {
@@ -762,7 +781,10 @@ export function PortalNewsEditor() {
                               }`}
                               className="shrink-0 whitespace-nowrap text-[10px] tabular-nums text-muted-foreground"
                             >
-                              {formatAssetWindow(draft.startDate, draft.endDate)}
+                              {formatAssetWindow(
+                                draft.startDate,
+                                draft.endDate,
+                              )}
                             </span>
                             {/* The publishing status, in the Marketing tool's own
                                 colours — the same map its asset list uses. */}
@@ -973,9 +995,7 @@ export function PortalNewsEditor() {
                   <AccordionTrigger className="py-2.5 text-left text-sm hover:no-underline">
                     <span className="flex min-w-0 flex-1 items-center gap-2 pr-2">
                       <span className="min-w-0 flex-1 truncate text-left font-medium text-gray-900 dark:text-gray-100">
-                        {meeting.meeting ||
-                          meeting.meetingType ||
-                          "Meeting"}
+                        {meeting.meeting || meeting.meetingType || "Meeting"}
                       </span>
                       <span className="shrink-0 whitespace-nowrap text-[10px] tabular-nums text-muted-foreground">
                         {formatMeetingDay(meeting.date)}
@@ -1036,9 +1056,7 @@ export function PortalNewsEditor() {
                           ["Date", formatMeetingDay(meeting.date)],
                           [
                             "Time",
-                            meeting.time
-                              ? formatTimeAbbrev(meeting.time)
-                              : "—",
+                            meeting.time ? formatTimeAbbrev(meeting.time) : "—",
                           ],
                           ["Duration", meeting.duration || "—"],
                           ["Format", meeting.format || "—"],
@@ -1173,7 +1191,9 @@ export function PortalNewsEditor() {
         }}
         onConfirm={() => void deleteMeeting()}
         title="Delete this meeting?"
-        description={`"${meetingPendingDelete?.title ?? ""}" will be removed from the plan. This cannot be undone.`}
+        description={`"${
+          meetingPendingDelete?.title ?? ""
+        }" will be removed from the plan. This cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"
@@ -1189,12 +1209,24 @@ export function PortalNewsEditor() {
         }}
         onConfirm={() => void deleteAsset()}
         title="Delete this asset?"
-        description={`"${pendingDelete?.headline ?? ""}" will be removed from the portal. This cannot be undone.`}
+        description={`"${
+          pendingDelete?.headline ?? ""
+        }" will be removed from the portal. This cannot be undone.`}
         confirmText="Delete"
         cancelText="Cancel"
         variant="destructive"
         isLoading={deletingAssetId !== null}
       />
+
+      {/* Section 7 — the footer disclosure shared by the four non-hub pages.
+          It opens the same full-width dialog the Home panel uses. */}
+      <section
+        className="space-y-4"
+        data-edit-anchor={PORTAL_SECTION_IDS.disclosure}
+      >
+        <SectionHeader number={7} title="Disclosure" />
+        <PortalFooterSection />
+      </section>
     </PortalEditorShell>
   );
 }

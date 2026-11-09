@@ -110,7 +110,10 @@ vi.mock("@/components/ui/universal-image-editor-modal", () => ({
 
 vi.mock("@/components/ui/chip-typeahead", () => ({
   ChipTypeahead: ({ selectedValues }: { selectedValues: string[] }) => (
-    <div data-testid="chip-typeahead" data-selected={selectedValues.join(",")} />
+    <div
+      data-testid="chip-typeahead"
+      data-selected={selectedValues.join(",")}
+    />
   ),
 }));
 
@@ -145,6 +148,10 @@ describe("PortalTeamEditor — the Create Plan contact panel, hosted on the port
   it("lists one collapsed accordion per contact", () => {
     render(<PortalTeamEditor />);
 
+    // The shared footer disclosure is the panel's third section.
+    expect(
+      screen.getByRole("button", { name: /Open footer editor/i }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Dana Reid")).toBeInTheDocument();
     expect(screen.getByText("Support Line")).toBeInTheDocument();
     expect(screen.getByText(/Contact Details/)).toBeInTheDocument();
@@ -179,10 +186,9 @@ describe("PortalTeamEditor — the Create Plan contact panel, hosted on the port
   it("offers the main contact's two styles, default selected", () => {
     render(<PortalTeamEditor />);
 
-    expect(screen.getByRole("button", { name: /Default style/ })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    expect(
+      screen.getByRole("button", { name: /Default style/ }),
+    ).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByRole("button", { name: /Highlighted/ })).toHaveAttribute(
       "aria-pressed",
       "false",
@@ -193,7 +199,9 @@ describe("PortalTeamEditor — the Create Plan contact panel, hosted on the port
     portal.clientData = {
       id: "plan-1",
       keyContacts: {
-        contacts: [{ id: 1, name: "Dana Reid", benefitsCategory: "Retirement" }],
+        contacts: [
+          { id: 1, name: "Dana Reid", benefitsCategory: "Retirement" },
+        ],
         mainContactStyle: "highlighted",
       },
     };
@@ -212,10 +220,9 @@ describe("PortalTeamEditor — the Create Plan contact panel, hosted on the port
     await user.click(screen.getByRole("button", { name: /Highlighted/ }));
 
     expect(mocks.patchClientData).toHaveBeenCalled();
-    const lastCall =
-      mocks.patchClientData.mock.calls[
-        mocks.patchClientData.mock.calls.length - 1
-      ][0] as { keyContacts: { mainContactStyle?: string } };
+    const lastCall = mocks.patchClientData.mock.calls[
+      mocks.patchClientData.mock.calls.length - 1
+    ][0] as { keyContacts: { mainContactStyle?: string } };
     expect(lastCall.keyContacts.mainContactStyle).toBe("highlighted");
 
     await waitFor(() => expect(putBodies()).toHaveLength(1), { timeout: 3000 });
@@ -248,10 +255,9 @@ describe("PortalTeamEditor — the Create Plan contact panel, hosted on the port
     await user.type(screen.getByPlaceholderText("email@example.com"), "2");
 
     expect(mocks.patchClientData).toHaveBeenCalled();
-    const lastCall =
-      mocks.patchClientData.mock.calls[
-        mocks.patchClientData.mock.calls.length - 1
-      ][0] as { keyContacts: { contacts: { email?: string }[] } };
+    const lastCall = mocks.patchClientData.mock.calls[
+      mocks.patchClientData.mock.calls.length - 1
+    ][0] as { keyContacts: { contacts: { email?: string }[] } };
     expect(lastCall.keyContacts.contacts[0].email).toBe("dana@acme.test2");
   });
 
@@ -288,9 +294,7 @@ describe("PortalTeamEditor — the Create Plan contact panel, hosted on the port
     render(<PortalTeamEditor />);
 
     await user.click(screen.getByText("Support Line"));
-    await user.click(
-      screen.getByRole("button", { name: /Delete contact/ }),
-    );
+    await user.click(screen.getByRole("button", { name: /Delete contact/ }));
 
     await waitFor(() => expect(putBodies()).toHaveLength(1));
     const blob = putBodies()[0].keyContacts;

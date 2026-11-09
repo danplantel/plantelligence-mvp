@@ -78,7 +78,9 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   // Fetch published top banners (portal-notice type only)
   useEffect(() => {
     if (!clientId) return;
-    fetch(`/api/marketing/assets/public?clientId=${clientId}&type=portal-notice`)
+    fetch(
+      `/api/marketing/assets/public?clientId=${clientId}&type=portal-notice`,
+    )
       .then((r) => r.json())
       .then((res) => {
         if (res.success && Array.isArray(res.data) && res.data.length > 0) {
@@ -132,25 +134,13 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   })();
 
   /**
-   * Where the FOOTER's blue edit button should send the advisor.
-   *
-   * The footer disclosure is edited in the panel that owns this page — except on
-   * My Benefits Team, News & Events and Employee Resources, which have no
-   * Disclosure section of their own. There the button goes to the Landing Page,
-   * whose panel holds it (the intent travels in `sessionStorage`, so the panel
-   * opens on the section rather than at the top).
+   * Every portal page now carries a **Disclosure** section in its own panel —
+   * the Home panel, each benefit hub, and (via `PortalFooterSection`) News &
+   * Events, My Benefits Team and Employee Resources. The footer's blue button
+   * therefore always opens the current page's panel at `disclosure`, where the
+   * full-width `PortalFooterDialog` opens itself; no cross-page navigation is
+   * needed.
    */
-  const isLandingPage = !!basePath && pathname === basePath;
-  const isBenefitHub =
-    !!basePath &&
-    [
-      `${basePath}/retirement`,
-      `${basePath}/health-insurance`,
-      `${basePath}/life-insurance`,
-      customHubSlug ? `${basePath}/${customHubSlug}` : "",
-    ].includes(pathname ?? "");
-  const footerEditPath =
-    isLandingPage || isBenefitHub || !basePath ? undefined : basePath;
 
   /**
    * Register this portal page as a comment surface.
@@ -234,7 +224,8 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   // Determine current category from pathname
   const getCurrentCategory = () => {
     if (pathname?.includes("/retirement")) return "Retirement Plan";
-    if (pathname?.includes("/health-insurance")) return "Group Health / Dental / Vision";
+    if (pathname?.includes("/health-insurance"))
+      return "Group Health / Dental / Vision";
     if (pathname?.includes("/life-insurance")) return "Group Life / Disability";
     if (pathname?.includes("/wellness-programs")) return "Wellness Programs";
     // The Custom benefit's own name-slug segment addresses the same page.
@@ -257,10 +248,11 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   // Parse and filter disclaimers based on priority
   const getDisclosuresText = () => {
     // Note: clientData might not have 'branding' sub-object in this context
-    const orgName = (clientData as any)?.branding?.organizationName
-      || session?.user?.organizationName
-      || clientData?.companyName
-      || "[Organization Name]";
+    const orgName =
+      (clientData as any)?.branding?.organizationName ||
+      session?.user?.organizationName ||
+      clientData?.companyName ||
+      "[Organization Name]";
     const compName = clientData?.companyName || "[Company Name]";
 
     // Universal disclaimer text with placeholders resolved. Only the Benefits Hub
@@ -297,12 +289,15 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     let byCategory: Record<string, any> | null = null;
 
     try {
-      const parsed = typeof clientData.disclaimers === "string"
-        ? JSON.parse(clientData.disclaimers)
-        : clientData.disclaimers;
+      const parsed =
+        typeof clientData.disclaimers === "string"
+          ? JSON.parse(clientData.disclaimers)
+          : clientData.disclaimers;
 
       if (parsed && typeof parsed === "object") {
-        disclaimersArray = Array.isArray(parsed.disclaimers) ? parsed.disclaimers : [];
+        disclaimersArray = Array.isArray(parsed.disclaimers)
+          ? parsed.disclaimers
+          : [];
         savedDisclosuresText = parsed.disclosuresText || null;
         useDefaultDisclosures = !!parsed.useDefaultDisclosures;
         byCategory =
@@ -353,11 +348,12 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     // resolve [Organization Name] / [Company Name] so the placeholder never
     // renders literally.
     if (!currentCategoryKey) {
-      const homePageDisclaimers = disclaimersArray.filter((d: any) =>
-        d?.text &&
-        (d.locations?.includes("Home Page") ||
-          d.locations?.includes("Global") ||
-          d.apply_all_benefits_categories === true)
+      const homePageDisclaimers = disclaimersArray.filter(
+        (d: any) =>
+          d?.text &&
+          (d.locations?.includes("Home Page") ||
+            d.locations?.includes("Global") ||
+            d.apply_all_benefits_categories === true),
       );
       if (homePageDisclaimers.length > 0) {
         const homeText = homePageDisclaimers[0].text;
@@ -394,18 +390,19 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
 
     // 1. Category-specific disclaimers (apply_all = false, matches category)
     // Note: If user selected "Benefits Hub" and apply_all = false, it only shows on the Hub main page ("benefits_hub").
-    const categorySpecific = disclaimersArray.filter((d: any) =>
-      !d.apply_all_benefits_categories &&
-      (d.locations?.includes(currentCategory) ||
-        d.locations?.includes("global") ||
-        (!currentCategory && d.locations?.includes("Home Page")))
+    const categorySpecific = disclaimersArray.filter(
+      (d: any) =>
+        !d.apply_all_benefits_categories &&
+        (d.locations?.includes(currentCategory) ||
+          d.locations?.includes("global") ||
+          (!currentCategory && d.locations?.includes("Home Page"))),
     );
 
     // 2. All-categories disclaimers (apply_all = true)
     // These appear across all categories regardless of the specific category selected in locations,
     // as long as they are targeted at the Hub/Portal components.
-    const allCategories = disclaimersArray.filter((d: any) =>
-      d.apply_all_benefits_categories === true
+    const allCategories = disclaimersArray.filter(
+      (d: any) => d.apply_all_benefits_categories === true,
     );
 
     // Resolve any leftover [Organization Name] / [Company Name] placeholders in
@@ -421,9 +418,11 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     // Combine following priority: Per-category > Category-specific > All-categories > Universal
     // (We include universal if useDefaultDisclosures is true OR if it's the final fallback)
     const prioritizedTexts = [
-      ...(perCategoryDisclaimer?.text ? [resolvePlaceholders(perCategoryDisclaimer.text)] : []),
-      ...categorySpecific.map(d => resolvePlaceholders(d.text)),
-      ...allCategories.map(d => resolvePlaceholders(d.text))
+      ...(perCategoryDisclaimer?.text
+        ? [resolvePlaceholders(perCategoryDisclaimer.text)]
+        : []),
+      ...categorySpecific.map((d) => resolvePlaceholders(d.text)),
+      ...allCategories.map((d) => resolvePlaceholders(d.text)),
     ];
 
     // Add universal disclaimer if enabled or as final priority
@@ -436,7 +435,9 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
 
     if (prioritizedTexts.length > 0) {
       // Remove exactly duplicate texts (case-insensitive trim) and join
-      const uniqueTexts = Array.from(new Set(prioritizedTexts.map(t => t?.trim()).filter(Boolean)));
+      const uniqueTexts = Array.from(
+        new Set(prioritizedTexts.map((t) => t?.trim()).filter(Boolean)),
+      );
       return uniqueTexts.join("\n\n");
     }
 
@@ -454,7 +455,13 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     bannerData.portalCtaUrl as string | undefined,
   );
 
-  const [countdown, setCountdown] = useState({ d: 0, h: 0, m: 0, s: 0, expired: false });
+  const [countdown, setCountdown] = useState({
+    d: 0,
+    h: 0,
+    m: 0,
+    s: 0,
+    expired: false,
+  });
   useEffect(() => {
     if (noticeType !== "countdown" || !countdownTarget) return;
     const target = new Date(countdownTarget).getTime();
@@ -553,27 +560,45 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
             <div className="flex items-center gap-1.5 min-w-0 flex-1 sm:gap-4 sm:justify-center sm:text-center sm:flex-1">
               {noticeType === "countdown" && countdownTarget ? (
                 <>
-                  <span className="text-[10px] font-medium whitespace-nowrap sm:text-sm">{banner.headline || "Countdown"}</span>
+                  <span className="text-[10px] font-medium whitespace-nowrap sm:text-sm">
+                    {banner.headline || "Countdown"}
+                  </span>
                   {countdown.expired ? (
-                    <span className="text-[10px] font-bold whitespace-nowrap sm:text-base">Expired</span>
+                    <span className="text-[10px] font-bold whitespace-nowrap sm:text-base">
+                      Expired
+                    </span>
                   ) : (
                     <div className="flex items-center gap-0.5 text-[10px] font-bold tabular-nums tracking-wider whitespace-nowrap sm:gap-2 sm:text-base">
                       {countdown.d > 0 && (
                         <span className="inline-flex items-center gap-0.5 rounded-md bg-black/25 px-0.5 py-0.5 sm:gap-1 sm:px-2 sm:py-1">
                           <span>{countdown.d}</span>
-                          <span className="text-[8px] opacity-80 sm:text-sm">d</span>
+                          <span className="text-[8px] opacity-80 sm:text-sm">
+                            d
+                          </span>
                         </span>
                       )}
-                      <span className="inline-flex items-center rounded-md bg-black/25 px-0.5 py-0.5 sm:px-2 sm:py-1">{pad(countdown.h)}</span>
-                      <span className="text-xs opacity-50 sm:text-lg sm:-mx-0.5">:</span>
-                      <span className="inline-flex items-center rounded-md bg-black/25 px-0.5 py-0.5 sm:px-2 sm:py-1">{pad(countdown.m)}</span>
-                      <span className="text-xs opacity-50 sm:text-lg sm:-mx-0.5">:</span>
-                      <span className="inline-flex items-center rounded-md bg-black/25 px-0.5 py-0.5 sm:px-2 sm:py-1">{pad(countdown.s)}</span>
+                      <span className="inline-flex items-center rounded-md bg-black/25 px-0.5 py-0.5 sm:px-2 sm:py-1">
+                        {pad(countdown.h)}
+                      </span>
+                      <span className="text-xs opacity-50 sm:text-lg sm:-mx-0.5">
+                        :
+                      </span>
+                      <span className="inline-flex items-center rounded-md bg-black/25 px-0.5 py-0.5 sm:px-2 sm:py-1">
+                        {pad(countdown.m)}
+                      </span>
+                      <span className="text-xs opacity-50 sm:text-lg sm:-mx-0.5">
+                        :
+                      </span>
+                      <span className="inline-flex items-center rounded-md bg-black/25 px-0.5 py-0.5 sm:px-2 sm:py-1">
+                        {pad(countdown.s)}
+                      </span>
                     </div>
                   )}
                 </>
               ) : (
-                <span className="text-[10px] font-medium truncate sm:text-sm sm:font-medium">{banner.headline || "Announcement"}</span>
+                <span className="text-[10px] font-medium truncate sm:text-sm sm:font-medium">
+                  {banner.headline || "Announcement"}
+                </span>
               )}
             </div>
             {/* Right side: CTA + dismiss */}
@@ -606,8 +631,21 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
                 className="rounded-full p-0.5 transition-colors hover:bg-white/20 sm:p-1"
                 aria-label="Dismiss banner"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-3 w-3 sm:h-5 sm:w-5" aria-hidden="true">
-                  <path d="M18 6 6 18" /><path d="m6 6 12 12" />
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="24"
+                  height="24"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-3 w-3 sm:h-5 sm:w-5"
+                  aria-hidden="true"
+                >
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
                 </svg>
               </button>
             </div>
@@ -637,7 +675,9 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           clientId={clientId}
-          categoryPortalVisibility={(clientData as any)?.categoryPortalVisibility}
+          categoryPortalVisibility={
+            (clientData as any)?.categoryPortalVisibility
+          }
           // Which hubs this plan actually has, and whether each is published — the
           // header hides the link for a category with no Benefit row.
           benefitHubs={(clientData as any)?.benefitHubs}
@@ -694,10 +734,6 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
             sectionId={PORTAL_SECTION_IDS.disclosure}
             label="Edit footer"
             className="right-4 top-4"
-            // On a page with no Disclosure section of its own, this navigates to
-            // the Landing Page (scrolled to its footer) and opens the panel there.
-            editPath={footerEditPath}
-            editHref={footerEditPath ? `${footerEditPath}#portal-footer` : undefined}
           />
         </div>
       </PortalCommentsZoom>

@@ -6,9 +6,14 @@ import { toast } from "sonner";
 
 import { KeyContactsEditor } from "@/components/contacts/key-contacts-editor";
 import { MainContactStyleSection } from "@/components/contacts/main-contact-style-section";
+import { PortalFooterSection } from "@/components/portal-editing/portal-footer-section";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
+import { SectionHeader } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import { useClientPortal } from "@/contexts/client-portal-context";
-import { contactIdFromAnchor } from "@/lib/portal-editor-sections";
+import {
+  contactIdFromAnchor,
+  PORTAL_SECTION_IDS,
+} from "@/lib/portal-editor-sections";
 import {
   normalizeKeyContactCardStyle,
   type KeyContactCardStyle,
@@ -224,7 +229,11 @@ export function PortalTeamEditor() {
       const contactDisplayOrder = Array.isArray(previous.contactDisplayOrder)
         ? previous.contactDisplayOrder.filter((id) => id !== contactId)
         : contacts.map((contact) => contact.id);
-      const next: KeyContactsBlob = { ...previous, contacts, contactDisplayOrder };
+      const next: KeyContactsBlob = {
+        ...previous,
+        contacts,
+        contactDisplayOrder,
+      };
 
       setBlob(next);
       patchClientData({ keyContacts: next });
@@ -275,6 +284,15 @@ export function PortalTeamEditor() {
           </p>
         }
       />
+
+      {/* Section 3 — the footer disclosure shared by the four non-hub pages. */}
+      <section
+        className="space-y-4"
+        data-edit-anchor={PORTAL_SECTION_IDS.disclosure}
+      >
+        <SectionHeader number={3} title="Disclosure" />
+        <PortalFooterSection />
+      </section>
     </div>
   );
 }
