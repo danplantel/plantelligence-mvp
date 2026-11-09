@@ -578,7 +578,10 @@ function AccountAccessCard({
       <div
         className={cn(
           "flex min-w-0 flex-1 flex-col",
-          isWide && WIDE_CARD_CONTENT,
+          // A wide card centres its measured column; every narrower card fills
+          // its tile, so the CTA below spans the card instead of shrinking to
+          // the widest line of copy in it.
+          isWide ? WIDE_CARD_CONTENT : "w-full",
         )}
       >
         <div className={cn("min-w-0", isWide && "text-center")}>
@@ -1277,7 +1280,11 @@ export function HowCanWeHelpSection({
                     "flex min-w-0 flex-1 flex-col gap-2",
                     // The same measured column the Account Access card uses, so
                     // the button below is the same width on either card type.
-                    isWide && WIDE_CARD_CONTENT,
+                    // A card that does not own most of its row (a 2/4 primary,
+                    // say) fills the tile instead; the tile aligns children to
+                    // the start, so without this the CTA would only be as wide
+                    // as its longest line.
+                    isWide ? WIDE_CARD_CONTENT : "w-full",
                   )}
                 >
                 <h3

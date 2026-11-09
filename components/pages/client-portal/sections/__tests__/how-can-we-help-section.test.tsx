@@ -952,6 +952,35 @@ describe("wide card content width", () => {
   });
 });
 
+/**
+ * The counterpart of the wide card: a primary that shares its row (the classic
+ * 2/4 slot) must still lay its CTA across the whole tile. The tile aligns its
+ * children to the start, so a content column without `w-full` collapses to the
+ * widest line of copy and the button shrinks with it.
+ */
+describe("2/4 primary card width", () => {
+  it("fills the tile so the CTA spans the card", () => {
+    const view = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        cards={layoutWith("financial-planning")}
+      />,
+    );
+    const primaryTile = tile(view.container, "financial-planning");
+
+    expect(primaryTile.className).toContain("col-span-2");
+    const content = primaryTile.querySelector<HTMLElement>(":scope > div");
+    expect(content?.className).toContain("w-full");
+    // It is NOT the measured wide-card column.
+    expect(content?.className ?? "").not.toContain("max-w-[44rem]");
+
+    const cta = within(primaryTile).getByRole("button", {
+      name: /Learn more|Showing Below/,
+    });
+    expect(cta.className).toContain("w-full");
+  });
+});
+
 describe("HowCanWeHelpSection panel CTAs", () => {
   it("draws no panel CTA for the static catalog (every card has no button text)", () => {
     render(<HowCanWeHelpSection clientId="plan-1" />);

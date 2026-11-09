@@ -239,6 +239,14 @@ export function HelpCardLayoutEditor({
   const slotById = new Map(
     visibleLayout.map((entry, index) => [entry.id, slots[index]]),
   );
+  // A primary that owns ALL four columns has no left/right edge to choose: it is
+  // the only card in row 1 (1, 5, 9… visible cards), so flipping the control
+  // produces the identical layout. The span is read from the same slot plan the
+  // mirror draws, so the two can never disagree about when the row is full.
+  const primaryVisibleIndex = visibleLayout.findIndex((entry) => entry.primary);
+  const primarySpan =
+    primaryVisibleIndex >= 0 ? slots[primaryVisibleIndex]?.span ?? 1 : 0;
+  const primaryFillsRow = primarySpan >= HELP_CARD_ROW_SIZE;
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -259,31 +267,38 @@ export function HelpCardLayoutEditor({
           <Label className="text-xs font-bold text-foreground">Card Layout</Label>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
             Drag to reorder. One card is the Primary: it takes the widest slot in
-            its row, at the left or right edge of row 1. Dropping a card on the
-            Primary slot makes that card the Primary. Untick a card to hide it
-            from the portal — it keeps its place here, and the remaining cards
-            re-fill the rows. Copy is fixed per card.
+            its row
+            {primaryFillsRow
+              ? ", which is the whole first row here."
+              : ", at the left or right edge of row 1."}{" "}
+            Dropping a card on the Primary slot makes that card the Primary.
+            Untick a card to hide it from the portal — it keeps its place here,
+            and the remaining cards re-fill the rows. Copy is fixed per card.
           </p>
         </div>
-        {/* Where the primary sits in row 1. */}
-        <div className="inline-flex overflow-hidden rounded-md border border-muted text-[11px] font-semibold">
-          {(["left", "right"] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={side === option}
-              onClick={() => onChange(setHelpCardSide(layout, option))}
-              className={cn(
-                "px-2.5 py-1.5 capitalize transition-colors",
-                side === option
-                  ? "bg-blue-600 text-white"
-                  : "bg-white text-muted-foreground hover:bg-muted dark:bg-gray-800",
-              )}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
+        {/* Where the primary sits in row 1 — only meaningful while row 1 holds
+            more than one card. When the primary fills the row there is no edge
+            to pick, so the control is left out entirely. */}
+        {!primaryFillsRow && (
+          <div className="inline-flex overflow-hidden rounded-md border border-muted text-[11px] font-semibold">
+            {(["left", "right"] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                aria-pressed={side === option}
+                onClick={() => onChange(setHelpCardSide(layout, option))}
+                className={cn(
+                  "px-2.5 py-1.5 capitalize transition-colors",
+                  side === option
+                    ? "bg-blue-600 text-white"
+                    : "bg-white text-muted-foreground hover:bg-muted dark:bg-gray-800",
+                )}
+              >
+                {option}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* 4-column slot mirror — the same shape the portal renders. */}

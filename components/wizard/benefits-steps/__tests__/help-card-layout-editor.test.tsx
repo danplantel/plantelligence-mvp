@@ -157,6 +157,36 @@ describe("HelpCardLayoutEditor", () => {
     expect(within(row("medicare")).getByText(/Hidden/)).toBeInTheDocument();
   });
 
+  it("hides the Left/Right control when the primary fills row 1", () => {
+    // Five visible cards leave the primary alone in row 1, where it spans all
+    // four columns — there is no edge left to choose.
+    const fiveCards = setHelpCardEnabled(
+      setHelpCardEnabled(defaultHelpCardLayout(), "medicare", false),
+      "savings",
+      false,
+    );
+    render(<HelpCardLayoutEditor value={fiveCards} onChange={() => {}} />);
+
+    expect(
+      screen.queryByRole("button", { name: /^left$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^right$/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(row("account-access")).getByText(/Row 1 · 4\/4 wide · Primary/),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the Left/Right control while row 1 holds more than the primary", () => {
+    render(<HelpCardLayoutEditor onChange={() => {}} />);
+
+    expect(screen.getByRole("button", { name: /^left$/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /^right$/i }),
+    ).toBeInTheDocument();
+  });
+
   it("draws a stored right-edge primary as the third row-1 card", () => {
     render(
       <HelpCardLayoutEditor
