@@ -3,10 +3,10 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { WebinarsDashboard } from "../webinars-dashboard";
+import { WebinarSection } from "../webinar-section";
 
 /**
- * `WebinarsDashboard` is a thin wrapper around `VideosCardSection` for the News &
+ * `WebinarSection` is a thin wrapper around `VideosCardSection` for the News &
  * Events route.
  *
  * It used to import `HaveQuestionsSection` and `DocumentsSection` without ever
@@ -18,17 +18,20 @@ const mocks = vi.hoisted(() => ({
   props: null as any,
 }));
 
-vi.mock("@/components/pages/client-portal/sections/videos-card-section", () => ({
-  VideosCardSection: (props: any) => {
-    mocks.props = props;
-    return <div data-testid="videos-card-section" />;
-  },
-}));
+vi.mock(
+  "@/components/pages/client-portal/sections/videos-card-section",
+  () => ({
+    VideosCardSection: (props: any) => {
+      mocks.props = props;
+      return <div data-testid="videos-card-section" />;
+    },
+  }),
+);
 
-describe("WebinarsDashboard", () => {
+describe("WebinarSection", () => {
   it("forwards only the webinar props", () => {
     render(
-      <WebinarsDashboard
+      <WebinarSection
         brandColor="#123456"
         secondaryColor="#654321"
         clientId="plan-1"
@@ -44,7 +47,7 @@ describe("WebinarsDashboard", () => {
   });
 
   it("does not render documents or support contacts on this route", () => {
-    render(<WebinarsDashboard clientId="plan-1" />);
+    render(<WebinarSection clientId="plan-1" />);
 
     expect(screen.queryByText(/Documents/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/Have Questions/i)).not.toBeInTheDocument();
@@ -52,7 +55,7 @@ describe("WebinarsDashboard", () => {
   });
 
   it("renders exactly one section", () => {
-    const { container } = render(<WebinarsDashboard clientId="plan-1" />);
+    const { container } = render(<WebinarSection clientId="plan-1" />);
 
     expect(
       container.querySelectorAll("[data-testid='videos-card-section']"),

@@ -22,7 +22,10 @@ const mocks = vi.hoisted(() => ({
     } as Record<string, any>,
   },
   editing: {
-    value: null as null | { canEdit: boolean; focusSection: (id: string) => void },
+    value: null as null | {
+      canEdit: boolean;
+      focusSection: (id: string) => void;
+    },
   },
   focusSection: vi.fn(),
 }));
@@ -49,13 +52,16 @@ vi.mock("@/components/pages/client-portal/sections/news-post-list", () => ({
   NewsPostList: () => <div data-testid="news-posts" />,
 }));
 
-vi.mock("@/components/pages/client-portal/sections/webinars-dashboard", () => ({
-  WebinarsDashboard: () => <div data-testid="webinars" />,
+vi.mock("@/components/pages/client-portal/sections/webinar-section", () => ({
+  WebinarSection: () => <div data-testid="webinars" />,
 }));
 
-vi.mock("@/components/pages/client-portal/sections/news-events-resources", () => ({
-  NewsEventsResources: () => <div data-testid="resources" />,
-}));
+vi.mock(
+  "@/components/pages/client-portal/sections/news-events-resources",
+  () => ({
+    NewsEventsResources: () => <div data-testid="resources" />,
+  }),
+);
 
 import NewsEventsPage from "../page";
 

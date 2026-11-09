@@ -3,7 +3,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { WebinarsDashboard } from "@/components/pages/client-portal/sections/webinars-dashboard";
+import { WebinarSection } from "@/components/pages/client-portal/sections/webinar-section";
 
 const mocks = vi.hoisted(() => ({
   webinarsProps: null as any,
@@ -11,12 +11,15 @@ const mocks = vi.hoisted(() => ({
   documentsRendered: false,
 }));
 
-vi.mock("@/components/pages/client-portal/sections/videos-card-section", () => ({
-  VideosCardSection: (props: any) => {
-    mocks.webinarsProps = props;
-    return <div data-testid="videos-card-section" />;
-  },
-}));
+vi.mock(
+  "@/components/pages/client-portal/sections/videos-card-section",
+  () => ({
+    VideosCardSection: (props: any) => {
+      mocks.webinarsProps = props;
+      return <div data-testid="videos-card-section" />;
+    },
+  }),
+);
 
 vi.mock(
   "@/components/pages/client-portal/sections/have-questions-section",
@@ -41,9 +44,9 @@ beforeEach(() => {
   mocks.documentsRendered = false;
 });
 
-describe("WebinarsDashboard", () => {
+describe("WebinarSection", () => {
   it("renders only the webinars section", () => {
-    render(<WebinarsDashboard />);
+    render(<WebinarSection />);
 
     expect(screen.getByTestId("videos-card-section")).toBeInTheDocument();
     expect(
@@ -56,7 +59,7 @@ describe("WebinarsDashboard", () => {
 
   it("forwards brand, secondary and client id", () => {
     render(
-      <WebinarsDashboard
+      <WebinarSection
         brandColor="#123456"
         secondaryColor="#654321"
         clientId="plan-1"
@@ -71,7 +74,7 @@ describe("WebinarsDashboard", () => {
   });
 
   it("does not forward enableEditing to the section", () => {
-    render(<WebinarsDashboard enableEditing />);
+    render(<WebinarSection enableEditing />);
 
     expect(mocks.webinarsProps).not.toHaveProperty("enableEditing");
   });

@@ -26,6 +26,8 @@ import { WebinarHoverPreviewLayer } from "@/components/webinars/webinar-hover-pr
 import { cn } from "@/lib/utils";
 import { portalRadiusValue } from "@/lib/typography-themes";
 import { PORTAL_MEETINGS_CHANGED } from "@/lib/portal-data-events";
+import { VideoCarousel } from "./video-carousel";
+import { VideoFeaturePlayer } from "./video-feature-player";
 
 /**
  * The empty state shared by the three meeting/webinar sections.
@@ -763,7 +765,8 @@ export function WebinarReplayCard({
   const durationLabel = replay.duration || measuredDuration;
   const durationProbeSrc = (() => {
     if (replay.duration) return null;
-    if (replay.videoUrl && !getEmbedUrl(replay.videoUrl)) return replay.videoUrl;
+    if (replay.videoUrl && !getEmbedUrl(replay.videoUrl))
+      return replay.videoUrl;
     if (!fileUrl) return null;
     return /^(https?:)?\//.test(fileUrl)
       ? fileUrl
@@ -1086,6 +1089,40 @@ export function VideosCardSection({
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingReplays, setIsLoadingReplays] = useState(true);
 
+  /**
+   * The webinar picked from the rail, playing INLINE above it.
+   *
+   * This is the same behaviour as the benefit hubs' video section: selecting a
+   * poster card does not open the card's own dialog, it swaps in
+   * `VideoFeaturePlayer` and leaves the rail underneath so another video can be
+   * picked without closing the first. `null` is the resting state.
+   */
+  const [activeReplay, setActiveReplay] = useState<WebinarReplay | null>(null);
+  const playerStageRef = useRef<HTMLDivElement>(null);
+
+  const closeActiveReplay = useCallback(() => setActiveReplay(null), []);
+  const openActiveReplay = useCallback((replay: WebinarReplay) => {
+    setActiveReplay(replay);
+  }, []);
+
+  // Bring the inline player into view when a card is picked below it.
+  useEffect(() => {
+    if (!activeReplay) return;
+    const stage = playerStageRef.current;
+    if (stage && typeof stage.scrollIntoView === "function") {
+      stage.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [activeReplay]);
+
+  // A re-read can drop the row being watched; do not keep playing a ghost.
+  useEffect(() => {
+    if (!activeReplay) return;
+    const stillThere = webinarReplays.some(
+      (replay) => String(replay.id) === String(activeReplay.id),
+    );
+    if (!stillThere) setActiveReplay(null);
+  }, [activeReplay, webinarReplays]);
+
   // Hoisted out of the effect so the portal's Edit Panel can ask for a re-read:
   // a meeting scheduled there is written through the API, and this section would
   // otherwise keep showing the list it fetched on mount.
@@ -1245,7 +1282,9 @@ export function VideosCardSection({
             Upcoming Meetings & Webinars
           </h2>
           {isLoading && (
-            <p className="text-sm text-gray-500">Loading upcoming sessions…</p>
+            <p className="text-center text-sm text-gray-500">
+              Loading upcoming sessions…
+            </p>
           )}
           {!isLoading && upcomingWebinars.length === 0 && (
             <SectionEmptyState
@@ -1313,7 +1352,9 @@ export function VideosCardSection({
           </h2>
 
           {isLoadingReplays && (
-            <p className="text-sm text-gray-500">Loading replays…</p>
+            <p className="text-center text-sm text-gray-500">
+              Loading replays…
+            </p>
           )}
           {!isLoadingReplays && webinarReplays.length === 0 && (
             <SectionEmptyState
@@ -1324,14 +1365,40 @@ export function VideosCardSection({
             />
           )}
           {webinarReplays.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {webinarReplays.map((replay) => (
-                <WebinarReplayCard
-                  key={replay.id}
-                  replay={replay}
-                  secondaryColor={secondaryColor}
-                />
-              ))}
+            // The same poster rail as the benefit hubs' video section, on this
+            // page's white surface: the rail's own heading and captions use the
+            // plan's dark brand colour instead of the benefit section's white.
+            // The replays are already fetched above, so the rail is handed them
+            // instead of issuing a second request.
+            <div className="rounded-3xl bg-white px-4 py-8 sm:px-8 sm:py-10">
+              {activeReplay ? (
+                <div
+                  ref={playerStageRef}
+                  data-testid="video-player-stage"
+                  className="mb-8"
+                >
+                  <VideoFeaturePlayer
+                    replay={activeReplay}
+                    clientId={clientId || activeReplay.clientId}
+                    secondaryColor={secondaryColor}
+                    onClose={closeActiveReplay}
+                  />
+                </div>
+              ) : null}
+              <VideoCarousel
+                placement="news-events"
+                clientId={clientId}
+                replays={webinarReplays}
+                brandColor={brandColor}
+                secondaryColor={secondaryColor}
+                headingColor={brandColor}
+                captionColor="#374151"
+                title="Latest recordings"
+                className="mt-0"
+                // Play in the inline player above the rail, not the card's dialog.
+                onSelect={openActiveReplay}
+                activeId={activeReplay?.id ?? null}
+              />
             </div>
           ) : null}
         </div>

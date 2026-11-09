@@ -1,7 +1,7 @@
 "use client";
 
 import { useClientPortal } from "@/contexts/client-portal-context";
-import { WebinarsDashboard } from "@/components/pages/client-portal/sections/webinars-dashboard";
+import { WebinarSection } from "@/components/pages/client-portal/sections/webinar-section";
 import { NewsEventsHeader } from "@/components/pages/client-portal/sections/news-events-header";
 import { NewsEventsResources } from "@/components/pages/client-portal/sections/news-events-resources";
 import { NewsPostList } from "@/components/pages/client-portal/sections/news-post-list";
@@ -61,7 +61,7 @@ export default function NewsEventsPage() {
           secondaryColor={secondaryColor}
         />
 
-        <WebinarsDashboard
+        <WebinarSection
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           clientId={clientId}

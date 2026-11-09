@@ -123,12 +123,31 @@ describe("VideoCarousel request", () => {
       { cache: "no-store" },
     );
   });
+  it("uses host-provided replays without a second fetch", async () => {
+    const fetchMock = mockFetch({ success: true, data: [] });
+
+    render(
+      <VideoCarousel
+        placement="retirement"
+        replays={[{ id: "provided-1", title: "Provided video" }]}
+      />,
+    );
+
+    await waitFor(() =>
+      expect(screen.getAllByTestId("video-slide")).toHaveLength(1),
+    );
+    expect(screen.getByText("Provided video")).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("VideoCarousel rail", () => {
   it("reserves the row with skeletons while the videos load", () => {
     // Never resolves, so the loading state is what is asserted.
-    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => {})),
+    );
 
     render(<VideoCarousel placement="retirement" />);
 
@@ -261,9 +280,7 @@ describe("VideoCarousel rail", () => {
 
     const { container } = render(<VideoCarousel placement="retirement" />);
 
-    await waitFor(() =>
-      expect(container).toBeEmptyDOMElement(),
-    );
+    await waitFor(() => expect(container).toBeEmptyDOMElement());
   });
 
   it("renders nothing when the API fails", async () => {
@@ -345,6 +362,81 @@ describe("VideoCarousel rail", () => {
   });
 });
 
+describe("VideoCarousel dynamic widths", () => {
+  const widths = () =>
+    screen.getAllByTestId("video-slide").map((slide) => slide.className);
+
+  it("gives a lone video half the four-column row", async () => {
+    mockFetch({ success: true, data: [videos[0]] });
+
+    render(<VideoCarousel placement="retirement" />);
+    await waitFor(() =>
+      expect(screen.getAllByTestId("video-slide")).toHaveLength(1),
+    );
+
+    expect(widths()[0]).toContain("lg:w-[calc((100%-1.25rem)/2)]");
+    // The lone half-width card is centred instead of hugging the left edge.
+    expect(screen.getByTestId("video-carousel-track").className).toContain(
+      "justify-center",
+    );
+  });
+
+  it("gives two videos half each, filling all four columns", async () => {
+    mockFetch({ success: true, data: videos.slice(0, 2) });
+
+    render(<VideoCarousel placement="retirement" />);
+    await waitFor(() =>
+      expect(screen.getAllByTestId("video-slide")).toHaveLength(2),
+    );
+
+    for (const width of widths()) {
+      expect(width).toContain("lg:w-[calc((100%-1.25rem)/2)]");
+    }
+  });
+
+  it("gives three videos three equal thirds", async () => {
+    mockFetch({ success: true, data: videos });
+
+    render(<VideoCarousel placement="retirement" />);
+    await waitFor(() =>
+      expect(screen.getAllByTestId("video-slide")).toHaveLength(3),
+    );
+
+    // No wide lead card beside two small ones: all three share the row equally.
+    for (const width of widths()) {
+      expect(width).toContain("lg:w-[calc((100%-2.5rem)/3)]");
+    }
+  });
+
+  it("gives four or more videos a quarter each", async () => {
+    mockFetch({
+      success: true,
+      data: [
+        ...videos,
+        {
+          id: "w4",
+          webinarTitle: "Fourth video",
+          description: "Another one.",
+          clientId: "c1",
+        },
+      ],
+    });
+
+    render(<VideoCarousel placement="retirement" />);
+    await waitFor(() =>
+      expect(screen.getAllByTestId("video-slide")).toHaveLength(4),
+    );
+
+    for (const width of widths()) {
+      expect(width).toContain("lg:w-[calc((100%-3.75rem)/4)]");
+    }
+    // Exactly four fill the row, so there is nothing to page to yet.
+    expect(
+      screen.queryByRole("button", { name: /scroll videos right/i }),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe("VideoCarousel heading", () => {
   it("defaults to Videos and counts what the row holds", async () => {
     mockFetch({ success: true, data: videos });
@@ -383,7 +475,10 @@ describe("VideoCarousel heading", () => {
   });
 
   it("shows no count until the fetch answers", () => {
-    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => {})),
+    );
 
     render(<VideoCarousel placement="retirement" />);
 

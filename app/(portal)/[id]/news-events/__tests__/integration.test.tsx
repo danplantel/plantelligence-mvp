@@ -38,8 +38,8 @@ vi.mock("@/components/pages/client-portal/sections/news-post-list", () => ({
   },
 }));
 
-vi.mock("@/components/pages/client-portal/sections/webinars-dashboard", () => ({
-  WebinarsDashboard: (props: any) => {
+vi.mock("@/components/pages/client-portal/sections/webinar-section", () => ({
+  WebinarSection: (props: any) => {
     mocks.webinarsProps = props;
     return <div data-testid="webinars-dashboard" />;
   },

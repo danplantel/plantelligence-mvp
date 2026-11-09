@@ -1,6 +1,7 @@
 import React from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { VideosCardSection } from "../videos-card-section";
@@ -202,6 +203,29 @@ describe("VideosCardSection meetings", () => {
 });
 
 describe("VideosCardSection replays", () => {
+  it("plays a picked replay inline instead of opening the card dialog", async () => {
+    const user = userEvent.setup();
+    routeFetch({ replays: replaysPayload([replay()]) });
+    renderSection();
+
+    // The poster card is in the rail…
+    const title = await screen.findByText("Retirement 101");
+    await user.click(title);
+
+    // …and selecting it swaps in the inline player above the rail, exactly like
+    // the benefit hubs' video section, rather than opening the card's dialog.
+    expect(screen.getByTestId("video-player-stage")).toBeInTheDocument();
+    expect(screen.getByTestId("video-feature-player")).toHaveAttribute(
+      "data-video-id",
+      "replay-1",
+    );
+
+    await user.click(screen.getByLabelText("Close video"));
+    expect(
+      screen.queryByTestId("video-feature-player"),
+    ).not.toBeInTheDocument();
+  });
+
   it("renders a replay card and the empty state is gone", async () => {
     routeFetch({ replays: replaysPayload([replay()]) });
     renderSection();

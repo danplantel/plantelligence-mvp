@@ -9,7 +9,6 @@ import {
   PortalTeam,
   PortalDisclaimers,
   BenefitsTeam,
-  WebinarsDashboard,
 } from "./sections";
 import { LifeEventsSection } from "./sections/life-events-section";
 import { motion } from "framer-motion";

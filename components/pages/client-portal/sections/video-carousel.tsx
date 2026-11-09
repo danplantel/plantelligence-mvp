@@ -26,12 +26,42 @@ import type { WebinarPlacementKey } from "@/lib/webinar-placements";
  * hover teaser. The fetch below is the band's own, moved alongside it.
  */
 
-/** Placeholders while the row loads — the same three-card reservation the grid made. */
+/** Placeholders while the row loads — the same four-card reservation the rail makes. */
 const SKELETON_CARDS = 4;
+
+/**
+ * Width of one slide in the four-column rail.
+ *
+ * The rail is still one horizontal track, but its cards follow the same
+ * count-driven width system as `supportCardColumnClass`: every card in the row
+ * is the SAME size and the row fills its width.
+ *
+ *   1 video  → half the row (two of four columns), centred
+ *   2 videos → halves
+ *   3 videos → thirds
+ *   4+       → quarters; a fifth starts the next page of the rail
+ *
+ * Written as static strings (not an interpolated `w-[…/n]`) so Tailwind can see
+ * every class it has to generate.
+ */
+function slideWidthClass(count: number): string {
+  const stacked = "w-full shrink-0 sm:w-[calc((100%-1.25rem)/2)]";
+  if (count <= 0) return stacked;
+  // One or two videos: half each. A lone card is centred by the track.
+  if (count <= 2) {
+    return `${stacked} lg:w-[calc((100%-1.25rem)/2)]`;
+  }
+  // Three videos: equal thirds — no wide card, no small pair.
+  if (count === 3) {
+    return `${stacked} lg:w-[calc((100%-2.5rem)/3)]`;
+  }
+  // Four or more: one column each. The fifth starts the next rail page.
+  return `${stacked} lg:w-[calc((100%-3.75rem)/4)]`;
+}
 
 function WebinarCardSkeleton() {
   return (
-    <div className="w-[260px] shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:w-[300px]">
+    <div className="w-full shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:w-[calc((100%-1.25rem)/2)] lg:w-[calc((100%-3.75rem)/4)]">
       <Skeleton className="aspect-video w-full rounded-none" />
       <div className="space-y-3 p-5">
         <Skeleton className="h-6 w-4/5" />
@@ -65,6 +95,11 @@ function uploadTime(value: Date | string | undefined): number {
 export function useHubVideos(
   placement: WebinarPlacementKey,
   clientId?: string,
+  /**
+   * Skip the read when the host already has the rows (the News & Events band
+   * fetches meetings and replays together and hands the replays to the rail).
+   */
+  skip = false,
 ) {
   const params = useParams();
   const planRef =
@@ -75,6 +110,10 @@ export function useHubVideos(
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (skip) {
+      setIsLoading(false);
+      return;
+    }
     let cancelled = false;
 
     const load = async () => {
@@ -119,7 +158,9 @@ export function useHubVideos(
           // Events band wants), which is not what "latest video" means here — the
           // rail shows the videos in the order the advisor added them. Equal
           // timestamps keep the server's order, since `sort` is stable.
-          mapped.sort((a, b) => uploadTime(b.createdAt) - uploadTime(a.createdAt));
+          mapped.sort(
+            (a, b) => uploadTime(b.createdAt) - uploadTime(a.createdAt),
+          );
 
           setReplays(mapped);
         } else {
@@ -138,7 +179,7 @@ export function useHubVideos(
     return () => {
       cancelled = true;
     };
-  }, [planRef, placement]);
+  }, [planRef, placement, skip]);
 
   return { replays, isLoading };
 }
@@ -148,6 +189,14 @@ interface VideoCarouselProps {
   placement: WebinarPlacementKey;
   /** Plan identifier for hosts with no `[id]` route segment (the preview). */
   clientId?: string;
+  /**
+   * Rows the HOST already fetched. When present the rail does not fetch again —
+   * the News & Events band reads its replays alongside its meetings and passes
+   * them here so one page makes one request.
+   */
+  replays?: WebinarReplay[] | null;
+  /** The host's loading state for `replays`. */
+  isLoading?: boolean;
   brandColor?: string;
   secondaryColor?: string;
   /**
@@ -160,6 +209,14 @@ interface VideoCarouselProps {
    * "Videos" is the neutral fallback for a host that has no category.
    */
   title?: string;
+  /** Extra classes on the rail's root (e.g. `mt-0` inside a dark host band). */
+  className?: string;
+  /**
+   * The colour of the description printed under each poster card. Defaults to
+   * the heading colour, which is right on the dark journey section; the News &
+   * Events host passes a dark grey because its rail sits on white.
+   */
+  captionColor?: string;
   /**
    * Hand a picked video to the host instead of letting the card open its own
    * dialog. The journey section uses it to play the video inline, at the top of
@@ -177,10 +234,21 @@ export function VideoCarousel({
   secondaryColor = "#FBBF24",
   headingColor,
   title = "Videos",
+  captionColor,
+  className,
   onSelect,
   activeId,
+  replays: providedReplays,
+  isLoading: providedLoading,
 }: VideoCarouselProps) {
-  const { replays, isLoading } = useHubVideos(placement, clientId);
+  const { replays: fetchedReplays, isLoading: fetchedLoading } = useHubVideos(
+    placement,
+    clientId,
+    providedReplays != null,
+  );
+  const items = providedReplays ?? fetchedReplays;
+  const loading =
+    providedReplays != null ? Boolean(providedLoading) : fetchedLoading;
 
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -188,10 +256,10 @@ export function VideoCarousel({
   /**
    * Whether the row actually runs off the edge.
    *
-   * Four cards fit a 1280px column (4 × 300px + 3 × 20px gaps), so a plan with up
-   * to four videos has nothing to page to — the chevrons are hidden rather than
-   * shown permanently disabled. Measured, not counted: the visible count changes
-   * with the viewport, and the cards are fixed-width.
+   * Four cards fill a 1280px column exactly once they are quarter-width (the
+   * count-driven width system above), so a plan with up to four videos has
+   * nothing to page to — the chevrons are hidden rather than shown permanently
+   * disabled. Measured, not counted: the visible count changes with the viewport.
    */
   const [isScrollable, setIsScrollable] = useState(false);
 
@@ -215,7 +283,7 @@ export function VideoCarousel({
       el.removeEventListener("scroll", updateArrows);
       window.removeEventListener("resize", updateArrows);
     };
-  }, [updateArrows, replays.length, isLoading]);
+  }, [updateArrows, items.length, loading]);
 
   const page = (direction: 1 | -1) => {
     const el = scrollerRef.current;
@@ -230,14 +298,14 @@ export function VideoCarousel({
 
   // Nothing at all for a plan that has filed no videos — an empty rail is worse
   // than no rail. The loading skeletons still reserve the row's height.
-  if (!isLoading && replays.length === 0) return null;
+  if (!loading && items.length === 0) return null;
 
   const arrowClass =
     "grid h-8 w-8 place-items-center rounded-full border border-neutral-200 bg-white text-neutral-600 shadow-sm transition-colors hover:border-neutral-300 hover:text-neutral-900 disabled:cursor-default disabled:opacity-30";
 
   return (
     <div
-      className="mt-14"
+      className={cn("mt-14", className)}
       data-testid="video-carousel"
       data-placement={placement}
     >
@@ -252,20 +320,20 @@ export function VideoCarousel({
           </h3>
           {/* How many videos the row holds. Nothing until the fetch answers, so it
               never flashes "0 videos" at a plan that has some. */}
-          {isLoading ? null : (
+          {loading ? null : (
             <span
               data-testid="rail-count"
               className="font-red-hat text-sm opacity-70"
               style={{ color: headingColor || brandColor }}
             >
-              {replays.length} {replays.length === 1 ? "video" : "videos"}
+              {items.length} {items.length === 1 ? "video" : "videos"}
             </span>
           )}
         </div>
 
         {/* Paging controls. Hidden on a phone, where the row is swiped, and gone
             entirely when the row does not overflow (four or fewer videos). */}
-        {isLoading || !isScrollable ? null : (
+        {loading || !isScrollable ? null : (
           <div className="hidden shrink-0 items-center gap-2 sm:flex">
             <button
               type="button"
@@ -292,16 +360,19 @@ export function VideoCarousel({
       <div
         ref={scrollerRef}
         data-testid="video-carousel-track"
-        aria-busy={isLoading || undefined}
+        aria-busy={loading || undefined}
         // `snap-x` + one snap point per card is what makes it feel like a rail
         // rather than a free-scrolling list. The scrollbar is hidden in every
         // engine (the arrows and the visible next card are the affordance).
         className={cn(
           "flex snap-x snap-mandatory gap-5 overflow-x-auto pb-2",
           "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+          // A lone video is half-width, so centre it rather than hugging the
+          // left edge (the same choice the support-card row makes).
+          !loading && items.length === 1 && "justify-center",
         )}
       >
-        {isLoading ? (
+        {loading ? (
           <>
             <span className="sr-only">Loading videos…</span>
             {Array.from({ length: SKELETON_CARDS }).map((_, index) => (
@@ -309,40 +380,43 @@ export function VideoCarousel({
             ))}
           </>
         ) : (
-          replays.map((replay) => {
-            const isActive = activeId != null && String(activeId) === String(replay.id);
+          items.map((replay) => {
+            const isActive =
+              activeId != null && String(activeId) === String(replay.id);
             return (
-            <div
-              key={replay.id}
-              data-testid="video-slide"
-              data-active={isActive || undefined}
-              aria-current={isActive ? "true" : undefined}
-              // One fixed width per slide, so the row reads as a filmstrip and
-              // the card inside never has to guess its own size. No ring here: it
-              // sits outside the box (clipped at the top by this scroll container)
-              // and would wrap the caption too — the card draws its own inset
-              // border on the thumbnail instead.
-              className="w-[260px] shrink-0 snap-start sm:w-[300px]"
-            >
-              {/* The poster variant: the card itself is the 16:9 frame, with the
+              <div
+                key={replay.id}
+                data-testid="video-slide"
+                data-active={isActive || undefined}
+                aria-current={isActive ? "true" : undefined}
+                // Count-driven width: every card in the row shares the same width,
+                // so three videos are three equal thirds rather than a wide card
+                // beside two small ones. No ring here: it sits outside the box
+                // (clipped at the top by this scroll container) and would wrap the
+                // caption too — the card draws its own inset border on the thumbnail.
+                className={cn("snap-start", slideWidthClass(items.length))}
+              >
+                {/* The poster variant: the card itself is the 16:9 frame, with the
                   play control top-right and the title + runtime along the bottom.
                   The description therefore sits under the card. */}
-              <WebinarReplayCard
-                replay={replay}
-                secondaryColor={secondaryColor}
-                variant="poster"
-                onSelect={onSelect}
-                active={isActive}
-              />
-              {replay.description ? (
-                <p
-                  className="mt-2 line-clamp-2 text-xs leading-snug opacity-80"
-                  style={{ color: headingColor || brandColor }}
-                >
-                  {replay.description}
-                </p>
-              ) : null}
-            </div>
+                <WebinarReplayCard
+                  replay={replay}
+                  secondaryColor={secondaryColor}
+                  variant="poster"
+                  onSelect={onSelect}
+                  active={isActive}
+                />
+                {replay.description ? (
+                  <p
+                    className="mt-2 line-clamp-2 text-xs leading-snug opacity-80"
+                    style={{
+                      color: captionColor || headingColor || brandColor,
+                    }}
+                  >
+                    {replay.description}
+                  </p>
+                ) : null}
+              </div>
             );
           })
         )}
