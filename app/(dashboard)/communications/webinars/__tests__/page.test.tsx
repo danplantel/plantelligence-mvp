@@ -783,7 +783,7 @@ describe("Editing and deleting", () => {
     expect(screen.getByText("Current video")).toBeInTheDocument();
     expect(screen.getByDisplayValue("Retirement Replay")).toBeInTheDocument();
 
-    await submitDialog(user, "Update Webinar");
+    await submitDialog(user, "Update Video");
 
     await waitFor(() =>
       expect(
@@ -1282,7 +1282,7 @@ describe("Webinars page edge cases", () => {
     });
     expect(screen.getByText("Replacing this video")).toBeInTheDocument();
 
-    await submitDialog(user, "Update Webinar");
+    await submitDialog(user, "Update Video");
 
     await waitFor(() =>
       expect(

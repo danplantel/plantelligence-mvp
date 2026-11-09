@@ -148,6 +148,11 @@ function getEmbedUrl(url: string): string | null {
   return null;
 }
 
+/** Placement key → the label the dashboard checkboxes already use. */
+const PLACEMENT_LABELS: Record<string, string> = Object.fromEntries(
+  WEBINAR_PLACEMENTS.map(({ key, label }) => [key, label]),
+);
+
 /**
  * Runtime for the badge on the portal's webinar card (`m:ss`, or `h:mm:ss` for a
  * long recording). Returns `undefined` when the file has no usable duration, so
@@ -163,6 +168,27 @@ function formatRuntimeBadge(seconds: number): string | undefined {
   return hours > 0
     ? `${hours}:${pad(minutes)}:${pad(secs)}`
     : `${minutes}:${pad(secs)}`;
+}
+
+/**
+ * Page labels for the "Appears on" tags on a card.
+ *
+ * The list endpoint normalises `placements` (see `lib/webinar-placements`), so
+ * this only maps the stored keys to their display labels and drops anything
+ * unrecognised. An empty result falls back to News & Events, so a row saved
+ * before placements existed still says where it shows up.
+ */
+function placementLabelsFor(
+  placements: string[] | null | undefined,
+): string[] {
+  const keys =
+    Array.isArray(placements) && placements.length > 0
+      ? placements
+      : [DEFAULT_WEBINAR_PLACEMENT];
+  const labels = keys
+    .map((key) => PLACEMENT_LABELS[key])
+    .filter((label): label is string => Boolean(label));
+  return Array.from(new Set(labels));
 }
 
 /**
@@ -1080,8 +1106,12 @@ export default function WebinarsPage() {
 
       {/* Add / Edit Video */}
       <Dialog open={webinarModalOpen} onOpenChange={handleWebinarModalOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto dark:bg-gray-800">
-          <DialogHeader>
+        {/* The dialog owns the scroll: the fields scroll between a fixed header
+            and a fixed action bar, so "Update Video" / "Cancel" stay reachable
+            however long the form gets. `p-0` on the shell keeps those bands
+            flush with the edges instead of inheriting the default padding. */}
+        <DialogContent className="flex max-h-[90vh] max-w-2xl flex-col gap-0 overflow-hidden p-0 dark:bg-gray-800">
+          <DialogHeader className="shrink-0 space-y-1 border-b px-6 py-4 pr-12">
             <DialogTitle>
               {editingWebinarId ? "Edit Video" : "Upload Video"}
             </DialogTitle>
@@ -1091,7 +1121,14 @@ export default function WebinarsPage() {
                 : "Fill out the details below to add a webinar replay, podcast, or other custom video."}
             </DialogDescription>
           </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form
+              onSubmit={handleSubmit}
+              className="flex min-h-0 flex-1 flex-col"
+            >
+              {/* The only scrollable region: `min-h-0` is what lets a flex
+                  child shrink below its content height, so the long form scrolls
+                  instead of pushing the action bar out of the dialog. */}
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-6 py-5">
 
               {/* Webinar Title */}
               <div className="space-y-2">
@@ -1612,10 +1649,14 @@ export default function WebinarsPage() {
 
               </div>
 
+              </div>
+
               {/* Actions — Cancel sits at the bottom of the dialog alongside the
                   primary action, and is available whether adding or editing, so
-                  the modal is never escape-only (the X, or clicking backdrop). */}
-              <div className="flex gap-2 pt-4">
+                  the modal is never escape-only (the X, or clicking backdrop).
+                  Outside the scroll region, so the bar is pinned while the
+                  fields above it move. */}
+              <div className="flex shrink-0 items-center gap-2 border-t bg-muted/50 px-6 py-4 dark:bg-gray-800">
                 <Button
                   type="button"
                   variant="outline"
@@ -1642,7 +1683,7 @@ export default function WebinarsPage() {
                       {editingWebinarId ? "Updating..." : "Adding..."}
                     </>
                   ) : editingWebinarId ? (
-                    "Update Webinar"
+                    "Update Video"
                   ) : (
                     "Add Video"
                   )}
@@ -1850,14 +1891,6 @@ export default function WebinarsPage() {
                                   URL
                                 </Badge>
                               )}
-                              {webinar.benefitsCategory && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[10px] px-1.5 py-0 h-4 border-border text-muted-foreground"
-                                >
-                                  {webinar.benefitsCategory}
-                                </Badge>
-                              )}
                             </div>
                           </div>
                           <DropdownMenu>
@@ -1926,6 +1959,28 @@ export default function WebinarsPage() {
                                 <Play className="h-4 w-4 translate-x-[1px] text-gray-900" />
                               </span>
                             </button>
+                          )}
+                        </div>
+
+                        {/* Pages — a video can be published on News & Events and
+                            any of the benefit hubs at once, so each placement
+                            gets its own tag instead of a single "All" label.
+                            The list endpoint has already normalised the row's
+                            `placements`, so legacy rows read as News & Events. */}
+                        <div className="mb-2 flex flex-wrap items-center gap-1">
+                          <span className="mr-0.5 text-[10px] uppercase tracking-wide text-muted-foreground">
+                            Appears on
+                          </span>
+                          {placementLabelsFor(webinar.placements).map(
+                            (label) => (
+                              <Badge
+                                key={label}
+                                variant="outline"
+                                className="text-[10px] px-1.5 py-0 h-4 border-sky-200 bg-sky-50 text-sky-700"
+                              >
+                                {label}
+                              </Badge>
+                            ),
                           )}
                         </div>
 
