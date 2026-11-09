@@ -72,6 +72,7 @@ New `components/portal-editing/portal-editing-provider.tsx`:
 
 - New `components/portal-editing/portal-editing-panel.tsx` using the existing [`EditorPanelWrapper`](components/wizard/new-client-steps/sections/components/editor-panel-wrapper.tsx:52) in `fixed` mode, sliding from the left.
 - Add a floating pencil launcher to the right-hand cluster: **Edit page → Comments → Ask a question**.
+- Every panel header carries the red **Live** badge ([`PortalLiveBadge`](components/portal-editing/portal-live-badge.tsx:1)); page-specific badges (the plan company, the benefit category) render beside it. `PortalEditorShell` always renders it, and `BenefitsEditorPanel` receives it through `headerBadgePrefix` so the dashboard wizard and Edit Benefit do not gain one.
 - Reserve a left column with `--portal-editor-inset` and scale/offset the portal content the same way [`PortalCommentsZoom`](components/comments/portal-comments-zoom.tsx:39) handles the Comments rail. The comments rail stays on the right, so both panels can be open at once.
 - Reuse `PREVIEW_EDITOR_LAYOUT_EVENT` only if the portal ever gains dashboard chrome; otherwise the portal keeps its own CSS variable and does not widen the dashboard sidebar.
 - Desktop only for the first release, matching the Comments rail. Mobile keeps the normal read-only portal.

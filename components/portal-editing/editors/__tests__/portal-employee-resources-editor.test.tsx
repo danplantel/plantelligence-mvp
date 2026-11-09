@@ -153,6 +153,9 @@ describe("PortalEmployeeResourcesEditor hero background", () => {
   it("offers the header slot plus the page's two question sections", () => {
     render(<PortalEmployeeResourcesEditor />);
 
+    // Every portal panel header wears the red Live tag.
+    expect(screen.getByText("Live")).toBeInTheDocument();
+
     // Section 4 is the shared footer disclosure, on the page's own anchor.
     expect(
       screen.getByRole("button", { name: /Open footer editor/i }),

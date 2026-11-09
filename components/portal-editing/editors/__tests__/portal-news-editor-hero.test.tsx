@@ -137,6 +137,9 @@ describe("PortalNewsEditor hero background", () => {
   it("offers the Page Image Header slot for this page's hero", () => {
     render(<PortalNewsEditor />);
 
+    // Every portal panel header wears the red Live tag.
+    expect(screen.getByText("Live")).toBeInTheDocument();
+
     // Section 7 is the shared footer disclosure, on the page's own anchor.
     expect(
       screen.getByRole("button", { name: /Open footer editor/i }),

@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 
 import { BenefitsEditorPanel } from "@/components/wizard/benefits-steps/benefits-editor-panel";
 import { PortalDisclosureSection } from "@/components/portal-editing/portal-disclosure-section";
+import { PortalLiveBadge } from "@/components/portal-editing/portal-live-badge";
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
@@ -51,7 +52,9 @@ const BENEFIT_DISCLOSURE_CATEGORY: Record<string, BenefitDisclosureCategory> = {
   "Company / Plan Sponsor": "Other",
 };
 
-function logoDataFromUrl(url: string | null | undefined): CompanyLogoData | null {
+function logoDataFromUrl(
+  url: string | null | undefined,
+): CompanyLogoData | null {
   if (!url) return null;
   return {
     url,
@@ -102,10 +105,7 @@ function step1FromBenefit(input: {
   const logoUrl =
     typeof benefit?.partnerLogo === "string" ? benefit.partnerLogo : "";
   const headerUrl =
-    benefit?.backgroundImage ||
-    benefit?.image ||
-    plan.backgroundImg ||
-    "";
+    benefit?.backgroundImage || benefit?.image || plan.backgroundImg || "";
   const portrait =
     typeof plan.heroPortraitImage === "string"
       ? plan.heroPortraitImage.trim()
@@ -191,9 +191,7 @@ function step3FromBenefit(
 ): BenefitsStep3Data {
   const rawFaqs = benefit?.faqs;
   const rawSupportContacts = benefit?.supportContacts;
-  const faqs: BenefitsStep3Data["faqs"] = Array.isArray(rawFaqs)
-    ? rawFaqs
-    : [];
+  const faqs: BenefitsStep3Data["faqs"] = Array.isArray(rawFaqs) ? rawFaqs : [];
   const supportContacts: BenefitsStep3Data["supportContacts"] = Array.isArray(
     rawSupportContacts,
   )
@@ -298,7 +296,9 @@ export function PortalBenefitEditor() {
   const apiCategory = portalBenefitApiCategory(category);
   const benefitKey =
     planId && apiCategory
-      ? `/api/clients/${planId}/benefits/${encodeURIComponent(apiCategory)}?forPortal=1&withTopics=1`
+      ? `/api/clients/${planId}/benefits/${encodeURIComponent(
+          apiCategory,
+        )}?forPortal=1&withTopics=1`
       : null;
 
   const { data, error } = useSWR(benefitKey, fetcher, {
@@ -326,7 +326,9 @@ export function PortalBenefitEditor() {
   const disclosureCategory =
     BENEFIT_DISCLOSURE_CATEGORY[apiCategory] ?? "Other";
   const disclosureLabel =
-    String((data?.benefit as { title?: string } | undefined)?.title || "").trim() ||
+    String(
+      (data?.benefit as { title?: string } | undefined)?.title || "",
+    ).trim() ||
     (category === "Other" ? "Custom Benefit" : category || apiCategory);
 
   const handleDisclaimersChange = useCallback(
@@ -341,10 +343,7 @@ export function PortalBenefitEditor() {
 
   /** Re-seed both steps from a Benefit row + plan, without marking a draft. */
   const hydrateFrom = useCallback(
-    (
-      benefit: Record<string, any> | null,
-      plan: Record<string, any> | null,
-    ) => {
+    (benefit: Record<string, any> | null, plan: Record<string, any> | null) => {
       setHydrated(false);
       const store = useBenefitsWizardStore.getState();
       store.saveStepData(
@@ -539,6 +538,8 @@ export function PortalBenefitEditor() {
       isOpen={isOpen}
       isAnimating={isOpen}
       onClose={closePanel}
+      // The portal's red Live tag, beside the plan/category badge.
+      headerBadgePrefix={<PortalLiveBadge />}
       planCompanyName={String(clientData?.companyName || "")}
       companyWebsite={clientData?.companyWebsite || ""}
       // A hub page's blue button (and the layout's "Edit footer") asks for a
@@ -566,15 +567,20 @@ export function PortalBenefitEditor() {
           title: "Disclosure",
           content: (
             <PortalDisclosureSection
-              value={(clientData as { disclaimers?: unknown } | null)?.disclaimers}
+              value={
+                (clientData as { disclaimers?: unknown } | null)?.disclaimers
+              }
               fallbackText={String(
                 (clientData as { advisorDisclaimer?: string } | null)
                   ?.advisorDisclaimer || "",
               )}
               organizationName={
                 String(
-                  (clientData as { branding?: { organizationName?: string } } | null)
-                    ?.branding?.organizationName || "",
+                  (
+                    clientData as {
+                      branding?: { organizationName?: string };
+                    } | null
+                  )?.branding?.organizationName || "",
                 ) || String(clientData?.companyName || "")
               }
               companyName={String(clientData?.companyName || "")}

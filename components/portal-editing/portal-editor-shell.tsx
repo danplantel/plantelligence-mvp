@@ -2,6 +2,7 @@
 
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import type { EditorSection } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
+import { PortalLiveBadge } from "@/components/portal-editing/portal-live-badge";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
 
 interface PortalEditorShellProps {
@@ -14,7 +15,10 @@ interface PortalEditorShellProps {
   title?: string;
   /** Small label above the title. */
   eyebrow?: string;
-  /** Badge rendered beside the title. */
+  /**
+   * Extra badge rendered beside the title. The red **Live** badge is always
+   * rendered first, on every portal panel.
+   */
   headerBadge?: React.ReactNode;
 }
 
@@ -45,14 +49,13 @@ export function PortalEditorShell({
       title={title ?? target.label}
       // A light grey tool surface makes the panel distinct from the white portal.
       surfaceClassName="bg-gray-100 dark:bg-gray-900"
+      // Red, not neutral: the Live badge says the panel is editing the LIVE page,
+      // and every portal panel wears it — alongside any page-specific badge.
       headerBadge={
-        headerBadge ?? (
-          // Red, not neutral: this badge says the panel is editing the LIVE page,
-          // and every portal panel wears the same one.
-          <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white shadow-sm">
-            Live
-          </span>
-        )
+        <>
+          <PortalLiveBadge />
+          {headerBadge}
+        </>
       }
       sections={sections}
       footer={footer}

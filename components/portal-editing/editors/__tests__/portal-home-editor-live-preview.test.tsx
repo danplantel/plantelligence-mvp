@@ -86,6 +86,8 @@ describe("PortalHomeEditor live preview", () => {
     const user = userEvent.setup();
     render(<PortalHomeEditor />);
 
+    expect(screen.getByText("Live")).toBeInTheDocument();
+
     const headline = screen.getByDisplayValue("Hello team");
     await user.type(headline, "!");
 

@@ -6,7 +6,10 @@ import { HelpCardLayoutEditor } from "./help-card-layout-editor";
 import { QuickAnswersBuilder } from "./quick-answers-builder";
 import { topicLocationForCategory } from "@/lib/topic-locations";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
-import { benefitEditAnchor, portalSectionId } from "@/lib/portal-editor-sections";
+import {
+  benefitEditAnchor,
+  portalSectionId,
+} from "@/lib/portal-editor-sections";
 import {
   BENEFIT_CATEGORY_GALLERY,
   toCategoryGalleryKey,
@@ -146,6 +149,13 @@ interface BenefitsEditorPanelProps {
   onTopicsSaved?: () => void;
   /** Plan/company name shown next to the benefit category badge in the header */
   planCompanyName?: string;
+  /**
+   * Portal-only badge rendered BEFORE the company/category badge.
+   *
+   * The portal passes its red **Live** tag here; the dashboard wizard and Edit
+   * Benefit leave it unset, so their headers are unchanged.
+   */
+  headerBadgePrefix?: React.ReactNode;
   /** The plan's company website — analysis target for the AI typography suggestion */
   companyWebsite?: string;
   /** Fields flagged by the last failed step validation (renders red borders) */
@@ -177,6 +187,7 @@ export function BenefitsEditorPanel({
   activeSection,
   highlightedField,
   planCompanyName,
+  headerBadgePrefix,
   companyWebsite,
   errorFields = [],
   onScrollEditorTo,
@@ -806,18 +817,25 @@ export function BenefitsEditorPanel({
       // without this the panel would open at the top.
       focusRequest={focusRequest}
       headerBadge={
-        planCompanyName || step1Data?.benefitCategory ? (
-          <span className="inline-flex items-center gap-1.5 rounded-md bg-accent-blue/10 px-2 py-0.5 text-xs font-semibold text-accent-blue">
-            {planCompanyName ? (
-              <span className="max-w-[180px] truncate">{planCompanyName}</span>
+        headerBadgePrefix || planCompanyName || step1Data?.benefitCategory ? (
+          <>
+            {headerBadgePrefix}
+            {planCompanyName || step1Data?.benefitCategory ? (
+              <span className="inline-flex items-center gap-1.5 rounded-md bg-accent-blue/10 px-2 py-0.5 text-xs font-semibold text-accent-blue">
+                {planCompanyName ? (
+                  <span className="max-w-[180px] truncate">
+                    {planCompanyName}
+                  </span>
+                ) : null}
+                {planCompanyName && step1Data?.benefitCategory ? (
+                  <span className="opacity-60">-</span>
+                ) : null}
+                {step1Data?.benefitCategory ? (
+                  <span>{step1Data.benefitCategory}</span>
+                ) : null}
+              </span>
             ) : null}
-            {planCompanyName && step1Data?.benefitCategory ? (
-              <span className="opacity-60">-</span>
-            ) : null}
-            {step1Data?.benefitCategory ? (
-              <span>{step1Data.benefitCategory}</span>
-            ) : null}
-          </span>
+          </>
         ) : undefined
       }
     >

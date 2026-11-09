@@ -54,9 +54,7 @@ describe("BenefitsEditorPanel account access fields", () => {
     renderPanel();
     const section = sectionSix();
 
-    expect(
-      within(section).getByText("Plan / Group ID"),
-    ).toBeInTheDocument();
+    expect(within(section).getByText("Plan / Group ID")).toBeInTheDocument();
     expect(
       within(section).getByText(/Register or Login Here Button URL/),
     ).toBeInTheDocument();
@@ -94,9 +92,7 @@ describe("BenefitsEditorPanel account access fields", () => {
       { target: { value: "https://portal.example.com/login" } },
     );
 
-    expect(step1().insuranceLoginUrl).toBe(
-      "https://portal.example.com/login",
-    );
+    expect(step1().insuranceLoginUrl).toBe("https://portal.example.com/login");
   });
 
   it("saves the provider / recordkeeper from Section 6", () => {
@@ -214,7 +210,9 @@ describe("BenefitsEditorPanel portal header button", () => {
     fireEvent.click(screen.getByRole("radio", { name: /Login/ }));
     fireEvent.click(screen.getByRole("radio", { name: /Schedule a Call/ }));
 
-    expect(screen.getByDisplayValue("https://cal.com/team")).toBeInTheDocument();
+    expect(
+      screen.getByDisplayValue("https://cal.com/team"),
+    ).toBeInTheDocument();
   });
 });
 
@@ -248,6 +246,28 @@ describe("BenefitsEditorPanel section order", () => {
     const quickAnswersAt = labels.indexOf(
       "Section 7: Get Quick Answers to Common Benefits Questions",
     );
-    if (quickAnswersAt !== -1) expect(quickAnswersAt).toBeGreaterThan(helpCardsAt);
+    if (quickAnswersAt !== -1)
+      expect(quickAnswersAt).toBeGreaterThan(helpCardsAt);
+  });
+});
+
+describe("BenefitsEditorPanel header badge", () => {
+  beforeEach(() => {
+    seed();
+  });
+
+  it("renders a host-provided prefix alongside the plan badge", () => {
+    render(
+      <BenefitsEditorPanel
+        isOpen
+        isAnimating={false}
+        onClose={vi.fn()}
+        headerBadgePrefix={<span>Live</span>}
+      />,
+    );
+
+    // This is how the portal adds its red Live tag without the dashboard
+    // wizard/Edit Benefit gaining one.
+    expect(screen.getByText("Live")).toBeInTheDocument();
   });
 });
