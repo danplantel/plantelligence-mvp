@@ -1091,4 +1091,46 @@ describe("Retirement topic blocks", () => {
     });
     expect(cta).toHaveAttribute("href", "https://rk.example/login");
   });
+
+  it("draws the Employer Match card once the advisor enables it", async () => {
+    const user = userEvent.setup();
+    // The match card ships hidden (its plan gate does not exist yet), so this
+    // layout is what the advisor gets after ticking it in the Card Layout list.
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Retirement"
+        accountAccessHref="https://rk.example/login"
+        cards={[
+          { id: "account-access", primary: true },
+          { id: "enroll-change-contributions" },
+          { id: "employer-match-vesting" },
+          { id: "manage-investments" },
+          { id: "beneficiaries" },
+          { id: "leaving-retiring" },
+          { id: "financial-planning" },
+        ]}
+      />,
+    );
+
+    await user.click(tile(container, "employer-match-vesting"));
+
+    const panel = screen.getByRole("region", {
+      name: "Employer Match & Vesting",
+    });
+    const steps = within(panel).getByTestId("help-card-steps");
+    expect(within(steps).getAllByRole("listitem")).toHaveLength(3);
+    expect(steps).toHaveTextContent("Log in at https://rk.example/login.");
+
+    expect(
+      within(panel).getByText("Summary Plan Description"),
+    ).toBeInTheDocument();
+
+    expect(
+      within(panel).getByTestId("help-card-related"),
+    ).toHaveTextContent("What does vested mean?");
+
+    const cta = within(panel).getByRole("link", { name: "Check My Match" });
+    expect(cta).toHaveAttribute("href", "https://rk.example/login");
+  });
 });

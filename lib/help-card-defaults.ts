@@ -102,9 +102,31 @@ export const RETIREMENT_HELP_CARDS: HelpCardContent[] = [
     title: "Employer Match & Vesting",
     body: "Understand what your employer contributes and when it's yours to keep.",
     paragraphs: [
-      "Your employer matches a formula set by your plan. Your own contributions are always 100% yours, and employer contributions become yours over time on your plan's vesting schedule.",
+      "Your employer matches a formula set by your plan. Your own contributions are always 100% yours. Employer contributions become yours over time on your plan's vesting schedule.",
     ],
-    cta: "",
+    steps: [
+      "Log in at {{recordkeeper_url}}.",
+      "Confirm you're contributing at least the rate your plan requires to get the full match.",
+      "Check your vested balance on your account summary.",
+    ],
+    // The Safe Harbor Notice is gated on "safe harbor = Yes" in the handoff; that
+    // plan field does not exist yet, so only the SPD (always in the plan) is named.
+    docs: ["Summary Plan Description"],
+    related: [
+      "How does the employer match work?",
+      "Am I receiving the full match?",
+      "What does vested mean?",
+      "What happens to unvested money if I leave?",
+    ],
+    tags: [
+      "match",
+      "employer contribution",
+      "free money",
+      "vesting",
+      "vested",
+      "profit sharing",
+    ],
+    cta: "Check My Match",
     // The handoff gates this topic on "Match = Yes". Those plan yes/no fields do
     // not exist yet, so it ships hidden: it keeps its place in the Card Layout
     // list (unticked) and stays out of the default portal grid until the advisor
