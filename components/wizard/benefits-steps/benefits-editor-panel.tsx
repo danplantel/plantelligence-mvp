@@ -2082,7 +2082,7 @@ export function BenefitsEditorPanel({
           <SectionHeader number={6} title="How Can We Help You Today?" />
           <p className="text-[13px] text-muted-foreground mb-6">
             Choose the card layout below, then edit the Account Access fields —
-            Plan / Group ID, where the &ldquo;Register or Login Here&rdquo;
+            Plan / Group ID, where the &ldquo;Register or Log In&rdquo;
             button sends participants, and who administers the benefit.
           </p>
 
@@ -2144,7 +2144,7 @@ export function BenefitsEditorPanel({
               data-field="insuranceLoginUrl"
             >
               <Label className="text-xs font-bold text-foreground">
-                Register or Login Here Button URL{" "}
+                Register or Log In Button URL{" "}
                 <span className="text-red-500">*</span>
               </Label>
               <Input
@@ -2167,7 +2167,7 @@ export function BenefitsEditorPanel({
                 )}
               />
               <p className="text-[11px] text-muted-foreground">
-                Required. Where the &ldquo;Register or Login Here&rdquo; button
+                Required. Where the &ldquo;Register or Log In&rdquo; button
                 sends participants.
               </p>
             </div>

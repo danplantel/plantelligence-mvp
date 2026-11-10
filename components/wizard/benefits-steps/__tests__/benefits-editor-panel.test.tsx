@@ -8,7 +8,7 @@ import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 
 /**
  * Section 6 ("How Can We Help You Today?") owns the wide Account Access card's
- * three fields — Plan / Group ID, the required "Register or Login Here" URL and
+ * three fields — Plan / Group ID, the required "Register or Log In" URL and
  * the Provider / Recordkeeper. They are the SAME stored values Benefit Access &
  * Materials edits, so typing in either place must land on
  * `step1.insurancePlanId` / `insuranceLoginUrl` / `providerContact`.
@@ -56,7 +56,7 @@ describe("BenefitsEditorPanel account access fields", () => {
 
     expect(within(section).getByText("Plan / Group ID")).toBeInTheDocument();
     expect(
-      within(section).getByText(/Register or Login Here Button URL/),
+      within(section).getByText(/Register or Log In Button URL/),
     ).toBeInTheDocument();
     expect(
       within(section).getByText("Provider / Recordkeeper"),

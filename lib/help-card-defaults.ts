@@ -56,7 +56,7 @@ export const RETIREMENT_HELP_CARDS: HelpCardContent[] = [
     id: ACCOUNT_ACCESS_CARD_ID,
     title: "[Benefit Category] Account Access",
     paragraphs: [
-      "Log in to your recordkeeper to see your balance, statements, and account details.",
+      "Log in to {{recordkeeper_name}} to see your balance, statements, and account details.",
     ],
     cta: "",
   },

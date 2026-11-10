@@ -360,7 +360,7 @@ describe("HowCanWeHelpSection account access card", () => {
 
     const account = tile(container, "account-access");
     const button = within(account).getByRole("button", {
-      name: /Register or Login Here/,
+      name: /Register or Log In/,
     });
 
     expect(account).toHaveStyle({ backgroundColor: "#654321" });
@@ -381,7 +381,7 @@ describe("HowCanWeHelpSection account access card", () => {
 
     const account = tile(container, "account-access");
     const button = within(account).getByRole("button", {
-      name: /Register or Login Here/,
+      name: /Register or Log In/,
     });
 
     expect(button).toHaveStyle({ backgroundColor: "#654321" });
@@ -398,7 +398,7 @@ describe("HowCanWeHelpSection account access card", () => {
 
     await user.click(
       within(tile(container, "account-access")).getByRole("button", {
-        name: /Register or Login Here/,
+        name: /Register or Log In/,
       }),
     );
 
@@ -463,13 +463,60 @@ describe("HowCanWeHelpSection account access card", () => {
     }
   });
 
+  it("names the retirement recordkeeper and prints the support phone", () => {
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Retirement"
+        accountAccessHref="https://rk.example/login"
+        provider={{ companyName: "Acme Retirement", phone: "5551234567" }}
+      />,
+    );
+
+    const account = tile(container, "account-access");
+    expect(
+      within(account).getByText(
+        "Log in to Acme Retirement to see your balance, statements, and account details.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(account).getByTestId("account-access-secondary"),
+    ).toHaveTextContent("Call Acme Retirement at");
+    expect(
+      within(account).getByRole("button", { name: /Register or Log In/ }),
+    ).toBeInTheDocument();
+  });
+
+  it("adds https:// to a bare login host instead of resolving it as a path", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Retirement"
+        accountAccessHref="google.com"
+      />,
+    );
+
+    await user.click(
+      within(tile(container, "account-access")).getByRole("button", {
+        name: /Register or Log In/,
+      }),
+    );
+
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://google.com",
+      "_blank",
+      "noopener,noreferrer",
+    );
+  });
+
   it("is inert, like the hero, when the plan has no login URL", async () => {
     const user = userEvent.setup();
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
 
     await user.click(
       within(tile(container, "account-access")).getByRole("button", {
-        name: /Register or Login Here/,
+        name: /Register or Log In/,
       }),
     );
 

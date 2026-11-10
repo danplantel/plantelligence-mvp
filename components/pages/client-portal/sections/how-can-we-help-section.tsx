@@ -74,7 +74,7 @@ export type { HelpCardData } from "@/types/benefit";
  *
  * The Account Access card is a special tile, not a topic: it mirrors the Insurance
  * Benefits Access & Materials hero — plan / group ID, the provider administering the
- * benefit, what the participant can do there, and a "Register or Login Here →" button
+ * benefit, what the participant can do there, and a "Register or Log In →" button
  * that opens the plan's login URL in a new tab. It never opens a detail panel.
  * It can be the primary card (the default) or a standard 1/4 tile.
  *
@@ -94,7 +94,7 @@ interface HowCanWeHelpSectionProps {
    */
   category?: string;
   /**
-   * Destination for the Account Access card's "Register or Login Here" button.
+   * Destination for the Account Access card's "Register or Log In" button.
    * Defaults to the plan's `employeePortalPreview.insuranceLoginUrl` when the section
    * is rendered inside the portal; callers outside that provider (the wizard preview)
    * pass it explicitly.
@@ -249,6 +249,22 @@ function chunkIntoRows(cards: HelpCardResolved[]): HelpCardResolved[][] {
     rows.push(cards.slice(index, index + HELP_CARD_ROW_SIZE));
   }
   return rows;
+}
+
+/**
+ * Make a stored destination safe to put in `href` / `window.open`.
+ *
+ * Advisors type bare hosts ("google.com"), and a browser resolves those RELATIVE
+ * to the current page — sending the participant to `/{plan}/google.com`. Anything
+ * without a scheme gets `https://`; a real scheme (http, https, mailto, tel) and a
+ * protocol-relative `//host` are left alone.
+ */
+export function toExternalUrl(value?: string | null): string {
+  const raw = (value || "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("//")) return `https:${raw}`;
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw)) return raw;
+  return `https://${raw}`;
 }
 
 /** Resolve a card link. Internal paths stay in the portal; everything else is external. */
@@ -526,6 +542,7 @@ function AccountAccessCard({
   providerDetailLine,
   loginUrl,
   actions,
+  secondaryLinks,
 }: {
   title: string;
   description?: string;
@@ -545,6 +562,12 @@ function AccountAccessCard({
    * does not offer.
    */
   actions?: string[];
+  /**
+   * The handoff's "Secondary links" — the support phone line today; the app and
+   * forms destinations join it when those plan fields exist. Rendered as small
+   * print under the quick actions.
+   */
+  secondaryLinks?: string[];
 }) {
   const bullets =
     actions && actions.length > 0
@@ -668,6 +691,28 @@ function AccountAccessCard({
             </div>
           )}
 
+          {/* Secondary links — call the recordkeeper, and (when the plan stores
+              them) the app and paper-form destinations. */}
+          {secondaryLinks && secondaryLinks.length > 0 && (
+            <div
+              data-testid="account-access-secondary"
+              className={cn(
+                "mt-2 space-y-0.5 font-red-hat text-[12px] leading-tight",
+                isWide && "text-center",
+              )}
+            >
+              {secondaryLinks.map((link) => (
+                <p
+                  key={link}
+                  style={primary ? { color: onPrimaryMuted } : undefined}
+                  className={!primary ? "text-neutral-500" : undefined}
+                >
+                  {link}
+                </p>
+              ))}
+            </div>
+          )}
+
           <div
             className={cn(
               "mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5",
@@ -724,7 +769,7 @@ function AccountAccessCard({
                   }
             }
           >
-            Register or Login Here
+            Register or Log In
             <ArrowRight className="h-4 w-4" />
           </Button>
         </div>
@@ -1076,7 +1121,11 @@ export function HowCanWeHelpSection({
     | undefined;
 
   const loginUrlFromContext = String(epp?.insuranceLoginUrl || "").trim();
-  const resolvedLoginUrl = (accountAccessHref || loginUrlFromContext).trim();
+  // Normalised: a bare host ("google.com") must leave the site, not become a
+  // relative /{plan}/google.com path.
+  const resolvedLoginUrl = toExternalUrl(
+    accountAccessHref || loginUrlFromContext,
+  );
 
   // The benefit's own value (passed by the hub) wins; the legacy plan-level copy is
   // the fallback for any caller that has not been wired yet.
@@ -1103,6 +1152,17 @@ export function HowCanWeHelpSection({
     .filter(Boolean)
     .join(" · ");
 
+  // The Account Access card's secondary line: the support phone the handoff
+  // prints under the quick actions. Mobile-app and paper-form destinations are
+  // per-plan fields that do not exist yet, so they are omitted rather than faked.
+  const accountAccessSecondaryLinks = providerContact?.phone
+    ? [
+        `Call ${resolvedProviderName || "your recordkeeper"} at ${formatPhoneWithExtension(
+          providerContact.phone,
+        )}`,
+      ]
+    : [];
+
   // The person the Rollovers panel offers a free call with. Resolved with the SAME
   // helper the welcome banner uses (`resolvePortalPrimaryContact`) and the same
   // category, so the two always name the same person for this benefit.
@@ -1115,9 +1175,9 @@ export function HowCanWeHelpSection({
   ).trim();
   // That same contact's booking link, for a topic CTA that hands off to the
   // advisor ("Get Investment Help").
-  const advisorBookingUrl = String(
-    bannerPrimaryContact?.schedulingUrl || "",
-  ).trim();
+  const advisorBookingUrl = toExternalUrl(
+    String(bannerPrimaryContact?.schedulingUrl || ""),
+  );
   // The advisor's firm and the plan sponsor, for the Financial Planning copy.
   const advisorFirm = String(
     bannerPrimaryContact?.companyName || bannerPrimaryContact?.company || "",
@@ -1409,9 +1469,13 @@ export function HowCanWeHelpSection({
           ): React.ReactNode => {
             const isAccountAccess = card.id === ACCOUNT_ACCESS_CARD_ID;
             const isPrimary = card.primary;
-            const description = (card.paragraphs ?? []).find(
-              (paragraph) => paragraph && paragraph.trim(),
-            );
+            const description = (card.paragraphs ?? [])
+              .find((paragraph) => paragraph && paragraph.trim())
+              // The Account Access card line names the provider.
+              ?.replace(
+                /\{\{recordkeeper_name\}\}/g,
+                resolvedProviderName || "your recordkeeper",
+              );
 
             // Colour pair for a primary tile: the plan's primary colour as the fill
             // and the readable colour for everything drawn on top of it.
@@ -1435,6 +1499,7 @@ export function HowCanWeHelpSection({
                   providerDetailLine={resolvedProviderDetail || undefined}
                   loginUrl={resolvedLoginUrl}
                   actions={accountAccessActionsFor(category)}
+                  secondaryLinks={accountAccessSecondaryLinks}
                 />
               );
             }
