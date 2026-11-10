@@ -207,7 +207,37 @@ export const RETIREMENT_HELP_CARDS: HelpCardContent[] = [
     paragraphs: [
       "Your vested balance stays yours when you leave. You can usually keep it in the plan, roll it to an IRA or a new employer's plan, or cash it out. Cashing out carries tax costs, so review your options before you decide.",
     ],
-    cta: "",
+    steps: [
+      "Check your vested balance.",
+      "Compare your options in the Quick Answers below.",
+      "Talk with {{advisor_name}} before you choose.",
+      "Request your rollover or distribution through {{recordkeeper_name}}.",
+    ],
+    docs: [
+      "Distribution Request Form",
+      "Rollover Guide",
+      "Summary Plan Description",
+    ],
+    video: "Your Options When You Leave",
+    related: [
+      "Roll over to an IRA",
+      "Cashing out",
+      "Required Minimum Distributions",
+      "Approaching retirement",
+    ],
+    tags: [
+      "leaving",
+      "quit",
+      "terminated",
+      "new job",
+      "retire",
+      "retirement",
+      "rollover",
+      "cash out",
+      "IRA",
+    ],
+    cta: "Talk Through My Options",
+    ctaDestination: "advisor",
   },
   {
     id: "financial-planning",

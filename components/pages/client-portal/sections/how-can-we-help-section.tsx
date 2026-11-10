@@ -745,6 +745,7 @@ function HelpCardPanel({
   actionHubRows,
   loginUrl,
   advisorBookingUrl,
+  recordkeeperName,
 }: {
   card: HelpCardResolved;
   brandColor: string;
@@ -774,6 +775,8 @@ function HelpCardPanel({
    * band, where that contact's card (and booking control) lives.
    */
   advisorBookingUrl?: string;
+  /** The provider administering this benefit, for `{{recordkeeper_name}}`. */
+  recordkeeperName?: string;
 }) {
   // The Rollovers topic has its own body (options, pros/cons, CTA) instead of the
   // paragraph copy every other topic uses.
@@ -785,7 +788,11 @@ function HelpCardPanel({
         /\{\{recordkeeper_url\}\}/g,
         (loginUrl || "").trim() || "your recordkeeper's website",
       )
-      .replace(/\{\{advisor_name\}\}/g, contactName || "your advisor");
+      .replace(/\{\{advisor_name\}\}/g, contactName || "your advisor")
+      .replace(
+        /\{\{recordkeeper_name\}\}/g,
+        (recordkeeperName || "").trim() || "your recordkeeper",
+      );
   const steps = (card.steps ?? []).map(fillPlanTokens);
   const docs = card.docs ?? [];
   const video = fillPlanTokens((card.video || "").trim());
@@ -1567,6 +1574,7 @@ export function HowCanWeHelpSection({
                   actionHubRows={actionHubPanels?.[openCard.id]}
                   loginUrl={resolvedLoginUrl}
                   advisorBookingUrl={advisorBookingUrl}
+                  recordkeeperName={resolvedProviderName}
                   // Sends the reader to the contact's card in "Have Questions?"
                   // rather than opening the scheduling URL in another tab — the
                   // person (and their email / phone) is right there.

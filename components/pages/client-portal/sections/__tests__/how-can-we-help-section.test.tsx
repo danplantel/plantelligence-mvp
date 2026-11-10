@@ -1204,4 +1204,43 @@ describe("Retirement topic blocks", () => {
     });
     expect(cta).toHaveAttribute("href", "#have-questions");
   });
+
+  it("draws the Leaving or Retiring card with its advisor and recordkeeper steps", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Retirement"
+        accountAccessHref="https://rk.example/login"
+      />,
+    );
+
+    await user.click(tile(container, "leaving-retiring"));
+
+    const panel = screen.getByRole("region", { name: "Leaving or Retiring" });
+    const steps = within(panel).getByTestId("help-card-steps");
+    expect(steps.children).toHaveLength(4);
+    // Without a portal contact or provider the tokens fall back to plain phrases.
+    expect(steps).toHaveTextContent("Talk with your advisor before you choose.");
+    expect(steps).toHaveTextContent(
+      "Request your rollover or distribution through your recordkeeper.",
+    );
+
+    const resources = within(panel).getByTestId("help-card-resources");
+    expect(
+      within(resources).getByText("Distribution Request Form"),
+    ).toBeInTheDocument();
+    expect(
+      within(resources).getByText("Your Options When You Leave"),
+    ).toBeInTheDocument();
+
+    expect(within(panel).getByTestId("help-card-related")).toHaveTextContent(
+      "Required Minimum Distributions",
+    );
+
+    const cta = within(panel).getByRole("link", {
+      name: "Talk Through My Options",
+    });
+    expect(cta).toHaveAttribute("href", "#have-questions");
+  });
 });
