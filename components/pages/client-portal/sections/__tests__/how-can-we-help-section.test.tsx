@@ -1133,4 +1133,38 @@ describe("Retirement topic blocks", () => {
     const cta = within(panel).getByRole("link", { name: "Check My Match" });
     expect(cta).toHaveAttribute("href", "https://rk.example/login");
   });
+
+  it("draws the Manage My Investments card with its advisor handoff", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Retirement"
+        accountAccessHref="https://rk.example/login"
+      />,
+    );
+
+    await user.click(tile(container, "manage-investments"));
+
+    const panel = screen.getByRole("region", { name: "Manage My Investments" });
+    expect(within(panel).getByTestId("help-card-steps").children).toHaveLength(
+      4,
+    );
+
+    const resources = within(panel).getByTestId("help-card-resources");
+    expect(within(resources).getByText("Fund Fact Sheets")).toBeInTheDocument();
+    expect(
+      within(resources).getByText("Understanding Target-Date Funds"),
+    ).toBeInTheDocument();
+    // `{{advisor_name}}` falls back to the plain phrase without a portal contact.
+    expect(within(resources).getByText("your advisor")).toBeInTheDocument();
+
+    expect(within(panel).getByTestId("help-card-related")).toHaveTextContent(
+      "Fees and expenses",
+    );
+
+    // No booking link in this test, so the advisor CTA points at the contact band.
+    const cta = within(panel).getByRole("link", { name: "Get Investment Help" });
+    expect(cta).toHaveAttribute("href", "#have-questions");
+  });
 });

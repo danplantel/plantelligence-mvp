@@ -36,6 +36,13 @@ export interface HelpCardContent {
    */
   related?: string[];
   /**
+   * Where the CTA goes when the card has no explicit `href`. `recordkeeper` (the
+   * default) uses the plan's login URL; `advisor` uses the key contact's
+   * scheduling link, falling back to the Have Questions band; `contact` always
+   * goes to the Have Questions band.
+   */
+  ctaDestination?: "recordkeeper" | "advisor" | "contact";
+  /**
    * Search words participants actually type (the handoff's Tags). NOT rendered —
    * they are the search and chatbot vocabulary.
    */

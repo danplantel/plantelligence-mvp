@@ -744,6 +744,7 @@ function HelpCardPanel({
   onOptionChange,
   actionHubRows,
   loginUrl,
+  advisorBookingUrl,
 }: {
   card: HelpCardResolved;
   brandColor: string;
@@ -767,20 +768,28 @@ function HelpCardPanel({
    * where "Enroll or Change My Contribution" has to go.
    */
   loginUrl?: string;
+  /**
+   * The key contact's scheduling link, for a CTA that hands off to the advisor
+   * ("Get Investment Help"). Empty means the button points at the Have Questions
+   * band, where that contact's card (and booking control) lives.
+   */
+  advisorBookingUrl?: string;
 }) {
   // The Rollovers topic has its own body (options, pros/cons, CTA) instead of the
   // paragraph copy every other topic uses.
   const isRollovers = ROLLOVER_CARD_PATTERN.test(`${card.id} ${card.title}`);
   /** Per-plan values a topic's copy may name. */
   const fillPlanTokens = (text: string) =>
-    text.replace(
-      /\{\{recordkeeper_url\}\}/g,
-      (loginUrl || "").trim() || "your recordkeeper's website",
-    );
+    text
+      .replace(
+        /\{\{recordkeeper_url\}\}/g,
+        (loginUrl || "").trim() || "your recordkeeper's website",
+      )
+      .replace(/\{\{advisor_name\}\}/g, contactName || "your advisor");
   const steps = (card.steps ?? []).map(fillPlanTokens);
   const docs = card.docs ?? [];
-  const video = (card.video || "").trim();
-  const contact = (card.contact || "").trim();
+  const video = fillPlanTokens((card.video || "").trim());
+  const contact = fillPlanTokens((card.contact || "").trim());
   const related = card.related ?? [];
   /** Docs, the video and the contact this topic hands off to, in one list. */
   const resources: { kind: "doc" | "video" | "contact"; label: string }[] = [
@@ -788,7 +797,17 @@ function HelpCardPanel({
     ...(video ? [{ kind: "video" as const, label: video }] : []),
     ...(contact ? [{ kind: "contact" as const, label: contact }] : []),
   ];
-  const ctaHref = (card.href || (card.cta ? loginUrl : "") || "").trim();
+  // The CTA destination follows the card's own `ctaDestination`: the recordkeeper
+  // login by default, the advisor's scheduling link (or the Have Questions band)
+  // for an advisor handoff, and that same band for "contact" CTAs.
+  const fallbackCtaHref = !card.cta
+    ? ""
+    : card.ctaDestination === "advisor"
+      ? advisorBookingUrl || `#${HAVE_QUESTIONS_SECTION_ID}`
+      : card.ctaDestination === "contact"
+        ? `#${HAVE_QUESTIONS_SECTION_ID}`
+        : loginUrl || "";
+  const ctaHref = (card.href || fallbackCtaHref || "").trim();
   const resolved = ctaHref ? resolveCardHref(ctaHref, basePath) : null;
   const ctaLabel = card.cta?.trim() ? card.cta : "";
   // Rollovers already closes with its own CTA — the same "Talk through my options"
@@ -1053,6 +1072,11 @@ export function HowCanWeHelpSection({
   const benefitContactName = String(
     bannerPrimaryContact?.fullName || bannerPrimaryContact?.name || "",
   ).trim();
+  // That same contact's booking link, for a topic CTA that hands off to the
+  // advisor ("Get Investment Help").
+  const advisorBookingUrl = String(
+    bannerPrimaryContact?.schedulingUrl || "",
+  ).trim();
 
   // Two sources for the grid, in this order:
   //
@@ -1111,7 +1135,10 @@ export function HowCanWeHelpSection({
                 ? stepsBlock.steps
                 : shipped?.steps,
             docs: shipped?.docs,
+            video: shipped?.video,
+            contact: shipped?.contact,
             related: shipped?.related,
+            ctaDestination: shipped?.ctaDestination,
             tags: topic.tags.length > 0 ? topic.tags : shipped?.tags,
             primary: false,
           };
@@ -1539,6 +1566,7 @@ export function HowCanWeHelpSection({
                   contactName={benefitContactName}
                   actionHubRows={actionHubPanels?.[openCard.id]}
                   loginUrl={resolvedLoginUrl}
+                  advisorBookingUrl={advisorBookingUrl}
                   // Sends the reader to the contact's card in "Have Questions?"
                   // rather than opening the scheduling URL in another tab — the
                   // person (and their email / phone) is right there.
