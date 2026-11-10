@@ -183,6 +183,10 @@ export function normalizeHelpCardLayout(
     storedIds.push(id);
     if (!storedPrimaryId && entry.primary === true) storedPrimaryId = id;
   }
+  // Ids the plan actually saved. A catalog card that is NEW to this layout (or a
+  // card the catalog ships hidden) follows its catalog default; a card the plan
+  // chose keeps whatever the plan stored.
+  const chosenIds = [...storedIds];
   for (const id of catalogIds) {
     if (!storedIds.includes(id)) storedIds.push(id);
   }
@@ -204,22 +208,36 @@ export function normalizeHelpCardLayout(
   const side: HelpCardSide =
     options.side ?? (storedIndex >= 2 ? "right" : "left");
 
-  return arrangeHelpCards(storedIds, primaryId, side, disabledIdsOf(stored));
+  const disabled = disabledIdsOf(stored);
+  for (const card of catalog) {
+    if (card.defaultEnabled === false && !chosenIds.includes(card.id)) {
+      disabled.add(card.id);
+    }
+  }
+
+  return arrangeHelpCards(storedIds, primaryId, side, disabled);
 }
 
-/** Which edge of row 1 the primary occupies. */
+/**
+ * Which edge of row 1 the primary occupies.
+ *
+ * `options.catalog` selects the category's card set; without it the shared
+ * fallback catalog is used, exactly as before.
+ */
 export function helpCardSide(
   layout: HelpCardLayoutEntry[] | undefined | null,
+  options: NormalizeHelpCardOptions = {},
 ): HelpCardSide {
-  const entries = normalizeHelpCardLayout(layout);
+  const entries = normalizeHelpCardLayout(layout, options);
   return entries.findIndex((entry) => entry.primary) === 0 ? "left" : "right";
 }
 
 /** The primary card id. */
 export function helpCardPrimaryId(
   layout: HelpCardLayoutEntry[] | undefined | null,
+  options: NormalizeHelpCardOptions = {},
 ): string {
-  const entries = normalizeHelpCardLayout(layout);
+  const entries = normalizeHelpCardLayout(layout, options);
   return entries.find((entry) => entry.primary)?.id ?? entries[0]?.id ?? "";
 }
 
@@ -227,16 +245,17 @@ export function helpCardPrimaryId(
 export function setHelpCardPrimary(
   layout: HelpCardLayoutEntry[] | undefined | null,
   id: string,
+  options: NormalizeHelpCardOptions = {},
 ): HelpCardLayoutEntry[] {
-  const entries = normalizeHelpCardLayout(layout);
-  const currentPrimaryId = helpCardPrimaryId(entries);
+  const entries = normalizeHelpCardLayout(layout, options);
+  const currentPrimaryId = helpCardPrimaryId(entries, options);
   if (!id || id === currentPrimaryId) return entries;
   if (!entries.some((entry) => entry.id === id)) return entries;
 
   return arrangeHelpCards(
     entries.map((entry) => entry.id),
     id,
-    helpCardSide(entries),
+    helpCardSide(entries, options),
     disabledIdsOf(entries),
   );
 }
@@ -245,11 +264,12 @@ export function setHelpCardPrimary(
 export function setHelpCardSide(
   layout: HelpCardLayoutEntry[] | undefined | null,
   side: HelpCardSide,
+  options: NormalizeHelpCardOptions = {},
 ): HelpCardLayoutEntry[] {
-  const entries = normalizeHelpCardLayout(layout);
+  const entries = normalizeHelpCardLayout(layout, options);
   return arrangeHelpCards(
     entries.map((entry) => entry.id),
-    helpCardPrimaryId(entries),
+    helpCardPrimaryId(entries, options),
     side,
     disabledIdsOf(entries),
   );
@@ -265,8 +285,9 @@ export function setHelpCardEnabled(
   layout: HelpCardLayoutEntry[] | undefined | null,
   id: string,
   enabled: boolean,
+  options: NormalizeHelpCardOptions = {},
 ): HelpCardLayoutEntry[] {
-  const entries = normalizeHelpCardLayout(layout);
+  const entries = normalizeHelpCardLayout(layout, options);
   if (!entries.some((entry) => entry.id === id)) return entries;
 
   return entries.map((entry) => {
@@ -299,13 +320,14 @@ export function moveHelpCard(
   layout: HelpCardLayoutEntry[] | undefined | null,
   activeId: string,
   overId: string,
+  options: NormalizeHelpCardOptions = {},
 ): HelpCardLayoutEntry[] {
-  const entries = normalizeHelpCardLayout(layout);
-  const primaryId = helpCardPrimaryId(entries);
+  const entries = normalizeHelpCardLayout(layout, options);
+  const primaryId = helpCardPrimaryId(entries, options);
   if (!activeId || !overId || activeId === overId) return entries;
   if (activeId === primaryId) return entries;
 
-  const side = helpCardSide(entries);
+  const side = helpCardSide(entries, options);
   const visual = entries.map((entry) => entry.id);
   const from = visual.indexOf(activeId);
   const to = visual.indexOf(overId);

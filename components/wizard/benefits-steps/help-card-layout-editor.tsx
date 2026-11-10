@@ -21,9 +21,11 @@ import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import type { HelpCardContent, HelpCardLayoutEntry } from "@/types/benefit";
 import {
   fillHelpCardTokens,
   getHelpCardContent,
+  helpCardCatalogFor,
 } from "@/lib/help-card-defaults";
 import {
   HELP_CARD_ROW_SIZE,
@@ -38,7 +40,6 @@ import {
   setHelpCardPrimary,
   setHelpCardSide,
 } from "@/lib/help-card-layout";
-import type { HelpCardLayoutEntry } from "@/types/benefit";
 import { cn } from "@/lib/utils";
 
 interface HelpCardLayoutEditorProps {
@@ -96,6 +97,7 @@ function SortableHelpCardRow({
   index,
   isPrimary,
   category,
+  catalog,
   enabled,
   row = 1,
   span = 1,
@@ -106,6 +108,12 @@ function SortableHelpCardRow({
   index: number;
   isPrimary: boolean;
   category?: string;
+  /**
+   * The CATEGORY's catalog. Reading the copy from the shared fallback would leave
+   * a Retirement card titled by its id ("manage-investments") — the row must read
+   * the same catalog the layout was normalized against.
+   */
+  catalog: HelpCardContent[];
   /** Whether the card renders on the hub (see `setHelpCardEnabled`). */
   enabled: boolean;
   /** Which row the card lands in, and how many columns it takes there. */
@@ -114,7 +122,7 @@ function SortableHelpCardRow({
   onMakePrimary: (id: string) => void;
   onToggleEnabled: (id: string, enabled: boolean) => void;
 }) {
-  const content = getHelpCardContent(entry.id);
+  const content = getHelpCardContent(entry.id, catalog);
   const title = fillHelpCardTokens(content?.title ?? entry.id, category);
   const {
     attributes,
@@ -227,9 +235,17 @@ export function HelpCardLayoutEditor({
   category,
   className,
 }: HelpCardLayoutEditorProps) {
-  const layout = useMemo(() => normalizeHelpCardLayout(value), [value]);
-  const primaryId = helpCardPrimaryId(layout);
-  const side = helpCardSide(layout);
+  // The category's OWN catalog — Retirement has its six Featured topics, every
+  // other category keeps the shared set. Normalizing against it is what keeps a
+  // Retirement layout from losing its cards (or gaining another category's) every
+  // time it is read back.
+  const catalog = useMemo(() => helpCardCatalogFor(category), [category]);
+  const layout = useMemo(
+    () => normalizeHelpCardLayout(value, { catalog }),
+    [value, catalog],
+  );
+  const primaryId = helpCardPrimaryId(layout, { catalog });
+  const side = helpCardSide(layout, { catalog });
   // The slot mirror shows what the hub will actually render, so a hidden card
   // leaves the mirror (and its columns) behind.
   const visibleLayout = layout.filter(isHelpCardEnabled);
@@ -257,7 +273,9 @@ export function HelpCardLayoutEditor({
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
-    onChange(moveHelpCard(layout, String(active.id), String(over.id)));
+    onChange(
+      moveHelpCard(layout, String(active.id), String(over.id), { catalog }),
+    );
   };
 
   return (
@@ -286,7 +304,9 @@ export function HelpCardLayoutEditor({
                 key={option}
                 type="button"
                 aria-pressed={side === option}
-                onClick={() => onChange(setHelpCardSide(layout, option))}
+                onClick={() =>
+                  onChange(setHelpCardSide(layout, option, { catalog }))
+                }
                 className={cn(
                   "px-2.5 py-1.5 capitalize transition-colors",
                   side === option
@@ -313,7 +333,7 @@ export function HelpCardLayoutEditor({
           </p>
         ) : (
           visibleLayout.map((entry, index) => {
-            const content = getHelpCardContent(entry.id);
+            const content = getHelpCardContent(entry.id, catalog);
             const title = fillHelpCardTokens(
               content?.title ?? entry.id,
               category,
@@ -354,14 +374,17 @@ export function HelpCardLayoutEditor({
                 index={index}
                 isPrimary={entry.id === primaryId}
                 category={category}
+                catalog={catalog}
                 enabled={isHelpCardEnabled(entry)}
                 row={slotById.get(entry.id)?.row ?? 1}
                 span={slotById.get(entry.id)?.span ?? 1}
                 onMakePrimary={(id) =>
-                  onChange(setHelpCardPrimary(layout, id))
+                  onChange(setHelpCardPrimary(layout, id, { catalog }))
                 }
                 onToggleEnabled={(id, nextEnabled) =>
-                  onChange(setHelpCardEnabled(layout, id, nextEnabled))
+                  onChange(
+                    setHelpCardEnabled(layout, id, nextEnabled, { catalog }),
+                  )
                 }
               />
             ))}

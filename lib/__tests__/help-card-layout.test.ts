@@ -43,6 +43,40 @@ describe("normalizeHelpCardLayout", () => {
     expect(helpCardSide(layout)).toBe("left");
   });
 
+  it("defaults Retirement to Account Access plus five visible topics", () => {
+    const layout = defaultHelpCardLayout("Retirement");
+
+    // The catalog still lists every card, so the editor can switch the match
+    // card on; it is simply not visible on the portal until then.
+    expect(ids(layout)).toEqual([
+      "account-access",
+      "enroll-change-contributions",
+      "employer-match-vesting",
+      "manage-investments",
+      "beneficiaries",
+      "leaving-retiring",
+      "financial-planning",
+    ]);
+    expect(
+      isHelpCardEnabled(
+        layout.find((entry) => entry.id === "employer-match-vesting"),
+      ),
+    ).toBe(false);
+
+    expect(
+      resolveHelpCardRows(layout, "Retirement")
+        .flat()
+        .map((card) => card.id),
+    ).toEqual([
+      "account-access",
+      "enroll-change-contributions",
+      "manage-investments",
+      "beneficiaries",
+      "leaving-retiring",
+      "financial-planning",
+    ]);
+  });
+
   it("keeps a stored primary and treats index 2 as the right edge", () => {
     const layout = normalizeHelpCardLayout([
       { id: "rollovers-distributions" },

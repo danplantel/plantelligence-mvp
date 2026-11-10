@@ -3,7 +3,14 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, ChevronDown, X } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronDown,
+  FileText,
+  PlayCircle,
+  User,
+  X,
+} from "lucide-react";
 import { readableColor, transparentize } from "polished";
 import { HOW_CAN_WE_HELP_SECTION_ID } from "@/lib/portal-section-anchors";
 import { Button } from "@/components/ui/button";
@@ -13,6 +20,7 @@ import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
 import { portalRadiusValue } from "@/lib/typography-themes";
 import {
   ACCOUNT_ACCESS_CARD_ID,
+  accountAccessActionsFor,
   fillHelpCardTokens,
   getHelpCardContent,
   helpCardCatalogFor,
@@ -25,6 +33,7 @@ import {
 } from "@/lib/help-card-layout";
 import {
   HAVE_QUESTIONS_SECTION_ID,
+  QUICK_ANSWERS_SECTION_ID,
   scrollToPortalSection,
 } from "@/lib/portal-section-anchors";
 import type { ProviderContact } from "@/types/benefit";
@@ -516,6 +525,7 @@ function AccountAccessCard({
   providerName,
   providerDetailLine,
   loginUrl,
+  actions,
 }: {
   title: string;
   description?: string;
@@ -528,9 +538,18 @@ function AccountAccessCard({
   providerName?: string;
   providerDetailLine?: string;
   loginUrl?: string;
+  /**
+   * What the participant can do once signed in. The category decides this — a
+   * recordkeeper login lists balances and contributions, a carrier login lists
+   * coverage and ID cards — so the tile never promises actions the destination
+   * does not offer.
+   */
+  actions?: string[];
 }) {
-  // The hero's own feature list — what the login gets the participant.
-  const bullets = ["See coverage", "Get ID cards", "Make changes", "Update dependents"];
+  const bullets =
+    actions && actions.length > 0
+      ? actions
+      : ["See coverage", "Get ID cards", "Make changes", "Update dependents"];
   const ctaColor = brandColor || secondaryColor;
   // Colours used when the tile itself is filled with the plan's primary.
   const onPrimary = readableColor(brandColor);
@@ -724,6 +743,7 @@ function HelpCardPanel({
   initialOptionId,
   onOptionChange,
   actionHubRows,
+  loginUrl,
 }: {
   card: HelpCardResolved;
   brandColor: string;
@@ -741,11 +761,35 @@ function HelpCardPanel({
    * the single CTA — the choice IS the call to action.
    */
   actionHubRows?: ActionHubRow[];
+  /**
+   * The plan's login URL. It fills `{{recordkeeper_url}}` in a topic's steps and is
+   * the destination of a CTA that does not carry its own href — the recordkeeper is
+   * where "Enroll or Change My Contribution" has to go.
+   */
+  loginUrl?: string;
 }) {
   // The Rollovers topic has its own body (options, pros/cons, CTA) instead of the
   // paragraph copy every other topic uses.
   const isRollovers = ROLLOVER_CARD_PATTERN.test(`${card.id} ${card.title}`);
-  const resolved = card.href ? resolveCardHref(card.href, basePath) : null;
+  /** Per-plan values a topic's copy may name. */
+  const fillPlanTokens = (text: string) =>
+    text.replace(
+      /\{\{recordkeeper_url\}\}/g,
+      (loginUrl || "").trim() || "your recordkeeper's website",
+    );
+  const steps = (card.steps ?? []).map(fillPlanTokens);
+  const docs = card.docs ?? [];
+  const video = (card.video || "").trim();
+  const contact = (card.contact || "").trim();
+  const related = card.related ?? [];
+  /** Docs, the video and the contact this topic hands off to, in one list. */
+  const resources: { kind: "doc" | "video" | "contact"; label: string }[] = [
+    ...docs.map((label) => ({ kind: "doc" as const, label })),
+    ...(video ? [{ kind: "video" as const, label: video }] : []),
+    ...(contact ? [{ kind: "contact" as const, label: contact }] : []),
+  ];
+  const ctaHref = (card.href || (card.cta ? loginUrl : "") || "").trim();
+  const resolved = ctaHref ? resolveCardHref(ctaHref, basePath) : null;
   const ctaLabel = card.cta?.trim() ? card.cta : "";
   // Rollovers already closes with its own CTA — the same "Talk through my options"
   // button, plus the "Free call with …" line. The topic also carries that label as
@@ -814,6 +858,99 @@ function HelpCardPanel({
                 <p key={index}>{paragraph}</p>
               ))}
           </div>
+
+          {/* Steps — the handoff's numbered how-to, built from the same tile the
+              old Rollovers card used: the instruction top-left, its two-digit
+              number bottom-right. */}
+          {steps.length > 0 && (
+            <ol
+              data-testid="help-card-steps"
+              className="mt-4 grid gap-2 sm:grid-cols-2"
+            >
+              {steps.map((step, index) => (
+                <li
+                  key={index}
+                  // The same hover the old Rollovers option tiles carried — a
+                  // small lift, a darker border and a soft shadow.
+                  className="flex min-h-[84px] flex-col justify-between gap-2 rounded-xl border border-neutral-200 bg-white p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-sm"
+                >
+                  <span className="font-red-hat text-[13px] leading-snug text-neutral-700">
+                    {step}
+                  </span>
+                  <span
+                    className="self-end font-dm-serif text-[24px] font-semibold leading-none tabular-nums"
+                    style={{ color: brandColor }}
+                  >
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                </li>
+              ))}
+            </ol>
+          )}
+
+          {/* Docs / Video / Contact — the resources this topic points at. The
+              category's Documents & Forms section and Video Library are where
+              they are opened from. */}
+          {resources.length > 0 && (
+            <div
+              data-testid="help-card-resources"
+              className="mt-4 rounded-xl border border-neutral-200 bg-white/60 p-3"
+            >
+              <p className="font-red-hat text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                Docs, video & contacts
+              </p>
+              <ul className="mt-2 flex flex-wrap gap-2">
+                {resources.map((resource) => (
+                  <li
+                    key={`${resource.kind}-${resource.label}`}
+                    data-resource-kind={resource.kind}
+                    className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1 font-red-hat text-[12px] text-neutral-700"
+                  >
+                    {resource.kind === "doc" ? (
+                      <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                    ) : resource.kind === "video" ? (
+                      <PlayCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                    ) : (
+                      <User className="h-3.5 w-3.5" aria-hidden="true" />
+                    )}
+                    {resource.label}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* Related Quick Answers — the questions that continue this topic. Each
+              is a link into the Quick Answers band below. */}
+          {related.length > 0 && (
+            <div data-testid="help-card-related" className="mt-4">
+              <p className="font-red-hat text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                Related Quick Answers
+              </p>
+              <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-red-hat text-[13px] text-neutral-700">
+                {related.map((title, index) => (
+                  <span key={title} className="inline-flex items-center gap-2">
+                    {index > 0 && (
+                      <span aria-hidden className="text-neutral-400">
+                        ·
+                      </span>
+                    )}
+                    <a
+                      href={`#${QUICK_ANSWERS_SECTION_ID}`}
+                      className="font-medium underline decoration-neutral-300 underline-offset-2 transition-colors hover:text-neutral-900"
+                      style={{ color: brandColor }}
+                    >
+                      {title}
+                    </a>
+                  </span>
+                ))}
+              </p>
+            </div>
+          )}
+
+          {/* Tags are deliberately NOT drawn: they are the search and chatbot
+              vocabulary (`lib/topics/search.ts`, the Navigator's Ask box), not
+              participant-facing copy. The data still rides on the card. */}
         </>
       )}
 
@@ -933,9 +1070,10 @@ export function HowCanWeHelpSection({
   // `[Benefit Category]` is resolved once per card in both paths.
   const rows = useMemo(() => {
     const hasSavedLayout = Array.isArray(cards) && cards.length > 0;
+    const catalog = helpCardCatalogFor(category);
 
     if (!hasSavedLayout && topics && topics.length > 0) {
-      const access = getHelpCardContent(ACCOUNT_ACCESS_CARD_ID);
+      const access = getHelpCardContent(ACCOUNT_ACCESS_CARD_ID, catalog);
       const placementCards: HelpCardResolved[] = [
         {
           id: ACCOUNT_ACCESS_CARD_ID,
@@ -951,13 +1089,30 @@ export function HowCanWeHelpSection({
         },
         ...topics.map((topic) => {
           const quickAnswer = topicQuickAnswer(topic);
+          // The shipped catalog entry carries the blocks the topic row may not:
+          // steps, docs, tags and the default CTA come from one place, so a
+          // placement-driven grid reads exactly like a saved-layout one.
+          const shipped = getHelpCardContent(
+            topic.slug.replace(/^sys\./, ""),
+            catalog,
+          );
+          const stepsBlock = topic.bodyBlocks.find(
+            (block) => block.type === "steps",
+          );
           const card: HelpCardResolved = {
             id: topic.slug,
             title: fillHelpCardTokens(topic.title, category),
             paragraphs: quickAnswer
               ? [fillHelpCardTokens(quickAnswer, category)]
               : [],
-            cta: topic.cta?.label ?? "",
+            cta: topic.cta?.label ?? shipped?.cta ?? "",
+            steps:
+              stepsBlock && stepsBlock.type === "steps"
+                ? stepsBlock.steps
+                : shipped?.steps,
+            docs: shipped?.docs,
+            related: shipped?.related,
+            tags: topic.tags.length > 0 ? topic.tags : shipped?.tags,
             primary: false,
           };
           if (topic.summary) {
@@ -973,7 +1128,6 @@ export function HowCanWeHelpSection({
     }
 
     // The saved layout (or, with neither, the catalog's natural order).
-    const catalog = helpCardCatalogFor(category);
     if (catalog.length === 0) return [];
     return resolveHelpCardRows(cards, category).map((row) =>
       row.map((card) => ({
@@ -1204,6 +1358,7 @@ export function HowCanWeHelpSection({
                   providerName={resolvedProviderName || undefined}
                   providerDetailLine={resolvedProviderDetail || undefined}
                   loginUrl={resolvedLoginUrl}
+                  actions={accountAccessActionsFor(category)}
                 />
               );
             }
@@ -1383,6 +1538,7 @@ export function HowCanWeHelpSection({
                   basePath={basePath}
                   contactName={benefitContactName}
                   actionHubRows={actionHubPanels?.[openCard.id]}
+                  loginUrl={resolvedLoginUrl}
                   // Sends the reader to the contact's card in "Have Questions?"
                   // rather than opening the scheduling URL in another tab — the
                   // person (and their email / phone) is right there.

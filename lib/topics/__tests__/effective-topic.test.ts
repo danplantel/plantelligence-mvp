@@ -92,6 +92,30 @@ describe("resolveEffectiveTopic", () => {
     expect(effective.cta).toBeUndefined();
   });
 
+  it("fills a legacy system row from the shipped library", () => {
+    // A plan seeded before the Retirement content pass stores the question with
+    // no blocks at all. The library copy is what keeps its accordion from
+    // rendering empty.
+    const legacy = resolveEffectiveTopic(
+      topic({
+        slug: "sys.how-much-should-i-save",
+        title: "How much should I be saving?",
+        summary: null,
+        bodyBlocks: null,
+        defaultCta: null,
+        tags: [],
+      }),
+      placement(),
+    );
+
+    expect(topicQuickAnswer(legacy)).toContain("10% to 15% of pay");
+    expect(legacy.bodyBlocks.some((block) => block.type === "steps")).toBe(
+      false,
+    );
+    expect(legacy.cta?.label).toBe("Book a Meeting");
+    expect(legacy.tags).toContain("how much");
+  });
+
   it("replaces the body blocks when the placement supplies its own", () => {
     const effective = resolveEffectiveTopic(
       topic(),

@@ -11,6 +11,7 @@ import {
 } from "@/lib/topics/library";
 import type {
   AccordionGroupRecord,
+  TopicBodyBlock,
   TopicCta,
   TopicLocation,
   TopicPlacementRecord,
@@ -41,6 +42,8 @@ export interface NewTopicInput {
   slug: string;
   title: string;
   summary?: string | null;
+  /** The answer blocks the panel renders (quick answer, steps, links). */
+  bodyBlocks?: TopicBodyBlock[] | null;
   isActionHub?: boolean;
   defaultLocations: TopicLocation[];
   defaultCta?: TopicCta | null;
@@ -120,6 +123,9 @@ export function createPrismaTopicSeedStore(
           defaultLocations: input.defaultLocations,
           // Json columns need the structural cast: a plain interface is not
           // assignable to Prisma's index-signature JSON input type.
+          bodyBlocks: (input.bodyBlocks ?? undefined) as
+            | Prisma.InputJsonValue
+            | undefined,
           defaultCta: (input.defaultCta ?? undefined) as
             | Prisma.InputJsonValue
             | undefined,
@@ -344,6 +350,7 @@ export async function seedLocationTopics(params: {
       slug,
       title: seed.title,
       summary: seed.summary ?? null,
+      bodyBlocks: seed.bodyBlocks ?? null,
       isActionHub: seed.isActionHub ?? false,
       defaultLocations: seed.defaultLocations,
       defaultCta: seed.cta ?? null,
@@ -360,9 +367,12 @@ export async function seedLocationTopics(params: {
   );
   let createdPlacements = 0;
 
-  // Featured cards and each group's questions are ordered independently, which is
-  // what the builder shows and what the resolver reads back.
+  // Featured cards, hidden cards and each group's questions are ordered
+  // independently, which is what the builder shows and what the resolver reads
+  // back. Hidden is its own zone: a conditionally-off card must not consume a
+  // featured position, or promoting it later would land it out of order.
   let featuredOrder = 0;
+  let hiddenOrder = 0;
   const groupCounters = new Map<string, number>();
 
   for (const seed of seeds) {
@@ -381,9 +391,12 @@ export async function seedLocationTopics(params: {
       const key = groupId ?? "__ungrouped__";
       sortOrder = groupCounters.get(key) ?? 0;
       groupCounters.set(key, sortOrder + 1);
-    } else {
+    } else if (seed.displayByDefault === "featured") {
       sortOrder = featuredOrder;
       featuredOrder += 1;
+    } else {
+      sortOrder = hiddenOrder;
+      hiddenOrder += 1;
     }
 
     await store.createPlacement({

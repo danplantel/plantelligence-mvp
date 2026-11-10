@@ -6,18 +6,155 @@ import type { HelpCardContent } from "@/types/benefit";
  *
  * The advisor configures the LAYOUT (order + which card is primary); the copy is
  * static here and resolved by id, so a card's text is identical on every benefit
- * and can never be edited per plan. Adding a per-category set later means
- * returning a different catalog from `helpCardCatalogFor` — the layout entries
- * keep referencing ids.
+ * of that category and can never be edited per plan.
+ *
+ * There are two catalogs:
+ *
+ *  - [`RETIREMENT_HELP_CARDS`] — the Retirement page's seeded set: the six
+ *    Featured topics from the content handoff, plus the optional Account Access
+ *    card. Account Access does not count toward the six.
+ *  - [`HELP_CARD_CATALOG`] — the shared fallback used for every other category
+ *    (and for the editor before a category is known). Health and Life get their
+ *    own sets in a later pass; until then they keep this one.
  *
  * `[Benefit Category]`, `[Company Name]` and `[Advisor Name]` are merge tokens,
- * resolved at render time by the portal section.
+ * resolved at render time by the portal section. Copy that came from the handoff
+ * with per-plan `{{tokens}}` is written here in neutral language instead: the
+ * plan values do not exist yet (see the handoff's "Before launch" list).
  */
 
 /** `data-help-card` id of the wide Account Access card. */
 export const ACCOUNT_ACCESS_CARD_ID = "account-access";
 
-/** The current (and, for now, only) benefit-hub card set. */
+/** True for the Retirement category in every spelling the app stores. */
+export function isRetirementHelpCategory(category?: string | null): boolean {
+  return (category || "").trim().toLowerCase() === "retirement";
+}
+
+/**
+ * The quick actions printed on the Account Access card.
+ *
+ * Retirement signs in to a recordkeeper (balances and contributions); every other
+ * category in this build still uses the health-carrier phrasing.
+ */
+export function accountAccessActionsFor(category?: string | null): string[] {
+  if (isRetirementHelpCategory(category)) {
+    return ["View balances", "Change contributions", "Update beneficiaries"];
+  }
+  return ["See coverage", "Get ID cards", "Make changes", "Update dependents"];
+}
+
+/**
+ * Retirement — the six Featured topics from the content handoff, in card order,
+ * after the optional Account Access card.
+ *
+ * Card line lives in `body`; the panel's answer lives in `paragraphs` (the
+ * handoff's "Quick Answer"). Steps appear in Quick Answers, not on the card.
+ */
+export const RETIREMENT_HELP_CARDS: HelpCardContent[] = [
+  {
+    id: ACCOUNT_ACCESS_CARD_ID,
+    title: "[Benefit Category] Account Access",
+    paragraphs: [
+      "Log in to your recordkeeper to see your balance, statements, and account details.",
+    ],
+    cta: "",
+  },
+  {
+    id: "enroll-change-contributions",
+    title: "Enroll / Change My Contributions",
+    body: "Enroll in your plan or adjust how much you're saving.",
+    paragraphs: [
+      "Once you're eligible, you can enroll or change how much you save at any time through your plan's recordkeeper. A common starting point is at least enough to get the full employer match.",
+    ],
+    // The handoff's "Steps" block. `{{recordkeeper_url}}` is filled at render
+    // time from the plan's login URL, with a plain-language fallback when the
+    // plan has not set one.
+    steps: [
+      "Log in at {{recordkeeper_url}}.",
+      "Go to Contributions or Deferral Rate.",
+      "Choose a percentage of pay. You can split it between pre-tax and Roth.",
+      "Pick your investments, or keep the default.",
+      "Name or confirm your beneficiary, then save.",
+    ],
+    docs: ["Enrollment Guide", "Summary Plan Description"],
+    video: "How Your Retirement Plan Works",
+    related: [
+      "How much should I be saving?",
+      "Roth vs. Pre-Tax",
+      "Contribution limits",
+      "Auto-escalation",
+    ],
+    tags: [
+      "enroll",
+      "sign up",
+      "join",
+      "contribution",
+      "deferral",
+      "percentage",
+      "paycheck",
+      "save more",
+    ],
+    cta: "Enroll or Change My Contribution",
+  },
+  {
+    id: "employer-match-vesting",
+    title: "Employer Match & Vesting",
+    body: "Understand what your employer contributes and when it's yours to keep.",
+    paragraphs: [
+      "Your employer matches a formula set by your plan. Your own contributions are always 100% yours, and employer contributions become yours over time on your plan's vesting schedule.",
+    ],
+    cta: "",
+    // The handoff gates this topic on "Match = Yes". Those plan yes/no fields do
+    // not exist yet, so it ships hidden: it keeps its place in the Card Layout
+    // list (unticked) and stays out of the default portal grid until the advisor
+    // turns it on.
+    defaultEnabled: false,
+  },
+  {
+    id: "manage-investments",
+    title: "Manage My Investments",
+    body: "Review your investment options or get help making decisions.",
+    paragraphs: [
+      "You choose how your account is invested from the plan's fund lineup. If you never made a choice, your money is in the plan's default fund. You can change your investments online at any time.",
+    ],
+    cta: "",
+  },
+  {
+    id: "beneficiaries",
+    title: "Update My Beneficiary",
+    body: "Make sure your account goes to the people you choose.",
+    paragraphs: [
+      "Your beneficiary designation decides who receives your account, even if your will says otherwise. Review it after any marriage, divorce, birth, adoption, or death in the family.",
+    ],
+    cta: "",
+  },
+  {
+    id: "leaving-retiring",
+    title: "Leaving or Retiring",
+    body: "Explore your options when leaving the company or preparing for retirement.",
+    paragraphs: [
+      "Your vested balance stays yours when you leave. You can usually keep it in the plan, roll it to an IRA or a new employer's plan, or cash it out. Cashing out carries tax costs, so review your options before you decide.",
+    ],
+    cta: "",
+  },
+  {
+    id: "financial-planning",
+    title: "Financial Planning",
+    body: "Get help building a financial plan around your goals.",
+    paragraphs: [
+      "[Advisor Name] works with employees of [Company Name] on retirement goals, savings, and the bigger financial picture. You can meet one-on-one or join an upcoming session.",
+    ],
+    cta: "",
+  },
+];
+
+/** Every Retirement card id, in its natural order (Account Access first). */
+export const RETIREMENT_HELP_CARD_ORDER: string[] = RETIREMENT_HELP_CARDS.map(
+  (card) => card.id,
+);
+
+/** The shared fallback set, used until a category has its own catalog. */
 export const HELP_CARD_CATALOG: HelpCardContent[] = [
   {
     id: ACCOUNT_ACCESS_CARD_ID,
@@ -86,13 +223,14 @@ export const HELP_CARD_CATALOG: HelpCardContent[] = [
   },
 ];
 
-/** Every id in the default catalog, in its natural order. */
+/** Every id in the fallback catalog, in its natural order. */
 export const HELP_CARD_ORDER: string[] = HELP_CARD_CATALOG.map(
   (card) => card.id,
 );
 
-/** The catalog for a benefit category (one shared set for now). */
-export function helpCardCatalogFor(_category?: string | null): HelpCardContent[] {
+/** The catalog for a benefit category. */
+export function helpCardCatalogFor(category?: string | null): HelpCardContent[] {
+  if (isRetirementHelpCategory(category)) return RETIREMENT_HELP_CARDS;
   return HELP_CARD_CATALOG;
 }
 

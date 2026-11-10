@@ -46,7 +46,7 @@ function createMemoryStore(): MemoryStore {
         slug: input.slug,
         title: input.title,
         summary: input.summary ?? null,
-        bodyBlocks: null,
+        bodyBlocks: input.bodyBlocks ?? null,
         tags: input.tags ?? [],
         defaultLocations: input.defaultLocations,
         isActionHub: input.isActionHub ?? false,
@@ -108,7 +108,7 @@ describe("seedLocationTopics", () => {
     );
   });
 
-  it("puts the four featured topics in card order", async () => {
+  it("puts the five visible featured topics in card order", async () => {
     const memory = createMemoryStore();
 
     await seedLocationTopics({
@@ -121,7 +121,45 @@ describe("seedLocationTopics", () => {
       .filter((placement) => placement.displayMode === "featured")
       .sort((a, b) => a.sortOrder - b.sortOrder);
 
-    expect(featured.map((placement) => placement.sortOrder)).toEqual([0, 1, 2, 3]);
+    expect(featured.map((placement) => placement.sortOrder)).toEqual([
+      0, 1, 2, 3, 4,
+    ]);
+
+    // Employer Match & Vesting is gated on the plan's match setting, so it is
+    // seeded hidden instead of taking a featured slot.
+    const matchTopic = memory.topics.find(
+      (topic) => topic.slug === "sys.employer-match-vesting",
+    );
+    const matchPlacement = memory.placements.find(
+      (placement) => placement.topicId === matchTopic?.id,
+    );
+    expect(matchPlacement?.displayMode).toBe("hidden");
+  });
+
+  it("seeds the featured card line and the answer blocks as separate copy", async () => {
+    const memory = createMemoryStore();
+
+    await seedLocationTopics({
+      clientId: "plan-a",
+      category: "Retirement",
+      store: memory.store,
+    });
+
+    const enroll = memory.topics.find(
+      (topic) => topic.slug === "sys.enroll-change-contributions",
+    );
+    expect(enroll?.title).toBe("Enroll / Change My Contributions");
+    // The card line is the summary; the panel's answer is a body block.
+    expect(enroll?.summary).toBe(
+      "Enroll in your plan or adjust how much you're saving.",
+    );
+    const blocks = enroll?.bodyBlocks as
+      | { type: string; text?: string; steps?: string[] }[]
+      | undefined;
+    expect(blocks?.[0]?.type).toBe("quick_answer");
+    expect(blocks?.[0]?.text).toContain("Once you're eligible");
+    expect(blocks?.[1]?.type).toBe("steps");
+    expect(blocks?.[1]?.steps).toHaveLength(5);
   });
 
   it("reuses one Topic row for a topic that belongs to two locations", async () => {

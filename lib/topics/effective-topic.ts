@@ -1,3 +1,4 @@
+import { libraryTopicBySlug } from "@/lib/topics/library";
 import type {
   ActionHubLink,
   EffectiveTopic,
@@ -169,6 +170,12 @@ function readTags(value: unknown): string[] {
  * The topic supplies the content; the placement supplies where it sits and what this
  * plan changed. `displayMode`, `location`, `groupId` and `sortOrder` always come from
  * the placement — a topic has no opinion about them.
+ *
+ * SYSTEM topics fall back to the shipped library entry (`lib/topics/library`) when
+ * the stored row carries no body blocks. That is what lets a content pass reach a
+ * plan seeded before it: seeding never overwrites a row, so a legacy Topic would
+ * otherwise render its question with an empty accordion body. A row that DOES store
+ * blocks keeps them, and a placement's overrides always win.
  */
 export function resolveEffectiveTopic(
   topic: TopicRecord,
@@ -176,16 +183,29 @@ export function resolveEffectiveTopic(
 ): EffectiveTopic {
   const overrides = readTopicOverrides(placement.overrides);
 
-  const title = overrides.title || topic.title;
-  const summary = overrides.summary || asTrimmedString(topic.summary);
+  const shipped = topic.scope === "system" ? libraryTopicBySlug(topic.slug) : undefined;
+  const storedBlocks = readTopicBodyBlocks(topic.bodyBlocks);
+  // A system row with no blocks predates the content pass — use the library copy.
+  const isLegacyRow = storedBlocks.length === 0;
+
+  const title =
+    overrides.title || (isLegacyRow && shipped ? shipped.title : topic.title);
+  const summary =
+    overrides.summary ||
+    asTrimmedString(
+      isLegacyRow && shipped?.summary ? shipped.summary : topic.summary,
+    );
   const bodyBlocks =
-    overrides.bodyBlocks ?? readTopicBodyBlocks(topic.bodyBlocks);
+    overrides.bodyBlocks ??
+    (isLegacyRow ? readTopicBodyBlocks(shipped?.bodyBlocks) : storedBlocks);
 
   // `undefined` → inherit the topic default; `null` → deliberately removed.
   const cta =
     overrides.cta === null
       ? undefined
-      : overrides.cta ?? readTopicCta(topic.defaultCta);
+      : overrides.cta ??
+        readTopicCta(topic.defaultCta) ??
+        readTopicCta(shipped?.cta);
 
   const iconKey = asTrimmedString(topic.iconKey);
   const imageKey = asTrimmedString(topic.imageKey);
@@ -202,7 +222,9 @@ export function resolveEffectiveTopic(
     ...(iconKey ? { iconKey } : {}),
     ...(imageKey ? { imageKey } : {}),
     bodyBlocks,
-    tags: readTags(topic.tags),
+    tags: readTags(topic.tags).length > 0
+      ? readTags(topic.tags)
+      : readTags(shipped?.tags),
     isActionHub: topic.isActionHub === true,
     ...(cta ? { cta } : {}),
     ...(actionHubLink ? { actionHubLink } : {}),

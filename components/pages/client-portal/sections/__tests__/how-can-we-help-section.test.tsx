@@ -1031,3 +1031,64 @@ describe("HowCanWeHelpSection panel CTAs", () => {
     expect(screen.getByText("Free call with your advisor")).toBeInTheDocument();
   });
 });
+
+/**
+ * The handoff's topic blocks: a Featured card's panel carries its numbered
+ * how-to, the documents it points at, its CTA and its search tags. Enroll /
+ * Change My Contributions is the first topic wired this way.
+ */
+describe("Retirement topic blocks", () => {
+  it("draws the Enroll card's steps, docs, tags and CTA", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Retirement"
+        accountAccessHref="https://rk.example/login"
+      />,
+    );
+
+    await user.click(tile(container, "enroll-change-contributions"));
+
+    const panel = screen.getByRole("region", {
+      name: "Enroll / Change My Contributions",
+    });
+
+    const steps = within(panel).getByTestId("help-card-steps");
+    expect(within(steps).getAllByRole("listitem")).toHaveLength(5);
+    // `{{recordkeeper_url}}` is filled from the plan's login URL.
+    expect(steps).toHaveTextContent("Log in at https://rk.example/login.");
+
+    const resources = within(panel).getByTestId("help-card-resources");
+    expect(within(resources).getByText("Enrollment Guide")).toBeInTheDocument();
+    expect(
+      within(resources).getByText("Summary Plan Description"),
+    ).toBeInTheDocument();
+    // The handoff's Video block sits alongside the docs.
+    expect(
+      within(resources).getByText("How Your Retirement Plan Works"),
+    ).toBeInTheDocument();
+
+    const related = within(panel).getByTestId("help-card-related");
+    expect(related).toHaveTextContent("Related Quick Answers");
+    // Each related question links into the Quick Answers band.
+    expect(
+      within(related).getByRole("link", {
+        name: "How much should I be saving?",
+      }),
+    ).toHaveAttribute("href", "#quick-answers");
+    expect(
+      within(related).getByRole("link", { name: "Auto-escalation" }),
+    ).toBeInTheDocument();
+
+    // Tags are search/chatbot vocabulary, never rendered on the panel.
+    expect(
+      within(panel).queryByTestId("help-card-tags"),
+    ).not.toBeInTheDocument();
+
+    const cta = within(panel).getByRole("link", {
+      name: "Enroll or Change My Contribution",
+    });
+    expect(cta).toHaveAttribute("href", "https://rk.example/login");
+  });
+});

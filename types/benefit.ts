@@ -22,6 +22,34 @@ export interface HelpCardContent {
   paragraphs: string[];
   cta: string;
   href?: string;
+  /** A numbered how-to, drawn in the open card's panel (the handoff's Steps). */
+  steps?: string[];
+  /** Document titles this topic points at (the handoff's Docs). */
+  docs?: string[];
+  /** The Video Library item this topic points at (the handoff's Video). */
+  video?: string;
+  /** The plan contact this topic hands off to (the handoff's Contact). */
+  contact?: string;
+  /**
+   * Titles of the Quick Answers that continue this topic (the handoff's "Related
+   * Quick Answers"). Rendered as links into the Quick Answers band.
+   */
+  related?: string[];
+  /**
+   * Search words participants actually type (the handoff's Tags). NOT rendered —
+   * they are the search and chatbot vocabulary.
+   */
+  tags?: string[];
+  /**
+   * Whether the card starts VISIBLE. Absent means visible, so every existing
+   * catalog keeps its behaviour.
+   *
+   * A `false` here marks a topic the content handoff gates behind a plan setting
+   * (Retirement's Employer Match & Vesting shows only when the plan has a match).
+   * Until Create Benefits stores those yes/no fields the card ships hidden: it
+   * keeps its place in the editor, unticked, so the advisor can turn it on.
+   */
+  defaultEnabled?: boolean;
 }
 
 /** @deprecated Prefer `HelpCardContent`; kept for older imports/tests. */
