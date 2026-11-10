@@ -4,8 +4,14 @@ import { useEffect, useMemo, useState } from "react";
 import { LayoutGroup, motion } from "framer-motion";
 import { ArrowLeft, ChevronDown, Search, X } from "lucide-react";
 import { readableColor } from "polished";
-import { QUICK_ANSWERS_SECTION_ID } from "@/lib/portal-section-anchors";
+import {
+  HAVE_QUESTIONS_SECTION_ID,
+  QUICK_ANSWERS_SECTION_ID,
+} from "@/lib/portal-section-anchors";
+import { useOptionalClientPortal } from "@/contexts/client-portal-context";
+import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
 import { portalRadiusValue } from "@/lib/typography-themes";
+import { toExternalUrl } from "@/lib/url-utils";
 import { topicQuickAnswer } from "@/lib/topics/effective-topic";
 import {
   buildTopicUrl,
@@ -59,6 +65,13 @@ export interface QuickAnswersSectionProps {
    * slug has rows replaces its single CTA with the choice of benefits.
    */
   actionHubPanels?: Record<string, ActionHubRow[]> | null;
+  /**
+   * The benefit category. It resolves the key contact (and that person's booking
+   * link) for a CTA whose destination is left to the advisor — "Book a Meeting".
+   */
+  category?: string;
+  /** Explicit scheduling link; wins over the resolved key contact's. */
+  advisorBookingUrl?: string;
   className?: string;
 }
 
@@ -104,6 +117,7 @@ function TopicAnswer({
   secondaryColor,
   basePath,
   actionHubRows,
+  advisorBookingUrl,
 }: {
   topic: EffectiveTopic;
   brandColor: string;
@@ -111,9 +125,22 @@ function TopicAnswer({
   basePath: string;
   /** TF-5: the other benefits this action applies to, when it is an Action Hub. */
   actionHubRows?: ActionHubRow[];
+  /**
+   * The advisor's scheduling link. A CTA with no destination — "Book a Meeting" —
+   * goes here; with none set it goes to the Have Questions band, where the
+   * advisor's card lives.
+   */
+  advisorBookingUrl?: string;
 }) {
   const quickAnswer = topicQuickAnswer(topic);
   const hasActionHub = !!actionHubRows && actionHubRows.length > 0;
+  // A placement CTA can carry its own destination; when it does not, the advisor
+  // is the handoff, and the contact band is the fallback.
+  const ctaDestination =
+    topic.cta?.destination ||
+    advisorBookingUrl ||
+    `#${HAVE_QUESTIONS_SECTION_ID}`;
+  const resolvedCta = resolveTopicHref(ctaDestination, basePath);
 
   return (
     <div className="space-y-3">
@@ -150,8 +177,8 @@ function TopicAnswer({
         topic.cta && (
           <div className="pt-1">
             <a
-              href={resolveTopicHref(topic.cta.destination, basePath).href || "#"}
-              {...(resolveTopicHref(topic.cta.destination, basePath).external
+              href={resolvedCta.href || "#"}
+              {...(resolvedCta.external
                 ? { target: "_blank", rel: "noopener noreferrer" }
                 : {})}
               className="inline-flex min-h-10 items-center justify-center px-5 py-2 text-xs font-semibold uppercase tracking-[0.1em] transition-opacity hover:opacity-90"
@@ -185,8 +212,21 @@ export function QuickAnswersSection({
   secondaryColor = "#6B7280",
   basePath = "",
   actionHubPanels,
+  category,
+  advisorBookingUrl,
   className,
 }: QuickAnswersSectionProps) {
+  // The plan's key contact for this benefit owns the scheduling link a
+  // destination-less CTA ("Book a Meeting") points at.
+  const portal = useOptionalClientPortal();
+  const keyContact = resolvePortalPrimaryContact(
+    (portal.clientData as any)?.keyContacts,
+    category,
+  );
+  const resolvedBookingUrl = toExternalUrl(
+    advisorBookingUrl || keyContact?.schedulingUrl,
+  );
+
   const [query, setQuery] = useState("");
   const [openSlug, setOpenSlug] = useState<string | null>(null);
   /** Phone-only answer view. Kept apart so the two layouts cannot fight. */
@@ -463,6 +503,7 @@ export function QuickAnswersSection({
                                   secondaryColor={secondaryColor}
                                   basePath={basePath}
                                   actionHubRows={actionHubPanels?.[topic.slug]}
+                                  advisorBookingUrl={resolvedBookingUrl}
                                 />
                               </div>
                             )}
@@ -514,6 +555,7 @@ export function QuickAnswersSection({
               secondaryColor={secondaryColor}
               basePath={basePath}
               actionHubRows={actionHubPanels?.[mobileTopic.slug]}
+              advisorBookingUrl={resolvedBookingUrl}
             />
           </div>
         </div>

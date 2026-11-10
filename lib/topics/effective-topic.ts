@@ -200,12 +200,18 @@ export function resolveEffectiveTopic(
     (isLegacyRow ? readTopicBodyBlocks(shipped?.bodyBlocks) : storedBlocks);
 
   // `undefined` → inherit the topic default; `null` → deliberately removed.
+  //
+  // For a SYSTEM topic the shipped library is the source of truth: a plan seeded
+  // before a CTA was renamed ("Check My Savings Rate" → "Book a Meeting") keeps
+  // the old label in its row, and a content change must reach it without a
+  // re-seed. A placement override still wins, and the stored CTA is the fallback
+  // for a topic the library does not carry.
   const cta =
     overrides.cta === null
       ? undefined
       : overrides.cta ??
-        readTopicCta(topic.defaultCta) ??
-        readTopicCta(shipped?.cta);
+        readTopicCta(shipped?.cta) ??
+        readTopicCta(topic.defaultCta);
 
   const iconKey = asTrimmedString(topic.iconKey);
   const imageKey = asTrimmedString(topic.imageKey);
@@ -222,9 +228,12 @@ export function resolveEffectiveTopic(
     ...(iconKey ? { iconKey } : {}),
     ...(imageKey ? { imageKey } : {}),
     bodyBlocks,
-    tags: readTags(topic.tags).length > 0
-      ? readTags(topic.tags)
-      : readTags(shipped?.tags),
+    // Same rule for the search vocabulary: the library's tags are the shipped
+    // set, so a content pass reaches plans seeded before it.
+    tags:
+      readTags(shipped?.tags).length > 0
+        ? readTags(shipped?.tags)
+        : readTags(topic.tags),
     isActionHub: topic.isActionHub === true,
     ...(cta ? { cta } : {}),
     ...(actionHubLink ? { actionHubLink } : {}),

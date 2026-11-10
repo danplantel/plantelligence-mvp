@@ -278,6 +278,7 @@ export default function HealthInsurancePage() {
             secondaryColor={secondaryColor}
             basePath={`/${clientId}`}
             actionHubPanels={topics?.actionHubPanels}
+            category="Group Health"
           />
           <PortalSectionEditButton
             sectionId={benefitEditAnchor.quickAnswers}

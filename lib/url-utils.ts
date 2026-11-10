@@ -1,4 +1,20 @@
 /**
+ * Make a stored destination safe to put in `href` / `window.open`.
+ *
+ * Advisors type bare hosts ("google.com"), and a browser resolves those RELATIVE
+ * to the current page — sending the participant to `/{plan}/google.com`. Anything
+ * without a scheme gets `https://`; a real scheme (http, https, mailto, tel) and a
+ * protocol-relative `//host` are left alone.
+ */
+export function toExternalUrl(value?: string | null): string {
+  const raw = (value || "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("//")) return `https:${raw}`;
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw)) return raw;
+  return `https://${raw}`;
+}
+
+/**
  * Validates if a string is a valid domain or website URL (accepts various formats)
  * Accepts: example.com, www.example.com, https://example.com, https://www.example.com,
  *          example.com/path, https://example.com/path?query=1#hash, example.com:8080

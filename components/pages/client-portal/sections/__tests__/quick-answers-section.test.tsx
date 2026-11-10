@@ -311,4 +311,69 @@ describe("QuickAnswersSection", () => {
       within(card).getByText("Applies to more than one benefit"),
     ).toBeInTheDocument();
   });
+
+  it("sends a destination-less CTA to the advisor's booking link", async () => {
+    const user = userEvent.setup();
+    render(
+      <QuickAnswersSection
+        groups={[
+          group({
+            topics: [
+              topic({
+                title: "How much should I be saving?",
+                cta: { label: "Book a Meeting", actionType: "external_url" },
+                bodyBlocks: [
+                  {
+                    type: "quick_answer",
+                    text: "Aim for 10% to 15% of pay.",
+                  },
+                ],
+              }),
+            ],
+          }),
+        ]}
+        advisorBookingUrl="https://book.test/jane"
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /how much should i be saving/i }),
+    );
+
+    const cta = screen.getByRole("link", { name: "Book a Meeting" });
+    expect(cta).toHaveAttribute("href", "https://book.test/jane");
+    expect(cta).toHaveAttribute("target", "_blank");
+  });
+
+  it("falls back to the contact band when no booking link exists", async () => {
+    const user = userEvent.setup();
+    render(
+      <QuickAnswersSection
+        groups={[
+          group({
+            topics: [
+              topic({
+                title: "How much should I be saving?",
+                cta: { label: "Book a Meeting", actionType: "external_url" },
+                bodyBlocks: [
+                  {
+                    type: "quick_answer",
+                    text: "Aim for 10% to 15% of pay.",
+                  },
+                ],
+              }),
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: /how much should i be saving/i }),
+    );
+
+    expect(
+      screen.getByRole("link", { name: "Book a Meeting" }),
+    ).toHaveAttribute("href", "#have-questions");
+  });
 });

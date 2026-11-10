@@ -116,6 +116,28 @@ describe("resolveEffectiveTopic", () => {
     expect(legacy.tags).toContain("how much");
   });
 
+  it("takes a renamed CTA and the new tags from the shipped library", () => {
+    // A row seeded before the content pass still stores "Check My Savings Rate"
+    // and the old tags. The library is the source of truth for system topics, so
+    // the rename reaches the plan without a re-seed.
+    const effective = resolveEffectiveTopic(
+      topic({
+        slug: "sys.how-much-should-i-save",
+        title: "How much should I be saving?",
+        defaultCta: { label: "Check My Savings Rate", actionType: "external_url" },
+        tags: ["saving"],
+        bodyBlocks: [
+          { type: "quick_answer", text: "Aim for 10% to 15% of pay." },
+        ],
+      }),
+      placement(),
+    );
+
+    expect(effective.cta?.label).toBe("Book a Meeting");
+    expect(effective.tags).toContain("how much");
+    expect(effective.tags).not.toContain("saving");
+  });
+
   it("replaces the body blocks when the placement supplies its own", () => {
     const effective = resolveEffectiveTopic(
       topic(),

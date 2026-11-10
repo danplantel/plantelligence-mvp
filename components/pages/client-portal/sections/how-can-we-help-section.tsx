@@ -47,6 +47,7 @@ import {
   readOptionParam,
   topicMatchesHash,
 } from "@/lib/topics/deep-link";
+import { toExternalUrl } from "@/lib/url-utils";
 import { cn } from "@/lib/utils";
 
 // Kept as the section's public surface: the previews import the id from here.
@@ -249,22 +250,6 @@ function chunkIntoRows(cards: HelpCardResolved[]): HelpCardResolved[][] {
     rows.push(cards.slice(index, index + HELP_CARD_ROW_SIZE));
   }
   return rows;
-}
-
-/**
- * Make a stored destination safe to put in `href` / `window.open`.
- *
- * Advisors type bare hosts ("google.com"), and a browser resolves those RELATIVE
- * to the current page — sending the participant to `/{plan}/google.com`. Anything
- * without a scheme gets `https://`; a real scheme (http, https, mailto, tel) and a
- * protocol-relative `//host` are left alone.
- */
-export function toExternalUrl(value?: string | null): string {
-  const raw = (value || "").trim();
-  if (!raw) return "";
-  if (raw.startsWith("//")) return `https:${raw}`;
-  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(raw)) return raw;
-  return `https://${raw}`;
 }
 
 /** Resolve a card link. Internal paths stay in the portal; everything else is external. */

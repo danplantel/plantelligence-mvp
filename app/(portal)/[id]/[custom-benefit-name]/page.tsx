@@ -307,6 +307,7 @@ export default function CustomBenefitPage() {
             secondaryColor={secondaryColor}
             basePath={`/${clientId}`}
             actionHubPanels={topics?.actionHubPanels}
+            category="Company / Plan Sponsor"
           />
           <PortalSectionEditButton
             sectionId={benefitEditAnchor.quickAnswers}

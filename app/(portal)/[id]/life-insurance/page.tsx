@@ -279,6 +279,7 @@ export default function LifeInsurancePage() {
             secondaryColor={secondaryColor}
             basePath={`/${clientId}`}
             actionHubPanels={topics?.actionHubPanels}
+            category="Group Life"
           />
           <PortalSectionEditButton
             sectionId={benefitEditAnchor.quickAnswers}

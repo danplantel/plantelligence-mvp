@@ -292,6 +292,7 @@ export default function RetirementPage() {
             secondaryColor={secondaryColor}
             basePath={`/${clientId}`}
             actionHubPanels={topics?.actionHubPanels}
+            category="Retirement"
           />
           <PortalSectionEditButton
             sectionId={benefitEditAnchor.quickAnswers}
