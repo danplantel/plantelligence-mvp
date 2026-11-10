@@ -1167,4 +1167,41 @@ describe("Retirement topic blocks", () => {
     const cta = within(panel).getByRole("link", { name: "Get Investment Help" });
     expect(cta).toHaveAttribute("href", "#have-questions");
   });
+
+  it("draws the Update My Beneficiary card with its HR contact", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Retirement"
+        accountAccessHref="https://rk.example/login"
+      />,
+    );
+
+    await user.click(tile(container, "beneficiaries"));
+
+    const panel = screen.getByRole("region", { name: "Update My Beneficiary" });
+    expect(panel).toHaveTextContent(
+      "your spouse is usually your beneficiary",
+    );
+    expect(within(panel).getByTestId("help-card-steps").children).toHaveLength(
+      4,
+    );
+
+    const resources = within(panel).getByTestId("help-card-resources");
+    expect(
+      within(resources).getByText("Beneficiary Designation Form"),
+    ).toBeInTheDocument();
+    expect(within(resources).getByText("Spousal Consent Form")).toBeInTheDocument();
+    expect(within(resources).getByText("Your HR contact")).toBeInTheDocument();
+
+    expect(within(panel).getByTestId("help-card-related")).toHaveTextContent(
+      "Who do I contact?",
+    );
+
+    const cta = within(panel).getByRole("link", {
+      name: "Update My Beneficiary",
+    });
+    expect(cta).toHaveAttribute("href", "#have-questions");
+  });
 });

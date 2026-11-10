@@ -174,9 +174,31 @@ export const RETIREMENT_HELP_CARDS: HelpCardContent[] = [
     title: "Update My Beneficiary",
     body: "Make sure your account goes to the people you choose.",
     paragraphs: [
-      "Your beneficiary designation decides who receives your account, even if your will says otherwise. Review it after any marriage, divorce, birth, adoption, or death in the family.",
+      "Your beneficiary designation decides who receives your account, even if your will says otherwise. If you're married, your spouse is usually your beneficiary unless they give written consent to name someone else. Review it after any marriage, divorce, birth, adoption, or death in the family.",
     ],
-    cta: "",
+    steps: [
+      "Log in at {{recordkeeper_url}}.",
+      "Go to Beneficiaries.",
+      "Add primary and contingent beneficiaries, with percentages.",
+      "Save. If your spouse is not the primary beneficiary, submit the spousal consent form to your HR contact.",
+    ],
+    docs: ["Beneficiary Designation Form", "Spousal Consent Form"],
+    contact: "Your HR contact",
+    related: ["Update my beneficiary", "Who do I contact?"],
+    tags: [
+      "beneficiary",
+      "who gets my money",
+      "spouse",
+      "contingent",
+      "married",
+      "divorced",
+      "new baby",
+    ],
+    // The Beneficiary Action Hub IS this topic's call to action when the plan has
+    // other benefits with beneficiary tools; the generic button only appears when
+    // it does not, and then hands the reader to the HR contact card.
+    cta: "Update My Beneficiary",
+    ctaDestination: "contact",
   },
   {
     id: "leaving-retiring",
