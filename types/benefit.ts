@@ -31,6 +31,12 @@ export interface HelpCardContent {
   /** The plan contact this topic hands off to (the handoff's Contact). */
   contact?: string;
   /**
+   * The handoff's "Upcoming meetings" line. It may carry
+   * `{{upcoming_retirement_meetings}}`; when that resolves empty the line is
+   * omitted, so a plan with no scheduled sessions shows nothing.
+   */
+  meetings?: string;
+  /**
    * Titles of the Quick Answers that continue this topic (the handoff's "Related
    * Quick Answers"). Rendered as links into the Quick Answers band.
    */

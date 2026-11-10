@@ -1243,4 +1243,37 @@ describe("Retirement topic blocks", () => {
     });
     expect(cta).toHaveAttribute("href", "#have-questions");
   });
+
+  it("draws the Financial Planning card with its advisor copy", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Retirement"
+        accountAccessHref="https://rk.example/login"
+      />,
+    );
+
+    await user.click(tile(container, "financial-planning"));
+
+    const panel = screen.getByRole("region", { name: "Financial Planning" });
+    // Tokens fall back to plain phrases without a portal contact or plan.
+    expect(panel).toHaveTextContent(
+      "your advisor of your advisor's firm works with employees of your employer",
+    );
+    expect(within(panel).getByTestId("help-card-steps").children).toHaveLength(
+      3,
+    );
+
+    expect(within(panel).getByTestId("help-card-related")).toHaveTextContent(
+      "Approaching retirement",
+    );
+    // No sessions are known here, so the "Upcoming meetings" line stays out.
+    expect(
+      within(panel).queryByTestId("help-card-meetings"),
+    ).not.toBeInTheDocument();
+
+    const cta = within(panel).getByRole("link", { name: "Book a Meeting" });
+    expect(cta).toHaveAttribute("href", "#have-questions");
+  });
 });

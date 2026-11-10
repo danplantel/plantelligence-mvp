@@ -746,6 +746,9 @@ function HelpCardPanel({
   loginUrl,
   advisorBookingUrl,
   recordkeeperName,
+  advisorFirm,
+  planSponsorName,
+  upcomingMeetings,
 }: {
   card: HelpCardResolved;
   brandColor: string;
@@ -777,6 +780,12 @@ function HelpCardPanel({
   advisorBookingUrl?: string;
   /** The provider administering this benefit, for `{{recordkeeper_name}}`. */
   recordkeeperName?: string;
+  /** The advisor's firm, for `{{advisor_firm}}`. */
+  advisorFirm?: string;
+  /** The plan sponsor, for `{{plan_sponsor_name}}`. */
+  planSponsorName?: string;
+  /** This category's scheduled sessions, for `{{upcoming_retirement_meetings}}`. */
+  upcomingMeetings?: string;
 }) {
   // The Rollovers topic has its own body (options, pros/cons, CTA) instead of the
   // paragraph copy every other topic uses.
@@ -790,6 +799,15 @@ function HelpCardPanel({
       )
       .replace(/\{\{advisor_name\}\}/g, contactName || "your advisor")
       .replace(
+        /\{\{advisor_firm\}\}/g,
+        (advisorFirm || "").trim() || "your advisor's firm",
+      )
+      .replace(
+        /\{\{plan_sponsor_name\}\}/g,
+        (planSponsorName || "").trim() || "your employer",
+      )
+      .replace(/\{\{upcoming_retirement_meetings\}\}/g, upcomingMeetings || "")
+      .replace(
         /\{\{recordkeeper_name\}\}/g,
         (recordkeeperName || "").trim() || "your recordkeeper",
       );
@@ -798,6 +816,7 @@ function HelpCardPanel({
   const video = fillPlanTokens((card.video || "").trim());
   const contact = fillPlanTokens((card.contact || "").trim());
   const related = card.related ?? [];
+  const meetingsLine = fillPlanTokens((card.meetings || "").trim()).trim();
   /** Docs, the video and the contact this topic hands off to, in one list. */
   const resources: { kind: "doc" | "video" | "contact"; label: string }[] = [
     ...docs.map((label) => ({ kind: "doc" as const, label })),
@@ -879,6 +898,7 @@ function HelpCardPanel({
 
           <div className="mt-2 space-y-2 text-[15px] leading-relaxed text-neutral-700">
             {(card.paragraphs ?? [])
+              .map(fillPlanTokens)
               .filter((paragraph) => paragraph && paragraph.trim())
               .map((paragraph, index) => (
                 <p key={index}>{paragraph}</p>
@@ -912,6 +932,20 @@ function HelpCardPanel({
                 </li>
               ))}
             </ol>
+          )}
+
+          {/* Upcoming meetings — hidden entirely when the plan has none (the
+              token resolves empty). */}
+          {meetingsLine && (
+            <p
+              data-testid="help-card-meetings"
+              className="mt-3 font-red-hat text-[13px] leading-relaxed text-neutral-600"
+            >
+              <span className="font-semibold text-neutral-700">
+                Upcoming meetings:
+              </span>{" "}
+              {meetingsLine}
+            </p>
           )}
 
           {/* Docs / Video / Contact — the resources this topic points at. The
@@ -1084,6 +1118,13 @@ export function HowCanWeHelpSection({
   const advisorBookingUrl = String(
     bannerPrimaryContact?.schedulingUrl || "",
   ).trim();
+  // The advisor's firm and the plan sponsor, for the Financial Planning copy.
+  const advisorFirm = String(
+    bannerPrimaryContact?.companyName || bannerPrimaryContact?.company || "",
+  ).trim();
+  const planSponsorName = String(
+    (portal.clientData as any)?.companyName || "",
+  ).trim();
 
   // Two sources for the grid, in this order:
   //
@@ -1144,6 +1185,7 @@ export function HowCanWeHelpSection({
             docs: shipped?.docs,
             video: shipped?.video,
             contact: shipped?.contact,
+            meetings: shipped?.meetings,
             related: shipped?.related,
             ctaDestination: shipped?.ctaDestination,
             tags: topic.tags.length > 0 ? topic.tags : shipped?.tags,
@@ -1575,6 +1617,8 @@ export function HowCanWeHelpSection({
                   loginUrl={resolvedLoginUrl}
                   advisorBookingUrl={advisorBookingUrl}
                   recordkeeperName={resolvedProviderName}
+                  advisorFirm={advisorFirm}
+                  planSponsorName={planSponsorName}
                   // Sends the reader to the contact's card in "Have Questions?"
                   // rather than opening the scheduling URL in another tab — the
                   // person (and their email / phone) is right there.

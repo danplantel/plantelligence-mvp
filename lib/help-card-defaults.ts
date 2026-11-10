@@ -244,9 +244,32 @@ export const RETIREMENT_HELP_CARDS: HelpCardContent[] = [
     title: "Financial Planning",
     body: "Get help building a financial plan around your goals.",
     paragraphs: [
-      "[Advisor Name] works with employees of [Company Name] on retirement goals, savings, and the bigger financial picture. You can meet one-on-one or join an upcoming session.",
+      "{{advisor_name}} of {{advisor_firm}} works with employees of {{plan_sponsor_name}} on retirement goals, savings, and the bigger financial picture. Financial planning may be included at no additional cost as part of your benefits. You can meet one-on-one or join an upcoming session.",
     ],
-    cta: "",
+    steps: [
+      "Book a time that works for you.",
+      "Have your latest account statement handy.",
+      "Jot down your goals and questions.",
+    ],
+    meetings: "{{upcoming_retirement_meetings}}",
+    related: [
+      "How much should I be saving?",
+      "Social Security",
+      "Approaching retirement",
+      "Review investments outside of the plan",
+    ],
+    tags: [
+      "advisor",
+      "financial plan",
+      "planning",
+      "on track",
+      "meeting",
+      "appointment",
+      "goals",
+      "help",
+    ],
+    cta: "Book a Meeting",
+    ctaDestination: "advisor",
   },
 ];
 
