@@ -1572,55 +1572,487 @@ const GROUP_HEALTH_TOPICS: LibraryTopicSeed[] = [
 ];
 
 // ── Group Life ───────────────────────────────────────────────────────────────
+//
+// The content handoff's Group Life page: five Featured topics (the fifth,
+// Disability Benefits, only when the employer offers STD or LTD) and 30 Quick
+// Answers in six groups. Per-plan values Create Benefits does not store yet
+// (`{{basic_life_amount}}`, `{{guaranteed_issue_amount}}`, `{{life_carrier_phone}}`,
+// …) are written in neutral language; the carrier portal and name stay as tokens.
+//
+// `review-my-coverage`, `how-much-coverage`, `portability`, `conversion` and
+// `file-a-claim` are also addressed by `lib/life-events/templates.ts`.
 
 const GROUP_LIFE: TopicLocation[] = ["group_life"];
 
 const GROUP_LIFE_TOPICS: LibraryTopicSeed[] = [
+  // Featured 1.
   featured("review-my-coverage", "Review My Coverage", GROUP_LIFE, {
-    summary: "See what your employer provides and what you can add.",
-    tags: ["coverage"],
+    summary: "See your current life and disability coverage.",
+    bodyBlocks: [
+      qa(
+        "{{plan_sponsor_name}} provides basic life insurance. Check your benefits summary for the amount and what it costs you. It may include matching accidental death and dismemberment (AD&D) coverage, and you may also have added voluntary coverage for yourself or your family.",
+      ),
+      numbered(
+        "Log in at {{recordkeeper_url}}.",
+        "Open Life Insurance.",
+        "Review your coverage amounts for yourself, your spouse, and your children.",
+      ),
+    ],
+    tags: [
+      "life insurance",
+      "coverage amount",
+      "how much",
+      "basic life",
+      "AD&D",
+      "death benefit",
+    ],
+    cta: memberPortal("View My Coverage"),
   }),
-  featured("beneficiaries", "Update My Beneficiaries", GROUP_LIFE, {
-    summary: "Keep your life insurance beneficiaries current.",
+
+  // Featured 2 — the Beneficiary Action Hub is the handoff's CTA; until that
+  // panel exists the button hands the reader to the plan's HR contact card.
+  featured("beneficiaries", "Update My Beneficiary", GROUP_LIFE, {
+    summary: "Review or update who receives your life insurance benefit.",
+    bodyBlocks: [
+      qa(
+        "Your life insurance beneficiary is separate from your retirement plan beneficiary, so update both. Review your choices after any marriage, divorce, birth, adoption, or death in the family. Minor children can't receive the money directly, so consider a trust or custodian.",
+      ),
+      numbered(
+        "Log in at {{recordkeeper_url}}.",
+        "Go to Beneficiaries.",
+        "Add primary and contingent beneficiaries, with percentages.",
+        "Save and confirm.",
+      ),
+    ],
     isActionHub: true,
-    tags: ["beneficiaries", "life events"],
-  }),
-  featured("file-a-claim", "File a Claim / Get Support", GROUP_LIFE, {
-    summary: "Start a claim or find the right person to help.",
-    tags: ["claim"],
-  }),
-  featured("understand-my-options", "Understand My Options", GROUP_LIFE, {
-    summary: "Basic, voluntary, and what happens when coverage ends.",
-    tags: ["options"],
-  }),
-
-  // Coverage Types.
-  answer("basic-vs-voluntary-life", "Basic vs. voluntary life", GROUP_LIFE, "Coverage Types"),
-  answer("spouse-dependent-coverage", "Spouse & dependent coverage", GROUP_LIFE, "Coverage Types"),
-  answer("ad-d", "AD&D", GROUP_LIFE, "Coverage Types"),
-  answer("disability-coverage", "Disability coverage", GROUP_LIFE, "Coverage Types", {
-    tags: ["disability"],
+    tags: [
+      "beneficiary",
+      "who gets my life insurance",
+      "spouse",
+      "children",
+      "contingent",
+      "divorced",
+      "married",
+    ],
+    cta: { label: "Update My Beneficiary", actionType: "external_url", target: "contact" },
   }),
 
-  // Enrollment.
+  // Featured 3 — gated on "voluntary life = Yes". That plan field does not exist
+  // yet and the card is part of the designed set, so it ships visible.
+  featured("change-or-add-coverage", "Change or Add Coverage", GROUP_LIFE, {
+    summary: "Explore voluntary coverage for yourself and eligible family members.",
+    bodyBlocks: [
+      qa(
+        "You can buy additional life insurance for yourself, your spouse, and your children through payroll deduction. Amounts up to the plan's guaranteed issue amount are guaranteed when you first enroll. Higher amounts, or enrolling later, may require Evidence of Insurability, which means answering health questions.",
+      ),
+      numbered(
+        "Check that you're in an enrollment window: new hire, Open Enrollment, or a qualifying life event.",
+        "Log in at {{recordkeeper_url}}.",
+        "Choose your coverage amounts and review the cost per paycheck.",
+        "Complete Evidence of Insurability if prompted.",
+      ),
+    ],
+    tags: [
+      "add life insurance",
+      "voluntary life",
+      "supplemental life",
+      "more coverage",
+      "spouse life",
+      "child life",
+    ],
+    cta: memberPortal("Add Coverage"),
+  }),
+
+  // Featured 4.
+  featured("file-a-claim", "File a Claim / Get Help", GROUP_LIFE, {
+    summary: "Find claim information and connect with the right person.",
+    bodyBlocks: [
+      qa(
+        "To file a life insurance claim, contact your HR department first. HR completes the employer section, and the beneficiary sends a claim form and certified death certificate to {{recordkeeper_name}}. We know this can be a difficult time, and your HR contact can walk you through each step.",
+      ),
+      numbered(
+        "Notify your HR department.",
+        "The beneficiary completes the claim form.",
+        "Send the claim form and a certified death certificate to {{recordkeeper_name}}.",
+        "{{recordkeeper_name}} reviews the claim and pays the benefit once approved.",
+      ),
+    ],
+    tags: [
+      "claim",
+      "death",
+      "passed away",
+      "file a claim",
+      "death certificate",
+      "beneficiary claim",
+    ],
+    cta: memberPortal("Start a Claim"),
+  }),
+
+  // Featured 5 — gated on "STD = Yes or LTD = Yes". Those plan fields do not
+  // exist yet, so it ships like the rest and the advisor can remove it.
+  featured("disability-benefits", "Disability Benefits", GROUP_LIFE, {
+    summary:
+      "Understand your income protection if you can't work because of illness or injury.",
+    bodyBlocks: [
+      qa(
+        "Short-term disability replaces part of your pay after a waiting period, for up to a set duration. Long-term disability replaces part of your pay after an elimination period, for longer illnesses or injuries. Your plan's certificate has the exact percentages and timing.",
+      ),
+      numbered(
+        "Tell your manager and your HR department as soon as you know you'll be out.",
+        "File a claim with the disability carrier.",
+        "Ask your doctor to complete the medical section.",
+        "Stay in touch with your claim manager until you return to work.",
+      ),
+    ],
+    tags: [
+      "disability",
+      "short-term disability",
+      "long-term disability",
+      "STD",
+      "LTD",
+      "can't work",
+      "surgery",
+      "maternity leave",
+      "injury",
+    ],
+    cta: memberPortal("File a Disability Claim"),
+  }),
+
+  // ── Quick Answers: Coverage ──
+  answer("basic-vs-voluntary-life", "Basic vs. voluntary life insurance", GROUP_LIFE, "Coverage", {
+    bodyBlocks: [
+      qa(
+        "Basic life insurance is provided by {{plan_sponsor_name}}, often at no cost to you. Voluntary life insurance is extra coverage you can buy for yourself and your family through payroll deduction.",
+      ),
+    ],
+    tags: ["basic life", "voluntary life", "supplemental", "employer paid", "difference"],
+  }),
+  answer("how-much-coverage-do-i-have", "How much coverage do I have?", GROUP_LIFE, "Coverage", {
+    bodyBlocks: [
+      qa(
+        "Your basic life coverage is set by your plan. Any voluntary coverage you elected is added on top. Log in to see your exact amounts.",
+      ),
+    ],
+    tags: ["how much life insurance", "coverage amount", "death benefit"],
+    cta: memberPortal("View My Coverage"),
+  }),
+  answer("how-much-coverage", "How much coverage do I need?", GROUP_LIFE, "Coverage", {
+    bodyBlocks: [
+      qa(
+        "It depends on who relies on your income and what they would need to cover: everyday living costs, a mortgage or debts, children's education, and final expenses. Many people find employer coverage alone isn't enough. {{advisor_name}} can help you work out the right amount.",
+      ),
+      { type: "video", videoId: "How Much Life Insurance Do I Need?" },
+    ],
+    tags: [
+      "how much do I need",
+      "enough coverage",
+      "income replacement",
+      "family protection",
+    ],
+    cta: advisorCta("Get a Coverage Review"),
+  }),
+  answer(
+    "review-my-personal-life-insurance",
+    "Review my personal life insurance",
+    GROUP_LIFE,
+    "Coverage",
+    {
+      bodyBlocks: [
+        qa(
+          "Life insurance needs change over time. If you have a policy outside work, or think your current policy costs too much, {{advisor_name}} can review it alongside your employer coverage and help you decide what fits your family now.",
+        ),
+      ],
+      tags: [
+        "personal life insurance",
+        "outside policy",
+        "too expensive",
+        "review my policy",
+        "term vs whole",
+      ],
+      cta: advisorCta("Book a Coverage Review"),
+    },
+  ),
+  answer("ad-d", "AD&D", GROUP_LIFE, "Coverage", {
+    bodyBlocks: [
+      qa(
+        "Accidental death and dismemberment (AD&D) insurance pays an extra benefit if you die or suffer certain serious injuries, such as the loss of a limb or eyesight, in an accident. It doesn't cover death from illness.",
+      ),
+    ],
+    tags: ["AD&D", "accidental death", "dismemberment", "accident"],
+  }),
+  answer("spouse-coverage", "Spouse coverage", GROUP_LIFE, "Coverage", {
+    bodyBlocks: [
+      qa(
+        "You can buy coverage for your spouse up to the plan's spouse maximum. Spouse coverage is usually limited to a share of your own coverage, and higher amounts may require Evidence of Insurability.",
+      ),
+    ],
+    tags: ["spouse life insurance", "husband", "wife", "partner coverage"],
+  }),
+  answer("dependent-child-coverage", "Dependent child coverage", GROUP_LIFE, "Coverage", {
+    bodyBlocks: [
+      qa(
+        "You can buy coverage for each eligible child, from the plan's minimum age until the maximum age. One premium usually covers all of your children.",
+      ),
+    ],
+    tags: ["child life insurance", "kids coverage", "dependent life"],
+  }),
+  answer(
+    "imputed-income",
+    "Why is there life insurance income on my pay stub?",
+    GROUP_LIFE,
+    "Coverage",
+    {
+      bodyBlocks: [
+        qa(
+          "IRS rules treat the cost of employer-paid group life coverage above $50,000 as taxable income. That small amount, called imputed income, appears on your pay stub and W-2. It's normal and doesn't mean you were paid extra.",
+        ),
+      ],
+      tags: ["imputed income", "GTL", "taxable life insurance", "pay stub", "W-2"],
+    },
+  ),
+
+  // ── Quick Answers: Beneficiaries ──
+  answer("life-update-beneficiary", "How do I update my beneficiary?", GROUP_LIFE, "Beneficiaries", {
+    bodyBlocks: [
+      qa(
+        "Log in at {{recordkeeper_url}}, go to Beneficiaries, and add each person's name, relationship, and percentage. Your life insurance beneficiary is separate from your retirement plan beneficiary, so update both.",
+      ),
+    ],
+    tags: ["update beneficiary", "change beneficiary", "who gets my money"],
+    cta: { label: "Update My Beneficiary", actionType: "external_url", target: "contact" },
+  }),
+  answer(
+    "primary-vs-contingent-beneficiaries",
+    "Primary vs. contingent beneficiaries",
+    GROUP_LIFE,
+    "Beneficiaries",
+    {
+      bodyBlocks: [
+        qa(
+          "Your primary beneficiary receives the benefit first. A contingent beneficiary receives it only if your primary beneficiary has died before you. Naming both helps avoid delays.",
+        ),
+      ],
+      tags: ["primary beneficiary", "contingent beneficiary", "backup beneficiary"],
+    },
+  ),
+  answer("naming-a-minor", "Naming a minor", GROUP_LIFE, "Beneficiaries", {
+    bodyBlocks: [
+      qa(
+        "Insurance companies generally can't pay a benefit directly to a child. If a minor is named, a court may need to appoint someone to manage the money. Naming a trust, or a custodian under your state's laws, can avoid that. Talk with an estate attorney or {{advisor_name}}.",
+      ),
+    ],
+    tags: ["minor beneficiary", "child beneficiary", "guardian", "custodian"],
+    cta: advisorCta("Talk to an Advisor"),
+  }),
+  answer("naming-a-trust", "Naming a trust", GROUP_LIFE, "Beneficiaries", {
+    bodyBlocks: [
+      qa(
+        "You can name a trust as your beneficiary by entering the trust's full name, date, and trustee. A trust lets you control how and when the money is used. An estate attorney can help you set one up.",
+      ),
+    ],
+    tags: ["trust", "trust beneficiary", "estate planning", "trustee"],
+  }),
+  answer("review-beneficiary", "When should I review my beneficiary?", GROUP_LIFE, "Beneficiaries", {
+    bodyBlocks: [
+      qa(
+        "Review it after any marriage, divorce, birth, adoption, or death in the family, and at least every few years. An outdated designation can send money to the wrong person.",
+      ),
+    ],
+    tags: ["review beneficiary", "life event", "outdated beneficiary", "marriage", "divorce"],
+  }),
+
+  // ── Quick Answers: Enrollment ──
+  answer("add-coverage", "How do I add coverage?", GROUP_LIFE, "Enrollment", {
+    bodyBlocks: [
+      qa(
+        "Log in at {{recordkeeper_url}} during an enrollment window, choose your coverage amounts, and review the cost per paycheck. Your plan materials list when coverage starts.",
+      ),
+    ],
+    tags: ["add coverage", "buy life insurance", "enroll in life"],
+    cta: memberPortal("Add Coverage"),
+  }),
   answer("evidence-of-insurability", "Evidence of insurability", GROUP_LIFE, "Enrollment", {
-    tags: ["eoi", "enrollment"],
+    bodyBlocks: [
+      qa(
+        "Evidence of Insurability (EOI) is a health questionnaire, sometimes with a short exam. It's usually required for amounts above the plan's guaranteed issue amount or when you enroll after your first opportunity. Coverage above the guaranteed amount starts only after {{recordkeeper_name}} approves it.",
+      ),
+    ],
+    tags: [
+      "EOI",
+      "evidence of insurability",
+      "health questions",
+      "medical underwriting",
+      "guaranteed issue",
+    ],
   }),
-  answer("how-much-coverage", "How much coverage do I need?", GROUP_LIFE, "Enrollment", {
-    cta: { label: "Review my coverage gap", actionType: "external_url" },
+  answer("when-can-i-change-coverage", "When can I change coverage?", GROUP_LIFE, "Enrollment", {
+    bodyBlocks: [
+      qa(
+        "You can add or change coverage when you're first hired, during Open Enrollment, or within your plan's change window after a qualifying life event such as marriage or a new child.",
+      ),
+    ],
+    tags: ["change coverage", "when can I enroll", "enrollment window", "life event"],
+  }),
+  answer("life-open-enrollment", "Open Enrollment", GROUP_LIFE, "Enrollment", {
+    bodyBlocks: [
+      qa(
+        "Open Enrollment is the yearly chance to add or increase life coverage for yourself and your family, though higher amounts may require EOI. Check your plan materials for this year's dates.",
+      ),
+    ],
+    tags: ["open enrollment", "annual enrollment", "enrollment deadline"],
+    cta: memberPortal("Enroll Now"),
   }),
 
-  // Leaving or Retiring.
-  answer("portability", "Portability", GROUP_LIFE, "Leaving or Retiring", {
-    tags: ["leaving"],
+  // ── Quick Answers: Claims ──
+  answer("file-a-life-claim", "How do I file a claim?", GROUP_LIFE, "Claims", {
+    bodyBlocks: [
+      qa(
+        "Contact your HR department first. HR completes the employer section, and the beneficiary sends the claim form and required documents to {{recordkeeper_name}}.",
+      ),
+    ],
+    tags: ["file a claim", "death claim", "how to claim life insurance"],
+    cta: memberPortal("Start a Claim"),
   }),
-  answer("conversion", "Conversion", GROUP_LIFE, "Leaving or Retiring", {
-    tags: ["leaving"],
+  answer("claim-documentation", "What documentation is required?", GROUP_LIFE, "Claims", {
+    bodyBlocks: [
+      qa(
+        "Typically you'll need the completed claim form, a certified death certificate, and the beneficiary's identification. AD&D claims may also need an accident or police report.",
+      ),
+    ],
+    tags: ["death certificate", "claim documents", "paperwork", "what do I need"],
   }),
+  answer("claim-contacts", "Who should I contact?", GROUP_LIFE, "Claims", {
+    bodyBlocks: [
+      qa(
+        "Start with your HR department, who can confirm coverage and start the claim. For claim status, contact {{recordkeeper_name}}.",
+      ),
+    ],
+    tags: ["contact", "who to call", "help with claim"],
+    cta: { label: "Contact HR", actionType: "external_url", target: "contact" },
+  }),
+  answer(
+    "after-a-claim-is-submitted",
+    "What happens after a claim is submitted?",
+    GROUP_LIFE,
+    "Claims",
+    {
+      bodyBlocks: [
+        qa(
+          "{{recordkeeper_name}} reviews the claim and may ask for more information. Most complete claims are paid within a few weeks of approval. The carrier may also offer grief counseling and financial or legal guidance for beneficiaries.",
+        ),
+      ],
+      tags: ["claim status", "how long", "payout", "after filing"],
+    },
+  ),
 
-  // Beneficiaries.
-  answer("beneficiary-questions", "Beneficiary questions", GROUP_LIFE, "Beneficiaries"),
-  answer("naming-minor-or-trust", "Naming a minor or trust", GROUP_LIFE, "Beneficiaries"),
+  // ── Quick Answers: Leaving the Company ──
+  answer("portability", "Portability", GROUP_LIFE, "Leaving the Company", {
+    bodyBlocks: [
+      qa(
+        "Portability lets you keep your group term life coverage after you leave, usually at group rates, by paying the premium directly to {{recordkeeper_name}}. You must apply within your plan's portability window of your coverage ending.",
+      ),
+    ],
+    tags: ["portability", "keep life insurance", "port coverage", "after I leave"],
+    cta: { label: "Contact the Carrier", actionType: "external_url", target: "contact" },
+  }),
+  answer("conversion", "Conversion", GROUP_LIFE, "Leaving the Company", {
+    bodyBlocks: [
+      qa(
+        "Conversion lets you turn your group coverage into an individual permanent life policy without answering health questions. It usually costs more than group coverage. You must apply within your plan's conversion window of your coverage ending.",
+      ),
+    ],
+    tags: ["conversion", "convert life insurance", "individual policy", "whole life"],
+  }),
+  answer(
+    "coverage-when-employment-ends",
+    "What happens to my coverage when employment ends?",
+    GROUP_LIFE,
+    "Leaving the Company",
+    {
+      bodyBlocks: [
+        qa(
+          "Your group life coverage usually ends when your employment ends. Before then, compare portability, conversion, and an individual policy. {{advisor_name}} can help you decide.",
+        ),
+      ],
+      tags: [
+        "leaving",
+        "coverage ends",
+        "quit",
+        "retire",
+        "life insurance after job",
+      ],
+      cta: advisorCta("Talk to an Advisor"),
+    },
+  ),
+
+  // ── Quick Answers: Disability ──
+  answer("short-term-disability", "Short-term disability", GROUP_LIFE, "Disability", {
+    bodyBlocks: [
+      qa(
+        "Short-term disability replaces part of your pay if an illness, injury, surgery, or childbirth keeps you from working. Benefits start after your plan's waiting period and last up to the plan's maximum duration.",
+      ),
+    ],
+    tags: ["short-term disability", "STD", "surgery", "maternity", "out of work"],
+  }),
+  answer("long-term-disability", "Long-term disability", GROUP_LIFE, "Disability", {
+    bodyBlocks: [
+      qa(
+        "Long-term disability replaces part of your pay for longer illnesses or injuries. Benefits start after your plan's elimination period and can continue for an extended period, as defined in your certificate.",
+      ),
+    ],
+    tags: ["long-term disability", "LTD", "can't work", "extended illness"],
+  }),
+  answer("disability-waiting-periods", "Waiting periods", GROUP_LIFE, "Disability", {
+    bodyBlocks: [
+      qa(
+        "Benefits don't start the day you stop working. Short-term and long-term disability each begin after their own waiting period. You may be able to use paid time off or sick time during the waiting period.",
+      ),
+    ],
+    tags: ["waiting period", "elimination period", "when do benefits start"],
+  }),
+  answer(
+    "how-to-file-a-disability-claim",
+    "How to file a disability claim",
+    GROUP_LIFE,
+    "Disability",
+    {
+      bodyBlocks: [
+        qa(
+          "File as soon as you know you'll be out. For a planned surgery or birth, you can often start the claim before your leave begins.",
+        ),
+        numbered(
+          "Tell your manager and your HR department.",
+          "File with the disability carrier.",
+          "Ask your doctor to complete the medical section.",
+          "Respond quickly to any requests from your claim manager.",
+        ),
+      ],
+      tags: ["file disability", "disability claim", "how to apply", "leave of absence"],
+      cta: memberPortal("File a Disability Claim"),
+    },
+  ),
+  answer("return-to-work-questions", "Return-to-work questions", GROUP_LIFE, "Disability", {
+    bodyBlocks: [
+      qa(
+        "You'll need a release from your doctor to return. If you can only work part-time at first, partial disability benefits may continue. Talk with your HR department about any workplace accommodations.",
+      ),
+    ],
+    tags: ["return to work", "doctor's release", "part-time", "accommodations"],
+  }),
+  answer(
+    "disability-benefits-taxable",
+    "Are disability benefits taxable?",
+    GROUP_LIFE,
+    "Disability",
+    {
+      bodyBlocks: [
+        qa(
+          "It depends on who pays the premium. If {{plan_sponsor_name}} pays, benefits are generally taxable. If you pay with after-tax dollars, benefits are generally tax-free. Some states also have their own disability programs, which may work alongside this coverage.",
+        ),
+      ],
+      tags: ["taxable", "disability taxes", "state disability", "SDI"],
+    },
+  ),
 ];
 
 // ── Other / Custom (suggested starter sets, never seeded blindly) ────────────
@@ -1810,10 +2242,12 @@ export const DEFAULT_QUICK_ANSWER_GROUPS: Partial<Record<TopicLocation, string[]
     "Leaving / Aging",
   ],
   group_life: [
-    "Coverage Types",
-    "Enrollment",
-    "Leaving or Retiring",
+    "Coverage",
     "Beneficiaries",
+    "Enrollment",
+    "Claims",
+    "Leaving the Company",
+    "Disability",
   ],
   // Employee Resources (TF-6) — the handoff's §8 groups.
   employee_resources: ["Pay & Taxes", "Time Off & Leave", "Policies", "Employment"],

@@ -1429,3 +1429,82 @@ describe("Group Health topic blocks", () => {
     ).toHaveAttribute("href", "#have-questions");
   });
 });
+
+/**
+ * Group Life's Featured set (content handoff, Group Life page): the five cards
+ * after Account Access, Disability Benefits included.
+ */
+describe("Group Life topic blocks", () => {
+  it("draws the five Group Life cards plus Account Access", () => {
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Life"
+        accountAccessHref="https://life.example/login"
+      />,
+    );
+
+    expect(
+      tiles(container).map((element) => element.dataset.helpCard),
+    ).toEqual([
+      "account-access",
+      "review-my-coverage",
+      "beneficiaries",
+      "change-or-add-coverage",
+      "file-a-claim",
+      "disability-benefits",
+    ]);
+  });
+
+  it("draws Review My Coverage with its steps, docs and carrier CTA", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Life"
+        accountAccessHref="life.example/login"
+      />,
+    );
+
+    await user.click(tile(container, "review-my-coverage"));
+
+    const panel = screen.getByRole("region", { name: "Review My Coverage" });
+    const steps = within(panel).getByTestId("help-card-steps");
+    expect(within(steps).getAllByRole("listitem")).toHaveLength(3);
+    expect(steps).toHaveTextContent("Log in at https://life.example/login.");
+
+    const resources = within(panel).getByTestId("help-card-resources");
+    expect(within(resources).getByText("Life Insurance Certificate")).toBeInTheDocument();
+    expect(
+      within(resources).getByText("Benefits Guide"),
+    ).toBeInTheDocument();
+
+    expect(
+      within(panel).getByRole("link", { name: "How much coverage do I have?" }),
+    ).toHaveAttribute("href", "#quick-answers");
+
+    const cta = within(panel).getByRole("link", { name: "View My Coverage" });
+    expect(cta).toHaveAttribute("href", "https://life.example/login");
+  });
+
+  it("draws the Disability card with its claim handoff", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Life"
+        accountAccessHref="https://life.example/login"
+      />,
+    );
+
+    await user.click(tile(container, "disability-benefits"));
+
+    const panel = screen.getByRole("region", { name: "Disability Benefits" });
+    expect(within(panel).getByTestId("help-card-steps")).toHaveTextContent(
+      "File a claim with the disability carrier.",
+    );
+    expect(
+      within(panel).getByRole("link", { name: "File a Disability Claim" }),
+    ).toHaveAttribute("href", "https://life.example/login");
+  });
+});

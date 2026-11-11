@@ -350,7 +350,7 @@ export const LIFE_EVENT_TEMPLATES: LifeEventTemplate[] = [
       },
       {
         location: "group_life",
-        topicSlug: "disability-coverage",
+        topicSlug: "disability-benefits",
         label: "File a short-term disability claim, if applicable",
       },
       {

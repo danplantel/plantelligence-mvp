@@ -8,16 +8,17 @@ import type { HelpCardContent } from "@/types/benefit";
  * static here and resolved by id, so a card's text is identical on every benefit
  * of that category and can never be edited per plan.
  *
- * There are three catalogs:
+ * There are four catalogs:
  *
  *  - [`RETIREMENT_HELP_CARDS`] — the Retirement page's seeded set: the six
  *    Featured topics from the content handoff, plus the optional Account Access
  *    card. Account Access does not count toward the six.
  *  - [`GROUP_HEALTH_HELP_CARDS`] — the Group Health page's set: the five Featured
  *    topics, plus Account Access.
- *  - [`HELP_CARD_CATALOG`] — the shared fallback used for every other category
- *    (and for the editor before a category is known). Group Life gets its own set
- *    in a later pass; until then it keeps this one.
+ *  - [`GROUP_LIFE_HELP_CARDS`] — the Group Life page's set: the five Featured
+ *    topics (Disability Benefits among them), plus Account Access.
+ *  - [`HELP_CARD_CATALOG`] — the shared fallback used for the Custom hub and for
+ *    the editor before a category is known.
  *
  * `[Benefit Category]`, `[Company Name]` and `[Advisor Name]` are merge tokens,
  * resolved at render time by the portal section. Copy that came from the handoff
@@ -37,6 +38,12 @@ export function isRetirementHelpCategory(category?: string | null): boolean {
 export function isGroupHealthHelpCategory(category?: string | null): boolean {
   const value = (category || "").trim().toLowerCase();
   return value === "group health" || value === "health insurance";
+}
+
+/** True for the Group Life category ("Group Life" / "Life Insurance"). */
+export function isGroupLifeHelpCategory(category?: string | null): boolean {
+  const value = (category || "").trim().toLowerCase();
+  return value === "group life" || value === "life insurance";
 }
 
 /**
@@ -476,6 +483,192 @@ export const GROUP_HEALTH_HELP_CARDS: HelpCardContent[] = [
 export const GROUP_HEALTH_HELP_CARD_ORDER: string[] =
   GROUP_HEALTH_HELP_CARDS.map((card) => card.id);
 
+/**
+ * Group Life — the five Featured topics from the content handoff, after the
+ * optional Account Access card.
+ *
+ * Disability Benefits is the handoff's fifth card, shown when the employer offers
+ * STD or LTD. Those plan fields do not exist yet and the card is part of the
+ * designed set, so it ships visible and the advisor can switch it off.
+ *
+ * The carrier's member portal is this category's login URL, so Account Access, the
+ * steps and every carrier CTA point at `{{recordkeeper_url}}`, filled by the hub
+ * from the benefit's login URL.
+ */
+export const GROUP_LIFE_HELP_CARDS: HelpCardContent[] = [
+  {
+    id: ACCOUNT_ACCESS_CARD_ID,
+    title: "[Benefit Category] Account Access",
+    paragraphs: [
+      "Log in to {{recordkeeper_name}} to see your coverage and beneficiaries.",
+    ],
+    cta: "",
+  },
+  {
+    id: "review-my-coverage",
+    title: "Review My Coverage",
+    body: "See your current life and disability coverage.",
+    paragraphs: [
+      "{{plan_sponsor_name}} provides basic life insurance. Check your benefits summary for the amount and what it costs you. It may include matching accidental death and dismemberment (AD&D) coverage, and you may also have added voluntary coverage for yourself or your family.",
+    ],
+    steps: [
+      "Log in at {{recordkeeper_url}}.",
+      "Open Life Insurance.",
+      "Review your coverage amounts for yourself, your spouse, and your children.",
+    ],
+    docs: ["Life Insurance Certificate", "Benefits Guide"],
+    related: [
+      "Basic vs. voluntary life insurance",
+      "How much coverage do I have?",
+      "AD&D",
+      "Why is there life insurance income on my pay stub?",
+    ],
+    tags: [
+      "life insurance",
+      "coverage amount",
+      "how much",
+      "basic life",
+      "AD&D",
+      "death benefit",
+    ],
+    cta: "View My Coverage",
+  },
+  {
+    id: "beneficiaries",
+    title: "Update My Beneficiary",
+    body: "Review or update who receives your life insurance benefit.",
+    paragraphs: [
+      "Your life insurance beneficiary is separate from your retirement plan beneficiary, so update both. Review your choices after any marriage, divorce, birth, adoption, or death in the family. Minor children can't receive the money directly, so consider a trust or custodian.",
+    ],
+    steps: [
+      "Log in at {{recordkeeper_url}}.",
+      "Go to Beneficiaries.",
+      "Add primary and contingent beneficiaries, with percentages.",
+      "Save and confirm.",
+    ],
+    docs: ["Beneficiary Designation Form"],
+    contact: "Your HR contact",
+    related: [
+      "Primary vs. contingent beneficiaries",
+      "Naming a minor",
+      "Naming a trust",
+      "When should I review my beneficiary?",
+    ],
+    tags: [
+      "beneficiary",
+      "who gets my life insurance",
+      "spouse",
+      "children",
+      "contingent",
+      "divorced",
+      "married",
+    ],
+    // The Beneficiary Action Hub is the handoff's CTA; until that panel exists
+    // the button hands the reader to the plan's HR contact card.
+    cta: "Update My Beneficiary",
+    ctaDestination: "contact",
+  },
+  {
+    id: "change-or-add-coverage",
+    title: "Change or Add Coverage",
+    body: "Explore voluntary coverage for yourself and eligible family members.",
+    paragraphs: [
+      "You can buy additional life insurance for yourself, your spouse, and your children through payroll deduction. Amounts up to the plan's guaranteed issue amount are guaranteed when you first enroll. Higher amounts, or enrolling later, may require Evidence of Insurability, which means answering health questions.",
+    ],
+    steps: [
+      "Check that you're in an enrollment window: new hire, Open Enrollment, or a qualifying life event.",
+      "Log in at {{recordkeeper_url}}.",
+      "Choose your coverage amounts and review the cost per paycheck.",
+      "Complete Evidence of Insurability if prompted.",
+    ],
+    docs: ["Voluntary Life Rates", "Benefits Guide"],
+    video: "How Much Life Insurance Do I Need?",
+    related: [
+      "How much coverage do I need?",
+      "Evidence of insurability",
+      "Spouse coverage",
+      "When can I change coverage?",
+    ],
+    tags: [
+      "add life insurance",
+      "voluntary life",
+      "supplemental life",
+      "more coverage",
+      "spouse life",
+      "child life",
+    ],
+    cta: "Add Coverage",
+  },
+  {
+    id: "file-a-claim",
+    title: "File a Claim / Get Help",
+    body: "Find claim information and connect with the right person.",
+    paragraphs: [
+      "To file a life insurance claim, contact your HR department first. HR completes the employer section, and the beneficiary sends a claim form and certified death certificate to {{recordkeeper_name}}. We know this can be a difficult time, and your HR contact can walk you through each step.",
+    ],
+    steps: [
+      "Notify your HR department.",
+      "The beneficiary completes the claim form.",
+      "Send the claim form and a certified death certificate to {{recordkeeper_name}}.",
+      "{{recordkeeper_name}} reviews the claim and pays the benefit once approved.",
+    ],
+    docs: ["Life Claim Form"],
+    contact: "{{recordkeeper_name}}",
+    related: [
+      "What documentation is required?",
+      "Who should I contact?",
+      "What happens after a claim is submitted?",
+    ],
+    tags: [
+      "claim",
+      "death",
+      "passed away",
+      "file a claim",
+      "death certificate",
+      "beneficiary claim",
+    ],
+    cta: "Start a Claim",
+  },
+  {
+    id: "disability-benefits",
+    title: "Disability Benefits",
+    body: "Understand your income protection if you can't work because of illness or injury.",
+    paragraphs: [
+      "Short-term disability replaces part of your pay after a waiting period, for up to a set duration. Long-term disability replaces part of your pay after an elimination period, for longer illnesses or injuries. Your plan's certificate has the exact percentages and timing.",
+    ],
+    steps: [
+      "Tell your manager and your HR department as soon as you know you'll be out.",
+      "File a claim with the disability carrier.",
+      "Ask your doctor to complete the medical section.",
+      "Stay in touch with your claim manager until you return to work.",
+    ],
+    docs: ["Disability Certificate", "Disability Claim Form"],
+    contact: "Your disability carrier",
+    related: [
+      "Short-term disability",
+      "Long-term disability",
+      "Waiting periods",
+      "How to file a disability claim",
+    ],
+    tags: [
+      "disability",
+      "short-term disability",
+      "long-term disability",
+      "STD",
+      "LTD",
+      "can't work",
+      "surgery",
+      "maternity leave",
+      "injury",
+    ],
+    cta: "File a Disability Claim",
+  },
+];
+
+/** Every Group Life card id, in its natural order (Account Access first). */
+export const GROUP_LIFE_HELP_CARD_ORDER: string[] =
+  GROUP_LIFE_HELP_CARDS.map((card) => card.id);
+
 /** The shared fallback set, used until a category has its own catalog. */
 export const HELP_CARD_CATALOG: HelpCardContent[] = [
   {
@@ -554,6 +747,7 @@ export const HELP_CARD_ORDER: string[] = HELP_CARD_CATALOG.map(
 export function helpCardCatalogFor(category?: string | null): HelpCardContent[] {
   if (isRetirementHelpCategory(category)) return RETIREMENT_HELP_CARDS;
   if (isGroupHealthHelpCategory(category)) return GROUP_HEALTH_HELP_CARDS;
+  if (isGroupLifeHelpCategory(category)) return GROUP_LIFE_HELP_CARDS;
   return HELP_CARD_CATALOG;
 }
 

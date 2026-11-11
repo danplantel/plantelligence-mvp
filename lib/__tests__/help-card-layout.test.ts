@@ -104,6 +104,33 @@ describe("normalizeHelpCardLayout", () => {
     ]);
   });
 
+  it("defaults Group Life to Account Access plus the five Featured topics", () => {
+    const layout = defaultHelpCardLayout("Group Life");
+
+    expect(ids(layout)).toEqual([
+      "account-access",
+      "review-my-coverage",
+      "beneficiaries",
+      "change-or-add-coverage",
+      "file-a-claim",
+      "disability-benefits",
+    ]);
+    expect(layout.every((entry) => isHelpCardEnabled(entry))).toBe(true);
+
+    expect(
+      resolveHelpCardRows(layout, "Group Life")
+        .flat()
+        .map((card) => card.id),
+    ).toEqual([
+      "account-access",
+      "review-my-coverage",
+      "beneficiaries",
+      "change-or-add-coverage",
+      "file-a-claim",
+      "disability-benefits",
+    ]);
+  });
+
   it("keeps a stored primary and treats index 2 as the right edge", () => {
     const layout = normalizeHelpCardLayout([
       { id: "rollovers-distributions" },

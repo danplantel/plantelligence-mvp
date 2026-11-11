@@ -6,6 +6,8 @@ import {
 } from "@/lib/topics/library";
 import type { LibraryTopicSeed } from "@/lib/topics/library";
 
+const lifeSeeds = libraryTopicsForLocation("group_life");
+
 /**
  * Group Health's shipped content, from the handoff's Group Health page: five
  * Featured topics and 41 Quick Answers in seven groups, with the account
@@ -65,5 +67,59 @@ describe("Group Health library", () => {
     expect(textOf(versus)).toContain("FSA (Flexible Spending Account)");
     expect(textOf(limits)).toContain("HSA (Health Savings Account)");
     expect(textOf(limits)).toContain("FSA (Flexible Spending Account)");
+  });
+});
+
+/**
+ * Group Life's shipped content, from the handoff's Group Life page: five Featured
+ * topics (Disability Benefits among them) and 30 Quick Answers in six groups.
+ */
+describe("Group Life library", () => {
+  it("ships five Featured topics, disability among them", () => {
+    expect(
+      lifeSeeds
+        .filter((seed) => seed.displayByDefault === "featured")
+        .map((seed) => seed.slug),
+    ).toEqual([
+      "review-my-coverage",
+      "beneficiaries",
+      "change-or-add-coverage",
+      "file-a-claim",
+      "disability-benefits",
+    ]);
+  });
+
+  it("ships 30 answers in the six documented groups", () => {
+    const answers = lifeSeeds.filter(
+      (seed) => seed.displayByDefault === "quick_answers",
+    );
+
+    expect(answers).toHaveLength(30);
+    expect(new Set(answers.map((seed) => seed.group))).toEqual(
+      new Set(DEFAULT_QUICK_ANSWER_GROUPS.group_life),
+    );
+    expect(DEFAULT_QUICK_ANSWER_GROUPS.group_life).toEqual([
+      "Coverage",
+      "Beneficiaries",
+      "Enrollment",
+      "Claims",
+      "Leaving the Company",
+      "Disability",
+    ]);
+  });
+
+  it("keeps the slugs the life-event checklists link to", () => {
+    const slugs = new Set(lifeSeeds.map((seed) => seed.slug));
+
+    for (const slug of [
+      "review-my-coverage",
+      "how-much-coverage",
+      "portability",
+      "conversion",
+      "file-a-claim",
+      "disability-benefits",
+    ]) {
+      expect(slugs.has(slug)).toBe(true);
+    }
   });
 });
