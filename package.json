@@ -97,6 +97,7 @@
     "check:gallery": "npm run gallery:validate",
     "teammates:backfill": "npx tsx scripts/teammates/backfill-organizations.ts",
     "topics:backfill": "npx tsx scripts/topics/backfill-topic-placements.ts",
+    "topics:backfill-content": "npx tsx scripts/topics/backfill-topic-content.ts",
     "webinars:backfill-durations": "npx tsx scripts/webinars/backfill-durations.ts",
     "teammates:backfill-contacts": "npx tsx scripts/teammates/backfill-plan-contacts.ts",
     "teammates:verify": "npx tsx scripts/teammates/verify-t1.ts",

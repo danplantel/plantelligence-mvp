@@ -47,6 +47,10 @@ import {
   readOptionParam,
   topicMatchesHash,
 } from "@/lib/topics/deep-link";
+import {
+  CONTRIBUTION_LIMITS_YEAR,
+  ELECTIVE_DEFERRAL_LIMIT,
+} from "@/lib/plan-contribution-limits";
 import { toExternalUrl } from "@/lib/url-utils";
 import { cn } from "@/lib/utils";
 
@@ -837,6 +841,9 @@ function HelpCardPanel({
         (planSponsorName || "").trim() || "your employer",
       )
       .replace(/\{\{upcoming_retirement_meetings\}\}/g, upcomingMeetings || "")
+      // Annual IRS figures — global values, updated each January.
+      .replace(/\{\{plan_year\}\}/g, String(CONTRIBUTION_LIMITS_YEAR))
+      .replace(/\{\{deferral_limit\}\}/g, ELECTIVE_DEFERRAL_LIMIT)
       .replace(
         /\{\{recordkeeper_name\}\}/g,
         (recordkeeperName || "").trim() || "your recordkeeper",

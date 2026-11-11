@@ -149,6 +149,64 @@ describe("QuickAnswersSection", () => {
     ]);
   });
 
+  it("makes a website named in the answer clickable", async () => {
+    const user = userEvent.setup();
+    render(
+      <QuickAnswersSection
+        groups={[
+          group({
+            topics: [
+              topic({
+                title: "Social Security",
+                bodyBlocks: [
+                  {
+                    type: "quick_answer",
+                    text: "You can see your personal estimate at ssa.gov/myaccount.",
+                  },
+                ],
+              }),
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /social security/i }));
+
+    const link = screen.getByRole("link", { name: "ssa.gov/myaccount" });
+    expect(link).toHaveAttribute("href", "https://ssa.gov/myaccount");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+  });
+
+  it("makes the recordkeeper address in a step clickable", async () => {
+    const user = userEvent.setup();
+    render(
+      <QuickAnswersSection
+        groups={[
+          group({
+            topics: [
+              topic({
+                title: "Enroll",
+                bodyBlocks: [
+                  { type: "steps", steps: ["Log in at {{recordkeeper_url}}.", "Save"] },
+                ],
+              }),
+            ],
+          }),
+        ]}
+        recordkeeperUrl="portal.example.com"
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /enroll/i }));
+
+    const link = screen.getByRole("link", {
+      name: "https://portal.example.com",
+    });
+    expect(link).toHaveAttribute("href", "https://portal.example.com");
+  });
+
   it("draws the placement CTA as a link to its destination", async () => {
     const user = userEvent.setup();
     render(
@@ -387,11 +445,47 @@ describe("QuickAnswersSection", () => {
       }),
     );
 
-    // A bare host is normalised, not treated as a plan-relative path.
-    expect(screen.getByText("Log in at https://google.com.")).toBeInTheDocument();
+    // A bare host is normalised, not treated as a plan-relative path — and the
+    // address in the step is now an anchor, so the sentence is text + link + ".".
+    expect(
+      screen.getByRole("link", { name: "https://google.com" }),
+    ).toHaveAttribute("href", "https://google.com");
     expect(
       screen.getByRole("link", { name: "Change My Contribution" }),
     ).toHaveAttribute("href", "https://google.com");
+  });
+
+  it("fills the annual contribution-limit figures", async () => {
+    const user = userEvent.setup();
+    render(
+      <QuickAnswersSection
+        groups={[
+          group({
+            topics: [
+              topic({
+                title: "Contribution limits",
+                bodyBlocks: [
+                  {
+                    type: "quick_answer",
+                    text: "For {{plan_year}}, you can contribute up to {{deferral_limit}} from your paycheck.",
+                  },
+                ],
+              }),
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", { name: "Contribution limits" }),
+    );
+
+    expect(
+      screen.getByText(
+        "For 2026, you can contribute up to $24,500 from your paycheck.",
+      ),
+    ).toBeInTheDocument();
   });
 
   it("shows the answer's video block and hands the advisor CTA to the booking link", async () => {

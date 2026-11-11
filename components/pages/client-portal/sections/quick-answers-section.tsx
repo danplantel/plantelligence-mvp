@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { LayoutGroup, motion } from "framer-motion";
 import {
   ArrowLeft,
@@ -18,7 +18,12 @@ import {
 import { useOptionalClientPortal } from "@/contexts/client-portal-context";
 import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
 import { portalRadiusValue } from "@/lib/typography-themes";
+import {
+  CONTRIBUTION_LIMITS_YEAR,
+  ELECTIVE_DEFERRAL_LIMIT,
+} from "@/lib/plan-contribution-limits";
 import { toExternalUrl } from "@/lib/url-utils";
+import { splitTextLinks } from "@/lib/text/linkify";
 import { topicQuickAnswer } from "@/lib/topics/effective-topic";
 import {
   buildTopicUrl,
@@ -114,6 +119,43 @@ const GROUP_LAYOUT_TRANSITION = {
  * acceptance case ("loan" finds 401(k) loans) belongs in a unit test.
  */
 
+/**
+ * Answer copy with the addresses in it made clickable.
+ *
+ * Advisors write "You can see your personal estimate at ssa.gov/myaccount." and
+ * "Log in at {{recordkeeper_url}}." as prose; the token becomes a full URL. A
+ * reader had no way to follow either, so every address is an anchor that opens in
+ * a new tab. Copy with no address renders as one plain string — no wrapper, no
+ * extra markup.
+ */
+function LinkedText({ text, color }: { text: string; color: string }) {
+  const segments = splitTextLinks(text);
+  if (!segments.some((segment) => segment.type === "link")) {
+    return <>{text}</>;
+  }
+
+  return (
+    <>
+      {segments.map((segment, index) =>
+        segment.type === "link" ? (
+          <a
+            key={`${segment.href}-${index}`}
+            href={segment.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="underline decoration-1 underline-offset-2 transition-opacity hover:opacity-80"
+            style={{ color }}
+          >
+            {segment.value}
+          </a>
+        ) : (
+          <Fragment key={`text-${index}`}>{segment.value}</Fragment>
+        ),
+      )}
+    </>
+  );
+}
+
 /** A question's shape, shown as a small chip the way today's rich questions do. */
 function topicChip(topic: EffectiveTopic): string | null {
   const steps = topic.bodyBlocks.find((block) => block.type === "steps");
@@ -187,7 +229,7 @@ function TopicAnswer({
     <div className="space-y-3">
       {quickAnswer && (
         <p className="font-red-hat text-[15px] leading-relaxed text-neutral-700 sm:text-base">
-          {quickAnswer}
+          <LinkedText text={quickAnswer} color={brandColor} />
         </p>
       )}
 
@@ -199,7 +241,9 @@ function TopicAnswer({
             className="list-decimal space-y-1 pl-5 font-red-hat text-[15px] leading-relaxed text-neutral-700 marker:font-semibold"
           >
             {block.steps.map((step, stepIndex) => (
-              <li key={stepIndex}>{fillTokens(step)}</li>
+              <li key={stepIndex}>
+                <LinkedText text={fillTokens(step)} color={brandColor} />
+              </li>
             ))}
           </ol>
         );
@@ -321,7 +365,10 @@ export function QuickAnswersSection({
       .replace(
         /\{\{plan_sponsor_name\}\}/g,
         (planSponsorName || "").trim() || "your employer",
-      );
+      )
+      // Annual IRS figures — global values, updated each January.
+      .replace(/\{\{plan_year\}\}/g, String(CONTRIBUTION_LIMITS_YEAR))
+      .replace(/\{\{deferral_limit\}\}/g, ELECTIVE_DEFERRAL_LIMIT);
   };
 
   const [query, setQuery] = useState("");

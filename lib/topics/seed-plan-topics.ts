@@ -421,6 +421,154 @@ export async function seedLocationTopics(params: {
 }
 
 /**
+ * Add topics the shipped library has GAINED since a location was seeded.
+ *
+ * Seeding never overwrites a row and never re-adds a topic the advisor took off
+ * the page — but a content pass ADDS topics (Contribution limits,
+ * Auto-escalation, …) that a plan seeded before it has never had. Those are
+ * safe to add: an advisor takes a topic off the page by setting its placement to
+ * "hidden", and nothing in the app deletes a placement, so "this location has no
+ * placement for this library topic" can only mean the plan never received it.
+ *
+ * The test is per PLACEMENT, not per Topic row. Topic rows are shared across
+ * plans: the first plan that saves after a content pass creates
+ * `sys.contribution-limits`, and every other plan must still get its own
+ * placement for it. Keying on the row would make the topic appear on one plan
+ * and silently skip the rest, which is the bug this function exists to fix.
+ *
+ * Idempotent and cheap: one slug lookup and one placement list per call, writes
+ * only for topics this location does not hold yet.
+ */
+export async function syncNewLibraryTopics(params: {
+  clientId: string;
+  category?: string | null;
+  store?: TopicSeedStore;
+}): Promise<SeedTopicsResult> {
+  const clientId = (params.clientId || "").trim();
+  if (!clientId) return NOTHING_SEEDED;
+
+  const location = topicLocationForCategory(params.category);
+  if (!location) return NOTHING_SEEDED;
+
+  const seeds = dedupeSeedTopics(libraryTopicsForLocation(location));
+  if (seeds.length === 0) return NOTHING_SEEDED;
+
+  const store = params.store ?? createPrismaTopicSeedStore();
+
+  // Only plans already ON the framework get new library topics. A legacy plan
+  // has no placements; adding a handful would flip its read source and replace
+  // its whole page with those few topics.
+  const existingPlacements = await store.listPlacements(clientId, location);
+  if (existingPlacements.length === 0) {
+    return { ...NOTHING_SEEDED, location };
+  }
+
+  const existingTopics = await store.findTopicsBySlug(
+    seeds.map((seed) => systemTopicSlug(seed.slug)),
+  );
+  const topicBySlug = new Map(
+    existingTopics.map((topic) => [topic.slug, topic]),
+  );
+  const placedTopicIds = new Set(
+    existingPlacements.map((placement) => placement.topicId),
+  );
+  const missing = seeds.filter((seed) => {
+    const topic = topicBySlug.get(systemTopicSlug(seed.slug));
+    // No row yet, or a row another plan created but this location never got.
+    return !topic || !placedTopicIds.has(topic.id);
+  });
+  if (missing.length === 0) {
+    return { ...NOTHING_SEEDED, location };
+  }
+
+  // Groups those new topics need (a plan seeded earlier may not have them yet).
+  const existingGroups = await store.listGroups(clientId, location);
+  const groupByName = new Map(existingGroups.map((group) => [group.name, group]));
+  let createdGroups = 0;
+  for (const [index, name] of groupOrderFor(location, missing).entries()) {
+    if (groupByName.has(name)) continue;
+    const created = await store.createGroup({
+      clientId,
+      location,
+      name,
+      sortOrder: existingGroups.length + index,
+    });
+    groupByName.set(name, created);
+    createdGroups += 1;
+  }
+
+  let featuredOrder = existingPlacements.filter(
+    (placement) => placement.displayMode === "featured",
+  ).length;
+  let hiddenOrder = existingPlacements.filter(
+    (placement) => placement.displayMode === "hidden",
+  ).length;
+  const groupCounters = new Map<string, number>();
+  for (const placement of existingPlacements) {
+    if (placement.displayMode !== "quick_answers") continue;
+    const key = placement.groupId ?? "__ungrouped__";
+    groupCounters.set(key, Math.max(groupCounters.get(key) ?? 0, placement.sortOrder + 1));
+  }
+
+  let createdTopics = 0;
+  let createdPlacements = 0;
+
+  for (const seed of missing) {
+    const slug = systemTopicSlug(seed.slug);
+    let topic = topicBySlug.get(slug);
+    if (!topic) {
+      topic = await store.createTopic({
+        slug,
+        title: seed.title,
+        summary: seed.summary ?? null,
+        bodyBlocks: seed.bodyBlocks ?? null,
+        isActionHub: seed.isActionHub ?? false,
+        defaultLocations: seed.defaultLocations,
+        defaultCta: seed.cta ?? null,
+        tags: seed.tags ?? [],
+      });
+      topicBySlug.set(slug, topic);
+      createdTopics += 1;
+    }
+    if (!topic?.id || placedTopicIds.has(topic.id)) continue;
+
+    let sortOrder: number;
+    let groupId: string | null = null;
+    if (seed.displayByDefault === "quick_answers") {
+      groupId = (seed.group && groupByName.get(seed.group)?.id) || null;
+      const key = groupId ?? "__ungrouped__";
+      sortOrder = groupCounters.get(key) ?? 0;
+      groupCounters.set(key, sortOrder + 1);
+    } else if (seed.displayByDefault === "featured") {
+      sortOrder = featuredOrder;
+      featuredOrder += 1;
+    } else {
+      sortOrder = hiddenOrder;
+      hiddenOrder += 1;
+    }
+
+    await store.createPlacement({
+      clientId,
+      topicId: topic.id,
+      location,
+      displayMode: seed.displayByDefault,
+      groupId,
+      sortOrder,
+    });
+    placedTopicIds.add(topic.id);
+    createdPlacements += 1;
+  }
+
+  return {
+    seeded: true,
+    location,
+    createdTopics,
+    createdGroups,
+    createdPlacements,
+  };
+}
+
+/**
  * Seed a category's location only if the plan has nothing there yet.
  *
  * This is the lazy path for plans created before the framework shipped: opening an

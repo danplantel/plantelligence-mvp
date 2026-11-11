@@ -3,6 +3,7 @@ import {
   ensureLocationSeeded,
   seedCustomStarterSet,
   seedLocationTopics,
+  syncNewLibraryTopics,
   type TopicSeedStore,
 } from "@/lib/topics/seed-plan-topics";
 import {
@@ -334,6 +335,129 @@ describe("seedLocationTopics", () => {
 
     expect(result.seeded).toBe(false);
     expect(memory.placements).toEqual([]);
+  });
+});
+
+describe("syncNewLibraryTopics", () => {
+  it("adds topics the library gained after the plan was seeded", async () => {
+    const memory = createMemoryStore();
+    // A partial seed stands in for a plan seeded before the content pass: it has
+    // a featured card and one answer, and lacks the rest of the library.
+    const oldSeeds = libraryTopicsForLocation("retirement").filter(
+      (seed) =>
+        seed.slug === "enroll-change-contributions" ||
+        seed.slug === "how-much-should-i-save",
+    );
+    await seedLocationTopics({
+      clientId: "plan-a",
+      category: "Retirement",
+      seeds: oldSeeds,
+      store: memory.store,
+    });
+
+    const before = memory.topics.length;
+    const result = await syncNewLibraryTopics({
+      clientId: "plan-a",
+      category: "Retirement",
+      store: memory.store,
+    });
+
+    expect(result.createdTopics).toBe(
+      libraryTopicsForLocation("retirement").length - oldSeeds.length,
+    );
+    expect(memory.topics.length).toBeGreaterThan(before);
+
+    const contributionLimits = memory.topics.find(
+      (topic) => topic.slug === "sys.contribution-limits",
+    );
+    expect(contributionLimits).toBeDefined();
+    const placement = memory.placements.find(
+      (row) => row.topicId === contributionLimits?.id,
+    );
+    expect(placement?.displayMode).toBe("quick_answers");
+
+    // Running again changes nothing.
+    const again = await syncNewLibraryTopics({
+      clientId: "plan-a",
+      category: "Retirement",
+      store: memory.store,
+    });
+    expect(again.createdTopics).toBe(0);
+    expect(again.createdPlacements).toBe(0);
+  });
+
+  it("places a shared Topic row this plan never received", async () => {
+    const memory = createMemoryStore();
+    // Plan B was seeded before the content pass: it holds placements, but none of
+    // the answers the pass added.
+    const oldSeeds = libraryTopicsForLocation("retirement").filter(
+      (seed) =>
+        seed.slug !== "contribution-limits" && seed.slug !== "auto-escalation",
+    );
+    await seedLocationTopics({
+      clientId: "plan-b",
+      category: "Retirement",
+      seeds: oldSeeds,
+      store: memory.store,
+    });
+    // Plan A seeds after the pass, so it creates the shared Topic rows.
+    await seedLocationTopics({
+      clientId: "plan-a",
+      category: "Retirement",
+      store: memory.store,
+    });
+
+    const sharedRow = memory.topics.find(
+      (topic) => topic.slug === "sys.contribution-limits",
+    );
+    expect(sharedRow).toBeDefined();
+    expect(
+      memory.placements.some(
+        (row) => row.clientId === "plan-b" && row.topicId === sharedRow?.id,
+      ),
+    ).toBe(false);
+
+    const topicCountBefore = memory.topics.length;
+    const result = await syncNewLibraryTopics({
+      clientId: "plan-b",
+      category: "Retirement",
+      store: memory.store,
+    });
+
+    // The row already exists, so only the missing placement is written — a row
+    // check would wrongly report "up to date" and leave the answer invisible.
+    expect(result.createdTopics).toBe(0);
+    expect(result.createdPlacements).toBeGreaterThan(0);
+    expect(memory.topics.length).toBe(topicCountBefore);
+
+    const placement = memory.placements.find(
+      (row) => row.clientId === "plan-b" && row.topicId === sharedRow?.id,
+    );
+    expect(placement?.displayMode).toBe("quick_answers");
+    const group = memory.groups.find((row) => row.id === placement?.groupId);
+    expect(group?.name).toBe("Saving & Contributions");
+    expect(group?.clientId).toBe("plan-b");
+
+    // Plan A keeps exactly its own placement for the shared row.
+    expect(
+      memory.placements.filter(
+        (row) => row.clientId === "plan-a" && row.topicId === sharedRow?.id,
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("never touches a legacy plan with no placements", async () => {
+    const memory = createMemoryStore();
+
+    const result = await syncNewLibraryTopics({
+      clientId: "legacy-plan",
+      category: "Retirement",
+      store: memory.store,
+    });
+
+    expect(result.seeded).toBe(false);
+    expect(memory.topics).toHaveLength(0);
+    expect(memory.placements).toHaveLength(0);
   });
 });
 

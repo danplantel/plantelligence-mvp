@@ -36,6 +36,10 @@ const portalHubTests = [
   "components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx",
   // The card layout rules it renders from: primary edge, order, row packing
   "lib/__tests__/help-card-layout.test.ts",
+  // Putting an older plan's Quick Answers groups back in step with the library
+  "lib/topics/__tests__/group-realign.test.ts",
+  // Turning an address in answer copy into a real link
+  "lib/text/__tests__/linkify.test.ts",
   // The FAQ accordion
   "components/__tests__/faq-section.test.tsx",
   // The portal read the hubs make: GET .../benefits/[category]?forPortal=1

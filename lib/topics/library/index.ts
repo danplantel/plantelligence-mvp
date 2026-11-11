@@ -362,7 +362,7 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
   answer("contribution-limits", "Contribution limits", RETIREMENT, "Saving & Contributions", {
     bodyBlocks: [
       qa(
-        "Each year the IRS sets the most you can contribute from your paycheck. The limit covers pre-tax and Roth contributions combined, and employer contributions don't count toward it.",
+        "For {{plan_year}}, you can contribute up to {{deferral_limit}} from your paycheck. This limit covers pre-tax and Roth contributions combined. Employer contributions don't count toward it.",
       ),
     ],
     tags: [
@@ -828,7 +828,13 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
         "Full retirement age is 67 for anyone born in 1960 or later. You can claim as early as 62, with a permanently reduced benefit. You can see your personal estimate at ssa.gov/myaccount.",
       ),
     ],
-    cta: { label: "Plan My Retirement Income", actionType: "external_url" },
+    cta: {
+      label: "Plan My Retirement Income",
+      actionType: "external_url",
+      // The label has no "book / advisor / talk" word for the renderer's fallback
+      // to catch, so the destination must be named: {{advisor_booking_url}}.
+      target: "advisor",
+    },
     tags: [
       "Social Security",
       "full retirement age",

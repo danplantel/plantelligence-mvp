@@ -18,7 +18,10 @@ import {
 import { removeBenefitCategoryAccess } from "@/lib/teammates/assignments.server";
 import { resolveOrganizationId } from "@/lib/organization";
 import type { PermissionFunction } from "@/types/teammate";
-import { ensureLocationSeeded } from "@/lib/topics/seed-plan-topics";
+import {
+  ensureLocationSeeded,
+  syncNewLibraryTopics,
+} from "@/lib/topics/seed-plan-topics";
 import { loadLocationTopics } from "@/lib/topics/resolve-location";
 import { loadActionHubPanels } from "@/lib/topics/action-hub.server";
 import {
@@ -609,6 +612,11 @@ export async function PUT(
     if (!existedBeforeSave) {
       try {
         await ensureLocationSeeded({ clientId, category });
+        // A content pass can ADD topics to the library (Contribution limits,
+        // Auto-escalation). A plan already on the framework picks them up when
+        // the benefit is saved; `scripts/topics/backfill-topic-content.ts`
+        // covers plans that are not re-saved.
+        await syncNewLibraryTopics({ clientId, category });
       } catch (seedError) {
         console.error("[benefits] topic seeding failed:", category, seedError);
       }
