@@ -350,8 +350,13 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
       qa(
         "Pre-tax contributions lower your taxable income now, and you pay tax when you withdraw in retirement. Roth contributions are taxed now, and qualified withdrawals, including earnings, are tax-free. Which fits better depends on whether you expect your tax rate to be higher now or in retirement, and you can split between both.",
       ),
+      { type: "video", videoId: "Roth vs. Pre-Tax" },
     ],
-    cta: { label: "Talk to an Advisor", actionType: "external_url" },
+    cta: {
+      label: "Talk to an Advisor",
+      actionType: "external_url",
+      target: "advisor",
+    },
     tags: ["Roth", "pre-tax", "traditional", "taxes", "after-tax"],
   }),
   answer("contribution-limits", "Contribution limits", RETIREMENT, "Saving & Contributions", {

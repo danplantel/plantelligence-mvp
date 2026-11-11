@@ -394,6 +394,48 @@ describe("QuickAnswersSection", () => {
     ).toHaveAttribute("href", "https://google.com");
   });
 
+  it("shows the answer's video block and hands the advisor CTA to the booking link", async () => {
+    const user = userEvent.setup();
+    render(
+      <QuickAnswersSection
+        groups={[
+          group({
+            topics: [
+              topic({
+                title: "Roth vs. Pre-Tax",
+                bodyBlocks: [
+                  {
+                    type: "quick_answer",
+                    text: "Pre-tax lowers your taxable income now.",
+                  },
+                  { type: "video", videoId: "Roth vs. Pre-Tax" },
+                ],
+                cta: {
+                  label: "Talk to an Advisor",
+                  actionType: "external_url",
+                  target: "advisor",
+                },
+              }),
+            ],
+          }),
+        ]}
+        advisorBookingUrl="https://book.test/jane"
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: "Roth vs. Pre-Tax" }));
+
+    expect(
+      within(screen.getByTestId("quick-answer-resources")).getByText(
+        "Roth vs. Pre-Tax",
+        { selector: "span" },
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Talk to an Advisor" }),
+    ).toHaveAttribute("href", "https://book.test/jane");
+  });
+
   it("falls back to the contact band when no booking link exists", async () => {
     const user = userEvent.setup();
     render(

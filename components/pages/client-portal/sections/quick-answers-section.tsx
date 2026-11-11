@@ -2,7 +2,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { LayoutGroup, motion } from "framer-motion";
-import { ArrowLeft, ChevronDown, Search, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ChevronDown,
+  PlayCircle,
+  Search,
+  User,
+  X,
+} from "lucide-react";
 import { readableColor } from "polished";
 import {
   HAVE_QUESTIONS_SECTION_ID,
@@ -146,6 +153,16 @@ function TopicAnswer({
 }) {
   const quickAnswer = fillTokens(topicQuickAnswer(topic));
   const hasActionHub = !!actionHubRows && actionHubRows.length > 0;
+  /** The answer's Video / Contact blocks, drawn as small resource chips. */
+  const resources: { kind: "video" | "contact"; label: string }[] = [];
+  for (const block of topic.bodyBlocks) {
+    if (block.type === "video" && block.videoId) {
+      resources.push({ kind: "video", label: fillTokens(block.videoId) });
+    }
+    if (block.type === "contact" && block.contactId) {
+      resources.push({ kind: "contact", label: fillTokens(block.contactId) });
+    }
+  }
   // A placement CTA can carry its own destination. When it does not, its `target`
   // decides: the plan's login URL, the advisor's booking link, or the contact
   // band. A label that names the advisor is the fallback for older rows.
@@ -187,6 +204,30 @@ function TopicAnswer({
           </ol>
         );
       })}
+
+      {/* Video / Contact — the handoff's resource blocks. Document blocks carry
+          ids that resolve in TF-10, so they are skipped rather than printed as
+          identifiers. */}
+      {resources.length > 0 && (
+        <div
+          data-testid="quick-answer-resources"
+          className="flex flex-wrap gap-2"
+        >
+          {resources.map((resource) => (
+            <span
+              key={`${resource.kind}-${resource.label}`}
+              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1 font-red-hat text-[12px] text-neutral-700"
+            >
+              {resource.kind === "video" ? (
+                <PlayCircle className="h-3.5 w-3.5" aria-hidden="true" />
+              ) : (
+                <User className="h-3.5 w-3.5" aria-hidden="true" />
+              )}
+              {resource.label}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* The Action Hub panel IS the CTA when there is a choice to make. With one
           row it collapses to a single button, so both cases land here. */}
