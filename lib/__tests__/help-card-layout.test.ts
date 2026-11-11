@@ -77,6 +77,33 @@ describe("normalizeHelpCardLayout", () => {
     ]);
   });
 
+  it("defaults Group Health to Account Access plus the five Featured topics", () => {
+    const layout = defaultHelpCardLayout("Group Health");
+
+    expect(ids(layout)).toEqual([
+      "account-access",
+      "understand-coverage",
+      "find-care-providers",
+      "claims-bills-costs",
+      "add-remove-dependent",
+      "hsa-fsa-resources",
+    ]);
+    expect(layout.every((entry) => isHelpCardEnabled(entry))).toBe(true);
+
+    expect(
+      resolveHelpCardRows(layout, "Group Health")
+        .flat()
+        .map((card) => card.id),
+    ).toEqual([
+      "account-access",
+      "understand-coverage",
+      "find-care-providers",
+      "claims-bills-costs",
+      "add-remove-dependent",
+      "hsa-fsa-resources",
+    ]);
+  });
+
   it("keeps a stored primary and treats index 2 as the right edge", () => {
     const layout = normalizeHelpCardLayout([
       { id: "rollovers-distributions" },

@@ -40,6 +40,8 @@ const portalHubTests = [
   "lib/topics/__tests__/group-realign.test.ts",
   // Turning an address in answer copy into a real link
   "lib/text/__tests__/linkify.test.ts",
+  // Group Health's shipped Featured set, 41 answers in seven groups, acronyms
+  "lib/topics/__tests__/library-content.test.ts",
   // The FAQ accordion
   "components/__tests__/faq-section.test.tsx",
   // The portal read the hubs make: GET .../benefits/[category]?forPortal=1

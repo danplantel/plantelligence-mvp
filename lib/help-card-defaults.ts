@@ -8,14 +8,16 @@ import type { HelpCardContent } from "@/types/benefit";
  * static here and resolved by id, so a card's text is identical on every benefit
  * of that category and can never be edited per plan.
  *
- * There are two catalogs:
+ * There are three catalogs:
  *
  *  - [`RETIREMENT_HELP_CARDS`] — the Retirement page's seeded set: the six
  *    Featured topics from the content handoff, plus the optional Account Access
  *    card. Account Access does not count toward the six.
+ *  - [`GROUP_HEALTH_HELP_CARDS`] — the Group Health page's set: the five Featured
+ *    topics, plus Account Access.
  *  - [`HELP_CARD_CATALOG`] — the shared fallback used for every other category
- *    (and for the editor before a category is known). Health and Life get their
- *    own sets in a later pass; until then they keep this one.
+ *    (and for the editor before a category is known). Group Life gets its own set
+ *    in a later pass; until then it keeps this one.
  *
  * `[Benefit Category]`, `[Company Name]` and `[Advisor Name]` are merge tokens,
  * resolved at render time by the portal section. Copy that came from the handoff
@@ -29,6 +31,12 @@ export const ACCOUNT_ACCESS_CARD_ID = "account-access";
 /** True for the Retirement category in every spelling the app stores. */
 export function isRetirementHelpCategory(category?: string | null): boolean {
   return (category || "").trim().toLowerCase() === "retirement";
+}
+
+/** True for the Group Health category ("Group Health" / "Health Insurance"). */
+export function isGroupHealthHelpCategory(category?: string | null): boolean {
+  const value = (category || "").trim().toLowerCase();
+  return value === "group health" || value === "health insurance";
 }
 
 /**
@@ -278,6 +286,196 @@ export const RETIREMENT_HELP_CARD_ORDER: string[] = RETIREMENT_HELP_CARDS.map(
   (card) => card.id,
 );
 
+/**
+ * Group Health — the five Featured topics from the content handoff, after the
+ * optional Account Access card.
+ *
+ * The handoff's carrier member portal is this category's login URL, so the
+ * Account Access card, the steps and every member-portal CTA all point at the
+ * same place: `{{recordkeeper_url}}`, which the hub fills from the benefit's
+ * login URL.
+ *
+ * All five ship visible. The handoff gates HSA / FSA on "HSA = Yes or FSA = Yes",
+ * but those plan fields do not exist yet and the card is part of the page's
+ * designed set, so it is drawn like the rest and the advisor can switch it off in
+ * Card Layout.
+ */
+export const GROUP_HEALTH_HELP_CARDS: HelpCardContent[] = [
+  {
+    id: ACCOUNT_ACCESS_CARD_ID,
+    title: "[Benefit Category] Account Access",
+    paragraphs: [
+      "Log in to {{recordkeeper_name}} to see your ID card, claims, and coverage.",
+    ],
+    cta: "",
+  },
+  {
+    id: "understand-coverage",
+    title: "Understand My Coverage",
+    body: "See what's covered and understand how your health plan works.",
+    paragraphs: [
+      "You're covered through {{recordkeeper_name}}. Your Summary of Benefits and Coverage shows your deductible, copays, coinsurance, and out-of-pocket maximum side by side.",
+    ],
+    steps: [
+      "Log in at {{recordkeeper_url}}.",
+      "Open your plan details or digital ID card.",
+      "Review the Summary of Benefits and Coverage for your costs.",
+    ],
+    docs: ["Summary of Benefits and Coverage", "Benefits Guide"],
+    video: "How Your Health Plan Works",
+    related: [
+      "What is my deductible?",
+      "What is coinsurance?",
+      "What is my out-of-pocket maximum?",
+      "In-network vs. out-of-network",
+    ],
+    tags: [
+      "coverage",
+      "what's covered",
+      "health plan",
+      "medical plan",
+      "benefits",
+      "ID card",
+    ],
+    cta: "View My Coverage",
+  },
+  {
+    id: "find-care-providers",
+    title: "Find Care",
+    body: "Find doctors, specialists, urgent care, and other in-network providers.",
+    paragraphs: [
+      "Staying in network keeps your costs lowest. Use {{recordkeeper_name}}'s provider search to find doctors, specialists, hospitals, and urgent care near you. For quick visits, your plan may also offer care by phone or video.",
+    ],
+    steps: [
+      "Open Find Care on {{recordkeeper_url}}.",
+      "Select your plan's network.",
+      "Search by specialty, name, or location.",
+      "Call the office to confirm they're in network before your visit.",
+    ],
+    video: "Finding In-Network Care",
+    related: [
+      "Find a specialist",
+      "Urgent care vs. emergency room",
+      "Telehealth",
+      "Mental health resources",
+    ],
+    tags: [
+      "find a doctor",
+      "provider",
+      "in network",
+      "specialist",
+      "urgent care",
+      "primary care",
+      "near me",
+    ],
+    cta: "Find a Doctor",
+  },
+  {
+    id: "claims-bills-costs",
+    title: "Claims, Bills & Costs",
+    body: "Get help understanding claims, bills, deductibles, and out-of-pocket costs.",
+    paragraphs: [
+      "After a visit, {{recordkeeper_name}} sends an Explanation of Benefits (EOB) showing what the plan paid and what you may owe. Compare your bill to the EOB before you pay. If they don't match, call the provider's billing office or {{recordkeeper_name}}.",
+    ],
+    steps: [
+      "Log in at {{recordkeeper_url}}.",
+      "Open Claims to see each EOB.",
+      "Match the amount you may owe to your bill.",
+      "Call the carrier if something doesn't match.",
+    ],
+    docs: ["Summary of Benefits and Coverage"],
+    video: "Reading Your EOB",
+    related: [
+      "Understanding an EOB",
+      "Denied claims",
+      "Medical bill questions",
+      "What is my out-of-pocket maximum?",
+    ],
+    tags: [
+      "claim",
+      "bill",
+      "EOB",
+      "cost",
+      "owe",
+      "charge",
+      "billing",
+      "statement",
+    ],
+    cta: "View My Claims",
+  },
+  {
+    id: "add-remove-dependent",
+    title: "Add or Remove a Dependent",
+    body: "Make coverage changes after marriage, birth, divorce, or another qualifying event.",
+    paragraphs: [
+      "Outside Open Enrollment, you can change coverage only after a qualifying life event, such as marriage, birth, adoption, divorce, or losing other coverage. You must request the change within your plan's change window after the event.",
+    ],
+    steps: [
+      "Gather proof of the event, such as a marriage or birth certificate.",
+      "Log in at {{recordkeeper_url}} or contact your HR department.",
+      "Add or remove the dependent and upload your documents.",
+      "Confirm the change and your new payroll deduction.",
+    ],
+    docs: ["Benefits Guide", "Dependent Verification Requirements"],
+    contact: "Your HR contact",
+    related: [
+      "Qualifying life events",
+      "Add a newborn or adopted child",
+      "Add a spouse",
+      "Divorce or legal separation",
+    ],
+    tags: [
+      "add dependent",
+      "spouse",
+      "baby",
+      "newborn",
+      "marriage",
+      "divorce",
+      "remove dependent",
+      "life event",
+    ],
+    // The Dependent Action Hub is the handoff's CTA; until that panel exists the
+    // button hands the reader to the plan's HR contact card.
+    cta: "Make a Coverage Change",
+    ctaDestination: "contact",
+  },
+  {
+    id: "hsa-fsa-resources",
+    title: "HSA / FSA",
+    body: "Learn how a Health Savings Account (HSA) or a Flexible Spending Account (FSA) works.",
+    paragraphs: [
+      "An HSA (Health Savings Account) lets you save pre-tax money for medical costs while you're enrolled in a high-deductible health plan, and the money is yours to keep, even if you leave. An FSA (Flexible Spending Account) lets you set aside pre-tax money for eligible expenses during the plan year, but most unused funds don't roll over.",
+    ],
+    steps: [
+      "Log in at {{recordkeeper_url}}.",
+      "Check your balance and contribution amount.",
+      "Pay with your benefits card, or submit a reimbursement with your receipt.",
+    ],
+    docs: ["HSA/FSA Guide", "Eligible Expenses List"],
+    video: "HSA vs. FSA",
+    related: [
+      "HSA vs. FSA",
+      "Eligible expenses",
+      "Contribution limits",
+      "What happens to unused funds?",
+    ],
+    tags: [
+      "HSA",
+      "FSA",
+      "health savings",
+      "flexible spending",
+      "pre-tax",
+      "benefits card",
+      "reimbursement",
+    ],
+    cta: "Go to My Account",
+  },
+];
+
+/** Every Group Health card id, in its natural order (Account Access first). */
+export const GROUP_HEALTH_HELP_CARD_ORDER: string[] =
+  GROUP_HEALTH_HELP_CARDS.map((card) => card.id);
+
 /** The shared fallback set, used until a category has its own catalog. */
 export const HELP_CARD_CATALOG: HelpCardContent[] = [
   {
@@ -355,6 +553,7 @@ export const HELP_CARD_ORDER: string[] = HELP_CARD_CATALOG.map(
 /** The catalog for a benefit category. */
 export function helpCardCatalogFor(category?: string | null): HelpCardContent[] {
   if (isRetirementHelpCategory(category)) return RETIREMENT_HELP_CARDS;
+  if (isGroupHealthHelpCategory(category)) return GROUP_HEALTH_HELP_CARDS;
   return HELP_CARD_CATALOG;
 }
 

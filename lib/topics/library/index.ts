@@ -965,58 +965,610 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
 ];
 
 // ── Group Health ─────────────────────────────────────────────────────────────
+//
+// The content handoff's Group Health page: five Featured topics and 41 Quick
+// Answers in seven groups. As with Retirement, per-plan values that Create
+// Benefits does not store yet (`{{deductible}}`, `{{qle_window}}`,
+// `{{carrier_phone}}`, …) are written in neutral language; only the values the
+// portal can actually resolve stay as tokens — the carrier member site
+// (`{{recordkeeper_url}}`), the carrier (`{{recordkeeper_name}}`), the advisor
+// (`{{advisor_name}}`) and the plan sponsor (`{{plan_sponsor_name}}`).
+//
+// Topic slugs `understand-coverage`, `find-care-providers`, `add-remove-dependent`,
+// `hsa-fsa-resources`, `open-enrollment` and `hsa-vs-fsa` are also addressed by
+// `lib/life-events/templates.ts`; they are kept so those deep links still land.
 
 const GROUP_HEALTH: TopicLocation[] = ["group_health"];
 
+/** CTA that signs in to the carrier's member portal. */
+function memberPortal(label: string): TopicCta {
+  return { label, actionType: "external_url", target: "recordkeeper" };
+}
+
+/** CTA handed to the benefits advisor's scheduler. */
+function advisorCta(label: string): TopicCta {
+  return { label, actionType: "external_url", target: "advisor" };
+}
+
 const GROUP_HEALTH_TOPICS: LibraryTopicSeed[] = [
-  featured("access-health-account", "Access My Health Account", GROUP_HEALTH, {
-    summary: "Sign in to see coverage, ID cards, claims, and spending accounts.",
-    tags: ["login", "account"],
-  }),
-  featured("find-care-providers", "Find Care & Providers", GROUP_HEALTH, {
-    summary: "Search your plan's network for doctors, hospitals, and specialists.",
-    tags: ["network", "provider"],
-  }),
+  // Featured 1.
   featured("understand-coverage", "Understand My Coverage", GROUP_HEALTH, {
-    summary: "What your plan pays, what you pay, and when.",
-    tags: ["coverage"],
-  }),
-  featured("hsa-fsa-resources", "HSA / FSA Resources", GROUP_HEALTH, {
-    summary: "How your spending accounts work and what they cover.",
-    tags: ["hsa", "fsa"],
+    summary: "See what's covered and understand how your health plan works.",
+    bodyBlocks: [
+      qa(
+        "You're covered through {{recordkeeper_name}}. Your Summary of Benefits and Coverage shows your deductible, copays, coinsurance, and out-of-pocket maximum side by side.",
+      ),
+      numbered(
+        "Log in at {{recordkeeper_url}}.",
+        "Open your plan details or digital ID card.",
+        "Review the Summary of Benefits and Coverage for your costs.",
+      ),
+    ],
+    tags: [
+      "coverage",
+      "what's covered",
+      "health plan",
+      "medical plan",
+      "benefits",
+      "ID card",
+    ],
+    cta: memberPortal("View My Coverage"),
   }),
 
-  // Understanding Coverage.
+  // Featured 2.
+  featured("find-care-providers", "Find Care", GROUP_HEALTH, {
+    summary: "Find doctors, specialists, urgent care, and other in-network providers.",
+    bodyBlocks: [
+      qa(
+        "Staying in network keeps your costs lowest. Use {{recordkeeper_name}}'s provider search to find doctors, specialists, hospitals, and urgent care near you. For quick visits, your plan may also offer care by phone or video.",
+      ),
+      numbered(
+        "Open Find Care on {{recordkeeper_url}}.",
+        "Select your plan's network.",
+        "Search by specialty, name, or location.",
+        "Call the office to confirm they're in network before your visit.",
+      ),
+    ],
+    tags: [
+      "find a doctor",
+      "provider",
+      "in network",
+      "specialist",
+      "urgent care",
+      "primary care",
+      "near me",
+    ],
+    cta: memberPortal("Find a Doctor"),
+  }),
+
+  // Featured 3.
+  featured("claims-bills-costs", "Claims, Bills & Costs", GROUP_HEALTH, {
+    summary:
+      "Get help understanding claims, bills, deductibles, and out-of-pocket costs.",
+    bodyBlocks: [
+      qa(
+        "After a visit, {{recordkeeper_name}} sends an Explanation of Benefits (EOB) showing what the plan paid and what you may owe. Compare your bill to the EOB before you pay. If they don't match, call the provider's billing office or {{recordkeeper_name}}.",
+      ),
+      numbered(
+        "Log in at {{recordkeeper_url}}.",
+        "Open Claims to see each EOB.",
+        "Match the amount you may owe to your bill.",
+        "Call the carrier if something doesn't match.",
+      ),
+    ],
+    tags: [
+      "claim",
+      "bill",
+      "EOB",
+      "cost",
+      "owe",
+      "charge",
+      "billing",
+      "statement",
+    ],
+    cta: memberPortal("View My Claims"),
+  }),
+
+  // Featured 4 — the Dependent Action Hub is the handoff's CTA; until that panel
+  // exists the button hands the reader to the plan's HR contact card.
+  featured("add-remove-dependent", "Add or Remove a Dependent", GROUP_HEALTH, {
+    summary:
+      "Make coverage changes after marriage, birth, divorce, or another qualifying event.",
+    bodyBlocks: [
+      qa(
+        "Outside Open Enrollment, you can change coverage only after a qualifying life event, such as marriage, birth, adoption, divorce, or losing other coverage. You must request the change within your plan's change window after the event.",
+      ),
+      numbered(
+        "Gather proof of the event, such as a marriage or birth certificate.",
+        "Log in at {{recordkeeper_url}} or contact your HR department.",
+        "Add or remove the dependent and upload your documents.",
+        "Confirm the change and your new payroll deduction.",
+      ),
+    ],
+    isActionHub: true,
+    tags: [
+      "add dependent",
+      "spouse",
+      "baby",
+      "newborn",
+      "marriage",
+      "divorce",
+      "remove dependent",
+      "life event",
+    ],
+    cta: { label: "Make a Coverage Change", actionType: "external_url", target: "contact" },
+  }),
+
+  // Featured 5 — the handoff gates this on HSA = Yes or FSA = Yes. Those plan
+  // fields do not exist yet and the card is part of the designed five, so it is
+  // seeded as a normal Featured card and the advisor can take it off the page.
+  featured("hsa-fsa-resources", "HSA / FSA", GROUP_HEALTH, {
+    summary:
+      "Learn how a Health Savings Account (HSA) or a Flexible Spending Account (FSA) works.",
+    bodyBlocks: [
+      qa(
+        "An HSA (Health Savings Account) lets you save pre-tax money for medical costs while you're enrolled in a high-deductible health plan, and the money is yours to keep, even if you leave. An FSA (Flexible Spending Account) lets you set aside pre-tax money for eligible expenses during the plan year, but most unused funds don't roll over.",
+      ),
+      numbered(
+        "Log in at {{recordkeeper_url}}.",
+        "Check your balance and contribution amount.",
+        "Pay with your benefits card, or submit a reimbursement with your receipt.",
+      ),
+    ],
+    tags: [
+      "HSA",
+      "FSA",
+      "health savings",
+      "flexible spending",
+      "pre-tax",
+      "benefits card",
+      "reimbursement",
+    ],
+    cta: memberPortal("Go to My Account"),
+  }),
+
+  // ── Quick Answers: Understanding Coverage ──
+  answer("what-is-my-deductible", "What is my deductible?", GROUP_HEALTH, "Understanding Coverage", {
+    bodyBlocks: [
+      qa(
+        "Your deductible is the amount you pay for covered care each plan year before the plan starts paying its share. Preventive care is usually covered before you meet it. Your plan's deductible is on your Summary of Benefits and Coverage.",
+      ),
+    ],
+    tags: ["deductible", "how much do I pay first", "meet my deductible"],
+  }),
+  answer("what-is-a-copay", "What is a copay?", GROUP_HEALTH, "Understanding Coverage", {
+    bodyBlocks: [
+      qa(
+        "A copay is a flat fee you pay for a covered service, such as a set amount for a primary care visit or for a specialist. Your plan's copays are listed on your Summary of Benefits and Coverage.",
+      ),
+    ],
+    tags: ["copay", "office visit cost", "flat fee"],
+  }),
+  answer("what-is-coinsurance", "What is coinsurance?", GROUP_HEALTH, "Understanding Coverage", {
+    bodyBlocks: [
+      qa(
+        "Coinsurance is your share of the cost, as a percentage, after you meet your deductible. For example, with 20% coinsurance on a $1,000 bill, you pay $200 and the plan pays $800. Your plan's coinsurance is on your Summary of Benefits and Coverage.",
+      ),
+    ],
+    tags: ["coinsurance", "percentage", "80/20", "my share"],
+  }),
   answer(
-    "deductibles-copays-coinsurance",
-    "Deductibles, copays & coinsurance",
+    "out-of-pocket-maximum",
+    "What is my out-of-pocket maximum?",
     GROUP_HEALTH,
     "Understanding Coverage",
+    {
+      bodyBlocks: [
+        qa(
+          "It's the most you'll pay for covered in-network care in a plan year. After you reach it, the plan pays 100% of covered costs for the rest of the year. Your premiums don't count toward it. Your plan's out-of-pocket maximum is on your Summary of Benefits and Coverage.",
+        ),
+      ],
+      tags: ["out-of-pocket maximum", "OOP max", "most I'll pay", "cap"],
+    },
   ),
-  answer("prescription-coverage", "Prescription coverage", GROUP_HEALTH, "Understanding Coverage"),
-  answer("preventive-care", "Preventive care", GROUP_HEALTH, "Understanding Coverage"),
-  answer("dental-vision", "Dental & vision", GROUP_HEALTH, "Understanding Coverage"),
-
-  // Using Your Plan.
-  answer("telehealth", "Telehealth", GROUP_HEALTH, "Using Your Plan"),
-  answer("id-cards", "ID cards", GROUP_HEALTH, "Using Your Plan"),
-  answer("claims-billing", "Claims & billing", GROUP_HEALTH, "Using Your Plan"),
-  answer("urgent-care-vs-er", "Urgent care vs. ER", GROUP_HEALTH, "Using Your Plan"),
-
-  // Changes.
-  answer("add-remove-dependent", "Add or remove a dependent", GROUP_HEALTH, "Changes", {
-    isActionHub: true,
-    tags: ["life event", "dependent"],
+  answer("preventive-care", "Preventive care", GROUP_HEALTH, "Understanding Coverage", {
+    bodyBlocks: [
+      qa(
+        "In-network preventive care, such as annual checkups, recommended screenings, and most vaccines, is covered at no cost to you. If you discuss a new health problem during the visit, that part may be billed separately.",
+      ),
+    ],
+    tags: ["preventive", "annual physical", "checkup", "screening", "vaccine", "free care"],
   }),
-  answer("qualifying-life-events", "Qualifying life events", GROUP_HEALTH, "Changes", {
-    tags: ["life event"],
+  answer(
+    "in-network-vs-out-of-network",
+    "In-network vs. out-of-network",
+    GROUP_HEALTH,
+    "Understanding Coverage",
+    {
+      bodyBlocks: [
+        qa(
+          "In-network providers have agreed to lower rates with {{recordkeeper_name}}, so you pay less. Out-of-network care costs more, and usually isn't covered except in emergencies. Out-of-network providers may also bill you for the difference between their charge and what the plan pays.",
+        ),
+      ],
+      tags: ["in network", "out of network", "network", "balance billing"],
+      cta: memberPortal("Find a Doctor"),
+    },
+  ),
+  answer("dental-coverage", "Dental coverage", GROUP_HEALTH, "Understanding Coverage", {
+    bodyBlocks: [
+      qa(
+        "Your dental plan covers preventive, basic, and major care at different levels. Cleanings and exams are usually covered at the highest level. See the dental summary for your costs.",
+      ),
+    ],
+    tags: ["dental", "dentist", "cleaning", "teeth", "orthodontics"],
+    cta: memberPortal("Go to Dental"),
   }),
-  answer("open-enrollment", "Open enrollment", GROUP_HEALTH, "Changes"),
+  answer("vision-coverage", "Vision coverage", GROUP_HEALTH, "Understanding Coverage", {
+    bodyBlocks: [
+      qa(
+        "Your vision plan covers eye exams and gives you an allowance toward glasses or contacts. See the vision summary for your costs and allowances.",
+      ),
+    ],
+    tags: ["vision", "eye exam", "glasses", "contacts", "optometrist"],
+    cta: memberPortal("Go to Vision"),
+  }),
 
-  // Accounts.
-  answer("hsa-vs-fsa", "HSA vs. FSA", GROUP_HEALTH, "Accounts", { tags: ["hsa", "fsa"] }),
-  answer("eligible-expenses", "Eligible expenses", GROUP_HEALTH, "Accounts"),
-  answer("contribution-limits", "Contribution limits", GROUP_HEALTH, "Accounts"),
+  // ── Quick Answers: Getting Care ──
+  answer("find-a-doctor", "Find a doctor", GROUP_HEALTH, "Getting Care", {
+    bodyBlocks: [
+      qa(
+        "Search {{recordkeeper_name}}'s directory for in-network primary care doctors near you. Your plan may require you to choose a primary care doctor.",
+      ),
+    ],
+    tags: ["find a doctor", "primary care", "PCP", "new doctor"],
+    cta: memberPortal("Find a Doctor"),
+  }),
+  answer("find-a-specialist", "Find a specialist", GROUP_HEALTH, "Getting Care", {
+    bodyBlocks: [
+      qa(
+        "Search the provider directory by specialty to find in-network specialists. Some plans require a referral from your primary care doctor before your visit.",
+      ),
+    ],
+    tags: ["specialist", "referral", "dermatologist", "cardiologist", "orthopedic"],
+    cta: memberPortal("Find a Specialist"),
+  }),
+  answer("urgent-care-vs-er", "Urgent care vs. emergency room", GROUP_HEALTH, "Getting Care", {
+    bodyBlocks: [
+      qa(
+        "Urgent care is for problems that need quick attention but aren't life-threatening, such as sprains, fevers, or minor cuts, and it costs much less. Go to the ER for chest pain, trouble breathing, severe bleeding, or signs of a stroke. In an emergency, call 911.",
+      ),
+    ],
+    tags: ["urgent care", "emergency room", "ER", "where should I go", "after hours"],
+  }),
+  answer("telehealth", "Telehealth", GROUP_HEALTH, "Getting Care", {
+    bodyBlocks: [
+      qa(
+        "Your plan may offer care by phone or video for common illnesses, prescription refills, and more. Check your plan materials for what's included and what a visit costs.",
+      ),
+    ],
+    tags: ["telehealth", "virtual visit", "video doctor", "online doctor"],
+    cta: memberPortal("Start a Virtual Visit"),
+  }),
+  // A different slug from the Custom hub's "mental-health-resources": slugs are
+  // unique across every location, and the Custom starter set owns that one.
+  answer("mental-health-care", "Mental health resources", GROUP_HEALTH, "Getting Care", {
+    bodyBlocks: [
+      qa(
+        "Your plan covers mental health and substance use care, including therapy and counseling. Your plan may also offer an employee assistance program (EAP) with free, confidential counseling sessions. If you're in crisis, call or text 988 any time.",
+      ),
+    ],
+    tags: [
+      "mental health",
+      "therapy",
+      "counseling",
+      "anxiety",
+      "depression",
+      "EAP",
+      "988",
+    ],
+    cta: memberPortal("Find Mental Health Care"),
+  }),
+  answer("second-opinions", "Second opinions", GROUP_HEALTH, "Getting Care", {
+    bodyBlocks: [
+      qa(
+        "Many plans cover a second opinion before major surgery or after a serious diagnosis. Your plan may offer an expert-review service at no cost. Call {{recordkeeper_name}} to confirm coverage.",
+      ),
+    ],
+    tags: ["second opinion", "surgery", "diagnosis", "expert review"],
+  }),
+
+  // ── Quick Answers: Claims & Billing ──
+  answer("understanding-an-eob", "Understanding an EOB", GROUP_HEALTH, "Claims & Billing", {
+    bodyBlocks: [
+      qa(
+        "An Explanation of Benefits (EOB) is not a bill. It shows what the provider charged, the discount from your plan, what the plan paid, and what you may owe. Use it to check the bill you get from your provider.",
+      ),
+      { type: "video", videoId: "Reading Your EOB" },
+    ],
+    tags: ["EOB", "explanation of benefits", "is this a bill"],
+  }),
+  answer("checking-claim-status", "Checking claim status", GROUP_HEALTH, "Claims & Billing", {
+    bodyBlocks: [
+      qa(
+        "Log in to see every claim and where it stands. Providers usually submit claims within a few weeks of your visit.",
+      ),
+    ],
+    tags: ["claim status", "pending claim", "processed"],
+    cta: memberPortal("View My Claims"),
+  }),
+  answer("denied-claims", "Denied claims", GROUP_HEALTH, "Claims & Billing", {
+    bodyBlocks: [
+      qa(
+        "Call {{recordkeeper_name}} to find out why. Denials are often caused by a coding error or missing information that can be fixed. You have the right to appeal, generally within 180 days of the denial. If the internal appeal is denied, you can request an independent external review.",
+      ),
+    ],
+    tags: ["denied", "denial", "appeal", "rejected claim", "not covered"],
+  }),
+  answer("medical-bill-questions", "Medical bill questions", GROUP_HEALTH, "Claims & Billing", {
+    bodyBlocks: [
+      qa(
+        "Compare the bill to your EOB, and ask the provider for an itemized bill if anything is unclear. Many providers offer payment plans. Federal law protects you from most surprise out-of-network bills for emergency care and for certain care at in-network hospitals.",
+      ),
+    ],
+    tags: ["medical bill", "surprise bill", "itemized bill", "payment plan", "overcharged"],
+  }),
+  answer("prior-authorization", "Prior authorization", GROUP_HEALTH, "Claims & Billing", {
+    bodyBlocks: [
+      qa(
+        "Some services, such as MRIs, surgeries, and certain treatments, need approval from {{recordkeeper_name}} before you receive them. Your doctor usually requests it. Without it, the claim may be denied.",
+      ),
+    ],
+    tags: ["prior authorization", "pre-approval", "precertification", "MRI", "surgery"],
+  }),
+
+  // ── Quick Answers: Prescriptions ──
+  answer("prescription-coverage", "Prescription coverage", GROUP_HEALTH, "Prescriptions", {
+    bodyBlocks: [
+      qa(
+        "Your prescription benefits are managed by your plan's pharmacy benefit manager. Medications are grouped into tiers on the plan's drug list, and lower tiers cost less. Check your drug list to see your cost before you fill.",
+      ),
+    ],
+    tags: ["prescription", "drug list", "formulary", "tier", "medication cost"],
+    cta: memberPortal("Check My Drug Costs"),
+  }),
+  answer("pharmacy-network", "Pharmacy network", GROUP_HEALTH, "Prescriptions", {
+    bodyBlocks: [
+      qa(
+        "Fill prescriptions at an in-network pharmacy to pay the lowest cost. Find in-network pharmacies near you through your pharmacy benefit manager's website.",
+      ),
+    ],
+    tags: ["pharmacy", "CVS", "Walgreens", "where to fill"],
+    cta: memberPortal("Find a Pharmacy"),
+  }),
+  answer(
+    "generic-vs-brand-medications",
+    "Generic vs. brand-name medications",
+    GROUP_HEALTH,
+    "Prescriptions",
+    {
+      bodyBlocks: [
+        qa(
+          "Generic medications have the same active ingredients as brand-name drugs, meet the same FDA standards, and usually cost much less. Ask your doctor or pharmacist whether a generic is available.",
+        ),
+      ],
+      tags: ["generic", "brand name", "cheaper medication", "save on prescriptions"],
+    },
+  ),
+  answer("mail-order-pharmacy", "Mail-order pharmacy", GROUP_HEALTH, "Prescriptions", {
+    bodyBlocks: [
+      qa(
+        "For medications you take regularly, your plan's mail-order pharmacy can deliver a 90-day supply to your home, often at a lower cost.",
+      ),
+    ],
+    tags: ["mail order", "home delivery", "90-day supply", "maintenance medication"],
+    cta: memberPortal("Set Up Mail Order"),
+  }),
+  answer(
+    "medication-prior-authorization",
+    "Prior authorization for medications",
+    GROUP_HEALTH,
+    "Prescriptions",
+    {
+      bodyBlocks: [
+        qa(
+          "Some medications need approval before the plan will cover them, or require you to try a lower-cost drug first. Your doctor submits the request. If it's denied, you can appeal.",
+        ),
+      ],
+      tags: [
+        "prior authorization",
+        "step therapy",
+        "medication not covered",
+        "drug approval",
+      ],
+    },
+  ),
+
+  // ── Quick Answers: Changes to Coverage ──
+  answer(
+    "qualifying-life-events",
+    "Qualifying life events",
+    GROUP_HEALTH,
+    "Changes to Coverage",
+    {
+      bodyBlocks: [
+        qa(
+          "Outside Open Enrollment, you can change your coverage only after a qualifying life event. Examples include marriage, birth or adoption, divorce, a dependent's death, losing other coverage, or moving out of your plan's service area. Request the change within your plan's change window, and make sure the change matches the event.",
+        ),
+      ],
+      tags: [
+        "life event",
+        "qualifying event",
+        "change coverage mid-year",
+        "special enrollment",
+      ],
+      cta: { label: "Make a Coverage Change", actionType: "external_url", target: "contact" },
+    },
+  ),
+  answer("add-a-spouse", "Add a spouse", GROUP_HEALTH, "Changes to Coverage", {
+    bodyBlocks: [
+      qa(
+        "You can add your spouse within your plan's change window of your marriage, or of your spouse losing other coverage. You'll need a copy of your marriage certificate.",
+      ),
+    ],
+    tags: ["add spouse", "got married", "wife", "husband", "marriage"],
+    cta: { label: "Add My Spouse", actionType: "external_url", target: "contact" },
+  }),
+  answer(
+    "add-a-newborn-or-adopted-child",
+    "Add a newborn or adopted child",
+    GROUP_HEALTH,
+    "Changes to Coverage",
+    {
+      bodyBlocks: [
+        qa(
+          "Coverage can start on the date of birth or adoption if you enroll your child within your plan's newborn window. You'll need a birth certificate or adoption paperwork. This is also a good time to update your beneficiaries and review your life insurance.",
+        ),
+      ],
+      tags: ["baby", "newborn", "birth", "adoption", "add child", "having a baby"],
+      cta: { label: "Add My Child", actionType: "external_url", target: "contact" },
+    },
+  ),
+  answer("remove-a-dependent", "Remove a dependent", GROUP_HEALTH, "Changes to Coverage", {
+    bodyBlocks: [
+      qa(
+        "You can remove a dependent after a qualifying event, such as divorce or the dependent gaining other coverage. Removing someone outside a qualifying event usually has to wait until Open Enrollment.",
+      ),
+    ],
+    tags: ["remove dependent", "drop coverage", "take off plan"],
+  }),
+  answer(
+    "divorce-or-legal-separation",
+    "Divorce or legal separation",
+    GROUP_HEALTH,
+    "Changes to Coverage",
+    {
+      bodyBlocks: [
+        qa(
+          "Remove your former spouse within your plan's change window of the divorce. Your former spouse may be able to continue coverage through COBRA if the plan is notified within 60 days. Remember to update your retirement and life insurance beneficiaries, too.",
+        ),
+      ],
+      tags: ["divorce", "separation", "ex-spouse", "remove spouse", "COBRA"],
+    },
+  ),
+  answer("open-enrollment", "Open Enrollment", GROUP_HEALTH, "Changes to Coverage", {
+    bodyBlocks: [
+      qa(
+        "Once a year, during your plan's Open Enrollment window, you can change plans, add or drop dependents, and enroll in an HSA or FSA without a qualifying event. FSA elections must be made again every year.",
+      ),
+    ],
+    tags: [
+      "open enrollment",
+      "annual enrollment",
+      "change plans",
+      "enrollment deadline",
+    ],
+    cta: memberPortal("Enroll Now"),
+  }),
+  answer("dependent-age-limit", "Dependent age limit", GROUP_HEALTH, "Changes to Coverage", {
+    bodyBlocks: [
+      qa(
+        "Children can stay on your medical plan until age 26, whether or not they're married, in school, or living with you. Check your plan materials for exactly when a child's coverage ends.",
+      ),
+    ],
+    tags: ["age 26", "adult child", "kids on plan", "dependent age"],
+  }),
+
+  // ── Quick Answers: HSA / FSA ──
+  answer("hsa-vs-fsa", "HSA vs. FSA", GROUP_HEALTH, "HSA / FSA", {
+    bodyBlocks: [
+      qa(
+        "An HSA (Health Savings Account) is available only with a high-deductible health plan. The money is yours to keep, carries over every year, and can be invested. An FSA (Flexible Spending Account) works with any plan, but you generally must use the money within the plan year. A separate Dependent Care FSA covers child care and adult day care.",
+      ),
+      { type: "video", videoId: "HSA vs. FSA" },
+    ],
+    tags: ["HSA vs FSA", "difference", "which account", "dependent care"],
+  }),
+  answer("eligible-expenses", "Eligible expenses", GROUP_HEALTH, "HSA / FSA", {
+    bodyBlocks: [
+      qa(
+        "You can use these accounts for deductibles, copays, prescriptions, dental and vision care, and many over-the-counter items. Keep your receipts in case you're asked to verify a purchase.",
+      ),
+    ],
+    tags: ["eligible expenses", "what can I buy", "qualified expenses", "receipts"],
+  }),
+  // A different slug from Retirement's `contribution-limits`: the two answers say
+  // different things, and a Topic row is shared by every location.
+  answer(
+    "hsa-fsa-contribution-limits",
+    "Contribution limits",
+    GROUP_HEALTH,
+    "HSA / FSA",
+    {
+      bodyBlocks: [
+        qa(
+          "Each year the IRS sets how much you can contribute to an HSA (Health Savings Account) and a health FSA (Flexible Spending Account). The limits differ for self-only and family coverage, and an HSA allows an extra catch-up amount from age 55. Your plan materials list this year's limits.",
+        ),
+      ],
+      tags: [
+        "HSA limit",
+        "FSA limit",
+        "how much can I contribute",
+        "max contribution",
+      ],
+    },
+  ),
+  answer("hsa-fsa-reimbursements", "Reimbursements", GROUP_HEALTH, "HSA / FSA", {
+    bodyBlocks: [
+      qa(
+        "Pay with your benefits card at the point of purchase, or pay out of pocket and submit a claim with your receipt. FSA claims for the plan year must be submitted by your plan's run-out deadline.",
+      ),
+    ],
+    tags: ["reimbursement", "submit receipt", "get paid back", "benefits card"],
+    cta: memberPortal("Submit a Claim"),
+  }),
+  answer("unused-funds", "What happens to unused funds?", GROUP_HEALTH, "HSA / FSA", {
+    bodyBlocks: [
+      qa(
+        "HSA money rolls over every year and stays yours, even if you leave the company. FSA money is generally use-it-or-lose-it, though your plan may allow a carryover or a grace period. Check your plan materials for which applies.",
+      ),
+    ],
+    tags: ["unused funds", "rollover", "carryover", "lose my money", "use it or lose it"],
+  }),
+
+  // ── Quick Answers: Leaving / Aging ──
+  answer("cobra", "COBRA", GROUP_HEALTH, "Leaving / Aging", {
+    bodyBlocks: [
+      qa(
+        "COBRA lets you keep the same group health coverage after you leave, generally for up to 18 months. You'll receive an election notice and have 60 days to sign up, and coverage is retroactive once you elect it. You pay the full premium plus up to a 2% administrative fee.",
+      ),
+    ],
+    tags: ["COBRA", "keep my insurance", "after I leave", "continuation coverage"],
+  }),
+  answer("marketplace-coverage", "Marketplace coverage", GROUP_HEALTH, "Leaving / Aging", {
+    bodyBlocks: [
+      qa(
+        "Losing job-based coverage opens a 60-day special enrollment period on HealthCare.gov or your state's marketplace. Depending on your income, you may qualify for savings that make it cost less than COBRA. Compare both before you decide.",
+      ),
+    ],
+    tags: ["marketplace", "Obamacare", "ACA", "HealthCare.gov", "individual insurance"],
+  }),
+  answer("leaving-the-company", "Leaving the company", GROUP_HEALTH, "Leaving / Aging", {
+    bodyBlocks: [
+      qa(
+        "Your health coverage usually ends when your employment ends or at the end of that month. Before your last day, confirm your end date, compare COBRA, Marketplace, and a spouse's plan, and spend any FSA balance. Your HSA stays yours.",
+      ),
+    ],
+    tags: ["leaving", "last day", "quit", "coverage end date", "termination"],
+    cta: { label: "Contact HR", actionType: "external_url", target: "contact" },
+  }),
+  answer("turning-65", "Turning 65", GROUP_HEALTH, "Leaving / Aging", {
+    bodyBlocks: [
+      qa(
+        "Your Medicare Initial Enrollment Period lasts 7 months: the 3 months before, the month of, and the 3 months after your 65th birthday month. If you're still working here and covered by this plan, you may be able to delay Part B without a penalty, depending on the size of your employer. Talk with an advisor before you decide.",
+      ),
+    ],
+    tags: ["turning 65", "Medicare enrollment", "Part B", "still working at 65"],
+    cta: advisorCta("Talk to a Medicare Advisor"),
+  }),
+  answer("medicare", "Medicare", GROUP_HEALTH, "Leaving / Aging", {
+    bodyBlocks: [
+      qa(
+        "Medicare includes Part A (hospital), Part B (medical), and Part D (prescriptions), with Medicare Advantage and Medigap as additional options. If you have an HSA, stop contributing before your Medicare coverage starts, because Part A can be backdated up to 6 months.",
+      ),
+    ],
+    tags: ["Medicare", "Part A", "Part B", "Part D", "Medigap", "Medicare Advantage"],
+    cta: advisorCta("Talk to a Medicare Advisor"),
+  }),
 ];
 
 // ── Group Life ───────────────────────────────────────────────────────────────
@@ -1250,9 +1802,12 @@ export const DEFAULT_QUICK_ANSWER_GROUPS: Partial<Record<TopicLocation, string[]
   ],
   group_health: [
     "Understanding Coverage",
-    "Using Your Plan",
-    "Changes",
-    "Accounts",
+    "Getting Care",
+    "Claims & Billing",
+    "Prescriptions",
+    "Changes to Coverage",
+    "HSA / FSA",
+    "Leaving / Aging",
   ],
   group_life: [
     "Coverage Types",

@@ -1324,3 +1324,108 @@ describe("Retirement topic blocks", () => {
     expect(cta).toHaveAttribute("href", "#have-questions");
   });
 });
+
+/**
+ * Group Health's Featured set (content handoff, Group Health page): five cards
+ * after Account Access.
+ */
+describe("Group Health topic blocks", () => {
+  it("draws the five Group Health cards plus Account Access", () => {
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Health"
+        accountAccessHref="https://carrier.example/login"
+      />,
+    );
+
+    expect(
+      tiles(container).map((element) => element.dataset.helpCard),
+    ).toEqual([
+      "account-access",
+      "understand-coverage",
+      "find-care-providers",
+      "claims-bills-costs",
+      "add-remove-dependent",
+      "hsa-fsa-resources",
+    ]);
+  });
+
+  it("spells out the HSA and FSA account names on the card", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Health"
+        accountAccessHref="https://carrier.example/login"
+      />,
+    );
+
+    // The card line defines both acronyms before the reader opens anything.
+    const tileText = tile(container, "hsa-fsa-resources").textContent ?? "";
+    expect(tileText).toContain("Health Savings Account (HSA)");
+    expect(tileText).toContain("Flexible Spending Account (FSA)");
+
+    await user.click(tile(container, "hsa-fsa-resources"));
+
+    const panel = screen.getByRole("region", { name: "HSA / FSA" });
+    expect(panel).toHaveTextContent("An HSA (Health Savings Account)");
+    expect(panel).toHaveTextContent("An FSA (Flexible Spending Account)");
+  });
+
+  it("draws Find Care with its steps, video, related answers and portal CTA", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Health"
+        accountAccessHref="carrier.example/login"
+      />,
+    );
+
+    await user.click(tile(container, "find-care-providers"));
+
+    const panel = screen.getByRole("region", { name: "Find Care" });
+
+    const steps = within(panel).getByTestId("help-card-steps");
+    expect(within(steps).getAllByRole("listitem")).toHaveLength(4);
+    // `{{recordkeeper_url}}` is filled from the carrier's login URL, normalised.
+    expect(steps).toHaveTextContent(
+      "Open Find Care on https://carrier.example/login.",
+    );
+
+    const resources = within(panel).getByTestId("help-card-resources");
+    expect(within(resources).getByText("Finding In-Network Care")).toBeInTheDocument();
+
+    expect(
+      within(panel).getByRole("link", { name: "Urgent care vs. emergency room" }),
+    ).toHaveAttribute("href", "#quick-answers");
+
+    const cta = within(panel).getByRole("link", { name: "Find a Doctor" });
+    expect(cta).toHaveAttribute("href", "https://carrier.example/login");
+    expect(cta).toHaveAttribute("target", "_blank");
+  });
+
+  it("hands the dependent card to the HR contact band", async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Health"
+        accountAccessHref="https://carrier.example/login"
+      />,
+    );
+
+    await user.click(tile(container, "add-remove-dependent"));
+
+    const panel = screen.getByRole("region", {
+      name: "Add or Remove a Dependent",
+    });
+    expect(within(panel).getByTestId("help-card-steps")).toHaveTextContent(
+      "Gather proof of the event",
+    );
+    expect(
+      within(panel).getByRole("link", { name: "Make a Coverage Change" }),
+    ).toHaveAttribute("href", "#have-questions");
+  });
+});

@@ -138,6 +138,31 @@ describe("resolveEffectiveTopic", () => {
     expect(effective.tags).not.toContain("saving");
   });
 
+  it("takes edited answer copy from the shipped library", () => {
+    // A row seeded before a copy fix still stores the old sentence. The library is
+    // the source of truth for a system topic's COPY too, so the fix reaches the
+    // plan without a re-seed.
+    const effective = resolveEffectiveTopic(
+      topic({
+        slug: "sys.hsa-vs-fsa",
+        title: "HSA vs. FSA",
+        summary: null,
+        bodyBlocks: [
+          {
+            type: "quick_answer",
+            text: "An HSA is available only with a high-deductible health plan.",
+          },
+        ],
+      }),
+      placement({ location: "group_health" }),
+    );
+
+    expect(topicQuickAnswer(effective)).toContain("HSA (Health Savings Account)");
+    expect(topicQuickAnswer(effective)).toContain(
+      "FSA (Flexible Spending Account)",
+    );
+  });
+
   it("replaces the body blocks when the placement supplies its own", () => {
     const effective = resolveEffectiveTopic(
       topic(),

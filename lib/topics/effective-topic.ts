@@ -183,11 +183,13 @@ function readTags(value: unknown): string[] {
  * plan changed. `displayMode`, `location`, `groupId` and `sortOrder` always come from
  * the placement — a topic has no opinion about them.
  *
- * SYSTEM topics fall back to the shipped library entry (`lib/topics/library`) when
- * the stored row carries no body blocks. That is what lets a content pass reach a
- * plan seeded before it: seeding never overwrites a row, so a legacy Topic would
- * otherwise render its question with an empty accordion body. A row that DOES store
- * blocks keeps them, and a placement's overrides always win.
+ * SYSTEM topics take their COPY from the shipped library entry
+ * (`lib/topics/library`) — title, summary and body blocks — exactly as they
+ * already take the CTA and the tags. Seeding never overwrites a Topic row, so a
+ * plan seeded before a content pass would otherwise keep the old wording forever;
+ * a "Health Savings Account (HSA)" spelled out in the library must reach it
+ * without a re-seed. A placement's overrides always win, and a topic the library
+ * no longer carries keeps whatever its row stores.
  */
 export function resolveEffectiveTopic(
   topic: TopicRecord,
@@ -197,19 +199,15 @@ export function resolveEffectiveTopic(
 
   const shipped = topic.scope === "system" ? libraryTopicBySlug(topic.slug) : undefined;
   const storedBlocks = readTopicBodyBlocks(topic.bodyBlocks);
-  // A system row with no blocks predates the content pass — use the library copy.
-  const isLegacyRow = storedBlocks.length === 0;
+  const shippedBlocks = readTopicBodyBlocks(shipped?.bodyBlocks);
 
-  const title =
-    overrides.title || (isLegacyRow && shipped ? shipped.title : topic.title);
+  const title = overrides.title || shipped?.title || topic.title;
   const summary =
     overrides.summary ||
-    asTrimmedString(
-      isLegacyRow && shipped?.summary ? shipped.summary : topic.summary,
-    );
+    asTrimmedString(shipped?.summary ?? topic.summary);
   const bodyBlocks =
     overrides.bodyBlocks ??
-    (isLegacyRow ? readTopicBodyBlocks(shipped?.bodyBlocks) : storedBlocks);
+    (shippedBlocks.length > 0 ? shippedBlocks : storedBlocks);
 
   // `undefined` → inherit the topic default; `null` → deliberately removed.
   //

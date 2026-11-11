@@ -229,7 +229,7 @@ export const LIFE_EVENT_TEMPLATES: LifeEventTemplate[] = [
       },
       {
         location: "group_health",
-        topicSlug: "deductibles-copays-coinsurance",
+        topicSlug: "what-is-my-deductible",
         label: "Plan for Medicare",
       },
       {
