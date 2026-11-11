@@ -53,7 +53,19 @@ export function readTopicCta(value: unknown): TopicCta | undefined {
   const actionType = asTrimmedString(value.actionType) as TopicCtaActionType;
   if (!label || !CTA_ACTION_TYPES.includes(actionType)) return undefined;
   const destination = asTrimmedString(value.destination);
-  return destination ? { label, actionType, destination } : { label, actionType };
+  const rawTarget = asTrimmedString(value.target);
+  const target =
+    rawTarget === "recordkeeper" ||
+    rawTarget === "advisor" ||
+    rawTarget === "contact"
+      ? rawTarget
+      : undefined;
+  return {
+    label,
+    actionType,
+    ...(destination ? { destination } : {}),
+    ...(target ? { target } : {}),
+  };
 }
 
 /**

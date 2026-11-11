@@ -305,7 +305,11 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
           "Many experts suggest saving 10% to 15% of pay, including your employer match. If that isn't possible yet, start where you can and increase by 1% each year.",
         ),
       ],
-      cta: { label: "Book a Meeting", actionType: "external_url" },
+      cta: {
+        label: "Book a Meeting",
+        actionType: "external_url",
+        target: "advisor",
+      },
       tags: ["how much", "save", "percent", "enough", "on track"],
     },
   ),
@@ -320,12 +324,16 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
           "Log in, go to Contributions or Deferral Rate, and enter your new percentage. Changes usually take effect within one to two pay periods.",
         ),
         numbered(
-          "Log in to your recordkeeper account.",
+          "Log in at {{recordkeeper_url}}.",
           "Select Contributions or Deferral Rate.",
           "Enter your new percentage and save.",
         ),
       ],
-      cta: { label: "Change My Contribution", actionType: "external_url" },
+      cta: {
+        label: "Change My Contribution",
+        actionType: "external_url",
+        target: "recordkeeper",
+      },
       tags: [
         "change",
         "increase",

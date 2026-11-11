@@ -72,6 +72,12 @@ export interface QuickAnswersSectionProps {
   category?: string;
   /** Explicit scheduling link; wins over the resolved key contact's. */
   advisorBookingUrl?: string;
+  /** The plan's login URL, for `{{recordkeeper_url}}` in a topic's copy. */
+  recordkeeperUrl?: string;
+  /** The provider administering this benefit, for `{{recordkeeper_name}}`. */
+  recordkeeperName?: string;
+  /** The plan sponsor, for `{{plan_sponsor_name}}`. */
+  planSponsorName?: string;
   className?: string;
 }
 
@@ -118,6 +124,8 @@ function TopicAnswer({
   basePath,
   actionHubRows,
   advisorBookingUrl,
+  recordkeeperUrl,
+  fillTokens,
 }: {
   topic: EffectiveTopic;
   brandColor: string;
@@ -131,14 +139,30 @@ function TopicAnswer({
    * advisor's card lives.
    */
   advisorBookingUrl?: string;
+  /** The plan's login URL, for a CTA that targets the recordkeeper. */
+  recordkeeperUrl?: string;
+  /** Replaces the per-plan `{{tokens}}` a topic's copy may contain. */
+  fillTokens: (text: string) => string;
 }) {
-  const quickAnswer = topicQuickAnswer(topic);
+  const quickAnswer = fillTokens(topicQuickAnswer(topic));
   const hasActionHub = !!actionHubRows && actionHubRows.length > 0;
-  // A placement CTA can carry its own destination; when it does not, the advisor
-  // is the handoff, and the contact band is the fallback.
+  // A placement CTA can carry its own destination. When it does not, its `target`
+  // decides: the plan's login URL, the advisor's booking link, or the contact
+  // band. A label that names the advisor is the fallback for older rows.
+  const labelImpliesAdvisor = /book|advisor|talk|review|counsel/i.test(
+    topic.cta?.label ?? "",
+  );
+  const target =
+    topic.cta?.target ?? (labelImpliesAdvisor ? "advisor" : "recordkeeper");
+  const targetUrl =
+    target === "recordkeeper"
+      ? toExternalUrl(recordkeeperUrl)
+      : target === "advisor"
+        ? advisorBookingUrl
+        : `#${HAVE_QUESTIONS_SECTION_ID}`;
   const ctaDestination =
     topic.cta?.destination ||
-    advisorBookingUrl ||
+    targetUrl ||
     `#${HAVE_QUESTIONS_SECTION_ID}`;
   const resolvedCta = resolveTopicHref(ctaDestination, basePath);
 
@@ -158,7 +182,7 @@ function TopicAnswer({
             className="list-decimal space-y-1 pl-5 font-red-hat text-[15px] leading-relaxed text-neutral-700 marker:font-semibold"
           >
             {block.steps.map((step, stepIndex) => (
-              <li key={stepIndex}>{step}</li>
+              <li key={stepIndex}>{fillTokens(step)}</li>
             ))}
           </ol>
         );
@@ -214,6 +238,9 @@ export function QuickAnswersSection({
   actionHubPanels,
   category,
   advisorBookingUrl,
+  recordkeeperUrl,
+  recordkeeperName,
+  planSponsorName,
   className,
 }: QuickAnswersSectionProps) {
   // The plan's key contact for this benefit owns the scheduling link a
@@ -226,6 +253,35 @@ export function QuickAnswersSection({
   const resolvedBookingUrl = toExternalUrl(
     advisorBookingUrl || keyContact?.schedulingUrl,
   );
+  const resolvedLoginUrl = toExternalUrl(recordkeeperUrl);
+  /** The per-plan values a topic's copy may name. */
+  const fillTokens = (text: string) => {
+    if (!text) return text;
+    const advisorName = String(
+      keyContact?.fullName || keyContact?.name || "",
+    ).trim();
+    const advisorFirm = String(
+      keyContact?.companyName || keyContact?.company || "",
+    ).trim();
+    return text
+      .replace(
+        /\{\{recordkeeper_url\}\}/g,
+        resolvedLoginUrl || "your recordkeeper's website",
+      )
+      .replace(
+        /\{\{recordkeeper_name\}\}/g,
+        (recordkeeperName || "").trim() || "your recordkeeper",
+      )
+      .replace(/\{\{advisor_name\}\}/g, advisorName || "your advisor")
+      .replace(
+        /\{\{advisor_firm\}\}/g,
+        advisorFirm || "your advisor's firm",
+      )
+      .replace(
+        /\{\{plan_sponsor_name\}\}/g,
+        (planSponsorName || "").trim() || "your employer",
+      );
+  };
 
   const [query, setQuery] = useState("");
   const [openSlug, setOpenSlug] = useState<string | null>(null);
@@ -504,6 +560,8 @@ export function QuickAnswersSection({
                                   basePath={basePath}
                                   actionHubRows={actionHubPanels?.[topic.slug]}
                                   advisorBookingUrl={resolvedBookingUrl}
+                                  recordkeeperUrl={resolvedLoginUrl}
+                                  fillTokens={fillTokens}
                                 />
                               </div>
                             )}
@@ -556,6 +614,8 @@ export function QuickAnswersSection({
               basePath={basePath}
               actionHubRows={actionHubPanels?.[mobileTopic.slug]}
               advisorBookingUrl={resolvedBookingUrl}
+              recordkeeperUrl={resolvedLoginUrl}
+              fillTokens={fillTokens}
             />
           </div>
         </div>

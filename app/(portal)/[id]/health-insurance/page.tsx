@@ -279,6 +279,10 @@ export default function HealthInsurancePage() {
             basePath={`/${clientId}`}
             actionHubPanels={topics?.actionHubPanels}
             category="Group Health"
+            // Per-plan values a topic's copy and CTA may name.
+            recordkeeperUrl={accountAccessHref}
+            recordkeeperName={benefitData?.providerContact?.companyName ?? undefined}
+            planSponsorName={clientData?.companyName}
           />
           <PortalSectionEditButton
             sectionId={benefitEditAnchor.quickAnswers}

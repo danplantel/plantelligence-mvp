@@ -345,6 +345,55 @@ describe("QuickAnswersSection", () => {
     expect(cta).toHaveAttribute("target", "_blank");
   });
 
+  it("fills the recordkeeper token and sends a recordkeeper CTA to the login URL", async () => {
+    const user = userEvent.setup();
+    render(
+      <QuickAnswersSection
+        groups={[
+          group({
+            topics: [
+              topic({
+                title: "How do I change my contribution rate?",
+                bodyBlocks: [
+                  {
+                    type: "quick_answer",
+                    text: "Log in and enter a new percentage.",
+                  },
+                  {
+                    type: "steps",
+                    steps: [
+                      "Log in at {{recordkeeper_url}}.",
+                      "Select Contributions or Deferral Rate.",
+                      "Enter your new percentage and save.",
+                    ],
+                  },
+                ],
+                cta: {
+                  label: "Change My Contribution",
+                  actionType: "external_url",
+                  target: "recordkeeper",
+                },
+              }),
+            ],
+          }),
+        ]}
+        recordkeeperUrl="google.com"
+      />,
+    );
+
+    await user.click(
+      screen.getByRole("button", {
+        name: /how do i change my contribution rate/i,
+      }),
+    );
+
+    // A bare host is normalised, not treated as a plan-relative path.
+    expect(screen.getByText("Log in at https://google.com.")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: "Change My Contribution" }),
+    ).toHaveAttribute("href", "https://google.com");
+  });
+
   it("falls back to the contact band when no booking link exists", async () => {
     const user = userEvent.setup();
     render(

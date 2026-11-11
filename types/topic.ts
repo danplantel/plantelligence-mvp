@@ -58,6 +58,13 @@ export interface TopicCta {
   actionType: TopicCtaActionType;
   /** URL, document id, contact id — meaning depends on `actionType`. */
   destination?: string;
+  /**
+   * Where the CTA goes when `destination` is not stored — the per-plan value the
+   * handoff writes as `{{recordkeeper_url}}` or `{{advisor_booking_url}}`. The
+   * portal resolves it at render: the plan's login URL, the key contact's
+   * scheduling link, or the Have Questions band.
+   */
+  target?: "recordkeeper" | "advisor" | "contact";
 }
 
 /**
