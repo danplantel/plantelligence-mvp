@@ -21,6 +21,20 @@ function textOf(seed: LibraryTopicSeed | undefined): string {
     .join(" ");
 }
 
+/**
+ * A question promoted to a Featured card borrows its `summary` as the card line.
+ * When an answer has one, it must TEASE the answer rather than print it.
+ */
+describe("Retirement card lines", () => {
+  it("teases the savings-rate answer instead of printing it", () => {
+    const seed = libraryTopicBySlug("how-much-should-i-save");
+
+    expect(seed?.summary?.trim()).toBeTruthy();
+    expect(seed?.summary).not.toContain("10%");
+    expect(textOf(seed)).toContain("10% to 15%");
+  });
+});
+
 describe("Group Health library", () => {
   it("ships five Featured topics, HSA / FSA among them", () => {
     expect(

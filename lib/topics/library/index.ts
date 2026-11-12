@@ -300,6 +300,10 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
     RETIREMENT,
     "Saving & Contributions",
     {
+      // A card line of its own, so promoting this question to a Featured card does
+      // not print the answer on the tile — the percentage belongs in the panel.
+      summary:
+        "Find a rate you can grow into — and a simple way to raise it each year.",
       bodyBlocks: [
         qa(
           "Many experts suggest saving 10% to 15% of pay, including your employer match. If that isn't possible yet, start where you can and increase by 1% each year.",

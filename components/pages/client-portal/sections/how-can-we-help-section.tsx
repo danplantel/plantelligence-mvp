@@ -574,6 +574,12 @@ function AccountAccessCard({
    * reads as three disconnected islands.
    */
   const isWide = span >= 3;
+  /**
+   * The card has a row to itself. Its four feature bullets then sit as one centred
+   * group instead of being pushed to the edges of a full-width card — at 4/4 the
+   * spaced-out version reads as stray text rather than a list.
+   */
+  const isFullRow = span >= 4;
 
   return (
     <motion.div
@@ -703,10 +709,14 @@ function AccountAccessCard({
           )}
 
           <div
+            data-testid="account-access-actions"
             className={cn(
-              "mt-2 grid grid-cols-2 gap-x-4 gap-y-0.5",
-              // Four short features read as a single line across a wide card.
-              isWide && "sm:grid-cols-4 sm:justify-items-center",
+              "mt-2 gap-x-4 gap-y-0.5",
+              isFullRow
+                ? // A full-width card centres its four features as one group.
+                  "flex flex-wrap items-center justify-center gap-x-6"
+                : // Otherwise they pair up on a phone and run four-up when wide.
+                  cn("grid grid-cols-2", isWide && "sm:grid-cols-4 sm:justify-items-center"),
             )}
           >
             {bullets.map((item) => (
@@ -1257,8 +1267,17 @@ export function HowCanWeHelpSection({
             tags: topic.tags.length > 0 ? topic.tags : shipped?.tags,
             primary: false,
           };
-          if (topic.summary) {
-            card.body = fillHelpCardTokens(topic.summary, category);
+          /**
+           * The tile's own line of copy.
+           *
+           * A Featured topic ships a `summary` written for the card. A question
+           * PROMOTED from Quick Answers has none — its copy is the answer — so the
+           * first answer doubles as the card line. Without this the tile arrives
+           * with a title and nothing else.
+           */
+          const cardLine = (topic.summary || "").trim() || quickAnswer;
+          if (cardLine) {
+            card.body = fillHelpCardTokens(cardLine, category);
           }
           if (topic.cta?.destination) {
             card.href = topic.cta.destination;

@@ -1567,6 +1567,65 @@ describe("HowCanWeHelpSection features placements", () => {
     expect(promotedTile).toHaveTextContent("Mental Health Care");
   });
 
+  it("centres the Account Access features when the card owns the whole row", () => {
+    // Nine cards puts Account Access alone in row 1, so it spans all four columns.
+    const eight = Array.from({ length: 8 }, (_, index) =>
+      topic(`extra-${index}`, `Extra ${index}`, index),
+    );
+    const { container } = render(
+      <HowCanWeHelpSection clientId="plan-1" category="Group Health" topics={eight} />,
+    );
+
+    const actions = within(tile(container, "account-access")).getByTestId(
+      "account-access-actions",
+    );
+    expect(actions.className).toContain("justify-center");
+    // It is no longer a four-column grid pushed out to the card's edges.
+    expect(actions.className).not.toContain("grid-cols-2");
+  });
+
+  it("keeps the feature grid when the card shares its row", () => {
+    // The catalog default puts Account Access at 2/4 — a grid, not a centred row.
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Health"
+        topics={FIVE_FEATURED}
+      />,
+    );
+
+    const actions = within(tile(container, "account-access")).getByTestId(
+      "account-access-actions",
+    );
+    expect(actions.className).toContain("grid-cols-2");
+    expect(actions.className).not.toContain("justify-center");
+  });
+
+  it("gives a promoted question its own answer as the card line", () => {
+    // A Quick Answer has no `summary` — its copy IS the answer — so the tile has to
+    // borrow the first line or it arrives with a title and nothing else.
+    const promoted: EffectiveTopic = {
+      ...topic("how-much-should-i-save", "How Much Should I Save?", 5),
+      bodyBlocks: [
+        {
+          type: "quick_answer",
+          text: "A common starting point is 10–15% of your pay each year.",
+        },
+      ],
+    };
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Health"
+        topics={[...FIVE_FEATURED, promoted]}
+      />,
+    );
+
+    expect(tile(container, "sys.how-much-should-i-save")).toHaveTextContent(
+      "10–15% of your pay",
+    );
+  });
+
   it("drops the tile of a topic moved off Featured", () => {
     const withoutHsa = FIVE_FEATURED.filter(
       (entry) => entry.slug !== "sys.hsa-fsa-resources",
