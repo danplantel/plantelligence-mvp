@@ -115,7 +115,7 @@ interface PortalHeaderProps {
    *
    *  - `login` (default) — the original Login button, shown on Benefit Hub pages
    *    only, scrolling to that hub's Account Access card.
-   *  - `schedule` — a booking button, shown on every portal page.
+   *  - `schedule` — a booking button, also shown on Benefit Hub pages only.
    *  - `none` — no button.
    *
    * Typed loosely because it arrives as JSON; anything unrecognized falls back to
@@ -196,8 +196,8 @@ export function PortalHeader({
     : undefined;
 
   // ── The header's one call to action ──
-  // `schedule` is a plan-wide booking button, so it renders on every page; `login`
-  // keeps its benefit-hub-only rule (below); `none` renders nothing at all.
+  // Both modes render only on a Benefit Hub page (see `showHeaderCta` below);
+  // `none` renders nothing at all.
   const headerCtaSetting = normalizePortalHeaderCta(headerCta);
   const headerCtaText = portalHeaderCtaLabel(headerCtaSetting);
   const headerCtaHref = resolvePortalHeaderCtaHref(headerCtaSetting.url);
@@ -360,9 +360,13 @@ export function PortalHeader({
    * advisor is editing, and a stray new tab would interrupt them.
    */
   const isPreviewChrome = !enableNavigation;
+  // The header CTA belongs to the Benefit Hub pages only: the landing page's hero
+  // carries its own call to action, and no other portal page has something for the
+  // header's button to point at. Preview chrome keeps it so Section 1's choice is
+  // visible while the advisor edits.
   const showHeaderCta =
-    headerCtaSetting.mode === "schedule" ||
-    (headerCtaSetting.mode === "login" && (isBenefitsActive || isPreviewChrome));
+    headerCtaSetting.mode !== "none" &&
+    (isBenefitsActive || isPreviewChrome);
   const headerCtaAsLink =
     headerCtaSetting.mode === "schedule" &&
     Boolean(headerCtaHref.href) &&
@@ -750,11 +754,10 @@ export function PortalHeader({
                   `login` keeps the original rule — Benefit Hub pages only, scrolling
                   to that hub's "How Can We Help You Today?" section, which holds the
                   Account Access card (plan / group ID, administering provider and the
-                  Register or Login Here button). `schedule` is plan-wide, so it shows
-                  everywhere. Ordered before the mobile hamburger so the two sit
+                  Register or Login Here button). `schedule` follows the same page rule.
+                  Ordered before the mobile hamburger so the two sit
                   [CTA][☰] on a phone and [nav][CTA] from `md:` up. */}
-              {headerCtaSetting.mode !== "none" &&
-                showHeaderCta &&
+              {showHeaderCta &&
                 (headerCtaAsLink ? (
                   // `asChild` keeps the markup valid (an anchor, not a button inside
                   // a link) while inheriting the Button's styling.

@@ -203,8 +203,43 @@ describe("PortalHeader call to action", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("shows the booking button outside the benefit hubs too", () => {
+  it("keeps the booking button off non-benefit pages", () => {
     mocks.pathname = "/plan-1/news-events";
+    render(
+      <PortalHeader
+        clientId="plan-1"
+        headerCta={{ mode: "schedule", url: "https://calendly.com/team" }}
+      />,
+    );
+
+    // The header CTA is a Benefit Hub action; News & Events has none to point at.
+    expect(
+      screen.queryByRole("link", { name: /Schedule a Call|Login/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Schedule a Call|Login/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps the booking button off the landing page", () => {
+    mocks.pathname = "/plan-1";
+    render(
+      <PortalHeader
+        clientId="plan-1"
+        headerCta={{ mode: "schedule", url: "https://calendly.com/team" }}
+      />,
+    );
+
+    // The landing page's hero owns its call to action; the header is navigation-only.
+    expect(
+      screen.queryByRole("link", { name: /Schedule a Call|Login/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /Schedule a Call|Login/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("offers the CTA on a hub page", () => {
     render(
       <PortalHeader
         clientId="plan-1"
@@ -215,10 +250,6 @@ describe("PortalHeader call to action", () => {
     expect(
       screen.getByRole("link", { name: /Schedule a Call/ }),
     ).toBeInTheDocument();
-    // Login would be absent here — Schedule is not hub-scoped.
-    expect(
-      screen.queryByRole("button", { name: /Login/ }),
-    ).not.toBeInTheDocument();
   });
 
   it("opens an external booking link in a new tab", () => {

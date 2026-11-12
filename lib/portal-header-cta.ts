@@ -54,7 +54,7 @@ export const PORTAL_HEADER_CTA_OPTIONS: {
     value: "schedule",
     label: "Schedule a Call",
     description:
-      "A booking button, shown on every portal page. Without a link it scrolls to your team's contact card instead.",
+      "A booking button on your Benefit Hub pages. Without a link it scrolls to your team's contact card instead.",
   },
   {
     value: "none",
