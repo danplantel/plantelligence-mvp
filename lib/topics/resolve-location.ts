@@ -23,11 +23,13 @@ import type {
  *    another plan's placement.
  */
 
-/** Where a Quick Answer lands when its placement names no group (or a stale one). */
-export const UNGROUPED_TOPIC_GROUP_ID = "__ungrouped__";
+// Shared with the board read and the builder, so the three can never disagree.
+import {
+  UNGROUPED_TOPIC_GROUP_ID,
+  UNGROUPED_TOPIC_GROUP_NAME,
+} from "@/lib/topics/ungrouped";
 
-/** The name shown for that last-resort group. */
-export const UNGROUPED_TOPIC_GROUP_NAME = "Questions";
+export { UNGROUPED_TOPIC_GROUP_ID, UNGROUPED_TOPIC_GROUP_NAME };
 
 export interface LocationTopicsInput {
   location: TopicLocation;

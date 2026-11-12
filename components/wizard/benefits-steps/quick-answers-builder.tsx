@@ -3,7 +3,7 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
-import { GripVertical, Plus, Search } from "lucide-react";
+import { AlertTriangle, GripVertical, Plus, Search } from "lucide-react";
 import {
   DndContext,
   KeyboardSensor,
@@ -21,8 +21,20 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  UNGROUPED_TOPIC_GROUP_ID as UNGROUPED_KEY,
+  UNGROUPED_TOPIC_GROUP_NAME,
+} from "@/lib/topics/ungrouped";
 import { cn } from "@/lib/utils";
 import { TOPIC_LOCATION_LABELS } from "@/lib/topic-locations";
 import type { ActionHubLink, EffectiveTopic, TopicLocation } from "@/types/topic";
@@ -80,7 +92,21 @@ interface TopicsResponse {
 }
 
 /** Virtual group for questions whose placement has no group (or a stale one). */
-const UNGROUPED_KEY = "__ungrouped__";
+// (Its id and label are shared with the board read — see `lib/topics/board.ts`.)
+
+/**
+ * How many Featured cards fill the page.
+ *
+ * The page shows NINE cards: the Account Access card (which is not a placement —
+ * it is synthesised from the catalog) in the full-width row that owns the primary,
+ * then two rows of four. So eight Featured questions is the ceiling, and promoting
+ * the ninth is a decision the advisor has to make deliberately — one card has to
+ * give way. `pendingPromotion` holds the question until they name it.
+ *
+ * (`FEATURED_CAP` in `lib/topics/board.ts` is the server's hard limit, which is
+ * higher so an existing plan can always still be saved.)
+ */
+const FEATURED_ROW_CAP = 8;
 
 export interface QuickAnswersBuilderProps {
   planId: string;
@@ -122,6 +148,136 @@ const fetcher = (url: string) =>
     if (!response.ok) throw new Error(body?.error || "Could not load the board.");
     return body as TopicsResponse;
   });
+
+/**
+ * One plan-location's placement board, shared by SWR key.
+ *
+ * The builder edits it; the Card Layout section beside it only READS it (it needs
+ * the same Featured cards, in the same order, or the two lists disagree). Sharing
+ * the hook means the second reader costs no request — SWR dedupes them — and both
+ * re-render from the same cache write.
+ */
+export function useTopicBoard(
+  planId: string | null | undefined,
+  location: TopicLocation | null | undefined,
+) {
+  const key = planId && location ? boardKey(planId, location) : null;
+  const response = useSWR<TopicsResponse>(key, fetcher, {
+    revalidateOnFocus: false,
+    dedupingInterval: 5_000,
+  });
+  return { key, ...response };
+}
+
+/** Placement sub-link, sent only when the row actually carries one. */
+function placementLink(topic: BoardTopic) {
+  return topic.isActionHub && topic.actionHubLink
+    ? { actionHubLink: topic.actionHubLink }
+    : {};
+}
+
+/**
+ * Re-write the Featured placements in a given order.
+ *
+ * Section 6's Card Layout is where the page order is arranged, so a drop there has
+ * to reach the placements — the Featured list reads the same board, and leaving
+ * that stale is how the two views drifted apart. One `PUT` of the whole board (the
+ * builder's own shape), with the cache written first so both lists move in the
+ * same frame.
+ *
+ * `orderedTopicIds` must name every Featured placement; a partial list is ignored,
+ * because reordering half a board would silently demote the rest.
+ */
+export async function reorderFeaturedCards(params: {
+  planId: string;
+  location: TopicLocation;
+  board: BoardPayload;
+  orderedTopicIds: string[];
+}): Promise<void> {
+  const { board, orderedTopicIds } = params;
+  const byTopicId = new Map(board.featured.map((topic) => [topic.topicId, topic]));
+  const featured = orderedTopicIds
+    .map((topicId) => byTopicId.get(topicId))
+    .filter((topic): topic is BoardTopic => Boolean(topic));
+  if (featured.length !== board.featured.length) return;
+
+  // The virtual "Questions" group is not a real row: its topics travel ungrouped.
+  const realGroups = board.groups.filter((group) => group.id !== UNGROUPED_KEY);
+  const ungrouped = board.groups.find((group) => group.id === UNGROUPED_KEY);
+
+  const placements = [
+    ...featured.map((topic, index) => ({
+      topicId: topic.topicId,
+      displayMode: "featured" as const,
+      sortOrder: index,
+      ...placementLink(topic),
+    })),
+    ...realGroups.flatMap((group) =>
+      group.topics.map((topic, index) => ({
+        topicId: topic.topicId,
+        displayMode: "quick_answers" as const,
+        groupId: group.id,
+        sortOrder: index,
+        ...placementLink(topic),
+      })),
+    ),
+    ...(ungrouped?.topics ?? []).map((topic, index) => ({
+      topicId: topic.topicId,
+      displayMode: "quick_answers" as const,
+      groupId: null,
+      sortOrder: index,
+      ...placementLink(topic),
+    })),
+    ...board.hidden.map((topic, index) => ({
+      topicId: topic.topicId,
+      displayMode: "hidden" as const,
+      sortOrder: index,
+      ...placementLink(topic),
+    })),
+  ];
+
+  const key = boardKey(params.planId, params.location);
+  const nextBoard: BoardPayload = { ...board, featured };
+  // INSTANT: both lists read this cache, so they re-order before the request lands.
+  void globalMutate(
+    key,
+    (current: TopicsResponse | undefined) =>
+      current ? { ...current, board: nextBoard } : current,
+    { revalidate: false },
+  );
+
+  const response = await fetch(key, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      location: params.location,
+      groups: realGroups.map((group, index) => ({
+        id: group.id,
+        name: group.name,
+        sortOrder: index,
+      })),
+      placements,
+    }),
+  });
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body?.error || "Could not save the card order.");
+  }
+
+  // The reconciled board, so nothing the server normalised is left behind.
+  void globalMutate(
+    key,
+    (current: TopicsResponse | undefined) =>
+      current
+        ? {
+            ...current,
+            board: body.board as BoardPayload,
+            library: body.library ?? current.library,
+          }
+        : current,
+    { revalidate: false },
+  );
+}
 
 /**
  * One group, draggable by its handle.
@@ -258,7 +414,7 @@ function optimisticResponse(
           ? [
               {
                 id: UNGROUPED_KEY,
-                name: "Questions",
+                name: UNGROUPED_TOPIC_GROUP_NAME,
                 sortOrder: draft.groups.length,
                 topics: draft.ungrouped,
               },
@@ -389,11 +545,9 @@ export function QuickAnswersBuilder({
   onBoardChange,
   mode = "full",
 }: QuickAnswersBuilderProps) {
-  const key = planId ? boardKey(planId, location) : null;
-  const { data, error: loadError, isLoading } = useSWR<TopicsResponse>(
-    key,
-    fetcher,
-    { revalidateOnFocus: false, dedupingInterval: 5_000 },
+  const { key, data, error: loadError, isLoading } = useTopicBoard(
+    planId,
+    location,
   );
 
   const [draft, setDraft] = useState<Draft | null>(null);
@@ -402,6 +556,14 @@ export function QuickAnswersBuilder({
   const [newGroupName, setNewGroupName] = useState("");
   const [query, setQuery] = useState("");
   const [addTarget, setAddTarget] = useState("");
+  /**
+   * The question the advisor just chose to promote into a FULL Featured grid.
+   * Held here (never persisted) until they name the card that gives way or cancel,
+   * so opening and dismissing the dialog can never half-apply a move.
+   */
+  const [pendingPromotion, setPendingPromotion] = useState<BoardTopic | null>(
+    null,
+  );
 
   // Seed (and re-seed) the draft from the server's board.
   useEffect(() => {
@@ -450,15 +612,6 @@ export function QuickAnswersBuilder({
     }
     // And the portal's own section, which reads the benefit payload, not this board.
     onBoardChange?.(optimistic.board);
-
-    /**
-     * The sub-link travels with its placement. Sent only when the topic IS an Action
-     * Hub and the advisor set something, so a plain reorder can never blank one.
-     */
-    const placementLink = (topic: BoardTopic) =>
-      topic.isActionHub && topic.actionHubLink
-        ? { actionHubLink: topic.actionHubLink }
-        : {};
 
     const placements = [
       ...next.featured.map((topic, index) => ({
@@ -609,35 +762,46 @@ export function QuickAnswersBuilder({
     }
   };
 
+  /** The draft with `topic` taken out of every list it could be sitting in. */
+  const withoutTopic = (source: Draft, topic: BoardTopic): Draft => {
+    const drop = (topics: BoardTopic[]) =>
+      topics.filter((entry) => entry.topicId !== topic.topicId);
+    return {
+      ...source,
+      groups: source.groups.map((group) => ({
+        ...group,
+        topics: drop(group.topics),
+      })),
+      ungrouped: drop(source.ungrouped),
+      hidden: drop(source.hidden),
+    };
+  };
+
   const moveQuestion = (
     topic: BoardTopic,
     from: { groupId: string } | "ungrouped" | "hidden",
     to: string,
   ) => {
     if (!draft) return;
+    void from;
 
-    const withoutTopic = (topics: BoardTopic[]) =>
-      topics.filter((entry) => entry.topicId !== topic.topicId);
+    const next = withoutTopic(draft, topic);
 
-    const next: Draft = {
-      ...draft,
-      groups: draft.groups.map((group) => ({
-        ...group,
-        topics: withoutTopic(group.topics),
-      })),
-      ungrouped: withoutTopic(draft.ungrouped),
-      hidden: withoutTopic(draft.hidden),
-    };
+    /**
+     * A promotion into a full grid is a two-part decision: the grid is two rows of
+     * four, so ONE card has to leave before this one can sit on the page. Ask which
+     * one instead of refusing outright (the old behaviour) or silently growing a
+     * third row. Nothing is written until the advisor answers.
+     */
+    if (to === "featured" && next.featured.length >= FEATURED_ROW_CAP) {
+      setSaveError(null);
+      setPendingPromotion(topic);
+      return;
+    }
 
     if (to === "hidden") {
       next.hidden = [...next.hidden, topic];
     } else if (to === "featured") {
-      if (next.featured.length >= next.featuredCap) {
-        setSaveError(
-          `Featured holds ${next.featuredCap} cards (3 rows of 4). Move one down to Quick Answers first.`,
-        );
-        return;
-      }
       next.featured = [...next.featured, topic];
     } else if (to === UNGROUPED_KEY) {
       next.ungrouped = [...next.ungrouped, topic];
@@ -647,7 +811,37 @@ export function QuickAnswersBuilder({
       );
     }
 
-    void from;
+    void persist(next);
+  };
+
+  /**
+   * Answer the promotion dialog: `outgoing` gives up its Featured slot, so the card
+   * the advisor just promoted can take it. Both halves travel in ONE board write, so
+   * the grid never has nine cards or a gap.
+   */
+  const swapIntoFeatured = (outgoing: BoardTopic) => {
+    if (!draft || !pendingPromotion) return;
+    const incoming = pendingPromotion;
+    setPendingPromotion(null);
+
+    const stripped = withoutTopic(draft, incoming);
+    const remaining = stripped.featured.filter(
+      (entry) => entry.topicId !== outgoing.topicId,
+    );
+    /**
+     * The grid keeps `FEATURED_ROW_CAP` cards, with the promoted one appended in
+     * its usual place. Anything past the cap is demoted too — that is what pulls
+     * a plan which already carries too many back to the page's nine tiles in the
+     * same save, instead of leaving it one card over.
+     */
+    const room = Math.max(FEATURED_ROW_CAP - 1, 0);
+    const kept = remaining.slice(0, room);
+    const overflowing = remaining.slice(room);
+
+    let next: Draft = { ...stripped, featured: [...kept, incoming] };
+    for (const card of [outgoing, ...overflowing]) {
+      next = returnToQuickAnswers(next, card);
+    }
     void persist(next);
   };
 
@@ -731,12 +925,6 @@ export function QuickAnswersBuilder({
   /** Promote a library topic straight into the Featured cards. */
   const addFeaturedFromLibrary = (item: LibraryItem) => {
     if (!draft) return;
-    if (draft.featured.length >= draft.featuredCap) {
-      setSaveError(
-        `Featured holds ${draft.featuredCap} cards (3 rows of 4). Move one down to Quick Answers first.`,
-      );
-      return;
-    }
     const topic: BoardTopic = {
       topicId: item.slug,
       placementId: "",
@@ -751,30 +939,56 @@ export function QuickAnswersBuilder({
       groupId: null,
       sortOrder: draft.featured.length,
     };
+
+    // Same two-part decision the dropdown makes: a full grid has to give a card
+    // back before this one can join it.
+    if (draft.featured.length >= FEATURED_ROW_CAP) {
+      setSaveError(null);
+      setPendingPromotion(topic);
+      return;
+    }
+
     void persist({ ...draft, featured: [...draft.featured, topic] });
   };
 
-  /** Move a Featured card one position — the card order IS the page order. */
-  const moveFeatured = (index: number, delta: number) => {
-    if (!draft) return;
-    const target = index + delta;
-    if (target < 0 || target >= draft.featured.length) return;
-    const featured = [...draft.featured];
-    const [moved] = featured.splice(index, 1);
-    featured.splice(target, 0, moved);
-    void persist({ ...draft, featured });
+  /**
+   * Take a card off the grid and put it back where it belongs in Quick Answers.
+   *
+   * A question remembers the section it was promoted FROM (`groupId` stays on the
+   * placement while it is Featured, see `planBoardApply`), so demoting it lands it
+   * back in that group. Only a question that never had a section goes to the
+   * ungrouped list — which is what keeps it off the "Add from the library" drawer.
+   */
+  const returnToQuickAnswers = (source: Draft, topic: BoardTopic): Draft => {
+    const featured = source.featured.filter(
+      (entry) => entry.topicId !== topic.topicId,
+    );
+    const group = topic.groupId
+      ? source.groups.find((entry) => entry.id === topic.groupId)
+      : undefined;
+    const placed: BoardTopic = {
+      ...topic,
+      displayMode: "quick_answers",
+      groupId: group ? group.id : null,
+    };
+    if (!group) {
+      return { ...source, featured, ungrouped: [...source.ungrouped, placed] };
+    }
+    return {
+      ...source,
+      featured,
+      groups: source.groups.map((entry) =>
+        entry.id === group.id
+          ? { ...entry, topics: [...entry.topics, placed] }
+          : entry,
+      ),
+    };
   };
 
-  /** Demote a Featured card back to an ungrouped Quick Answer. */
+  /** Demote a Featured card back to its own Quick Answers section. */
   const demoteFeatured = (topic: BoardTopic) => {
     if (!draft) return;
-    void persist({
-      ...draft,
-      featured: draft.featured.filter(
-        (entry) => entry.topicId !== topic.topicId,
-      ),
-      ungrouped: [...draft.ungrouped, { ...topic, groupId: null }],
-    });
+    void persist(returnToQuickAnswers(withoutTopic(draft, topic), topic));
   };
 
   /**
@@ -896,14 +1110,25 @@ export function QuickAnswersBuilder({
         <>
           {showFeatured && (
             <div className="rounded-lg border border-muted bg-white p-3 dark:bg-gray-800">
+              <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+                <Label className="text-[11px] font-bold uppercase tracking-[0.08em] text-foreground">
+                  Featured Cards
+                </Label>
+                {/* Order and membership are arranged in Section 6's Card Layout,
+                    so there is nothing to drag here — a card only moves out. */}
+                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                  {draft.featured.length} of {FEATURED_ROW_CAP}
+                </span>
+              </div>
               <div className="space-y-1.5">
                 {draft.featured.length === 0 && (
                   <p className="text-[12px] text-muted-foreground">
-                    No cards on this page yet. Add one from the library below.
+                    No cards on this page yet. Promote a question below, or add one
+                    from the library.
                   </p>
                 )}
                 <AnimatePresence initial={false} mode="popLayout">
-                  {draft.featured.map((topic, index) => (
+                  {draft.featured.map((topic) => (
                     <AnimatedRow
                       key={topic.topicId}
                       topicId={topic.topicId}
@@ -913,26 +1138,6 @@ export function QuickAnswersBuilder({
                         {topic.title}
                       </span>
                       {topic.isActionHub && <ActionHubBadge />}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        aria-label={`Move ${topic.title} up`}
-                        disabled={index === 0 || saving}
-                        onClick={() => moveFeatured(index, -1)}
-                      >
-                        ↑
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        aria-label={`Move ${topic.title} down`}
-                        disabled={index === draft.featured.length - 1 || saving}
-                        onClick={() => moveFeatured(index, 1)}
-                      >
-                        ↓
-                      </Button>
                       <Button
                         type="button"
                         variant="outline"
@@ -1230,6 +1435,72 @@ export function QuickAnswersBuilder({
           </div>
         )}
       </div>
+
+      {/*
+        The grid is two rows of four. Promoting a ninth card would grow a third,
+        half-empty row, so the advisor names the card that gives way — or cancels.
+        Nothing is persisted while this is open: `pendingPromotion` is pure state.
+      */}
+      <Dialog
+        open={pendingPromotion !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingPromotion(null);
+        }}
+      >
+        <DialogContent
+          // The portal's Editing Panel is `fixed z-[51]` — above the app's
+          // dialog tier — so a modal left at `z-50` opens UNDERNEATH it. Raising
+          // both the scrim and the content past the panel, the chat pill
+          // (`z-[60]`) and the published pop-up (`z-[100]`) is the same rule the
+          // portal's other editors follow.
+          overlayClassName="z-[110]"
+          className="z-[110] max-w-md"
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-amber-500" aria-hidden />
+              Featured is full
+            </DialogTitle>
+            <DialogDescription>
+              The page shows nine cards — Account Access plus{" "}
+              {FEATURED_ROW_CAP} Featured — which fills the grid. Choose a card to
+              move back to Quick Answers so{" "}
+              <span className="font-semibold text-foreground">
+                {pendingPromotion?.title}
+              </span>{" "}
+              can take its place.
+            </DialogDescription>
+          </DialogHeader>
+
+          <ul className="max-h-64 space-y-1 overflow-y-auto">
+            {draft.featured.map((card) => (
+              <li key={card.topicId}>
+                <button
+                  type="button"
+                  aria-label={`Move ${card.title} to Quick Answers`}
+                  onClick={() => swapIntoFeatured(card)}
+                  className="flex w-full items-center justify-between gap-3 rounded-md border border-muted/60 px-3 py-2 text-left text-[12px] font-medium transition-colors hover:border-neutral-300 hover:bg-neutral-50 dark:hover:bg-gray-800"
+                >
+                  <span className="min-w-0 truncate">{card.title}</span>
+                  <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
+                    Move to Quick Answers
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPendingPromotion(null)}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

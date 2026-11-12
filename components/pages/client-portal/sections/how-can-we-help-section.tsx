@@ -1178,40 +1178,54 @@ export function HowCanWeHelpSection({
     (portal.clientData as any)?.companyName || "",
   ).trim();
 
-  // Two sources for the grid, in this order:
-  //
-  //  1. The SAVED card layout (`cards`). Section 6 of the editing panel lets the
-  //     advisor order the cards, choose which one is primary and hide the rest, and
-  //     that layout is what the Create/Edit Benefit preview renders — so it is what
-  //     the portal renders too. Placements used to outrank it, which is exactly why
-  //     the live hub could show a different grid (more cards, primary at 2/4) from
-  //     the preview the advisor had just arranged.
-  //  2. PLACEMENTS (`topics`) — only when the plan has NO saved layout, so a plan
-  //     that lives on featured topics still gets a grid. Account Access is not a
-  //     topic in this build (that is TF-9), so the card is synthesised from the
-  //     catalog and pinned first.
-  //
-  // `[Benefit Category]` is resolved once per card in both paths.
+  /**
+   * Two sources for the grid, and what each one owns:
+   *
+   *  - MEMBERSHIP comes from the FEATURED placements (`topics`) whenever the plan
+   *    has any. That list is exactly what the Editing Panel's Quick Access dropdown
+   *    edits, so promoting a topic to "Featured card" adds a card (and moving it
+   *    back off Featured removes one) — immediately, because the editor patches
+   *    this payload from the board.
+   *  - ORDER and the PRIMARY come from the SAVED card layout (`cards`) when it is
+   *    set: the advisor's arrangement in Section 4/6 still decides where each card
+   *    sits and which one is wide. A layout entry that is not featured is ignored —
+   *    the topic is not on the page any more — and a featured topic the layout does
+   *    not know is appended in placement order.
+   *
+   * Without placements (a plan that has not been switched to the topic framework)
+   * the saved layout — or the catalog's natural order — lays the grid out exactly
+   * as it always has. Account Access is not a topic in this build (that is TF-9),
+   * so the card is synthesised from the catalog.
+   *
+   * `[Benefit Category]` is resolved once per card.
+   */
   const rows = useMemo(() => {
-    const hasSavedLayout = Array.isArray(cards) && cards.length > 0;
     const catalog = helpCardCatalogFor(category);
 
-    if (!hasSavedLayout && topics && topics.length > 0) {
+    if (topics && topics.length > 0) {
       const access = getHelpCardContent(ACCOUNT_ACCESS_CARD_ID, catalog);
-      const placementCards: HelpCardResolved[] = [
-        {
-          id: ACCOUNT_ACCESS_CARD_ID,
-          title: fillHelpCardTokens(
-            access?.title ?? "[Benefit Category] Account Access",
-            category,
-          ),
-          paragraphs: (access?.paragraphs ?? []).map((paragraph) =>
-            fillHelpCardTokens(paragraph, category),
-          ),
-          cta: "",
-          primary: true,
-        },
-        ...topics.map((topic) => {
+
+      // A layout stores catalog ids (`understand-coverage`); a placement's card
+      // carries the published slug (`sys.understand-coverage`), so the two are
+      // compared without the system prefix.
+      const layoutIdOf = (id: string) => id.replace(/^sys\./, "");
+      const stored = (Array.isArray(cards) ? cards : []).filter(
+        (entry): entry is HelpCardLayoutEntry =>
+          !!entry && typeof entry.id === "string",
+      );
+      const orderOf = (id: string) => {
+        const index = stored.findIndex((entry) => entry.id === layoutIdOf(id));
+        return index >= 0 ? index : Number.MAX_SAFE_INTEGER;
+      };
+      const disabled = new Set(
+        stored
+          .filter((entry) => entry.enabled === false)
+          .map((entry) => entry.id),
+      );
+      const storedPrimaryId = stored.find((entry) => entry.primary)?.id ?? "";
+
+      const placementCards: HelpCardResolved[] = (topics ?? [])
+        .map((topic) => {
           const quickAnswer = topicQuickAnswer(topic);
           // The shipped catalog entry carries the blocks the topic row may not:
           // steps, docs, tags and the default CTA come from one place, so a
@@ -1250,9 +1264,48 @@ export function HowCanWeHelpSection({
             card.href = topic.cta.destination;
           }
           return card;
-        }),
-      ];
-      return chunkIntoRows(placementCards);
+        })
+        // A card Section 6 unticked stays off the hub even while it is featured.
+        .filter((card) => !disabled.has(layoutIdOf(card.id)));
+
+      // Account Access always rides along unless Section 6 turned it off; it is
+      // not a placement, so it is added here rather than coming from the board.
+      const withAccess: HelpCardResolved[] = disabled.has(ACCOUNT_ACCESS_CARD_ID)
+        ? placementCards
+        : [
+            {
+              id: ACCOUNT_ACCESS_CARD_ID,
+              title: fillHelpCardTokens(
+                access?.title ?? "[Benefit Category] Account Access",
+                category,
+              ),
+              paragraphs: (access?.paragraphs ?? []).map((paragraph) =>
+                fillHelpCardTokens(paragraph, category),
+              ),
+              cta: "",
+              primary: false,
+            },
+            ...placementCards,
+          ];
+
+      // The layout decides the order; anything it does not name keeps its
+      // placement order (a stable sort, so equal keys do not shuffle).
+      const ordered = [...withAccess].sort(
+        (a, b) => orderOf(a.id) - orderOf(b.id),
+      );
+
+      // The layout's primary, else Account Access — exactly the default the grid
+      // had before the advisor arranged anything.
+      const primaryId = ordered.some((card) => layoutIdOf(card.id) === storedPrimaryId)
+        ? storedPrimaryId
+        : ACCOUNT_ACCESS_CARD_ID;
+
+      return chunkIntoRows(
+        ordered.map((card) => ({
+          ...card,
+          primary: layoutIdOf(card.id) === primaryId,
+        })),
+      );
     }
 
     // The saved layout (or, with neither, the catalog's natural order).

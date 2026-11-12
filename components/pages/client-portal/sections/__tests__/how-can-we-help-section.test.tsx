@@ -1508,3 +1508,116 @@ describe("Group Life topic blocks", () => {
     ).toHaveAttribute("href", "https://life.example/login");
   });
 });
+
+/**
+ * The Editing Panel's Quick Access dropdown is the only place the Featured list is
+ * edited, so it owns WHICH cards exist: promoting a topic to "Featured card" has to
+ * add its tile even when the benefit also carries a saved card layout (the order and
+ * the primary still come from that layout).
+ */
+describe("HowCanWeHelpSection features placements", () => {
+  function topic(slug: string, title: string, sortOrder: number): EffectiveTopic {
+    return {
+      topicId: `topic-${slug}`,
+      placementId: `placement-${slug}`,
+      slug: `sys.${slug}`,
+      location: "group_health",
+      displayMode: "featured",
+      title,
+      bodyBlocks: [],
+      tags: [],
+      isActionHub: false,
+      sortOrder,
+    };
+  }
+
+  /** The five Group Health cards, as the catalog/layout knows them. */
+  const GROUP_HEALTH_LAYOUT: HelpCardLayoutEntry[] = [
+    { id: "account-access", primary: true },
+    { id: "understand-coverage" },
+    { id: "find-care-providers" },
+    { id: "claims-bills-costs" },
+    { id: "add-remove-dependent" },
+    { id: "hsa-fsa-resources" },
+  ];
+
+  const FIVE_FEATURED: EffectiveTopic[] = [
+    topic("understand-coverage", "Understand My Coverage", 0),
+    topic("find-care-providers", "Find Care", 1),
+    topic("claims-bills-costs", "Claims, Bills & Costs", 2),
+    topic("add-remove-dependent", "Add or Remove a Dependent", 3),
+    topic("hsa-fsa-resources", "HSA / FSA", 4),
+  ];
+
+  it("adds a tile for a topic promoted to Featured, layout or not", () => {
+    const promoted = [
+      ...FIVE_FEATURED,
+      topic("mental-health-care", "Mental Health Care", 5),
+    ];
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Health"
+        cards={GROUP_HEALTH_LAYOUT}
+        topics={promoted}
+      />,
+    );
+
+    const promotedTile = tile(container, "sys.mental-health-care");
+    expect(promotedTile).toHaveTextContent("Mental Health Care");
+  });
+
+  it("drops the tile of a topic moved off Featured", () => {
+    const withoutHsa = FIVE_FEATURED.filter(
+      (entry) => entry.slug !== "sys.hsa-fsa-resources",
+    );
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Health"
+        cards={GROUP_HEALTH_LAYOUT}
+        topics={withoutHsa}
+      />,
+    );
+
+    expect(
+      container.querySelector('[data-help-card="sys.hsa-fsa-resources"]'),
+    ).toBeNull();
+    // The other four keep their cards.
+    expect(tile(container, "sys.understand-coverage")).toBeInTheDocument();
+  });
+
+  it("follows the saved layout's order and primary", () => {
+    // Primary at the RIGHT edge of row 1, and HSA / FSA first among the standards.
+    const layout: HelpCardLayoutEntry[] = [
+      { id: "understand-coverage" },
+      { id: "find-care-providers" },
+      { id: "hsa-fsa-resources", primary: true },
+      { id: "claims-bills-costs" },
+      { id: "add-remove-dependent" },
+      { id: "account-access" },
+    ];
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Health"
+        cards={layout}
+        topics={FIVE_FEATURED}
+      />,
+    );
+
+    expect(tiles(container).map((element) => element.dataset.helpCard)).toEqual([
+      "sys.understand-coverage",
+      "sys.find-care-providers",
+      "sys.hsa-fsa-resources",
+      "sys.claims-bills-costs",
+      "sys.add-remove-dependent",
+      "account-access",
+    ]);
+    // The layout's primary is the wide tile, not Account Access.
+    expect(
+      tile(container, "sys.hsa-fsa-resources").querySelector("button")
+        ?.textContent,
+    ).toContain("Learn more");
+  });
+});

@@ -11,7 +11,7 @@ import {
   setHelpCardEnabled,
   setHelpCardSide,
 } from "@/lib/help-card-layout";
-import type { HelpCardLayoutEntry } from "@/types/benefit";
+import type { HelpCardContent, HelpCardLayoutEntry } from "@/types/benefit";
 
 /**
  * Section 4's card-layout control.
@@ -201,5 +201,105 @@ describe("HelpCardLayoutEditor", () => {
     expect(rows[2].dataset.helpLayoutCard).toBe("account-access");
     expect(rows[2].dataset.primary).toBe("true");
     expect(within(rows[2]).getByText(/Row 1 · 2\/4 wide · Primary/)).toBeInTheDocument();
+  });
+});
+
+/**
+ * On a plan driven by placements, the Featured list in Quick Access is what decides
+ * which cards exist. This control has to list exactly those cards — never a catalog
+ * card the advisor has since demoted — and leave membership and order to Quick Access.
+ */
+describe("HelpCardLayoutEditor with the plan's own cards", () => {
+  const catalog: HelpCardContent[] = [
+    {
+      id: "account-access",
+      title: "[Benefit Category] Account Access",
+      paragraphs: ["Your plan's login."],
+      cta: "",
+    },
+    {
+      id: "find-care-providers",
+      title: "Find Care",
+      paragraphs: [],
+      cta: "",
+    },
+    {
+      id: "mental-health-care",
+      title: "Mental Health Care",
+      paragraphs: [],
+      cta: "",
+    },
+  ];
+
+  it("lists the plan's cards, dropping a stale stored id", () => {
+    render(
+      <HelpCardLayoutEditor
+        catalog={catalog}
+        // The stored layout still names a card that is no longer Featured.
+        value={[
+          { id: "account-access", primary: true },
+          { id: "savings" },
+          { id: "find-care-providers" },
+        ]}
+        onChange={() => {}}
+      />,
+    );
+
+    const rows = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-help-layout-card]"),
+    );
+    expect(rows.map((element) => element.dataset.helpLayoutCard)).toEqual([
+      "account-access",
+      "find-care-providers",
+      "mental-health-care",
+    ]);
+  });
+
+  it("leaves membership and order to Quick Access", () => {
+    render(
+      <HelpCardLayoutEditor
+        catalog={catalog}
+        onChange={() => {}}
+        showEnabledToggle={false}
+        allowReorder={false}
+      />,
+    );
+
+    // No show/hide switch, and no drag handle on any row.
+    expect(document.querySelectorAll('[data-testid^="help-card-enabled-"]')).toHaveLength(
+      0,
+    );
+    expect(
+      screen.queryByRole("button", { name: /Reorder/ }),
+    ).not.toBeInTheDocument();
+    // Choosing the primary is still this control's job.
+    expect(
+      within(row("find-care-providers")).getByRole("button", {
+        name: "Make primary",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("makes a promoted card primary", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <HelpCardLayoutEditor
+        catalog={catalog}
+        onChange={onChange}
+        showEnabledToggle={false}
+        allowReorder={false}
+      />,
+    );
+
+    await user.click(
+      within(row("mental-health-care")).getByRole("button", {
+        name: "Make primary",
+      }),
+    );
+
+    const layout = layoutOf(onChange);
+    expect(layout.find((entry) => entry.primary)?.id).toBe("mental-health-care");
+    expect(layout.map((entry) => entry.id)).toContain("find-care-providers");
   });
 });

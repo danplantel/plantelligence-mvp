@@ -185,7 +185,56 @@ describe("planBoardApply", () => {
     ]);
   });
 
-  it("clears the group when a question becomes Featured or Hidden", () => {
+  it("keeps a card's section while it is Featured, so it can come back", () => {
+    // The group is inert while the card is Featured — nothing renders from it — but
+    // dropping it here is what made "Move to Quick Answers" land in Ungrouped (and
+    // re-offer the question in the "Add from the library" drawer).
+    const plan = planBoardApply({
+      current: {
+        groups: [group()],
+        placements: [
+          placement({ displayMode: "quick_answers", groupId: "group-1" }),
+        ],
+      },
+      next: board({
+        groups: [{ id: "group-1", name: "Contributions & Saving", sortOrder: 0 }],
+        placements: [{ topicId: "topic-1", displayMode: "featured", sortOrder: 0 }],
+      }),
+    });
+
+    expect(plan.placementsToUpdate[0]).toMatchObject({
+      displayMode: "featured",
+      groupId: "group-1",
+    });
+  });
+
+  it("returns a card to its own group when it is demoted by name", () => {
+    const plan = planBoardApply({
+      current: {
+        groups: [group()],
+        placements: [placement({ displayMode: "featured", groupId: "group-1" })],
+      },
+      next: board({
+        groups: [{ id: "group-1", name: "Contributions & Saving", sortOrder: 0 }],
+        placements: [
+          {
+            topicId: "topic-1",
+            displayMode: "quick_answers",
+            groupId: "group-1",
+            sortOrder: 2,
+          },
+        ],
+      }),
+    });
+
+    expect(plan.placementsToUpdate[0]).toMatchObject({
+      displayMode: "quick_answers",
+      groupId: "group-1",
+      sortOrder: 2,
+    });
+  });
+
+  it("still hides a question by moving it, keeping its section on the row", () => {
     const plan = planBoardApply({
       current: {
         groups: [group()],
@@ -203,7 +252,7 @@ describe("planBoardApply", () => {
 
     expect(plan.placementsToUpdate[0]).toMatchObject({
       displayMode: "hidden",
-      groupId: null,
+      groupId: "group-1",
     });
   });
 

@@ -1,9 +1,15 @@
 "use client";
 
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useMemo, useState } from "react";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { HelpCardLayoutEditor } from "./help-card-layout-editor";
-import { QuickAnswersBuilder, type BoardPayload } from "./quick-answers-builder";
+import {
+  QuickAnswersBuilder,
+  reorderFeaturedCards,
+  useTopicBoard,
+  type BoardPayload,
+} from "./quick-answers-builder";
+import type { HelpCardContent } from "@/types/benefit";
 import { topicLocationForCategory } from "@/lib/topic-locations";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import {
@@ -85,7 +91,12 @@ import {
   type HeroSegmentMode,
 } from "@/components/wizard/new-client-steps/sections/components/hero-background-card";
 import { KeyContactImageCard } from "@/components/wizard/shared/key-contact-image-card";
-import { helpCardCategoryLabel } from "@/lib/help-card-defaults";
+import {
+  ACCOUNT_ACCESS_CARD_ID,
+  getHelpCardContent,
+  helpCardCatalogFor,
+  helpCardCategoryLabel,
+} from "@/lib/help-card-defaults";
 import { uploadFileToR2 } from "@/lib/upload-to-r2";
 import { toNextImageSrc } from "@/lib/branding-image-url";
 import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
@@ -282,6 +293,36 @@ export function BenefitsEditorPanel({
   const quickAnswersLocation = topicLocationForCategory(
     step1Data.benefitCategory,
   );
+
+  /**
+   * Section 6's Card Layout has to list the SAME cards Quick Access shows, or an
+   * advisor arranges a card that is not on the page (and a promoted question never
+   * appears here at all). This is the board the builder edits — same SWR key, so
+   * no extra request and both views re-render from the same write.
+   */
+  const featuredBoard = useTopicBoard(step1Data.planId, quickAnswersLocation);
+  const helpCardCategoryLabelValue = helpCardCategoryLabel(
+    step1Data.benefitCategory,
+    step1Data.benefitTitle,
+  );
+  const featuredCardCatalog = useMemo<HelpCardContent[] | undefined>(() => {
+    // A host/test can answer the read with something that is not a board; only a
+    // real payload swaps the list into placement mode.
+    const featured = featuredBoard.data?.board?.featured ?? [];
+    // No placements (a plan still on the catalog) keeps the old behaviour.
+    if (featured.length === 0) return undefined;
+
+    const catalog = helpCardCatalogFor(helpCardCategoryLabelValue);
+    const access = getHelpCardContent(ACCOUNT_ACCESS_CARD_ID, catalog);
+    const topicCards: HelpCardContent[] = featured.map((topic) => ({
+      id: topic.slug.replace(/^sys\./, ""),
+      title: topic.title,
+      paragraphs: [],
+      cta: topic.cta?.label ?? "",
+      ...(topic.summary ? { body: topic.summary } : {}),
+    }));
+    return [...(access ? [access] : []), ...topicCards];
+  }, [featuredBoard.data, helpCardCategoryLabelValue]);
 
   // Field-level refs so a validation error (e.g. the required Login URL) can
   // scroll the editor straight to the offending input instead of just the
@@ -2093,19 +2134,58 @@ export function BenefitsEditorPanel({
             button sends participants, and who administers the benefit.
           </p>
 
-          {/* Card layout: order + which card is Primary. Copy is static. */}
+          {/* Card layout: which card is Primary. Copy is static. */}
           <div className="mb-4 rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
             <HelpCardLayoutEditor
               value={step1Data.helpCards}
               // The benefit being created/edited, so `[Benefit Category]` reads
               // "Retirement Account Access" (or the advisor's Custom name).
-              category={helpCardCategoryLabel(
-                step1Data.benefitCategory,
-                step1Data.benefitTitle,
-              )}
-              onChange={(helpCards) =>
-                saveStepData(1, { ...step1Data, helpCards } as any)
-              }
+              category={helpCardCategoryLabelValue}
+              // Exactly the Featured cards Quick Access lists, plus Account
+              // Access — so an advisor can never arrange a card that is not on
+              // the page, and a promoted question appears here straight away.
+              catalog={featuredCardCatalog}
+              // Membership is Quick Access's job (it has "Move to Quick Access"
+              // and "Hidden"); two on/off switches could only disagree.
+              showEnabledToggle={!featuredCardCatalog}
+              onChange={(helpCards) => {
+                saveStepData(1, { ...step1Data, helpCards } as any);
+
+                // The order is arranged HERE, so it has to reach the placements
+                // too — the Featured list in Quick Access reads the same board.
+                const board = featuredBoard.data?.board;
+                if (
+                  !board ||
+                  board.featured.length === 0 ||
+                  !step1Data.planId ||
+                  !quickAnswersLocation
+                ) {
+                  return;
+                }
+                const topicIdBySlug = new Map(
+                  board.featured.map((topic) => [
+                    topic.slug.replace(/^sys\./, ""),
+                    topic.topicId,
+                  ]),
+                );
+                const orderedTopicIds = helpCards
+                  .map((entry) => topicIdBySlug.get(entry.id))
+                  .filter((topicId): topicId is string => Boolean(topicId));
+                if (orderedTopicIds.length !== board.featured.length) return;
+
+                void reorderFeaturedCards({
+                  planId: step1Data.planId,
+                  location: quickAnswersLocation,
+                  board,
+                  orderedTopicIds,
+                }).catch((error: unknown) => {
+                  toast.error(
+                    error instanceof Error
+                      ? error.message
+                      : "Could not save the card order.",
+                  );
+                });
+              }}
             />
           </div>
 

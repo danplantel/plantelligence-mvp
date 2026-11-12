@@ -52,6 +52,27 @@ interface HelpCardLayoutEditorProps {
    */
   category?: string;
   className?: string;
+  /**
+   * The cards this plan ACTUALLY has, when it is on the topic framework.
+   *
+   * The hub's grid is filled from the Featured placements now, and this list is
+   * what brings the two views in step: the editor shows exactly those cards (plus
+   * the synthesised Account Access one) and drops any stale id it still holds.
+   * Omitted for a plan with no placements, which keeps the catalog behaviour.
+   */
+  catalog?: HelpCardContent[];
+  /**
+   * Whether a card can be hidden from here. Membership belongs to Quick Access
+   * once the plan is on placements — promoting a question there adds a card, so a
+   * second on/off switch in this list could only disagree with it.
+   */
+  showEnabledToggle?: boolean;
+  /**
+   * Whether the list can be dragged into a new order. When Quick Access owns the
+   * Featured order (its ↑/↓ buttons write the placements), reordering here would
+   * only make the two lists disagree — so this control picks the Primary instead.
+   */
+  allowReorder?: boolean;
 }
 
 /** Column span → mini-mirror classes (a plain 4-column grid, so no prefixes). */
@@ -99,6 +120,8 @@ function SortableHelpCardRow({
   category,
   catalog,
   enabled,
+  showEnabledToggle = true,
+  allowReorder = true,
   row = 1,
   span = 1,
   onMakePrimary,
@@ -116,6 +139,10 @@ function SortableHelpCardRow({
   catalog: HelpCardContent[];
   /** Whether the card renders on the hub (see `setHelpCardEnabled`). */
   enabled: boolean;
+  /** False when Quick Access owns membership — see the editor's prop of the same name. */
+  showEnabledToggle?: boolean;
+  /** False when Quick Access owns the order — see the editor's prop of the same name. */
+  allowReorder?: boolean;
   /** Which row the card lands in, and how many columns it takes there. */
   row?: number;
   span?: number;
@@ -133,9 +160,15 @@ function SortableHelpCardRow({
     isDragging,
   } = useSortable({
     id: entry.id,
-    // The primary cannot be dragged, but it MUST stay a drop target: dropping a
-    // standard card on it is what promotes that card (see `moveHelpCard`).
-    disabled: { draggable: isPrimary, droppable: false },
+    /**
+     * Only the DRAG is ever disabled — never the drop.
+     *
+     * The primary must stay a drop target: dropping a standard card on it is what
+     * promotes that card (`moveHelpCard`). Turning `droppable` off here made every
+     * row invisible to collisions, so `over` was always null and a drop did
+     * nothing at all — the reason this list could not be reordered.
+     */
+    disabled: isPrimary || !allowReorder ? { draggable: true } : false,
   });
 
   return (
@@ -157,16 +190,23 @@ function SortableHelpCardRow({
       )}
     >
       {/* Show/hide. Ticked by default, and the card keeps its slot while hidden,
-          so unticking is always reversible. */}
-      <Checkbox
-        checked={enabled}
-        onCheckedChange={(checked) => onToggleEnabled(entry.id, checked === true)}
-        aria-label={`Show ${title} on the portal`}
-        data-testid={`help-card-enabled-${entry.id}`}
-      />
+          so unticking is always reversible. On a plan driven by placements the
+          switch is absent: Quick Access is what adds and removes cards. */}
+      {showEnabledToggle && (
+        <Checkbox
+          checked={enabled}
+          onCheckedChange={(checked) =>
+            onToggleEnabled(entry.id, checked === true)
+          }
+          aria-label={`Show ${title} on the portal`}
+          data-testid={`help-card-enabled-${entry.id}`}
+        />
+      )}
 
-      {/* The primary is pinned to a row-1 edge, so it has a lock instead of a handle. */}
-      {isPrimary ? (
+      {/* The primary is pinned to a row-1 edge, so it has a lock instead of a
+          handle. With no reordering here (Quick Access owns the order) the handle
+          is left out entirely, so the row cannot look draggable when it is not. */}
+      {isPrimary || !allowReorder ? (
         <span
           className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300"
           title="Primary card — change its side below, or choose another card"
@@ -234,12 +274,20 @@ export function HelpCardLayoutEditor({
   onChange,
   category,
   className,
+  catalog: catalogProp,
+  showEnabledToggle = true,
+  allowReorder = true,
 }: HelpCardLayoutEditorProps) {
-  // The category's OWN catalog — Retirement has its six Featured topics, every
-  // other category keeps the shared set. Normalizing against it is what keeps a
-  // Retirement layout from losing its cards (or gaining another category's) every
-  // time it is read back.
-  const catalog = useMemo(() => helpCardCatalogFor(category), [category]);
+  // The cards this plan has: the Featured placements when the host supplies them,
+  // otherwise the category's OWN catalog (Retirement has its six Featured topics,
+  // every other category keeps the shared set). Normalizing against it is what
+  // keeps a layout from losing its cards (or gaining another category's) every
+  // time it is read back — and, on a placement-driven plan, what makes a promoted
+  // question appear here as soon as Quick Access saves it.
+  const catalog = useMemo(
+    () => catalogProp ?? helpCardCatalogFor(category),
+    [catalogProp, category],
+  );
   const layout = useMemo(
     () => normalizeHelpCardLayout(value, { catalog }),
     [value, catalog],
@@ -289,9 +337,11 @@ export function HelpCardLayoutEditor({
             {primaryFillsRow
               ? ", which is the whole first row here."
               : ", at the left or right edge of row 1."}{" "}
-            Dropping a card on the Primary slot makes that card the Primary.
-            Untick a card to hide it from the portal — it keeps its place here,
-            and the remaining cards re-fill the rows. Copy is fixed per card.
+            Dropping a card on the Primary slot makes that card the Primary.{" "}
+            {showEnabledToggle
+              ? "Untick a card to hide it from the portal — it keeps its place here, and the remaining cards re-fill the rows."
+              : "Which cards are on the page comes from Quick Access: promote a question there to add one, or move it back to remove it. Dragging here sets the order participants see, and the Featured Cards list follows."}{" "}
+            Copy is fixed per card.
           </p>
         </div>
         {/* Where the primary sits in row 1 — only meaningful while row 1 holds
@@ -376,6 +426,8 @@ export function HelpCardLayoutEditor({
                 category={category}
                 catalog={catalog}
                 enabled={isHelpCardEnabled(entry)}
+                showEnabledToggle={showEnabledToggle}
+                allowReorder={allowReorder}
                 row={slotById.get(entry.id)?.row ?? 1}
                 span={slotById.get(entry.id)?.span ?? 1}
                 onMakePrimary={(id) =>

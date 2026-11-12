@@ -31,6 +31,8 @@ const editBenefitTests = [
   "components/wizard/benefits-steps/__tests__/quick-answers-builder.test.tsx",
   // Library slugs ("Add from the library") become real Topic ids before the write
   "lib/topics/__tests__/board-server.test.ts",
+  // The write plan: a demoted card returns to the section it came from
+  "lib/topics/__tests__/board.test.ts",
   // The Key Contact Image control both Editing Panels host (Section 2 Branding)
   "components/wizard/shared/__tests__/key-contact-image-card.test.tsx",
   // Contacts-tab invite surface

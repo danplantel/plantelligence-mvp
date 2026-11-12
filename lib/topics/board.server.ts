@@ -9,6 +9,10 @@ import {
   type BoardPlan,
   type TopicBoardInput,
 } from "@/lib/topics/board";
+import {
+  UNGROUPED_TOPIC_GROUP_ID,
+  UNGROUPED_TOPIC_GROUP_NAME,
+} from "@/lib/topics/ungrouped";
 import { resolveEffectiveTopic } from "@/lib/topics/effective-topic";
 import { libraryTopicBySlug, systemTopicSlug } from "@/lib/topics/library";
 import type {
@@ -162,6 +166,25 @@ export async function loadTopicBoard(
       .filter((topic) => topic.groupId === group.id)
       .sort((a, b) => a.sortOrder - b.sortOrder),
   }));
+
+  /**
+   * Questions that name no section (or one that no longer exists) still belong to
+   * the board: without this they would vanish on reload AND be re-offered in the
+   * "Add from the library" drawer. They travel in the same virtual group the
+   * builder strips out again before writing.
+   */
+  const knownGroupIds = new Set(groupRows.map((group) => group.id));
+  const ungrouped = questions
+    .filter((topic) => !topic.groupId || !knownGroupIds.has(topic.groupId))
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  if (ungrouped.length > 0) {
+    groups.push({
+      id: UNGROUPED_TOPIC_GROUP_ID,
+      name: UNGROUPED_TOPIC_GROUP_NAME,
+      sortOrder: groupRows.length,
+      topics: ungrouped,
+    });
+  }
 
   return { location, featured, groups, hidden, featuredCap: FEATURED_CAP };
 }

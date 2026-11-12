@@ -27,6 +27,7 @@ import type {
  */
 export const FEATURED_CAP = 12;
 
+
 export interface BoardGroupInput {
   /** An existing group's id. Omitted for a group the advisor just created. */
   id?: string | null;
@@ -221,11 +222,24 @@ export function planBoardApply(params: {
 
   next.placements.forEach((placement, index) => {
     const sortOrder = placement.sortOrder ?? index;
-    const groupId =
+    const existing = placementByTopic.get(placement.topicId);
+    const requestedGroupId =
       placement.displayMode === "quick_answers"
         ? resolveGroup(placement.groupId)
         : null;
-    const existing = placementByTopic.get(placement.topicId);
+    /**
+     * A card that leaves Quick Answers REMEMBERS the section it came from.
+     *
+     * The group is inert while the card is Featured (or Hidden) — nothing renders
+     * from it — but keeping it on the row is what lets "Move to Quick Answers"
+     * return the question to its own section instead of dropping it into
+     * "Questions" (which the drawer would then offer again as unplaced).
+     */
+    const groupId =
+      requestedGroupId ??
+      (existing && placement.displayMode !== "quick_answers"
+        ? existing.groupId ?? null
+        : null);
     // `undefined` = the board never mentioned a sub-link, which must NOT be read as
     // "clear it": the builder only sends the field for a topic it owns, and a plain
     // reorder must leave every other topic's sub-link exactly as it was.
