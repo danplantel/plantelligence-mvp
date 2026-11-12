@@ -13,12 +13,12 @@ The first three are the same page with different constants; the fourth adds a UR
 
 ## Summary
 
-- **Unit tests:** 417 passing in 25 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
+- **Unit tests:** 418 passing in 25 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
 - **E2E:** none yet
 - **Runner:** Vitest + React Testing Library + jsdom
 
 ```bash
-pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (417 tests)
+pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (418 tests)
 pnpm test:portal-hubs:watch
 pnpm test:portal-hubs:coverage
 ```
@@ -72,7 +72,9 @@ it answers only from content the plan already shows.
   suggestion dispatches `ASSISTANT_ASK_EVENT`; the sheet opens and asks there, so the
   answer carries the plan's placement, CTA and deep link. While that field holds focus it
   dispatches `ASSISTANT_INPUT_FOCUS_EVENT`, and the floating pill steps aside on a phone
-  (`hidden md:flex`) so the list and keyboard have the screen.
+  (`hidden md:flex`) so the list and keyboard have the screen. The hero also reports its
+  own visibility (`ASSISTANT_HERO_VISIBLE_EVENT`): the pill stays hidden while any part of
+  the hero is on screen and returns once it is scrolled past.
 - **Fullscreen on phones.** Below `md` the sheet fills the viewport (`inset-0`, no card
   chrome) and pads the header/composer for the safe areas; the floating pill is hidden
   while it is open (the header's X closes it). The page behind it is locked

@@ -6,7 +6,7 @@ The landing page hides `ClientPortal`'s own header and footer, so **this file is
 
 ## Summary
 
-- **Unit tests:** 228 passing in 14 files
+- **Unit tests:** 229 passing in 14 files
 - **E2E:** none yet (see [Remaining coverage](#remaining-coverage))
 - **Runner:** Vitest + React Testing Library + jsdom
 
@@ -45,7 +45,7 @@ Backed by [`config/vitest/vitest.portal-navbar.config.mts`](../../config/vitest/
 | --- | -------------------------------------------------------------------------------- | ----: | ------------------------------------------------------------------------- |
 | 1   | `app/(portal)/[id]/__tests__/layout.test.tsx`                                     |    37 | Composition, banner (incl. mobile sizing), back links, light mode, disclosures |
 | 2   | `components/pages/client-portal/sections/__tests__/portal-header-login.test.tsx`   |    42 | Header CTA modes, comments flag, active nav state, drawer, theme          |
-| 3   | `components/pages/client-portal/sections/__tests__/portal-chatbot.test.tsx`        |    28 | The pill, the sheet, answers, links, the one-hour session, scroll anchoring |
+| 3   | `components/pages/client-portal/sections/__tests__/portal-chatbot.test.tsx`        |    29 | The pill, the sheet, answers, links, the one-hour session, scroll anchoring |
 | 4   | `components/comments/__tests__/portal-comments-rail.test.tsx`                      |    18 | The three arming gates, the edit-intent open mode and the on/off control  |
 | 5   | `components/comments/__tests__/portal-comments-zoom.test.tsx`                      |    13 | Scale clamp, height division, inset override, observer lifecycle          |
 | 6   | `components/layout/__tests__/footer.test.tsx`                                      |    13 | Trust bar, disclosure text, copyright, text colour                        |

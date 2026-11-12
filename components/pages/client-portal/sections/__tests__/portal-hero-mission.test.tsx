@@ -7,6 +7,7 @@ import { PortalHero } from "../portal-hero";
 import { PortalMission } from "../portal-mission";
 import {
   ASSISTANT_ASK_EVENT,
+  ASSISTANT_HERO_VISIBLE_EVENT,
   ASSISTANT_INPUT_FOCUS_EVENT,
 } from "@/lib/topics/assistant";
 
@@ -376,6 +377,44 @@ describe("PortalHero", () => {
     ).toBeInTheDocument();
   });
 
+  it("shortens the placeholder to 'Ask a question' on a phone", () => {
+    renderHero({ companyData: { companyName: "Acme" } });
+
+    expect(
+      screen.getByRole("searchbox", {
+        name: "Ask a question or search for your benefits",
+      }),
+    ).toHaveAttribute("placeholder", "Ask a question");
+  });
+
+  it("keeps the full placeholder where there is room", () => {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn(() => ({
+      matches: true,
+      media: "(min-width: 640px)",
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })) as unknown as typeof window.matchMedia;
+
+    try {
+      renderHero({ companyData: { companyName: "Acme" } });
+      expect(
+        screen.getByRole("searchbox", {
+          name: "Ask a question or search for your benefits",
+        }),
+      ).toHaveAttribute(
+        "placeholder",
+        "Ask a question or search for your benefits ...",
+      );
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  });
+
   it("lifts the Ask bar below the portal chrome when the field takes focus", async () => {
     const user = userEvent.setup();
     const chrome = document.createElement("div");
@@ -425,20 +464,77 @@ describe("PortalHero", () => {
     window.removeEventListener(ASSISTANT_INPUT_FOCUS_EVENT, listener);
   });
 
-  it("extends the hero by five rows on a phone while the search is active", async () => {
+  it("reports whether the hero is on screen so the assistant pill can step away", () => {
+    const originalObserver = window.IntersectionObserver;
+    let fire: IntersectionObserverCallback | null = null;
+    class ObserverStub {
+      constructor(callback: IntersectionObserverCallback) {
+        fire = callback;
+      }
+      observe = vi.fn();
+      unobserve = vi.fn();
+      disconnect = vi.fn();
+      takeRecords = vi.fn(() => []);
+      root = null;
+      rootMargin = "";
+      thresholds = [];
+    }
+    window.IntersectionObserver =
+      ObserverStub as unknown as typeof IntersectionObserver;
+
+    const listener = vi.fn();
+    window.addEventListener(ASSISTANT_HERO_VISIBLE_EVENT, listener);
+
+    try {
+      renderHero({ companyData: { companyName: "Acme" } });
+
+      act(() => {
+        fire?.(
+          [{ isIntersecting: true } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        );
+      });
+      expect(listener).toHaveBeenCalledWith(
+        expect.objectContaining({ detail: { visible: true } }),
+      );
+
+      act(() => {
+        fire?.(
+          [{ isIntersecting: false } as IntersectionObserverEntry],
+          {} as IntersectionObserver,
+        );
+      });
+      // Scrolled past the hero: the pill may return.
+      expect(listener).toHaveBeenLastCalledWith(
+        expect.objectContaining({ detail: { visible: false } }),
+      );
+    } finally {
+      window.removeEventListener(ASSISTANT_HERO_VISIBLE_EVENT, listener);
+      window.IntersectionObserver = originalObserver;
+    }
+  });
+
+  it("extends the hero only once search results appear on a phone", async () => {
     const user = userEvent.setup();
     renderHero({ companyData: { companyName: "Acme" } });
+    const input = screen.getByRole("searchbox", {
+      name: "Ask a question or search for your benefits",
+    });
 
-    await user.click(
-      screen.getByRole("searchbox", {
-        name: "Ask a question or search for your benefits",
-      }),
-    );
+    // A bare focus leaves the header alone — the reserve is collapsed to nothing.
+    await user.click(input);
+    const collapsed = screen.getByTestId("portal-hero-ask-reserve");
+    expect(collapsed.className).toContain("h-0");
+    expect(collapsed.className).not.toContain("h-[18.5rem]");
 
-    // The reserve appears on focus, before any results, so growing the section never
-    // shifts the bar mid-typing. Phone-only, and exactly five card rows tall.
+    await user.type(input, "loan");
+
+    // Results grow the five-row reserve with a height transition, holding the list
+    // inside the section.
     const reserve = screen.getByTestId("portal-hero-ask-reserve");
     expect(reserve.className).toContain("h-[18.5rem]");
+    expect(reserve.className).toContain("transition-[height]");
+    expect(reserve.className).toContain("duration-300");
     expect(reserve.className).toContain("sm:hidden");
   });
 

@@ -63,6 +63,12 @@ export const ASSISTANT_ASK_EVENT = "portal-chatbot:ask";
  */
 export const ASSISTANT_INPUT_FOCUS_EVENT = "portal-chatbot:ask-focus";
 
+/**
+ * Reports whether the hero section (which carries its own Ask bar) is on screen.
+ * The floating pill stays out of the way until the visitor scrolls past it.
+ */
+export const ASSISTANT_HERO_VISIBLE_EVENT = "portal-chatbot:hero-visible";
+
 // ── Corpus ───────────────────────────────────────────────────────────────────
 
 /** One placement as the assistant reads it: already resolved against the library. */

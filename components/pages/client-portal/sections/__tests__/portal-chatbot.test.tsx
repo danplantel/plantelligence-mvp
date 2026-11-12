@@ -6,6 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   ASSISTANT_ASK_EVENT,
+  ASSISTANT_HERO_VISIBLE_EVENT,
   ASSISTANT_INPUT_FOCUS_EVENT,
 } from "@/lib/topics/assistant";
 
@@ -630,6 +631,33 @@ describe("PortalChatbot handoff", () => {
       );
     });
 
+    expect(
+      screen.getByRole("button", { name: "Ask a question" }).className,
+    ).toContain("flex px-5");
+  });
+
+  it("stays hidden while the landing hero is on screen", () => {
+    render(<PortalChatbot />);
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(ASSISTANT_HERO_VISIBLE_EVENT, {
+          detail: { visible: true },
+        }),
+      );
+    });
+    expect(
+      screen.getByRole("button", { name: "Ask a question" }).className,
+    ).toContain("hidden");
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(ASSISTANT_HERO_VISIBLE_EVENT, {
+          detail: { visible: false },
+        }),
+      );
+    });
+    // Scrolling past the hero brings the pill back.
     expect(
       screen.getByRole("button", { name: "Ask a question" }).className,
     ).toContain("flex px-5");

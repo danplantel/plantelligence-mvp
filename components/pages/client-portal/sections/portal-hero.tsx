@@ -13,12 +13,14 @@ import {
 } from "react";
 import {
   ASSISTANT_ASK_EVENT,
+  ASSISTANT_HERO_VISIBLE_EVENT,
   ASSISTANT_INPUT_FOCUS_EVENT,
   buildAssistantCorpus,
   searchAssistantTopics,
   type AssistantTopic,
 } from "@/lib/topics/assistant";
 import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { isR2BrandingKey } from "@/lib/branding-image-url";
 import { PORTAL_SECTION_IDS } from "@/lib/portal-editor-sections";
@@ -58,6 +60,9 @@ interface PortalHeroProps {
 
 /** Extra breathing room between the fixed chrome and the lifted Ask bar. */
 const ASK_BAR_TOP_GAP = 10;
+
+/** How long the phone's search reserve takes to grow or collapse. */
+const HERO_RESERVE_MS = 300;
 
 export function PortalHero({
   companyData,
@@ -104,6 +109,10 @@ export function PortalHero({
       .matches.filter((match) => match.score >= 20)
       .map((match) => match.topic);
   }, [query, topicIndex]);
+  /** True only once there are topics to show — the moment the hero may grow. */
+  const hasSuggestions = suggestionsOpen && suggestions.length > 0;
+  /** Phones are below `sm`, matching the rest of the hero's mobile treatment. */
+  const isPhone = !useMediaQuery("(min-width: 640px)", true);
 
   /**
    * Hand the question to the assistant, which holds this plan's placements and can
@@ -146,19 +155,58 @@ export function PortalHero({
   }, []);
 
   /**
-   * Lift the bar once the search is active. On a phone the hero has also grown the
-   * five-row reserve below the form, so the card sits inside its own section instead
-   * of over the mission. The card is anchored to the form's wrapper, which keeps it
-   * directly below the field wherever the page is scrolled. A resize is the one
-   * thing that can change its width.
+   * Lift the bar once the search is active, and again whenever the results appear or
+   * clear. On a phone the hero only grows when there is something to show (the
+   * five-row reserve below the form), so the extra height — and this second pin — wait
+   * for matches rather than firing on a bare focus. The card is anchored to the
+   * form's wrapper, keeping it directly below the field wherever the page is
+   * scrolled. A resize is the one other thing that can change its width.
+   *
+   * The reserve grows with a CSS height transition, so the layout settles only when
+   * that animation ends: the bar is lifted once now, then again at the end so the
+   * final growth cannot leave it tucked under the fixed chrome.
    */
   useEffect(() => {
     if (!suggestionsOpen) return;
     pinAskBar();
+    const settle = hasSuggestions
+      ? setTimeout(() => pinAskBar(), HERO_RESERVE_MS + 20)
+      : null;
     const update = () => pinAskBar();
     window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
-  }, [suggestionsOpen, pinAskBar]);
+    return () => {
+      if (settle) clearTimeout(settle);
+      window.removeEventListener("resize", update);
+    };
+  }, [suggestionsOpen, hasSuggestions, pinAskBar]);
+
+  // The hero carries its own Ask bar, so the floating assistant pill steps away
+  // while any part of this section is on screen. The observer publishes a window
+  // event, keeping the two components decoupled; leaving the page reports `false`
+  // so a hub page opened next starts with the pill back.
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        window.dispatchEvent(
+          new CustomEvent(ASSISTANT_HERO_VISIBLE_EVENT, {
+            detail: { visible: entry.isIntersecting },
+          }),
+        );
+      },
+      { threshold: 0 },
+    );
+    observer.observe(section);
+    return () => {
+      observer.disconnect();
+      window.dispatchEvent(
+        new CustomEvent(ASSISTANT_HERO_VISIBLE_EVENT, {
+          detail: { visible: false },
+        }),
+      );
+    };
+  }, []);
 
   // Leaving the page with the field still focused must not strand the chatbot's
   // button in its hidden state.
@@ -436,10 +484,10 @@ export function PortalHero({
         style={{ background: mobileWash, opacity: containerBlockOpacity }}
       />
 
-      <div className="z-10 relative flex justify-center items-center px-2 sm:px-6 lg:px-8 box-border h-full w-full">
+      <div className="z-10 relative flex justify-center items-center px-0 sm:px-6 lg:px-8 box-border h-full w-full">
         <div
           data-container="true"
-          className={`text-container relative lg:bottom-20 flex items-center justify-center px-4 sm:px-6 lg:px-10 box-border min-h-[280px] sm:min-h-[320px] w-full max-w-[900px] mx-auto transition-all relative ${
+          className={`text-container relative lg:bottom-20 flex items-center justify-center px-2 sm:px-6 lg:px-10 box-border min-h-[280px] sm:min-h-[320px] w-full max-w-[1200px] mx-auto transition-all relative ${
             isEditable && onContainerClick
               ? "[&:hover:not(:has(.text-content:hover))]:ring-2 [&:hover:not(:has(.text-content:hover))]:ring-blue-500/50 [&:hover:not(:has(.text-content:hover))]:rounded-md cursor-pointer"
               : isEditable
@@ -491,14 +539,14 @@ export function PortalHero({
 
           {/* Content layer - text without opacity */}
           <div
-            className="text-content p-4 text-center flex flex-col items-center justify-center relative z-10 w-full max-w-full min-w-0"
+            className="text-content px-2 py-4 text-center flex flex-col items-center justify-center relative z-10 w-full max-w-full min-w-0 sm:p-4"
             style={{
               color: containerInverted ? "#020617" : brandColor,
             }}
           >
             {heroTitleSlot || (
               <h1
-                className={`text-content mb-4 sm:mb-6 font-dm-serif text-3xl sm:text-4xl md:text-5xl lg:text-[48px] w-full sm:w-4/5 relative z-10 ${
+                className={`text-content mb-4 sm:mb-6 font-dm-serif text-3xl sm:text-4xl md:text-5xl lg:text-[48px] w-full relative z-10 ${
                   onHeroTitleClick
                     ? `cursor-pointer transition-all ${
                         showEditIndicators
@@ -648,7 +696,7 @@ export function PortalHero({
                   </div>
                 ) : (
                   <p
-                    className={`text-content font-red-hat text-sm sm:text-base leading-relaxed transition-all duration-600 ease-out opacity-100 translate-y-0 w-full text-left sm:w-4/5 sm:text-center relative z-10 ${
+                    className={`text-content font-red-hat text-sm sm:text-base leading-relaxed transition-all duration-600 ease-out opacity-100 translate-y-0 w-full text-left sm:text-center relative z-10 ${
                       onHeroDescriptionClick
                         ? `cursor-pointer transition-all ${
                             showEditIndicators
@@ -755,7 +803,13 @@ export function PortalHero({
                   aria-label="Ask a question or search for your benefits"
                   aria-controls="portal-hero-topic-suggestions"
                   autoComplete="off"
-                  placeholder="Ask a question or search for your benefits ..."
+                  // A phone has no room for the full prompt; the field's name
+                  // (aria-label) stays complete for assistive tech.
+                  placeholder={
+                    isPhone
+                      ? "Ask a question"
+                      : "Ask a question or search for your benefits ..."
+                  }
                   className="h-9 min-w-0 flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none"
                 />
                 <Button
@@ -817,17 +871,19 @@ export function PortalHero({
                 ) : null}
               </div>
 
-              {/* On a phone the hero grows to hold the suggestion card: a constant
-                  five-row reserve keeps the list inside its own section instead of
-                  over the mission, and the layout never shifts mid-typing. Hidden
-                  from `sm` up, where the hero already has the room. */}
-              {suggestionsOpen ? (
-                <div
-                  data-testid="portal-hero-ask-reserve"
-                  aria-hidden="true"
-                  className="mt-2 h-[18.5rem] w-full sm:hidden"
-                />
-              ) : null}
+              {/* On a phone the hero grows to hold the suggestion card — but only
+                  once there are results to show, so a bare focus does not extend the
+                  header. The height transition makes that growth read as an expansion
+                  rather than a jump. A constant five-row reserve keeps the list
+                  inside its own section instead of over the mission and keeps the
+                  layout steady while a longer list scrolls. Hidden from `sm` up. */}
+              <div
+                data-testid="portal-hero-ask-reserve"
+                aria-hidden="true"
+                className={`mt-2 w-full overflow-hidden transition-[height] duration-300 ease-out sm:hidden ${
+                  hasSuggestions ? "h-[18.5rem]" : "h-0"
+                }`}
+              />
             </div>
           </div>
         </div>
