@@ -394,3 +394,19 @@
 .portal-root .dark\:hover\:bg-gray-700 {
   background-color: rgb(249 250 251 / 1) !important; /* gray-50 */
 }
+
+/*
+ * iOS Safari zooms the whole page in when a focused form control renders under
+ * 16px of text — the chatbot composer, the portal's Ask field, and every
+ * dashboard form. Keeping controls at 16px on phones stops that jump while
+ * leaving pinch-zoom available; a fixed `maximum-scale` would take pinch-zoom
+ * away from the reader, which is not what this is for.
+ */
+@media (max-width: 767px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  textarea,
+  select,
+  [contenteditable="true"] {
+    font-size: 16px !important;
+  }
+}
