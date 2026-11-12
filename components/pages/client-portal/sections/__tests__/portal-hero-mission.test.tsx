@@ -128,6 +128,23 @@ describe("PortalMission", () => {
     expect(onMissionHeadlineClick).not.toHaveBeenCalled();
   });
 
+  it("stacks the header, featured image, then the statement on a phone", () => {
+    renderMission({ company: { missionHeadline: "Our mission" } });
+
+    const header = screen.getByTestId("portal-mission-header");
+    const media = screen.getByTestId("portal-mission-media");
+    const body = screen.getByTestId("portal-mission-body");
+    // Phone order: header → image → statement. From `lg` up the image returns to
+    // the left column and the header/statement stack on the right.
+    expect(header.className).toContain("order-1");
+    expect(media.className).toContain("order-2");
+    expect(body.className).toContain("order-3");
+    expect(header.className).toContain("lg:col-start-2");
+    expect(media.className).toContain("lg:col-start-1");
+    expect(media.className).toContain("lg:row-span-2");
+    expect(body.className).toContain("lg:row-start-2");
+  });
+
   it("stays plain text when no handlers are supplied", () => {
     renderMission({
       company: { missionHeadline: "Our mission", missionBody: "Do good work" },

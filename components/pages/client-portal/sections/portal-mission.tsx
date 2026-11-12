@@ -71,12 +71,68 @@ export function PortalMission({
       className="px-4 sm:px-6 lg:px-8 flex items-center min-h-0 sm:min-h-[590px] bg-[#FEFCF7] relative py-8 sm:py-12"
     >
       {/* CSS Grid layout:
-          - Mobile: single column (image on top, text below)
-          - Desktop (lg): two columns — image left, text right */}
-      <div className="max-w-[1400px] mx-auto w-full grid grid-cols-1 lg:grid-cols-[42%_58%] gap-8 lg:gap-12">
+          - Mobile: one column — header, then the featured image, then the statement
+          - Desktop (lg): two columns — image left, header and statement stacked right */}
+      <div className="max-w-[1400px] mx-auto w-full grid grid-cols-1 lg:grid-cols-[42%_58%] gap-x-8 gap-y-6 lg:gap-x-12 lg:gap-y-0">
 
-        {/* ── Left column: Image ── */}
-        <div className="relative w-full">
+        {/* Header — leads on a phone; top of the right column on desktop. */}
+        <motion.div
+          variants={fadeLeft}
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
+          data-testid="portal-mission-header"
+          className="order-1 w-full lg:order-none lg:col-start-2 lg:row-start-1"
+        >
+          <div className="relative p-4 pb-0 sm:p-6 sm:pb-0 lg:p-10 lg:pb-0">
+            <h2
+              // `text-gray-900`, matching "How Can We Help You Today?" — the
+              // landing page's section headings all read in one colour, and none of
+              // them takes the plan's brand colour.
+              className={`mb-4 sm:mb-5 font-dm-serif text-gray-900 text-xl sm:text-2xl md:text-3xl lg:text-[34px] leading-tight ${onMissionHeadlineClick
+                ? `${showEditIndicators
+                    ? `cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70 ${hoveredElement === "headline"
+                        ? "opacity-90 ring-2 ring-blue-500/50 rounded-md px-2 -mx-2"
+                        : "hover:opacity-90"
+                      }`
+                    : "cursor-pointer"
+                  }`
+                : ""
+                }`}
+              role={onMissionHeadlineClick ? "button" : undefined}
+              tabIndex={onMissionHeadlineClick ? 0 : undefined}
+              onClick={(e) => {
+                if (onMissionHeadlineClick) {
+                  e.stopPropagation();
+                  onMissionHeadlineClick();
+                }
+              }}
+              onKeyDown={(event: KeyboardEvent<HTMLHeadingElement>) =>
+                handleInteractiveKeyDown(event, onMissionHeadlineClick)
+              }
+              onMouseEnter={() => setHoveredElement("headline")}
+              onMouseLeave={() => setHoveredElement(null)}
+              onFocus={() => setHoveredElement("headline")}
+              onBlur={() => setHoveredElement(null)}
+            >
+              {company?.missionHeadline ||
+                "We care about people. We value teamwork. We deliver results."}
+            </h2>
+            {showEditIndicators && onMissionHeadlineClick && hoveredElement === "headline" && (
+              <div className="absolute top-[-7px] left-[-7px] z-20 bg-blue-500 rounded-full p-1.5 shadow-lg">
+                <Pencil className="w-3 h-3 text-white" />
+              </div>
+            )}
+          </div>
+        </motion.div>
+
+        {/* Featured image — second on a phone; spans both right-hand rows on
+            desktop, as the left column. */}
+        <div
+          data-testid="portal-mission-media"
+          className="relative order-2 w-full lg:order-none lg:col-start-1 lg:row-span-2 lg:row-start-1"
+        >
           {/* 9:10, and sized by the column rather than a fixed height.
            *
            * The slot is a 9:10 crop, so the frame has to be 9:10 too: it shows
@@ -118,56 +174,17 @@ export function PortalMission({
           />
         </div>
 
-        {/* ── Right column: Text + Button (animated) ── */}
+        {/* Mission statement + CTA — after the image on a phone; row 2 on desktop. */}
         <motion.div
           variants={fadeLeft}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
-          className="w-full"
+          transition={{ duration: 0.6, delay: 0.45, ease: "easeOut" }}
+          data-testid="portal-mission-body"
+          className="order-3 w-full lg:order-none lg:col-start-2 lg:row-start-2"
         >
-          <div className="flex flex-col justify-center p-4 sm:p-6 lg:p-10">
-            <div className="relative">
-              <h2
-                // `text-gray-900`, matching "How Can We Help You Today?" — the
-                // landing page's section headings all read in one colour, and none of
-                // them takes the plan's brand colour.
-                className={`mb-4 sm:mb-5 font-dm-serif text-gray-900 text-xl sm:text-2xl md:text-3xl lg:text-[34px] leading-tight ${onMissionHeadlineClick
-                  ? `${showEditIndicators
-                      ? `cursor-pointer transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400/70 ${hoveredElement === "headline"
-                          ? "opacity-90 ring-2 ring-blue-500/50 rounded-md px-2 -mx-2"
-                          : "hover:opacity-90"
-                        }`
-                      : "cursor-pointer"
-                    }`
-                  : ""
-                  }`}
-                role={onMissionHeadlineClick ? "button" : undefined}
-                tabIndex={onMissionHeadlineClick ? 0 : undefined}
-                onClick={(e) => {
-                  if (onMissionHeadlineClick) {
-                    e.stopPropagation();
-                    onMissionHeadlineClick();
-                  }
-                }}
-                onKeyDown={(event: KeyboardEvent<HTMLHeadingElement>) =>
-                  handleInteractiveKeyDown(event, onMissionHeadlineClick)
-                }
-                onMouseEnter={() => setHoveredElement("headline")}
-                onMouseLeave={() => setHoveredElement(null)}
-                onFocus={() => setHoveredElement("headline")}
-                onBlur={() => setHoveredElement(null)}
-              >
-                {company?.missionHeadline ||
-                  "We care about people. We value teamwork. We deliver results."}
-              </h2>
-              {showEditIndicators && onMissionHeadlineClick && hoveredElement === "headline" && (
-                <div className="absolute top-[-7px] left-[-7px] z-20 bg-blue-500 rounded-full p-1.5 shadow-lg">
-                  <Pencil className="w-3 h-3 text-white" />
-                </div>
-              )}
-            </div>
+          <div className="flex flex-col p-4 pt-0 sm:p-6 sm:pt-0 lg:p-10 lg:pt-0">
             <div className="relative">
               <p
                 className={`text-[#6B6B6B] font-red-hat sm:text-base lg:text-[1.3em] leading-[1.8] mb-4 sm:mb-5 whitespace-pre-line ${onMissionBodyClick

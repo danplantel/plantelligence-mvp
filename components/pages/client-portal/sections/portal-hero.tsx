@@ -371,7 +371,7 @@ export function PortalHero({
   return (
     <section
       ref={sectionRef}
-      className={`px-4 sm:px-6 lg:px-20 min-h-[600px] sm:min-h-[700px] lg:min-h-screen sm:pt-0 relative isolate overflow-hidden flex justify-center items-center ${
+      className={`px-4 sm:px-6 lg:px-20 min-h-[560px] sm:min-h-[700px] lg:min-h-screen sm:pt-0 relative isolate overflow-hidden flex justify-center items-center ${
         hasBackgroundImage ? "bg-[#FEFCF7]" : "bg-white"
       }`}
     >
@@ -487,7 +487,7 @@ export function PortalHero({
       <div className="z-10 relative flex justify-center items-center px-0 sm:px-6 lg:px-8 box-border h-full w-full">
         <div
           data-container="true"
-          className={`text-container relative lg:bottom-20 flex items-center justify-center px-2 sm:px-6 lg:px-10 box-border min-h-[280px] sm:min-h-[320px] w-full max-w-[1200px] mx-auto transition-all relative ${
+          className={`text-container relative lg:bottom-20 flex items-center justify-center px-2 sm:px-6 lg:px-10 box-border min-h-[280px] sm:min-h-[320px] w-full max-w-[900px] mx-auto transition-all relative ${
             isEditable && onContainerClick
               ? "[&:hover:not(:has(.text-content:hover))]:ring-2 [&:hover:not(:has(.text-content:hover))]:ring-blue-500/50 [&:hover:not(:has(.text-content:hover))]:rounded-md cursor-pointer"
               : isEditable
@@ -546,7 +546,7 @@ export function PortalHero({
           >
             {heroTitleSlot || (
               <h1
-                className={`text-content mb-4 sm:mb-6 font-dm-serif text-3xl sm:text-4xl md:text-5xl lg:text-[48px] w-full relative z-10 ${
+                className={`text-content mb-4 sm:mb-6 font-dm-serif text-3xl sm:text-4xl md:text-5xl lg:text-[48px] w-full sm:w-4/5 relative z-10 ${
                   onHeroTitleClick
                     ? `cursor-pointer transition-all ${
                         showEditIndicators
@@ -696,7 +696,7 @@ export function PortalHero({
                   </div>
                 ) : (
                   <p
-                    className={`text-content font-red-hat text-sm sm:text-base leading-relaxed transition-all duration-600 ease-out opacity-100 translate-y-0 w-full text-left sm:text-center relative z-10 ${
+                    className={`text-content font-red-hat text-sm sm:text-base leading-relaxed transition-all duration-600 ease-out opacity-100 translate-y-0 w-full text-left sm:w-4/5 sm:text-center relative z-10 ${
                       onHeroDescriptionClick
                         ? `cursor-pointer transition-all ${
                             showEditIndicators
