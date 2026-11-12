@@ -21,7 +21,7 @@ Unlike Edit Plan, this page owns almost no UI of its own. It is a **projection**
 ## Running these tests
 
 ```bash
-pnpm test:portal-landing           # all Portal Landing suites (203 tests)
+pnpm test:portal-landing           # all Portal Landing suites (222 tests)
 pnpm test:portal-landing:watch     # watch mode
 pnpm test:portal-landing:coverage  # suites + V8 coverage
 ```
@@ -35,7 +35,7 @@ Backed by [`config/vitest/vitest.portal-landing.config.mts`](../../config/vitest
 | 1   | `app/(portal)/[id]/__tests__/page.test.tsx`                                      |    17 | Contact projection, visibility fallback, footer preference, props to `ClientPortal` |
 | 2   | `contexts/__tests__/client-portal-context.test.tsx`                              |    14 | `forPortal` fetch, archived/alias, error states, profile, refetch events            |
 | 3   | `components/pages/client-portal/sections/__tests__/portal-benefits.test.tsx`     |    22 | Four hub cards, visibility, partner branding, completeness gate, its Section 5 button |
-| 4   | `components/pages/client-portal/sections/__tests__/portal-hero-mission.test.tsx` |    22 | Hero/mission copy fallbacks and the preview-only edit affordances                   |
+| 4   | `components/pages/client-portal/sections/__tests__/portal-hero-mission.test.tsx` |    26 | Hero/mission copy, edit affordances, and the library-backed Ask bar with its focus lift |
 | 5   | `lib/__tests__/benefit-completeness.test.ts`                                     |    24 | The completeness matrix behind the "finish this benefit" dialog                     |
 | 6   | `lib/__tests__/disclaimer-constants.test.ts`                                     |    30 | Footer text, placeholder resolution, disclaimer-envelope shapes                     |
 | 7   | `lib/__tests__/portal-disclosures.test.ts`                                       |    22 | Which footer row each scope reads (landing and per-benefit), and the writes          |
@@ -239,7 +239,7 @@ suite asserts a participant gets `showEditIndicators={false}` and no buttons.
 
 **Benefits (`portal-benefits.test.tsx`)** — four default cards; category-based slot filling; a hidden hub and the all-hidden `null`; the stale-`isEnabled` rule; grid sizing; hub links vs the preview CTA; partner name from the assigned/primary contact; the image precedence chain; the 75-character copy cap; category default copy; the chevron split; `onEdit`; the placeholder card; the dialog's missing-info list and wizard link; and the preview bypass.
 
-**Hero and mission (`portal-hero-mission.test.tsx`)** — saved and fallback copy; `role="button"` only when a handler exists; Enter/Space activation; body clicks not reaching the headline handler; the thumbnail vs stock photo; both scroll behaviours; the hero's company-name headline and `--------` fallback; and the benefits question search.
+**Hero and mission (`portal-hero-mission.test.tsx`)** — saved and fallback copy; `role="button"` only when a handler exists; Enter/Space activation; body clicks not reaching the headline handler; the thumbnail vs stock photo; both scroll behaviours; the hero's company-name headline and `--------` fallback; and the benefits question search — typing queries the shipped topic library, the dropdown names each topic's hub/group, and submitting the field or a suggestion dispatches `ASSISTANT_ASK_EVENT` for the chatbot to answer. The sheet opens on that question, pinned so the answer reads from its first line. Focusing the field lifts the bar below the fixed banner + header (marked `data-portal-header`), with a 10px gap, so the suggestion list opens into clear space on desktop and mobile alike.
 
 **Completeness (`benefit-completeness.test.ts`)** — category aliasing and normalization; the nested-then-root benefits lookup; each of the four sections; logo from card/contact/plan (including `{ url }` and placeholder rejection); `image` vs `backgroundImage`; title and description (not the plan's mission); contact categories and the `{ contacts }` envelope; archived documents; the nested `companyData` merge; and the full missing-info list.
 

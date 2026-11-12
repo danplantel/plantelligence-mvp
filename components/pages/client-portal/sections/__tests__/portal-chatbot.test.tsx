@@ -1,8 +1,10 @@
 import React from "react";
 
-import { render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+
+import { ASSISTANT_ASK_EVENT } from "@/lib/topics/assistant";
 
 import { CHAT_SESSION_MS, PortalChatbot } from "../portal-chatbot";
 
@@ -510,6 +512,95 @@ describe("PortalChatbot assistant", () => {
     expect(
       screen.queryByRole("link", { name: /open on your plan page/i }),
     ).not.toBeInTheDocument();
+  });
+
+  it("pins the visitor's question instead of the end of the answer", async () => {
+    swr.data = { success: true, topics: [PLACED_LOAN], hiddenSlugs: [] };
+    const user = await openSheet();
+
+    await ask(user, "How do I take a loan?");
+
+    const transcript = screen.getByTestId("portal-chatbot-transcript");
+    const question = transcript.querySelector<HTMLElement>(
+      '[data-message-role="user"]',
+    );
+    expect(question).not.toBeNull();
+    // The transcript is `relative`, so the question's offsetTop is its place in the
+    // scrolled content: 300px down, pinned 12px below the transcript's top.
+    Object.defineProperty(question as HTMLElement, "offsetTop", {
+      configurable: true,
+      value: 300,
+    });
+    const scrollTo = vi.fn();
+    transcript.scrollTo = scrollTo as unknown as typeof transcript.scrollTo;
+
+    await waitFor(() =>
+      expect(screen.getByText(/borrow up to 50%/)).toBeInTheDocument(),
+    );
+
+    await waitFor(() =>
+      expect(scrollTo).toHaveBeenCalledWith({ top: 288, behavior: "smooth" }),
+    );
+  });
+});
+
+describe("PortalChatbot handoff", () => {
+  it("answers a question handed over by the landing page's Ask bar", async () => {
+    render(<PortalChatbot />);
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(ASSISTANT_ASK_EVENT, {
+          detail: { question: "What does COBRA stand for?" },
+        }),
+      );
+    });
+
+    // The sheet opens by itself and asks there, with the plan's own index.
+    expect(
+      await screen.findByRole("dialog", { name: "Benefits assistant" }),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Consolidated Omnibus Budget Reconciliation Act/),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it("pins the handed-over question when the Ask bar opens the sheet", async () => {
+    render(<PortalChatbot />);
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(ASSISTANT_ASK_EVENT, {
+          detail: { question: "What does COBRA stand for?" },
+        }),
+      );
+    });
+
+    const transcript = screen.getByTestId("portal-chatbot-transcript");
+    const question = transcript.querySelector<HTMLElement>(
+      '[data-message-role="user"]',
+    );
+    expect(question).not.toBeNull();
+    Object.defineProperty(question as HTMLElement, "offsetTop", {
+      configurable: true,
+      value: 240,
+    });
+    const scrollTo = vi.fn();
+    transcript.scrollTo = scrollTo as unknown as typeof transcript.scrollTo;
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(/Consolidated Omnibus Budget Reconciliation Act/),
+      ).toBeInTheDocument(),
+    );
+
+    // 240px down the transcript, pinned 12px below its top — the sheet opens on
+    // the visitor's question, so the answer is read from its first line.
+    await waitFor(() =>
+      expect(scrollTo).toHaveBeenCalledWith({ top: 228, behavior: "smooth" }),
+    );
   });
 });
 

@@ -2,7 +2,13 @@
 
 import { Button } from "@/components/ui/button";
 import { ChevronDown, Pencil, Search } from "lucide-react";
-import { useRef, KeyboardEvent, ReactNode, useState } from "react";
+import { useRef, KeyboardEvent, ReactNode, useMemo, useState } from "react";
+import {
+  ASSISTANT_ASK_EVENT,
+  buildAssistantCorpus,
+  searchAssistantTopics,
+  type AssistantTopic,
+} from "@/lib/topics/assistant";
 import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { isR2BrandingKey } from "@/lib/branding-image-url";
@@ -41,6 +47,9 @@ interface PortalHeroProps {
   mobileHeroBackgroundPosition?: { x: number; y: number };
 }
 
+/** Extra breathing room between the fixed chrome and the lifted Ask bar. */
+const ASK_BAR_TOP_GAP = 10;
+
 export function PortalHero({
   companyData,
   brandColor = "#1F3A60",
@@ -64,10 +73,64 @@ export function PortalHero({
   mobileHeroBackgroundPosition,
 }: PortalHeroProps) {
   const sectionRef = useRef<HTMLElement>(null);
+  const askBarRef = useRef<HTMLDivElement>(null);
   const [hoveredElement, setHoveredElement] = useState<
     "background" | "container" | "title" | "description" | null
   >(null);
   const leaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // ── The Ask bar, backed by the shipped topic library ──
+  // The index is built once: the same library the assistant and the hubs read.
+  const topicIndex = useMemo(() => buildAssistantCorpus(), []);
+  const [query, setQuery] = useState("");
+  const [suggestionsOpen, setSuggestionsOpen] = useState(false);
+  const suggestions = useMemo<AssistantTopic[]>(() => {
+    const needle = query.trim();
+    if (needle.length < 2) return [];
+    return searchAssistantTopics(topicIndex, needle, 5)
+      .matches.filter((match) => match.score >= 20)
+      .map((match) => match.topic);
+  }, [query, topicIndex]);
+
+  /**
+   * Hand the question to the assistant, which holds this plan's placements and can
+   * answer with the topic's own copy, CTA and deep link. One window event keeps the
+   * hero and the sheet decoupled.
+   */
+  const askQuestion = (question: string) => {
+    const text = question.trim();
+    if (!text) return;
+    window.dispatchEvent(
+      new CustomEvent(ASSISTANT_ASK_EVENT, { detail: { question: text } }),
+    );
+    setQuery("");
+    setSuggestionsOpen(false);
+  };
+
+  /**
+   * Lift the Ask bar to the top of the viewport when the field takes focus, so the
+   * suggestion list opens into clear space instead of below the fold.
+   *
+   * The portal's banner + header are fixed, so their height is subtracted; without
+   * that chrome (a preview, a test) the bar simply goes to the viewport's top. The
+   * maths stays in viewport coordinates, which keeps it correct inside the scaled
+   * editing preview. Works the same on a phone: the input stays at the top and the
+   * keyboard rises beneath it.
+   */
+  const pinAskBar = () => {
+    const bar = askBarRef.current;
+    if (!bar) return;
+    const chrome = document.querySelector<HTMLElement>("[data-portal-header]");
+    const chromeHeight = chrome
+      ? Math.max(0, chrome.getBoundingClientRect().bottom)
+      : 0;
+    const top =
+      bar.getBoundingClientRect().top +
+      window.scrollY -
+      chromeHeight -
+      ASK_BAR_TOP_GAP;
+    window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
+  };
 
   const defaultTitle = `Welcome to the ${
     companyData?.companyName || "Company Name"
@@ -593,40 +656,107 @@ export function PortalHero({
                 );
               })()}
 
-            {/* Ask / search bar — UI only for now; the flow will be wired later.
-                Clicks are stopped here so using the field in the editing preview
-                never opens the container editor. */}
-            <form
-              role="search"
-              className="relative z-10 mt-6 flex w-full items-center gap-2 rounded-xl bg-white p-1.5 pl-4 shadow-lg"
+            {/* Ask / search bar — searches the shipped topic library as the visitor
+                types, and hands the chosen question to the assistant (see
+                `ASSISTANT_ASK_EVENT`). Clicks are stopped here so using the field in
+                the editing preview never opens the container editor. */}
+            <div
+              ref={askBarRef}
+              data-testid="portal-hero-ask-bar"
+              className="relative z-10 mt-6 w-full"
               onClick={(event) => event.stopPropagation()}
-              onSubmit={(event) => event.preventDefault()}
-              style={{ borderRadius: portalRadiusValue(1.5) }}
             >
-              <Search
-                className="h-4 w-4 shrink-0 text-gray-500"
-                aria-hidden="true"
-              />
-              <input
-                type="search"
-                aria-label="Ask a question or search for your benefits"
-                placeholder="Ask a question or search for your benefits ..."
-                className="h-9 min-w-0 flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none"
-              />
-              <Button
-                type="submit"
-                // Primary brand colour like every other CTA on the landing page,
-                // with the readable colour for the label instead of a fixed white.
-                className="h-9 shrink-0 rounded-lg px-5 text-sm font-semibold shadow-none"
-                style={{
-                  backgroundColor: brandColor,
-                  color: readableColor(brandColor),
-                  borderRadius: portalRadiusValue(),
+              <form
+                role="search"
+                className="flex w-full items-center gap-2 rounded-xl bg-white p-1.5 pl-4 shadow-lg"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  askQuestion(query);
                 }}
+                style={{ borderRadius: portalRadiusValue(1.5) }}
               >
-                Ask
-              </Button>
-            </form>
+                <Search
+                  className="h-4 w-4 shrink-0 text-gray-500"
+                  aria-hidden="true"
+                />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => {
+                    setQuery(event.target.value);
+                    setSuggestionsOpen(true);
+                  }}
+                  onFocus={() => {
+                    setSuggestionsOpen(true);
+                    pinAskBar();
+                  }}
+                  onBlur={() =>
+                    setTimeout(() => setSuggestionsOpen(false), 120)
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") setSuggestionsOpen(false);
+                  }}
+                  aria-label="Ask a question or search for your benefits"
+                  aria-controls="portal-hero-topic-suggestions"
+                  autoComplete="off"
+                  placeholder="Ask a question or search for your benefits ..."
+                  className="h-9 min-w-0 flex-1 bg-transparent text-sm text-gray-900 placeholder:text-gray-500 focus:outline-none"
+                />
+                <Button
+                  type="submit"
+                  // Primary brand colour like every other CTA on the landing page,
+                  // with the readable colour for the label instead of a fixed white.
+                  className="h-9 shrink-0 rounded-lg px-5 text-sm font-semibold shadow-none"
+                  style={{
+                    backgroundColor: brandColor,
+                    color: readableColor(brandColor),
+                    borderRadius: portalRadiusValue(),
+                  }}
+                >
+                  Ask
+                </Button>
+              </form>
+
+              {suggestionsOpen && suggestions.length > 0 ? (
+                <div
+                  id="portal-hero-topic-suggestions"
+                  data-testid="hero-topic-suggestions"
+                  aria-label="Matching benefit topics"
+                  // Keep the input focused so a click lands before the blur timer.
+                  onMouseDown={(event) => event.preventDefault()}
+                  className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-xl border border-black/5 bg-white text-left shadow-xl"
+                >
+                  <p className="px-4 pb-1 pt-2.5 font-red-hat text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                    Topics in your benefits library
+                  </p>
+                  <ul>
+                    {suggestions.map((topic) => (
+                      <li key={`${topic.location}:${topic.slug}`}>
+                        <button
+                          type="button"
+                          onClick={() => askQuestion(topic.title)}
+                          className="flex w-full items-center justify-between gap-3 px-4 py-2 text-left transition-colors hover:bg-gray-50"
+                        >
+                          <span className="min-w-0">
+                            <span className="block truncate font-red-hat text-sm font-medium text-gray-900">
+                              {topic.title}
+                            </span>
+                            <span className="block truncate font-red-hat text-[11px] text-gray-500">
+                              {topic.locationLabel}
+                              {topic.group ? ` · ${topic.group}` : ""}
+                            </span>
+                          </span>
+                          <Search
+                            className="h-3.5 w-3.5 shrink-0 text-gray-300"
+                            aria-hidden="true"
+                          />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
       </div>

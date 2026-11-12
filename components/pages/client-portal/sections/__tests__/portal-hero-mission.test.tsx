@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PortalHero } from "../portal-hero";
 import { PortalMission } from "../portal-mission";
+import { ASSISTANT_ASK_EVENT } from "@/lib/topics/assistant";
 
 /**
  * `PortalHero` and `PortalMission` share one contract: the landing page's first
@@ -370,5 +371,97 @@ describe("PortalHero", () => {
         name: "Ask a question or search for your benefits",
       }),
     ).toBeInTheDocument();
+  });
+
+  it("lifts the Ask bar below the portal chrome when the field takes focus", async () => {
+    const user = userEvent.setup();
+    const chrome = document.createElement("div");
+    chrome.setAttribute("data-portal-header", "");
+    chrome.getBoundingClientRect = () => ({ bottom: 72 } as DOMRect);
+    document.body.appendChild(chrome);
+
+    renderHero({ companyData: { companyName: "Acme" } });
+    screen.getByTestId("portal-hero-ask-bar").getBoundingClientRect = () =>
+      ({ top: 500 } as DOMRect);
+
+    await user.click(
+      screen.getByRole("searchbox", {
+        name: "Ask a question or search for your benefits",
+      }),
+    );
+
+    // The bar's top clears the fixed banner + header, with a 10px gap so the chrome
+    // stays visible; the suggestion list opens into the space below it.
+    expect(window.scrollTo).toHaveBeenCalledWith({
+      top: 418,
+      behavior: "smooth",
+    });
+
+    chrome.remove();
+  });
+
+  it("suggests library topics as the visitor types", async () => {
+    const user = userEvent.setup();
+    renderHero({ companyData: { companyName: "Acme" } });
+
+    await user.type(
+      screen.getByRole("searchbox", {
+        name: "Ask a question or search for your benefits",
+      }),
+      "loan",
+    );
+
+    expect(
+      await screen.findByTestId("hero-topic-suggestions"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Can I take a loan?")).toBeInTheDocument();
+    // The row says which hub (and group) the topic belongs to.
+    expect(screen.getAllByText(/Loans & Withdrawals/).length).toBeGreaterThan(0);
+  });
+
+  it("hands a typed question to the assistant", async () => {
+    const user = userEvent.setup();
+    const listener = vi.fn();
+    window.addEventListener(ASSISTANT_ASK_EVENT, listener);
+    renderHero({ companyData: { companyName: "Acme" } });
+
+    const input = screen.getByRole("searchbox", {
+      name: "Ask a question or search for your benefits",
+    });
+    await user.type(input, "How do I take a loan?");
+    await user.click(screen.getByRole("button", { name: "Ask" }));
+
+    expect(listener).toHaveBeenCalledTimes(1);
+    const event = listener.mock.calls[0][0] as CustomEvent<{
+      question: string;
+    }>;
+    expect(event.detail.question).toBe("How do I take a loan?");
+    expect(input).toHaveValue("");
+
+    window.removeEventListener(ASSISTANT_ASK_EVENT, listener);
+  });
+
+  it("hands a suggested topic to the assistant", async () => {
+    const user = userEvent.setup();
+    const listener = vi.fn();
+    window.addEventListener(ASSISTANT_ASK_EVENT, listener);
+    renderHero({ companyData: { companyName: "Acme" } });
+
+    await user.type(
+      screen.getByRole("searchbox", {
+        name: "Ask a question or search for your benefits",
+      }),
+      "loan",
+    );
+    await user.click(
+      await screen.findByRole("button", { name: /Can I take a loan\?/ }),
+    );
+
+    const event = listener.mock.calls[0][0] as CustomEvent<{
+      question: string;
+    }>;
+    expect(event.detail.question).toBe("Can I take a loan?");
+
+    window.removeEventListener(ASSISTANT_ASK_EVENT, listener);
   });
 });

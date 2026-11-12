@@ -13,12 +13,12 @@ The first three are the same page with different constants; the fourth adds a UR
 
 ## Summary
 
-- **Unit tests:** 413 passing in 25 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
+- **Unit tests:** 416 passing in 25 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
 - **E2E:** none yet
 - **Runner:** Vitest + React Testing Library + jsdom
 
 ```bash
-pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (413 tests)
+pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (416 tests)
 pnpm test:portal-hubs:watch
 pnpm test:portal-hubs:coverage
 ```
@@ -56,6 +56,10 @@ it answers only from content the plan already shows.
   plan's border, captioned with its destination ("Goes to your Retirement page and opens
   this answer", "Opens recordkeeper.example in a new tab"). Following one never closes
   the sheet.
+- **Scrolling.** New answers do not jump to the transcript's bottom. The visitor's own
+  question is pinned near the top (`offsetTop` on the `relative` transcript) and the
+  answer unfolds beneath it, so a long reply is read from its first line — including
+  when the landing page's Ask bar opens the sheet.
 - **One-hour session.** The transcript is kept in `sessionStorage` per plan. Reopening
   the sheet — or reloading the page in the same tab — restores the conversation, and
   exactly an hour after it began the sheet resets to the greeting.
@@ -63,6 +67,10 @@ it answers only from content the plan already shows.
   while the bar is visible, `0rem` once dismissed or installed). The FAB adds it to its
   mobile bottom offset, so dismissing the prompt drops the pill into the freed space
   instead of leaving a gap above the corner.
+- **Landing-page handoff.** The hero's Ask bar searches the shipped topic library as the
+  visitor types (title + hub/group in a dropdown). Submitting the field or choosing a
+  suggestion dispatches `ASSISTANT_ASK_EVENT`; the sheet opens and asks there, so the
+  answer carries the plan's placement, CTA and deep link.
 - **Fullscreen on phones.** Below `md` the sheet fills the viewport (`inset-0`, no card
   chrome) and pads the header/composer for the safe areas; the floating pill is hidden
   while it is open (the header's X closes it). The page behind it is locked
@@ -224,7 +232,7 @@ suite (`portal-disclosures.test.ts`, `portal-disclosure-section.test.tsx`).
 | --- | ------------------------------------------------------------------------------------------ | ----: | ------------------------------------------------------------------------------ |
 | 1   | `lib/topics/__tests__/assistant.test.ts`                                                   |    31 | Assistant corpus, retrieval, intents, hubs, chips and exact-topic answers     |
 | 2   | `app/api/clients/[id]/portal/assistant/__tests__/route.test.ts`                            |     7 | The assistant's index read: portal gate, advisor scoping, payload, failures    |
-| 3   | `components/pages/client-portal/sections/__tests__/portal-chatbot.test.tsx`                |    24 | The sheet: greeting, hub turns, answers, hints, handoff, session, scroll lock  |
+| 3   | `components/pages/client-portal/sections/__tests__/portal-chatbot.test.tsx`                |    25 | The sheet: greeting, hub turns, answers, hints, handoff, session, scroll lock  |
 | 4   | `components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx`       |    82 | Cards, layout, panels, placements, rollovers and chat deep links               |
 | 5   | `lib/__tests__/help-card-layout.test.ts`                                                   |    33 | Primary edge, row packing, hidden cards, ordering rules                        |
 | 6   | `lib/topics/__tests__/library-content.test.ts`                                             |     9 | Shipped card lines, answer groups, acronyms and legacy topics                  |

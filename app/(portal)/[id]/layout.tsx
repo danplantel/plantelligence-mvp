@@ -527,6 +527,9 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
           see the `previewScaled` branch below. */}
       <div
         ref={fixedHeaderRef}
+        // Marks the fixed chrome (banner + header) for the landing page's Ask bar,
+        // which lifts itself below this height when the field takes focus.
+        data-portal-header=""
         className="fixed left-0 z-50"
         style={
           previewScaled

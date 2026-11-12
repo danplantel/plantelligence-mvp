@@ -50,6 +50,13 @@ import type {
  * plan; the chatbot component is the renderer.
  */
 
+/**
+ * The window event the landing page's Ask bar dispatches to hand a question to the
+ * assistant. It lives here so the hero and the sheet share one spelling without
+ * importing each other.
+ */
+export const ASSISTANT_ASK_EVENT = "portal-chatbot:ask";
+
 // ── Corpus ───────────────────────────────────────────────────────────────────
 
 /** One placement as the assistant reads it: already resolved against the library. */

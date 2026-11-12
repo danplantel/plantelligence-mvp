@@ -302,6 +302,10 @@ to it) without a reload.
 - Controls are white pills with the plan-coloured border. Links use `next/link` for
   in-portal paths and `<a target="_blank" rel="noreferrer">` for external ones; each
   shows a destination caption, and following one leaves the sheet open.
+- The transcript scrolls to the visitor's question, not the end of the answer: the
+  newest user message is pinned near the top (its `offsetTop` on the `relative`
+  transcript, minus a small gap), so a long reply is read from its first line. The
+  landing page's Ask bar opens the sheet on the same anchor.
 - The transcript is kept in `sessionStorage` under
   `portal-chatbot-session:v1:{clientId}` together with the time the session began. A
   stored conversation younger than `CHAT_SESSION_MS` (one hour) is restored after

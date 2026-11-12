@@ -12,6 +12,7 @@ import useSWR from "swr";
 import { useOptionalClientPortal } from "@/contexts/client-portal-context";
 import { customBenefitTitleFromHubs } from "@/lib/benefit-custom-name";
 import {
+  ASSISTANT_ASK_EVENT,
   buildAssistantCorpus,
   buildAssistantHubs,
   respondToHub,
@@ -62,6 +63,9 @@ const GREETING =
 
 /** How long a conversation lasts before the sheet starts over. */
 export const CHAT_SESSION_MS = 60 * 60 * 1000;
+
+/** Breathing room above the question the transcript pins to its top. */
+const SCROLL_QUESTION_GAP = 12;
 
 function sessionKey(clientId: string): string {
   return `portal-chatbot-session:v1:${clientId}`;
@@ -327,12 +331,40 @@ export function PortalChatbot({
     return () => clearTimeout(timer);
   }, [open]);
 
-  // Keep the newest message in view.
+  /**
+   * Keep the visitor's own question in view, not the end of the answer.
+   *
+   * A chat transcript normally jumps to its bottom, which lands a long answer on its
+   * closing links and hides the question it belongs to. Instead the newest question is
+   * pinned near the top of the transcript and the answer unfolds beneath it, so it is
+   * read from its first line — whether the question was typed here or handed over by
+   * the landing page's Ask bar. With the greeting alone on screen, the sheet stays at
+   * the top.
+   *
+   * The transcript is `relative`, so each row's `offsetTop` is its position in the
+   * scrolled content; it is layout-only, untouched by scrolling and by the sheet's
+   * open animation.
+   */
   useEffect(() => {
     const list = listRef.current;
     if (!list) return;
-    list.scrollTo({ top: list.scrollHeight, behavior: "smooth" });
-  }, [messages, open, typing]);
+    const lastQuestion = [...messages]
+      .reverse()
+      .find((message) => message.role === "user");
+    const anchor = lastQuestion
+      ? list.querySelector<HTMLElement>(
+          `[data-message-id="${lastQuestion.id}"]`,
+        )
+      : null;
+    if (!anchor) {
+      list.scrollTo({ top: 0, behavior: "smooth" });
+      return;
+    }
+    list.scrollTo({
+      top: Math.max(0, anchor.offsetTop - SCROLL_QUESTION_GAP),
+      behavior: "smooth",
+    });
+  }, [messages, open]);
 
   // Escape closes the sheet.
   useEffect(() => {
@@ -409,6 +441,27 @@ export function PortalChatbot({
         ? { slug: option.topicSlug, location: option.location }
         : undefined,
     );
+
+  /**
+   * The landing page's Ask bar hands a question over as a window event. Opening the
+   * sheet and asking here reuses the whole grounded pipeline — the plan's placements,
+   * the answer's CTA and its deep link.
+   */
+  const askRef = useRef<(question: string) => void>(() => {});
+  askRef.current = (question: string) => ask(question);
+
+  useEffect(() => {
+    const onExternalAsk = (event: Event) => {
+      const detail = (event as CustomEvent<{ question?: unknown }>).detail;
+      const question =
+        typeof detail?.question === "string" ? detail.question.trim() : "";
+      if (!question) return;
+      setOpen(true);
+      askRef.current(question);
+    };
+    window.addEventListener(ASSISTANT_ASK_EVENT, onExternalAsk);
+    return () => window.removeEventListener(ASSISTANT_ASK_EVENT, onExternalAsk);
+  }, []);
 
   // Sit clear of an open Comments / Messages rail, which occupies the right-hand
   // column and sets these variables on the portal root.
@@ -512,7 +565,7 @@ export function PortalChatbot({
               data-testid="portal-chatbot-transcript"
               aria-live="polite"
               aria-relevant="additions text"
-              className="flex-1 space-y-3 overflow-y-auto overscroll-contain bg-neutral-50 px-4 py-4"
+              className="relative flex-1 space-y-3 overflow-y-auto overscroll-contain bg-neutral-50 px-4 py-4"
             >
               {messages.map((message) => {
                 const isUser = message.role === "user";
@@ -520,6 +573,8 @@ export function PortalChatbot({
                 return (
                   <div
                     key={message.id}
+                    data-message-id={message.id}
+                    data-message-role={message.role}
                     className={isUser ? "flex justify-end" : "flex justify-start"}
                   >
                     <div
