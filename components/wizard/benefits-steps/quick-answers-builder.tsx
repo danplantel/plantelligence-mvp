@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
+import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import { GripVertical, Plus, Search } from "lucide-react";
 import {
   DndContext,
@@ -55,7 +56,8 @@ interface BoardGroup {
   topics: BoardTopic[];
 }
 
-interface BoardPayload {
+/** The board the server sends (`GET /api/clients/:id/topics`). */
+export interface BoardPayload {
   location: TopicLocation;
   featured: BoardTopic[];
   groups: BoardGroup[];
@@ -86,6 +88,17 @@ export interface QuickAnswersBuilderProps {
   className?: string;
   /** Called after a successful save so a caller can revalidate a preview. */
   onSaved?: () => void;
+  /**
+   * Called with the board as the UI now has it — first OPTIMISTICALLY (before the
+   * request settles), then with the reconciled board.
+   *
+   * The portal page renders Quick Answers from the BENEFIT payload
+   * (`?forPortal=1&withTopics=1`), a different cache entry from this board. Without
+   * this the section beside the panel kept the old questions until that heavy GET
+   * came back (measured at several seconds), even though the row had already moved
+   * here. The editor patches those topics into the benefit cache from this.
+   */
+  onBoardChange?: (board: BoardPayload) => void;
   /**
    * Which half of the board this instance edits.
    *
@@ -263,6 +276,60 @@ function countQuestions(draft: Draft): number {
   );
 }
 
+/**
+ * A question row's entrance, move and exit.
+ *
+ * The portal's own sections animate the same way (`framer-motion` layout with
+ * `initial={false}`), so hiding a question or restoring it reads as a card leaving
+ * one list and joining another instead of the lists re-flowing instantly. The
+ * per-topic `layoutId` is what lets one row morph BETWEEN the Hidden list and a
+ * group: framer matches the two elements and animates the move.
+ */
+const QUESTION_ROW_TRANSITION = {
+  duration: 0.12,
+  ease: [0.2, 0.8, 0.2, 1] as [number, number, number, number],
+};
+
+interface AnimatedRowProps {
+  topicId: string;
+  className?: string;
+  children: React.ReactNode;
+}
+
+/**
+ * `forwardRef` because `AnimatePresence mode="popLayout"` clones the exiting child
+ * to measure it — a plain function component would silently drop that ref and the
+ * row could not be taken out of the list's flow while it leaves.
+ */
+const AnimatedRow = forwardRef<HTMLDivElement, AnimatedRowProps>(
+  function AnimatedRow({ topicId, className, children }, ref) {
+    return (
+      <motion.div
+        ref={ref}
+        // Position only: interpolating the box too would scale the text mid-move.
+        layout="position"
+        layoutId={`quick-answer-row-${topicId}`}
+        // New rows appear at their final state at once — the editor must feel
+        // instant; only the space they take up eases in.
+        initial={false}
+        animate={{ opacity: 1 }}
+        exit={{
+          opacity: 0,
+          height: 0,
+          marginTop: 0,
+          marginBottom: 0,
+          paddingTop: 0,
+          paddingBottom: 0,
+        }}
+        transition={QUESTION_ROW_TRANSITION}
+        className={cn("overflow-hidden", className)}
+      >
+        {children}
+      </motion.div>
+    );
+  },
+);
+
 /** The ↔ pill the builder shows on an Action Hub topic (TF-5). */
 function ActionHubBadge() {
   return (
@@ -319,6 +386,7 @@ export function QuickAnswersBuilder({
   location,
   className,
   onSaved,
+  onBoardChange,
   mode = "full",
 }: QuickAnswersBuilderProps) {
   const key = planId ? boardKey(planId, location) : null;
@@ -350,23 +418,38 @@ export function QuickAnswersBuilder({
   }, [data, query]);
 
   /**
+   * Serialized, latest-wins saves.
+   *
+   * Every save sends the WHOLE board. When an advisor moves one question and then
+   * moves another before the first response lands, the older response could arrive
+   * last and be applied on top of the newer one — which is exactly how a topic
+   * "went back to Hidden from participants" after being assigned to a section. So
+   * saves are queued in order, a snapshot that a newer edit superseded is never
+   * sent, and a response is only applied while it is still the newest.
+   */
+  const saveSequence = useRef(0);
+  const saveQueue = useRef<Promise<void>>(Promise.resolve());
+
+  /**
    * Send the complete board. Featured placements are included unchanged so that a
    * question promoted to Featured keeps a stable order, and so nothing is silently
    * dropped by a board that only mentioned the Quick Answers half.
    */
-  const persist = async (next: Draft) => {
+  const persist = (next: Draft) => {
     const previous = draft;
     const previousData = data;
+    const sequence = ++saveSequence.current;
     setDraft(next);
     setSaveError(null);
     setSaving(true);
 
     // INSTANT: the preview re-orders from the cache before the request even settles.
+    const optimistic = optimisticResponse(next, previousData, location);
     if (key) {
-      void globalMutate(key, optimisticResponse(next, previousData, location), {
-        revalidate: false,
-      });
+      void globalMutate(key, optimistic, { revalidate: false });
     }
+    // And the portal's own section, which reads the benefit payload, not this board.
+    onBoardChange?.(optimistic.board);
 
     /**
      * The sub-link travels with its placement. Sent only when the topic IS an Action
@@ -409,66 +492,82 @@ export function QuickAnswersBuilder({
       })),
     ];
 
-    try {
-      const response = await fetch(key as string, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          location,
-          groups: [
-            // Existing groups keep their id; a group created in this request is sent
-            // by name only, and the server returns its id.
-            ...next.groups
-              .filter((group) => !group.id.startsWith("new:"))
-              .map((group, index) => ({
-                id: group.id,
-                name: group.name,
-                sortOrder: index,
-              })),
-            ...next.groups
-              .filter((group) => group.id.startsWith("new:"))
-              .map((group, index) => ({
-                name: group.name,
-                sortOrder: next.groups.length - 1 + index,
-              })),
-          ],
-          placements,
-        }),
-      });
+    const send = async () => {
+      // A newer edit replaced this snapshot while it waited its turn — the newest
+      // board supersedes it completely, so there is nothing to send.
+      if (sequence !== saveSequence.current) return;
 
-      const body = await response.json();
-      if (!response.ok) {
-        throw new Error(body?.error || "Could not save Quick Answers.");
-      }
+      try {
+        const response = await fetch(key as string, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            location,
+            groups: [
+              // Existing groups keep their id; a group created in this request is sent
+              // by name only, and the server returns its id.
+              ...next.groups
+                .filter((group) => !group.id.startsWith("new:"))
+                .map((group, index) => ({
+                  id: group.id,
+                  name: group.name,
+                  sortOrder: index,
+                })),
+              ...next.groups
+                .filter((group) => group.id.startsWith("new:"))
+                .map((group, index) => ({
+                  name: group.name,
+                  sortOrder: next.groups.length - 1 + index,
+                })),
+            ],
+            placements,
+          }),
+        });
 
-      setDraft(toDraft(body.board));
-      // The response carries the reconciled board AND the refreshed library, so the
-      // cache is written from it directly — no refetch, and no window where the
-      // preview disagrees with what was saved.
-      if (key) {
-        void globalMutate(
-          key,
-          {
-            ...(previousData ?? { board: body.board, library: [] }),
-            board: body.board,
-            library: body.library ?? previousData?.library ?? [],
-          } as TopicsResponse,
-          { revalidate: false },
+        const body = await response.json();
+        if (!response.ok) {
+          throw new Error(body?.error || "Could not save Quick Answers.");
+        }
+
+        // A newer save owns the screen now; its response is the truth.
+        if (sequence !== saveSequence.current) return;
+
+        setDraft(toDraft(body.board));
+        // The response carries the reconciled board AND the refreshed library, so the
+        // cache is written from it directly — no refetch, and no window where the
+        // preview disagrees with what was saved.
+        if (key) {
+          void globalMutate(
+            key,
+            {
+              ...(previousData ?? { board: body.board, library: [] }),
+              board: body.board,
+              library: body.library ?? previousData?.library ?? [],
+            } as TopicsResponse,
+            { revalidate: false },
+          );
+        }
+        // The reconciled board (real ids for a topic added from the library).
+        onBoardChange?.(body.board as BoardPayload);
+        onSaved?.();
+      } catch (error) {
+        // A newer save supersedes this failure too — rolling back would undo its work.
+        if (sequence !== saveSequence.current) return;
+        // Put the last server truth back, so a rejected save cannot look applied.
+        setDraft(previous);
+        if (key && previousData) {
+          void globalMutate(key, previousData, { revalidate: false });
+        }
+        setSaveError(
+          error instanceof Error ? error.message : "Could not save Quick Answers.",
         );
+      } finally {
+        if (sequence === saveSequence.current) setSaving(false);
       }
-      onSaved?.();
-    } catch (error) {
-      // Put the last server truth back, so a rejected save cannot look applied.
-      setDraft(previous);
-      if (key && previousData) {
-        void globalMutate(key, previousData, { revalidate: false });
-      }
-      setSaveError(
-        error instanceof Error ? error.message : "Could not save Quick Answers.",
-      );
-    } finally {
-      setSaving(false);
-    }
+    };
+
+    // Chain, so the server always receives the snapshots in the order they were made.
+    saveQueue.current = saveQueue.current.then(send, send);
   };
 
   /** Seed this location from the library — the first-use path for older plans. */
@@ -797,15 +896,17 @@ export function QuickAnswersBuilder({
         <>
           {showFeatured && (
             <div className="rounded-lg border border-muted bg-white p-3 dark:bg-gray-800">
-              {draft.featured.length === 0 ? (
-                <p className="text-[12px] text-muted-foreground">
-                  No cards on this page yet. Add one from the library below.
-                </p>
-              ) : (
-                <div className="space-y-1.5">
+              <div className="space-y-1.5">
+                {draft.featured.length === 0 && (
+                  <p className="text-[12px] text-muted-foreground">
+                    No cards on this page yet. Add one from the library below.
+                  </p>
+                )}
+                <AnimatePresence initial={false} mode="popLayout">
                   {draft.featured.map((topic, index) => (
-                    <div
+                    <AnimatedRow
                       key={topic.topicId}
+                      topicId={topic.topicId}
                       className="flex flex-wrap items-center gap-1.5 rounded-md border border-muted/60 px-2 py-1.5"
                     >
                       <span className="min-w-0 flex-1 truncate text-[12px] font-medium">
@@ -841,15 +942,16 @@ export function QuickAnswersBuilder({
                       >
                         Move to Quick Answers
                       </Button>
-                    </div>
+                    </AnimatedRow>
                   ))}
-                </div>
-              )}
+                </AnimatePresence>
+              </div>
             </div>
           )}
 
           {showAnswers && (
-            <div className="space-y-4">
+            <LayoutGroup>
+              <div className="space-y-4">
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -876,14 +978,16 @@ export function QuickAnswersBuilder({
                     }
                     onNameCommit={(name) => renameGroup(group.id, name)}
                   >
-                    {group.topics.length === 0 ? (
+                    {group.topics.length === 0 && (
                       <p className="px-1 py-2 text-[12px] text-muted-foreground">
                         No questions in this group yet.
                       </p>
-                    ) : (
-                      group.topics.map((topic) => (
-                        <div
+                    )}
+                    <AnimatePresence initial={false} mode="popLayout">
+                      {group.topics.map((topic) => (
+                        <AnimatedRow
                           key={topic.topicId}
+                          topicId={topic.topicId}
                           className={cn(
                             "rounded-md border border-muted/60 px-2 py-1.5",
                             topic.isActionHub && "space-y-1.5",
@@ -916,9 +1020,9 @@ export function QuickAnswersBuilder({
                               onCommit={(patch) => setActionHubLink(topic, patch)}
                             />
                           )}
-                        </div>
-                      ))
-                    )}
+                        </AnimatedRow>
+                      ))}
+                    </AnimatePresence>
                   </SortableGroupCard>
                 ))}
               </div>
@@ -931,52 +1035,65 @@ export function QuickAnswersBuilder({
                 Questions (ungrouped)
               </p>
               <div className="mt-2 space-y-1.5">
-                {draft.ungrouped.map((topic) => (
-                  <div
-                    key={topic.topicId}
-                    className={cn(
-                      "rounded-md border border-muted/60 px-2 py-1.5",
-                      topic.isActionHub && "space-y-1.5",
-                    )}
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate text-[12px] font-medium">
-                        {topic.title}
-                      </span>
-                      {topic.isActionHub && <ActionHubBadge />}
-                      <select
-                        aria-label={`Move ${topic.title}`}
-                        value={UNGROUPED_KEY}
-                        onChange={(event) =>
-                          moveQuestion(topic, "ungrouped", event.target.value)
-                        }
-                        className="h-7 rounded-md border border-muted bg-white px-1 text-[11px] dark:bg-gray-900"
-                      >
-                        {moveOptions(UNGROUPED_KEY)}
-                      </select>
-                    </div>
-                    {topic.isActionHub && (
-                      <ActionHubLinkFields
-                        link={topic.actionHubLink}
-                        locationLabel={TOPIC_LOCATION_LABELS[location]}
-                        onCommit={(patch) => setActionHubLink(topic, patch)}
-                      />
-                    )}
-                  </div>
-                ))}
+                <AnimatePresence initial={false} mode="popLayout">
+                  {draft.ungrouped.map((topic) => (
+                    <AnimatedRow
+                      key={topic.topicId}
+                      topicId={topic.topicId}
+                      className={cn(
+                        "rounded-md border border-muted/60 px-2 py-1.5",
+                        topic.isActionHub && "space-y-1.5",
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="min-w-0 flex-1 truncate text-[12px] font-medium">
+                          {topic.title}
+                        </span>
+                        {topic.isActionHub && <ActionHubBadge />}
+                        <select
+                          aria-label={`Move ${topic.title}`}
+                          value={UNGROUPED_KEY}
+                          onChange={(event) =>
+                            moveQuestion(topic, "ungrouped", event.target.value)
+                          }
+                          className="h-7 rounded-md border border-muted bg-white px-1 text-[11px] dark:bg-gray-900"
+                        >
+                          {moveOptions(UNGROUPED_KEY)}
+                        </select>
+                      </div>
+                      {topic.isActionHub && (
+                        <ActionHubLinkFields
+                          link={topic.actionHubLink}
+                          locationLabel={TOPIC_LOCATION_LABELS[location]}
+                          onCommit={(patch) => setActionHubLink(topic, patch)}
+                        />
+                      )}
+                    </AnimatedRow>
+                  ))}
+                </AnimatePresence>
               </div>
             </div>
           )}
 
-          {draft.hidden.length > 0 && (
-            <div className="rounded-lg border border-muted p-3">
-              <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
-                Hidden from participants
+          {/* Always mounted, even when empty: a row leaving this list animates
+              INTO the group it was assigned to, and the container has to be there
+              for framer to match the two elements (`layoutId`). */}
+          <div className="rounded-lg border border-muted p-3">
+            <p className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">
+              Hidden from participants
+            </p>
+            {draft.hidden.length === 0 && (
+              <p className="mt-2 text-[12px] text-muted-foreground">
+                Nothing is hidden. Choose &ldquo;Hidden&rdquo; on a question to take
+                it off the page.
               </p>
-              <div className="mt-2 space-y-1.5">
+            )}
+            <div className="mt-2 space-y-1.5">
+              <AnimatePresence initial={false} mode="popLayout">
                 {draft.hidden.map((topic) => (
-                  <div
+                  <AnimatedRow
                     key={topic.topicId}
+                    topicId={topic.topicId}
                     className={cn(
                       "rounded-md border border-muted/60 px-2 py-1.5",
                       topic.isActionHub && "space-y-1.5",
@@ -1008,12 +1125,13 @@ export function QuickAnswersBuilder({
                         onCommit={(patch) => setActionHubLink(topic, patch)}
                       />
                     )}
-                  </div>
+                  </AnimatedRow>
                 ))}
+              </AnimatePresence>
+            </div>
+          </div>
               </div>
-            </div>
-          )}
-            </div>
+            </LayoutGroup>
           )}
         </>
       )}

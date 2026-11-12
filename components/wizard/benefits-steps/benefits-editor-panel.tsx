@@ -3,7 +3,7 @@
 import React, { useRef, useEffect, useState } from "react";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { HelpCardLayoutEditor } from "./help-card-layout-editor";
-import { QuickAnswersBuilder } from "./quick-answers-builder";
+import { QuickAnswersBuilder, type BoardPayload } from "./quick-answers-builder";
 import { topicLocationForCategory } from "@/lib/topic-locations";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import {
@@ -147,6 +147,12 @@ interface BenefitsEditorPanelProps {
    * preview has to revalidate to show the change.
    */
   onTopicsSaved?: () => void;
+  /**
+   * The Quick Answers board as it now stands, emitted optimistically on every move.
+   * The portal editor patches it into the benefit cache so the page beside the
+   * panel updates in the same frame instead of waiting for a refetch.
+   */
+  onTopicsBoardChange?: (board: BoardPayload) => void;
   /** Plan/company name shown next to the benefit category badge in the header */
   planCompanyName?: string;
   /**
@@ -197,6 +203,7 @@ export function BenefitsEditorPanel({
   surfaceClassName,
   footer,
   onTopicsSaved,
+  onTopicsBoardChange,
   onHeroSegmentModeChange,
   extraSections,
   focusRequest,
@@ -2273,6 +2280,7 @@ export function BenefitsEditorPanel({
                 planId={step1Data.planId}
                 location={quickAnswersLocation}
                 onSaved={onTopicsSaved}
+                onBoardChange={onTopicsBoardChange}
               />
             </div>
           </div>

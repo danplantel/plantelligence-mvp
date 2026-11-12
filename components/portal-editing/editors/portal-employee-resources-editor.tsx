@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSWRConfig } from "swr";
 
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
@@ -8,7 +9,10 @@ import { PortalFooterSection } from "@/components/portal-editing/portal-footer-s
 import { brandImagesFromClient } from "@/components/portal-editing/portal-brand-images";
 import { SectionHeader } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
-import { QuickAnswersBuilder } from "@/components/wizard/benefits-steps/quick-answers-builder";
+import {
+  QuickAnswersBuilder,
+  type BoardPayload,
+} from "@/components/wizard/benefits-steps/quick-answers-builder";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import {
@@ -50,6 +54,39 @@ export function PortalEmployeeResourcesEditor() {
     refetchPortal,
   } = usePortalEditing();
   const { clientData } = useClientPortal();
+  const { mutate } = useSWRConfig();
+
+  /**
+   * This page answers from its own read (`?forPortal=1`), not from the board the
+   * builders below edit. Both builders hand back the whole board the moment a
+   * question moves, so the page beside the panel repaints in the same frame
+   * instead of waiting for this read to come back.
+   */
+  const topicsKey = planId
+    ? `/api/clients/${planId}/employee-resources?forPortal=1`
+    : null;
+  const patchTopics = useCallback(
+    (board: BoardPayload) => {
+      if (!topicsKey) return;
+      void mutate(
+        topicsKey,
+        (current: { topics?: Record<string, unknown> } | undefined) =>
+          current
+            ? {
+                ...current,
+                topics: {
+                  ...(current.topics ?? {}),
+                  featured: board.featured,
+                  groups: board.groups,
+                  hiddenCount: board.hidden.length,
+                },
+              }
+            : current,
+        { revalidate: false },
+      );
+    },
+    [mutate, topicsKey],
+  );
 
   const savedBrandImages = useMemo(
     () => brandImagesFromClient(clientData as Record<string, any> | null),
@@ -212,6 +249,7 @@ export function PortalEmployeeResourcesEditor() {
               planId={planId}
               location="employee_resources"
               mode="featured"
+              onBoardChange={patchTopics}
             />
           </div>
         </section>
@@ -230,6 +268,7 @@ export function PortalEmployeeResourcesEditor() {
               planId={planId}
               location="employee_resources"
               mode="answers"
+              onBoardChange={patchTopics}
             />
           </div>
         </section>

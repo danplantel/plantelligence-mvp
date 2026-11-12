@@ -10,6 +10,7 @@ import {
   type TopicBoardInput,
 } from "@/lib/topics/board";
 import { resolveEffectiveTopic } from "@/lib/topics/effective-topic";
+import { libraryTopicBySlug, systemTopicSlug } from "@/lib/topics/library";
 import type {
   ActionHubLink,
   EffectiveTopic,
@@ -173,6 +174,78 @@ export interface ApplyBoardResult {
 }
 
 /**
+ * Swap a placement's sentinel for a real Topic id.
+ *
+ * "Add from the library" sends the library SLUG (`contribution-limits`) because a
+ * topic the plan has never placed has no Topic row yet — there is no id to send.
+ * Writing that straight into `TopicPlacement.topicId` violates the foreign key, so
+ * the slug is resolved to (or becomes) the shared system Topic row first. Exported
+ * for the unit test; the lookup lives in `resolvePlacementTopics`.
+ */
+export function mapPlacementTopicIds(
+  placements: TopicBoardInput["placements"],
+  topicIdBySlug: Map<string, string>,
+): TopicBoardInput["placements"] {
+  if (topicIdBySlug.size === 0) return placements;
+  return placements.map((placement) => {
+    const resolved = topicIdBySlug.get(placement.topicId);
+    return resolved ? { ...placement, topicId: resolved } : placement;
+  });
+}
+
+/**
+ * Give every sentinel placement a real Topic id, creating the shared system row
+ * from the library when this is the first plan to place it.
+ *
+ * A slug that matches no library entry is left alone: `validateBoard` /
+ * the database then reject it instead of this silently inventing a topic.
+ */
+async function resolvePlacementTopics(
+  placements: TopicBoardInput["placements"],
+): Promise<TopicBoardInput["placements"]> {
+  const requested = [...new Set(placements.map((placement) => placement.topicId))];
+  if (requested.length === 0) return placements;
+
+  const existing = await prisma.topic.findMany({
+    where: { id: { in: requested } },
+    select: { id: true },
+  });
+  const known = new Set(existing.map((row) => row.id));
+  const sentinels = requested.filter((value) => !known.has(value));
+  if (sentinels.length === 0) return placements;
+
+  const topicIdBySlug = new Map<string, string>();
+  for (const sentinel of sentinels) {
+    const seed = libraryTopicBySlug(sentinel);
+    if (!seed) continue;
+
+    // `update: {}` on purpose: the row is shared by every plan, so inserting a
+    // topic here must never rewrite copy another plan is already reading.
+    const row = await prisma.topic.upsert({
+      where: { slug: systemTopicSlug(seed.slug) },
+      update: {},
+      create: {
+        scope: "system",
+        slug: systemTopicSlug(seed.slug),
+        title: seed.title,
+        summary: seed.summary ?? null,
+        isActionHub: seed.isActionHub ?? false,
+        defaultLocations: seed.defaultLocations,
+        bodyBlocks: (seed.bodyBlocks ?? undefined) as
+          | Prisma.InputJsonValue
+          | undefined,
+        defaultCta: (seed.cta ?? undefined) as Prisma.InputJsonValue | undefined,
+        tags: seed.tags ?? [],
+      },
+      select: { id: true },
+    });
+    topicIdBySlug.set(sentinel, row.id);
+  }
+
+  return mapPlacementTopicIds(placements, topicIdBySlug);
+}
+
+/**
  * Make storage match the submitted board.
  *
  * Validated first (one placement per topic and the Featured ceiling are rules, not UI
@@ -194,7 +267,14 @@ export async function applyTopicBoard(params: {
     };
   }
 
-  const validation = validateBoard({ ...params.board, location });
+  // Library slugs become Topic ids BEFORE validation, so the duplicate check and
+  // the foreign key both see the id the placement will actually be written with.
+  const placements = await resolvePlacementTopics(
+    Array.isArray(params.board?.placements) ? params.board.placements : [],
+  );
+  const board: TopicBoardInput = { ...params.board, location, placements };
+
+  const validation = validateBoard(board);
   if (!validation.ok) {
     return { ok: false, error: validation.error, applied: false };
   }
@@ -215,7 +295,7 @@ export async function applyTopicBoard(params: {
       })),
       placements: placementRows.map(toPlacementRecord),
     },
-    next: { ...params.board, location },
+    next: board,
   });
 
   if (isNoopPlan(plan)) {

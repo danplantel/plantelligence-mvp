@@ -555,8 +555,31 @@ export function PortalBenefitEditor() {
           onCancel={() => void cancel()}
         />
       }
-      // Quick Answers writes placements through its own endpoint, so a
-      // revalidation is what brings them into the live hub.
+      // Quick Answers writes placements through its own endpoint. The page beside
+      // this panel renders its questions from the BENEFIT payload, so the board is
+      // patched in here the moment a topic moves — the row leaves the section in the
+      // same frame instead of after this benefit GET came back (seconds).
+      onTopicsBoardChange={(board) => {
+        if (!benefitKey) return;
+        void mutate(
+          benefitKey,
+          (current: { topics?: Record<string, unknown> } | undefined) =>
+            current
+              ? {
+                  ...current,
+                  topics: {
+                    ...(current.topics ?? {}),
+                    featured: board.featured,
+                    groups: board.groups,
+                    hiddenCount: board.hidden.length,
+                  },
+                }
+              : current,
+          { revalidate: false },
+        );
+      }}
+      // Reconciliation only: the cache above is already correct, so a slow refetch
+      // can no longer hold the page back.
       onTopicsSaved={() => {
         if (benefitKey) void mutate(benefitKey);
       }}
