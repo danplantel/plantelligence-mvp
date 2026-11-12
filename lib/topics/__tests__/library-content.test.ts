@@ -33,6 +33,18 @@ describe("Retirement card lines", () => {
     expect(seed?.summary).not.toContain("10%");
     expect(textOf(seed)).toContain("10% to 15%");
   });
+
+  it("gives the two legacy leaving questions a body", () => {
+    // Older plans were seeded with these slugs before the library carried their
+    // copy — without this they open an EMPTY accordion.
+    for (const slug of ["what-if-i-leave", "previous-employer-plans"]) {
+      const seed = libraryTopicBySlug(slug);
+      expect(seed, slug).toBeTruthy();
+      expect(seed?.group, slug).toBe("Leaving / Retirement");
+      expect(textOf(seed).length, slug).toBeGreaterThan(80);
+      expect(seed?.summary?.trim(), slug).toBeTruthy();
+    }
+  });
 });
 
 describe("Group Health library", () => {
@@ -66,6 +78,20 @@ describe("Group Health library", () => {
       "HSA / FSA",
       "Leaving / Aging",
     ]);
+  });
+
+  it("says what COBRA stands for before it explains it", () => {
+    const cobra = libraryTopicBySlug("cobra");
+    const divorce = libraryTopicBySlug("divorce-or-legal-separation");
+
+    expect(textOf(cobra)).toContain(
+      "COBRA (the Consolidated Omnibus Budget Reconciliation Act)",
+    );
+    expect(cobra?.summary?.trim()).toBeTruthy();
+    // The other place the acronym appears spells it out too.
+    expect(textOf(divorce)).toContain(
+      "Consolidated Omnibus Budget Reconciliation Act",
+    );
   });
 
   it("spells out the account names on the card and in the answers", () => {

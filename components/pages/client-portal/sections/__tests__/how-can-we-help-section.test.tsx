@@ -1601,6 +1601,27 @@ describe("HowCanWeHelpSection features placements", () => {
     expect(actions.className).not.toContain("justify-center");
   });
 
+  it("opens a body-less topic on its card line, not an empty panel", async () => {
+    const user = userEvent.setup();
+    // A topic seeded before the library carried its copy: no body blocks at all.
+    const legacy: EffectiveTopic = {
+      ...topic("previous-employer-plans", "Previous employer plans", 5),
+      summary: "Old 401(k)s are still yours — here are the options.",
+    };
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Health"
+        topics={[...FIVE_FEATURED, legacy]}
+      />,
+    );
+
+    await user.click(tile(container, "sys.previous-employer-plans"));
+
+    const panel = screen.getByRole("region", { name: "Previous employer plans" });
+    expect(panel).toHaveTextContent("Old 401(k)s are still yours");
+  });
+
   it("gives a promoted question its own answer as the card line", () => {
     // A Quick Answer has no `summary` — its copy IS the answer — so the tile has to
     // borrow the first line or it arrives with a title and nothing else.

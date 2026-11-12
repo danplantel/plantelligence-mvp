@@ -1242,12 +1242,27 @@ export function HowCanWeHelpSection({
           const stepsBlock = topic.bodyBlocks.find(
             (block) => block.type === "steps",
           );
+          /**
+           * What the open panel prints.
+           *
+           * The topic's own quick answer first, then the shipped card's
+           * paragraphs (a legacy topic predates this library's body), and finally
+           * the card line — an accordion that opens onto nothing helps nobody.
+           */
+          const shippedParagraphs = (shipped?.paragraphs ?? []).map((paragraph) =>
+            fillHelpCardTokens(paragraph, category),
+          );
+          const paragraphs = quickAnswer
+            ? [fillHelpCardTokens(quickAnswer, category)]
+            : shippedParagraphs.length > 0
+              ? shippedParagraphs
+              : (topic.summary || "").trim()
+                ? [fillHelpCardTokens(topic.summary as string, category)]
+                : [];
           const card: HelpCardResolved = {
             id: topic.slug,
             title: fillHelpCardTokens(topic.title, category),
-            paragraphs: quickAnswer
-              ? [fillHelpCardTokens(quickAnswer, category)]
-              : [],
+            paragraphs,
             cta: topic.cta?.label ?? shipped?.cta ?? "",
             steps:
               stepsBlock && stepsBlock.type === "steps"

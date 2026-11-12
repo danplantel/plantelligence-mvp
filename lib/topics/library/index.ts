@@ -770,6 +770,51 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
       tags: ["new employer", "new 401k", "roll over to new job"],
     },
   ),
+  // Two questions older plans were seeded with before this library carried their
+  // copy. They are still placed (and promotable), so they need a body — an answer
+  // with no blocks opens an EMPTY accordion.
+  answer(
+    "what-if-i-leave",
+    "What happens if I leave?",
+    RETIREMENT,
+    "Leaving / Retirement",
+    {
+      summary: "What you can do with your balance — and what vesting does to it.",
+      bodyBlocks: [
+        qa(
+          "Your balance is still yours. You can generally leave it in the plan, roll it into a new employer plan or an IRA, or cash it out. Check your vesting schedule first: any employer money that has not vested stays behind.",
+        ),
+        numbered(
+          "Confirm how much of your balance is vested.",
+          "Choose: leave it, roll it, or cash out.",
+          "Tell your recordkeeper what you decided before you go.",
+        ),
+      ],
+      cta: { label: "Talk Through My Options", actionType: "external_url" },
+      tags: ["leaving", "termination", "vesting", "what happens to my 401k"],
+    },
+  ),
+  answer(
+    "previous-employer-plans",
+    "Previous employer plans",
+    RETIREMENT,
+    "Leaving / Retirement",
+    {
+      summary: "Old 401(k)s are still yours — here are the options.",
+      bodyBlocks: [
+        qa(
+          "A 401(k) from a former employer is still your account. You can leave it where it is, roll it into this plan or an IRA, or cash it out — the same four choices as when you leave. Rolling it over keeps the tax deferral and puts everything in one place.",
+        ),
+        numbered(
+          "Gather the statements from your old plans.",
+          "Ask whether this plan accepts rollovers.",
+          "Request a direct rollover, so nothing is withheld for taxes.",
+        ),
+      ],
+      cta: { label: "Get Rollover Help", actionType: "external_url" },
+      tags: ["previous employer", "old 401k", "roll over", "consolidate"],
+    },
+  ),
   answer("cashing-out", "Cashing out", RETIREMENT, "Leaving / Retirement", {
     bodyBlocks: [
       qa(
@@ -1443,7 +1488,7 @@ const GROUP_HEALTH_TOPICS: LibraryTopicSeed[] = [
     {
       bodyBlocks: [
         qa(
-          "Remove your former spouse within your plan's change window of the divorce. Your former spouse may be able to continue coverage through COBRA if the plan is notified within 60 days. Remember to update your retirement and life insurance beneficiaries, too.",
+          "Remove your former spouse within your plan's change window of the divorce. Your former spouse may be able to continue coverage through COBRA (the Consolidated Omnibus Budget Reconciliation Act) if the plan is notified within 60 days. Remember to update your retirement and life insurance beneficiaries, too.",
         ),
       ],
       tags: ["divorce", "separation", "ex-spouse", "remove spouse", "COBRA"],
@@ -1531,12 +1576,27 @@ const GROUP_HEALTH_TOPICS: LibraryTopicSeed[] = [
 
   // ── Quick Answers: Leaving / Aging ──
   answer("cobra", "COBRA", GROUP_HEALTH, "Leaving / Aging", {
+    summary: "Keep your same health coverage for up to 18 months after you leave.",
     bodyBlocks: [
+      // The title is an acronym, so the answer has to say what it stands for
+      // before it explains what it does — the same rule HSA and FSA follow.
       qa(
-        "COBRA lets you keep the same group health coverage after you leave, generally for up to 18 months. You'll receive an election notice and have 60 days to sign up, and coverage is retroactive once you elect it. You pay the full premium plus up to a 2% administrative fee.",
+        "COBRA (the Consolidated Omnibus Budget Reconciliation Act) is a federal law that lets you keep the same group health coverage after you leave — generally for up to 18 months. You'll get an election notice and have 60 days to sign up, coverage is retroactive once you elect it, and you pay the full premium plus up to a 2% administrative fee.",
+      ),
+      numbered(
+        "Watch for your COBRA election notice, which arrives after your coverage ends.",
+        "Compare COBRA with a Marketplace plan and a spouse's plan.",
+        "Elect within 60 days — coverage is retroactive to your end date.",
       ),
     ],
-    tags: ["COBRA", "keep my insurance", "after I leave", "continuation coverage"],
+    cta: { label: "Talk Through My Options", actionType: "external_url" },
+    tags: [
+      "COBRA",
+      "Consolidated Omnibus Budget Reconciliation Act",
+      "keep my insurance",
+      "after I leave",
+      "continuation coverage",
+    ],
   }),
   answer("marketplace-coverage", "Marketplace coverage", GROUP_HEALTH, "Leaving / Aging", {
     bodyBlocks: [
