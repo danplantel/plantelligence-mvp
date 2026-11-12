@@ -326,6 +326,35 @@ describe("portal layout banner", () => {
     expect(screen.queryByText("Notice")).not.toBeInTheDocument();
   });
 
+  it("sizes the banner up on a phone", async () => {
+    mocks.fetch.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        data: [
+          {
+            id: "a1",
+            headline: "Open enrollment is live",
+            bgColor: "#111",
+            ctaText: "Learn more",
+            createdAt: "",
+          },
+        ],
+      }),
+    );
+    renderLayout();
+
+    const headline = await screen.findByText("Open enrollment is live");
+    // A taller bar with larger copy, CTA and close target on a phone. The `sm:`
+    // classes restore the original desktop scale.
+    const bar = headline.closest("div[style]");
+    expect(bar?.className).toContain("py-3");
+    expect(headline.className).toContain("text-[13px]");
+    expect(screen.getByText("Learn more").className).toContain("text-[11px]");
+    const dismiss = screen.getByLabelText("Dismiss banner");
+    expect(dismiss.className).toContain("p-1.5");
+    expect(dismiss.querySelector("svg")?.getAttribute("class")).toContain("h-5");
+  });
+
   it("links a CTA with a URL and keeps its scheme", async () => {
     mocks.fetch.mockResolvedValue(
       jsonResponse({

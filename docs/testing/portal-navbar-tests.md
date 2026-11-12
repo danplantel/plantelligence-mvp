@@ -43,8 +43,8 @@ Backed by [`config/vitest/vitest.portal-navbar.config.mts`](../../config/vitest/
 
 | #   | Suite                                                                            | Tests | Focus                                                                     |
 | --- | -------------------------------------------------------------------------------- | ----: | ------------------------------------------------------------------------- |
-| 1   | `app/(portal)/[id]/__tests__/layout.test.tsx`                                     |    35 | Composition, banner, back links, light mode, comment surface, disclosures |
-| 2   | `components/pages/client-portal/sections/__tests__/portal-header-login.test.tsx`   |    40 | Header CTA modes, comments flag, active nav state, drawer, theme          |
+| 1   | `app/(portal)/[id]/__tests__/layout.test.tsx`                                     |    37 | Composition, banner (incl. mobile sizing), back links, light mode, disclosures |
+| 2   | `components/pages/client-portal/sections/__tests__/portal-header-login.test.tsx`   |    42 | Header CTA modes, comments flag, active nav state, drawer, theme          |
 | 3   | `components/pages/client-portal/sections/__tests__/portal-chatbot.test.tsx`        |    10 | The chat pill, its panel, the plan's colours                              |
 | 4   | `components/comments/__tests__/portal-comments-rail.test.tsx`                      |    18 | The three arming gates, the edit-intent open mode and the on/off control  |
 | 5   | `components/comments/__tests__/portal-comments-zoom.test.tsx`                      |    13 | Scale clamp, height division, inset override, observer lifecycle          |
@@ -157,6 +157,7 @@ All three buttons carry fixed light colours, because they sit outside
 - headline falls back to `"Countdown"` in countdown mode and `"Announcement"` otherwise
 - CTA: `ctaText` is rendered as a link when `data.portalCtaUrl` exists (prefixed with `https://` when scheme-less, `target="_blank"` + `rel="noopener noreferrer"`), otherwise as inert text
 - the dismiss button (`aria-label="Dismiss banner"`) hides the banner **for this mount only**
+- **mobile sizing**: the bar is taller (`py-3`, `px-4`), the headline is `text-[13px]` (countdown text `text-xs`, pills `px-1.5 py-1`), the CTA is `px-3 py-1.5 text-[11px]` and the close control is a 20px icon in a `p-1.5` target; the `sm:` utilities restore the previous desktop scale
 
 ## Behaviour: the back-to-dashboard overlay
 

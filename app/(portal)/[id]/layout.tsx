@@ -553,56 +553,58 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
         {/* Published Top Banner — rendered above the header */}
         {showBanner && (
           <div
-            className="relative w-full flex items-center justify-between gap-2 px-3 py-1.5 text-white shadow-sm sm:px-4 sm:py-2.5 sm:justify-center"
+            // A taller bar on a phone: more vertical room, a larger headline, a
+            // bigger CTA and a proper tap target for the close button.
+            className="relative w-full flex items-center justify-between gap-2.5 px-4 py-3 text-white shadow-sm sm:gap-2 sm:px-4 sm:py-2.5 sm:justify-center"
             style={{ background: banner.bgColor || "#23919c" }}
           >
             {/* Centered group: headline + countdown */}
-            <div className="flex items-center gap-1.5 min-w-0 flex-1 sm:gap-4 sm:justify-center sm:text-center sm:flex-1">
+            <div className="flex items-center gap-2 min-w-0 flex-1 sm:gap-4 sm:justify-center sm:text-center sm:flex-1">
               {noticeType === "countdown" && countdownTarget ? (
                 <>
-                  <span className="text-[10px] font-medium whitespace-nowrap sm:text-sm">
+                  <span className="text-xs font-medium whitespace-nowrap sm:text-sm">
                     {banner.headline || "Countdown"}
                   </span>
                   {countdown.expired ? (
-                    <span className="text-[10px] font-bold whitespace-nowrap sm:text-base">
+                    <span className="text-xs font-bold whitespace-nowrap sm:text-base">
                       Expired
                     </span>
                   ) : (
-                    <div className="flex items-center gap-0.5 text-[10px] font-bold tabular-nums tracking-wider whitespace-nowrap sm:gap-2 sm:text-base">
+                    <div className="flex items-center gap-1 text-xs font-bold tabular-nums tracking-wider whitespace-nowrap sm:gap-2 sm:text-base">
                       {countdown.d > 0 && (
-                        <span className="inline-flex items-center gap-0.5 rounded-md bg-black/25 px-0.5 py-0.5 sm:gap-1 sm:px-2 sm:py-1">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-black/25 px-1.5 py-1 sm:gap-1 sm:px-2 sm:py-1">
                           <span>{countdown.d}</span>
-                          <span className="text-[8px] opacity-80 sm:text-sm">
+                          <span className="text-[10px] opacity-80 sm:text-sm">
                             d
                           </span>
                         </span>
                       )}
-                      <span className="inline-flex items-center rounded-md bg-black/25 px-0.5 py-0.5 sm:px-2 sm:py-1">
+                      <span className="inline-flex items-center rounded-md bg-black/25 px-1.5 py-1 sm:px-2 sm:py-1">
                         {pad(countdown.h)}
                       </span>
-                      <span className="text-xs opacity-50 sm:text-lg sm:-mx-0.5">
+                      <span className="text-sm opacity-50 sm:text-lg sm:-mx-0.5">
                         :
                       </span>
-                      <span className="inline-flex items-center rounded-md bg-black/25 px-0.5 py-0.5 sm:px-2 sm:py-1">
+                      <span className="inline-flex items-center rounded-md bg-black/25 px-1.5 py-1 sm:px-2 sm:py-1">
                         {pad(countdown.m)}
                       </span>
-                      <span className="text-xs opacity-50 sm:text-lg sm:-mx-0.5">
+                      <span className="text-sm opacity-50 sm:text-lg sm:-mx-0.5">
                         :
                       </span>
-                      <span className="inline-flex items-center rounded-md bg-black/25 px-0.5 py-0.5 sm:px-2 sm:py-1">
+                      <span className="inline-flex items-center rounded-md bg-black/25 px-1.5 py-1 sm:px-2 sm:py-1">
                         {pad(countdown.s)}
                       </span>
                     </div>
                   )}
                 </>
               ) : (
-                <span className="text-[10px] font-medium truncate sm:text-sm sm:font-medium">
+                <span className="text-[13px] font-medium leading-snug truncate sm:text-sm sm:font-medium">
                   {banner.headline || "Announcement"}
                 </span>
               )}
             </div>
             {/* Right side: CTA + dismiss */}
-            <div className="flex items-center gap-1 shrink-0 sm:absolute sm:right-4 sm:top-1/2 sm:-translate-y-1/2 sm:gap-2">
+            <div className="flex items-center gap-1.5 shrink-0 sm:absolute sm:right-4 sm:top-1/2 sm:-translate-y-1/2 sm:gap-2">
               {ctaText && (
                 <>
                   {portalCtaUrl ? (
@@ -610,14 +612,14 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
                       href={portalCtaUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center rounded-lg px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-sm hover:opacity-90 transition-opacity sm:px-4 sm:py-1.5 sm:text-xs"
+                      className="inline-flex items-center rounded-lg px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:opacity-90 transition-opacity sm:px-4 sm:py-1.5 sm:text-xs"
                       style={{ background: `rgba(0,0,0,0.25)` }}
                     >
                       {ctaText}
                     </a>
                   ) : (
                     <span
-                      className="inline-flex items-center rounded-lg px-1.5 py-0.5 text-[9px] font-semibold text-white shadow-sm sm:px-4 sm:py-1.5 sm:text-xs"
+                      className="inline-flex items-center rounded-lg px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm sm:px-4 sm:py-1.5 sm:text-xs"
                       style={{ background: `rgba(0,0,0,0.25)` }}
                     >
                       {ctaText}
@@ -628,7 +630,7 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
               <button
                 type="button"
                 onClick={dismissBanner}
-                className="rounded-full p-0.5 transition-colors hover:bg-white/20 sm:p-1"
+                className="rounded-full p-1.5 transition-colors hover:bg-white/20 sm:p-1"
                 aria-label="Dismiss banner"
               >
                 <svg
@@ -641,7 +643,7 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
                   strokeWidth="2"
                   strokeLinecap="round"
                   strokeLinejoin="round"
-                  className="h-3 w-3 sm:h-5 sm:w-5"
+                  className="h-5 w-5"
                   aria-hidden="true"
                 >
                   <path d="M18 6 6 18" />
