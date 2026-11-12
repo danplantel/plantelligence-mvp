@@ -564,6 +564,11 @@ export function QuickAnswersBuilder({
   const [pendingPromotion, setPendingPromotion] = useState<BoardTopic | null>(
     null,
   );
+  /**
+   * The Featured card the advisor just sent back to Quick Answers. A question must
+   * land in a SECTION, so it waits here until they pick one (or cancel).
+   */
+  const [pendingDemotion, setPendingDemotion] = useState<BoardTopic | null>(null);
 
   // Seed (and re-seed) the draft from the server's board.
   useEffect(() => {
@@ -839,8 +844,15 @@ export function QuickAnswersBuilder({
     const overflowing = remaining.slice(room);
 
     let next: Draft = { ...stripped, featured: [...kept, incoming] };
+    /**
+     * The card that gives way lands back in its own section, and — when it has
+     * none — in the first section rather than "Questions (ungrouped)": the
+     * participant page renders that as a stray last group, and this dialog cannot
+     * stop to ask a second question.
+     */
+    const fallbackGroupId = draft.groups[0]?.id ?? null;
     for (const card of [outgoing, ...overflowing]) {
-      next = returnToQuickAnswers(next, card);
+      next = returnToQuickAnswers(next, card, card.groupId ?? fallbackGroupId);
     }
     void persist(next);
   };
@@ -958,13 +970,22 @@ export function QuickAnswersBuilder({
    * placement while it is Featured, see `planBoardApply`), so demoting it lands it
    * back in that group. Only a question that never had a section goes to the
    * ungrouped list — which is what keeps it off the "Add from the library" drawer.
+   *
+   * `groupId` is the section the advisor picked in the demote dialog. Omitting it
+   * falls back to the section the card remembers, which is what the
+   * "Featured is full" swap uses (it cannot stop to ask a second question).
    */
-  const returnToQuickAnswers = (source: Draft, topic: BoardTopic): Draft => {
+  const returnToQuickAnswers = (
+    source: Draft,
+    topic: BoardTopic,
+    groupId?: string | null,
+  ): Draft => {
     const featured = source.featured.filter(
       (entry) => entry.topicId !== topic.topicId,
     );
-    const group = topic.groupId
-      ? source.groups.find((entry) => entry.id === topic.groupId)
+    const targetId = groupId === undefined ? topic.groupId : groupId;
+    const group = targetId
+      ? source.groups.find((entry) => entry.id === targetId)
       : undefined;
     const placed: BoardTopic = {
       ...topic,
@@ -985,10 +1006,24 @@ export function QuickAnswersBuilder({
     };
   };
 
-  /** Demote a Featured card back to its own Quick Answers section. */
+  /**
+   * Demote a Featured card back to Quick Answers.
+   *
+   * A question belongs to a SECTION, so the advisor names it: the card goes to the
+   * dialog rather than into "Questions (ungrouped)", which the participant page
+   * renders as a stray last group.
+   */
   const demoteFeatured = (topic: BoardTopic) => {
     if (!draft) return;
-    void persist(returnToQuickAnswers(withoutTopic(draft, topic), topic));
+    setPendingDemotion(topic);
+  };
+
+  /** Answer the demote dialog with the section the card should join. */
+  const demoteIntoGroup = (groupId: string) => {
+    if (!draft || !pendingDemotion) return;
+    const topic = pendingDemotion;
+    setPendingDemotion(null);
+    void persist(returnToQuickAnswers(withoutTopic(draft, topic), topic, groupId));
   };
 
   /**
@@ -1495,6 +1530,70 @@ export function QuickAnswersBuilder({
               type="button"
               variant="outline"
               onClick={() => setPendingPromotion(null)}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/*
+        Demoting a card names the SECTION it lands in. Quick Answers is grouped, and
+        "Questions" is a last resort — the participant page renders it as a stray
+        group at the bottom — so the advisor picks one of the real sections.
+      */}
+      <Dialog
+        open={pendingDemotion !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingDemotion(null);
+        }}
+      >
+        <DialogContent
+          // Above the Editing Panel (`z-[51]`), like the dialog above.
+          overlayClassName="z-[110]"
+          className="z-[110] max-w-md"
+        >
+          <DialogHeader>
+            <DialogTitle>Choose a section</DialogTitle>
+            <DialogDescription>
+              Quick Answers is grouped, so{" "}
+              <span className="font-semibold text-foreground">
+                {pendingDemotion?.title}
+              </span>{" "}
+              needs a section. Pick the one it belongs in.
+            </DialogDescription>
+          </DialogHeader>
+
+          {draft.groups.length === 0 ? (
+            <p className="rounded-md border border-dashed border-muted px-3 py-2 text-[12px] text-muted-foreground">
+              This benefit has no sections yet. Add one below, then move the card
+              again.
+            </p>
+          ) : (
+            <ul className="max-h-64 space-y-1 overflow-y-auto">
+              {draft.groups.map((group) => (
+                <li key={group.id}>
+                  <button
+                    type="button"
+                    onClick={() => demoteIntoGroup(group.id)}
+                    className="flex w-full items-center justify-between gap-3 rounded-md border border-muted/60 px-3 py-2 text-left text-[12px] font-medium transition-colors hover:border-neutral-300 hover:bg-neutral-50 dark:hover:bg-gray-800"
+                  >
+                    <span className="min-w-0 truncate">{group.name}</span>
+                    <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
+                      {group.topics.length} question
+                      {group.topics.length === 1 ? "" : "s"}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <DialogFooter className="gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setPendingDemotion(null)}
             >
               Cancel
             </Button>

@@ -337,10 +337,11 @@ describe("QuickAnswersBuilder — Featured is full", () => {
     expect(featuredIds).toContain("t-9");
     expect(featuredIds).not.toContain("f-1");
 
-    // The demoted card becomes an ungrouped Quick Answer.
+    // The card that gave way becomes a Quick Answer in a real section — never
+    // "Questions (ungrouped)", which reads as a stray group on the page.
     const demoted = placements.find((placement) => placement.topicId === "f-1");
     expect(demoted?.displayMode).toBe("quick_answers");
-    expect(demoted?.groupId ?? null).toBeNull();
+    expect(demoted?.groupId).toBe("g-1");
 
     pending[0].respond(boardFromBody(pending[0].body));
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
@@ -406,13 +407,22 @@ describe("QuickAnswersBuilder — Featured is full", () => {
  * offers again under "Add from the library".
  */
 describe("QuickAnswersBuilder — demoting a card", () => {
-  it("returns a demoted card to the section it came from", async () => {
+  it("asks for a section and puts the card in the one chosen", async () => {
     installFetch(REMEMBERED_GROUP_BOARD);
 
     render(<QuickAnswersBuilder planId="plan-remember" location="retirement" />);
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Move to Quick Answers" }),
+    );
+
+    // A question belongs to a section, so nothing is written until one is named.
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("Choose a section");
+    expect(pending).toHaveLength(0);
+
+    fireEvent.click(
+      within(dialog).getByRole("button", { name: /Saving & Contributions/ }),
     );
 
     await waitFor(() => expect(pending).toHaveLength(1));
@@ -433,6 +443,26 @@ describe("QuickAnswersBuilder — demoting a card", () => {
     // The row lands inside the group card, not in a separate ungrouped list.
     const group = await screen.findByTestId("quick-answers-group");
     expect(within(group).getByText("Featured One")).toBeInTheDocument();
+  });
+
+  it("leaves the card Featured when the section is not chosen", async () => {
+    installFetch(REMEMBERED_GROUP_BOARD);
+
+    render(<QuickAnswersBuilder planId="plan-cancel-demote" location="retirement" />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Move to Quick Answers" }),
+    );
+
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(pending).toHaveLength(0);
+    // The card is still on the grid, still offering the demote action.
+    expect(
+      screen.getByRole("button", { name: "Move to Quick Answers" }),
+    ).toBeInTheDocument();
   });
 });
 

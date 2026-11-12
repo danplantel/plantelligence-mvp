@@ -1191,21 +1191,20 @@ export function HowCanWeHelpSection({
   /**
    * Two sources for the grid, and what each one owns:
    *
-   *  - MEMBERSHIP comes from the FEATURED placements (`topics`) whenever the plan
-   *    has any. That list is exactly what the Editing Panel's Quick Access dropdown
-   *    edits, so promoting a topic to "Featured card" adds a card (and moving it
-   *    back off Featured removes one) — immediately, because the editor patches
-   *    this payload from the board.
-   *  - ORDER and the PRIMARY come from the SAVED card layout (`cards`) when it is
-   *    set: the advisor's arrangement in Section 4/6 still decides where each card
-   *    sits and which one is wide. A layout entry that is not featured is ignored —
-   *    the topic is not on the page any more — and a featured topic the layout does
-   *    not know is appended in placement order.
+   *  - MEMBERSHIP **and ORDER** come from the FEATURED placements (`topics`)
+   *    whenever the plan has any. That list is what the Editing Panel's Quick Access
+   *    dropdown edits, and its order is written by Section 6's Card Layout — so a
+   *    question promoted back to Featured arrives LAST, exactly where the board put
+   *    it, instead of reappearing in the slot it held before it was demoted.
+   *  - The PRIMARY comes from the SAVED card layout (`cards`): the advisor's
+   *    arrangement still decides which card is wide. The layout's ORDER is not read
+   *    here — the placements own it, so the two can never disagree. A layout id that
+   *    is not featured any more simply finds no card to mark.
    *
    * Without placements (a plan that has not been switched to the topic framework)
    * the saved layout — or the catalog's natural order — lays the grid out exactly
    * as it always has. Account Access is not a topic in this build (that is TF-9),
-   * so the card is synthesised from the catalog.
+   * so the card is synthesised from the catalog and pinned first.
    *
    * `[Benefit Category]` is resolved once per card.
    */
@@ -1223,10 +1222,6 @@ export function HowCanWeHelpSection({
         (entry): entry is HelpCardLayoutEntry =>
           !!entry && typeof entry.id === "string",
       );
-      const orderOf = (id: string) => {
-        const index = stored.findIndex((entry) => entry.id === layoutIdOf(id));
-        return index >= 0 ? index : Number.MAX_SAFE_INTEGER;
-      };
       const disabled = new Set(
         stored
           .filter((entry) => entry.enabled === false)
@@ -1307,20 +1302,20 @@ export function HowCanWeHelpSection({
             ...placementCards,
           ];
 
-      // The layout decides the order; anything it does not name keeps its
-      // placement order (a stable sort, so equal keys do not shuffle).
-      const ordered = [...withAccess].sort(
-        (a, b) => orderOf(a.id) - orderOf(b.id),
-      );
+      // The ORDER is the board's: Account Access first, then the Featured cards in
+      // placement order — which is what Card Layout writes. A promoted card is
+      // appended there, so it lands last rather than back in its old slot.
 
       // The layout's primary, else Account Access — exactly the default the grid
       // had before the advisor arranged anything.
-      const primaryId = ordered.some((card) => layoutIdOf(card.id) === storedPrimaryId)
+      const primaryId = withAccess.some(
+        (card) => layoutIdOf(card.id) === storedPrimaryId,
+      )
         ? storedPrimaryId
         : ACCOUNT_ACCESS_CARD_ID;
 
       return chunkIntoRows(
-        ordered.map((card) => ({
+        withAccess.map((card) => ({
           ...card,
           primary: layoutIdOf(card.id) === primaryId,
         })),

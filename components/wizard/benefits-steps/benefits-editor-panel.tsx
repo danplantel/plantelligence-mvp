@@ -9,7 +9,7 @@ import {
   useTopicBoard,
   type BoardPayload,
 } from "./quick-answers-builder";
-import type { HelpCardContent } from "@/types/benefit";
+import type { HelpCardContent, HelpCardLayoutEntry } from "@/types/benefit";
 import { topicLocationForCategory } from "@/lib/topic-locations";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import {
@@ -323,6 +323,26 @@ export function BenefitsEditorPanel({
     }));
     return [...(access ? [access] : []), ...topicCards];
   }, [featuredBoard.data, helpCardCategoryLabelValue]);
+
+  /**
+   * The list Card Layout draws: the board's own order (Account Access first, then
+   * the Featured placements) carrying the saved PRIMARY flag.
+   *
+   * Using the board rather than the stored layout is what puts a question that was
+   * demoted and then promoted back at the END of the list — the board appends it —
+   * instead of in the slot it held before, which is what the stored layout would
+   * still say.
+   */
+  const helpCardLayoutValue = useMemo<HelpCardLayoutEntry[] | undefined>(() => {
+    if (!featuredCardCatalog) return step1Data.helpCards;
+    const stored = Array.isArray(step1Data.helpCards) ? step1Data.helpCards : [];
+    const primaryId =
+      stored.find((entry) => entry?.primary)?.id ?? ACCOUNT_ACCESS_CARD_ID;
+    return featuredCardCatalog.map((card) => ({
+      id: card.id,
+      ...(card.id === primaryId ? { primary: true } : {}),
+    }));
+  }, [featuredCardCatalog, step1Data.helpCards]);
 
   // Field-level refs so a validation error (e.g. the required Login URL) can
   // scroll the editor straight to the offending input instead of just the
@@ -2137,7 +2157,7 @@ export function BenefitsEditorPanel({
           {/* Card layout: which card is Primary. Copy is static. */}
           <div className="mb-4 rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
             <HelpCardLayoutEditor
-              value={step1Data.helpCards}
+              value={helpCardLayoutValue}
               // The benefit being created/edited, so `[Benefit Category]` reads
               // "Retirement Account Access" (or the advisor's Custom name).
               category={helpCardCategoryLabelValue}

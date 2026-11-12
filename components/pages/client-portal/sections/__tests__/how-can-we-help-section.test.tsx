@@ -1646,15 +1646,11 @@ describe("HowCanWeHelpSection features placements", () => {
     expect(tile(container, "sys.understand-coverage")).toBeInTheDocument();
   });
 
-  it("follows the saved layout's order and primary", () => {
-    // Primary at the RIGHT edge of row 1, and HSA / FSA first among the standards.
+  it("follows the plan's order and takes the primary from the layout", () => {
+    // The layout only names the PRIMARY now; the board owns the order.
     const layout: HelpCardLayoutEntry[] = [
-      { id: "understand-coverage" },
-      { id: "find-care-providers" },
-      { id: "hsa-fsa-resources", primary: true },
-      { id: "claims-bills-costs" },
-      { id: "add-remove-dependent" },
       { id: "account-access" },
+      { id: "hsa-fsa-resources", primary: true },
     ];
     const { container } = render(
       <HowCanWeHelpSection
@@ -1666,17 +1662,44 @@ describe("HowCanWeHelpSection features placements", () => {
     );
 
     expect(tiles(container).map((element) => element.dataset.helpCard)).toEqual([
+      "account-access",
       "sys.understand-coverage",
       "sys.find-care-providers",
-      "sys.hsa-fsa-resources",
       "sys.claims-bills-costs",
       "sys.add-remove-dependent",
-      "account-access",
+      "sys.hsa-fsa-resources",
     ]);
     // The layout's primary is the wide tile, not Account Access.
     expect(
       tile(container, "sys.hsa-fsa-resources").querySelector("button")
         ?.textContent,
     ).toContain("Learn more");
+  });
+
+  it("puts a re-promoted question last, even if the layout remembers its old slot", () => {
+    // Demoted, then promoted again: the board appends it, but the stored layout
+    // still lists it third from its first stint on the grid.
+    const layout: HelpCardLayoutEntry[] = [
+      { id: "account-access", primary: true },
+      { id: "understand-coverage" },
+      { id: "find-care-providers" },
+      { id: "mental-health-care" },
+      { id: "claims-bills-costs" },
+    ];
+    const topics = [
+      ...FIVE_FEATURED,
+      topic("mental-health-care", "Mental Health Care", 5),
+    ];
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Health"
+        cards={layout}
+        topics={topics}
+      />,
+    );
+
+    const ids = tiles(container).map((element) => element.dataset.helpCard);
+    expect(ids[ids.length - 1]).toBe("sys.mental-health-care");
   });
 });
