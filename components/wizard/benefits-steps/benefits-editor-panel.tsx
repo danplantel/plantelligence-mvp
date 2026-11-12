@@ -2198,6 +2198,10 @@ export function BenefitsEditorPanel({
                   location: quickAnswersLocation,
                   board,
                   orderedTopicIds,
+                  // The page beside the panel renders from the BENEFIT payload, so
+                  // the new order has to reach that cache too — otherwise the grid
+                  // only catches up on a reload.
+                  onBoardChange: onTopicsBoardChange,
                 }).catch((error: unknown) => {
                   toast.error(
                     error instanceof Error

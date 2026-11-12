@@ -504,12 +504,23 @@ describe("QuickAnswersBuilder — Featured cards list", () => {
       "f-7",
       "f-8",
     ];
+    const onBoardChange = vi.fn();
     const done = reorderFeaturedCards({
       planId: "plan-order",
       location: "retirement",
       board: FULL_BOARD,
       orderedTopicIds,
+      onBoardChange,
     });
+
+    // INSTANT: the page beside the panel gets the new order before the PUT settles.
+    expect(onBoardChange).toHaveBeenCalled();
+    const optimistic = onBoardChange.mock.calls[0][0] as BoardPayload;
+    expect(optimistic.featured.slice(0, 3).map((topic) => topic.topicId)).toEqual([
+      "f-3",
+      "f-1",
+      "f-2",
+    ]);
 
     await waitFor(() => expect(pending).toHaveLength(1));
     const featuredIds = pending[0].body.placements
@@ -521,5 +532,7 @@ describe("QuickAnswersBuilder — Featured cards list", () => {
 
     pending[0].respond({ ...FULL_BOARD, featured: [] });
     await done;
+    // …and once more with the board the server reconciled.
+    expect(onBoardChange).toHaveBeenCalledTimes(2);
   });
 });

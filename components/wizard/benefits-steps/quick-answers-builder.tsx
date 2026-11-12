@@ -193,6 +193,14 @@ export async function reorderFeaturedCards(params: {
   location: TopicLocation;
   board: BoardPayload;
   orderedTopicIds: string[];
+  /**
+   * Called with the re-ordered board — first optimistically, then reconciled.
+   *
+   * The portal page beside the panel renders its cards from the BENEFIT payload,
+   * not from this board, so it needs the new order handed to it or the section
+   * only re-orders after a full reload.
+   */
+  onBoardChange?: (board: BoardPayload) => void;
 }): Promise<void> {
   const { board, orderedTopicIds } = params;
   const byTopicId = new Map(board.featured.map((topic) => [topic.topicId, topic]));
@@ -245,6 +253,8 @@ export async function reorderFeaturedCards(params: {
       current ? { ...current, board: nextBoard } : current,
     { revalidate: false },
   );
+  // And the portal's own section, which reads the benefit payload.
+  params.onBoardChange?.(nextBoard);
 
   const response = await fetch(key, {
     method: "PUT",
@@ -277,6 +287,7 @@ export async function reorderFeaturedCards(params: {
         : current,
     { revalidate: false },
   );
+  params.onBoardChange?.(body.board as BoardPayload);
 }
 
 /**
