@@ -130,7 +130,7 @@ export function resolveLocationTopics({
 }
 
 /** Map a Prisma row to the hand-written record the pure resolver takes. */
-function toTopicRecord(row: {
+export function toTopicRecord(row: {
   id: string;
   scope: string;
   organizationId: string | null;
@@ -165,6 +165,48 @@ function toTopicRecord(row: {
   };
 }
 
+/** Map a Prisma placement row to the hand-written record the resolver takes. */
+export function toPlacementRecord(row: {
+  id: string;
+  clientId: string;
+  topicId: string;
+  location: string;
+  displayMode: string;
+  groupId: string | null;
+  sortOrder: number;
+  overrides: unknown;
+  actionHubLink: unknown;
+}): TopicPlacementRecord {
+  return {
+    id: row.id,
+    clientId: row.clientId,
+    topicId: row.topicId,
+    location: row.location as TopicLocation,
+    displayMode: row.displayMode as TopicPlacementRecord["displayMode"],
+    groupId: row.groupId,
+    sortOrder: row.sortOrder,
+    overrides: row.overrides,
+    actionHubLink: row.actionHubLink,
+  };
+}
+
+/** Map a Prisma accordion-group row to the hand-written record. */
+export function toAccordionGroupRecord(row: {
+  id: string;
+  clientId: string;
+  location: string;
+  name: string;
+  sortOrder: number;
+}): AccordionGroupRecord {
+  return {
+    id: row.id,
+    clientId: row.clientId,
+    location: row.location as TopicLocation,
+    name: row.name,
+    sortOrder: row.sortOrder,
+  };
+}
+
 /**
  * Read one location for one plan.
  *
@@ -193,29 +235,13 @@ export async function loadLocationTopics(
     }),
   ]);
 
-  const placements: TopicPlacementRecord[] = placementRows.map((row) => ({
-    id: row.id,
-    clientId: row.clientId,
-    topicId: row.topicId,
-    location: row.location as TopicLocation,
-    displayMode: row.displayMode as TopicPlacementRecord["displayMode"],
-    groupId: row.groupId,
-    sortOrder: row.sortOrder,
-    overrides: row.overrides,
-    actionHubLink: row.actionHubLink,
-  }));
+  const placements: TopicPlacementRecord[] = placementRows.map(toPlacementRecord);
 
   const topics: TopicRecord[] = placementRows.map((row) =>
     toTopicRecord(row.topic),
   );
 
-  const groups: AccordionGroupRecord[] = groupRows.map((row) => ({
-    id: row.id,
-    clientId: row.clientId,
-    location: row.location as TopicLocation,
-    name: row.name,
-    sortOrder: row.sortOrder,
-  }));
+  const groups: AccordionGroupRecord[] = groupRows.map(toAccordionGroupRecord);
 
   return resolveLocationTopics({ location, placements, topics, groups });
 }

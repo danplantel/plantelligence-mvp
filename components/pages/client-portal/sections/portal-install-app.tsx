@@ -253,6 +253,20 @@ export function PortalInstallApp() {
 
   const visible = ready && !dismissed && !installed;
 
+  // The chatbot's floating button and its sheet sit above this bar. Publish the bar's
+  // lift as a CSS variable so they drop into the space the moment the prompt is
+  // dismissed (or the app is installed), instead of floating over an empty gap.
+  useEffect(() => {
+    const root = document.documentElement;
+    root.style.setProperty(
+      "--portal-install-inset",
+      visible ? "4.5rem" : "0rem",
+    );
+    return () => {
+      root.style.removeProperty("--portal-install-inset");
+    };
+  }, [visible]);
+
   const installBar =
     visible && portalHost
       ? createPortal(

@@ -13,17 +13,73 @@ The first three are the same page with different constants; the fourth adds a UR
 
 ## Summary
 
-- **Unit tests:** 294 passing in 19 files (the sections the four pages render, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
+- **Unit tests:** 413 passing in 25 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
 - **E2E:** none yet
 - **Runner:** Vitest + React Testing Library + jsdom
 
 ```bash
-pnpm test:portal-hubs           # the hub sections + portal benefit read (294 tests)
+pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (413 tests)
 pnpm test:portal-hubs:watch
 pnpm test:portal-hubs:coverage
 ```
 
 Backed by [`config/vitest/vitest.portal-hubs.config.mts`](../../config/vitest/vitest.portal-hubs.config.mts) and [`scripts/tests/run-portal-hubs-tests.mjs`](../../scripts/tests/run-portal-hubs-tests.mjs).
+
+## The floating benefits assistant
+
+Every hub renders the same "Ask a question" sheet from
+[`portal-chatbot.tsx`](../../components/pages/client-portal/sections/portal-chatbot.tsx:94).
+It is deterministic — no model, no streaming, and no network beyond one plan read — and
+it answers only from content the plan already shows.
+
+- **Corpus.** [`buildAssistantCorpus()`](../../lib/topics/assistant.ts:199) indexes every
+  topic in the shipped library for all five locations, overlays the plan's placements by
+  slug, adds org-authored topics the library does not carry, and drops what the advisor
+  hid. A topic the plan never placed is still answered, but it carries no deep link and
+  says so.
+- **Retrieval.** [`searchAssistantTopics()`](../../lib/topics/assistant.ts:532) scores
+  title, tags, group, summary, quick answer, steps and location, with a small synonym map
+  (`401k` → retirement, `PTO` → time off, `log in` → login) and title-specificity
+  weighting. A close call becomes "Did you mean…" chips; below the threshold the
+  assistant hands off instead of inventing an answer.
+- **Opening state.** The sheet greets the visitor and shows one button per published hub
+  (Employee Resources included). Pressing one asks the assistant about that benefit —
+  [`respondToHub()`](../../lib/topics/assistant.ts:1250) offers its own topics as chips —
+  so the conversation continues in the sheet instead of routing away. A chip answers the
+  exact topic it stands for (`respondToTopic`), even when two hubs share a title.
+- **Replies.** [`respondToQuestion()`](../../lib/topics/assistant.ts:1142) returns the
+  topic's own quick answer, up to three steps, its CTA, its deep link
+  (`/{plan}/retirement#401k-loans`) and the hub. Navigation questions resolve to the
+  published hubs, sign-in, documents, News & Events or the benefits team; contact
+  questions hand off to the advisor's booking link.
+- **Links say where they go.** Every navigational control is a white pill with the
+  plan's border, captioned with its destination ("Goes to your Retirement page and opens
+  this answer", "Opens recordkeeper.example in a new tab"). Following one never closes
+  the sheet.
+- **One-hour session.** The transcript is kept in `sessionStorage` per plan. Reopening
+  the sheet — or reloading the page in the same tab — restores the conversation, and
+  exactly an hour after it began the sheet resets to the greeting.
+- **Mobile offset.** The install prompt publishes `--portal-install-inset` (`4.5rem`
+  while the bar is visible, `0rem` once dismissed or installed). The FAB adds it to its
+  mobile bottom offset, so dismissing the prompt drops the pill into the freed space
+  instead of leaving a gap above the corner.
+- **Fullscreen on phones.** Below `md` the sheet fills the viewport (`inset-0`, no card
+  chrome) and pads the header/composer for the safe areas; the floating pill is hidden
+  while it is open (the header's X closes it). The page behind it is locked
+  (`position: fixed` at the current offset, scrollbar gone) and the transcript uses
+  `overscroll-contain`, so a swipe scrolls the chat, never the portal. From `md` up it
+  is the floating card, clear of the comments rail.
+- **Plan read.** [`loadPlanAssistantTopics()`](../../lib/topics/assistant.server.ts:118)
+  does two reads for every published location (placements + groups) and resolves them
+  with the same `resolveLocationTopics` the hubs use. It is exposed by
+  [`GET /api/clients/[id]/portal/assistant?forPortal=1`](../../app/api/clients/[id]/portal/assistant/route.ts:28),
+  a portal-only route scoped to the advisor its slug resolves to.
+- **Deep links open in place.** The chatbot sits in the portal layout, so following one of
+  its links while already on that hub changes only the hash. `HowCanWeHelpSection` listens
+  for `hashchange`, opens the named card and scrolls its panel into view.
+- **Tests.** `lib/topics/__tests__/assistant.test.ts` (corpus, retrieval, intents, links),
+  `lib/topics/__tests__/assistant-server.test.ts` (the plan read — run by Edit Benefit's
+  suite) and the two portal-hub suites: the route and the sheet itself.
 
 ## A benefit hub's five blue buttons
 
@@ -166,19 +222,31 @@ suite (`portal-disclosures.test.ts`, `portal-disclosure-section.test.tsx`).
 
 | #   | Suite                                                                                      | Tests | Focus                                                                          |
 | --- | ------------------------------------------------------------------------------------------ | ----: | ------------------------------------------------------------------------------ |
-| 1   | `app/api/clients/[id]/benefits/[category]/__tests__/portal-get.test.ts`                    |    13 | The anonymous `forPortal=1` read: slug→advisor scoping, 403/404, video signing |
-| 2   | `components/pages/client-portal/sections/__tests__/completeness-auto-trigger.test.tsx`     |     9 | The "Incomplete Benefit Setup" trigger: merged docs, pre-merge pass, refetch   |
-| 3   | `components/pages/client-portal/sections/__tests__/video-carousel.test.tsx`             |    17 | Rail fetch, `includeVideoFiles=0`, skeletons, runtime, heading + count, chevrons |
-| 4   | `components/pages/client-portal/sections/__tests__/webinar-replay-card-poster.test.tsx`    |     7 | The poster card: 16:9 frame, white-ring play, gradient, title, runtime badge   |
-| 5   | `components/pages/client-portal/sections/__tests__/benefits-video-section.test.tsx`        |    29 | Journey copy defaults, the no-video image, gating, rail heading, player swap   |
-| 6   | `components/pages/client-portal/sections/__tests__/have-questions.test.tsx`                |    21 | Support cards, `mailto:`/`tel:` links, designations, count-driven widths, key contact |
-| 6b  | `lib/__tests__/support-card-layout.test.ts`                                                |    15 | Row slots + element tier per contact count (1–4), the lone-card half width |
-| 7   | `components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx`       |    51 | Default vs configured cards, the three CTA shapes, layout and rollovers        |
-| 8   | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-portrait.test.tsx` |    5 | The banner portrait: plan override, key-contact headshot default, placeholder  |
-| 9   | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-schedule.test.tsx` |    2 | The banner's Schedule CTA: handler vs scheduling URL                            |
-| 10  | `components/__tests__/faq-section.test.tsx`                                                |    19 | Single-open accordion, incomplete rows, link normalisation                     |
-| 11  | `lib/__tests__/benefits-video-fallback.test.ts`                                            |     7 | Per-category clips, plan video precedence, embed/URL fallbacks                 |
-| 12  | `components/pages/client-portal/sections/__tests__/video-feature-player.test.tsx`        |    11 | The inline player: embed/direct/uploaded sources, errors, X and Escape         |
+| 1   | `lib/topics/__tests__/assistant.test.ts`                                                   |    31 | Assistant corpus, retrieval, intents, hubs, chips and exact-topic answers     |
+| 2   | `app/api/clients/[id]/portal/assistant/__tests__/route.test.ts`                            |     7 | The assistant's index read: portal gate, advisor scoping, payload, failures    |
+| 3   | `components/pages/client-portal/sections/__tests__/portal-chatbot.test.tsx`                |    24 | The sheet: greeting, hub turns, answers, hints, handoff, session, scroll lock  |
+| 4   | `components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx`       |    82 | Cards, layout, panels, placements, rollovers and chat deep links               |
+| 5   | `lib/__tests__/help-card-layout.test.ts`                                                   |    33 | Primary edge, row packing, hidden cards, ordering rules                        |
+| 6   | `lib/topics/__tests__/library-content.test.ts`                                             |     9 | Shipped card lines, answer groups, acronyms and legacy topics                  |
+| 7   | `lib/topics/__tests__/group-realign.test.ts`                                               |     9 | Restoring an older plan's Quick Answers groups to the library order            |
+| 8   | `lib/__tests__/contact-card-presentation.test.ts`                                          |     9 | The CTA / show-hide settings carried onto a support card                       |
+| 9   | `lib/__tests__/support-card-layout.test.ts`                                                |    18 | Row slots + element tier per contact count (1–4), the lone-card half width     |
+| 10  | `components/pages/client-portal/sections/__tests__/have-questions.test.tsx`                |    26 | Support cards, `mailto:`/`tel:` links, designations, widths, key contact       |
+| 11  | `components/__tests__/faq-section.test.tsx`                                                |    20 | Single-open accordion, incomplete rows, link normalisation                     |
+| 12  | `app/api/clients/[id]/benefits/[category]/__tests__/portal-get.test.ts`                    |    24 | The anonymous `forPortal=1` read: slug→advisor scoping, 403/404, video signing |
+| 13  | `components/pages/client-portal/sections/__tests__/completeness-auto-trigger.test.tsx`     |     9 | The "Incomplete Benefit Setup" trigger: merged docs, pre-merge pass, refetch   |
+| 14  | `components/pages/client-portal/sections/__tests__/benefits-video-section.test.tsx`        |    30 | Journey copy defaults, the no-video image, gating, rail heading, player swap   |
+| 15  | `components/pages/client-portal/sections/__tests__/video-carousel.test.tsx`                |    22 | Rail fetch, `includeVideoFiles=0`, skeletons, runtime, heading + count, chevrons |
+| 16  | `components/pages/client-portal/sections/__tests__/webinar-replay-card-poster.test.tsx`    |     8 | The poster card: 16:9 frame, white-ring play, gradient, title, runtime badge   |
+| 17  | `components/pages/client-portal/sections/__tests__/video-feature-player.test.tsx`          |    11 | The inline player: embed/direct/uploaded sources, errors, X and Escape         |
+| 18  | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-portrait.test.tsx` |    10 | The banner portrait: plan override, key-contact headshot default, placeholder  |
+| 19  | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-schedule.test.tsx` |     2 | The banner's Schedule CTA: handler vs scheduling URL                            |
+| 20  | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-edit-pencils.test.tsx` | 5 | The banner's per-element pencils and the panel anchors they name               |
+| 21  | `components/portal-editing/editors/__tests__/portal-benefit-editor-disclosure.test.tsx`     |     3 | The hub Edit Panel's Disclosure section, scoped to this benefit                |
+| 22  | `app/(portal)/[id]/employee-resources/__tests__/page-edit-affordances.test.tsx`            |     5 | Employee Resources' three blue buttons and the anchors they name               |
+| 23  | `app/(portal)/[id]/retirement/__tests__/page-edit-affordances.test.tsx`                    |     3 | A hub's five blue buttons, one template across four pages                      |
+| 24  | `lib/__tests__/benefits-video-fallback.test.ts`                                            |     7 | Per-category clips, plan video precedence, embed/URL fallbacks                 |
+| 25  | `lib/text/__tests__/linkify.test.ts`                                                       |     6 | Turning an address in answer copy into a real link                             |
 
 ## Remaining coverage
 

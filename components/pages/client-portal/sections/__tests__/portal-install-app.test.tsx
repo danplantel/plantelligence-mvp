@@ -1,5 +1,6 @@
 import React from "react";
-import { render, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PortalInstallApp } from "../portal-install-app";
@@ -96,5 +97,40 @@ describe("PortalInstallApp metadata", () => {
     for (const selector of SELECTORS) {
       expect(document.head.querySelector(selector)).toBeNull();
     }
+  });
+});
+
+describe("PortalInstallApp chatbot offset", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    document.documentElement.style.removeProperty("--portal-install-inset");
+  });
+
+  it("publishes the bar's lift and clears it when dismissed", async () => {
+    const user = userEvent.setup();
+    render(<PortalInstallApp />);
+
+    const dismiss = await screen.findByRole("button", {
+      name: "Dismiss the app download prompt",
+    });
+    await waitFor(() =>
+      expect(
+        document.documentElement.style.getPropertyValue(
+          "--portal-install-inset",
+        ),
+      ).toBe("4.5rem"),
+    );
+
+    await user.click(dismiss);
+
+    // The chatbot's FAB and sheet include this value, so they settle into the space
+    // the dismissed prompt leaves behind.
+    await waitFor(() =>
+      expect(
+        document.documentElement.style.getPropertyValue(
+          "--portal-install-inset",
+        ),
+      ).toBe("0rem"),
+    );
   });
 });

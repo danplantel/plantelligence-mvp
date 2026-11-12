@@ -1413,19 +1413,39 @@ export function HowCanWeHelpSection({
 
   // Open whatever the URL named, once the grid is known. Placed after
   // `cardOrderKey` because that key is what tells us the topic set changed.
+  //
+  // The `hashchange` listener is what makes an IN-PAGE deep link work. The chatbot
+  // lives in the portal layout, so following "Open on your plan page" while already
+  // on that hub changes only the hash: this section never remounts, and without the
+  // listener the answer the visitor just asked for would not open. A panel opens on
+  // the next commit, so the scroll waits a frame.
   useEffect(() => {
     if (!topics || topics.length === 0) return;
 
-    const fromHash = readHashTopicSlug(window.location.hash);
-    if (fromHash) {
+    const openFromHash = () => {
+      const fromHash = readHashTopicSlug(window.location.hash);
+      if (!fromHash) return;
+
       const match = resolvedCards.find((card) =>
         topicMatchesHash({ slug: card.id }, fromHash),
       );
-      if (match) setOpenCardId(match.id);
-    }
+      if (!match) return;
+
+      setOpenCardId(match.id);
+      window.requestAnimationFrame?.(() => {
+        document
+          .getElementById(`help-card-${match.id}`)
+          ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+    };
+
+    openFromHash();
 
     const option = readOptionParam(window.location.search);
     if (option) setRolloversOption(option);
+
+    window.addEventListener("hashchange", openFromHash);
+    return () => window.removeEventListener("hashchange", openFromHash);
   }, [cardOrderKey, topics]);
 
   useEffect(() => {

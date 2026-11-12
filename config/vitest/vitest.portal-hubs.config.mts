@@ -55,6 +55,13 @@ const portalHubTests = [
   "app/(portal)/[id]/retirement/__tests__/page-edit-affordances.test.tsx",
   // The welcome banner's per-element pencils and the anchors they name
   "components/pages/client-portal/sections/__tests__/portal-welcome-banner-edit-pencils.test.tsx",
+  // The assistant's brain: corpus over the whole shipped library + the plan's
+  // placements, ranked retrieval, intent routing, hub and deep-link rules
+  "lib/topics/__tests__/assistant.test.ts",
+  // GET .../portal/assistant?forPortal=1 — the portal gate, plan scoping, payload
+  "app/api/clients/[id]/portal/assistant/__tests__/route.test.ts",
+  // The floating "Ask a question" sheet: index read, answers, chips, navigation
+  "components/pages/client-portal/sections/__tests__/portal-chatbot.test.tsx",
 ];
 
 const baseTest = (baseConfig as { test?: Record<string, unknown> }).test ?? {};

@@ -31,6 +31,12 @@ export interface ClientData {
   documents?: any[];
   categoryPortalVisibility?: Record<string, boolean>;
   /**
+   * TF-6: the plan's own Employee Resources toggle. The fifth hub has no Benefit
+   * row, so this flag — not `benefitHubs` — is the only thing that can say the page
+   * is published. The header and the assistant's navigation both read it.
+   */
+  employeeResourcesEnabled?: boolean;
+  /**
    * The plan's Benefit rows (portal only): which hub categories exist, and whether
    * each is published. The header's benefit links read this rather than the legacy
    * `employeePortalPreview.benefits` mirror, which also carries Step 5 template

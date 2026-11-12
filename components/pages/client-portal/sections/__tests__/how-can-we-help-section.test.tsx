@@ -1,5 +1,5 @@
 import React from "react";
-import { act, render, screen, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -1620,6 +1620,37 @@ describe("HowCanWeHelpSection features placements", () => {
 
     const panel = screen.getByRole("region", { name: "Previous employer plans" });
     expect(panel).toHaveTextContent("Old 401(k)s are still yours");
+  });
+
+  it("opens the answer when a chat link changes the hash on this page", async () => {
+    render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Health"
+        topics={FIVE_FEATURED}
+      />,
+    );
+
+    expect(
+      screen.queryByRole("region", { name: "Find Care" }),
+    ).not.toBeInTheDocument();
+
+    // The chatbot sits in the portal layout, so following its "Open on your plan
+    // page" link while already on this hub changes only the hash — the section
+    // never remounts. The listener is what opens the answer.
+    act(() => {
+      window.history.replaceState(null, "", "#find-care-providers");
+      window.dispatchEvent(new Event("hashchange"));
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("region", { name: "Find Care" }),
+      ).toBeInTheDocument(),
+    );
+
+    // Leave the shared jsdom URL clean for the tests that follow.
+    window.history.replaceState(null, "", "/");
   });
 
   it("gives a promoted question its own answer as the card line", () => {
