@@ -889,10 +889,11 @@ export function PortalHero({
         </div>
       </div>
 
-      {/* Scroll Arrow */}
+      {/* Scroll Arrow — desktop/tablet only: on a phone the hero already fills the
+          screen and its content flows straight into the mission section. */}
       <button
         onClick={handleScrollDown}
-        className="absolute bottom-4 sm:bottom-8 left-1/2 transform -translate-x-1/2 z-20 cursor-pointer group"
+        className="absolute bottom-4 sm:bottom-8 left-1/2 transform -translate-x-1/2 z-20 hidden cursor-pointer group sm:block"
         aria-label="Scroll to mission section"
       >
         <ChevronDown

@@ -338,6 +338,14 @@ describe("PortalHero", () => {
     expect(region.className).toContain("ring-2");
   });
 
+  it("hides the scroll arrow on a phone", () => {
+    renderHero({ companyData: { companyName: "Acme" } });
+
+    const arrow = screen.getByLabelText("Scroll to mission section");
+    expect(arrow.className).toContain("hidden");
+    expect(arrow.className).toContain("sm:block");
+  });
+
   it("scrolls down when the mission section is not on the page", async () => {
     const user = userEvent.setup();
     renderHero({ companyData: { companyName: "Acme" } });
