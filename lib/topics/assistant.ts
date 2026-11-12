@@ -57,6 +57,12 @@ import type {
  */
 export const ASSISTANT_ASK_EVENT = "portal-chatbot:ask";
 
+/**
+ * Reports whether the landing page's Ask field holds focus, so the floating
+ * "Ask a question" button can step aside on a phone while the visitor types.
+ */
+export const ASSISTANT_INPUT_FOCUS_EVENT = "portal-chatbot:ask-focus";
+
 // ── Corpus ───────────────────────────────────────────────────────────────────
 
 /** One placement as the assistant reads it: already resolved against the library. */

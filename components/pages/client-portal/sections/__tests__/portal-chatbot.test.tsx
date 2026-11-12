@@ -4,7 +4,10 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ASSISTANT_ASK_EVENT } from "@/lib/topics/assistant";
+import {
+  ASSISTANT_ASK_EVENT,
+  ASSISTANT_INPUT_FOCUS_EVENT,
+} from "@/lib/topics/assistant";
 
 import { CHAT_SESSION_MS, PortalChatbot } from "../portal-chatbot";
 
@@ -601,6 +604,35 @@ describe("PortalChatbot handoff", () => {
     await waitFor(() =>
       expect(scrollTo).toHaveBeenCalledWith({ top: 228, behavior: "smooth" }),
     );
+  });
+
+  it("hides the floating button on a phone while the landing Ask field is focused", () => {
+    render(<PortalChatbot />);
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(ASSISTANT_INPUT_FOCUS_EVENT, {
+          detail: { focused: true },
+        }),
+      );
+    });
+
+    const hidden = screen.getByRole("button", { name: "Ask a question" });
+    // Hidden on a phone, still the labelled pill from `md` up.
+    expect(hidden.className).toContain("hidden");
+    expect(hidden.className).toContain("md:flex");
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(ASSISTANT_INPUT_FOCUS_EVENT, {
+          detail: { focused: false },
+        }),
+      );
+    });
+
+    expect(
+      screen.getByRole("button", { name: "Ask a question" }).className,
+    ).toContain("flex px-5");
   });
 });
 

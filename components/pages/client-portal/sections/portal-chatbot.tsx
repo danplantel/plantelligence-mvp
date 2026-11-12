@@ -13,6 +13,7 @@ import { useOptionalClientPortal } from "@/contexts/client-portal-context";
 import { customBenefitTitleFromHubs } from "@/lib/benefit-custom-name";
 import {
   ASSISTANT_ASK_EVENT,
+  ASSISTANT_INPUT_FOCUS_EVENT,
   buildAssistantCorpus,
   buildAssistantHubs,
   respondToHub,
@@ -190,6 +191,8 @@ export function PortalChatbot({
   const [open, setOpen] = useState(false);
   /** A hover/focus on the FAB starts the index fetch before the sheet opens. */
   const [warm, setWarm] = useState(false);
+  /** Whether the landing page's Ask field holds focus (reported by the hero). */
+  const [askInputFocused, setAskInputFocused] = useState(false);
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: 0, role: "assistant", text: GREETING },
@@ -463,6 +466,19 @@ export function PortalChatbot({
     return () => window.removeEventListener(ASSISTANT_ASK_EVENT, onExternalAsk);
   }, []);
 
+  // While the landing page's Ask field is focused, the floating button steps aside
+  // on a phone (it stays on `md` up), so the suggestion list and the keyboard have
+  // the screen to themselves.
+  useEffect(() => {
+    const onAskFocus = (event: Event) => {
+      const detail = (event as CustomEvent<{ focused?: unknown }>).detail;
+      setAskInputFocused(detail?.focused === true);
+    };
+    window.addEventListener(ASSISTANT_INPUT_FOCUS_EVENT, onAskFocus);
+    return () =>
+      window.removeEventListener(ASSISTANT_INPUT_FOCUS_EVENT, onAskFocus);
+  }, []);
+
   // Sit clear of an open Comments / Messages rail, which occupies the right-hand
   // column and sets these variables on the portal root.
   const edgeStyle: React.CSSProperties = {
@@ -707,9 +723,15 @@ export function PortalChatbot({
         // Mobile sits above the install prompt via `--portal-install-inset`; when the
         // prompt is dismissed the variable is 0 and the pill drops to 1.5rem.
         // Desktop uses the corner and ignores the variable. While the fullscreen
-        // phone sheet is open the pill is hidden — the header's X closes it.
+        // phone sheet is open the pill is hidden — the header's X closes it. It also
+        // steps aside on a phone while the landing page's Ask field is focused, and
+        // returns on `md` up.
         className={`fixed bottom-[calc(1.5rem_+_var(--portal-install-inset,0px))] z-[60] h-14 items-center justify-center gap-2 rounded-full text-white shadow-[0_10px_30px_rgba(15,23,42,0.28)] transition-transform hover:scale-105 print:hidden md:bottom-6 ${
-          open ? "hidden w-14 md:flex" : "flex px-5"
+          open
+            ? "hidden w-14 md:flex"
+            : askInputFocused
+              ? "hidden px-5 md:flex"
+              : "flex px-5"
         }`}
         style={{
           ...edgeStyle,

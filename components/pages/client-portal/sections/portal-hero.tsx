@@ -2,9 +2,18 @@
 
 import { Button } from "@/components/ui/button";
 import { ChevronDown, Pencil, Search } from "lucide-react";
-import { useRef, KeyboardEvent, ReactNode, useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  KeyboardEvent,
+  ReactNode,
+  useMemo,
+  useState,
+} from "react";
 import {
   ASSISTANT_ASK_EVENT,
+  ASSISTANT_INPUT_FOCUS_EVENT,
   buildAssistantCorpus,
   searchAssistantTopics,
   type AssistantTopic,
@@ -74,6 +83,8 @@ export function PortalHero({
 }: PortalHeroProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const askBarRef = useRef<HTMLDivElement>(null);
+  /** Whether this hero's Ask field holds focus, for the unmount hand-off below. */
+  const askInputFocusedRef = useRef(false);
   const [hoveredElement, setHoveredElement] = useState<
     "background" | "container" | "title" | "description" | null
   >(null);
@@ -87,7 +98,9 @@ export function PortalHero({
   const suggestions = useMemo<AssistantTopic[]>(() => {
     const needle = query.trim();
     if (needle.length < 2) return [];
-    return searchAssistantTopics(topicIndex, needle, 5)
+    // More than the card shows at once, so a broad query stays reachable by
+    // scrolling the card rather than being silently cut off.
+    return searchAssistantTopics(topicIndex, needle, 12)
       .matches.filter((match) => match.score >= 20)
       .map((match) => match.topic);
   }, [query, topicIndex]);
@@ -117,7 +130,7 @@ export function PortalHero({
    * editing preview. Works the same on a phone: the input stays at the top and the
    * keyboard rises beneath it.
    */
-  const pinAskBar = () => {
+  const pinAskBar = useCallback(() => {
     const bar = askBarRef.current;
     if (!bar) return;
     const chrome = document.querySelector<HTMLElement>("[data-portal-header]");
@@ -130,7 +143,36 @@ export function PortalHero({
       chromeHeight -
       ASK_BAR_TOP_GAP;
     window.scrollTo({ top: Math.max(0, top), behavior: "smooth" });
-  };
+  }, []);
+
+  /**
+   * Lift the bar once the search is active. On a phone the hero has also grown the
+   * five-row reserve below the form, so the card sits inside its own section instead
+   * of over the mission. The card is anchored to the form's wrapper, which keeps it
+   * directly below the field wherever the page is scrolled. A resize is the one
+   * thing that can change its width.
+   */
+  useEffect(() => {
+    if (!suggestionsOpen) return;
+    pinAskBar();
+    const update = () => pinAskBar();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [suggestionsOpen, pinAskBar]);
+
+  // Leaving the page with the field still focused must not strand the chatbot's
+  // button in its hidden state.
+  useEffect(
+    () => () => {
+      if (!askInputFocusedRef.current) return;
+      window.dispatchEvent(
+        new CustomEvent(ASSISTANT_INPUT_FOCUS_EVENT, {
+          detail: { focused: false },
+        }),
+      );
+    },
+    [],
+  );
 
   const defaultTitle = `Welcome to the ${
     companyData?.companyName || "Company Name"
@@ -666,8 +708,11 @@ export function PortalHero({
               className="relative z-10 mt-6 w-full"
               onClick={(event) => event.stopPropagation()}
             >
-              <form
-                role="search"
+              {/* The form is the card's positioning context: the list hangs just
+                  below the field, even as the hero grows around it. */}
+              <div className="relative w-full">
+                <form
+                  role="search"
                 className="flex w-full items-center gap-2 rounded-xl bg-white p-1.5 pl-4 shadow-lg"
                 onSubmit={(event) => {
                   event.preventDefault();
@@ -687,12 +732,23 @@ export function PortalHero({
                     setSuggestionsOpen(true);
                   }}
                   onFocus={() => {
+                    askInputFocusedRef.current = true;
                     setSuggestionsOpen(true);
-                    pinAskBar();
+                    window.dispatchEvent(
+                      new CustomEvent(ASSISTANT_INPUT_FOCUS_EVENT, {
+                        detail: { focused: true },
+                      }),
+                    );
                   }}
-                  onBlur={() =>
-                    setTimeout(() => setSuggestionsOpen(false), 120)
-                  }
+                  onBlur={() => {
+                    askInputFocusedRef.current = false;
+                    window.dispatchEvent(
+                      new CustomEvent(ASSISTANT_INPUT_FOCUS_EVENT, {
+                        detail: { focused: false },
+                      }),
+                    );
+                    setTimeout(() => setSuggestionsOpen(false), 120);
+                  }}
                   onKeyDown={(event) => {
                     if (event.key === "Escape") setSuggestionsOpen(false);
                   }}
@@ -715,17 +771,20 @@ export function PortalHero({
                 >
                   Ask
                 </Button>
-              </form>
+                </form>
 
-              {suggestionsOpen && suggestions.length > 0 ? (
-                <div
-                  id="portal-hero-topic-suggestions"
-                  data-testid="hero-topic-suggestions"
-                  aria-label="Matching benefit topics"
-                  // Keep the input focused so a click lands before the blur timer.
-                  onMouseDown={(event) => event.preventDefault()}
-                  className="absolute left-0 right-0 top-full z-20 mt-2 overflow-hidden rounded-xl border border-black/5 bg-white text-left shadow-xl"
-                >
+                {suggestionsOpen && suggestions.length > 0 ? (
+                  <div
+                    id="portal-hero-topic-suggestions"
+                    data-testid="hero-topic-suggestions"
+                    aria-label="Matching benefit topics"
+                    // Keep the input focused so a click lands before the blur timer.
+                    onMouseDown={(event) => event.preventDefault()}
+                    // Hangs from the form's wrapper, so it is always directly below
+                    // the field. About five rows at a time; a longer list scrolls
+                    // inside the card, and `overscroll-contain` keeps the page still.
+                    className="absolute left-0 right-0 top-full z-20 mt-2 max-h-[min(60vh,18.5rem)] overflow-y-auto overscroll-contain rounded-xl border border-black/5 bg-white text-left shadow-xl"
+                  >
                   <p className="px-4 pb-1 pt-2.5 font-red-hat text-[10px] font-semibold uppercase tracking-wide text-gray-400">
                     Topics in your benefits library
                   </p>
@@ -754,7 +813,20 @@ export function PortalHero({
                       </li>
                     ))}
                   </ul>
-                </div>
+                  </div>
+                ) : null}
+              </div>
+
+              {/* On a phone the hero grows to hold the suggestion card: a constant
+                  five-row reserve keeps the list inside its own section instead of
+                  over the mission, and the layout never shifts mid-typing. Hidden
+                  from `sm` up, where the hero already has the room. */}
+              {suggestionsOpen ? (
+                <div
+                  data-testid="portal-hero-ask-reserve"
+                  aria-hidden="true"
+                  className="mt-2 h-[18.5rem] w-full sm:hidden"
+                />
               ) : null}
             </div>
           </div>

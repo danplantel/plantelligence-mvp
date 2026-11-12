@@ -302,6 +302,9 @@ to it) without a reload.
 - Controls are white pills with the plan-coloured border. Links use `next/link` for
   in-portal paths and `<a target="_blank" rel="noreferrer">` for external ones; each
   shows a destination caption, and following one leaves the sheet open.
+- The landing page's Ask field dispatches `ASSISTANT_INPUT_FOCUS_EVENT` on focus/blur;
+  the floating pill hides on a phone while the visitor types (`hidden md:flex`) and
+  returns when the field lets go.
 - The transcript scrolls to the visitor's question, not the end of the answer: the
   newest user message is pinned near the top (its `offsetTop` on the `relative`
   transcript, minus a small gap), so a long reply is read from its first line. The

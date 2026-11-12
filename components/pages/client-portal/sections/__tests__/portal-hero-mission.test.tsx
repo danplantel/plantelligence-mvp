@@ -1,11 +1,14 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PortalHero } from "../portal-hero";
 import { PortalMission } from "../portal-mission";
-import { ASSISTANT_ASK_EVENT } from "@/lib/topics/assistant";
+import {
+  ASSISTANT_ASK_EVENT,
+  ASSISTANT_INPUT_FOCUS_EVENT,
+} from "@/lib/topics/assistant";
 
 /**
  * `PortalHero` and `PortalMission` share one contract: the landing page's first
@@ -400,6 +403,45 @@ describe("PortalHero", () => {
     chrome.remove();
   });
 
+  it("reports the field's focus so the assistant's button can step aside", async () => {
+    const user = userEvent.setup();
+    const listener = vi.fn();
+    window.addEventListener(ASSISTANT_INPUT_FOCUS_EVENT, listener);
+    renderHero({ companyData: { companyName: "Acme" } });
+
+    const input = screen.getByRole("searchbox", {
+      name: "Ask a question or search for your benefits",
+    });
+    await user.click(input);
+    expect(listener).toHaveBeenLastCalledWith(
+      expect.objectContaining({ detail: { focused: true } }),
+    );
+
+    act(() => input.blur());
+    expect(listener).toHaveBeenLastCalledWith(
+      expect.objectContaining({ detail: { focused: false } }),
+    );
+
+    window.removeEventListener(ASSISTANT_INPUT_FOCUS_EVENT, listener);
+  });
+
+  it("extends the hero by five rows on a phone while the search is active", async () => {
+    const user = userEvent.setup();
+    renderHero({ companyData: { companyName: "Acme" } });
+
+    await user.click(
+      screen.getByRole("searchbox", {
+        name: "Ask a question or search for your benefits",
+      }),
+    );
+
+    // The reserve appears on focus, before any results, so growing the section never
+    // shifts the bar mid-typing. Phone-only, and exactly five card rows tall.
+    const reserve = screen.getByTestId("portal-hero-ask-reserve");
+    expect(reserve.className).toContain("h-[18.5rem]");
+    expect(reserve.className).toContain("sm:hidden");
+  });
+
   it("suggests library topics as the visitor types", async () => {
     const user = userEvent.setup();
     renderHero({ companyData: { companyName: "Acme" } });
@@ -417,6 +459,45 @@ describe("PortalHero", () => {
     expect(screen.getByText("Can I take a loan?")).toBeInTheDocument();
     // The row says which hub (and group) the topic belongs to.
     expect(screen.getAllByText(/Loans & Withdrawals/).length).toBeGreaterThan(0);
+  });
+
+  it("keeps the suggestion card inside the hero, directly below the field", async () => {
+    const user = userEvent.setup();
+    renderHero({ companyData: { companyName: "Acme" } });
+
+    await user.type(
+      screen.getByRole("searchbox", {
+        name: "Ask a question or search for your benefits",
+      }),
+      "loan",
+    );
+
+    const card = await screen.findByTestId("hero-topic-suggestions");
+    // In the hero's own flow: the section grows around it on a phone (the reserve),
+    // so the mission never paints over the list, and `top-full` keeps it under the
+    // field in the form's relative wrapper.
+    expect(card.closest("section")).not.toBeNull();
+    expect(card.className).toContain("absolute");
+    expect(card.className).toContain("top-full");
+    expect(card.parentElement?.className).toContain("relative");
+  });
+
+  it("scrolls the suggestion list once it holds more than five topics", async () => {
+    const user = userEvent.setup();
+    renderHero({ companyData: { companyName: "Acme" } });
+
+    await user.type(
+      screen.getByRole("searchbox", {
+        name: "Ask a question or search for your benefits",
+      }),
+      "health",
+    );
+
+    const card = await screen.findByTestId("hero-topic-suggestions");
+    expect(card.querySelectorAll("li").length).toBeGreaterThan(5);
+    // About five rows at a time; the rest scrolls inside the card.
+    expect(card.className).toContain("overflow-y-auto");
+    expect(card.className).toContain("max-h-");
   });
 
   it("hands a typed question to the assistant", async () => {
