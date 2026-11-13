@@ -167,21 +167,46 @@ In render order, each page:
 
 1. reads the plan from [`useClientPortal()`](../../contexts/client-portal-context.tsx:76) and the route param;
 2. resolves `brandColor` (`#1F3A60`) and `secondaryColor` (`#6B7280`) with fallbacks;
-3. reads the benefit from `GET /api/clients/{id}/benefits/{category}?forPortal=1` through SWR (`revalidateOnFocus: false`, `dedupingInterval: 60_000`), falling back to `employeePortalPreview` via `getBenefitFromPreview`;
+3. reads the benefit from `GET /api/clients/{id}/benefits/{category}?forPortal=1&withTopics=1` through SWR (`revalidateOnFocus: false`, `dedupingInterval: 60_000`), falling back to `employeePortalPreview` via `getBenefitFromPreview` — the key comes from [`benefitHubApiPath`](../../lib/benefit-hub-data.ts:1) because the portal provider PRELOADS that same key (see "One skeleton per hub" below);
 4. derives the FAQ list — enabled rows first, then `DEFAULT_FAQS[category]`;
 5. resolves support contacts with `buildFaqSupportContacts({ keyContacts, supportContacts })`;
 6. loads documents once per `clientId` + embedded-id signature: `fetchPlanDocumentsForClient` → `mergePlanDocumentRows` → `sortDocumentRowsByCustomOrder` → `mapMergedRowsToBenefitHubItems(rows, hubLabel)`;
 7. renders, in order: `CompletenessAutoTrigger`, `PortalWelcomeBanner`, `BenefitsVideoSection`, `HowCanWeHelpSection`, `FAQSection`, `BenefitDocumentSection`, `HaveQuestions`. Account access (plan / group ID, login URL, provider) is the wide card inside `HowCanWeHelpSection`; the old `PortalMaterialsHero` band was removed, and the header's **Login** button scrolls to that section. The page's videos are the `VideoCarousel` rail at the bottom of `BenefitsVideoSection` — the old `BenefitsHubWebinarsSection` band is gone.
 
-`QuickAnswersSection` is the one section whose content exists only in the benefit
-read, so it is also the one that used to arrive late — seconds after the sections
-around it, shoving them down as it appeared. Each hub now passes
-`loading={benefitLoading}` (SWR's `isLoading`), and the section draws its skeleton
-while that read is in flight: the same anchor id, heading, search field and
-two-column rhythm the answers will occupy, so the frame is claimed on first paint and
-the questions swap in without a jump. A revalidation over answers already on screen
-never flashes it, and a plan with no placements still renders nothing once loading
-finishes.
+### One skeleton per hub
+
+The provider's full-viewport skeleton is the only loading state a participant should
+see on a hub. It covers three reads, not one:
+
+| Read | Where it is started | Awaited by the skeleton? |
+| --- | --- | --- |
+| Plan + advisor profile | `ClientPortalProvider` bootstrap | Yes |
+| Benefit + topic placements (`…/benefits/{category}?forPortal=1&withTopics=1`) | `preloadBenefitHubData` in the same `Promise.allSettled` | Yes |
+| Documents (`/api/documents/client/{id}?forPortal=1`) | `fetchPlanDocumentsForClient`, started in the same window | No — its rows are merged with the plan's embedded `documents`, so it can only be finalised after the plan arrives |
+
+Before this, the skeleton covered only the plan and the profile: the page then mounted
+and each hub section loaded its own data behind a SECOND round of skeletons — Quick
+Answers appearing seconds after the sections around it, the documents grid after that.
+Warming the benefit read inside the existing wait removes that wave: the page mounts
+with `benefit` + `topics` already in the SWR cache, so every section paints complete.
+
+`lib/benefit-hub-data.ts` is the single source for that warm-up: it maps a pathname to
+the benefit category (`retirement` → `Retirement`, `health-insurance` → `Group Health`,
+`life-insurance` → `Group Life`, anything else at that depth → the Custom hub's
+`Company / Plan Sponsor`) and builds the URL. A preload only helps if it is
+byte-for-byte the key the page's `useSWR` subscribes to, so both halves call
+`benefitHubApiPath` rather than writing the string twice.
+
+Two fallbacks remain, and they are all that is left of the old behaviour:
+
+- **A hub the provider did not warm** — client-side navigation to another hub, or a
+  failed read. `QuickAnswersSection` then draws its own frame (same anchor id,
+  heading, search field and two-column rhythm) while `loading`, so the section cannot
+  materialise late and shove the page down. A revalidation over answers already on
+  screen never flashes it, and a plan with no placements renders nothing at all once
+  loading finishes.
+- **The documents grid** — `BenefitDocumentSection` keeps its own skeleton for the
+  window between mount and the in-flight read resolving.
 
 ## Where the four differ
 

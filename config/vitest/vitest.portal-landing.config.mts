@@ -12,8 +12,11 @@ import baseConfig from "./vitest.config.mts";
 const portalLandingTests = [
   // Landing page projection: contacts, visibility fallback, footer preference
   "app/(portal)/[id]/__tests__/page.test.tsx",
-  // Provider: portal fetch, archived/alias handling, skeleton, refetch events
+  // Provider: portal fetch, archived/alias handling, the ONE skeleton (hub reads
+  // warmed inside it), refetch events
   "contexts/__tests__/client-portal-context.test.tsx",
+  // The hub endpoint map the provider preloads and the hub pages subscribe to
+  "lib/__tests__/benefit-hub-data.test.ts",
   // The four hub cards: defaults, visibility, partner branding, completeness
   "components/pages/client-portal/sections/__tests__/portal-benefits.test.tsx",
   // Hero + mission: copy fallbacks and the preview-only edit affordances

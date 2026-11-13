@@ -5,6 +5,11 @@ import { useParams, notFound } from "next/navigation";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import useSWR from "swr";
 import { buildFaqSupportContacts } from "@/lib/faq-support-contacts";
+import {
+  CUSTOM_BENEFIT_HUB_CATEGORY,
+  benefitHubApiPath,
+  portalBenefitFetcher,
+} from "@/lib/benefit-hub-data";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import { PortalWelcomeBanner } from "@/components/pages/client-portal/sections/portal-welcome-banner";
 import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
@@ -39,7 +44,6 @@ import { isCustomBenefitRouteSegment } from "@/lib/benefit-custom-name";
 import type { BenefitData } from "@/types/benefit";
 import type { TopicsPayload } from "@/types/topic";
 
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 const WELLNESS_DOCUMENT_HUB = benefitCategoryToDocumentHubLabel("Company / Plan Sponsor");
 
@@ -71,11 +75,14 @@ export default function CustomBenefitPage() {
   // FAQ accordion is retired, so they are always requested.
   // `isLoading` is what the Quick Answers section draws its skeleton from: until the
   // read answers, the section has no questions to show and used to appear late.
+  // The URL and fetcher come from `lib/benefit-hub-data` because the portal provider
+  // PRELOADS this exact key inside its bootstrap skeleton — a hand-written string here
+  // would be a different cache entry and bring the second round of skeletons back.
   const { data: benefitApiData, isLoading: benefitLoading } = useSWR(
     clientId
-      ? `/api/clients/${clientId}/benefits/Company%20%2F%20Plan%20Sponsor?forPortal=1&withTopics=1`
+      ? benefitHubApiPath(clientId, CUSTOM_BENEFIT_HUB_CATEGORY)
       : null,
-    fetcher,
+    portalBenefitFetcher,
     { revalidateOnFocus: false, dedupingInterval: 60_000 },
   );
   const benefitFromApi: BenefitData | null = benefitApiData?.benefit ?? null;

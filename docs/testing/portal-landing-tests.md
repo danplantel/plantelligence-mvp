@@ -6,7 +6,7 @@ Unlike Edit Plan, this page owns almost no UI of its own. It is a **projection**
 
 ## Summary
 
-- **Unit tests:** 236 passing in 16 files
+- **Unit tests:** 246 passing in 17 files
 - **E2E:** none yet — see [Remaining coverage](#remaining-coverage)
 - **Runner:** Vitest + React Testing Library + jsdom
 
@@ -21,7 +21,7 @@ Unlike Edit Plan, this page owns almost no UI of its own. It is a **projection**
 ## Running these tests
 
 ```bash
-pnpm test:portal-landing           # all Portal Landing suites (236 tests)
+pnpm test:portal-landing           # all Portal Landing suites (246 tests)
 pnpm test:portal-landing:watch     # watch mode
 pnpm test:portal-landing:coverage  # suites + V8 coverage
 ```
@@ -33,7 +33,7 @@ Backed by [`config/vitest/vitest.portal-landing.config.mts`](../../config/vitest
 | #   | Suite                                                                            | Tests | Focus                                                                               |
 | --- | -------------------------------------------------------------------------------- | ----: | ----------------------------------------------------------------------------------- |
 | 1   | `app/(portal)/[id]/__tests__/page.test.tsx`                                      |    17 | Contact projection, visibility fallback, footer preference, props to `ClientPortal` |
-| 2   | `contexts/__tests__/client-portal-context.test.tsx`                              |    14 | `forPortal` fetch, archived/alias, error states, profile, refetch events            |
+| 2   | `contexts/__tests__/client-portal-context.test.tsx`                              |    19 | `forPortal` fetch, archived/alias, error states, profile, refetch events, the hub reads warmed inside the one skeleton, and no re-gate on tab changes |
 | 3   | `components/pages/client-portal/sections/__tests__/portal-benefits.test.tsx`     |    26 | Four hub cards, count-driven widths, visibility, publish switch, partner branding, editing-only completeness cards |
 | 4   | `components/pages/client-portal/sections/__tests__/portal-hero-mission.test.tsx` |    36 | Hero/mission copy, phone stacking vs the desktop column, edit affordances, and the library-backed Ask bar with its focus lift |
 | 5   | `lib/__tests__/benefit-completeness.test.ts`                                     |    24 | The completeness matrix behind the "finish this benefit" dialog                     |
@@ -46,6 +46,7 @@ Backed by [`config/vitest/vitest.portal-landing.config.mts`](../../config/vitest
 | 12  | `components/wizard/new-client-steps/sections/__tests__/editor-panel-focus.test.tsx`     | 7 | The panel scrolling itself to a section — or to an anchor inside one            |
 | 13  | `components/portal-editing/__tests__/portal-section-edit-button.test.tsx`               | 7 | The blue button: hidden for participants, opens in place or navigates           |
 | 14  | `components/portal-editing/__tests__/portal-benefits-glance-section.test.tsx`           | 9 | Section 5: four card accordions, their saves, preview, and the Create Benefit link |
+| 15  | `lib/__tests__/benefit-hub-data.test.ts`                                                | 5 | Which benefit category each hub path reads, and the one endpoint key the provider and the pages agree on |
 
 ## The Edit Panel's "Your Benefits at a Glance" section
 
@@ -235,7 +236,15 @@ suite asserts a participant gets `showEditIndicators={false}` and no buttons.
 
 **Landing page (`page.test.tsx`)** — the skeleton and the `null` branch; `showOnPortal` filtering; the `{ contacts }` envelope; a JSON-string contact payload being dropped; hub-based contact filtering; the all-hidden exception; the `employeePortalPreview` visibility fallback; JSON-string visibility; secondary/custom footer backgrounds; plain-text and malformed `disclaimers`; `clientId`/`hideHeader`/`hideFooter`; `secondaryBannerImg`/`documents`/`employeePortalPreview` passthrough; advisor-over-plan disclaimer precedence; and the `""` defaults.
 
-**Portal context (`client-portal-context.test.tsx`)** — `?forPortal=1` + `cache: "no-store"`; the profile request and its non-fatal failure; the skeleton staying up until both requests settle; 404/500/`success:false` → **Page Not Found**; **Archived** hidden, **Draft** previewed; alias redirect preserving the sub-path; refetch with `&t=`, and both window events filtered by `clientId`.
+**Portal context (`client-portal-context.test.tsx`)** — `?forPortal=1` + `cache: "no-store"`; the profile request and its non-fatal failure; the skeleton staying up until both requests settle; 404/500/`success:false` → **Page Not Found**; **Archived** hidden, **Draft** previewed; alias redirect preserving the sub-path; refetch with `&t=`, and both window events filtered by `clientId`. The **one-skeleton** tests pin the loading model below: on a hub path the skeleton stays up until that hub's benefit read settles, the warmed key is exactly the one every hub page mounts with (documents read included), a Custom hub path warms `Company / Plan Sponsor`, and the landing page / portal tabs warm nothing.
+
+### One skeleton, not one per section
+
+The provider's full-viewport skeleton is the only loading state a participant should see on a Benefit Hub. It used to cover just the plan and the advisor profile, which meant a hub page painted a nearly-complete page and THEN loaded its own benefit + topic placements behind a second round of section skeletons (Quick Answers, the documents grid).
+
+Now the same skeleton covers the hub read too: the provider calls `preloadBenefitHubData(clientId, category)` from [`lib/benefit-hub-data.ts`](../../lib/benefit-hub-data.ts:1) inside its existing `Promise.allSettled`, and every hub page derives its `useSWR` key from `benefitHubApiPath` — one string, two consumers, so the preload always warms the key the page subscribes to. The documents read is *started* (not awaited) in that same window, and the module's single-flight map lets the page join the request instead of re-issuing it. Per-section skeletons remain as fallbacks for a hub the provider did not warm (client-side navigation, or a failed read).
+
+The bootstrap is also keyed on the PLAN, not the pathname. It used to take `pathname` through `fetchClient`'s dependencies, so every tab change re-fetched the plan and put the full-viewport skeleton back over a portal that was already loaded. `pathname` now reaches the alias redirect through a ref, and a separate effect warms the destination hub's read (and starts its documents read) on navigation — no gate, no second plan read.
 
 **Benefits (`portal-benefits.test.tsx`)** — four default cards; category-based slot filling; a hidden hub and the all-hidden `null`; a Benefit row whose own `isEnabled` is `false` removing its card (the publish switch, which the portal header and assistant read too — it wins over a visible category and the legacy mirror); the stale-`isEnabled` rule; **count-driven card widths** (one card = half the row, two = halves, three = thirds, four = quarters, partial rows centred); hub links vs the preview CTA; partner name from the assigned/primary contact; the image precedence chain; the 75-character copy cap; category default copy; the chevron split; `onEdit`; the "INCOMPLETE" placeholder card — the same skeleton as a live card (title block + `min-h-[130px]` footer) so heights match, rendered **only** in the editing view (`?edit=true`) and omitted for participants; the dialog's missing-info list and wizard link; and the preview bypass.
 

@@ -2,6 +2,7 @@ import React from "react";
 import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { mutate } from "swr";
 
 import {
   ClientPortalProvider,
@@ -113,6 +114,9 @@ function clientCalls() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  // The provider now warms hub reads into the SWR cache; a leftover entry from one
+  // test would make the next test's warm-up a no-op (SWR skips a key it already has).
+  void mutate(() => true, undefined, { revalidate: false });
   vi.spyOn(console, "error").mockImplementation(() => {});
   mocks.clientId = "plan-1";
   mocks.pathname = "/plan-1";
@@ -355,5 +359,140 @@ describe("ClientPortalProvider refetch", () => {
     });
 
     await waitFor(() => expect(clientCalls().length).toBe(2));
+  });
+});
+
+/**
+ * The one-skeleton contract.
+ *
+ * A hub page's benefit read used to start only AFTER this provider's skeleton lifted,
+ * so participants saw a full-viewport skeleton, then a nearly-complete page, then a
+ * second round of per-section skeletons. The provider now warms that read inside its
+ * own skeleton — `lib/benefit-hub-data.ts` owns the key both halves use — so the page
+ * mounts with the data already in the cache.
+ */
+describe("ClientPortalProvider hub preload", () => {
+  const benefitUrls = () =>
+    mocks.fetch.mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url.includes("/benefits/"));
+  const documentUrls = () =>
+    mocks.fetch.mock.calls
+      .map(([url]) => String(url))
+      .filter((url) => url.startsWith("/api/documents/client/"));
+
+  it("keeps the ONE skeleton up until the hub's benefit read has settled", async () => {
+    mocks.pathname = "/plan-1/retirement";
+    let releaseBenefit: (value: unknown) => void = () => {};
+    mocks.fetch.mockImplementation(async (url: string) => {
+      const target = String(url);
+      if (target.startsWith("/api/profile")) return profilePayload();
+      if (target.startsWith("/api/documents/client/")) {
+        return jsonResponse(200, { success: true, data: [] });
+      }
+      if (target.includes("/benefits/")) {
+        return new Promise((resolve) => {
+          releaseBenefit = resolve;
+        });
+      }
+      return clientPayload();
+    });
+
+    const { container } = renderProvider();
+
+    await waitFor(() =>
+      expect(mocks.fetch).toHaveBeenCalledWith("/api/clients/plan-1?forPortal=1", {
+        cache: "no-store",
+      }),
+    );
+    // The plan answered, but the hub read has not: no page, still the skeleton.
+    expect(container.querySelector(".animate-pulse")).not.toBeNull();
+    expect(screen.queryByTestId("name")).not.toBeInTheDocument();
+
+    await act(async () => {
+      releaseBenefit(
+        jsonResponse(200, { benefit: { title: "Retirement" }, topics: null }),
+      );
+    });
+
+    await waitFor(() =>
+      expect(screen.getByTestId("name")).toHaveTextContent("Acme"),
+    );
+  });
+
+  it("warms the exact key each hub page mounts with, documents read included", async () => {
+    mocks.pathname = "/plan-1/health-insurance";
+
+    renderProvider();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("name")).toHaveTextContent("Acme"),
+    );
+    expect(benefitUrls()).toContain(
+      "/api/clients/plan-1/benefits/Group%20Health?forPortal=1&withTopics=1",
+    );
+    // Started (not awaited) with the plan read, so the hub's documents grid joins an
+    // in-flight request instead of issuing a fresh one on mount.
+    expect(documentUrls()).toContain("/api/documents/client/plan-1?forPortal=1");
+  });
+
+  it("treats a non-hub route as the Custom hub's card and warms its read", async () => {
+    mocks.pathname = "/plan-1/wellness-programs";
+
+    renderProvider();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("name")).toHaveTextContent("Acme"),
+    );
+    expect(benefitUrls()).toContain(
+      "/api/clients/plan-1/benefits/Company%20%2F%20Plan%20Sponsor?forPortal=1&withTopics=1",
+    );
+  });
+
+  it("warms nothing on the landing page or the portal's own tabs", async () => {
+    renderProvider();
+
+    await waitFor(() =>
+      expect(screen.getByTestId("name")).toHaveTextContent("Acme"),
+    );
+    expect(benefitUrls()).toHaveLength(0);
+    expect(documentUrls()).toHaveLength(0);
+  });
+
+  it("does not re-gate or re-fetch the plan when the participant changes tabs", async () => {
+    // A client of its own: SWR's preload memo is keyed by URL and remembers the
+    // promise it already warmed, so a shared id would make this test a no-op.
+    mocks.clientId = "nav-1";
+    mocks.pathname = "/nav-1";
+
+    const planReads = () =>
+      mocks.fetch.mock.calls
+        .map(([url]) => String(url))
+        .filter((url) => url.startsWith("/api/clients/nav-1?"));
+
+    const view = renderProvider();
+    await waitFor(() =>
+      expect(screen.getByTestId("name")).toHaveTextContent("Acme"),
+    );
+    expect(planReads()).toHaveLength(1);
+
+    // The participant follows a link from the landing page to a hub.
+    mocks.pathname = "/nav-1/retirement";
+    view.rerender(
+      <ClientPortalProvider>
+        <Probe />
+      </ClientPortalProvider>,
+    );
+
+    // The destination hub is warmed …
+    await waitFor(() =>
+      expect(benefitUrls()).toContain(
+        "/api/clients/nav-1/benefits/Retirement?forPortal=1&withTopics=1",
+      ),
+    );
+    // … without blanking the portal or reading the plan a second time.
+    expect(document.querySelector(".animate-pulse")).toBeNull();
+    expect(screen.getByTestId("name")).toHaveTextContent("Acme");
+    expect(planReads()).toHaveLength(1);
   });
 });

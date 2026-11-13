@@ -1,8 +1,20 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  useCallback,
+} from "react";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import {
+  benefitHubCategoryForPath,
+  preloadBenefitHubData,
+} from "@/lib/benefit-hub-data";
+import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
 
 export interface ClientData {
   id: string;
@@ -123,6 +135,18 @@ export function ClientPortalProvider({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * The alias redirect needs the CURRENT pathname, but the bootstrap must not depend
+   * on it: a pathname in `fetchClient`'s dependencies re-ran the whole bootstrap on
+   * every portal tab change — re-fetching the plan and blanking the portal behind the
+   * full-viewport skeleton each time, even though the plan was already on screen.
+   */
+  const pathnameRef = useRef(pathname);
+  pathnameRef.current = pathname;
+
+  /** The pathname whose hub read has already been warmed (see the two effects below). */
+  const warmedHubPath = useRef<string | null>(null);
+
   const fetchClient = useCallback(async (silent = false): Promise<ClientData | null> => {
     if (!clientId) return null;
     try {
@@ -159,7 +183,7 @@ export function ClientPortalProvider({
           result.canonicalSlug &&
           result.canonicalSlug !== clientId
         ) {
-          const suffix = pathname.replace(/^\/[^/]+/, "");
+          const suffix = pathnameRef.current.replace(/^\/[^/]+/, "");
           router.replace(`/${result.canonicalSlug}${suffix}`);
           // The payload is still valid — a draft being reverted may use it.
           return (result.data as ClientData) ?? null;
@@ -175,7 +199,7 @@ export function ClientPortalProvider({
       setError("Failed to load client data");
       return null;
     }
-  }, [clientId, pathname, router]);
+  }, [clientId, router]);
 
   const fetchProfile = useCallback(async () => {
     try {
@@ -206,19 +230,64 @@ export function ClientPortalProvider({
   // Initial load — fetch the client and the advisor profile together, and only
   // replace the skeleton once BOTH resolve so the welcome banner's signature
   // fields (name, designations, company) all render at the same time.
+  //
+  // The skeleton ALSO covers the current hub's data. A Benefit Hub page reads its
+  // benefit + topic placements from its own endpoint, and those reads used to start
+  // only after this gate lifted — so participants saw a full-viewport skeleton, then
+  // a nearly-complete page, then a SECOND round of section skeletons (Quick Answers,
+  // the documents grid) as the hub caught up. Warming that read here puts both waits
+  // behind the one skeleton the participant already sees: the page mounts with the
+  // hub data in the SWR cache, so its sections paint complete.
+  //
+  // The documents read is started (not awaited): it hits a different endpoint and is
+  // merged into the plan's own embedded rows, so it must run after `fetchClient`
+  // rather than gate it. Starting it now lets the hub page's effect join the same
+  // in-flight request instead of issuing a fresh one on mount.
   useEffect(() => {
     if (!clientId) return;
     let cancelled = false;
     (async () => {
       setLoading(true);
       setError(null);
-      await Promise.allSettled([fetchClient(false), fetchProfile()]);
+
+      const entryPath = pathnameRef.current;
+      const hubCategory = benefitHubCategoryForPath(entryPath);
+      if (hubCategory) {
+        // Marked warmed BEFORE the await, so the navigation effect below does not
+        // re-issue a request this bootstrap is already making.
+        warmedHubPath.current = entryPath;
+        void fetchPlanDocumentsForClient(clientId);
+      }
+
+      await Promise.allSettled([
+        fetchClient(false),
+        fetchProfile(),
+        preloadBenefitHubData(clientId, hubCategory),
+      ]);
       if (!cancelled) setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
   }, [clientId, fetchClient, fetchProfile]);
+
+  /**
+   * A client-side move to another route — the plan is already on screen, so there is
+   * nothing to gate. Only the destination's hub read is warmed, so its sections join
+   * one request instead of each starting its own.
+   */
+  useEffect(() => {
+    if (!clientId) return;
+    if (warmedHubPath.current === pathname) return;
+
+    const hubCategory = benefitHubCategoryForPath(pathname);
+    // Record the path either way: leaving a hub and coming back must warm it again.
+    warmedHubPath.current = pathname;
+    if (!hubCategory) return;
+
+    void preloadBenefitHubData(clientId, hubCategory);
+    void fetchPlanDocumentsForClient(clientId);
+  }, [clientId, pathname]);
 
   const refetch = useCallback(() => fetchClient(true), [fetchClient]);
 
