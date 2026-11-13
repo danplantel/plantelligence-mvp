@@ -59,6 +59,11 @@ const mocks = vi.hoisted(() => {
     invalidateClientCache: vi.fn(),
     invalidateBenefitRowsCache: vi.fn(),
     fetchProfileOnce: vi.fn(async () => ({ primaryServiceCategories: [] })),
+    /** What `useSWR("/api/profile")` answers — the advisor's own profile. */
+    profileData: {
+      primaryServiceCategories: [] as string[],
+      organizationName: "",
+    } as Record<string, any>,
     routerPush: vi.fn(),
     toastSuccess: vi.fn(),
     toastError: vi.fn(),
@@ -89,10 +94,9 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: mocks.routerPush }),
 }));
 
-vi.mock("swr", () => {
-  const data = { primaryServiceCategories: [] };
-  return { default: () => ({ data }) };
-});
+vi.mock("swr", () => ({
+  default: () => ({ data: mocks.profileData }),
+}));
 
 vi.mock("@/lib/fetch-profile", () => ({
   fetchProfileOnce: mocks.fetchProfileOnce,
@@ -438,6 +442,7 @@ const lastStep1Save = () => {
 describe("BenefitsStep1", () => {
   beforeEach(() => {
     mocks.reset(baseStep1());
+    mocks.profileData = { primaryServiceCategories: [], organizationName: "" };
     mocks.fetchClientOnce.mockResolvedValue(null);
     mocks.fetchBenefitRowsOnce.mockResolvedValue([]);
     vi.spyOn(console, "error").mockImplementation(mocks.consoleError);
@@ -594,6 +599,45 @@ describe("BenefitsStep1", () => {
         expect.objectContaining({
           shortDescription: "A great retirement benefit.",
         }),
+      );
+    });
+
+    it("seeds the headline with the plan sponsor, even when the advisor services this category", async () => {
+      // The headline used to switch to the advisor's own organization whenever the
+      // category was one of their Settings → service categories. A participant is
+      // greeted by their employer either way.
+      mocks.profileData = {
+        primaryServiceCategories: ["Retirement"],
+        organizationName: "Acme Advisory",
+      };
+      installFetch();
+
+      await renderReady({ sections: ["messaging"] });
+
+      await waitFor(() =>
+        expect(lastStep1Save()).toEqual(
+          expect.objectContaining({ benefitTitle: "Welcome to Acme Corp!" }),
+        ),
+      );
+    });
+
+    it("seeds the message for THIS category, not the retirement paragraph", async () => {
+      mocks.reset(baseStep1({ benefitCategory: "Group Health" }));
+      installFetch();
+
+      await renderReady({ sections: ["messaging"] });
+
+      await waitFor(() =>
+        expect(lastStep1Save()).toEqual(
+          expect.objectContaining({
+            shortDescription: expect.stringMatching(
+              /medical, dental and vision/,
+            ),
+          }),
+        ),
+      );
+      expect(String(lastStep1Save().shortDescription)).not.toMatch(
+        /retirement/i,
       );
     });
 

@@ -19,6 +19,8 @@ const createBenefitTests = [
   "components/wizard/benefits-steps/__tests__/step-5.test.tsx",
   // Step 3's invite surface
   "components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx",
+  // Step 1 → Messaging's seed copy: the plan sponsor's headline, per-category message
+  "lib/__tests__/benefit-messaging-defaults.test.ts",
 ];
 
 const baseTest = (baseConfig as { test?: Record<string, unknown> }).test ?? {};

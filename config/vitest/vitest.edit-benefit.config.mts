@@ -37,6 +37,8 @@ const editBenefitTests = [
   "lib/topics/__tests__/board.test.ts",
   // The Key Contact Image control both Editing Panels host (Section 2 Branding)
   "components/wizard/shared/__tests__/key-contact-image-card.test.tsx",
+  // Step 1 → Messaging's seed copy: the plan sponsor's headline, per-category message
+  "lib/__tests__/benefit-messaging-defaults.test.ts",
   // Contacts-tab invite surface
   "components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx",
   // GET/PUT/DELETE /api/clients/[id]/benefits/[category]

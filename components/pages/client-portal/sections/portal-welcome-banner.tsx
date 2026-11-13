@@ -18,6 +18,10 @@ import {
 } from "@/lib/portal-category-hero-background";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
+import {
+  buildIntroHeadline,
+  buildIntroMessage,
+} from "@/lib/benefit-messaging-defaults";
 
 interface PortalWelcomeBannerProps {
   /** Click handler for the benefit portal title (headline). Opens the editor. */
@@ -274,15 +278,22 @@ export function PortalWelcomeBanner({
       effectiveEmail.toLowerCase()
   );
 
-  const companyName = clientData?.companyName?.trim() || "Waypoint";
+  const companyName = clientData?.companyName?.trim() || "";
 
-  // Use custom content if provided, otherwise fall back to defaults
-  const headline =
-    customHeadline || `Welcome to ${clientData?.companyName || "Waypoint"}!`;
+  // Use custom content if provided, otherwise fall back to the SAME defaults the
+  // Messaging step seeds (`lib/benefit-messaging-defaults.ts`) — one source of copy,
+  // naming the plan sponsor in the headline and THIS hub's own benefit in the message.
+  // The old fallbacks hard-coded an advisor firm ("Waypoint") and a 401(k) paragraph,
+  // so every hub without saved copy opened as a retirement page for the wrong company.
+  const headline = customHeadline || buildIntroHeadline(companyName);
 
   const description =
     customDescription ||
-    `We consider it a privilege to have been selected by ${companyName} to represent you and your ${companyName} 401(k) Plan. Regardless of if you're just beginning your employment journey or if you've been participating in the ${companyName} 401(k) Plan for years – we at Waypoint share in your company's commitment towards educating you on the importance of participating in this valuable retirement benefit.`;
+    buildIntroMessage({
+      category,
+      companyName,
+      orgName: effectiveOrganizationName,
+    });
 
   const closing =
     customClosing ||

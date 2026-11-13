@@ -6,16 +6,20 @@ The route is deliberately small. It decides between the restricted notice, a loa
 
 ## Summary
 
-- **Unit tests:** 206 passing across 9 files.
+- **Unit tests:** 304 passing across 17 files.
   - route gate: 26
   - editor: 42
-  - Preview tab (`EditBenefitPreviewSection`): 13
-  - shared Step 1: 18
-  - shared Step 3 (Contacts / FAQs tabs): 32
+  - Preview tab (`EditBenefitPreviewSection`): 17
+  - shared Step 1: 20
+  - shared Step 3 (Contacts / FAQs tabs): 33
   - shared Step 4 (Documents tab): 23
   - shared Step 5 (Disclaimers tab): 19
   - `InviteCollaboratorDialog`: 19
-  - benefit-category API: 14
+  - benefit-category API: 21
+  - Editing Panel sections (Account Access, card layout, Quick Answers board): 13 + 14 + 9
+  - Key Contact Image card: 5
+  - Quick Answers board / assistant plan reads (`lib/topics`): 20 + 5 + 7
+  - Messaging seed copy (`lib/benefit-messaging-defaults.ts`): 11
 - **E2E:** none dedicated; the route/editor have no Playwright spec yet.
 - **Runner:** Vitest + React Testing Library + jsdom.
 - **Scoped scripts:** `pnpm test:edit-benefit`, `pnpm test:edit-benefit:watch`, `pnpm test:edit-benefit:coverage`.
@@ -23,12 +27,12 @@ The route is deliberately small. It decides between the restricted notice, a loa
 ## Running these tests
 
 ```bash
-pnpm test:edit-benefit           # route + editor + preview + steps + API (206 tests)
+pnpm test:edit-benefit           # route + editor + preview + steps + API (304 tests)
 pnpm test:edit-benefit:watch     # watch mode
 pnpm test:edit-benefit:coverage  # suite + V8 coverage
 ```
 
-These are backed by [`config/vitest/vitest.edit-benefit.config.mts`](../../config/vitest/vitest.edit-benefit.config.mts) and [`scripts/tests/run-edit-benefit-tests.mjs`](../../scripts/tests/run-edit-benefit-tests.mjs), which list the nine suites explicitly so the command cannot pick up unrelated tests.
+These are backed by [`config/vitest/vitest.edit-benefit.config.mts`](../../config/vitest/vitest.edit-benefit.config.mts) and [`scripts/tests/run-edit-benefit-tests.mjs`](../../scripts/tests/run-edit-benefit-tests.mjs), which list the seventeen suites explicitly so the command cannot pick up unrelated tests.
 
 All tests:
 
@@ -44,14 +48,31 @@ pnpm test:coverage
 | --- | --------------------------------------------------------------------------- | ----: | ---------------------------------------------------------------------------------- |
 | 1   | `app/(dashboard)/edit-benefit/[planId]/[category]/__tests__/page.test.tsx`  |    26 | Params, slug decoding, access lookup, loading/denied/allowed, extra gate cases     |
 | 2   | `components/pages/benefits/__tests__/benefit-edit-page.test.tsx`            |    42 | Hydration/chrome, tabs, Custom name, save, delete, portal link, preview layout     |
-| 3   | `components/pages/benefits/__tests__/edit-benefit-preview-section.test.tsx` |    13 | Editor auto-open/toggle, header events, desktop/mobile, plan fallback, typography  |
-| 4   | `components/wizard/benefits-steps/__tests__/step-1.test.tsx`                |    18 | Plan gate, edit-mode picker hiding, messaging, signature, primary contact          |
-| 5   | `components/wizard/benefits-steps/__tests__/step-3.test.tsx`                |    32 | Contact roster/cap/writes, collaborators, FAQ add/edit/remove/save, section tabs   |
+| 3   | `components/pages/benefits/__tests__/edit-benefit-preview-section.test.tsx` |    17 | Editor auto-open/toggle, header events, desktop/mobile, plan fallback, typography  |
+| 4   | `components/wizard/benefits-steps/__tests__/step-1.test.tsx`                |    20 | Plan gate, edit-mode picker hiding, messaging seeds, signature, primary contact    |
+| 5   | `components/wizard/benefits-steps/__tests__/step-3.test.tsx`                |    33 | Contact roster/cap/writes, collaborators, FAQ add/edit/remove/save, section tabs   |
 | 6   | `components/wizard/benefits-steps/__tests__/step-4.test.tsx`                |    23 | Document load/merge, filters, upload, delete branches, inline edit, reorder, sort  |
 | 7   | `components/wizard/benefits-steps/__tests__/step-5.test.tsx`                |    19 | Disclosure seeding, category mapping, debounced saves, apply-all, timer cleanup    |
 | 8   | `components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx`   |    19 | Scope chips, submit payload, domain suggestion, existing search, toast branches    |
-| 9   | `app/api/clients/[id]/benefits/[category]/__tests__/route.test.ts`          |    14 | GET/PUT/DELETE auth, updateOnly, R2 signing, soft-disable, purge, dual-write, 500s |
-| 10  | `components/wizard/shared/__tests__/key-contact-image-card.test.tsx`        |     4 | Key Contact Image: headshot shown while empty, chosen image, Remove, gallery pick |
+| 9   | `app/api/clients/[id]/benefits/[category]/__tests__/route.test.ts`          |    21 | GET/PUT/DELETE auth, updateOnly, R2 signing, soft-disable, purge, dual-write, 500s |
+| 10  | `components/wizard/shared/__tests__/key-contact-image-card.test.tsx`        |     5 | Key Contact Image: headshot shown while empty, chosen image, Remove, gallery pick |
+| 11  | `components/wizard/benefits-steps/__tests__/benefits-editor-panel.test.tsx` |    13 | Section 6 Account Access fields, portal header button, video / default-image controls |
+| 12  | `components/wizard/benefits-steps/__tests__/help-card-layout-editor.test.tsx` |  14 | Section 4 card layout: reorder, single primary, left/right edge                    |
+| 13  | `components/wizard/benefits-steps/__tests__/quick-answers-builder.test.tsx` |     9 | Quick Answers board: hidden topics, Featured capacity, demote-on-promote writes    |
+| 14  | `lib/topics/__tests__/board.test.ts`                                        |    20 | The board write plan: a demoted card returns to the section it came from           |
+| 15  | `lib/topics/__tests__/board-server.test.ts`                                 |     5 | Library slugs become real Topic ids before the write                               |
+| 16  | `lib/topics/__tests__/assistant-server.test.ts`                             |     7 | The assistant's plan read: two queries, published locations only, hidden slugs     |
+| 17  | `lib/__tests__/benefit-messaging-defaults.test.ts`                          |    11 | Step 1 → Messaging seeds: plan-sponsor headline, category-aware message, 35/450 caps |
+
+### Messaging defaults (Step 1 → Branding)
+
+The Intro Headline and Intro Message are what a participant reads in the hub hero.
+The seeds are shared with the Create flow and live in
+[`lib/benefit-messaging-defaults.ts`](../../lib/benefit-messaging-defaults.ts:1):
+the headline names the plan sponsor (not the advisor's firm — it used to switch to
+the advisor's `organizationName` whenever the category was one of their Settings →
+service categories), and the message is written for the benefit being edited instead
+of the single retirement paragraph every hub used to receive.
 
 ### Key Contact Image (Section 2 Branding)
 

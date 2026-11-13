@@ -29,7 +29,14 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { persistPlanSelection } from "@/lib/plan-selector-storage";
 import { storePendingDraftSelection } from "@/lib/draft-utils";
-import { BENEFIT_TITLE_MAX_LENGTH } from "@/lib/benefit-custom-name";
+import {
+  BENEFIT_TITLE_MAX_LENGTH,
+  isPlaceholderBenefitName,
+} from "@/lib/benefit-custom-name";
+import {
+  buildIntroHeadline,
+  buildIntroMessage,
+} from "@/lib/benefit-messaging-defaults";
 import { normalizeKeyContactCardStyle } from "@/lib/key-contact-card-style";
 import { getDefaultLandingCardBody } from "@/lib/landing-card-defaults";
 import {
@@ -1162,36 +1169,18 @@ export function BenefitsStep1({
     return ((plan as any)?.companyName || "").trim();
   };
 
-  /** Default Intro Headline: "Welcome to [Organization Name]" for the advisor's own
-   *  primary service categories, otherwise "Welcome to [Company Name]" (the plan/client).
-   *  The name is truncated so the headline stays within the 35-char Intro Headline max. */
-  const getDefaultIntroHeadline = (category: string): string => {
-    const primaryCats: string[] = Array.isArray(
-      (profileData as any)?.primaryServiceCategories,
-    )
-      ? (profileData as any).primaryServiceCategories
-      : [];
-    const apiCat = category === "Custom" ? "Company / Plan Sponsor" : category;
-    const isPrimary = primaryCats.some(
-      (pc) =>
-        normalizeApiCategory(String(pc)) === normalizeApiCategory(apiCat) ||
-        (normalizeApiCategory(String(pc)) === "other" &&
-          normalizeApiCategory(apiCat) === "company / plan sponsor"),
-    );
-    const orgName = (
-      (profileData as any)?.organizationName ||
-      (profileData as any)?.user?.organizationName ||
-      ""
-    ).trim();
-    const companyName = getSelectedCompanyName();
-    const name = isPrimary ? orgName : companyName;
-    const prefix = "Welcome to ";
-    if (!name) return `${prefix}Your Benefits Hub!`;
-    // Leave room for the trailing "!" so the headline stays ≤ 35 chars.
-    const maxNameLen = 35 - prefix.length - 1;
-    const trimmed = name.length > maxNameLen ? name.slice(0, maxNameLen) : name;
-    return `${prefix}${trimmed}!`;
-  };
+  /**
+   * Default Intro Headline: "Welcome to <plan sponsor>!".
+   *
+   * The headline belongs to the plan sponsor, NOT to the advisor. It used to switch to
+   * the advisor's own `organizationName` whenever the category happened to appear in
+   * their Settings → service categories — so adding "Group Life" to an admin
+   * preference changed whose name a participant was greeted with. `buildIntroHeadline`
+   * names the plan sponsor and budget for the 35-character field; the advisor's firm is
+   * named in the message below, where a participant expects it.
+   */
+  const getDefaultIntroHeadline = (): string =>
+    buildIntroHeadline(getSelectedCompanyName());
 
   /**
    * Is this value NOT a real Custom Category Name, but something the wizard generated?
@@ -1216,7 +1205,10 @@ export function BenefitsStep1({
     if (!isCustomHubCategory(category)) return false;
     if (isCustomHubCategory(raw)) return true;
     const v = (raw || "").trim();
-    return v.length > 0 && v === getDefaultIntroHeadline("Custom");
+    // Any "Welcome to …" string is one of the wizard's own headlines — including the
+    // ones seeded before the headline became plan-sponsor-only. `isPlaceholderBenefitName`
+    // owns that rule, so rewording the default can never resurrect an old one as a name.
+    return v.length > 0 && isPlaceholderBenefitName(v);
   };
 
   /** Identity of the Custom Category Name field for the mask above: a mask lifted for one
@@ -1240,25 +1232,21 @@ export function BenefitsStep1({
       : raw;
   };
 
-  /** Default Intro Message: a personalized welcome that fills in the
-   *  Company (Plan Sponsor) Name (the plan/client) and the Organization Name
-   *  (the advisor) in the placeholder spots. Kept ≤ 450 chars (Intro Message max). */
-  const getDefaultIntroMessage = (): string => {
-    const companyName = getSelectedCompanyName();
-    const orgName = (
-      (profileData as any)?.organizationName ||
-      (profileData as any)?.user?.organizationName ||
-      ""
-    ).trim();
-    const company = companyName || "your company";
-    const org = orgName || "your organization";
-    return (
-      `We consider it a privilege to have been selected by ${company} to represent you and your retirement plan. ` +
-      `Whether you're just beginning your savings journey or already building toward retirement, ` +
-      `${org} shares your company's commitment to educating you about the importance and long-term value of ` +
-      `participating in this valuable retirement benefit.`
-    ).slice(0, 450);
-  };
+  /**
+   * Default Intro Message: the plan sponsor (client/plan) and the advisor's firm filled
+   * into copy written for THIS category. It used to be a single retirement paragraph
+   * seeded into every hub, so Group Health and Group Life opened by talking about
+   * "your retirement plan". Kept ≤ 450 chars (Intro Message max).
+   */
+  const getDefaultIntroMessage = (category: string): string =>
+    buildIntroMessage({
+      category,
+      companyName: getSelectedCompanyName(),
+      orgName:
+        (profileData as any)?.organizationName ||
+        (profileData as any)?.user?.organizationName ||
+        "",
+    });
 
   useEffect(() => {
     const planId = currentStepData.planId;
@@ -1600,8 +1588,8 @@ export function BenefitsStep1({
       // Category Name field. It starts empty; the advisor names it.
       next.benefitTitle = isCustomHubCategory(cat)
         ? ""
-        : getDefaultIntroHeadline(cat);
-      next.shortDescription = getDefaultIntroMessage();
+        : getDefaultIntroHeadline();
+      next.shortDescription = getDefaultIntroMessage(cat);
       next.landingCardImage = null;
       // The body copy is not a placeholder: the category's default is the actual
       // starting value, so the advisor only has to add the card image.
@@ -1778,7 +1766,7 @@ export function BenefitsStep1({
         baseData.benefitTitle ||
         (isCustomHubCategory(category)
           ? ""
-          : getDefaultIntroHeadline(category)),
+          : getDefaultIntroHeadline()),
       contactId: contact.id,
     };
   };
@@ -2557,9 +2545,10 @@ export function BenefitsStep1({
         // category label into the field meant to replace it.
         (isCustomHubCategory(normalizedCategory)
           ? ""
-          : getDefaultIntroHeadline(benefitCategory)),
+          : getDefaultIntroHeadline()),
       shortDescription:
-        existingBenefit?.shortDescription || getDefaultIntroMessage(),
+        existingBenefit?.shortDescription ||
+        getDefaultIntroMessage(normalizedCategory),
       landingCardImage: existingBenefit?.landingCardImage
         ? ({
             url: existingBenefit.landingCardImage,

@@ -35,6 +35,8 @@ const portalHubTests = [
   // The banner's phone-wide gradient: full-bleed on the section, no second
   // plate on the card
   "components/pages/client-portal/sections/__tests__/portal-welcome-banner-mobile-gradient.test.tsx",
+  // The hero's fallback headline/message: the plan sponsor's name, this hub's copy
+  "components/pages/client-portal/sections/__tests__/portal-welcome-banner-default-copy.test.tsx",
   // "How Can We Help You Today?" cards and their CTA shapes
   "components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx",
   // Quick Answers: grouping, search, deep links, and the phone answer sheet

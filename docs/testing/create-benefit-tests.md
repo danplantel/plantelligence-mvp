@@ -6,13 +6,14 @@ It covers the page's orchestration around the wizard: deep-link hydration, step 
 
 ## Summary
 
-- **Unit tests:** 214 passing across 6 files.
+- **Unit tests:** 228 passing across 7 files.
   - page shell/validation/publish: 103
-  - shared Step 1 (plan, category, messaging, contact): 18
-  - shared Step 3 (contacts, collaborators, FAQs): 32
+  - shared Step 1 (plan, category, messaging, contact): 20
+  - shared Step 3 (contacts, collaborators, FAQs): 33
   - shared Step 4 (documents): 23
   - shared Step 5 (footer disclosures): 19
   - `InviteCollaboratorDialog`: 19
+  - Messaging seed copy (`lib/benefit-messaging-defaults.ts`): 11
 - **Scoped scripts:** `pnpm test:create-benefit`, `pnpm test:create-benefit:watch`, `pnpm test:create-benefit:coverage`.
 - **E2E:** none dedicated; the page is not yet in a Playwright spec.
 - **Runner:** Vitest + React Testing Library + jsdom.
@@ -22,7 +23,7 @@ The page suite is mostly orchestration, so it mocks the wizard store, the five s
 ## Running these tests
 
 ```bash
-pnpm test:create-benefit           # the Create Benefit suite (214 tests)
+pnpm test:create-benefit           # the Create Benefit suite (228 tests)
 pnpm test:create-benefit:watch     # watch mode
 pnpm test:create-benefit:coverage  # suite + V8 coverage
 ```
@@ -62,11 +63,30 @@ Shared step and dialog suites (the real components, with presentation children s
 
 | #   | Suite                                                                     | Tests | Focus                                                                                          |
 | --- | ------------------------------------------------------------------------- | ----: | ---------------------------------------------------------------------------------------------- |
-| 16  | `components/wizard/benefits-steps/__tests__/step-1.test.tsx`              |    18 | Plan gate, picker/custom name, messaging, signature, primary contact, section/mode gating      |
-| 17  | `components/wizard/benefits-steps/__tests__/step-3.test.tsx`              |    32 | Contact roster/fallback, selection + cap, plan writes, collaborators, FAQ add/edit/remove/save |
+| 16  | `components/wizard/benefits-steps/__tests__/step-1.test.tsx`              |    20 | Plan gate, picker/custom name, messaging seeds, signature, primary contact, section/mode gating |
+| 17  | `components/wizard/benefits-steps/__tests__/step-3.test.tsx`              |    33 | Contact roster/fallback, selection + cap, plan writes, collaborators, FAQ add/edit/remove/save |
 | 18  | `components/wizard/benefits-steps/__tests__/step-4.test.tsx`              |    23 | Load + merge, category/language filters, upload, delete branches, inline edit, reorder, sort   |
 | 19  | `components/wizard/benefits-steps/__tests__/step-5.test.tsx`              |    19 | Seed ladder, category mapping, inline debounce, apply-all, footer background, timer cleanup    |
 | 20  | `components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx` |    19 | Scope chips, reset, submit payload, suggestion/search, success/warning/error toasts            |
+| 21  | `lib/__tests__/benefit-messaging-defaults.test.ts`                        |    11 | Headline names the plan sponsor (never the advisor's firm); category-aware message; 35/450 caps |
+
+### Messaging defaults (Step 1 → Branding)
+
+The Intro Headline and Intro Message are read by PARTICIPANTS in the hub hero
+(`PortalWelcomeBanner customHeadline` / `customDescription`). Both seeds live in one
+module — [`lib/benefit-messaging-defaults.ts`](../../lib/benefit-messaging-defaults.ts:1) —
+and the suite above pins its two rules:
+
+- the **headline** names the plan sponsor: `Welcome to <client name>!`, budgeted to the
+  35-character field. It used to switch to the advisor's own `organizationName`
+  whenever the benefit's category happened to be in Settings → service categories, so
+  an unrelated admin preference decided whose name greeted the participant;
+- the **message** is written for the benefit being edited (retirement / health / life /
+  general) and fills in the plan sponsor plus the advisor's firm. It used to be one
+  retirement paragraph, seeded into every hub;
+- the portal hero's own no-copy fallback draws the same two strings, so a benefit whose
+  row was created outside this wizard cannot show a different — or retirement-only —
+  welcome.
 
 ## Unit test inventory
 
