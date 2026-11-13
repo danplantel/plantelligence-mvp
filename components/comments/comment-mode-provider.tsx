@@ -132,7 +132,7 @@ export function CommentModeProvider({
    * The mode to start in, before the stored preference is read. Defaults to `"off"`.
    *
    * The dashboard omits it and lets the preference decide. The PORTAL passes `"on"`: its rail exists
-   * only because the link asked for it (`?comments=on`), so an advisor who has never expressed a
+   * only because the link asked for it (`?edit=true`), so an advisor who has never expressed a
    * preference must not arrive at a rail that is already closed — that would make the button they
    * pressed look like it did nothing. A stored `"on"` still wins, and nothing here can turn the rail
    * OFF: the restore effect below only ever turns it on.

@@ -26,35 +26,35 @@ describe("buildPortalEditHref", () => {
         sourceLabel: "News & Events",
       }),
     ).toBe(
-      "/plan-1?comments=on&editSection=disclosure&editFrom=News+%26+Events#portal-footer",
+      "/plan-1?edit=true&editSection=disclosure&editFrom=News+%26+Events#portal-footer",
     );
   });
 
-  it("keeps ?comments=on — it is what mounts the portal's editing chrome", () => {
+  it("keeps ?edit=true — it is what mounts the portal's editing chrome", () => {
     // The rail and the Edit Panel only exist when this flag is present; the rail
     // opens with comments OFF instead (see `hasPortalEditIntent`).
     expect(
       buildPortalEditHref({
-        search: "?comments=on",
+        search: "?edit=true",
         editPath: "/plan-1",
         sectionId: "disclosure",
       }),
-    ).toBe("/plan-1?comments=on&editSection=disclosure");
+    ).toBe("/plan-1?edit=true&editSection=disclosure");
   });
 
   it("keeps unrelated query parameters", () => {
     expect(
       buildPortalEditHref({
-        search: "?tab=docs&comments=on",
+        search: "?tab=docs&edit=true",
         editPath: "/plan-1",
         sectionId: "disclosure",
       }),
-    ).toBe("/plan-1?tab=docs&comments=on&editSection=disclosure");
+    ).toBe("/plan-1?tab=docs&edit=true&editSection=disclosure");
   });
 
   it("keeps a hash last, so the browser still scrolls to the footer", () => {
     const href = buildPortalEditHref({
-      search: "?comments=on",
+      search: "?edit=true",
       editPath: "/plan-1",
       editHref: "/plan-1#portal-footer",
       sectionId: "disclosure",
@@ -72,14 +72,14 @@ describe("buildPortalEditHref", () => {
         editPath: "/plan-1",
         sectionId: "disclosure",
       }),
-    ).toBe("/plan-1?comments=on&editSection=disclosure");
+    ).toBe("/plan-1?edit=true&editSection=disclosure");
   });
 });
 
 describe("hasPortalEditIntent", () => {
   it("tells the rail to open with comments closed", () => {
-    expect(hasPortalEditIntent("?comments=on&editSection=disclosure")).toBe(true);
-    expect(hasPortalEditIntent("comments=on")).toBe(false);
+    expect(hasPortalEditIntent("?edit=true&editSection=disclosure")).toBe(true);
+    expect(hasPortalEditIntent("edit=true")).toBe(false);
     expect(hasPortalEditIntent("")).toBe(false);
     expect(hasPortalEditIntent(null)).toBe(false);
   });

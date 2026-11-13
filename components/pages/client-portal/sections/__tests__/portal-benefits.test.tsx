@@ -115,13 +115,13 @@ beforeEach(() => {
   mocks.defaultBody.mockReturnValue("");
   mocks.defaultImage.mockReturnValue("");
   // Participant URL by default: the INCOMPLETE placeholders are an editing-view
-  // affordance keyed off `?comments=on`.
+  // affordance keyed off `?edit=true`.
   window.history.replaceState(null, "", "/plan-1");
 });
 
-/** The editing view: the portal opened with `?comments=on`. */
+/** The editing view: the portal opened with `?edit=true`. */
 function editingUrl() {
-  window.history.replaceState(null, "", "/plan-1?comments=on");
+  window.history.replaceState(null, "", "/plan-1?edit=true");
 }
 
 describe("PortalBenefits cards", () => {

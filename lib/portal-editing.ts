@@ -3,7 +3,7 @@
  * permission function may edit it.
  *
  * The portal is a participant-facing surface, so the editor only exists when the
- * `?comments=on` link armed it and a signed-in advisor has edit rights on the page's
+ * `?edit=true` link armed it and a signed-in advisor has edit rights on the page's
  * function. This module is pure: the provider in `components/portal-editing` reads it,
  * and the save endpoints remain the authority.
  */

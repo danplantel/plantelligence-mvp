@@ -9,7 +9,7 @@ import { PortalCommentsRail } from "../portal-comments-rail";
  * `PortalCommentsRail` is the only thing standing between a shared portal link
  * and a participant seeing the advisor's comments panel.
  *
- * Three gates must all open — the `?comments=on` flag, an authenticated
+ * Three gates must all open — the `?edit=true` flag, an authenticated
  * session, and a desktop viewport — and the suite pins each one
  * independently, because any single gate regressing is a privacy or a
  * usability bug depending on which it is:
@@ -172,14 +172,14 @@ describe("PortalCommentsRail gates", () => {
   });
 
   it("requires the exact flag value", () => {
-    setSearch("?comments=1");
+    setSearch("?edit=1");
     renderRail();
 
     expect(screen.queryByTestId("comments-rail")).not.toBeInTheDocument();
   });
 
   it("renders a plain portal for an unauthenticated visitor", () => {
-    setSearch("?comments=on");
+    setSearch("?edit=true");
     mocks.sessionStatus = "unauthenticated";
     renderRail();
 
@@ -190,7 +190,7 @@ describe("PortalCommentsRail gates", () => {
   });
 
   it("renders a plain portal while the session is still loading", () => {
-    setSearch("?comments=on");
+    setSearch("?edit=true");
     mocks.sessionStatus = "loading";
     renderRail();
 
@@ -198,7 +198,7 @@ describe("PortalCommentsRail gates", () => {
   });
 
   it("ignores the flag on a non-desktop viewport", () => {
-    setSearch("?comments=on");
+    setSearch("?edit=true");
     mocks.isDesktop = false;
     renderRail();
 
@@ -209,7 +209,7 @@ describe("PortalCommentsRail gates", () => {
   });
 
   it("arms with the flag, a session and a desktop viewport", () => {
-    setSearch("?comments=on&tab=docs");
+    setSearch("?edit=true&tab=docs");
     renderRail();
 
     expect(screen.getByTestId("comments-rail")).toBeInTheDocument();
@@ -219,10 +219,10 @@ describe("PortalCommentsRail gates", () => {
 
   it("arms but opens CLOSED when another page sent the advisor to edit a section", () => {
     // The footer's Edit button on My Benefits Team / News & Events links here with
-    // `?comments=on&editSection=disclosure`: the flag still has to arm the chrome
+    // `?edit=true&editSection=disclosure`: the flag still has to arm the chrome
     // (there is no provider tree without it), but the advisor came to edit, so the
     // rail must not cover the page it is opening the panel beside.
-    setSearch("?comments=on&editSection=disclosure&editFrom=News+%26+Events");
+    setSearch("?edit=true&editSection=disclosure&editFrom=News+%26+Events");
     renderRail();
 
     expect(screen.getByTestId("comments-rail")).toBeInTheDocument();
@@ -230,7 +230,7 @@ describe("PortalCommentsRail gates", () => {
   });
 
   it("names the plan/benefit conversation and shows the reader's identity", () => {
-    setSearch("?comments=on");
+    setSearch("?edit=true");
     renderRail();
 
     expect(screen.getByTestId("comments-rail")).toHaveAttribute(
@@ -244,7 +244,7 @@ describe("PortalCommentsRail gates", () => {
   });
 
   it("mounts Direct Messages and puts the panel switch inside both rails", () => {
-    setSearch("?comments=on");
+    setSearch("?edit=true");
     renderRail();
 
     expect(screen.getByTestId("messages-rail")).toBeInTheDocument();
@@ -261,7 +261,7 @@ describe("PortalCommentsRail gates", () => {
 
 describe("PortalCommentsRail chrome", () => {
   it("pins the rail to the top of the window while armed", () => {
-    setSearch("?comments=on");
+    setSearch("?edit=true");
     const { unmount } = renderRail();
 
     expect(
@@ -276,7 +276,7 @@ describe("PortalCommentsRail chrome", () => {
 
   it("offers the on/off control with the active label", async () => {
     const user = userEvent.setup();
-    setSearch("?comments=on");
+    setSearch("?edit=true");
     renderRail();
 
     const button = screen.getByRole("button", { name: "Turn comments off" });
@@ -288,7 +288,7 @@ describe("PortalCommentsRail chrome", () => {
   });
 
   it("labels the control for reopening the rail", () => {
-    setSearch("?comments=on");
+    setSearch("?edit=true");
     mocks.mode = { ...mocks.mode, mode: "off" };
     renderRail();
 
@@ -297,7 +297,7 @@ describe("PortalCommentsRail chrome", () => {
   });
 
   it("explains the unsaved draft without disabling the control", () => {
-    setSearch("?comments=on");
+    setSearch("?edit=true");
     mocks.mode = { ...mocks.mode, canComment: false, needsDraft: true };
     renderRail();
 
@@ -310,7 +310,7 @@ describe("PortalCommentsRail chrome", () => {
   });
 
   it("waits as a skeleton until the page answers whether it takes comments", () => {
-    setSearch("?comments=on");
+    setSearch("?edit=true");
     mocks.mode = { ...mocks.mode, hasSurface: false, surfaceResolved: false };
     renderRail();
 
@@ -323,7 +323,7 @@ describe("PortalCommentsRail chrome", () => {
   });
 
   it("says so — without disabling — on a page that takes no comments", () => {
-    setSearch("?comments=on");
+    setSearch("?edit=true");
     mocks.mode = { ...mocks.mode, hasSurface: false, surfaceResolved: true };
     renderRail();
 
@@ -333,7 +333,7 @@ describe("PortalCommentsRail chrome", () => {
   });
 
   it("sits left of the portal's Ask a question action", () => {
-    setSearch("?comments=on");
+    setSearch("?edit=true");
     renderRail();
 
     // The chatbot owns the bottom-right corner at z-[60]. The comments control
@@ -348,7 +348,7 @@ describe("PortalCommentsRail chrome", () => {
   });
 
   it("mounts the Edit launcher left of Comments when the viewer may edit", () => {
-    setSearch("?comments=on");
+    setSearch("?edit=true");
     renderRail();
 
     expect(
@@ -357,7 +357,7 @@ describe("PortalCommentsRail chrome", () => {
   });
 
   it("explains view-only access without disabling the Edit launcher", () => {
-    setSearch("?comments=on");
+    setSearch("?edit=true");
     mocks.canEdit = false;
     renderRail();
 

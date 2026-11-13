@@ -138,7 +138,7 @@ vi.mock("@/lib/marketing/hub-url", () => ({
 }));
 
 vi.mock("@/lib/comments/portal-surface", () => ({
-  withCommentsRail: (url: string) => `${url}?comments=on`,
+  withCommentsRail: (url: string) => `${url}?edit=true`,
 }));
 
 vi.mock("@/components/comments/comment-mode-provider", () => ({
@@ -788,7 +788,7 @@ describe("BenefitEditPage portal link", () => {
     await user.click(screen.getByRole("button", { name: /Open Portal/ }));
 
     expect(mocks.open).toHaveBeenCalledWith(
-      "https://hub.test/acme/retirement?comments=on",
+      "https://hub.test/acme/retirement?edit=true",
       "_blank",
       "noopener,noreferrer",
     );
@@ -802,7 +802,7 @@ describe("BenefitEditPage portal link", () => {
     await user.click(screen.getByRole("button", { name: /Open Portal/ }));
 
     expect(mocks.open).toHaveBeenCalledWith(
-      "https://hub.test/acme/mindfulness-and-me?comments=on",
+      "https://hub.test/acme/mindfulness-and-me?edit=true",
       "_blank",
       "noopener,noreferrer",
     );
@@ -816,7 +816,7 @@ describe("BenefitEditPage portal link", () => {
     await user.click(screen.getByRole("button", { name: /Open Portal/ }));
 
     expect(mocks.open).toHaveBeenCalledWith(
-      "https://hub.test/acme/wellness-programs?comments=on",
+      "https://hub.test/acme/wellness-programs?edit=true",
       "_blank",
       "noopener,noreferrer",
     );
@@ -830,7 +830,7 @@ describe("BenefitEditPage portal link", () => {
     await user.click(screen.getByRole("button", { name: /Open Portal/ }));
 
     expect(mocks.open).toHaveBeenCalledWith(
-      "https://hub.test/plan-1/retirement?comments=on",
+      "https://hub.test/plan-1/retirement?edit=true",
       "_blank",
       "noopener,noreferrer",
     );

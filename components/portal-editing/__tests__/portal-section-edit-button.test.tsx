@@ -21,7 +21,7 @@ const mocks = vi.hoisted(() => ({
   editing: { value: null as null | Record<string, unknown> },
   focusSection: vi.fn(),
   pathname: "/plan-1/news-events",
-  search: "?comments=on",
+  search: "?edit=true",
   assign: vi.fn(),
 }));
 
@@ -89,10 +89,10 @@ describe("PortalSectionEditButton", () => {
     await user.click(screen.getByRole("button", { name: "Edit footer" }));
 
     // The section and the page it came from ride the URL; the footer's anchor is
-    // kept so the browser lands on the footer itself. `comments=on` stays because
+    // kept so the browser lands on the footer itself. `edit=true` stays because
     // it is what mounts the editing chrome at all — the rail opens closed instead.
     expect(mocks.assign).toHaveBeenCalledWith(
-      "/plan-1?comments=on&editSection=disclosure&editFrom=News+%26+Events#portal-footer",
+      "/plan-1?edit=true&editSection=disclosure&editFrom=News+%26+Events#portal-footer",
     );
     // Nothing to open here: this page has no Disclosure section.
     expect(mocks.focusSection).not.toHaveBeenCalled();

@@ -141,7 +141,7 @@ vi.mock("@/lib/marketing/hub-url", () => ({
 }));
 
 vi.mock("@/lib/comments/portal-surface", () => ({
-  withCommentsRail: (url: string) => `${url}?comments=on`,
+  withCommentsRail: (url: string) => `${url}?edit=true`,
 }));
 
 vi.mock("@/components/ui/branding-image", () => ({
@@ -737,7 +737,7 @@ describe("BenefitsListPage", () => {
       );
 
       expect(mocks.open).toHaveBeenCalledWith(
-        "https://hub.test/acme/retirement?comments=on",
+        "https://hub.test/acme/retirement?edit=true",
         "_blank",
         "noopener,noreferrer",
       );

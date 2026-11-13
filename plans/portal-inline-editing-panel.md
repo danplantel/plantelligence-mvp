@@ -2,7 +2,7 @@
 
 ## Objective
 
-When a portal link carries `?comments=on` and the visitor is a signed-in advisor, the portal gains an **Editing Panel** — the same pattern as Create/Edit Client and Create/Edit Benefits — so the current page can be edited in place and the portal updates without leaving the page.
+When a portal link carries `?edit=true` and the visitor is a signed-in advisor, the portal gains an **Editing Panel** — the same pattern as Create/Edit Client and Create/Edit Benefits — so the current page can be edited in place and the portal updates without leaving the page.
 
 Editing is **role-gated per page** using the existing permission grid. The flag is a preference, never authority: every save still goes through the existing API permission checks.
 
@@ -28,7 +28,7 @@ Notes:
 
 ```mermaid
 flowchart TD
-    A[Portal link with ?comments=on] --> B[Portal layout]
+    A[Portal link with ?edit=true] --> B[Portal layout]
     B --> C[PortalCommentsRail provider]
     C --> D{Session and desktop}
     D -->|yes| E[PortalEditingProvider]
@@ -147,7 +147,7 @@ Client-side gating only hides controls. Each save endpoint must be audited and, 
 | Videos             | verify per route                                  | `video` edit                 |
 | Webinars           | `marketing` edit                                  | keep `marketing`             |
 
-Collaborators remain scoped by assignment and category scope; the existing `resolvePlanAccess` path is the one gate. `?comments=on` never grants access on its own.
+Collaborators remain scoped by assignment and category scope; the existing `resolvePlanAccess` path is the one gate. `?edit=true` never grants access on its own.
 
 ## Tests
 
@@ -156,11 +156,11 @@ Collaborators remain scoped by assignment and category scope; the existing `reso
 - Component: launcher visibility; panel opens/closes; read-only state; comments and editor open together.
 - Component: each page editor renders from portal data and calls the right save handler.
 - API: permission refusal tests for plan home, key contacts, documents, video.
-- E2E: owner edits home and a benefit hub from `?comments=on`; a Collaborator with `create_benefits: edit` can edit only the hub; a viewer sees no write controls; no flag means no editor.
+- E2E: owner edits home and a benefit hub from `?edit=true`; a Collaborator with `create_benefits: edit` can edit only the hub; a viewer sees no write controls; no flag means no editor.
 
 ## Rollout
 
-Ship behind the existing `?comments=on` gate. Phase the work so each page is independently reviewable:
+Ship behind the existing `?edit=true` gate. Phase the work so each page is independently reviewable:
 
 1. Shared resolver, provider, panel shell, launcher, layout, and tests.
 2. Home page.

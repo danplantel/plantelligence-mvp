@@ -110,13 +110,13 @@ describe("PortalHeader login", () => {
 /**
  * The portal's own navigation must keep the Comments/Editing-Panel flag. A Next
  * `Link` does not inherit the current query, so without this a click from
- * `?comments=on` silently returned the reader to the plain portal.
+ * `?edit=true` silently returned the reader to the plain portal.
  */
 describe("PortalHeader preserves the comments flag", () => {
   beforeEach(() => {
     mocks.pathname = "/plan-1/retirement";
     vi.stubGlobal("ResizeObserver", ResizeObserverStub);
-    window.history.replaceState({}, "", "/plan-1/retirement?comments=on");
+    window.history.replaceState({}, "", "/plan-1/retirement?edit=true");
   });
 
   afterEach(() => {
@@ -135,7 +135,7 @@ describe("PortalHeader preserves the comments flag", () => {
 
     expect(
       screen.getByRole("link", { name: "Company Logo" }),
-    ).toHaveAttribute("href", "/plan-1?comments=on");
+    ).toHaveAttribute("href", "/plan-1?edit=true");
   });
 
   it("keeps the flag on the header nav links", () => {
@@ -143,10 +143,10 @@ describe("PortalHeader preserves the comments flag", () => {
 
     expect(
       screen.getByRole("link", { name: "News & Events" }),
-    ).toHaveAttribute("href", "/plan-1/news-events?comments=on");
+    ).toHaveAttribute("href", "/plan-1/news-events?edit=true");
     expect(
       screen.getByRole("link", { name: "My Benefits Team" }),
-    ).toHaveAttribute("href", "/plan-1/my-benefits-team?comments=on");
+    ).toHaveAttribute("href", "/plan-1/my-benefits-team?edit=true");
   });
 
   it("does not append anything without the flag", () => {

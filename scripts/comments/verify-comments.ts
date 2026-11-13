@@ -1920,27 +1920,29 @@ async function main(): Promise<void> {
     check(
       "the flag is composed LAST, and survives every URL shape it can be given",
       withCommentsRail("https://plantel.pro/acme") ===
-        "https://plantel.pro/acme?comments=on" &&
+        "https://plantel.pro/acme?edit=true" &&
         withCommentsRail("https://plantel.pro/acme?tab=2") ===
-          "https://plantel.pro/acme?tab=2&comments=on" &&
+          "https://plantel.pro/acme?tab=2&edit=true" &&
         withCommentsRail("https://plantel.pro/acme#top") ===
-          "https://plantel.pro/acme?comments=on#top" &&
+          "https://plantel.pro/acme?edit=true#top" &&
         // The shape the benefit editor builds: the builder's URL plus a segment, flagged after.
         withCommentsRail(
           `${"https://plantel.pro/acme"}${"/health-insurance"}`,
-        ) === "https://plantel.pro/acme/health-insurance?comments=on",
+        ) === "https://plantel.pro/acme/health-insurance?edit=true",
     );
     check(
       "…and asking twice does not add it twice",
       withCommentsRail(withCommentsRail("https://plantel.pro/acme/x")) ===
-        "https://plantel.pro/acme/x?comments=on",
+        "https://plantel.pro/acme/x?edit=true",
     );
     check(
       "the reader accepts the exact value ONLY, so a hand-typed flag cannot arm the rail",
-      wantsCommentsRail("?comments=on") &&
-        !wantsCommentsRail("?comments=1") &&
-        !wantsCommentsRail("?comments=") &&
+      wantsCommentsRail("?edit=true") &&
+        !wantsCommentsRail("?edit=1") &&
+        !wantsCommentsRail("?edit=") &&
         !wantsCommentsRail("") &&
+        // The superseded spelling must not arm anything either.
+        !wantsCommentsRail("?comments=on") &&
         // `?comment=` is a THREAD deep link, and must never be read as "open the rail".
         !wantsCommentsRail("?comment=abc"),
     );

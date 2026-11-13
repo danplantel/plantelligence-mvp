@@ -102,7 +102,7 @@ pnpm test:e2e             # Playwright E2E
 - **Form incomplete** only for `Active && !isFormValid`
 - **Ready to activate** for any non-Active plan that validates, never otherwise
 - delegates the back button and the status `Select`
-- Open Portal opens `https://…/<slug>?comments=on` in a new tab, falling back to the client id
+- Open Portal opens `https://…/<slug>?edit=true` in a new tab, falling back to the client id
 - Open Portal and Delete Plan are disabled until the plan is loaded
 - the delete dialog's confirm button is disabled until the phrase matches `delete plan` (trimmed, case-insensitive)
 - closing and reopening the dialog re-locks it

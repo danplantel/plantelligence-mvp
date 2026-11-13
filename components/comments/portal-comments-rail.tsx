@@ -7,12 +7,13 @@
  * (The product's name for it. It is the same rail the dashboard shows — this file adds only the way it
  * is turned on and the chrome around it, and re-implements none of it.)
  *
- * The five "Open Portal" buttons append `?comments=on` so an advisor can read a plan exactly as a
- * participant does and comment on it in the same view. This is what makes that flag mean something.
+ * The five "Open Portal" buttons append `?edit=true` so an advisor can read a plan exactly as a
+ * participant does and edit/comment on it in the same view. This is what makes that flag mean
+ * something — it arms the Comments rail, the Edit launcher and the landing page's INCOMPLETE cards.
  *
  * THREE GATES, and all three must open:
  *
- *  1. **The flag.** `?comments=on` is a PREFERENCE, never an authority — see
+ *  1. **The flag.** `?edit=true` is a PREFERENCE, never an authority — see
  *     [`portal-surface.ts`](../../lib/comments/portal-surface.ts) for why a signed token was
  *     rejected. Without it the portal renders exactly as it did before this existed.
  *  2. **A session.** The portal is PUBLIC: employees reach it with no account, and `middleware.ts`

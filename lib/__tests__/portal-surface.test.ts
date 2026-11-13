@@ -9,27 +9,27 @@ import {
 describe("withCommentsRail", () => {
   it("adds the flag with ? when the URL has no query", () => {
     expect(withCommentsRail("https://portal.test/acme/retirement")).toBe(
-      "https://portal.test/acme/retirement?comments=on",
+      "https://portal.test/acme/retirement?edit=true",
     );
   });
 
   it("adds the flag with & when the URL already has a query", () => {
     expect(withCommentsRail("https://portal.test/acme?tab=docs")).toBe(
-      "https://portal.test/acme?tab=docs&comments=on",
+      "https://portal.test/acme?tab=docs&edit=true",
     );
   });
 
   it("keeps a trailing hash last", () => {
     expect(withCommentsRail("https://portal.test/acme#team")).toBe(
-      "https://portal.test/acme?comments=on#team",
+      "https://portal.test/acme?edit=true#team",
     );
   });
 
   it("is idempotent and leaves an existing flag untouched", () => {
     const once = withCommentsRail("https://portal.test/acme");
     expect(withCommentsRail(once)).toBe(once);
-    expect(withCommentsRail("https://portal.test/acme?comments=off")).toBe(
-      "https://portal.test/acme?comments=off",
+    expect(withCommentsRail("https://portal.test/acme?edit=false")).toBe(
+      "https://portal.test/acme?edit=false",
     );
   });
 
@@ -40,16 +40,18 @@ describe("withCommentsRail", () => {
 
 describe("wantsCommentsRail", () => {
   it("accepts the exact on value with or without a leading ?", () => {
-    expect(wantsCommentsRail("?comments=on")).toBe(true);
-    expect(wantsCommentsRail("comments=on")).toBe(true);
-    expect(wantsCommentsRail("?a=1&comments=on")).toBe(true);
+    expect(wantsCommentsRail("?edit=true")).toBe(true);
+    expect(wantsCommentsRail("edit=true")).toBe(true);
+    expect(wantsCommentsRail("?a=1&edit=true")).toBe(true);
   });
 
   it("rejects any other value or an absent flag", () => {
     expect(wantsCommentsRail("")).toBe(false);
-    expect(wantsCommentsRail("?comments=1")).toBe(false);
-    expect(wantsCommentsRail("?comments=anything")).toBe(false);
+    expect(wantsCommentsRail("?edit=1")).toBe(false);
+    expect(wantsCommentsRail("?edit=anything")).toBe(false);
     expect(wantsCommentsRail("?tab=docs")).toBe(false);
+    // The old flag spelling no longer arms anything.
+    expect(wantsCommentsRail("?comments=on")).toBe(false);
   });
 });
 

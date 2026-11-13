@@ -63,8 +63,8 @@ export function PortalBenefits({
    * They are an ADVISOR affordance, not participant content: an unfinished
    * benefit should not be advertised to employees on the landing page. They
    * appear only in the editing view, which is the portal opened with
-   * `?comments=on` (the same flag the Comments rail and the Editing launcher
-   * key off). Read from the URL on mount, exactly like the rail does.
+   * `?edit=true` (the same flag the Comments rail and the Editing launcher key
+   * off). Read from the URL on mount, exactly like the rail does.
    */
   const [showIncompleteCards, setShowIncompleteCards] = useState(false);
   useEffect(() => {
@@ -269,7 +269,7 @@ export function PortalBenefits({
   // Determine visible benefits based on isEnabled and portal visibility.
   //
   // An incomplete benefit is a placeholder card rather than a hidden one — but
-  // ONLY in the editing view (`?comments=on`), where the advisor needs to see
+  // ONLY in the editing view (`?edit=true`), where the advisor needs to see
   // what still has to be finished. A participant's landing page omits the card
   // entirely, so "INCOMPLETE" is never shown to employees.
   const displayBenefits = (syncedBenefits as Benefit[])

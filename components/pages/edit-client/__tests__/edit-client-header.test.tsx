@@ -176,7 +176,7 @@ describe("EditClientHeader", () => {
     await user.click(screen.getByRole("button", { name: /Open Portal/ }));
 
     expect(window.open).toHaveBeenCalledWith(
-      "https://portal.test/acme?comments=on",
+      "https://portal.test/acme?edit=true",
       "_blank",
     );
   });
@@ -188,7 +188,7 @@ describe("EditClientHeader", () => {
     await user.click(screen.getByRole("button", { name: /Open Portal/ }));
 
     expect(window.open).toHaveBeenCalledWith(
-      "https://portal.test/507f1f77bcf86cd799439011?comments=on",
+      "https://portal.test/507f1f77bcf86cd799439011?edit=true",
       "_blank",
     );
   });

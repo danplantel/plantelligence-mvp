@@ -226,7 +226,7 @@ describe("PlanSearchBar", () => {
     await user.click(screen.getByRole("button", { name: /Open Portal/ }));
 
     expect(mocks.open).toHaveBeenCalledWith(
-      "https://hub.test/acme?comments=on",
+      "https://hub.test/acme?edit=true",
       "_blank",
     );
   });
@@ -238,7 +238,7 @@ describe("PlanSearchBar", () => {
     await user.click(screen.getByRole("button", { name: /Open Portal/ }));
 
     expect(mocks.open).toHaveBeenCalledWith(
-      "https://hub.test/plan-legacy?comments=on",
+      "https://hub.test/plan-legacy?edit=true",
       "_blank",
     );
   });

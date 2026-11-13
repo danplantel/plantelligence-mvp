@@ -15,7 +15,7 @@ The landing page hides `ClientPortal`'s own header and footer, so **this file is
 | Layout content | [`layout.tsx`](<../../app/(portal)/[id]/layout.tsx:44>)                                                                                                             | Header height, banner, back-to-dashboard overlay, typography vars, light mode, disclosures resolution |
 | Header / nav   | [`portal-header.tsx`](../../components/pages/client-portal/sections/portal-header.tsx:105)                                                                          | Logo, hub links (by `benefitHubs` × visibility), news, team, mobile menu                              |
 | Footer         | [`footer.tsx`](../../components/layout/footer.tsx:29)                                                                                                               | Trust bar, quick links, disclaimer text, copyright line                                               |
-| Comments rail  | [`portal-comments-rail.tsx`](../../components/comments/portal-comments-rail.tsx) + [`portal-comments-zoom.tsx`](../../components/comments/portal-comments-zoom.tsx) | `?comments=on` arming, advisor-only, the rail's column                                                |
+| Comments rail  | [`portal-comments-rail.tsx`](../../components/comments/portal-comments-rail.tsx) + [`portal-comments-zoom.tsx`](../../components/comments/portal-comments-zoom.tsx) | `?edit=true` arming, advisor-only, the rail's column                                                |
 | Pop-ups        | [`portal-popup-overlay.tsx`](../../components/pages/client-portal/sections/portal-popup-overlay.tsx:1)                                                              | Targeting, dismissal persistence                                                                      |
 | Install prompt | [`portal-install-app.tsx`](../../components/pages/client-portal/sections/portal-install-app.tsx:1)                                                                  | Platform detection, per-plan dismissal                                                                |
 
@@ -24,7 +24,7 @@ The landing page hides `ClientPortal`'s own header and footer, so **this file is
 The default export wraps everything in this order — worth asserting because each wrapper is load-bearing:
 
 1. `ClientPortalProvider` (fetches the plan; owns the skeleton and **Page Not Found**)
-2. `PortalCommentsRail` (arms only for `?comments=on` + a signed-in advisor on desktop)
+2. `PortalCommentsRail` (arms only for `?edit=true` + a signed-in advisor on desktop)
 3. `PortalCommentsZoom` (scales the portal instead of reflowing it while the rail is open)
 4. `ClientViewLayoutContent` (the chrome itself, with `children`)
 5. `PortalInstallApp` — **outside** both the rail and the zoom, so the Comments preview neither scales nor scrolls it away
@@ -90,7 +90,7 @@ the header's nav and its call to action untouched. Two consequences are pinned:
 
 ## The floating controls
 
-An armed portal (`?comments=on`) draws three fixed buttons in one row: Comments,
+An armed portal (`?edit=true`) draws three fixed buttons in one row: Comments,
 Edit, and — furthest left — the eye. The eye exists because reviewing a page the
 way an employee sees it used to mean clicking two buttons and remembering what
 had been open; it closes **both** surfaces in one click and restores both in one
@@ -126,7 +126,7 @@ All three buttons carry fixed light colours, because they sit outside
 
 **Layout** — provider → rail → zoom → content → install composition; header props (logo, colours, `clientId`, visibility, `benefitHubs`); `--brand-color`/`--secondary-color`; the banner fetch URL, first-asset rule, dismiss, CTA link vs inert text (a `mailto:` survives), and the countdown reaching **Expired**; the back buttons appearing only with the `sessionStorage` flag (and consuming it); `html.dark` removed and restored; the comment surface for the landing page, a hub, the custom hub (plus `benefitPagePaths`) and `null` elsewhere; the footer receiving resolved names, colour and disclaimer; and the typography variables on `.portal-root`. The disclosure chain is asserted end to end: per-category → Home Page → advisor → category row → apply-all → universal, including the landing page's early return for any Home Page / Global / apply-all row and the case-insensitive de-duplication.
 
-**Comments rail** — plain portal without the flag, with `?comments=1`, without a session, while the session loads, and below desktop; armed with all three; `--comments-rail-top` set and removed; `initialMode="on"`; `initialMode="off"` when the URL carries an edit intent (`?comments=on&editSection=…`, the footer's "Edit footer" arriving from another portal page) — armed, because the provider tree lives inside that gate, but not covering the page; the three button labels, `aria-pressed`, disabled state and right-offset.
+**Comments rail** — plain portal without the flag, with `?edit=1`, without a session, while the session loads, and below desktop; armed with all three; `--comments-rail-top` set and removed; `initialMode="on"`; `initialMode="off"` when the URL carries an edit intent (`?edit=true&editSection=…`, the footer's "Edit footer" arriving from another portal page) — armed, because the provider tree lives inside that gate, but not covering the page; the three button labels, `aria-pressed`, disabled state and right-offset.
 
 **Comments zoom** — pass-through without a provider and while closed; `(width − 384) / width` with the `0.5…1` clamp; a zero-width viewport ignored; resize recompute; reset when closed; `--comments-inset: 0px` inside the subtree; wrapper height `offsetHeight × scale` with `100dvh`; observer observe/disconnect.
 
@@ -242,7 +242,7 @@ GET /api/clients/:id/comments                                    # only when the
 
 ### 5. Comments and pop-ups
 
-- [ ] `?comments=on` shows the rail for an advisor on desktop; the header shortens, content is not reflowed.
+- [ ] `?edit=true` shows the rail for an advisor on desktop; the header shortens, content is not reflowed.
 - [ ] A participant (no session) never sees the rail.
 - [ ] A published pop-up appears, can be dismissed, and respects its target pages.
 
@@ -269,7 +269,7 @@ only being reachable through the whole chrome.
 8. **`benefitPagePaths` covers only the custom hub.** Pop-ups scoped to benefit pages get the custom hub's path, but not `/retirement`, `/health-insurance`, `/life-insurance` or `/wellness-programs`.
 9. **The layout is a client component with no metadata.** Titles/OG tags for portal routes have to come from elsewhere; nothing here sets them.
 10. **The portal has no `<main>` landmark.** `{children}` render in a plain `div` inside `AnimatePresence`, wrapped in another `div`, so the page has `header`/`footer` landmarks but no main region.
-11. **The comments flag is read once.** `PortalCommentsRail` reads `window.location.search` in a mount effect, so a client-side navigation that adds `?comments=on` does not arm the rail until a reload.
+11. **The comments flag is read once.** `PortalCommentsRail` reads `window.location.search` in a mount effect, so a client-side navigation that adds `?edit=true` does not arm the rail until a reload.
 12. **The countdown interval never stops.** Once the target passes, every tick still calls `setCountdown` with a fresh object, so the banner re-renders once a second indefinitely.
 
 ## Future coverage

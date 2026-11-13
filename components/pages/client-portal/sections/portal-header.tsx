@@ -323,7 +323,7 @@ export function PortalHeader({
 
   // Preserve the Comments/Editing-Panel flag across the portal's own navigation.
   // The links below are Next `Link`s, which do not inherit the current query, so a
-  // click from `?comments=on` used to land on the plain portal and close the rail.
+  // click from `?edit=true` used to land on the plain portal and drop the editing view.
   // Read the query in an effect rather than `useSearchParams` so the header does
   // not need a Suspense boundary.
   const [portalQuerySuffix, setPortalQuerySuffix] = useState("");

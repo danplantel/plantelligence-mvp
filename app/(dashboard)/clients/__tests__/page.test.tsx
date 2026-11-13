@@ -93,7 +93,7 @@ vi.mock("@/lib/marketing/hub-url", () => ({
 }));
 
 vi.mock("@/lib/comments/portal-surface", () => ({
-  withCommentsRail: (url: string) => `${url}?comments=1`,
+  withCommentsRail: (url: string) => `${url}?edit=true`,
 }));
 
 vi.mock("@/lib/new-client-wizard-store", () => ({
@@ -442,7 +442,7 @@ describe("ClientsListDashboardPage", () => {
 
       await user.click(row.getByRole("button", { name: "Hub" }));
       expect(mocks.open).toHaveBeenCalledWith(
-        "https://hub.test/acme?comments=1",
+        "https://hub.test/acme?edit=true",
         "_blank",
       );
 
@@ -552,7 +552,7 @@ describe("ClientsListDashboardPage", () => {
       );
 
       expect(mocks.open).toHaveBeenCalledWith(
-        "https://hub.test/plan-no-slug?comments=1",
+        "https://hub.test/plan-no-slug?edit=true",
         "_blank",
       );
     });

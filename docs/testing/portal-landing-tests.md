@@ -203,15 +203,15 @@ Comments rail, opens the panel and scrolls it to Disclosure.
 
 | Step | Where | What happens |
 | --- | --- | --- |
-| 1 | the page the advisor is on | the button builds `/{plan}?comments=on&editSection=disclosure&editFrom=…` ([`lib/portal-editor-intent.ts`](../../lib/portal-editor-intent.ts:42)) and assigns it |
-| 2 | `PortalCommentsRail` | `?comments=on` **arms** the editing chrome (without it there is no provider and no panel), while `hasPortalEditIntent` opens the rail with comments **OFF** |
+| 1 | the page the advisor is on | the button builds `/{plan}?edit=true&editSection=disclosure&editFrom=…` ([`lib/portal-editor-intent.ts`](../../lib/portal-editor-intent.ts:42)) and assigns it |
+| 2 | `PortalCommentsRail` | `?edit=true` **arms** the editing chrome (without it there is no provider and no panel), while `hasPortalEditIntent` opens the rail with comments **OFF** |
 | 3 | `PortalEditingProvider` | reads `?editSection=`, calls `setMode("off")`, `focusSection("disclosure")`, and toasts which page the advisor came from — once per `pathname:section` |
 | 4 | `EditorPanelWrapper` | opens on the Disclosure section, retrying for ~0.5 s because the panel body can mount a commit after the request |
 
 The toast is the part that stops the page change reading as a bug: *"The footer is
 edited on the Landing Page — News & Events has no footer of its own…"*.
 
-`buildPortalEditHref` **forces** `comments=on` even though the intent asks for no
+`buildPortalEditHref` **forces** `edit=true` even though the intent asks for no
 rail: the flag is the gate, not a preference. Dropping it was the bug behind three
 earlier attempts — the page loaded as a plain portal, with neither provider nor
 panel, and the toast was all the advisor saw.
@@ -237,7 +237,7 @@ suite asserts a participant gets `showEditIndicators={false}` and no buttons.
 
 **Portal context (`client-portal-context.test.tsx`)** — `?forPortal=1` + `cache: "no-store"`; the profile request and its non-fatal failure; the skeleton staying up until both requests settle; 404/500/`success:false` → **Page Not Found**; **Archived** hidden, **Draft** previewed; alias redirect preserving the sub-path; refetch with `&t=`, and both window events filtered by `clientId`.
 
-**Benefits (`portal-benefits.test.tsx`)** — four default cards; category-based slot filling; a hidden hub and the all-hidden `null`; the stale-`isEnabled` rule; grid sizing; hub links vs the preview CTA; partner name from the assigned/primary contact; the image precedence chain; the 75-character copy cap; category default copy; the chevron split; `onEdit`; the "INCOMPLETE" placeholder card — rendered **only** in the editing view (`?comments=on`) and omitted for participants; the dialog's missing-info list and wizard link; and the preview bypass.
+**Benefits (`portal-benefits.test.tsx`)** — four default cards; category-based slot filling; a hidden hub and the all-hidden `null`; the stale-`isEnabled` rule; grid sizing; hub links vs the preview CTA; partner name from the assigned/primary contact; the image precedence chain; the 75-character copy cap; category default copy; the chevron split; `onEdit`; the "INCOMPLETE" placeholder card — rendered **only** in the editing view (`?edit=true`) and omitted for participants; the dialog's missing-info list and wizard link; and the preview bypass.
 
 **Hero and mission (`portal-hero-mission.test.tsx`)** — saved and fallback copy; `role="button"` only when a handler exists; Enter/Space activation; body clicks not reaching the headline handler; the thumbnail vs stock photo; both scroll behaviours; the hero's company-name headline and `--------` fallback; and the benefits question search — typing queries the shipped topic library, the dropdown names each topic's hub/group, and submitting the field or a suggestion dispatches `ASSISTANT_ASK_EVENT` for the chatbot to answer. The sheet opens on that question, pinned so the answer reads from its first line. Focusing the field lifts the bar below the fixed banner + header (marked `data-portal-header`), with a 10px gap, and reports the focus so the chatbot's pill steps aside on a phone. On a phone the headline, copy and Ask bar share one full-width column; from `sm` up they keep the classic 900px card with the headline and copy at 4/5. The phone placeholder is "Ask a question", and the scroll arrow is hidden on phones (`hidden sm:block`). The card stays inside the hero, under the field; on a phone the hero grows a five-row reserve around it only once matches exist, with the height animated, and a longer list (up to a dozen matches) scrolls inside the card. An `IntersectionObserver` reports whether the hero is on screen, so the assistant's floating pill stays hidden until it is scrolled past. The mission section stacks header → featured image → statement on phones; from `lg` up the image returns to the left column with the header and statement stacked on the right.
 
@@ -340,7 +340,7 @@ Prerequisites: `E2E_BASE_URL` (or `E2E_START_SERVER=1`) and `E2E_PORTAL_SLUG` na
 2. a hidden hub has no card
 3. a contact in a hidden hub is absent; a plan-sponsor contact is still present
 4. `/{retired-slug}` lands on `/{current-slug}` with the path preserved
-5. `?comments=on` opens the Comments rail for an advisor
+5. `?edit=true` opens the Comments rail for an advisor
 
 ## What renders on the landing page
 
@@ -395,7 +395,7 @@ The header, footer disclosures, install prompt, pop-up notice and comments rail 
 
 - [ ] A published portal notice banner shows, can be dismissed, and a countdown banner counts down.
 - [ ] The install prompt appears for a PWA-eligible browser.
-- [ ] `?comments=on` opens the Comments rail for an advisor and is absent for participants.
+- [ ] `?edit=true` opens the Comments rail for an advisor and is absent for participants.
 - [ ] `/{slug}/news-events` and the hub pages keep the same header and footer.
 
 ## Known gaps

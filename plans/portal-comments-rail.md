@@ -56,16 +56,16 @@ worth writing down.
 
 **So: the URL carries a preference, and the session carries the authority.**
 
-- The buttons append `?comments=on` (see §6).
+- The buttons append `?edit=true` (see §6).
 - The portal mounts the rail only when **all** of these hold: the flag is present, a session exists,
   and the path resolves to a comment surface (§4).
 - Everything after that is the existing engine. The rail's reads and writes hit the same routes, go
   through the same `resolveCommentAccess`, and fail the same way. An **anonymous** employee is
   unaffected: no session, no rail, no flag honoured — and the portal page itself is untouched.
 
-The `?comments=on` spelling is deliberate. `?comment=<threadId>` is already a *thread* deep link
-(the provider reads it), so a bare `?comments=<id>` would be a trap. `on` also matches the word the
-mode already uses (`CommentMode`, and the `comments:mode` localStorage value).
+The `?edit=true` spelling is deliberate. `?comment=<threadId>` is already a *thread* deep link
+(the provider reads it), so a name close to it would be a trap. `true` states what the link is
+asking for — the advisor's editing view — rather than naming only the Comments rail.
 
 ## 3. Why this is mostly a mounting problem
 
@@ -73,7 +73,7 @@ The rail is not a new feature; it is the existing panel that needs an ancestor a
 
 ```mermaid
 flowchart TD
-    A["Open Portal button"] --> B["https://root/slug?comments=on"]
+    A["Open Portal button"] --> B["https://root/slug?edit=true"]
     B --> C["portal layout"]
     C --> D{flag AND session AND surface}
     D -->|no| E["plain portal, exactly as today"]
@@ -144,11 +144,11 @@ components/pages/benefits/benefit-edit-page.tsx
   const url = `${getBenefitsHubOpenPortalUrl(slugOrId)}${segment ? `/${segment}` : ""}`;
 ```
 
-So the flag cannot live inside the builder — `...?comments=on/health-insurance` would be built. The
+So the flag cannot live inside the builder — `...?edit=true/health-insurance` would be built. The
 flag is composed **last**, from small dependency-free exports:
 
 - `COMMENTS_RAIL_PARAM = "comments"`, `COMMENTS_RAIL_VALUE = "on"`;
-- `withCommentsRail(url)` — appends `?comments=on`, or `&comments=on` when a query already exists,
+- `withCommentsRail(url)` — appends `?edit=true`, or `&edit=true` when a query already exists,
   keeps any `#hash` last, and is idempotent;
 - `wantsCommentsRail(search)` — the reader, so the portal compares for the exact value instead of
   guessing at it.
@@ -157,7 +157,7 @@ flag is composed **last**, from small dependency-free exports:
 [`lib/comments/portal-surface.ts`](../lib/comments/portal-surface.ts), not in
 [`lib/marketing/hub-url.ts`](../lib/marketing/hub-url.ts) as originally written. Reason: the flag has
 a WRITER (the dashboard buttons) and a READER (the portal), and splitting one flag's spelling across
-two modules is how a `?comments=on` becomes a `?comment=on` in one of them. `portal-surface.ts` is
+two modules is how a `?edit=true` becomes a `?comment=on` in one of them. `portal-surface.ts` is
 the module both sides must already agree on for the surface mapping, so it is where the flag belongs.
 `hub-url.ts` keeps doing what it does — building portal URLs — and gains no comments knowledge.
 

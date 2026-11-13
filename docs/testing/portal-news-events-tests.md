@@ -42,10 +42,10 @@ The advisor changes this page from two places, and each has its own rule.
 
 **Why the footer leaves the page.** The disclosure is one record shared by four
 portal pages, and only the Landing Page's panel edits it. So the button on this
-page builds `?comments=on&editSection=disclosure&editFrom=News+%26+Events`, the
+page builds `?edit=true&editSection=disclosure&editFrom=News+%26+Events`, the
 Landing Page arms its editing chrome, keeps the Comments rail **closed**, opens the
 panel at Disclosure and toasts that this page has no footer of its own. The whole
-flow — and why `comments=on` must survive the trip — is documented in
+flow — and why `edit=true` must survive the trip — is documented in
 [`portal-landing-tests.md`](portal-landing-tests.md#editing-the-footer-from-another-page).
 
 ## Creating content from the Edit Panel

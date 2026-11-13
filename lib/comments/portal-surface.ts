@@ -11,25 +11,33 @@
  *     while the comments API wants the REAL category. `getBenefitPortalSegment` goes the other way,
  *     so this is its inverse, and the suite pins the two against each other so they cannot drift.
  *
- *  2. THE FLAG the Open Portal buttons carry. `?comments=on` is a PREFERENCE, never an authority:
- *     the portal mounts the rail only when a session exists as well, and every read and write still
- *     goes through `resolveCommentAccess` — the one gate. A signed token was considered and rejected:
- *     the portal is same-origin with the dashboard, so the session cookie is already sent, and a
- *     second authorization path beside the one gate is exactly how two doors start disagreeing.
+ *  2. THE FLAG the Open Portal buttons carry. `?edit=true` is a PREFERENCE, never an authority:
+ *     the portal mounts the editing chrome only when a session exists as well, and every read and
+ *     write still goes through `resolveCommentAccess` — the one gate. A signed token was considered
+ *     and rejected: the portal is same-origin with the dashboard, so the session cookie is already
+ *     sent, and a second authorization path beside the one gate is exactly how two doors start
+ *     disagreeing.
  *
- *     The word is `on` rather than a thread id on purpose: `?comment=<threadId>` is already a THREAD
- *     deep link (the provider reads it), so a bare `?comments=<id>` would be a trap. `on` is also
- *     the word the mode itself uses.
+ *     `edit=true` names what the flag is FOR — the advisor's editing view (Comments rail, Edit
+ *     launcher, and the landing page's INCOMPLETE placeholder cards) — rather than the rail alone.
+ *     It cannot be confused with `?comment=<threadId>`, which is a THREAD deep link the provider
+ *     reads, so a name close to that one would be a trap.
  *
  * Dependency-free on purpose: dashboard components import the flag helpers, and the portal layout
  * imports the surface mapping, so neither should be pulling in the other's world.
  */
 
-/** The query parameter an Open Portal link carries. */
-export const COMMENTS_RAIL_PARAM = "comments";
+/**
+ * The query parameter an Open Portal (editing) link carries.
+ *
+ * The constant names still say "comments" because the rail was the first surface to
+ * depend on it; the FLAG is the portal's editing flag, and every reader/writer goes
+ * through the helpers below so its spelling lives in exactly one place.
+ */
+export const COMMENTS_RAIL_PARAM = "edit";
 
 /** Its one accepted value. */
-export const COMMENTS_RAIL_VALUE = "on";
+export const COMMENTS_RAIL_VALUE = "true";
 
 /** What the comments API and `useCommentSurface` need to know about a portal page. */
 export interface PortalCommentsSurface {
@@ -115,7 +123,7 @@ export function portalCommentsSurface(input: {
  *
  * MUST be applied LAST — after any benefit segment has been appended. One caller builds
  * `getBenefitsHubOpenPortalUrl(slug)` and then concatenates `/{segment}`, so putting the flag inside
- * the builder would produce `…?comments=on/health-insurance`. That is why this is a wrapper over a
+ * the builder would produce `…?edit=true/health-insurance`. That is why this is a wrapper over a
  * finished URL rather than an argument to the builder.
  *
  * An existing query is respected (`&` rather than `?`), a trailing `#hash` stays last, and a URL
@@ -139,8 +147,9 @@ export function withCommentsRail(url: string): string {
  * Does this URL ask for the Comments rail? The inverse of `withCommentsRail`, kept beside it so the
  * two cannot disagree about the spelling.
  *
- * Anything other than the exact value counts as absent, so a hand-edited `?comments=1` or
- * `?comments=anything` does not quietly switch the rail on — the flag is compared, not guessed at.
+ * Anything other than the exact value counts as absent, so a hand-edited `?edit=1` or
+ * `?edit=anything` does not quietly switch the editing view on — the flag is compared, not guessed
+ * at.
  */
 export function wantsCommentsRail(search: string): boolean {
   const value = String(search || "");

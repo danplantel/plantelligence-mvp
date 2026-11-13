@@ -1,3 +1,8 @@
+import {
+  COMMENTS_RAIL_PARAM,
+  COMMENTS_RAIL_VALUE,
+} from "@/lib/comments/portal-surface";
+
 /**
  * "Open the Edit Panel on this section" — carried across a navigation.
  *
@@ -7,9 +12,9 @@
  * page and open the panel there.
  *
  * The request travels in the URL (`?editSection=…&editFrom=…`) rather than in
- * component state, and it KEEPS `?comments=on`: that flag is what mounts the
- * portal's editing chrome at all (`PortalCommentsRail` renders the provider tree
- * only when armed). The rail itself is then opened with comments OFF — see
+ * component state, and it KEEPS `?edit=true`: that flag is what mounts the portal's
+ * editing chrome at all (`PortalCommentsRail` renders the provider tree only when
+ * armed). The rail itself is then opened with comments OFF — see
  * `hasPortalEditIntent`, which the rail uses to pick its initial mode.
  */
 
@@ -35,8 +40,8 @@ export interface PortalEditHrefInput {
  * Build the URL for "go and edit this elsewhere".
  *
  * Keeps any unrelated query parameters and adds the two edit parameters before
- * the hash so the browser still scrolls to the anchor. `comments` is forced ON:
- * without it the portal mounts no editing provider at all, and the panel could
+ * the hash so the browser still scrolls to the anchor. The editing flag is forced
+ * on: without it the portal mounts no editing provider at all, and the panel could
  * never open.
  */
 export function buildPortalEditHref({
@@ -49,7 +54,7 @@ export function buildPortalEditHref({
   const [base, hash] = String(editHref || editPath).split("#");
   const params = new URLSearchParams(String(search ?? "").replace(/^\?/, ""));
   // Arms the editing chrome; the rail opens with comments OFF instead.
-  params.set("comments", "on");
+  params.set(COMMENTS_RAIL_PARAM, COMMENTS_RAIL_VALUE);
   params.set(PORTAL_EDIT_SECTION_PARAM, sectionId);
   if (sourceLabel) params.set(PORTAL_EDIT_FROM_PARAM, sourceLabel);
 
