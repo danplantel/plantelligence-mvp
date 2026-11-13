@@ -6,7 +6,7 @@ It covers the page's orchestration around the wizard: deep-link hydration, step 
 
 ## Summary
 
-- **Unit tests:** 218 passing across 7 files.
+- **Unit tests:** 219 passing across 7 files.
   - page shell/validation/publish: 103
   - shared Step 1 (plan, category, messaging, contact): 20
   - shared Step 3 (contacts, collaborators): 23
@@ -23,7 +23,7 @@ The page suite is mostly orchestration, so it mocks the wizard store, the five s
 ## Running these tests
 
 ```bash
-pnpm test:create-benefit           # the Create Benefit suite (218 tests)
+pnpm test:create-benefit           # the Create Benefit suite (219 tests)
 pnpm test:create-benefit:watch     # watch mode
 pnpm test:create-benefit:coverage  # suite + V8 coverage
 ```
@@ -65,7 +65,7 @@ Shared step and dialog suites (the real components, with presentation children s
 | --- | ------------------------------------------------------------------------- | ----: | ---------------------------------------------------------------------------------------------- |
 | 16  | `components/wizard/benefits-steps/__tests__/step-1.test.tsx`              |    20 | Plan gate, picker/custom name, messaging seeds, signature, primary contact, section/mode gating |
 | 17  | `components/wizard/benefits-steps/__tests__/step-3.test.tsx`              |    23 | Contact roster/fallback, selection + cap, plan writes, collaborators and the contacts preview |
-| 18  | `components/wizard/benefits-steps/__tests__/step-4.test.tsx`              |    23 | Load + merge, category-implied documents (no per-document category), language filters, upload, delete branches, inline edit, reorder, sort |
+| 18  | `components/wizard/benefits-steps/__tests__/step-4.test.tsx`              |    24 | Load + merge, the List tab's count, category-implied documents (no per-document category), language filters, upload, delete branches, inline edit, reorder, sort |
 | 19  | `components/wizard/benefits-steps/__tests__/step-5.test.tsx`              |    19 | Seed ladder, category mapping, inline debounce, apply-all, footer background, timer cleanup    |
 | 20  | `components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx` |    19 | Scope chips, reset, submit payload, suggestion/search, success/warning/error toasts            |
 | 21  | `lib/__tests__/benefit-messaging-defaults.test.ts`                        |    11 | Headline names the plan sponsor (never the advisor's firm); category-aware message; 35/450 caps |

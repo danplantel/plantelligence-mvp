@@ -248,8 +248,24 @@ describe("NewClientStep4", () => {
     expect(screen.getByRole("button", { name: /Upload/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /List/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Preview/ })).toBeInTheDocument();
+    // The List tab states how many documents it will show.
+    expect(screen.getByRole("button", { name: /List/ })).toHaveTextContent(
+      "List0",
+    );
     expect(mocks.fetch).not.toHaveBeenCalled();
     expect(screen.getByTestId("uploader-count")).toHaveTextContent("0");
+  });
+
+  it("keeps the List tab's count in step with the uploads", async () => {
+    const user = userEvent.setup();
+    render(<NewClientStep4 />);
+
+    const listTab = () => screen.getByRole("button", { name: /List/ });
+    expect(listTab()).toHaveTextContent("List0");
+
+    await user.click(screen.getByRole("button", { name: "Mock upload" }));
+
+    await waitFor(() => expect(listTab()).toHaveTextContent("List1"));
   });
 
   it("loads both document APIs when the plan already has documents", async () => {

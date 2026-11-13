@@ -11,6 +11,7 @@ import { persistNewDocumentsToApi } from "@/lib/benefits-document-persist";
 import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { TabCount } from "@/components/ui/tab-count";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -485,7 +486,10 @@ export function BenefitsStep4() {
             <Tabs value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-3">
                     <TabsTrigger value="upload">Upload</TabsTrigger>
-                    <TabsTrigger value="list">List</TabsTrigger>
+                    <TabsTrigger value="list">
+                        List
+                        <TabCount count={sortedListDocs.length} />
+                    </TabsTrigger>
                     <TabsTrigger value="preview">Preview</TabsTrigger>
                 </TabsList>
 

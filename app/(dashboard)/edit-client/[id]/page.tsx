@@ -228,6 +228,7 @@ import { PRIMARY_SERVICE_CATEGORY_OPTIONS } from "@/lib/service-categories";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { MISSION_STATEMENT_PRESETS } from "@/components/wizard/new-client-steps/constants/welcome-statements";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { TabCount } from "@/components/ui/tab-count";
 import { CommentAnchor } from "@/components/comments/comment-anchor";
 import { useCommentSurface } from "@/components/comments/comment-mode-provider";
 import type {
@@ -2960,7 +2961,10 @@ function EditComplianceDocumentsSection({
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
           <TabsTrigger value="upload">Upload</TabsTrigger>
-          <TabsTrigger value="list" disabled={isUploading}>List</TabsTrigger>
+          <TabsTrigger value="list" disabled={isUploading}>
+            List
+            <TabCount count={sortedDocuments.length} />
+          </TabsTrigger>
           <TabsTrigger value="preview" disabled={isUploading}>Preview</TabsTrigger>
         </TabsList>
 

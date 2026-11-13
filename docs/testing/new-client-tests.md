@@ -4,7 +4,7 @@ This document is the test inventory for [`app/(dashboard)/new-client/page.tsx`](
 
 ## Summary
 
-- **Unit tests:** 288 passing in 13 files
+- **Unit tests:** 289 passing in 13 files
 - **E2E:** 4 Playwright tests in [`e2e/new-client.spec.ts`](../../e2e/new-client.spec.ts), env-gated
 - **Runner:** Vitest + React Testing Library + jsdom; Playwright for E2E
 
@@ -15,7 +15,7 @@ The suites are layered on purpose. The page suite mocks the store and the step s
 Create Plan-only commands:
 
 ```bash
-pnpm test:new-client           # all 13 suites (288 tests)
+pnpm test:new-client           # all 13 suites (289 tests)
 pnpm test:new-client:watch     # watch mode
 pnpm test:new-client:coverage  # suite + V8 coverage
 ```
@@ -52,7 +52,7 @@ pnpm test:e2e
 | 2   | `components/wizard/__tests__/new-client-wizard.test.tsx`                            |    19 | Footer bar, step-3 gates, validation error UX, duplicate-name dialog, comment surface                           |
 | 3   | `components/wizard/new-client-steps/__tests__/step-1-company-basics.test.tsx`       |     7 | Plan type, company-name → portal slug, manual-edit latch, website normalisation, pre-Next flush                 |
 | 4   | `components/wizard/new-client-steps/__tests__/step-3-key-contacts.test.tsx`         |    11 | Slide routing (prompt → form → categories → preview), persisted transitions, backward-only dots, invite refresh |
-| 5   | `components/wizard/new-client-steps/__tests__/step-4-compliance-documents.test.tsx` |     9 | Server document load, Skip for now, upload→list switch, delete confirmation, category persistence               |
+| 5   | `components/wizard/new-client-steps/__tests__/step-4-compliance-documents.test.tsx` |    10 | Server document load, Skip for now, upload→list switch, the List tab's count, delete confirmation, category persistence |
 | 6   | `components/wizard/new-client-steps/__tests__/step-5-disclaimer.test.tsx`           |     7 | Disclaimer source priority, default seed, debounced inline save, footer background                              |
 | 7   | `components/wizard/new-client-steps/sections/utils/__tests__/utils.test.ts`         |    25 | Hero/thumbnail auto-crops, brand-image conversions, R2 URL resolution, full-resolution export                   |
 | 8   | `lib/__tests__/new-client-wizard-resume.test.ts`                                    |    34 | Snapshot ownership, pending pointer, `lookupDraft` three-state answer, saved-at formatting                      |

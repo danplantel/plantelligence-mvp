@@ -336,7 +336,8 @@ function renderStep() {
 }
 
 async function openListTab() {
-  fireEvent.click(screen.getByRole("tab", { name: "List" }));
+  // The List tab's accessible name now carries its count ("List2"), so match the label.
+  fireEvent.click(screen.getByRole("tab", { name: /^List/ }));
   return screen.findByTestId("list-tab");
 }
 
@@ -407,6 +408,19 @@ describe("BenefitsStep4", () => {
           ],
         }),
       );
+    });
+
+    it("counts this benefit's documents on the List tab", async () => {
+      mocks.fetchPlanDocuments.mockResolvedValue([
+        retirementDoc,
+        { ...retirementDoc, id: "retirement-2", title: "Fee Disclosure" },
+        healthDoc,
+      ]);
+      renderStep();
+
+      const listTab = await screen.findByRole("tab", { name: /List/ });
+      // Only the benefit's own category is listed, so only it is counted.
+      await waitFor(() => expect(listTab).toHaveTextContent("List2"));
     });
 
     it("keeps unpersisted temp rows and drops stale real-ID rows", async () => {

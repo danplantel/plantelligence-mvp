@@ -6,6 +6,7 @@ import { ComplianceDocumentsUpload } from "@/components/pages/documents/componen
 import { convertToDocumentFormat } from "@/lib/compliance-document-utils";
 import { toast } from "sonner";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { TabCount } from "@/components/ui/tab-count";
 import { DocumentPreviewTab } from "@/components/pages/documents/tabs/document-preview-tab";
 import { DocumentListTab } from "@/components/pages/documents/tabs/document-list-tab";
 import type {
@@ -525,6 +526,7 @@ export function BenefitsDocumentsSection({
           <TabsTrigger value="upload">Upload</TabsTrigger>
           <TabsTrigger value="list" disabled={isUploading}>
             List
+            <TabCount count={sortedDocuments.length} />
           </TabsTrigger>
           <TabsTrigger value="preview" disabled={isUploading}>
             Preview
