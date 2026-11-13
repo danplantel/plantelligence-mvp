@@ -38,6 +38,7 @@ import {
 } from "@/lib/topics/search";
 import { resolveTopicHref } from "@/lib/topics/link-href";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ActionHubPanel } from "./action-hub-panel";
 import type { ActionHubRow, EffectiveTopic, TopicGroup } from "@/types/topic";
 
@@ -93,12 +94,103 @@ export interface QuickAnswersSectionProps {
   recordkeeperName?: string;
   /** The plan sponsor, for `{{plan_sponsor_name}}`. */
   planSponsorName?: string;
+  /**
+   * True while the hub is still fetching this benefit's placements
+   * (`GET …/benefits/<category>?withTopics=1`). The section then draws its
+   * skeleton instead of rendering `null` and popping in after the sections
+   * around it, which used to shove the page down as it arrived.
+   */
+  loading?: boolean;
   className?: string;
 }
 
 /** The section heading participants read, above the search box. */
 const SECTION_TITLE = "Get Quick Answers to Common Benefits Questions";
 const SEARCH_PLACEHOLDER = "Search answers for this benefit";
+/** The supporting line under the heading — the skeleton shows it too. */
+const SECTION_SUBTITLE =
+  "Every other question about this benefit, grouped and searchable.";
+
+/**
+ * The heading block, shared by the live section and its skeleton so the two are the
+ * same height and the swap cannot shift the page.
+ */
+function QuickAnswersHeading() {
+  return (
+    <div className="mb-8 text-center">
+      {/* `text-gray-900`, matching the "How Can We Help You Today?" heading: the
+          two section titles read as a pair, and neither takes the plan's brand
+          colour. */}
+      <h2 className="mx-auto font-dm-serif text-2xl leading-tight text-gray-900 sm:text-3xl lg:whitespace-nowrap lg:text-4xl">
+        {SECTION_TITLE}
+      </h2>
+      <p className="mx-auto mt-2 max-w-2xl font-red-hat text-sm text-neutral-600 sm:text-base">
+        {SECTION_SUBTITLE}
+      </p>
+    </div>
+  );
+}
+
+/**
+ * The section's placeholder while the hub's topics are in flight.
+ *
+ * The section renders nothing until the benefit read answers, so on a hub page it
+ * used to appear seconds after the sections around it — and pushed them down when it
+ * did. This claims the section's frame on first paint: the same anchor id, heading,
+ * search field and two-column rhythm the answer list will occupy, so the answers swap
+ * in without a jump.
+ */
+function QuickAnswersSkeleton({ className }: { className?: string }) {
+  return (
+    <section
+      id={QUICK_ANSWERS_SECTION_ID}
+      aria-busy="true"
+      data-testid="quick-answers-skeleton"
+      className={cn(
+        "w-full scroll-mt-24 bg-neutral-50 py-16 sm:scroll-mt-28 lg:py-20 lg:scroll-mt-32",
+        className,
+      )}
+    >
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <QuickAnswersHeading />
+
+        <div className="mx-auto mb-6 max-w-2xl">
+          <Skeleton
+            className="h-11 w-full"
+            style={{ borderRadius: portalRadiusValue() }}
+          />
+          <Skeleton className="mx-auto mt-2 h-3 w-24" />
+        </div>
+
+        <p className="sr-only" role="status">
+          Loading this benefit&rsquo;s answers…
+        </p>
+
+        {/* The two-column rhythm of the real list: three group blocks per column,
+            each with its group label and three question bars. Decorative only —
+            the status line above is what tells assistive tech what is happening. */}
+        <div className="grid gap-6 md:grid-cols-2" aria-hidden="true">
+          {[0, 1].map((column) => (
+            <div key={column} className="space-y-6">
+              {[0, 1, 2].map((groupIndex) => (
+                <div key={groupIndex} className="space-y-2">
+                  <Skeleton className="mb-2 h-3 w-28" />
+                  {[0, 1, 2].map((question) => (
+                    <Skeleton
+                      key={question}
+                      className="h-[46px] w-full"
+                      style={{ borderRadius: portalRadiusValue(1.5) }}
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 /**
  * The reorder animation.
@@ -362,6 +454,7 @@ export function QuickAnswersSection({
   recordkeeperUrl,
   recordkeeperName,
   planSponsorName,
+  loading = false,
   className,
 }: QuickAnswersSectionProps) {
   // The plan's key contact for this benefit owns the scheduling link a
@@ -602,6 +695,13 @@ export function QuickAnswersSection({
     );
   };
 
+  // The hub is still fetching this benefit's placements: draw the section's frame so
+  // it does not arrive late and shove the page down. Only while there is nothing to
+  // show — a revalidation over data already on screen must not flash a skeleton.
+  if (loading && allTopics.length === 0) {
+    return <QuickAnswersSkeleton className={className} />;
+  }
+
   // A location with nothing visible renders nothing — no header, no search box.
   if (allTopics.length === 0) return null;
 
@@ -616,20 +716,9 @@ export function QuickAnswersSection({
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* The heading is allowed the full column width and, from `lg` up, is kept on
             ONE line — at the same type size. The old `max-w-2xl` wrapper forced a break
-            mid-sentence on desktop. Only the supporting line stays narrow. */}
-        <div className="mb-8 text-center">
-          {/* `text-gray-900`, matching the "How Can We Help You Today?" heading: the
-              two section titles read as a pair, and neither takes the plan's brand
-              colour. */}
-          <h2
-            className="mx-auto font-dm-serif text-2xl leading-tight text-gray-900 sm:text-3xl lg:whitespace-nowrap lg:text-4xl"
-          >
-            {SECTION_TITLE}
-          </h2>
-          <p className="mx-auto mt-2 max-w-2xl font-red-hat text-sm text-neutral-600 sm:text-base">
-            Every other question about this benefit, grouped and searchable.
-          </p>
-        </div>
+            mid-sentence on desktop. Only the supporting line stays narrow. The block
+            itself is shared with the skeleton, so the two cannot drift apart. */}
+        <QuickAnswersHeading />
 
         <div className="mx-auto mb-6 max-w-2xl">
           <label className="relative block">

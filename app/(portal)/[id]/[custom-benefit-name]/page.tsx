@@ -69,7 +69,9 @@ export default function CustomBenefitPage() {
   // Fetch benefit data from the new Benefit API
   // `withTopics=1`: placements are the hub's only source of questions now that the
   // FAQ accordion is retired, so they are always requested.
-  const { data: benefitApiData } = useSWR(
+  // `isLoading` is what the Quick Answers section draws its skeleton from: until the
+  // read answers, the section has no questions to show and used to appear late.
+  const { data: benefitApiData, isLoading: benefitLoading } = useSWR(
     clientId
       ? `/api/clients/${clientId}/benefits/Company%20%2F%20Plan%20Sponsor?forPortal=1&withTopics=1`
       : null,
@@ -303,6 +305,9 @@ export default function CustomBenefitPage() {
         <div className="relative">
           <QuickAnswersSection
             groups={topics?.groups ?? []}
+            // Placeholder frame until this hub's placements arrive, so the section
+            // does not materialise after the ones around it.
+            loading={benefitLoading}
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             basePath={`/${clientId}`}

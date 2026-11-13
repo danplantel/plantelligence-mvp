@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { QuickAnswersSection } from "../quick-answers-section";
+import { QUICK_ANSWERS_SECTION_ID } from "@/lib/portal-section-anchors";
 import type {
   ActionHubRow,
   EffectiveTopic,
@@ -96,6 +97,48 @@ describe("QuickAnswersSection", () => {
     const { container } = render(<QuickAnswersSection groups={[]} />);
 
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it("claims its frame while the hub is still loading its placements", () => {
+    const { container } = render(<QuickAnswersSection groups={[]} loading />);
+
+    const skeleton = screen.getByTestId("quick-answers-skeleton");
+    expect(skeleton).toBeInTheDocument();
+    // The anchor that links ("Related Quick Answers", the chatbot, the header) target
+    // must exist on the first paint, not seconds later.
+    expect(skeleton).toHaveAttribute("id", QUICK_ANSWERS_SECTION_ID);
+    expect(skeleton).toHaveAttribute("aria-busy", "true");
+    // The two-column rhythm is drawn as bars, and announced ONCE as a status.
+    expect(container.querySelectorAll(".animate-pulse").length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(/loading/i);
+    // Nothing to answer yet: no search field and no question bars.
+    expect(screen.queryByTestId("quick-answers-search")).toBeNull();
+    expect(screen.queryAllByTestId("quick-answer-question")).toHaveLength(0);
+  });
+
+  it("keeps the real heading in the skeleton so the answers cannot shift the page", () => {
+    render(<QuickAnswersSection groups={[]} loading />);
+
+    expect(
+      screen.getByRole("heading", {
+        name: "Get Quick Answers to Common Benefits Questions",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/grouped and searchable/i),
+    ).toBeInTheDocument();
+  });
+
+  it("never flashes the skeleton over answers already on screen", () => {
+    render(<QuickAnswersSection groups={[group()]} loading />);
+
+    expect(screen.queryByTestId("quick-answers-skeleton")).toBeNull();
+    expect(screen.getByText("Taking Money Out")).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: /401\(k\) loans/i }),
+    ).toBeInTheDocument();
   });
 
   it("opens one answer at a time and closes it on a second press", async () => {

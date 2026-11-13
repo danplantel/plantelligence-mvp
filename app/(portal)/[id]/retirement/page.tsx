@@ -57,7 +57,9 @@ export default function RetirementPage() {
   // `withTopics=1` asks for the plan's resolved placements: they are now the hub's
   // ONLY source of questions, so they are no longer withheld pending the rollout flag
   // that used to decide between placements and the old FAQ accordion.
-  const { data: benefitApiData } = useSWR(
+  // `isLoading` is what the Quick Answers section draws its skeleton from: until the
+  // read answers, the section has no questions to show and used to appear late.
+  const { data: benefitApiData, isLoading: benefitLoading } = useSWR(
     clientId
       ? `/api/clients/${clientId}/benefits/Retirement?forPortal=1&withTopics=1`
       : null,
@@ -288,6 +290,9 @@ export default function RetirementPage() {
         <div className="relative">
           <QuickAnswersSection
             groups={topics?.groups ?? []}
+            // Placeholder frame until this hub's placements arrive, so the section
+            // does not materialise after the ones around it.
+            loading={benefitLoading}
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             basePath={`/${clientId}`}

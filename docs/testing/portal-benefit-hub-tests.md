@@ -13,12 +13,12 @@ The first three are the same page with different constants; the fourth adds a UR
 
 ## Summary
 
-- **Unit tests:** 454 passing in 27 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
+- **Unit tests:** 457 passing in 27 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
 - **E2E:** none yet
 - **Runner:** Vitest + React Testing Library + jsdom
 
 ```bash
-pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (454 tests)
+pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (457 tests)
 pnpm test:portal-hubs:watch
 pnpm test:portal-hubs:coverage
 ```
@@ -173,6 +173,16 @@ In render order, each page:
 6. loads documents once per `clientId` + embedded-id signature: `fetchPlanDocumentsForClient` → `mergePlanDocumentRows` → `sortDocumentRowsByCustomOrder` → `mapMergedRowsToBenefitHubItems(rows, hubLabel)`;
 7. renders, in order: `CompletenessAutoTrigger`, `PortalWelcomeBanner`, `BenefitsVideoSection`, `HowCanWeHelpSection`, `FAQSection`, `BenefitDocumentSection`, `HaveQuestions`. Account access (plan / group ID, login URL, provider) is the wide card inside `HowCanWeHelpSection`; the old `PortalMaterialsHero` band was removed, and the header's **Login** button scrolls to that section. The page's videos are the `VideoCarousel` rail at the bottom of `BenefitsVideoSection` — the old `BenefitsHubWebinarsSection` band is gone.
 
+`QuickAnswersSection` is the one section whose content exists only in the benefit
+read, so it is also the one that used to arrive late — seconds after the sections
+around it, shoving them down as it appeared. Each hub now passes
+`loading={benefitLoading}` (SWR's `isLoading`), and the section draws its skeleton
+while that read is in flight: the same anchor id, heading, search field and
+two-column rhythm the answers will occupy, so the frame is claimed on first paint and
+the questions swap in without a jump. A revalidation over answers already on screen
+never flashes it, and a plan with no placements still renders nothing once loading
+finishes.
+
 ## Where the four differ
 
 |                         | Retirement                                                                   | Health                                                                           | Life                                                                                                              | Custom                                                                                       |
@@ -260,7 +270,7 @@ suite (`portal-disclosures.test.ts`, `portal-disclosure-section.test.tsx`).
 | 24  | `lib/__tests__/benefits-video-fallback.test.ts`                                            |     7 | Per-category clips, plan video precedence, embed/URL fallbacks                 |
 | 25  | `lib/text/__tests__/linkify.test.ts`                                                       |     6 | Turning an address in answer copy into a real link                             |
 | 26  | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-mobile-gradient.test.tsx` | 4 | The banner's phone-wide gradient: full-bleed on the section, no card plate, content above the plate |
-| 27  | `components/pages/client-portal/sections/__tests__/quick-answers-section.test.tsx`          |    21 | Grouping, search, deep links; the phone answer sheet slides up/down with a pinned Close + CTA bar |
+| 27  | `components/pages/client-portal/sections/__tests__/quick-answers-section.test.tsx`          |    24 | Grouping, search, deep links; the placement-loading skeleton; the phone answer sheet slides up/down with a pinned Close + CTA bar |
 
 ## Remaining coverage
 

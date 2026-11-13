@@ -51,7 +51,9 @@ export default function LifeInsurancePage() {
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
 
   // Fetch benefit data from the new Benefit API
-  const { data: benefitApiData } = useSWR(
+  // `isLoading` is what the Quick Answers section draws its skeleton from: until the
+  // read answers, the section has no questions to show and used to appear late.
+  const { data: benefitApiData, isLoading: benefitLoading } = useSWR(
     clientId
       ? // `withTopics=1`: placements are the hub's only source of questions now that
         // the FAQ accordion is retired, so they are always requested.
@@ -275,6 +277,9 @@ export default function LifeInsurancePage() {
         <div className="relative">
           <QuickAnswersSection
             groups={topics?.groups ?? []}
+            // Placeholder frame until this hub's placements arrive, so the section
+            // does not materialise after the ones around it.
+            loading={benefitLoading}
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             basePath={`/${clientId}`}
