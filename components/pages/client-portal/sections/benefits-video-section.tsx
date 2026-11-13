@@ -276,8 +276,10 @@ export function BenefitsVideoSection({
       className="relative flex min-h-[50vh] flex-col overflow-hidden bg-[#111828] text-white lg:min-h-screen"
     >
       {/* `py-*` on top of the centring: on a short viewport the grid fills the
-          column exactly, so the video sat flush against the section's top edge. */}
-      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-16 sm:px-6 sm:py-20 lg:px-8 lg:py-24">
+          column exactly, so the video sat flush against the section's top edge.
+          Phones get a much tighter top band — a full 64px above the headline
+          read as a gap between the hero and this section rather than padding. */}
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-10 sm:px-6 sm:py-16 lg:px-8 lg:py-24">
         {/* The picked webinar, in the intro's place. Full-bleed on purpose: the
             box is wider than the padded content box by exactly this wrapper's
             horizontal padding, so the video spans the section edge to edge. */}
@@ -329,7 +331,7 @@ export function BenefitsVideoSection({
               {onMainTitleClick && hoveredField === "mainTitle" && (
                 <EditPencil label="Edit header" />
               )}
-              <h1 className="mb-4 mt-[2em] lg:mt-0 font-unna font-dm-serif text-white text-[28px] font-normal leading-tight sm:text-3xl md:text-4xl lg:text-[40px]">
+              <h1 className="mb-4 mt-2 lg:mt-0 font-unna font-dm-serif text-white text-[28px] font-normal leading-tight sm:text-3xl md:text-4xl lg:text-[40px]">
                 {resolvedMainTitle}
               </h1>
             </div>
@@ -531,9 +533,12 @@ export function BenefitsVideoSection({
             carousel renders nothing when this plan has filed none, so the section
             keeps its current shape for those plans. */}
         {webinarsPlacement ? (
-          <div className="w-full max-w-[1280px] pb-8">
+          <div className="w-full max-w-[1280px] pb-6 sm:pb-8">
             <VideoCarousel
               placement={webinarsPlacement}
+              // The rail's own top margin is 56px, which is a lot right under
+              // the intro on a phone; keep the desktop gap, tighten the phone.
+              className="mt-8 sm:mt-14"
               // The hubs have the plan in the route; the wizard preview passes it
               // because it has no `[id]` segment.
               clientId={clientId}

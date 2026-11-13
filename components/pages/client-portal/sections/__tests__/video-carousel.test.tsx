@@ -328,6 +328,47 @@ describe("VideoCarousel rail", () => {
     ).toBeEnabled();
   });
 
+  it("offers a phone paging control only in the direction that has more", async () => {
+    stubTrackSize(400, 1000);
+    mockFetch({ success: true, data: videos });
+
+    render(<VideoCarousel placement="retirement" />);
+    await waitFor(() =>
+      expect(screen.getAllByTestId("video-slide")).toHaveLength(3),
+    );
+
+    // Phone-only, and forward-only at the start of the row.
+    const next = await screen.findByRole("button", {
+      name: /show more videos/i,
+    });
+    expect(next.className).toContain("sm:hidden");
+    expect(next.className).toContain("absolute");
+    expect(
+      screen.queryByRole("button", { name: /show previous videos/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("pages the row from the phone control", async () => {
+    const user = userEvent.setup();
+    stubTrackSize(400, 1000);
+    mockFetch({ success: true, data: videos });
+
+    const scrollBy = vi.fn();
+    Object.defineProperty(HTMLElement.prototype, "scrollBy", {
+      configurable: true,
+      value: scrollBy,
+    });
+
+    render(<VideoCarousel placement="retirement" />);
+
+    const next = await screen.findByRole("button", {
+      name: /show more videos/i,
+    });
+    await user.click(next);
+
+    expect(scrollBy).toHaveBeenCalledWith({ left: 340, behavior: "smooth" });
+  });
+
   it("pages the row when a chevron is pressed", async () => {
     const user = userEvent.setup();
     mockFetch({ success: true, data: videos });
@@ -365,6 +406,21 @@ describe("VideoCarousel rail", () => {
 describe("VideoCarousel dynamic widths", () => {
   const widths = () =>
     screen.getAllByTestId("video-slide").map((slide) => slide.className);
+
+  it("keeps the next poster peeking on phones instead of filling the width", async () => {
+    mockFetch({ success: true, data: videos });
+
+    render(<VideoCarousel placement="retirement" />);
+    await waitFor(() =>
+      expect(screen.getAllByTestId("video-slide")).toHaveLength(3),
+    );
+
+    // 86% + the 20px gap leaves the next card's edge on screen, which is the
+    // phone's only cue that the row scrolls sideways.
+    for (const width of widths()) {
+      expect(width).toContain("w-[86%]");
+    }
+  });
 
   it("gives a lone video half the four-column row", async () => {
     mockFetch({ success: true, data: [videos[0]] });

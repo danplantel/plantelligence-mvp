@@ -13,12 +13,12 @@ The first three are the same page with different constants; the fourth adds a UR
 
 ## Summary
 
-- **Unit tests:** 423 passing in 26 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
+- **Unit tests:** 426 passing in 26 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
 - **E2E:** none yet
 - **Runner:** Vitest + React Testing Library + jsdom
 
 ```bash
-pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (423 tests)
+pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (426 tests)
 pnpm test:portal-hubs:watch
 pnpm test:portal-hubs:coverage
 ```
@@ -248,7 +248,7 @@ suite (`portal-disclosures.test.ts`, `portal-disclosure-section.test.tsx`).
 | 12  | `app/api/clients/[id]/benefits/[category]/__tests__/portal-get.test.ts`                    |    24 | The anonymous `forPortal=1` read: slug→advisor scoping, 403/404, video signing |
 | 13  | `components/pages/client-portal/sections/__tests__/completeness-auto-trigger.test.tsx`     |     9 | The "Incomplete Benefit Setup" trigger: merged docs, pre-merge pass, refetch   |
 | 14  | `components/pages/client-portal/sections/__tests__/benefits-video-section.test.tsx`        |    30 | Journey copy defaults, the no-video image, gating, rail heading, player swap   |
-| 15  | `components/pages/client-portal/sections/__tests__/video-carousel.test.tsx`                |    22 | Rail fetch, `includeVideoFiles=0`, skeletons, runtime, heading + count, chevrons |
+| 15  | `components/pages/client-portal/sections/__tests__/video-carousel.test.tsx`                |    25 | Rail fetch, `includeVideoFiles=0`, skeletons, runtime, heading + count, chevrons, phone peek + controls |
 | 16  | `components/pages/client-portal/sections/__tests__/webinar-replay-card-poster.test.tsx`    |     8 | The poster card: 16:9 frame, white-ring play, gradient, title, runtime badge   |
 | 17  | `components/pages/client-portal/sections/__tests__/video-feature-player.test.tsx`          |    11 | The inline player: embed/direct/uploaded sources, errors, X and Escape         |
 | 18  | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-portrait.test.tsx` |    10 | The banner portrait: plan override, key-contact headshot default, placeholder  |

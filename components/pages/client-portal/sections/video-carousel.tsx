@@ -41,11 +41,17 @@ const SKELETON_CARDS = 4;
  *   3 videos → thirds
  *   4+       → quarters; a fifth starts the next page of the rail
  *
+ * On a PHONE every card is 86% wide, not full width. That deliberate sliver is
+ * the whole affordance: the next poster's edge stays on screen, so the row
+ * reads as continuing sideways even though the scrollbar is hidden and the
+ * paging arrows live in the (often off-screen) heading. A full-width card
+ * looked like the only video the plan had.
+ *
  * Written as static strings (not an interpolated `w-[…/n]`) so Tailwind can see
  * every class it has to generate.
  */
 function slideWidthClass(count: number): string {
-  const stacked = "w-full shrink-0 sm:w-[calc((100%-1.25rem)/2)]";
+  const stacked = "w-[86%] shrink-0 sm:w-[calc((100%-1.25rem)/2)]";
   if (count <= 0) return stacked;
   // One or two videos: half each. A lone card is centred by the track.
   if (count <= 2) {
@@ -61,7 +67,7 @@ function slideWidthClass(count: number): string {
 
 function WebinarCardSkeleton() {
   return (
-    <div className="w-full shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:w-[calc((100%-1.25rem)/2)] lg:w-[calc((100%-3.75rem)/4)]">
+    <div className="w-[86%] shrink-0 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm sm:w-[calc((100%-1.25rem)/2)] lg:w-[calc((100%-3.75rem)/4)]">
       <Skeleton className="aspect-video w-full rounded-none" />
       <div className="space-y-3 p-5">
         <Skeleton className="h-6 w-4/5" />
@@ -357,69 +363,100 @@ export function VideoCarousel({
         )}
       </div>
 
-      <div
-        ref={scrollerRef}
-        data-testid="video-carousel-track"
-        aria-busy={loading || undefined}
-        // `snap-x` + one snap point per card is what makes it feel like a rail
-        // rather than a free-scrolling list. The scrollbar is hidden in every
-        // engine (the arrows and the visible next card are the affordance).
-        className={cn(
-          "flex snap-x snap-mandatory gap-5 overflow-x-auto pb-2",
-          "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-          // A lone video is half-width, so centre it rather than hugging the
-          // left edge (the same choice the support-card row makes).
-          !loading && items.length === 1 && "justify-center",
-        )}
-      >
-        {loading ? (
-          <>
-            <span className="sr-only">Loading videos…</span>
-            {Array.from({ length: SKELETON_CARDS }).map((_, index) => (
-              <WebinarCardSkeleton key={index} />
-            ))}
-          </>
-        ) : (
-          items.map((replay) => {
-            const isActive =
-              activeId != null && String(activeId) === String(replay.id);
-            return (
-              <div
-                key={replay.id}
-                data-testid="video-slide"
-                data-active={isActive || undefined}
-                aria-current={isActive ? "true" : undefined}
-                // Count-driven width: every card in the row shares the same width,
-                // so three videos are three equal thirds rather than a wide card
-                // beside two small ones. No ring here: it sits outside the box
-                // (clipped at the top by this scroll container) and would wrap the
-                // caption too — the card draws its own inset border on the thumbnail.
-                className={cn("snap-start", slideWidthClass(items.length))}
-              >
-                {/* The poster variant: the card itself is the 16:9 frame, with the
-                  play control top-right and the title + runtime along the bottom.
-                  The description therefore sits under the card. */}
-                <WebinarReplayCard
-                  replay={replay}
-                  secondaryColor={secondaryColor}
-                  variant="poster"
-                  onSelect={onSelect}
-                  active={isActive}
-                />
-                {replay.description ? (
-                  <p
-                    className="mt-2 line-clamp-2 text-xs leading-snug opacity-80"
-                    style={{
-                      color: captionColor || headingColor || brandColor,
-                    }}
-                  >
-                    {replay.description}
-                  </p>
-                ) : null}
-              </div>
-            );
-          })
-        )}
+      {/* The track and, on phones only, its floating paging controls. The
+          next card's sliver already says "there is more"; these make that
+          tappable where the heading's arrows are off-screen or too small to
+          reach. They are OUTSIDE the scroller so they stay put while it moves. */}
+      <div className="relative">
+        <div
+          ref={scrollerRef}
+          data-testid="video-carousel-track"
+          aria-busy={loading || undefined}
+          // `snap-x` + one snap point per card is what makes it feel like a rail
+          // rather than a free-scrolling list. The scrollbar is hidden in every
+          // engine (the visible next card, the phone chevrons and the heading's
+          // arrows are the affordance).
+          className={cn(
+            "flex snap-x snap-mandatory gap-5 overflow-x-auto pb-2",
+            "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+            // A lone video is half-width, so centre it rather than hugging the
+            // left edge (the same choice the support-card row makes).
+            !loading && items.length === 1 && "justify-center",
+          )}
+        >
+          {loading ? (
+            <>
+              <span className="sr-only">Loading videos…</span>
+              {Array.from({ length: SKELETON_CARDS }).map((_, index) => (
+                <WebinarCardSkeleton key={index} />
+              ))}
+            </>
+          ) : (
+            items.map((replay) => {
+              const isActive =
+                activeId != null && String(activeId) === String(replay.id);
+              return (
+                <div
+                  key={replay.id}
+                  data-testid="video-slide"
+                  data-active={isActive || undefined}
+                  aria-current={isActive ? "true" : undefined}
+                  // Count-driven width: every card in the row shares the same width,
+                  // so three videos are three equal thirds rather than a wide card
+                  // beside two small ones. No ring here: it sits outside the box
+                  // (clipped at the top by this scroll container) and would wrap the
+                  // caption too — the card draws its own inset border on the thumbnail.
+                  className={cn("snap-start", slideWidthClass(items.length))}
+                >
+                  {/* The poster variant: the card itself is the 16:9 frame, with the
+                    play control top-right and the title + runtime along the bottom.
+                    The description therefore sits under the card. */}
+                  <WebinarReplayCard
+                    replay={replay}
+                    secondaryColor={secondaryColor}
+                    variant="poster"
+                    onSelect={onSelect}
+                    active={isActive}
+                  />
+                  {replay.description ? (
+                    <p
+                      className="mt-2 line-clamp-2 text-xs leading-snug opacity-80"
+                      style={{
+                        color: captionColor || headingColor || brandColor,
+                      }}
+                    >
+                      {replay.description}
+                    </p>
+                  ) : null}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* Each control exists only while there is something that way, so there
+            is never a disabled ghost. `sm:hidden` keeps them off tablet/desktop,
+            where the heading's arrows are visible. */}
+        {!loading && isScrollable && canScrollLeft ? (
+          <button
+            type="button"
+            aria-label="Show previous videos"
+            onClick={() => page(-1)}
+            className="absolute left-1 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full border border-neutral-200 bg-white/95 text-neutral-700 shadow-md transition-colors hover:bg-white sm:hidden"
+          >
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" />
+          </button>
+        ) : null}
+        {!loading && isScrollable && canScrollRight ? (
+          <button
+            type="button"
+            aria-label="Show more videos"
+            onClick={() => page(1)}
+            className="absolute right-1 top-1/2 z-10 grid h-9 w-9 -translate-y-1/2 place-items-center rounded-full border border-neutral-200 bg-white/95 text-neutral-700 shadow-md transition-colors hover:bg-white sm:hidden"
+          >
+            <ChevronRight className="h-4 w-4" aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
     </div>
   );
