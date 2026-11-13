@@ -371,24 +371,32 @@ export function PortalWelcomeBanner({
       }
     : { backgroundColor: `rgba(0, 0, 0, ${1 - effectiveBackgroundOpacity})` };
 
-  // Container background: solid backgroundColor when gradient is off, backgroundImage gradient when on
-  const containerBgStyle = effectiveContainerInverted
-    ? effectiveUseGradient
-      ? {
-          backgroundImage: `linear-gradient(to bottom, rgba(255, 255, 255, ${effectiveContainerBlockOpacity}), rgba(255, 255, 255, ${
-            effectiveContainerBlockOpacity * 0.3
-          }))`,
-        }
-      : {
-          backgroundColor: `rgba(255, 255, 255, ${effectiveContainerBlockOpacity})`,
-        }
-    : effectiveUseGradient
+  /**
+   * The wash colour as an RGB triplet — white when the plan inverted the
+   * container, black otherwise. The card plate and the phone-wide wash below
+   * are both built from it so the two can never drift apart.
+   */
+  const washRgb = effectiveContainerInverted ? "255, 255, 255" : "0, 0, 0";
+
+  // Container background: solid color when gradient is off, a top-down gradient when on.
+  const containerBgStyle = effectiveUseGradient
     ? {
-        backgroundImage: `linear-gradient(to bottom, rgba(0, 0, 0, ${effectiveContainerBlockOpacity}), rgba(0, 0, 0, ${
+        backgroundImage: `linear-gradient(to bottom, rgba(${washRgb}, ${effectiveContainerBlockOpacity}), rgba(${washRgb}, ${
           effectiveContainerBlockOpacity * 0.3
         }))`,
       }
-    : { backgroundColor: `rgba(0, 0, 0, ${effectiveContainerBlockOpacity})` };
+    : { backgroundColor: `rgba(${washRgb}, ${effectiveContainerBlockOpacity})` };
+
+  /**
+   * What a phone paints across the WHOLE hero — the same treatment the landing
+   * hero gives its section (`portal-hero`). Below `sm` the card is nearly the
+   * page's width, so its plate read as a hard-edged rectangle floating in the
+   * artwork. Full-bleed reads as the image's own treatment instead, and the
+   * gradient keeps the copy legible while clearing towards the bottom.
+   */
+  const mobileWash = `linear-gradient(to bottom, rgba(${washRgb}, ${effectiveContainerBlockOpacity}), rgba(${washRgb}, ${
+    effectiveContainerBlockOpacity * 0.3
+  }))`;
 
   /** True when this region can be opened in an Edit Panel at all. */
   const editableTitle = Boolean(onTitleClick || editTargets?.title);
@@ -488,14 +496,23 @@ export function PortalWelcomeBanner({
         aria-hidden
       />
 
+      {/* Phone-only wash, across the whole section — see `mobileWash`. Above
+          `sm` this layer is off and the hero card carries the wash instead. */}
+      <div
+        aria-hidden="true"
+        data-testid="welcome-banner-mobile-gradient"
+        className="pointer-events-none absolute inset-0 z-[1] sm:hidden"
+        style={{ background: mobileWash }}
+      />
+
       {/* Benefit Hub Header (for all Categories) */}
       <div
-        className="relative z-10 flex flex-col justify-center mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-12 lg:py-20"
+        className="relative z-10 flex flex-col justify-center mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:px-12 lg:py-20"
         style={{ maxWidth: "72rem" }}
       >
         <div
           data-testid="welcome-banner-hero-card"
-          className={`overflow-hidden backdrop-blur-sm ${
+          className={`relative overflow-hidden backdrop-blur-sm ${
             effectiveContainerInverted
               ? "border border-gray-300"
               : "border border-white/15"
@@ -503,16 +520,32 @@ export function PortalWelcomeBanner({
           // The hero card is the banner's headline surface, so it wears the
           // typography theme's corner treatment: rounded for a round theme,
           // perfectly square for a sharp one (see `portalRadiusValue`).
-          style={{ ...containerBgStyle, borderRadius: portalRadiusValue(2) }}
+          style={{ borderRadius: portalRadiusValue(2) }}
         >
+          {/* The card's own plate. Tablet and desktop only: on phones the wash
+              is the section-wide layer above, and painting this too would
+              double it over the text. */}
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 hidden sm:block"
+            style={{
+              ...containerBgStyle,
+              borderRadius: portalRadiusValue(2),
+            }}
+          />
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: "easeOut" }}
-            className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] min-h-[28rem] lg:min-h-[30rem]"
+            // No min-height on the stacked (mobile/tablet) layout: the two rows
+            // size to their content, so a short benefit does not get a card
+            // padded out with empty space. The desktop split keeps its band.
+            className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] lg:min-h-[30rem]"
           >
             {/* RIGHT: Text content (left on mobile, where the image leads) */}
-            <div className="order-2 flex flex-col px-8 py-10 sm:px-12 lg:order-2 lg:py-12">
+            {/* Mobile keeps a tight seam under the portrait block (it is the row
+                directly above); `sm` and `lg` restore the roomier spacing. */}
+            <div className="order-2 flex flex-col px-6 pb-8 pt-4 sm:px-12 sm:pb-10 sm:pt-8 lg:order-2 lg:py-12">
               {/* Title */}
               <div
                 className={`relative ${
@@ -669,7 +702,7 @@ export function PortalWelcomeBanner({
               {/* CTA row. The Schedule button keeps the half-row width it had
                   when it shared this row with the (now removed) "Meet the Team"
                   link, so it does not stretch across the whole info column. */}
-              <div className="mt-auto flex flex-row gap-3 pt-8">
+              <div className="mt-auto flex flex-row gap-3 pt-6 sm:pt-8">
                 {onScheduleClick ? (
                   <button
                     type="button"
@@ -712,7 +745,7 @@ export function PortalWelcomeBanner({
 
             {/* LEFT: key contact headshot (falls back to the category's stock
                 image) in a circular frame, with the company logo beneath it. */}
-            <div className="order-1 flex flex-col items-center justify-center gap-5 px-4 py-10 lg:order-1 lg:pl-16 lg:pr-4">
+            <div className="order-1 flex flex-col items-center justify-center gap-4 px-4 pb-4 pt-8 sm:gap-5 sm:pb-6 sm:pt-10 lg:order-1 lg:py-10 lg:pl-16 lg:pr-4">
               <div className="group relative">
                 {editTargets?.portrait && (
                   <PortalSectionEditButton
@@ -725,7 +758,7 @@ export function PortalWelcomeBanner({
                 {/* Circle for a `round` theme, square for a `sharp` one. */}
                 <div
                   data-testid="welcome-banner-portrait-frame"
-                  className={`h-[200px] w-[200px] shrink-0 overflow-hidden shadow-2xl ring-4 ${
+                  className={`h-[176px] w-[176px] shrink-0 overflow-hidden shadow-2xl ring-4 sm:h-[200px] sm:w-[200px] ${
                     effectiveContainerInverted
                       ? "ring-gray-200"
                       : "ring-white/30"
@@ -774,7 +807,7 @@ export function PortalWelcomeBanner({
                     <BrandingImage
                       src={resolvedLogo}
                       alt={`${clientData?.companyName || "Company"} logo`}
-                      className="h-12 w-auto max-w-[200px] object-contain sm:h-14"
+                      className="h-10 w-auto max-w-[180px] object-contain sm:h-14 sm:max-w-[200px]"
                     />
                   );
                 }
