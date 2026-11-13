@@ -18,6 +18,9 @@ import { PortalBenefits } from "../portal-benefits";
  *  - a hidden hub removes its slot, and hiding all four removes the section;
  *  - a visible hub re-enables a row whose `isEnabled` is stale `false`, so the
  *    Step 5 switch only takes effect by hiding the category;
+ *  - an UNPUBLISHED Benefit row (`benefitHubs[].isEnabled === false`) removes its
+ *    card regardless of the mirror or category visibility — the row is the authority
+ *    the portal header and the assistant read;
  *  - an incomplete benefit renders a placeholder card and, on the real portal,
  *    opens the "finish this benefit" dialog instead of navigating;
  *  - the card's image, copy and CTA each have a documented fallback chain.
@@ -125,6 +128,26 @@ function editingUrl() {
 }
 
 describe("PortalBenefits cards", () => {
+  it("drops a card whose Benefit row is unpublished", () => {
+    renderBenefits({
+      benefitHubs: [{ category: "Group Health", isEnabled: false }],
+    });
+
+    // The benefit's own publish switch wins over a visible category and an
+    // enabled legacy mirror row.
+    expect(cardTitles()).not.toContain("Health Insurance");
+    expect(cardTitles()).toContain("Retirement Plan Benefits");
+    expect(cardTitles()).toContain("Life Insurance");
+  });
+
+  it("keeps a card whose Benefit row is published", () => {
+    renderBenefits({
+      benefitHubs: [{ category: "Group Health", isEnabled: true }],
+    });
+
+    expect(cardTitles()).toContain("Health Insurance");
+  });
+
   it("renders the four default hubs when the plan has no Benefit rows", () => {
     renderBenefits();
 
@@ -188,11 +211,33 @@ describe("PortalBenefits cards", () => {
     expect(cardTitles()).toContain("Retirement Plan Benefits");
   });
 
-  it("sizes the grid for the number of visible cards", () => {
+  it("sizes each card by how many share the row", () => {
+    // Three visible cards (Other hidden): thirds from `lg`, halves on tablets.
     renderBenefits({ categoryPortalVisibility: { Other: false } });
 
-    const grid = sectionHeading().closest("section")!.querySelector(".grid");
-    expect(grid?.className).toContain("lg:grid-cols-3");
+    const columns = screen.getAllByTestId("benefit-column");
+    expect(columns).toHaveLength(3);
+    for (const column of columns) {
+      expect(column.className).toContain("sm:w-[calc((100%-1.5rem)/2)]");
+      expect(column.className).toContain("lg:w-[calc((100%-3rem)/3)]");
+    }
+  });
+
+  it("keeps a lone card at half the row instead of letting it span", () => {
+    renderBenefits({
+      categoryPortalVisibility: {
+        "Group Health": false,
+        "Group Life": false,
+        Other: false,
+      },
+    });
+
+    const columns = screen.getAllByTestId("benefit-column");
+    expect(columns).toHaveLength(1);
+    // The support-card rule: a single card is laid out as if the row held two.
+    expect(columns[0].className).toContain(
+      "lg:w-[calc((100%-1.5rem)/2)]",
+    );
   });
 
   it("links each card to the plan's hub page", () => {
@@ -340,6 +385,14 @@ describe("PortalBenefits incomplete benefits", () => {
     expect(screen.getByText("Benefit Incomplete")).toBeInTheDocument();
     expect(
       screen.getByText("This benefit is not yet set up."),
+    ).toBeInTheDocument();
+
+    // The placeholder mirrors the live card's skeleton, including the
+    // `min-h-[130px]` footer, so both cards are the same height in a row.
+    const footer = screen.getByTestId("incomplete-card-footer");
+    expect(footer.className).toContain("min-h-[130px]");
+    expect(
+      within(footer).getByText("Finish setup to publish"),
     ).toBeInTheDocument();
   });
 

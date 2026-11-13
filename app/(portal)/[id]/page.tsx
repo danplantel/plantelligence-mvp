@@ -199,6 +199,9 @@ export default function ViewClientPage() {
           documents: (clientData as any).documents,
           employeePortalPreview: (clientData as any).employeePortalPreview,
           categoryPortalVisibility: categoryVisibility,
+          // The Benefit rows carry each hub's publish switch; the landing cards
+          // treat a row with `isEnabled: false` as unpublished.
+          benefitHubs: (clientData as any).benefitHubs,
           // TF-6: the fifth hub is opt-in, so the header only links to it when the
           // plan has published it.
           employeeResourcesEnabled:

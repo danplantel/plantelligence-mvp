@@ -139,10 +139,40 @@ describe("PortalMission", () => {
     expect(header.className).toContain("order-1");
     expect(media.className).toContain("order-2");
     expect(body.className).toContain("order-3");
-    expect(header.className).toContain("lg:col-start-2");
     expect(media.className).toContain("lg:col-start-1");
-    expect(media.className).toContain("lg:row-span-2");
-    expect(body.className).toContain("lg:row-start-2");
+    // The wrapper dissolves on phones so the header, image and statement stay
+    // direct grid items — that is what keeps the order above working.
+    const column = header.parentElement as HTMLElement;
+    expect(column.className).toContain("max-lg:contents");
+    expect(body.parentElement).toBe(column);
+  });
+
+  it("puts the header and statement in one desktop cell, never the image's column", () => {
+    renderMission({ company: { missionHeadline: "Our mission" } });
+
+    const header = screen.getByTestId("portal-mission-header");
+    const media = screen.getByTestId("portal-mission-media");
+    const body = screen.getByTestId("portal-mission-body");
+    const column = header.parentElement as HTMLElement;
+
+    // From `lg` up the pair is a single grid item in the right column, directly
+    // under the image's row. As two rows beside a taller image, the image
+    // stretched them and left a band of empty space under the headline.
+    expect(column.className).toContain("lg:col-start-2");
+    expect(column.className).toContain("lg:row-start-1");
+    expect(column.className).toContain("lg:flex");
+    expect(column.className).toContain("lg:flex-col");
+    expect(column.className).toContain("lg:justify-center");
+    expect(body.parentElement).toBe(column);
+    // The image is a sibling of that cell, pinned to the left column/row — it is
+    // never a child of the right column.
+    expect(media.parentElement).toBe(column.parentElement);
+    expect(media.className).not.toContain("lg:row-span-2");
+    expect(header.className).not.toContain("lg:col-start-2");
+    expect(body.className).not.toContain("lg:row-start-2");
+    // `contents` must be phone-scoped, or it can beat `lg:flex` for `display`
+    // and drop the statement into the left column under the image.
+    expect(column.className).not.toMatch(/(^|\s)contents(\s|$)/);
   });
 
   it("stays plain text when no handlers are supplied", () => {

@@ -63,6 +63,16 @@ interface ClientPortalData {
   documents?: any[];
   employeePortalPreview?: any;
   categoryPortalVisibility?: Record<string, boolean> | null;
+  /**
+   * The plan's Benefit rows, with each hub's own publish switch. The landing cards
+   * read this as the authority for "is this benefit published?" — the same predicate
+   * the portal header and the assistant use.
+   */
+  benefitHubs?: {
+    category?: string;
+    isEnabled?: boolean;
+    title?: string | null;
+  }[] | null;
   /** Top-level from API; used for benefit completeness (category hero / banner). */
   secondaryBannerImg?: string;
   /**
@@ -300,6 +310,7 @@ export function ClientPortal({
           documents={data?.documents}
           employeePortalPreview={data?.employeePortalPreview}
           categoryPortalVisibility={data?.categoryPortalVisibility}
+          benefitHubs={data?.benefitHubs}
           baselineBackgroundColor={
             (data?.keyContacts as any)?.cardBackgroundColor
           }

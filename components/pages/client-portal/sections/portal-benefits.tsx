@@ -20,12 +20,14 @@ import { PORTAL_SECTION_IDS } from "@/lib/portal-editor-sections";
 import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
 import { IncompleteBenefitDialog } from "./incomplete-benefit-dialog";
 import {
+  benefitCategoryToVisibilityKey,
   getCategoryPortalVisibility,
   isCategoryVisibleInPortal,
   syncBenefitsWithCategoryVisibility,
 } from "@/lib/portal-category-visibility";
 import { mergeUserBenefitWithHubDefaults } from "@/lib/hub-benefit-defaults";
 import { getCategoryDefaultInnerImageUrl } from "@/lib/portal-category-hero-background";
+import { supportCardColumnClass } from "@/lib/support-card-layout";
 import { portalRadiusValue } from "@/lib/typography-themes";
 
 interface PortalBenefitsProps {
@@ -38,6 +40,16 @@ interface PortalBenefitsProps {
   documents?: any[];
   employeePortalPreview?: any;
   categoryPortalVisibility?: Record<string, boolean> | null;
+  /**
+   * The plan's Benefit rows — each hub's own publish switch.
+   *
+   * This is the AUTHORITY for "is this benefit published?". The legacy
+   * `employeePortalPreview` mirror can lag a soft-disable, and Portal Visibility is a
+   * separate control, so neither can answer it alone.
+   */
+  benefitHubs?:
+    | { category?: string; title?: string | null; isEnabled?: boolean }[]
+    | null;
   baselineBackgroundColor?: string;
   /** Merged plan fields + keyContacts + documents + ep — matches benefits wizard’s merged plan for getBenefitCompleteness. */
   completenessClientData?: any;
@@ -53,6 +65,7 @@ export function PortalBenefits({
   documents = [],
   employeePortalPreview,
   categoryPortalVisibility,
+  benefitHubs,
   baselineBackgroundColor,
   completenessClientData,
 }: PortalBenefitsProps) {
@@ -234,6 +247,37 @@ export function PortalBenefits({
   const normCat = (c: string | null | undefined) =>
     (c || "").toLowerCase().trim().replace(/\s+/g, " ");
 
+  /**
+   * Is this card's benefit UNPUBLISHED?
+   *
+   * The Benefit row's own `isEnabled` is the authority — the same predicate the
+   * portal header (hub links) and the assistant use to decide a benefit exists.
+   * The legacy mirror cannot answer it: `syncBenefitsWithCategoryVisibility` below
+   * deliberately re-enables a stale `isEnabled: false` when the CATEGORY is visible,
+   * which is exactly why an unpublished benefit kept its landing card.
+   *
+   * No row, or several rows sharing this visibility key (Custom's "Other" bucket),
+   * cannot speak unambiguously, so the caller's existing rules still apply.
+   */
+  const isBenefitUnpublished = (category: string) => {
+    if (!Array.isArray(benefitHubs)) return false;
+    const exact = benefitHubs.filter(
+      (row) =>
+        normCat(row.category) === normCat(category) ||
+        normCat(row.title) === normCat(category),
+    );
+    const matches =
+      exact.length > 0
+        ? exact
+        : benefitHubs.filter(
+            (row) =>
+              benefitCategoryToVisibilityKey(row.category || "") ===
+              benefitCategoryToVisibilityKey(category),
+          );
+    if (matches.length !== 1) return false;
+    return matches[0].isEnabled === false;
+  };
+
   // Always show exactly 4 cards (Retirement, Health, Life, Wellness) mapped to default categories
   const benefitsFromApi = Array.isArray(dynamicBenefits) ? dynamicBenefits : [];
   const rawMerged: Benefit[] = defaultBenefits.map((d) => {
@@ -274,8 +318,14 @@ export function PortalBenefits({
   // entirely, so "INCOMPLETE" is never shown to employees.
   const displayBenefits = (syncedBenefits as Benefit[])
     .filter((benefit) => {
-      // 0. Portal visibility: hide if category is hidden
       const category = (benefit.category || benefit.title || "") as string;
+
+      // 0. The Benefit row's own publish switch wins. An unpublished benefit has
+      //    no hub link and no assistant entry, so it must not leave a card behind
+      //    on the landing page either.
+      if (isBenefitUnpublished(category)) return false;
+
+      // 1. Portal visibility: hide if category is hidden
       if (!isCategoryVisibleInPortal(category, categoryPortalVisibility))
         return false;
 
@@ -323,21 +373,19 @@ export function PortalBenefits({
     return true;
   };
 
-  // Dynamic grid configuration
-  const getGridClasses = (count: number) => {
-    const base =
-      "grid gap-4 sm:gap-5 auto-rows-fr w-full mx-auto justify-items-center";
-    switch (count) {
-      case 1:
-        return `${base} grid-cols-1 max-w-[350px]`;
-      case 2:
-        return `${base} grid-cols-1 sm:grid-cols-2 max-w-[760px]`;
-      case 3:
-        return `${base} grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-w-[1100px]`;
-      default:
-        return `${base} grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 max-w-[1400px]`;
-    }
-  };
+  /**
+   * Width of one card, from how many share the row — the same count-driven rule
+   * the "Have Questions?" support cards use (`supportCardColumnClass`):
+   *
+   *   1 card  → half the row (two of four slots), centred
+   *   2 cards → halves
+   *   3 cards → thirds from `lg`
+   *   4 cards → quarters from `lg`
+   *
+   * Phones keep one card per line and tablets pair up. The wrapper carries the
+   * width, so the card's image and copy scale with it.
+   */
+  const columnClass = supportCardColumnClass(displayBenefits.length);
 
   // When all categories are hidden (portal visibility), do not render the benefits section
   if (displayBenefits.length === 0) {
@@ -369,7 +417,10 @@ export function PortalBenefits({
       </div>
 
       <div className="mx-auto w-full px-4 sm:px-6 lg:px-8">
-        <div className={getGridClasses(displayBenefits.length)}>
+        {/* A flex row rather than a grid, so a partial row is CENTRED — a lone
+            card, or the third of a 3-up row on a tablet, sits in the middle
+            instead of hugging the left edge. Same layout as the support cards. */}
+        <div className="mx-auto flex w-full max-w-[1400px] flex-wrap justify-center gap-4 sm:gap-6">
           {displayBenefits.map((benefit, index) => {
             const category = (benefit.category ||
               benefit.title ||
@@ -428,12 +479,14 @@ export function PortalBenefits({
                   opacity: { duration: 0.2, delay: index * 0.1 },
                   y: { duration: 0.6, delay: index * 0.1, ease: "easeOut" },
                 }}
-                className="w-full h-full flex justify-center"
+                data-testid="benefit-column"
+                // The wrapper carries the row's column width for this card count.
+                className={`${columnClass} flex h-full justify-center`}
               >
                 {!completeness.isComplete ? (
                   /* ── Placeholder Card for Incomplete Benefits ── */
                   <Card
-                    className={`text-center w-full max-w-full sm:max-w-[303px] h-full rounded-xl border border-dashed border-gray-300 bg-gray-50/80 overflow-hidden flex flex-col transition-all duration-300 ease-in-out relative group ${
+                    className={`text-center w-full h-full rounded-xl border border-dashed border-gray-300 bg-gray-50/80 overflow-hidden flex flex-col transition-all duration-300 ease-in-out relative group ${
                       hasClientId
                         ? "cursor-pointer hover:-translate-y-2 hover:shadow-lg"
                         : ""
@@ -460,24 +513,46 @@ export function PortalBenefits({
                       </div>
                     </div>
 
-                    {/* Placeholder Content */}
-                    <div className="flex-1 pb-4 sm:pb-5 flex flex-col justify-center bg-gray-50/80 px-3 sm:px-4">
-                      <h3
-                        className="text-xl sm:text-2xl font-dm-serif text-center mb-2 sm:mb-3"
-                        style={{ color: brandColor }}
+                    {/* Placeholder content — deliberately the SAME skeleton as the
+                        live card (a title block above a `min-h-[130px]` footer), so
+                        an incomplete card is exactly as tall as its published
+                        neighbours however that row is sized. */}
+                    <div className="flex-1 pb-4 sm:pb-5 flex flex-col justify-between bg-gray-50/80">
+                      <div className="px-3 sm:px-4 mt-3 sm:mt-4">
+                        <h3
+                          className="text-xl sm:text-2xl font-dm-serif mb-2 sm:mb-3"
+                          style={{ color: brandColor }}
+                        >
+                          {benefit.title}
+                        </h3>
+                        <p className="text-gray-400 text-sm sm:text-base font-red-hat leading-relaxed mb-3 sm:mb-4">
+                          This benefit is not yet set up.
+                        </p>
+                      </div>
+
+                      <div
+                        data-testid="incomplete-card-footer"
+                        className="flex min-h-[130px] px-4 sm:px-5 flex-col items-center justify-between"
                       >
-                        {benefit.title}
-                      </h3>
-                      <p className="text-gray-400 text-sm sm:text-base font-red-hat text-center leading-relaxed">
-                        This benefit is not yet set up.
-                      </p>
+                        <div className="flex justify-center mb-3 sm:mb-4">
+                          <p className="text-center text-sm sm:text-base font-red-hat font-semibold text-gray-400">
+                            Not published yet
+                          </p>
+                        </div>
+                        <div
+                          className="block w-full py-2.5 sm:py-3 text-center text-xs sm:text-sm font-semibold tracking-wide bg-gray-200 text-gray-500 cursor-default"
+                          style={{ borderRadius: portalRadiusValue() }}
+                        >
+                          Finish setup to publish
+                        </div>
+                      </div>
                     </div>
 
                   </Card>
                 ) : (
                   /* ── Live Benefit Card ── */
                   <div
-                    className={`text-center w-full max-w-full sm:max-w-[303px] h-full rounded-xl ring-1 ring-[#E5E7EB] shadow-sm bg-white overflow-hidden flex flex-col transition-all duration-300 ease-in-out relative group ${
+                    className={`text-center w-full h-full rounded-xl ring-1 ring-[#E5E7EB] shadow-sm bg-white overflow-hidden flex flex-col transition-all duration-300 ease-in-out relative group ${
                       onEdit
                         ? "cursor-pointer hover:-translate-y-2 hover:shadow-lg"
                         : "hover:-translate-y-2 hover:shadow-lg"

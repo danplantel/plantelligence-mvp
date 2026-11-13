@@ -75,6 +75,23 @@ export function PortalMission({
           - Desktop (lg): two columns — image left, header and statement stacked right */}
       <div className="max-w-[1400px] mx-auto w-full grid grid-cols-1 lg:grid-cols-[42%_58%] gap-x-8 gap-y-6 lg:gap-x-12 lg:gap-y-0">
 
+        {/*
+         * The right column: header + statement as ONE grid item from `lg` up.
+         *
+         * They used to be two grid rows beside a row-spanning image. The image is
+         * taller than the copy, so the spanning item stretched both auto rows and
+         * opened a band of empty space UNDER the headline — exactly where the
+         * statement should begin. Grouping them removes the row split (and any
+         * gap the image's height can create between them).
+         *
+         * `max-lg:contents` keeps the original phone stacking order — header,
+         * image, statement — because the children stay direct grid items there.
+         * It is scoped to below `lg` on purpose: a plain `contents` would fight
+         * `lg:flex` for the `display` property, and losing that fight drops the
+         * statement back into the left column underneath the image.
+         */}
+        <div className="max-lg:contents lg:col-start-2 lg:row-start-1 lg:flex lg:min-w-0 lg:flex-col lg:justify-center">
+
         {/* Header — leads on a phone; top of the right column on desktop. */}
         <motion.div
           variants={fadeLeft}
@@ -83,7 +100,7 @@ export function PortalMission({
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.3, ease: "easeOut" }}
           data-testid="portal-mission-header"
-          className="order-1 w-full lg:order-none lg:col-start-2 lg:row-start-1"
+          className="order-1 w-full"
         >
           <div className="relative p-4 pb-0 sm:p-6 sm:pb-0 lg:p-10 lg:pb-0">
             <h2
@@ -127,54 +144,8 @@ export function PortalMission({
           </div>
         </motion.div>
 
-        {/* Featured image — second on a phone; spans both right-hand rows on
-            desktop, as the left column. */}
-        <div
-          data-testid="portal-mission-media"
-          className="relative order-2 w-full lg:order-none lg:col-start-1 lg:row-span-2 lg:row-start-1"
-        >
-          {/* 9:10, and sized by the column rather than a fixed height.
-           *
-           * The slot is a 9:10 crop, so the frame has to be 9:10 too: it shows
-           * exactly what the advisor framed, where a frame of any other shape
-           * leaves `object-cover` re-cropping the very crop they had just made.
-           * (A fixed 460px height in a ~590px column was landscape and did that;
-           * a square frame did the same once the slot's crop became 9:10.) It
-           * also lets the image grow with the column, which is what keeps it in
-           * step with the mission paragraphs beside it. */}
-          <div
-            className="w-full aspect-[9/10] overflow-hidden rounded-lg"
-            // The mission image frame follows the theme's corner treatment.
-            style={{ borderRadius: portalRadiusValue(1.5) }}
-          >
-            {company?.thumbnailImg ? (
-              <BrandingImage
-                src={company.thumbnailImg}
-                alt="Team collaboration"
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <img
-                src={
-                  "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600&h=666&fit=crop&crop=center"
-                }
-                alt="Team collaboration"
-                className="w-full h-full object-cover"
-              />
-            )}
-          </div>
-
-          {/* The blue Edit affordance for the featured image. It edits the plan's
-              brand images (the panel's Images section) and renders nothing for a
-              participant — see PortalSectionEditButton. */}
-          <PortalSectionEditButton
-            sectionId={PORTAL_SECTION_IDS.featuredImage}
-            label="Edit featured image"
-            className="right-3 top-3"
-          />
-        </div>
-
-        {/* Mission statement + CTA — after the image on a phone; row 2 on desktop. */}
+        {/* Mission statement + CTA — after the image on a phone; directly under
+            the header in the desktop column (no grid row between them). */}
         <motion.div
           variants={fadeLeft}
           initial="hidden"
@@ -182,7 +153,7 @@ export function PortalMission({
           viewport={{ once: true }}
           transition={{ duration: 0.6, delay: 0.45, ease: "easeOut" }}
           data-testid="portal-mission-body"
-          className="order-3 w-full lg:order-none lg:col-start-2 lg:row-start-2"
+          className="order-3 w-full"
         >
           <div className="flex flex-col p-4 pt-0 sm:p-6 sm:pt-0 lg:p-10 lg:pt-0">
             <div className="relative">
@@ -239,6 +210,54 @@ export function PortalMission({
             </button>
           </div>
         </motion.div>
+        </div>
+
+        {/* Featured image — second on a phone (the `order-*` classes put it
+            between the header and the statement); the left column on desktop. */}
+        <div
+          data-testid="portal-mission-media"
+          className="relative order-2 w-full lg:order-none lg:col-start-1 lg:row-start-1"
+        >
+          {/* 9:10, and sized by the column rather than a fixed height.
+           *
+           * The slot is a 9:10 crop, so the frame has to be 9:10 too: it shows
+           * exactly what the advisor framed, where a frame of any other shape
+           * leaves `object-cover` re-cropping the very crop they had just made.
+           * (A fixed 460px height in a ~590px column was landscape and did that;
+           * a square frame did the same once the slot's crop became 9:10.) It
+           * also lets the image grow with the column, which is what keeps it in
+           * step with the mission paragraphs beside it. */}
+          <div
+            className="w-full aspect-[9/10] overflow-hidden rounded-lg"
+            // The mission image frame follows the theme's corner treatment.
+            style={{ borderRadius: portalRadiusValue(1.5) }}
+          >
+            {company?.thumbnailImg ? (
+              <BrandingImage
+                src={company.thumbnailImg}
+                alt="Team collaboration"
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <img
+                src={
+                  "https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=600&h=666&fit=crop&crop=center"
+                }
+                alt="Team collaboration"
+                className="w-full h-full object-cover"
+              />
+            )}
+          </div>
+
+          {/* The blue Edit affordance for the featured image. It edits the plan's
+              brand images (the panel's Images section) and renders nothing for a
+              participant — see PortalSectionEditButton. */}
+          <PortalSectionEditButton
+            sectionId={PORTAL_SECTION_IDS.featuredImage}
+            label="Edit featured image"
+            className="right-3 top-3"
+          />
+        </div>
 
       </div>
     </section>
