@@ -65,7 +65,7 @@ Shared step and dialog suites (the real components, with presentation children s
 | --- | ------------------------------------------------------------------------- | ----: | ---------------------------------------------------------------------------------------------- |
 | 16  | `components/wizard/benefits-steps/__tests__/step-1.test.tsx`              |    20 | Plan gate, picker/custom name, messaging seeds, signature, primary contact, section/mode gating |
 | 17  | `components/wizard/benefits-steps/__tests__/step-3.test.tsx`              |    23 | Contact roster/fallback, selection + cap, plan writes, collaborators and the contacts preview |
-| 18  | `components/wizard/benefits-steps/__tests__/step-4.test.tsx`              |    23 | Load + merge, category/language filters, upload, delete branches, inline edit, reorder, sort   |
+| 18  | `components/wizard/benefits-steps/__tests__/step-4.test.tsx`              |    23 | Load + merge, category-implied documents (no per-document category), language filters, upload, delete branches, inline edit, reorder, sort |
 | 19  | `components/wizard/benefits-steps/__tests__/step-5.test.tsx`              |    19 | Seed ladder, category mapping, inline debounce, apply-all, footer background, timer cleanup    |
 | 20  | `components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx` |    19 | Scope chips, reset, submit payload, suggestion/search, success/warning/error toasts            |
 | 21  | `lib/__tests__/benefit-messaging-defaults.test.ts`                        |    11 | Headline names the plan sponsor (never the advisor's firm); category-aware message; 35/450 caps |

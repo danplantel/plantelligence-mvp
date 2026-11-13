@@ -51,7 +51,7 @@ pnpm test:coverage
 | 3   | `components/pages/benefits/__tests__/edit-benefit-preview-section.test.tsx` |    17 | Editor auto-open/toggle, header events, desktop/mobile, plan fallback, typography  |
 | 4   | `components/wizard/benefits-steps/__tests__/step-1.test.tsx`                |    20 | Plan gate, edit-mode picker hiding, messaging seeds, signature, primary contact    |
 | 5   | `components/wizard/benefits-steps/__tests__/step-3.test.tsx`                |    23 | Contact roster/cap/writes, collaborators, the contacts preview                     |
-| 6   | `components/wizard/benefits-steps/__tests__/step-4.test.tsx`                |    23 | Document load/merge, filters, upload, delete branches, inline edit, reorder, sort  |
+| 6   | `components/wizard/benefits-steps/__tests__/step-4.test.tsx`                |    23 | Document load/merge, category-implied documents (no per-document category), filters, upload, delete branches, inline edit, reorder, sort |
 | 7   | `components/wizard/benefits-steps/__tests__/step-5.test.tsx`                |    19 | Disclosure seeding, category mapping, debounced saves, apply-all, timer cleanup    |
 | 8   | `components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx`   |    19 | Scope chips, submit payload, domain suggestion, existing search, toast branches    |
 | 9   | `app/api/clients/[id]/benefits/[category]/__tests__/route.test.ts`          |    21 | GET/PUT/DELETE auth, updateOnly, R2 signing, soft-disable, purge, dual-write, 500s |

@@ -167,6 +167,15 @@ vi.mock("@/components/pages/documents/tabs/document-list-tab", () => ({
   DocumentListTab: (props: any) => (
     <div data-testid="list-tab">
       <span data-testid="sort">{`${props.sortColumn}:${props.sortDirection}`}</span>
+      <span data-testid="list-hide-category-column">
+        {String(!!props.hideCategoryColumn)}
+      </span>
+      <span data-testid="list-disable-category-edit">
+        {String(!!props.disableCategoryEdit)}
+      </span>
+      <span data-testid="list-categories">
+        {props.availableCategories ? props.availableCategories.join(",") : "none"}
+      </span>
       <button type="button" onClick={() => props.onPreview()}>
         open-preview
       </button>
@@ -216,6 +225,11 @@ vi.mock(
     BenefitDocumentSection: (props: any) => (
       <div data-testid="preview-section">
         <span data-testid="preview-title">{props.title}</span>
+        <span data-testid="preview-hide-category">
+          {`${String(!!props.hideCategoryBadge)}:${String(
+            !!props.hideCategoryEdit,
+          )}`}
+        </span>
         <span data-testid="preview-description">{props.description}</span>
         <span data-testid="preview-header">{props.accordionHeaderTitle}</span>
         <span data-testid="preview-editing">
@@ -263,6 +277,9 @@ vi.mock(
         <span data-testid="upload-language">{props.language}</span>
         <span data-testid="fixed-category">
           {props.fixedCategory ?? "none"}
+        </span>
+        <span data-testid="hide-category-review">
+          {String(!!props.hideCategoryReview)}
         </span>
         <span data-testid="filtered">
           {props.initialDocuments
@@ -451,6 +468,11 @@ describe("BenefitsStep4", () => {
     it("passes the category filter and fixed category to the uploader", async () => {
       renderStep();
 
+      // The uploader is told the category outright, so it never asks the advisor to
+      // classify each file.
+      expect(screen.getByTestId("hide-category-review")).toHaveTextContent(
+        "true",
+      );
       expect(screen.getByTestId("fixed-category")).toHaveTextContent(
         "Retirement",
       );
@@ -689,19 +711,29 @@ describe("BenefitsStep4", () => {
   });
 
   describe("preview and editing", () => {
-    it("reclassifies a document from the list without leaving the tab", async () => {
+    it("offers no per-document category: the benefit's category is implied", async () => {
       mocks.fetchPlanDocuments.mockResolvedValue([retirementDoc]);
       renderStep();
       await openListTab();
 
+      // No Category column, no category editing, and no category list to choose from.
+      expect(screen.getByTestId("list-hide-category-column")).toHaveTextContent(
+        "true",
+      );
+      expect(
+        screen.getByTestId("list-disable-category-edit"),
+      ).toHaveTextContent("true");
+      expect(screen.getByTestId("list-categories")).toHaveTextContent("none");
+
+      // Even if a category were offered, the flow ignores it: the edit action only
+      // opens the inline editor, and no category is ever written.
       fireEvent.click(
         await screen.findByRole("button", {
           name: "reclassify-Retirement Summary",
         }),
       );
-
-      expect(mocks.toastSuccess).toHaveBeenCalledWith("Category updated");
-      expect(screen.getByTestId("list-tab")).toBeInTheDocument();
+      expect(mocks.toastSuccess).not.toHaveBeenCalledWith("Category updated");
+      expect(screen.getByTestId("preview-section")).toBeInTheDocument();
     });
 
     it("opens the preview tab when the list's edit action has no category", async () => {
@@ -729,6 +761,11 @@ describe("BenefitsStep4", () => {
       renderStep();
       await openPreviewTab();
 
+      // No category badge repeating the benefit, and no Category select in the
+      // preview's inline editor — the flow already fixes the category.
+      expect(screen.getByTestId("preview-hide-category")).toHaveTextContent(
+        "true:true",
+      );
       expect(screen.getByTestId("preview-title")).toHaveTextContent(
         "Group Health Documents & Forms",
       );

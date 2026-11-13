@@ -504,25 +504,15 @@ export function BenefitsStep4() {
                             const doc = documents.find(d => d.id === id);
                             if (doc) handleDownload(doc);
                         }}
-                        onEdit={(id, title, updates) => {
-                            if (updates?.category) {
-                                const docIndex = documents.findIndex(d => d.id === id);
-                                if (docIndex !== -1) {
-                                    const newDocs = [...documents];
-                                    newDocs[docIndex] = { ...newDocs[docIndex], category: updates.category as any };
-                                    setDocuments(newDocs);
-                                    toast.success("Category updated");
-                                }
-                            } else {
-                                setActiveTab("preview");
-                            }
-                        }}
-                        availableCategories={[
-                            "Retirement",
-                            "Group Health",
-                            "Group Life",
-                            "Other Benefits"
-                        ]}
+                        // This flow edits ONE benefit, so its category is already known:
+                        // every document uploaded here is stamped with it (Step 1's
+                        // benefit category → `fixedCategory` on the uploader). The list
+                        // therefore offers no per-document category — no Category column
+                        // and no reclassifying — and "Edit" simply opens the inline
+                        // editor on the Preview tab.
+                        onEdit={() => setActiveTab("preview")}
+                        hideCategoryColumn
+                        disableCategoryEdit
                     />
                 </TabsContent>
 
@@ -560,6 +550,11 @@ export function BenefitsStep4() {
                             accentColor={secondaryColor}
                             retirementDocs={previewDocs}
                             reorderable
+                            // The preview is scoped to THIS benefit, so a document's
+                            // category is already implied: no badge repeating it, and
+                            // no Category select in the inline editor.
+                            hideCategoryBadge
+                            hideCategoryEdit
                             editingDocId={editingDocId}
                             onStartEdit={(docId) => setEditingDocId(docId)}
                             onSaveEdit={handleSaveEdit}
@@ -590,7 +585,12 @@ export function BenefitsStep4() {
                         showPreview={false}
                         language={selectedLanguage}
                         onLanguageChange={setSelectedLanguage}
+                        // Implied category: the uploader stamps every file with the benefit
+                        // being edited, so there is nothing to classify. Hiding the review
+                        // removes the per-document "Select category" dropdowns (and the
+                        // "assign a category before saving" block) the Documents page needs.
                         fixedCategory={step1Data?.benefitCategory as BenefitsCategory | undefined}
+                        hideCategoryReview
                         filterDocuments={step1Data?.benefitCategory
                             ? (doc) =>
                                   resolvePersistedDocumentCategory(

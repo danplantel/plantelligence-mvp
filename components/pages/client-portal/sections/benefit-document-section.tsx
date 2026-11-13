@@ -160,6 +160,12 @@ interface BenefitDocumentSectionProps {
    *  Benefits / Edit Benefit Branding preview, whose cards are already scoped to the
    *  benefit category being configured, so the badge only repeated it. */
   hideCategoryBadge?: boolean;
+  /**
+   * When true, the inline editor does not offer a Category select and never sends
+   * one. Used where the category is IMPLIED by the surrounding flow — Create/Edit
+   * Benefit Step 4 edits one benefit, so every document there belongs to it.
+   */
+  hideCategoryEdit?: boolean;
 }
 
 const defaultRetirementDocs: RetirementDocumentItem[] = [
@@ -250,6 +256,7 @@ export function BenefitDocumentSection({
   loading = false,
   reorderable = false,
   hideCategoryBadge = false,
+  hideCategoryEdit = false,
 }: BenefitDocumentSectionProps) {
   // Use provided retirementDocs or default, but prefer provided (even if empty)
   const actualRetirementDocs =
@@ -506,6 +513,7 @@ export function BenefitDocumentSection({
               onSortChange={isEditable ? handleSortChange : undefined}
               showMetadata={showMetadata}
               hideCategoryBadge={hideCategoryBadge}
+              hideCategoryEdit={hideCategoryEdit}
               editingDocId={editingDocId}
               onStartEdit={onStartEdit}
               onSaveEdit={onSaveEdit}
@@ -592,6 +600,7 @@ export function BenefitDocumentSection({
                       onSortChange={isEditable ? handleSortChange : undefined}
                       showMetadata={showMetadata}
                       hideCategoryBadge={hideCategoryBadge}
+                      hideCategoryEdit={hideCategoryEdit}
                       editingDocId={editingDocId}
                       onStartEdit={onStartEdit}
                       onSaveEdit={onSaveEdit}
@@ -1162,6 +1171,8 @@ interface DocsGridProps {
   onSortChange?: (docs: RetirementDocumentItem[]) => void;
   showMetadata?: boolean;
   hideCategoryBadge?: boolean;
+  /** Hides the Category select in the inline editor (the category is implied). */
+  hideCategoryEdit?: boolean;
   editingDocId?: string | null;
   onStartEdit?: (docId: string) => void;
   onSaveEdit?: (
@@ -1184,6 +1195,7 @@ export function DocsGrid({
   onSortChange,
   showMetadata = false,
   hideCategoryBadge = false,
+  hideCategoryEdit = false,
   editingDocId,
   onStartEdit,
   onSaveEdit,
@@ -1450,34 +1462,39 @@ export function DocsGrid({
               )}
               {isEditing ? (
                 <>
-                  <div className="w-full mb-4">
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs text-gray-600 font-medium">
-                        Category
-                      </label>
+                  {/* The Category select is only drawn where a document can genuinely
+                      belong to several categories. In Create/Edit Benefit Step 4 the
+                      benefit supplies it, so `hideCategoryEdit` removes the control. */}
+                  {!hideCategoryEdit && (
+                    <div className="w-full mb-4">
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs text-gray-600 font-medium">
+                          Category
+                        </label>
+                      </div>
+                      <Select
+                        value={editCategories.get(doc.id) || doc.category || undefined}
+                        onValueChange={(value) => {
+                          setEditCategories((prev) => {
+                            const newMap = new Map(prev);
+                            newMap.set(doc.id, value as BenefitsCategory);
+                            return newMap;
+                          });
+                        }}
+                      >
+                        <SelectTrigger className="w-full h-8 text-xs !bg-white !text-gray-900 !border-gray-300">
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Retirement">Retirement</SelectItem>
+                          <SelectItem value="Group Health">Group Health</SelectItem>
+                          <SelectItem value="Group Life">Group Life</SelectItem>
+                          <SelectItem value="Multiple">Multiple</SelectItem>
+                          <SelectItem value="Other Benefits">Other</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </div>
-                    <Select
-                      value={editCategories.get(doc.id) || doc.category || undefined}
-                      onValueChange={(value) => {
-                        setEditCategories((prev) => {
-                          const newMap = new Map(prev);
-                          newMap.set(doc.id, value as BenefitsCategory);
-                          return newMap;
-                        });
-                      }}
-                    >
-                      <SelectTrigger className="w-full h-8 text-xs !bg-white !text-gray-900 !border-gray-300">
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Retirement">Retirement</SelectItem>
-                        <SelectItem value="Group Health">Group Health</SelectItem>
-                        <SelectItem value="Group Life">Group Life</SelectItem>
-                        <SelectItem value="Multiple">Multiple</SelectItem>
-                        <SelectItem value="Other Benefits">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                  )}
                   <div className="w-full mb-2">
                     <div className="mb-1 text-left">
                       <label className="text-xs text-gray-600 font-medium">
@@ -1704,7 +1721,11 @@ export function DocsGrid({
                         const title = editTitles.get(doc.id) || "";
                         const description = editDescriptions.get(doc.id) || "";
                         const file = editFiles.get(doc.id) || undefined;
-                        const category = editCategories.get(doc.id) || doc.category;
+                        // With the category implied there is nothing to send, so a save
+                        // can never reclassify the document.
+                        const category = hideCategoryEdit
+                          ? undefined
+                          : editCategories.get(doc.id) || doc.category;
                         handleSaveEdit(doc.id, title, description, file, category);
                       }}
                       disabled={
