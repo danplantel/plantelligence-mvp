@@ -302,10 +302,27 @@ export function PortalChatbot({
   /** Everything the assistant needs to know about this plan, read once per render. */
   const plan = useMemo<AssistantPlan>(() => {
     const contact = contactChannels(clientData?.keyContacts);
+    // The provider / recordkeeper the hubs name. Same read as the Account Access
+    // card: the benefit's provider first, then the legacy plan-level recordkeeper.
+    const preview = (clientData as any)?.employeePortalPreview as
+      | Record<string, any>
+      | undefined;
+    const provider = (preview?.providerContact ??
+      (clientData as any)?.providerContact) as
+      | { companyName?: string }
+      | undefined;
+    const recordkeeperName =
+      String(provider?.companyName || (clientData as any)?.recordkeeper || "").trim() ||
+      undefined;
     return {
       clientId,
       companyName: clientData?.companyName,
       advisorName: profile?.name,
+      // So a chat answer resolves `{{recordkeeper_name}}` the way the page does.
+      recordkeeperName,
+      // The advisor's firm, for `{{advisor_firm}}`; absent means the copy's own
+      // "your advisor's firm" fallback.
+      advisorFirm: String(profile?.organizationName || "").trim() || undefined,
       loginUrl: clientData?.insuranceLoginUrl,
       appointmentUrl: clientData?.appointmentLink,
       contactEmail: contact.email,

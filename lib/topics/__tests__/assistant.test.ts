@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CONTRIBUTION_LIMITS_YEAR,
+  ELECTIVE_DEFERRAL_LIMIT,
+} from "@/lib/plan-contribution-limits";
+import {
   assistantStarterQuestions,
   buildAssistantCorpus,
   buildAssistantHubs,
@@ -510,5 +514,89 @@ describe("assistant hub turns", () => {
     if (reply.kind !== "suggest") throw new Error("expected a suggestion reply");
     expect(reply.text).toContain("Employee Resources");
     expect(reply.options.length).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * The topic copy is written with `{{token}}` placeholders for per-plan values.
+ * The hubs fill them; the assistant used to return the raw text, so asking
+ * "what are the contribution limits?" printed `{{plan_year}}` and
+ * `{{deferral_limit}}` in the chat. These tests pin the same substitution — in
+ * the answer AND its steps.
+ */
+describe("assistant plan tokens", () => {
+  const RETIREMENT_PLAN: AssistantPlan = {
+    ...PLAN,
+    companyName: "Acme Corp",
+    advisorFirm: "Acme Advisors",
+    recordkeeperName: "Empower Retirement",
+  };
+
+  it("fills the annual contribution figures instead of printing the tokens", () => {
+    const reply = answerOf(
+      respondToTopic({
+        slug: "contribution-limits",
+        location: "retirement",
+        index: libraryIndex(),
+        plan: RETIREMENT_PLAN,
+      }),
+    );
+
+    expect(reply.text).not.toContain("{{");
+    expect(reply.text).toContain(String(CONTRIBUTION_LIMITS_YEAR));
+    expect(reply.text).toContain(ELECTIVE_DEFERRAL_LIMIT);
+  });
+
+  it("fills the recordkeeper URL inside the answer's steps", () => {
+    const reply = answerOf(
+      respondToTopic({
+        slug: "change-contribution-rate",
+        location: "retirement",
+        index: libraryIndex(),
+        plan: RETIREMENT_PLAN,
+      }),
+    );
+
+    expect(reply.steps.length).toBeGreaterThan(0);
+    expect(reply.steps.join(" ")).toContain(PLAN.loginUrl as string);
+    expect(reply.steps.join(" ")).not.toContain("{{");
+  });
+
+  it("names the plan sponsor and provider the way the page does", () => {
+    const reply = answerOf(
+      respondToTopic({
+        slug: "review-my-coverage",
+        location: "group_life",
+        index: libraryIndex(),
+        plan: RETIREMENT_PLAN,
+      }),
+    );
+
+    expect(reply.text).toContain("Acme Corp");
+    expect(reply.text).not.toContain("{{");
+    expect(reply.steps.join(" ")).toContain(PLAN.loginUrl as string);
+  });
+
+  it("uses the same plain-language fallbacks as the hub when values are missing", () => {
+    const barePlan: AssistantPlan = {
+      ...PLAN,
+      loginUrl: null,
+      advisorName: null,
+      advisorFirm: null,
+      companyName: null,
+      recordkeeperName: null,
+    };
+    const reply = answerOf(
+      respondToTopic({
+        slug: "change-contribution-rate",
+        location: "retirement",
+        index: libraryIndex(),
+        plan: barePlan,
+      }),
+    );
+
+    expect(reply.steps[0]).toContain("your recordkeeper's website");
+    expect(reply.steps.join(" ")).not.toContain("{{");
+    expect(reply.text).not.toContain("{{");
   });
 });

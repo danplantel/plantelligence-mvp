@@ -5,6 +5,10 @@ import {
 } from "@/lib/benefit-custom-name";
 import { fillHelpCardTokens } from "@/lib/help-card-defaults";
 import {
+  CONTRIBUTION_LIMITS_YEAR,
+  ELECTIVE_DEFERRAL_LIMIT,
+} from "@/lib/plan-contribution-limits";
+import {
   isCategoryVisibleInPortal,
   type CategoryPortalVisibility,
 } from "@/lib/portal-category-visibility";
@@ -628,6 +632,13 @@ export interface AssistantPlan {
   clientId: string;
   companyName?: string | null;
   advisorName?: string | null;
+  /**
+   * The provider / carrier administering the benefit, for `{{recordkeeper_name}}`.
+   * A chat answer must name the same business the hubs and their panels name.
+   */
+  recordkeeperName?: string | null;
+  /** The advisor's firm, for `{{advisor_firm}}`. */
+  advisorFirm?: string | null;
   loginUrl?: string | null;
   appointmentUrl?: string | null;
   contactEmail?: string | null;
@@ -1146,6 +1157,45 @@ function handoffReply(plan: AssistantPlan): AssistantReply {
   };
 }
 
+/**
+ * Fill the `{{token}}` placeholders the topic copy carries.
+ *
+ * The library writes per-plan values as tokens (`{{plan_year}}`,
+ * `{{recordkeeper_url}}`, …). The hubs resolve them with their own fillers; the
+ * assistant must do the same, or a chat answer prints the raw token — e.g.
+ * "For {{plan_year}}, you can contribute up to {{deferral_limit}}". Fallbacks are
+ * worded exactly like the hub's, so an answer and the page its deep link opens
+ * read the same.
+ */
+function fillPlanTokens(text: string, plan: AssistantPlan): string {
+  if (!text) return text;
+  return text
+    .replace(
+      /\{\{recordkeeper_url\}\}/g,
+      trimmed(plan.loginUrl) || "your recordkeeper's website",
+    )
+    .replace(
+      /\{\{recordkeeper_name\}\}/g,
+      trimmed(plan.recordkeeperName) || "your recordkeeper",
+    )
+    .replace(/\{\{advisor_name\}\}/g, trimmed(plan.advisorName) || "your advisor")
+    .replace(
+      /\{\{advisor_firm\}\}/g,
+      trimmed(plan.advisorFirm) || "your advisor's firm",
+    )
+    .replace(
+      /\{\{plan_sponsor_name\}\}/g,
+      trimmed(plan.companyName) || "your employer",
+    )
+    // Annual IRS figures — global values, updated each January.
+    .replace(/\{\{plan_year\}\}/g, String(CONTRIBUTION_LIMITS_YEAR))
+    .replace(/\{\{deferral_limit\}\}/g, ELECTIVE_DEFERRAL_LIMIT)
+    // A chat answer has no meetings list, so the token is dropped rather than
+    // printed. Empty is the same value the help panel receives when the plan has
+    // no sessions.
+    .replace(/\{\{upcoming_retirement_meetings\}\}/g, "");
+}
+
 function answerReply(
   topic: AssistantTopic,
   matches: readonly AssistantMatch[],
@@ -1153,9 +1203,12 @@ function answerReply(
   contactRequested: boolean,
 ): AssistantReply {
   const text =
-    fillHelpCardTokens(
-      topic.quickAnswer || topic.summary || "",
-      topic.locationLabel,
+    fillPlanTokens(
+      fillHelpCardTokens(
+        topic.quickAnswer || topic.summary || "",
+        topic.locationLabel,
+      ),
+      plan,
     ) || `Here is what your plan says about ${topic.title}.`;
 
   const links: AssistantLink[] = [];
@@ -1177,7 +1230,7 @@ function answerReply(
     topicSlug: topic.slug,
     location: topic.location,
     text,
-    steps: topic.steps.slice(0, 3),
+    steps: topic.steps.slice(0, 3).map((step) => fillPlanTokens(step, plan)),
     links,
     related: relatedLinks(topic, matches, plan),
     ...(topic.isPlaced

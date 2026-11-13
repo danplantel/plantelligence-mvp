@@ -13,12 +13,12 @@ The first three are the same page with different constants; the fourth adds a UR
 
 ## Summary
 
-- **Unit tests:** 450 passing in 27 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
+- **Unit tests:** 454 passing in 27 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
 - **E2E:** none yet
 - **Runner:** Vitest + React Testing Library + jsdom
 
 ```bash
-pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (450 tests)
+pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (454 tests)
 pnpm test:portal-hubs:watch
 pnpm test:portal-hubs:coverage
 ```
@@ -234,7 +234,7 @@ suite (`portal-disclosures.test.ts`, `portal-disclosure-section.test.tsx`).
 
 | #   | Suite                                                                                      | Tests | Focus                                                                          |
 | --- | ------------------------------------------------------------------------------------------ | ----: | ------------------------------------------------------------------------------ |
-| 1   | `lib/topics/__tests__/assistant.test.ts`                                                   |    31 | Assistant corpus, retrieval, intents, hubs, chips and exact-topic answers     |
+| 1   | `lib/topics/__tests__/assistant.test.ts`                                                   |    35 | Assistant corpus, retrieval, intents, hubs, chips, exact-topic answers, plan tokens |
 | 2   | `app/api/clients/[id]/portal/assistant/__tests__/route.test.ts`                            |     7 | The assistant's index read: portal gate, advisor scoping, payload, failures    |
 | 3   | `components/pages/client-portal/sections/__tests__/portal-chatbot.test.tsx`                |    25 | The sheet: greeting, hub turns, answers, hints, handoff, session, scroll lock  |
 | 4   | `components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx`       |    85 | Cards, layout, panels, placements, rollovers, chat deep links, phone treatment |
@@ -260,7 +260,7 @@ suite (`portal-disclosures.test.ts`, `portal-disclosure-section.test.tsx`).
 | 24  | `lib/__tests__/benefits-video-fallback.test.ts`                                            |     7 | Per-category clips, plan video precedence, embed/URL fallbacks                 |
 | 25  | `lib/text/__tests__/linkify.test.ts`                                                       |     6 | Turning an address in answer copy into a real link                             |
 | 26  | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-mobile-gradient.test.tsx` | 4 | The banner's phone-wide gradient: full-bleed on the section, no card plate, content above the plate |
-| 27  | `components/pages/client-portal/sections/__tests__/quick-answers-section.test.tsx`          |    15 | Grouping, search, deep links; the phone answer sheet slides up/down with a pinned Close + CTA bar |
+| 27  | `components/pages/client-portal/sections/__tests__/quick-answers-section.test.tsx`          |    21 | Grouping, search, deep links; the phone answer sheet slides up/down with a pinned Close + CTA bar |
 
 ## Remaining coverage
 

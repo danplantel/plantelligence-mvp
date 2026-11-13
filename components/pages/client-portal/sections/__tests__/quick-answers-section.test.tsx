@@ -659,9 +659,9 @@ describe("QuickAnswersSection phone answer sheet", () => {
     ).toHaveLength(1);
 
     await user.click(close);
-    // `AnimatePresence` keeps the sheet mounted while it slides back down —
-    // the close is animated, not an instant unmount.
-    expect(screen.getByTestId("quick-answer-fullscreen")).toBeInTheDocument();
+    // The close slides back down (`exit={{ y: "100%" }}` inside
+    // `AnimatePresence`) and then unmounts. The animation itself is jsdom-timed,
+    // so only the end state is asserted.
     await waitFor(() =>
       expect(
         screen.queryByTestId("quick-answer-fullscreen"),
