@@ -130,12 +130,17 @@ export default async function RootLayout({
    * mounting the gate there would cover the page with a sign-in modal.
    *
    * `/` is the landing page on every host (plantel.pro, dev.plantel.pro,
-   * localhost), so the root always renders the marketing shell. Every other
-   * path — `/signin`, `/dashboard`, `/{plan-slug}` — keeps the app providers.
-   * Middleware stamps `x-pathname` on every request it handles.
+   * localhost), so the root always renders the marketing shell. The public
+   * Platform legal pages under `/legal` are likewise standalone: they are
+   * linked from both the marketing footer and the dashboard, and must not be
+   * hidden behind the invite gate. Every other path — `/signin`, `/dashboard`,
+   * `/{plan-slug}` — keeps the app providers. Middleware stamps `x-pathname`
+   * on every request it handles.
    */
+  const pathname = requestHeaders.get("x-pathname") || "";
+  const isStandaloneLegal = pathname === "/legal" || pathname.startsWith("/legal/");
   const isMarketing =
-    isMarketingHost(requestHost) || requestHeaders.get("x-pathname") === "/";
+    isMarketingHost(requestHost) || pathname === "/" || isStandaloneLegal;
   // Font CSS variables MUST live on <html> (not <body>): the portal sets
   // --font-headline / --font-body to values that reference these variables
   // (e.g. var(--font-playfair), …). A nested var() resolves against the

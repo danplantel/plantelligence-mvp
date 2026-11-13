@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { platformPrivacyPolicy } from "@/lib/legal/content/platform-privacy-policy";
+import { platformTermsOfService } from "@/lib/legal/content/platform-terms-of-service";
 import { benefitsHubPrivacyPolicy } from "@/lib/legal/content/privacy-policy";
 import { benefitsHubTermsOfService } from "@/lib/legal/content/terms-of-service";
 import {
@@ -74,6 +76,25 @@ describe("prepareLegalMarkdown", () => {
     expect(result).toContain("See Northwind.");
     expect(result).not.toMatch(/CONFIRM|\[DATE\]|\[ORGANIZATION NAME\]/);
   });
+});
+
+describe("the shipped Platform documents", () => {
+  const documents = [
+    ["Platform Privacy Policy", platformPrivacyPolicy],
+    ["Platform Terms of Service", platformTermsOfService],
+  ] as const;
+
+  for (const [name, source] of documents) {
+    it(`${name} exposes no drafting notes or unresolved placeholders`, () => {
+      const result = prepareLegalMarkdown(source);
+
+      expect(result).not.toMatch(
+        /\[(CONFIRM|INSERT|IDENTIFY|GOVERNING|ANY ADDITIONAL)/i,
+      );
+      expect(result.match(/\[[A-Z][^\]]*\]/g) ?? []).toEqual([]);
+      expect(result).toContain("November 13, 2026");
+    });
+  }
 });
 
 describe("the shipped Benefits Hub documents", () => {

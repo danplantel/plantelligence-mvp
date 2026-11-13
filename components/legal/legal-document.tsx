@@ -21,6 +21,7 @@ interface ParagraphLine {
 type Block =
   | { kind: "h1"; text: string }
   | { kind: "h2"; text: string }
+  | { kind: "h3"; text: string }
   | { kind: "p"; lines: ParagraphLine[] }
   | { kind: "ul"; items: string[] };
 
@@ -55,6 +56,13 @@ function parseBlocks(markdown: string): Block[] {
     if (/^\s*$/.test(raw)) {
       flushParagraph();
       flushList();
+      continue;
+    }
+
+    if (raw.startsWith("### ")) {
+      flushParagraph();
+      flushList();
+      blocks.push({ kind: "h3", text: raw.slice(4).trim() });
       continue;
     }
 
@@ -151,6 +159,17 @@ export function LegalDocument({
             >
               {block.text}
             </h2>
+          );
+        }
+
+        if (block.kind === "h3") {
+          return (
+            <h3
+              key={key}
+              className="mt-6 mb-2 text-base font-semibold text-gray-900"
+            >
+              {block.text}
+            </h3>
           );
         }
 

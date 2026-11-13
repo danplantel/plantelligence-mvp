@@ -11,12 +11,20 @@
 const DEFAULT_APP_ORIGIN = "https://plantel.pro";
 const DEFAULT_MARKETING_ORIGIN = "https://plantel.ai";
 
-/** Paths that belong to the marketing site even though they are not `/`. */
+/**
+ * Paths that belong to the marketing site even though they are not `/`.
+ *
+ * `/legal` is here because the Platform legal pages linked from the marketing
+ * footer must render on the marketing origin instead of being redirected to the
+ * app origin by the host split. The generated metadata routes are here for the
+ * same reason.
+ */
 export const MARKETING_ASSET_PATHS = [
   "/opengraph-image",
   "/twitter-image",
   "/icon",
   "/apple-icon",
+  "/legal",
 ] as const;
 
 export type MarketingEnv = {

@@ -16,12 +16,26 @@ const documents = [
   {
     source: "Benefits_Hub_Privacy_Policy.md",
     exportName: "benefitsHubPrivacyPolicy",
+    output: "privacy-policy.ts",
     header: "Benefits Hub Privacy Policy",
   },
   {
     source: "Benefits_Hub_Terms_of_Service.md",
     exportName: "benefitsHubTermsOfService",
+    output: "terms-of-service.ts",
     header: "Benefits Hub Terms of Service",
+  },
+  {
+    source: "Platform_Privacy_Policy.md",
+    exportName: "platformPrivacyPolicy",
+    output: "platform-privacy-policy.ts",
+    header: "PlanTelligence Platform Privacy Policy",
+  },
+  {
+    source: "Platform_Terms_of_Service.md",
+    exportName: "platformTermsOfService",
+    output: "platform-terms-of-service.ts",
+    header: "PlanTelligence Platform Terms of Service",
   },
 ];
 
@@ -48,12 +62,7 @@ for (const doc of documents) {
 export const ${doc.exportName} = \`${toTemplateLiteral(markdown)}\`;
 `;
 
-  const outputName = doc.source
-    .replace(/\.md$/i, "")
-    .toLowerCase()
-    .replace(/_/g, "-")
-    .replace(/^benefits-hub-/, "");
-  const outputPath = resolve(outDir, `${outputName}.ts`);
+  const outputPath = resolve(outDir, doc.output);
   writeFileSync(outputPath, file, "utf8");
   console.log(`Wrote ${outputPath}`);
 }

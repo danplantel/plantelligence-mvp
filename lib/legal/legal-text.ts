@@ -12,7 +12,7 @@ import {
  * reach a participant, so they are removed before the document is rendered.
  */
 const EDITORIAL_NOTE_SOURCE =
-  "\\[(?:CONFIRM|INSERT|DESCRIBE|ANY ADDITIONAL)[^\\]]*?\\]";
+  "\\[(?:CONFIRM|INSERT|IDENTIFY|GOVERNING|ANY ADDITIONAL)[^\\]]*?\\]";
 
 /**
  * Remove drafting notes from the policy text.
@@ -85,16 +85,39 @@ export function resolveLegalPlaceholders(
       "[PERIOD OR CRITERIA]",
       "Retained only as long as necessary for the purpose described in this Policy or as required by applicable law.",
     ],
+    // The Platform drafts use the shorthand form, without spaces.
+    [
+      "[PERIOD/CRITERIA]",
+      "Retained only as long as necessary for the purpose described in this Policy or as required by applicable law.",
+    ],
     [
       "[LINK TO STATE PRIVACY ADDENDUM]",
       "the applicable state privacy disclosures",
+    ],
+    [
+      "[STATE PRIVACY ADDENDUM OR RIGHTS LINK]",
+      "the applicable state privacy disclosures",
+    ],
+    [
+      "[DESCRIBE VERIFIED ADMINISTRATIVE, TECHNICAL, AND ORGANIZATIONAL SECURITY PRACTICES]",
+      "administrative, technical, and organizational security practices",
+    ],
+    [
+      "[DESCRIBE VERIFIED SECURITY MEASURES]",
+      "administrative, technical, and organizational security measures",
     ],
     ["[PLANtelligence LEGAL ENTITY]", PLATFORM_LEGAL_ENTITY],
     ["[LEGAL ENTITY NAME]", PLATFORM_LEGAL_ENTITY],
     ["[SUPPORT EMAIL]", PLATFORM_SUPPORT_EMAIL],
     ["[SECURITY/PRIVACY CONTACT]", PLATFORM_SUPPORT_EMAIL],
+    ["[PRIVACY CONTACT]", PLATFORM_SUPPORT_EMAIL],
     ["[PRIVACY EMAIL OR REQUEST LINK]", PLATFORM_SUPPORT_EMAIL],
+    ["[PRIVACY EMAIL]", PLATFORM_SUPPORT_EMAIL],
+    ["[LEGAL CONTACT EMAIL]", PLATFORM_SUPPORT_EMAIL],
     ["[EMAIL]", PLATFORM_SUPPORT_EMAIL],
+    ["[COOKIE NOTICE OR SETTINGS LINK]", "the Cookie Notice available through the Platform"],
+    ["[PAYMENT PROCESSOR]", "a third-party payment processor"],
+    ["[IMAGE LICENSE TERMS]", "the applicable image license terms"],
     ["[PUBLISHING ORGANIZATION NAME]", organizationName],
     ["[ORGANIZATION NAME]", organizationName],
     ["[CONTACT INFORMATION]", organizationContact],

@@ -27,6 +27,8 @@ import {
   AlertTriangle,
   Clock,
   Calendar,
+  Scale,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getNameMonogram } from "@/lib/name-monogram";
@@ -256,6 +258,31 @@ export function UserNav({
               <Link href="/settings" className="flex w-full items-center gap-2">
                 <Settings className="h-4 w-4" />
                 Settings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            {/* Platform-level legal documents. Opened in a new tab so reviewing
+                them never drops an in-progress dashboard workflow. */}
+            <DropdownMenuItem asChild>
+              <Link
+                href="/legal/privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-full items-center gap-2"
+              >
+                <ShieldCheck className="h-4 w-4" />
+                Privacy Policy
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link
+                href="/legal/terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-full items-center gap-2"
+              >
+                <Scale className="h-4 w-4" />
+                Terms of Service
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />

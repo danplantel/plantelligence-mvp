@@ -8,13 +8,32 @@
  * rendered for every Benefits Hub without duplicating the policy text.
  */
 
-export type PortalLegalDoc = "privacy" | "terms";
+export type LegalDoc = "privacy" | "terms";
+
+/** Retained for the portal callers that already use the narrower name. */
+export type PortalLegalDoc = LegalDoc;
 
 /** The public, plan-scoped routes for the two legal documents. */
 export const PORTAL_LEGAL_PATHS: Record<PortalLegalDoc, string> = {
   privacy: "privacy",
   terms: "terms",
 };
+
+/**
+ * The Platform-level legal routes.
+ *
+ * These are public and not plan-scoped: they describe the PlanTelligence
+ * dashboard/account product rather than any one Benefits Hub, and they are
+ * linked from the retail marketing footer and the dashboard account menu.
+ */
+export const PLATFORM_LEGAL_PATHS: Record<LegalDoc, string> = {
+  privacy: "/legal/privacy",
+  terms: "/legal/terms",
+};
+
+export function platformLegalHref(doc: LegalDoc): string {
+  return PLATFORM_LEGAL_PATHS[doc];
+}
 
 /**
  * Build a legal-document link for a portal slug.

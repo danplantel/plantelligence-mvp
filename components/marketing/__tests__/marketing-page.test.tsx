@@ -73,6 +73,18 @@ describe("MarketingPage", () => {
     }
   });
 
+  it("links the Platform legal pages from the footer", () => {
+    renderPage();
+
+    expect(screen.getByRole("link", { name: "Privacy Policy" })).toHaveAttribute(
+      "href",
+      "/legal/privacy",
+    );
+    expect(
+      screen.getByRole("link", { name: "Terms of Service" }),
+    ).toHaveAttribute("href", "/legal/terms");
+  });
+
   it("publishes FAQ structured data", () => {
     renderPage();
 

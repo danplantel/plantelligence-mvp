@@ -210,4 +210,11 @@ describe("local preview and metadata assets", () => {
     expect(isMarketingAssetPath("/signin")).toBe(false);
     expect(isMarketingAssetPath("/dashboard")).toBe(false);
   });
+
+  it("keeps the public Platform legal pages on the marketing host", () => {
+    expect(isMarketingAssetPath("/legal")).toBe(true);
+    expect(isMarketingAssetPath("/legal/privacy")).toBe(true);
+    expect(isMarketingAssetPath("/legal/terms")).toBe(true);
+    expect(isMarketingAssetPath("/legal/privacy/extra")).toBe(true);
+  });
 });

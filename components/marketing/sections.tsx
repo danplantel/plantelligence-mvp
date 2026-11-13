@@ -387,8 +387,22 @@ export function MarketingFooter({ appOrigin }: { appOrigin: string }) {
           </nav>
         </div>
 
-        <div className="mt-10 flex flex-col gap-2 border-t border-[#E7E1D8] pt-6 text-xs text-[#5F6B7A] sm:flex-row sm:items-center sm:justify-between">
+        <div className="mt-10 flex flex-col gap-3 border-t border-[#E7E1D8] pt-6 text-xs text-[#5F6B7A] sm:flex-row sm:items-center sm:justify-between">
           <p>© {year} PlanTelligence. All rights reserved.</p>
+          <nav aria-label="Legal" className="flex flex-wrap gap-x-5 gap-y-2">
+            <a
+              href="/legal/privacy"
+              className="underline-offset-2 transition-colors hover:text-[#14243A] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1F3A60]"
+            >
+              Privacy Policy
+            </a>
+            <a
+              href="/legal/terms"
+              className="underline-offset-2 transition-colors hover:text-[#14243A] hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#1F3A60]"
+            >
+              Terms of Service
+            </a>
+          </nav>
           <p>Benefits communication, end to end.</p>
         </div>
       </div>
