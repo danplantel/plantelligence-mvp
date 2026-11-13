@@ -6,7 +6,7 @@ Unlike Edit Plan, this page owns almost no UI of its own. It is a **projection**
 
 ## Summary
 
-- **Unit tests:** 199 passing in 14 files
+- **Unit tests:** 232 passing in 16 files
 - **E2E:** none yet — see [Remaining coverage](#remaining-coverage)
 - **Runner:** Vitest + React Testing Library + jsdom
 
@@ -21,7 +21,7 @@ Unlike Edit Plan, this page owns almost no UI of its own. It is a **projection**
 ## Running these tests
 
 ```bash
-pnpm test:portal-landing           # all Portal Landing suites (231 tests)
+pnpm test:portal-landing           # all Portal Landing suites (232 tests)
 pnpm test:portal-landing:watch     # watch mode
 pnpm test:portal-landing:coverage  # suites + V8 coverage
 ```
@@ -34,7 +34,7 @@ Backed by [`config/vitest/vitest.portal-landing.config.mts`](../../config/vitest
 | --- | -------------------------------------------------------------------------------- | ----: | ----------------------------------------------------------------------------------- |
 | 1   | `app/(portal)/[id]/__tests__/page.test.tsx`                                      |    17 | Contact projection, visibility fallback, footer preference, props to `ClientPortal` |
 | 2   | `contexts/__tests__/client-portal-context.test.tsx`                              |    14 | `forPortal` fetch, archived/alias, error states, profile, refetch events            |
-| 3   | `components/pages/client-portal/sections/__tests__/portal-benefits.test.tsx`     |    22 | Four hub cards, visibility, partner branding, completeness gate, its Section 5 button |
+| 3   | `components/pages/client-portal/sections/__tests__/portal-benefits.test.tsx`     |    23 | Four hub cards, visibility, partner branding, editing-only completeness cards, Section 5 button |
 | 4   | `components/pages/client-portal/sections/__tests__/portal-hero-mission.test.tsx` |    35 | Hero/mission copy, edit affordances, and the library-backed Ask bar with its focus lift |
 | 5   | `lib/__tests__/benefit-completeness.test.ts`                                     |    24 | The completeness matrix behind the "finish this benefit" dialog                     |
 | 6   | `lib/__tests__/disclaimer-constants.test.ts`                                     |    30 | Footer text, placeholder resolution, disclaimer-envelope shapes                     |
@@ -237,7 +237,7 @@ suite asserts a participant gets `showEditIndicators={false}` and no buttons.
 
 **Portal context (`client-portal-context.test.tsx`)** — `?forPortal=1` + `cache: "no-store"`; the profile request and its non-fatal failure; the skeleton staying up until both requests settle; 404/500/`success:false` → **Page Not Found**; **Archived** hidden, **Draft** previewed; alias redirect preserving the sub-path; refetch with `&t=`, and both window events filtered by `clientId`.
 
-**Benefits (`portal-benefits.test.tsx`)** — four default cards; category-based slot filling; a hidden hub and the all-hidden `null`; the stale-`isEnabled` rule; grid sizing; hub links vs the preview CTA; partner name from the assigned/primary contact; the image precedence chain; the 75-character copy cap; category default copy; the chevron split; `onEdit`; the placeholder card; the dialog's missing-info list and wizard link; and the preview bypass.
+**Benefits (`portal-benefits.test.tsx`)** — four default cards; category-based slot filling; a hidden hub and the all-hidden `null`; the stale-`isEnabled` rule; grid sizing; hub links vs the preview CTA; partner name from the assigned/primary contact; the image precedence chain; the 75-character copy cap; category default copy; the chevron split; `onEdit`; the "INCOMPLETE" placeholder card — rendered **only** in the editing view (`?comments=on`) and omitted for participants; the dialog's missing-info list and wizard link; and the preview bypass.
 
 **Hero and mission (`portal-hero-mission.test.tsx`)** — saved and fallback copy; `role="button"` only when a handler exists; Enter/Space activation; body clicks not reaching the headline handler; the thumbnail vs stock photo; both scroll behaviours; the hero's company-name headline and `--------` fallback; and the benefits question search — typing queries the shipped topic library, the dropdown names each topic's hub/group, and submitting the field or a suggestion dispatches `ASSISTANT_ASK_EVENT` for the chatbot to answer. The sheet opens on that question, pinned so the answer reads from its first line. Focusing the field lifts the bar below the fixed banner + header (marked `data-portal-header`), with a 10px gap, and reports the focus so the chatbot's pill steps aside on a phone. On a phone the headline, copy and Ask bar share one full-width column; from `sm` up they keep the classic 900px card with the headline and copy at 4/5. The phone placeholder is "Ask a question", and the scroll arrow is hidden on phones (`hidden sm:block`). The card stays inside the hero, under the field; on a phone the hero grows a five-row reserve around it only once matches exist, with the height animated, and a longer list (up to a dozen matches) scrolls inside the card. An `IntersectionObserver` reports whether the hero is on screen, so the assistant's floating pill stays hidden until it is scrolled past. The mission section stacks header → featured image → statement on phones; from `lg` up the image returns to the left column with the header and statement stacked on the right.
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import {
   BenefitsCategory,
 } from "@/types/new-client-wizard";
 import { getBenefitCompleteness } from "@/lib/benefit-completeness";
+import { wantsCommentsRail } from "@/lib/comments/portal-surface";
 import { getDefaultLandingCardBody } from "@/lib/landing-card-defaults";
 import { PORTAL_SECTION_IDS } from "@/lib/portal-editor-sections";
 import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
@@ -56,6 +57,20 @@ export function PortalBenefits({
   completenessClientData,
 }: PortalBenefitsProps) {
   const router = useRouter();
+  /**
+   * Whether the INCOMPLETE placeholder cards may render.
+   *
+   * They are an ADVISOR affordance, not participant content: an unfinished
+   * benefit should not be advertised to employees on the landing page. They
+   * appear only in the editing view, which is the portal opened with
+   * `?comments=on` (the same flag the Comments rail and the Editing launcher
+   * key off). Read from the URL on mount, exactly like the rail does.
+   */
+  const [showIncompleteCards, setShowIncompleteCards] = useState(false);
+  useEffect(() => {
+    setShowIncompleteCards(wantsCommentsRail(window.location.search));
+  }, []);
+
   const [incompleteDialog, setIncompleteDialog] = useState<{
     isOpen: boolean;
     category: BenefitsCategory | null;
@@ -251,8 +266,12 @@ export function PortalBenefits({
     visibility,
   );
 
-  // Determine visible benefits based on isEnabled and portal visibility
-  // Incomplete benefits are shown as placeholder cards rather than being hidden
+  // Determine visible benefits based on isEnabled and portal visibility.
+  //
+  // An incomplete benefit is a placeholder card rather than a hidden one — but
+  // ONLY in the editing view (`?comments=on`), where the advisor needs to see
+  // what still has to be finished. A participant's landing page omits the card
+  // entirely, so "INCOMPLETE" is never shown to employees.
   const displayBenefits = (syncedBenefits as Benefit[])
     .filter((benefit) => {
       // 0. Portal visibility: hide if category is hidden
@@ -262,6 +281,17 @@ export function PortalBenefits({
 
       // 1. Check if manually disabled (slider OFF in Step 5)
       if (benefit.isEnabled === false) return false;
+
+      // 2. Participant view: drop the unfinished categories instead of drawing
+      //    their placeholders. Without a clientId this is a preview, where the
+      //    completeness gate is deliberately bypassed.
+      if (hasClientId && !showIncompleteCards) {
+        const completeness = getBenefitCompleteness(
+          category as BenefitsCategory,
+          completenessInput,
+        );
+        if (!completeness.isComplete) return false;
+      }
 
       return true;
     })

@@ -114,7 +114,15 @@ beforeEach(() => {
   mocks.merge.mockImplementation((benefit) => benefit);
   mocks.defaultBody.mockReturnValue("");
   mocks.defaultImage.mockReturnValue("");
+  // Participant URL by default: the INCOMPLETE placeholders are an editing-view
+  // affordance keyed off `?comments=on`.
+  window.history.replaceState(null, "", "/plan-1");
 });
+
+/** The editing view: the portal opened with `?comments=on`. */
+function editingUrl() {
+  window.history.replaceState(null, "", "/plan-1?comments=on");
+}
 
 describe("PortalBenefits cards", () => {
   it("renders the four default hubs when the plan has no Benefit rows", () => {
@@ -322,7 +330,8 @@ describe("PortalBenefits card content", () => {
 });
 
 describe("PortalBenefits incomplete benefits", () => {
-  it("renders a placeholder card for an incomplete benefit", () => {
+  it("renders a placeholder card for an incomplete benefit while editing", () => {
+    editingUrl();
     mocks.completeness = {
       Retirement: { isComplete: false, missingInfo: ["Description missing"] },
     };
@@ -334,8 +343,21 @@ describe("PortalBenefits incomplete benefits", () => {
     ).toBeInTheDocument();
   });
 
+  it("hides the placeholder from participants", () => {
+    mocks.completeness = {
+      Retirement: { isComplete: false, missingInfo: ["Description missing"] },
+    };
+    renderBenefits();
+
+    // The unfinished benefit is simply absent; the other three hubs remain.
+    expect(screen.queryByText("Benefit Incomplete")).not.toBeInTheDocument();
+    expect(cardTitles()).not.toContain("Retirement Plan Benefits");
+    expect(cardTitles()).toContain("Health Insurance");
+  });
+
   it("explains what is missing and links to the wizard", async () => {
     const user = userEvent.setup();
+    editingUrl();
     mocks.completeness = {
       Retirement: {
         isComplete: false,
