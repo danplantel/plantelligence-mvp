@@ -36,10 +36,6 @@ import {
   resolvePortalHeaderCtaHref,
 } from "@/lib/portal-header-cta";
 import {
-  HEADER_LOGO_BAND_PX,
-  HEADER_LOGO_MAX_WIDTH_PX,
-} from "@/lib/header-logo-band";
-import {
   getPortalThemeCssVars,
   portalRadiusValue,
 } from "@/lib/typography-themes";
@@ -64,6 +60,35 @@ const BENEFITS_NAV_ITEMS: { label: string; path: string }[] = [
   { label: "Life Insurance", path: "/life-insurance" },
   { label: "Wellness Programs", path: "/wellness-programs" },
 ];
+
+/**
+ * The logo band on the MOBILE header/nav — everything below `md`, where the
+ * desktop nav collapses into the hamburger and its drawer — is 20% smaller
+ * than the desktop band.
+ *
+ * The values are CSS variables rather than Tailwind `max-h-*` utilities on
+ * purpose: `BrandingImage` pins its wrapper to the `maxHeight` it is handed
+ * (`height` + `minHeight`, see `r2StableBoxStyle`), and it resolves that even
+ * when the value is a variable. The variables are declared here because this
+ * file is in Tailwind's content paths; from `md` up they restore the full
+ * desktop band.
+ *
+ * Desktop values mirror `HEADER_LOGO_BAND_PX` (48) and
+ * `HEADER_LOGO_MAX_WIDTH_PX` (220) in `lib/header-logo-band`; mobile is
+ * 48 × 0.8 ≈ 38 and 220 × 0.8 = 176.
+ */
+const HEADER_LOGO_BAND_CLASS =
+  "[--portal-logo-band:38px] [--portal-logo-max-w:176px] md:[--portal-logo-band:48px] md:[--portal-logo-max-w:220px]";
+
+/**
+ * Consumed by `BrandingImage` as `maxHeight`/`maxWidth`, so the wrapper keeps a
+ * definite height. The fallbacks are the desktop band: if the utility classes
+ * above ever fail to compile, the header renders exactly as it did before.
+ */
+const HEADER_LOGO_BAND_STYLE: React.CSSProperties = {
+  maxHeight: "var(--portal-logo-band, 48px)",
+  maxWidth: "var(--portal-logo-max-w, 220px)",
+};
 
 interface PortalHeaderProps {
   companyData?: {
@@ -548,11 +573,8 @@ export function PortalHeader({
                   <BrandingImage
                     src={companyData.companyLogo}
                     alt="Company Logo"
-                    className="object-contain"
-                    style={{
-                      maxHeight: HEADER_LOGO_BAND_PX,
-                      maxWidth: HEADER_LOGO_MAX_WIDTH_PX,
-                    }}
+                    className={`object-contain ${HEADER_LOGO_BAND_CLASS}`}
+                    style={HEADER_LOGO_BAND_STYLE}
                   />
                 )}
               </Link>
@@ -570,15 +592,12 @@ export function PortalHeader({
                     <BrandingImage
                       src={companyData.companyLogo}
                       alt="Company Logo"
-                      className={`object-contain transition-all ${
+                      className={`object-contain transition-all ${HEADER_LOGO_BAND_CLASS} ${
                         isLogoHovered
                           ? "ring-2 border-1 border-blue-500/50"
                           : ""
                       }`}
-                      style={{
-                        maxHeight: HEADER_LOGO_BAND_PX,
-                        maxWidth: HEADER_LOGO_MAX_WIDTH_PX,
-                      }}
+                      style={HEADER_LOGO_BAND_STYLE}
                     />
                     {enableLogoHover && isLogoHovered && (
                       <div className="absolute top-[-6px] left-[-6px] z-20 bg-blue-500 rounded-full p-1.5 shadow-lg">
@@ -833,11 +852,8 @@ export function PortalHeader({
                     <BrandingImage
                       src={companyData.companyLogo}
                       alt="Company Logo"
-                      className="object-contain"
-                      style={{
-                        maxHeight: HEADER_LOGO_BAND_PX,
-                        maxWidth: HEADER_LOGO_MAX_WIDTH_PX,
-                      }}
+                      className={`object-contain ${HEADER_LOGO_BAND_CLASS}`}
+                      style={HEADER_LOGO_BAND_STYLE}
                     />
                   ) : (
                     <span aria-hidden="true" />
