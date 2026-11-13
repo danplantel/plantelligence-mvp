@@ -49,9 +49,9 @@ npx tsx scripts/push/verify-push.ts --keep   # leaves them for inspection
 
 Automated tests cannot see a real push service. Before shipping a release that touches this feature:
 
-1. **Android/Chrome, installed PWA** — install a portal, tap "Turn on", accept the permission, send a DM from another account, confirm the notification arrives with the app closed, and that tapping it opens `/{slug}`.
-2. **iOS 16.4+, installed PWA** — Add to Home Screen first, then opt in from inside the installed app (a Safari tab cannot subscribe). Confirm the notification arrives with the app closed.
-3. **iOS, Safari tab** — confirm the opt-in bar does NOT appear, and that the dashboard Settings card explains the Home Screen requirement instead of offering a dead button.
+1. **Android/Chrome, installed PWA** — install a portal, opt in from the dashboard's Settings → Notifications card ("Turn on"), accept the permission, send a DM from another account, confirm the notification arrives with the app closed, and that tapping it opens `/{slug}`.
+2. **iOS 16.4+, installed PWA** — Add to Home Screen first, then opt in from the dashboard's Settings card inside the installed app (a Safari tab cannot subscribe). Confirm the notification arrives with the app closed.
+3. **Portal, any mobile browser** — confirm NO push opt-in bar appears at the bottom of the portal. The bottom chrome is the PWA download bar only; push is opted into from the dashboard, and the Settings card explains the Home Screen requirement instead of offering a dead button.
 4. **Collapse** — send five messages in one thread; expect one notification on the tray, not five.
 5. **Opt-out** — turn "Comments" off in Settings → Profile, have someone reply in a thread, and confirm the bell updates while no notification arrives.
 6. **Permission revoked** — after subscribing, block notifications in browser settings, reload, and confirm the card explains the block rather than claiming success.
