@@ -13,12 +13,12 @@ The first three are the same page with different constants; the fourth adds a UR
 
 ## Summary
 
-- **Unit tests:** 429 passing in 26 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
+- **Unit tests:** 450 passing in 27 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
 - **E2E:** none yet
 - **Runner:** Vitest + React Testing Library + jsdom
 
 ```bash
-pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (429 tests)
+pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (450 tests)
 pnpm test:portal-hubs:watch
 pnpm test:portal-hubs:coverage
 ```
@@ -260,6 +260,7 @@ suite (`portal-disclosures.test.ts`, `portal-disclosure-section.test.tsx`).
 | 24  | `lib/__tests__/benefits-video-fallback.test.ts`                                            |     7 | Per-category clips, plan video precedence, embed/URL fallbacks                 |
 | 25  | `lib/text/__tests__/linkify.test.ts`                                                       |     6 | Turning an address in answer copy into a real link                             |
 | 26  | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-mobile-gradient.test.tsx` | 4 | The banner's phone-wide gradient: full-bleed on the section, no card plate, content above the plate |
+| 27  | `components/pages/client-portal/sections/__tests__/quick-answers-section.test.tsx`          |    15 | Grouping, search, deep links; the phone answer sheet slides up/down with a pinned Close + CTA bar |
 
 ## Remaining coverage
 

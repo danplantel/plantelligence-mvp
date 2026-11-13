@@ -1,10 +1,14 @@
 import React from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { QuickAnswersSection } from "../quick-answers-section";
-import type { EffectiveTopic, TopicGroup } from "@/types/topic";
+import type {
+  ActionHubRow,
+  EffectiveTopic,
+  TopicGroup,
+} from "@/types/topic";
 
 /**
  * "Get Quick Answers" (TF-2).
@@ -48,7 +52,30 @@ function group(overrides: Partial<TopicGroup> = {}): TopicGroup {
 afterEach(() => {
   // The section reads the hash on mount, so each test starts from a clean URL.
   window.history.replaceState(null, "", "/acme/retirement");
+  // `matchMedia` is stubbed per test to choose the phone layout.
+  vi.unstubAllGlobals();
 });
+
+/**
+ * Pretend the viewport is a phone. The section reads `matchMedia` to decide
+ * between the in-place accordion (`md`+) and the full-screen answer sheet.
+ */
+function setPhoneViewport(phone: boolean) {
+  vi.stubGlobal(
+    "matchMedia",
+    (query: string) =>
+      ({
+        matches: phone && /max-width:\s*767px/.test(query),
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => false,
+      }) as unknown as MediaQueryList,
+  );
+}
 
 describe("QuickAnswersSection", () => {
   it("renders the section heading, its groups and their questions", () => {
@@ -560,5 +587,128 @@ describe("QuickAnswersSection", () => {
     expect(
       screen.getByRole("link", { name: "Book a Meeting" }),
     ).toHaveAttribute("href", "#have-questions");
+  });
+});
+
+/**
+ * The PHONE view. Below `md` the questions are not accordions: the caret is
+ * hidden, tapping one slides a full-screen answer up, and the answer's CTA
+ * joins a pinned Close bar at the bottom.
+ */
+describe("QuickAnswersSection phone answer sheet", () => {
+  it("hides the accordion caret, because the phone opens a sheet instead", () => {
+    setPhoneViewport(true);
+    const { container } = render(<QuickAnswersSection groups={[group()]} />);
+
+    const caret = container.querySelector(
+      '[data-testid="quick-answer-question"] svg',
+    );
+    expect(caret?.getAttribute("class") ?? "").toContain("hidden");
+    // It comes back where the answer really folds in place.
+    expect(caret?.getAttribute("class") ?? "").toContain("md:block");
+  });
+
+  it("slides the answer up with a pinned Close and CTA bar", async () => {
+    setPhoneViewport(true);
+    const user = userEvent.setup();
+    render(
+      <QuickAnswersSection
+        groups={[
+          group({
+            topics: [
+              topic({
+                cta: {
+                  label: "Talk through my options",
+                  actionType: "external_url",
+                  destination: "https://example.com/schedule",
+                },
+              }),
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /401\(k\) loans/i }));
+
+    const sheet = screen.getByTestId("quick-answer-fullscreen");
+    expect(sheet).toHaveAttribute("role", "dialog");
+    expect(sheet.className).toContain("md:hidden");
+    // The sheet arrives from the bottom edge (framer's `initial={{ y: "100%" }}`).
+    expect(sheet.style.transform).toContain("translateY");
+
+    const bar = screen.getByTestId("quick-answer-mobile-actions");
+    const close = within(bar).getByRole("button", { name: "Close the answer" });
+    const cta = within(bar).getByRole("link", {
+      name: "Talk through my options",
+    });
+    expect(cta).toHaveAttribute("href", "https://example.com/schedule");
+    expect(cta).toHaveAttribute("target", "_blank");
+
+    // Both buttons are full-width single-line controls, and the bar sits 28px
+    // above the viewport edge (16px higher than before) plus the safe area.
+    expect(cta.className).toContain("whitespace-nowrap");
+    expect(cta.className).toContain("w-full");
+    expect(close.className).toContain("whitespace-nowrap");
+    expect(close.className).toContain("w-full");
+    expect(bar.className).toContain("1.75rem");
+
+    // The bar is the CTA's only home in the sheet, so it is never duplicated.
+    expect(
+      screen.getAllByRole("link", { name: "Talk through my options" }),
+    ).toHaveLength(1);
+
+    await user.click(close);
+    // `AnimatePresence` keeps the sheet mounted while it slides back down —
+    // the close is animated, not an instant unmount.
+    expect(screen.getByTestId("quick-answer-fullscreen")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByTestId("quick-answer-fullscreen"),
+      ).not.toBeInTheDocument(),
+    );
+  });
+
+  it("leaves an Action Hub's choice as the only call to action", async () => {
+    setPhoneViewport(true);
+    const user = userEvent.setup();
+    const rows: ActionHubRow[] = [
+      {
+        location: "retirement",
+        label: "Retirement plan",
+        href: "https://example.com/retire",
+        external: true,
+        source: "placement",
+      },
+    ];
+    render(
+      <QuickAnswersSection
+        groups={[
+          group({
+            topics: [
+              topic({
+                isActionHub: true,
+                cta: {
+                  label: "Update everything",
+                  actionType: "external_url",
+                },
+              }),
+            ],
+          }),
+        ]}
+        actionHubPanels={{ "sys.401k-loans": rows }}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /401\(k\) loans/i }));
+
+    const bar = screen.getByTestId("quick-answer-mobile-actions");
+    expect(
+      within(bar).getByRole("button", { name: "Close the answer" }),
+    ).toBeInTheDocument();
+    // The hub's own panel is the choice; the generic CTA is not repeated here.
+    expect(
+      within(bar).queryByTestId("quick-answer-mobile-cta"),
+    ).not.toBeInTheDocument();
   });
 });

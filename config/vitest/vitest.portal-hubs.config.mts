@@ -37,6 +37,8 @@ const portalHubTests = [
   "components/pages/client-portal/sections/__tests__/portal-welcome-banner-mobile-gradient.test.tsx",
   // "How Can We Help You Today?" cards and their CTA shapes
   "components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx",
+  // Quick Answers: grouping, search, deep links, and the phone answer sheet
+  "components/pages/client-portal/sections/__tests__/quick-answers-section.test.tsx",
   // The card layout rules it renders from: primary edge, order, row packing
   "lib/__tests__/help-card-layout.test.ts",
   // Putting an older plan's Quick Answers groups back in step with the library

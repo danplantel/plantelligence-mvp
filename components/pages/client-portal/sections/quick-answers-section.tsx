@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { LayoutGroup, motion } from "framer-motion";
+import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
   ArrowLeft,
   ChevronDown,
@@ -56,10 +56,13 @@ import type { ActionHubRow, EffectiveTopic, TopicGroup } from "@/types/topic";
  * for the Action Hub note. Nothing is hard-coded.
  *
  * Layout contract:
- *  - `sm` and up: two columns, each a stack of groups. Answers expand in their column.
- *  - phone: the question list is one column and tapping a question opens a full-screen
- *    answer view with a back arrow (handoff: "a view within the page, not a new page").
- *    That view is a `pushState` entry, so the browser back button closes it.
+ *  - `md` and up: two columns, each a stack of groups. Answers expand in their column,
+ *    and the question bars carry a caret for that fold.
+ *  - phone (`< md`): the question list is one column. Nothing folds in place — the
+ *    caret is hidden, because tapping a question opens the full-screen answer view
+ *    (handoff: "a view within the page, not a new page"). That view slides up, keeps
+ *    a pinned action bar at the bottom (Close + the topic's CTA), and is a
+ *    `pushState` entry, so the browser back button closes it.
  *
  * Content blocks: `quick_answer` and `steps` render here, and the placement CTA sits at
  * the foot of the answer. `documents`, `video` and `contact` blocks resolve in TF-10,
@@ -165,6 +168,49 @@ function topicChip(topic: EffectiveTopic): string | null {
   return null;
 }
 
+/** A placement CTA, resolved once so the answer body and the phone action bar agree. */
+interface ResolvedTopicCta {
+  label: string;
+  href: string;
+  external: boolean;
+}
+
+/**
+ * The topic's CTA, destination and all.
+ *
+ * A placement CTA can carry its own destination. When it does not, its `target`
+ * decides: the plan's login URL, the advisor's booking link, or the contact band.
+ * A label that names the advisor is the fallback for older rows.
+ */
+function resolveTopicCta(
+  topic: EffectiveTopic,
+  options: {
+    basePath: string;
+    advisorBookingUrl?: string;
+    recordkeeperUrl?: string;
+  },
+): ResolvedTopicCta | null {
+  const label = (topic.cta?.label ?? "").trim();
+  if (!label) return null;
+
+  const { basePath, advisorBookingUrl, recordkeeperUrl } = options;
+  const labelImpliesAdvisor = /book|advisor|talk|review|counsel/i.test(label);
+  const target =
+    topic.cta?.target ?? (labelImpliesAdvisor ? "advisor" : "recordkeeper");
+  const targetUrl =
+    target === "recordkeeper"
+      ? toExternalUrl(recordkeeperUrl)
+      : target === "advisor"
+        ? advisorBookingUrl
+        : `#${HAVE_QUESTIONS_SECTION_ID}`;
+  const resolved = resolveTopicHref(
+    topic.cta?.destination || targetUrl || `#${HAVE_QUESTIONS_SECTION_ID}`,
+    basePath,
+  );
+
+  return { label, href: resolved.href || "#", external: resolved.external };
+}
+
 /** The answer body: quick answer, then steps, then the placement CTA. */
 function TopicAnswer({
   topic,
@@ -175,6 +221,7 @@ function TopicAnswer({
   advisorBookingUrl,
   recordkeeperUrl,
   fillTokens,
+  showCta = true,
 }: {
   topic: EffectiveTopic;
   brandColor: string;
@@ -192,6 +239,11 @@ function TopicAnswer({
   recordkeeperUrl?: string;
   /** Replaces the per-plan `{{tokens}}` a topic's copy may contain. */
   fillTokens: (text: string) => string;
+  /**
+   * Whether to draw the placement CTA here. The phone view passes `false` and
+   * prints it in its pinned action bar instead, so a long answer cannot bury it.
+   */
+  showCta?: boolean;
 }) {
   const quickAnswer = fillTokens(topicQuickAnswer(topic));
   const hasActionHub = !!actionHubRows && actionHubRows.length > 0;
@@ -205,25 +257,11 @@ function TopicAnswer({
       resources.push({ kind: "contact", label: fillTokens(block.contactId) });
     }
   }
-  // A placement CTA can carry its own destination. When it does not, its `target`
-  // decides: the plan's login URL, the advisor's booking link, or the contact
-  // band. A label that names the advisor is the fallback for older rows.
-  const labelImpliesAdvisor = /book|advisor|talk|review|counsel/i.test(
-    topic.cta?.label ?? "",
-  );
-  const target =
-    topic.cta?.target ?? (labelImpliesAdvisor ? "advisor" : "recordkeeper");
-  const targetUrl =
-    target === "recordkeeper"
-      ? toExternalUrl(recordkeeperUrl)
-      : target === "advisor"
-        ? advisorBookingUrl
-        : `#${HAVE_QUESTIONS_SECTION_ID}`;
-  const ctaDestination =
-    topic.cta?.destination ||
-    targetUrl ||
-    `#${HAVE_QUESTIONS_SECTION_ID}`;
-  const resolvedCta = resolveTopicHref(ctaDestination, basePath);
+  const resolvedCta = resolveTopicCta(topic, {
+    basePath,
+    advisorBookingUrl,
+    recordkeeperUrl,
+  });
 
   return (
     <div className="space-y-3">
@@ -282,26 +320,24 @@ function TopicAnswer({
           basePath={basePath}
           ctaLabel={topic.cta?.label}
         />
-      ) : (
-        topic.cta && (
-          <div className="pt-1">
-            <a
-              href={resolvedCta.href || "#"}
-              {...(resolvedCta.external
-                ? { target: "_blank", rel: "noopener noreferrer" }
-                : {})}
-              className="inline-flex min-h-10 items-center justify-center px-5 py-2 text-xs font-semibold uppercase tracking-[0.1em] transition-opacity hover:opacity-90"
-              style={{
-                backgroundColor: brandColor,
-                color: readableColor(brandColor),
-                borderRadius: portalRadiusValue(),
-              }}
-            >
-              {topic.cta.label}
-            </a>
-          </div>
-        )
-      )}
+      ) : resolvedCta && showCta ? (
+        <div className="pt-1">
+          <a
+            href={resolvedCta.href}
+            {...(resolvedCta.external
+              ? { target: "_blank", rel: "noopener noreferrer" }
+              : {})}
+            className="inline-flex min-h-10 items-center justify-center px-5 py-2 text-xs font-semibold uppercase tracking-[0.1em] transition-opacity hover:opacity-90"
+            style={{
+              backgroundColor: brandColor,
+              color: readableColor(brandColor),
+              borderRadius: portalRadiusValue(),
+            }}
+          >
+            {resolvedCta.label}
+          </a>
+        </div>
+      ) : null}
 
       {topic.isActionHub && (
         <p
@@ -426,10 +462,37 @@ export function QuickAnswersSection({
 
   const mobileTopic = allTopics.find((topic) => topic.slug === mobileSlug) ?? null;
 
+  /**
+   * The phone answer view, and its pinned action bar.
+   *
+   * The bar carries a Close button always, plus the topic's own CTA when it has
+   * one — unless the topic is an Action Hub, whose panel already IS the call to
+   * action and would otherwise be repeated. `resolveTopicCta` is the same helper
+   * the desktop answer uses, so the two can never point at different places.
+   */
+  const mobileActionHubRows = mobileTopic
+    ? actionHubPanels?.[mobileTopic.slug]
+    : undefined;
+  const mobileCta =
+    mobileTopic &&
+    !(mobileActionHubRows && mobileActionHubRows.length > 0)
+      ? resolveTopicCta(mobileTopic, {
+          basePath,
+          advisorBookingUrl: resolvedBookingUrl,
+          recordkeeperUrl: resolvedLoginUrl,
+        })
+      : null;
+
+  /**
+   * Phones get the full-screen answer; everything from `md` up expands in place.
+   * The breakpoint must match the CSS (`md:hidden` on the view, `md:block` on
+   * the inline answer and the caret), or a tablet width would land on neither
+   * layout.
+   */
   const isPhoneViewport = () =>
     typeof window !== "undefined" &&
     typeof window.matchMedia === "function" &&
-    window.matchMedia("(max-width: 639px)").matches;
+    window.matchMedia("(max-width: 767px)").matches;
 
   // A deep link (`#401k-loans`) opens that answer on first paint.
   useEffect(() => {
@@ -527,7 +590,10 @@ export function QuickAnswersSection({
         </span>
         <ChevronDown
           className={cn(
-            "h-4 w-4 shrink-0 transition-transform duration-300",
+            // Phones open the full-screen answer, not an in-place accordion, so
+            // the caret would promise a fold that does not exist. From `md` up
+            // (where the answer really does expand here) it is drawn.
+            "hidden h-4 w-4 shrink-0 transition-transform duration-300 md:block",
             isOpen && "rotate-180",
           )}
           aria-hidden="true"
@@ -666,48 +732,103 @@ export function QuickAnswersSection({
         </LayoutGroup>
       </div>
 
-      {/* Phone answer view: a view within the page, with a back arrow. */}
-      {mobileTopic && (
-        <div
-          className="fixed inset-0 z-[70] flex flex-col bg-white md:hidden"
-          role="dialog"
-          aria-modal="true"
-          aria-label={mobileTopic.title}
-          data-testid="quick-answer-fullscreen"
-        >
-          <div
-            className="flex items-center gap-3 px-4 py-3"
-            style={{
-              backgroundColor: brandColor,
-              color: readableColor(brandColor),
+      {/* Phone answer view: a view within the page, with a back arrow. It
+          slides up from the bottom edge so it reads as a sheet arriving over
+          the list rather than a new page replacing it — and `AnimatePresence`
+          keeps it mounted long enough to slide back down on close. */}
+      <AnimatePresence>
+        {mobileTopic && (
+          <motion.div
+            className="fixed inset-0 z-[70] flex flex-col bg-white md:hidden"
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{
+              duration: 0.32,
+              ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
             }}
+            role="dialog"
+            aria-modal="true"
+            aria-label={mobileTopic.title}
+            data-testid="quick-answer-fullscreen"
           >
-            <button
-              type="button"
-              onClick={closeMobile}
-              aria-label="Back to the question list"
-              className="shrink-0 rounded-full p-1.5 transition-colors hover:bg-white/15"
+            <div
+              className="flex items-center gap-3 px-4 py-3"
+              style={{
+                backgroundColor: brandColor,
+                color: readableColor(brandColor),
+              }}
             >
-              <ArrowLeft className="h-5 w-5" aria-hidden="true" />
-            </button>
-            <p className="min-w-0 truncate font-red-hat text-sm font-semibold">
-              {mobileTopic.title}
-            </p>
-          </div>
-          <div className="flex-1 overflow-y-auto px-4 py-4">
-            <TopicAnswer
-              topic={mobileTopic}
-              brandColor={brandColor}
-              secondaryColor={secondaryColor}
-              basePath={basePath}
-              actionHubRows={actionHubPanels?.[mobileTopic.slug]}
-              advisorBookingUrl={resolvedBookingUrl}
-              recordkeeperUrl={resolvedLoginUrl}
-              fillTokens={fillTokens}
-            />
-          </div>
-        </div>
-      )}
+              <button
+                type="button"
+                onClick={closeMobile}
+                aria-label="Back to the question list"
+                className="shrink-0 rounded-full p-1.5 transition-colors hover:bg-white/15"
+              >
+                <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+              </button>
+              <p className="min-w-0 truncate font-red-hat text-sm font-semibold">
+                {mobileTopic.title}
+              </p>
+            </div>
+
+            {/* The answer is the only scrollable region. The action bar below
+                is a sibling, so it stays pinned however long the answer is. */}
+            <div className="flex-1 overflow-y-auto px-4 py-4">
+              <TopicAnswer
+                topic={mobileTopic}
+                brandColor={brandColor}
+                secondaryColor={secondaryColor}
+                basePath={basePath}
+                actionHubRows={mobileActionHubRows}
+                advisorBookingUrl={resolvedBookingUrl}
+                recordkeeperUrl={resolvedLoginUrl}
+                fillTokens={fillTokens}
+                // Its CTA lives in the pinned bar below instead.
+                showCta={false}
+              />
+            </div>
+
+            {/* Pinned phone action bar. The buttons stack full-width so each
+                label stays on ONE line whatever the CTA is called. The extra
+                bottom padding lifts them clear of the home-indicator area,
+                which was clipping their lower edge on an iPhone 14 Pro. */}
+            <div
+              data-testid="quick-answer-mobile-actions"
+              className="shrink-0 border-t border-neutral-200 bg-white px-4 pb-[calc(1.75rem_+_env(safe-area-inset-bottom,0px))] pt-3"
+            >
+              <div className="flex flex-col gap-2">
+                {mobileCta ? (
+                  <a
+                    href={mobileCta.href}
+                    {...(mobileCta.external
+                      ? { target: "_blank", rel: "noopener noreferrer" }
+                      : {})}
+                    data-testid="quick-answer-mobile-cta"
+                    className="inline-flex min-h-11 w-full items-center justify-center truncate whitespace-nowrap px-4 text-xs font-semibold uppercase tracking-[0.1em] transition-opacity hover:opacity-90"
+                    style={{
+                      backgroundColor: brandColor,
+                      color: readableColor(brandColor),
+                      borderRadius: portalRadiusValue(),
+                    }}
+                  >
+                    {mobileCta.label}
+                  </a>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={closeMobile}
+                  aria-label="Close the answer"
+                  className="inline-flex min-h-11 w-full items-center justify-center whitespace-nowrap border border-neutral-300 px-4 text-xs font-semibold uppercase tracking-[0.1em] text-neutral-700 transition-colors hover:bg-neutral-100"
+                  style={{ borderRadius: portalRadiusValue() }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
