@@ -65,7 +65,6 @@ const EDIT_TABS = [
   { id: "branding", label: "Branding" },
   { id: "preview", label: "Preview" },
   { id: "contacts", label: "Contacts" },
-  { id: "faqs", label: "FAQs" },
   { id: "documents", label: "Documents" },
   { id: "disclaimers", label: "Disclosures" },
 ] as const;
@@ -635,13 +634,9 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
                 state it did when both were rendered. */}
             <TabsContent value="contacts" className="mt-0 space-y-6">
               <CommentAnchor sectionKey="contacts" label="Contacts">
-                <BenefitsStep3 section="contacts" />
-              </CommentAnchor>
-            </TabsContent>
-
-            <TabsContent value="faqs" className="mt-0">
-              <CommentAnchor sectionKey="faqs" label="FAQs">
-                <BenefitsStep3 section="faqs" />
+                {/* FAQs are no longer edited here: a hub answers questions with its
+                    Quick Answers placements, so this tab is Contacts only. */}
+                <BenefitsStep3 source="edit_benefit" />
               </CommentAnchor>
             </TabsContent>
 

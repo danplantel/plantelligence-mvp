@@ -6,10 +6,10 @@ It covers the page's orchestration around the wizard: deep-link hydration, step 
 
 ## Summary
 
-- **Unit tests:** 228 passing across 7 files.
+- **Unit tests:** 218 passing across 7 files.
   - page shell/validation/publish: 103
   - shared Step 1 (plan, category, messaging, contact): 20
-  - shared Step 3 (contacts, collaborators, FAQs): 33
+  - shared Step 3 (contacts, collaborators): 23
   - shared Step 4 (documents): 23
   - shared Step 5 (footer disclosures): 19
   - `InviteCollaboratorDialog`: 19
@@ -18,12 +18,12 @@ It covers the page's orchestration around the wizard: deep-link hydration, step 
 - **E2E:** none dedicated; the page is not yet in a Playwright spec.
 - **Runner:** Vitest + React Testing Library + jsdom.
 
-The page suite is mostly orchestration, so it mocks the wizard store, the five step screens, the wizard chrome, the three dialogs, the leave guard, `saveBenefit`, `purgeDraftBenefit`, `fetchProfileOnce`, and the comment surface. The four shared step suites then drive the real step components with their presentation children stubbed: they pin the plan/category gate and messaging writes (Step 1), the contact roster, cap, collaborators and FAQ edits (Step 3), the document load/merge/delete/edit/reorder contract (Step 4), and the per-category disclosure seeding, debounced saves and timer cleanup (Step 5). The invite dialog suite covers its scoped chips, domain suggestion, existing-collaborator search and every toast branch.
+The page suite is mostly orchestration, so it mocks the wizard store, the five step screens, the wizard chrome, the three dialogs, the leave guard, `saveBenefit`, `purgeDraftBenefit`, `fetchProfileOnce`, and the comment surface. The four shared step suites then drive the real step components with their presentation children stubbed: they pin the plan/category gate and messaging writes (Step 1), the contact roster, cap and collaborators (Step 3 — contacts only; FAQs are answered by the hub's Quick Answers and are no longer edited here), the document load/merge/delete/edit/reorder contract (Step 4), and the per-category disclosure seeding, debounced saves and timer cleanup (Step 5). The invite dialog suite covers its scoped chips, domain suggestion, existing-collaborator search and every toast branch.
 
 ## Running these tests
 
 ```bash
-pnpm test:create-benefit           # the Create Benefit suite (228 tests)
+pnpm test:create-benefit           # the Create Benefit suite (218 tests)
 pnpm test:create-benefit:watch     # watch mode
 pnpm test:create-benefit:coverage  # suite + V8 coverage
 ```
@@ -64,7 +64,7 @@ Shared step and dialog suites (the real components, with presentation children s
 | #   | Suite                                                                     | Tests | Focus                                                                                          |
 | --- | ------------------------------------------------------------------------- | ----: | ---------------------------------------------------------------------------------------------- |
 | 16  | `components/wizard/benefits-steps/__tests__/step-1.test.tsx`              |    20 | Plan gate, picker/custom name, messaging seeds, signature, primary contact, section/mode gating |
-| 17  | `components/wizard/benefits-steps/__tests__/step-3.test.tsx`              |    33 | Contact roster/fallback, selection + cap, plan writes, collaborators, FAQ add/edit/remove/save |
+| 17  | `components/wizard/benefits-steps/__tests__/step-3.test.tsx`              |    23 | Contact roster/fallback, selection + cap, plan writes, collaborators and the contacts preview |
 | 18  | `components/wizard/benefits-steps/__tests__/step-4.test.tsx`              |    23 | Load + merge, category/language filters, upload, delete branches, inline edit, reorder, sort   |
 | 19  | `components/wizard/benefits-steps/__tests__/step-5.test.tsx`              |    19 | Seed ladder, category mapping, inline debounce, apply-all, footer background, timer cleanup    |
 | 20  | `components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx` |    19 | Scope chips, reset, submit payload, suggestion/search, success/warning/error toasts            |

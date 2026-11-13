@@ -743,8 +743,8 @@ function NewBenefitsPageInner() {
    *    Create Benefits starts clean instead of resuming the abandoned draft.
    * 2. The Benefit row — but ONLY when this session created it. The Step 1 and
    *    Step 2 auto-saves send `?updateOnly=1` and can never insert, so a
-   *    mid-wizard row comes only from an explicit save (Step 3's "Save FAQs", the
-   *    editor save, the publish/hide toggle). `sessionCreatedBenefitRow` compares
+   *    mid-wizard row comes only from an explicit save (the contact persist in
+   *    Step 3, the editor save, the publish/hide toggle). `sessionCreatedBenefitRow` compares
    *    the wizard's read-once snapshot against the category, so a benefit that
    *    already existed — this wizard is also opened to change one — is never
    *    touched, and an unloaded snapshot counts as "not ours".

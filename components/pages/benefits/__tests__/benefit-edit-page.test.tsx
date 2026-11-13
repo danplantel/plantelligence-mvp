@@ -164,8 +164,8 @@ vi.mock("@/components/wizard/benefits-steps", () => ({
     }, []);
     return <div data-testid="step1" data-mode={mode} />;
   },
-  BenefitsStep3: ({ section }: any) => (
-    <div data-testid={`step3-${section}`} data-section={section} />
+  BenefitsStep3: ({ source }: any) => (
+    <div data-testid="step3-contacts" data-source={source} />
   ),
   BenefitsStep4: () => <div data-testid="step4" />,
   BenefitsStep5: () => <div data-testid="step5" />,
@@ -394,15 +394,21 @@ describe("BenefitEditPage tabs", () => {
 
     const step1 = screen.getByTestId("step1");
     expect(step1.closest("[aria-hidden='true']")).not.toBeNull();
-    expect(screen.getByTestId("step3-contacts")).toBeInTheDocument();
+    expect(screen.getByTestId("step3-contacts")).toHaveAttribute(
+      "data-source",
+      "edit_benefit",
+    );
   });
 
-  it("switches through Contacts, FAQs, Documents, Disclaimers and Preview", async () => {
+  it("switches through Contacts, Documents, Disclosures and Preview", async () => {
     const user = userEvent.setup();
     await renderReady();
 
-    await user.click(screen.getByRole("tab", { name: "FAQs" }));
-    expect(screen.getByTestId("step3-faqs")).toBeInTheDocument();
+    // FAQs are no longer a tab: a hub answers questions with its Quick Answers
+    // placements, and this page edits only the benefit's contacts.
+    expect(
+      screen.queryByRole("tab", { name: "FAQs" }),
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("tab", { name: "Documents" }));
     expect(screen.getByTestId("step4")).toBeInTheDocument();

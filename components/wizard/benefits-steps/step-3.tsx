@@ -1,12 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import {
-  useBenefitsWizardStore,
-  FAQItem,
-  SupportContact,
-} from "@/lib/benefits-wizard-store";
-import { DEFAULT_FAQS } from "@/lib/benefits-faq-defaults";
+import { useBenefitsWizardStore, SupportContact } from "@/lib/benefits-wizard-store";
 import {
   MAX_SUPPORT_CONTACTS_PER_BENEFIT,
   canAddSupportContact,
@@ -23,21 +18,15 @@ import { Switch } from "@/components/ui/switch";
 import {
   Plus,
   Trash2,
-  HelpCircle,
   Users,
   Check,
   ChevronDown,
-  GripVertical,
-  Save,
-  Loader2,
   Eye,
   Info,
   AlertTriangle,
-  Pencil,
   UserPlus,
   Armchair,
   X,
-  BadgeCheck,
   MailCheck,
   UserCheck,
 } from "lucide-react";
@@ -58,7 +47,6 @@ import { InviteCollaboratorDialog } from "@/components/pages/benefits/invite-col
 // The plan's Key Contacts card — the SAME card the Edit Client and Create Plan
 // Key Contacts surfaces render, so this roster cannot drift from them.
 import { ContactCard } from "@/components/contacts/contact-card";
-import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { BenefitContactDialog } from "./benefit-contact-dialog";
@@ -77,11 +65,8 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  FAQSection,
-  DynamicFAQItem,
-  FAQContact,
-} from "@/components/faq-section";
+// Type-only: the shared contact shape the "Have Questions?" preview consumes.
+import type { FAQContact } from "@/components/faq-section";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import {
   CollaboratorDetailDialog,
@@ -89,21 +74,6 @@ import {
 } from "@/components/teammates/collaborator-detail-dialog";
 import { CollaboratorCard } from "@/components/teammates/collaborator-card";
 import { useViewerAccess } from "@/hooks/useViewerAccess";
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  DragEndEvent,
-} from "@dnd-kit/core";
-import {
-  arrayMove,
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 
 /** One person assigned to this plan, as `/api/teammates/plan-assignments` returns it. */
 interface PlanCollaboratorRow {
@@ -251,21 +221,17 @@ function CollaboratorCardsSkeleton() {
 }
 
 export function BenefitsStep3({
-  section,
+  source = "create_benefits",
 }: {
-  /** When set, renders only the matching section (used by the Edit Benefit page,
-   *  where Contacts and FAQs are separate tabs). */
-  section?: "contacts" | "faqs";
+  /**
+   * Which flow renders this step. It only labels the collaborator invite's audit row;
+   * both flows render the same Contacts content now that FAQs are no longer edited
+   * here (a hub answers questions with Quick Answers).
+   */
+  source?: "create_benefits" | "edit_benefit";
 } = {}) {
   const { stepData, saveStepData } = useBenefitsWizardStore();
-  const [expandedId, setExpandedId] = useState<string | null>(null);
-  // Which FAQ block sections are open. Starts open, like the Contacts sections above, so
-  // nothing is hidden behind a click the advisor did not ask for.
-  const [openFaqSection, setOpenFaqSection] = useState<string[]>(["faqs"]);
-  const [savePending, setSavePending] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
-  // Support Contacts preview — the portal's "Have Questions?" cards. Its own state
-  // because `previewOpen` previews the FAQ section, a different part of the page.
+  // Support Contacts preview — the portal's "Have Questions?" cards.
   const [contactsPreviewOpen, setContactsPreviewOpen] = useState(false);
   // Plan-level delete: the contact the confirm dialog is asking about, and whether the
   // request is in flight.
@@ -282,6 +248,9 @@ export function BenefitsStep3({
   const [contactPendingSeat, setContactPendingSeat] =
     useState<KeyContact | null>(null);
   const step1Data = stepData.step1;
+  // FAQs are no longer edited in this step (the hub answers them with Quick Answers),
+  // but the stored list is left untouched: `save-benefit` still persists whatever the
+  // draft holds, so an existing benefit's saved FAQs are never wiped by this screen.
   const currentStep3Data = stepData.step3 || {
     faqs: [],
     supportContacts: [],
@@ -599,152 +568,6 @@ export function BenefitsStep3({
     // console.log("[Step 3] planContacts:", planContacts, "planId:", step1Data?.planId);
   }
 
-  // Helper: get the latest faqsByCategory map directly from the Zustand store.
-  // Reads the authoritative state to avoid stale closure issues.
-  const readFaqsByCategory = (): Record<string, FAQItem[]> => {
-    return (
-      useBenefitsWizardStore.getState().stepData.step3?.faqsByCategory ?? {}
-    );
-  };
-
-  // Derive the correct FAQ list for the current benefit category — computed on
-  // every render. Retirement defaults are shown as a single combined list.
-  const resolvedFaqs = ((): FAQItem[] => {
-    const cat = step1Data?.benefitCategory;
-    if (!cat) return [];
-    const saved = readFaqsByCategory()[cat];
-    let list: FAQItem[] =
-      saved && saved.length > 0 ? saved : DEFAULT_FAQS[cat] ?? [];
-    // Merge any leftover "optional retirement adds" that an earlier build of
-    // this wizard persisted separately, so no existing FAQ edits are lost now
-    // that the split accordion has been reverted.
-    if (cat === "Retirement") {
-      const leftover = (useBenefitsWizardStore.getState().stepData.step3 as any)
-        ?.optionalRetirementFaqs as FAQItem[] | undefined;
-      if (Array.isArray(leftover) && leftover.length > 0) {
-        const ids = new Set(list.map((f) => f.id));
-        const missing = leftover.filter((f) => !ids.has(f.id));
-        if (missing.length > 0) list = [...list, ...missing];
-      }
-    }
-    return list;
-  })();
-
-  // Persist a modified FAQ list to both the per-category map and the store.
-  const persistFaqs = (next: FAQItem[]) => {
-    const cat = step1Data?.benefitCategory;
-    if (!cat) return;
-    const latestStep3 = useBenefitsWizardStore.getState().stepData.step3 || {
-      faqs: [],
-      supportContacts: [],
-      currentSubStep: "a",
-    };
-    const latestByCategory = latestStep3.faqsByCategory ?? {};
-    saveStepData(3, {
-      ...latestStep3,
-      faqs: next,
-      faqsByCategory: { ...latestByCategory, [cat]: next },
-    });
-  };
-
-  // Handle FAQ changes
-  const updateFaq = (id: string, updates: Partial<FAQItem>) => {
-    const newFaqs = resolvedFaqs.map((faq) =>
-      faq.id === id ? { ...faq, ...updates } : faq,
-    );
-    persistFaqs(newFaqs);
-  };
-
-  const addFaq = () => {
-    const id = uuidv4();
-    const newFaq: FAQItem = {
-      id,
-      question: "New Question?",
-      answer: "Provide an answer here.",
-      linkLabel: "Learn More",
-      linkHref: "#",
-      enabled: true,
-    };
-    const newFaqs = [newFaq, ...resolvedFaqs];
-    persistFaqs(newFaqs);
-    setExpandedId(id);
-  };
-
-  const removeFaq = (id: string) => {
-    const newFaqs = resolvedFaqs.filter((faq) => faq.id !== id);
-    persistFaqs(newFaqs);
-  };
-
-  const toggleExpand = (id: string) => {
-    setExpandedId(expandedId === id ? null : id);
-  };
-
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    }),
-  );
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    if (over && active.id !== over.id) {
-      const oldIndex = resolvedFaqs.findIndex((f) => f.id === active.id);
-      const newIndex = resolvedFaqs.findIndex((f) => f.id === over.id);
-      const newFaqs = arrayMove(resolvedFaqs, oldIndex, newIndex);
-      persistFaqs(newFaqs);
-    }
-  };
-
-  // Save FAQs to the server immediately (draft persist) via the new Benefit API
-  const handleSaveFaqs = async () => {
-    const planId = step1Data?.planId;
-    const benefitCategory = step1Data?.benefitCategory;
-    if (!planId || !benefitCategory) {
-      toast.error(
-        "Missing plan or category data. Please complete Step 1 first.",
-      );
-      return;
-    }
-
-    setSavePending(true);
-    try {
-      // Normalize "Custom" → "Company / Plan Sponsor" for the API
-      const category =
-        benefitCategory === "Custom"
-          ? "Company / Plan Sponsor"
-          : benefitCategory;
-
-      const faqsToSave = resolvedFaqs;
-
-      const updateRes = await fetch(
-        `/api/clients/${planId}/benefits/${encodeURIComponent(category)}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            faqs: faqsToSave,
-            supportContacts: currentStep3Data.supportContacts,
-          }),
-        },
-      );
-
-      const updateResult = await updateRes.json();
-      if (!updateResult.success)
-        throw new Error(updateResult.error || "Failed to save FAQs");
-
-      toast.success("FAQs saved successfully!");
-    } catch (error: any) {
-      console.error("FAQ save error:", error);
-      toast.error("Failed to save FAQs", {
-        description: error.message,
-      });
-    } finally {
-      setSavePending(false);
-    }
-  };
-
   // Stamp which plan + benefit category the selected support contacts belong to.
   // A page refresh resets `supportContactsLoadedCategories` to [], so this context
   // lets the Step 1 pre-population effect treat this selection as a legitimate draft
@@ -844,21 +667,6 @@ export function BenefitsStep3({
     // `enabled` lives here too, and a disabled person is dropped from the hub.
     persistSupportContacts(newContacts);
   };
-
-  // Map FAQs and contacts for preview
-  const previewFaqs: DynamicFAQItem[] = useMemo(
-    () =>
-      resolvedFaqs
-        .filter((f) => f.enabled && f.question && f.answer)
-        .map((f) => ({
-          id: f.id,
-          question: f.question,
-          answer: f.answer,
-          linkLabel: f.linkLabel || undefined,
-          linkHref: f.linkHref && f.linkHref !== "#" ? f.linkHref : undefined,
-        })),
-    [resolvedFaqs],
-  );
 
   /**
    * Delete a contact from the PLAN — removes it from `Client.keyContacts`, so it
@@ -1273,16 +1081,12 @@ export function BenefitsStep3({
       <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full mx-auto pb-20">
         {/* Support Contacts + Collaborators — two accordion sections, so each set
             of people on this benefit is its own collapsible block. */}
-        {(!section || section === "contacts") && (
-          <>
             {/* Section header. The per-person actions belong to the sections that own the
             people: Support Contacts carries Preview, Collaborators carries the invite.
             "Add Benefit" and "Edit Benefit" both render this step, so one header serves
             both surfaces. */}
             <div className="rounded-xl bg-card px-4 py-3">
-              <h2 className="text-lg font-bold text-foreground">
-                Contacts & FAQs
-              </h2>
+              <h2 className="text-lg font-bold text-foreground">Contacts</h2>
               <p className="text-xs text-muted-foreground">
                 Who employees reach out to, and who can help complete this
                 section.
@@ -1672,8 +1476,6 @@ export function BenefitsStep3({
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
-          </>
-        )}
 
         {/* Edit contact — the SAME editor Step 1 uses to create one (see
             BenefitContactDialog), so the two can never drift. This page only persists
@@ -1742,16 +1544,16 @@ export function BenefitsStep3({
           onSubmit={handleContactCreated}
         />
 
-        {/* T4: scoped to the plan and the category this step is editing. The same
-            step renders in the Create (section undefined) and Edit
-            (section="contacts") benefit flows, so the audit row records which. */}
+        {/* T4: scoped to the plan and the category this step is editing. `source` records
+            which flow opened the dialog (Create or Edit Benefit), so the audit row keeps
+            distinguishing them now that both render the same Contacts content. */}
         <InviteCollaboratorDialog
           open={isInviteOpen}
           onOpenChange={setIsInviteOpen}
           planId={invitePlanId}
           planName={step1Data?.selectedPlan?.companyName || "this plan"}
           category={inviteCategory}
-          source={section === "contacts" ? "edit_benefit" : "create_benefits"}
+          source={source}
           onInvited={() => setCollaboratorsRefreshKey((key) => key + 1)}
         />
 
@@ -1873,154 +1675,11 @@ export function BenefitsStep3({
           loadingText="Deleting..."
         />
 
-        {/* FAQ Section — an accordion block of its own, in the same language as the
-            Contacts sections above. Each question keeps its own expand/collapse (still
-            driven by `expandedId`, not by this accordion), so opening the section reveals
-            the list and opening a question reveals its fields. */}
-        {(!section || section === "faqs") && (
-          <Accordion
-            type="multiple"
-            value={openFaqSection}
-            onValueChange={setOpenFaqSection}
-            className="space-y-4"
-          >
-            <AccordionItem
-              value="faqs"
-              className="rounded-xl border bg-card shadow-md"
-            >
-              <AccordionTrigger className="px-4 py-3 hover:no-underline">
-                <span className="flex flex-1 flex-wrap items-center gap-2 text-left">
-                  <HelpCircle className="w-5 h-5 shrink-0 text-accent-blue" />
-                  <span className="text-lg font-bold text-foreground">
-                    Popular Questions (FAQ)
-                  </span>
-                  <Badge variant="secondary" className="font-medium">
-                    {resolvedFaqs.length}
-                  </Badge>
-                  {/* The actions stay in the header, where they were. Their events are
-                    stopped at this wrapper rather than on each button: the header is the
-                    accordion's trigger, so without it saving an FAQ would also collapse
-                    the section being saved. */}
-                  <span
-                    className="flex shrink-0 flex-wrap items-center gap-2"
-                    onClick={(e) => e.stopPropagation()}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onKeyDown={(e) => e.stopPropagation()}
-                  >
-                    <Button
-                      onClick={() => setPreviewOpen(true)}
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1.5 px-3 text-xs font-semibold"
-                    >
-                      <Eye className="w-4 h-4" /> Preview
-                    </Button>
-                    <Button
-                      onClick={handleSaveFaqs}
-                      variant="default"
-                      size="sm"
-                      className="h-8 gap-1.5 px-3 text-xs font-semibold"
-                      disabled={savePending}
-                    >
-                      {savePending ? (
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                      ) : (
-                        <Save className="w-4 h-4" />
-                      )}
-                      {savePending ? "Saving..." : "Save"}
-                    </Button>
-                    <Button
-                      onClick={addFaq}
-                      variant="outline"
-                      size="sm"
-                      className="h-8 gap-1 px-3 text-xs font-semibold"
-                    >
-                      <Plus className="w-4 h-4" /> Add Question
-                    </Button>
-                  </span>
-                  <span className="w-full text-xs font-normal text-muted-foreground">
-                    Manage frequently asked questions for this benefit — drag
-                    the handle to reorder, and each question opens on its own.
-                  </span>
-                </span>
-              </AccordionTrigger>
-              <AccordionContent className="px-4 pb-4 pt-0">
-                <CardContent className="p-3">
-                  {resolvedFaqs.length === 0 ? (
-                    <div className="text-center py-6 bg-gray-50 rounded-lg border border-dashed border-gray-200 dark:bg-gray-800/50 dark:border-gray-700">
-                      <HelpCircle className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-1" />
-                      <p className="text-xs text-muted-foreground">
-                        No questions added yet.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <DndContext
-                        sensors={sensors}
-                        collisionDetection={closestCenter}
-                        onDragEnd={handleDragEnd}
-                      >
-                        <SortableContext
-                          items={resolvedFaqs.map((f) => f.id)}
-                          strategy={verticalListSortingStrategy}
-                        >
-                          {resolvedFaqs.map((faq, index) => (
-                            <SortableFaqItem
-                              key={faq.id}
-                              faq={faq}
-                              index={index}
-                              expandedId={expandedId}
-                              toggleExpand={toggleExpand}
-                              updateFaq={updateFaq}
-                              removeFaq={removeFaq}
-                            />
-                          ))}
-                        </SortableContext>
-                      </DndContext>
-                    </div>
-                  )}
-                </CardContent>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
-        )}
       </div>
 
-      {/* FAQ Preview Modal */}
-      <Dialog open={previewOpen} onOpenChange={setPreviewOpen}>
-        <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
-          <DialogHeader>
-            <DialogTitle>FAQ Preview</DialogTitle>
-            <DialogDescription>
-              This is how the FAQ section will appear on the portal.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex-1 overflow-y-auto px-1">
-            {previewFaqs.length > 0 ? (
-              <div>
-                <FAQSection
-                  brandColor={brandColor}
-                  secondaryColor={secondaryColor}
-                  faqs={previewFaqs}
-                  contacts={previewContacts}
-                />
-              </div>
-            ) : (
-              <div className="text-center py-12 text-muted-foreground">
-                <HelpCircle className="w-10 h-10 mx-auto mb-2 opacity-40" />
-                <p>No enabled FAQs to preview.</p>
-                <p className="text-xs mt-1">
-                  Add questions above and ensure they are enabled.
-                </p>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* Support Contacts preview — the portal's own "Have Questions?" cards, fed the
-          same `previewContacts` the FAQ preview above already builds, so the two cannot
-          disagree about who employees will be shown (and with what details). */}
+          same `previewContacts` the section above builds, so the preview and the
+          selection cannot disagree about who employees will be shown. */}
       <Dialog open={contactsPreviewOpen} onOpenChange={setContactsPreviewOpen}>
         <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
           <DialogHeader>
@@ -2062,197 +1721,5 @@ export function BenefitsStep3({
         </DialogContent>
       </Dialog>
     </>
-  );
-}
-
-interface SortableFaqItemProps {
-  faq: FAQItem;
-  index: number;
-  expandedId: string | null;
-  toggleExpand: (id: string) => void;
-  updateFaq: (id: string, updates: Partial<FAQItem>) => void;
-  removeFaq: (id: string) => void;
-}
-
-const MAX_ANSWER_LENGTH = 500;
-
-function SortableFaqItem({
-  faq,
-  index,
-  expandedId,
-  toggleExpand,
-  updateFaq,
-  removeFaq,
-}: SortableFaqItemProps) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: faq.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    zIndex: isDragging ? 50 : "auto",
-    position: isDragging ? ("relative" as const) : ("static" as const),
-  };
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`${isDragging ? "shadow-2xl ring-2 ring-accent-blue/20" : ""}`}
-    >
-      <div className="border rounded-lg bg-white overflow-hidden transition-all duration-200 shadow-sm dark:bg-gray-800 dark:border-gray-700">
-        <div
-          className={`flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-gray-50/50 dark:hover:bg-gray-700/40 transition-colors ${
-            expandedId === faq.id
-              ? "bg-gray-50/50 border-b border-gray-100 dark:bg-gray-700/40 dark:border-gray-700"
-              : ""
-          }`}
-          onPointerDown={(e) => e.stopPropagation()}
-          onPointerUp={() => toggleExpand(faq.id)}
-        >
-          <div className="flex items-center gap-2.5 flex-1 overflow-hidden">
-            <div
-              {...attributes}
-              {...listeners}
-              className="p-1 -ml-1 cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 dark:text-gray-600 dark:hover:text-gray-400 transition-colors"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <GripVertical className="w-4 h-4" />
-            </div>
-            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-accent-blue/10 text-accent-blue font-bold text-[10px] shrink-0">
-              {index + 1}
-            </div>
-            <span
-              className={`text-sm truncate transition-colors ${
-                expandedId === faq.id
-                  ? "text-accent-blue font-semibold"
-                  : "text-foreground"
-              }`}
-            >
-              {faq.question || `Question ${index + 1}`}
-            </span>
-          </div>
-          <div
-            className="flex items-center gap-2.5 ml-2"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <Switch
-              checked={faq.enabled}
-              onCheckedChange={(checked) =>
-                updateFaq(faq.id, { enabled: checked })
-              }
-              className="scale-[0.65]"
-            />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="text-gray-400 hover:text-red-500 dark:text-gray-500 dark:hover:text-red-400 h-6 w-6"
-              onClick={() => removeFaq(faq.id)}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
-            <ChevronDown
-              className={`w-4 h-4 text-neutral-400 dark:text-neutral-500 transition-transform duration-300 ${
-                expandedId === faq.id ? "rotate-180" : ""
-              }`}
-            />
-          </div>
-        </div>
-
-        <AnimatePresence>
-          {expandedId === faq.id && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: "auto", opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.25, ease: "easeInOut" }}
-            >
-              <div className="px-3 py-4 space-y-4 bg-white dark:bg-gray-800">
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Question Text
-                  </Label>
-                  <Input
-                    value={faq.question}
-                    onChange={(e) =>
-                      updateFaq(faq.id, { question: e.target.value })
-                    }
-                    placeholder="Enter question..."
-                    className="h-8 text-xs font-medium text-foreground border-gray-200 focus:border-accent-blue dark:border-gray-600"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Answer
-                  </Label>
-                  <Textarea
-                    value={faq.answer}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val.length <= MAX_ANSWER_LENGTH) {
-                        updateFaq(faq.id, { answer: val });
-                      }
-                    }}
-                    placeholder="Enter answer..."
-                    maxLength={MAX_ANSWER_LENGTH}
-                    className="min-h-[80px] text-xs leading-relaxed border-gray-200 focus:border-accent-blue dark:border-gray-600"
-                  />
-                  <div className="flex justify-end">
-                    <span
-                      className={`text-[11px] font-medium tabular-nums transition-colors duration-200 ${
-                        faq.answer.length >= MAX_ANSWER_LENGTH
-                          ? "text-red-500"
-                          : faq.answer.length >= MAX_ANSWER_LENGTH * 0.9
-                          ? "text-amber-500"
-                          : "text-muted-foreground"
-                      }`}
-                    >
-                      {faq.answer.length.toLocaleString()}
-                      <span className="text-muted-foreground/60">
-                        /{MAX_ANSWER_LENGTH.toLocaleString()}
-                      </span>
-                    </span>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Link Label
-                    </Label>
-                    <Input
-                      value={faq.linkLabel}
-                      onChange={(e) =>
-                        updateFaq(faq.id, { linkLabel: e.target.value })
-                      }
-                      placeholder="Learn More"
-                      className="h-8 text-[11px] border-gray-200 focus:border-accent-blue dark:border-gray-600"
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                      Link URL
-                    </Label>
-                    <Input
-                      value={faq.linkHref}
-                      onChange={(e) =>
-                        updateFaq(faq.id, { linkHref: e.target.value })
-                      }
-                      placeholder="https://..."
-                      className="h-8 text-[11px] border-gray-200 focus:border-accent-blue dark:border-gray-600"
-                    />
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </div>
   );
 }

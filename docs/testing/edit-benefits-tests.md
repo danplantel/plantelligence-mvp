@@ -6,12 +6,12 @@ The route is deliberately small. It decides between the restricted notice, a loa
 
 ## Summary
 
-- **Unit tests:** 304 passing across 17 files.
+- **Unit tests:** 294 passing across 17 files.
   - route gate: 26
   - editor: 42
   - Preview tab (`EditBenefitPreviewSection`): 17
   - shared Step 1: 20
-  - shared Step 3 (Contacts / FAQs tabs): 33
+  - shared Step 3 (Contacts tab): 23
   - shared Step 4 (Documents tab): 23
   - shared Step 5 (Disclaimers tab): 19
   - `InviteCollaboratorDialog`: 19
@@ -27,7 +27,7 @@ The route is deliberately small. It decides between the restricted notice, a loa
 ## Running these tests
 
 ```bash
-pnpm test:edit-benefit           # route + editor + preview + steps + API (304 tests)
+pnpm test:edit-benefit           # route + editor + preview + steps + API (294 tests)
 pnpm test:edit-benefit:watch     # watch mode
 pnpm test:edit-benefit:coverage  # suite + V8 coverage
 ```
@@ -50,7 +50,7 @@ pnpm test:coverage
 | 2   | `components/pages/benefits/__tests__/benefit-edit-page.test.tsx`            |    42 | Hydration/chrome, tabs, Custom name, save, delete, portal link, preview layout     |
 | 3   | `components/pages/benefits/__tests__/edit-benefit-preview-section.test.tsx` |    17 | Editor auto-open/toggle, header events, desktop/mobile, plan fallback, typography  |
 | 4   | `components/wizard/benefits-steps/__tests__/step-1.test.tsx`                |    20 | Plan gate, edit-mode picker hiding, messaging seeds, signature, primary contact    |
-| 5   | `components/wizard/benefits-steps/__tests__/step-3.test.tsx`                |    33 | Contact roster/cap/writes, collaborators, FAQ add/edit/remove/save, section tabs   |
+| 5   | `components/wizard/benefits-steps/__tests__/step-3.test.tsx`                |    23 | Contact roster/cap/writes, collaborators, the contacts preview                     |
 | 6   | `components/wizard/benefits-steps/__tests__/step-4.test.tsx`                |    23 | Document load/merge, filters, upload, delete branches, inline edit, reorder, sort  |
 | 7   | `components/wizard/benefits-steps/__tests__/step-5.test.tsx`                |    19 | Disclosure seeding, category mapping, debounced saves, apply-all, timer cleanup    |
 | 8   | `components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx`   |    19 | Scope chips, submit payload, domain suggestion, existing search, toast branches    |
@@ -153,7 +153,8 @@ The wizard store, steps, preview, delete dialog, save/purge helpers, router and 
 
 - Branding renders a visible Step 1 in edit mode
 - other tabs keep a hidden Step 1 mounted
-- Contacts, FAQs, Documents, Disclosures and Preview each render their section
+- Contacts, Documents, Disclosures and Preview each render their section (there is
+  no FAQs tab: a hub answers questions with its Quick Answers placements)
 
 **Custom name (7)**
 
@@ -251,7 +252,7 @@ The wizard store, steps, preview, delete dialog, save/purge helpers, router and 
 
 - [ ] Branding shows Step 1's accordions.
 - [ ] Contacts shows only the support team.
-- [ ] FAQs shows the category's FAQs.
+- [ ] There is no FAQs tab — questions are answered by the hub's Quick Answers.
 - [ ] Documents shows its own section.
 - [ ] Disclosures shows the disclosure editor.
 - [ ] Preview shows the portal preview and the inline editing panel.

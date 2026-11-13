@@ -12,15 +12,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BenefitsStep3 } from "@/components/wizard/benefits-steps/step-3";
 
 /**
- * Create/Edit Benefit → Step 3 (Contacts & FAQs).
+ * Create/Edit Benefit → Step 3 (Contacts).
  *
  * The store is a small reactive stand-in so a save re-renders like the real
  * Zustand store. Every presentation-heavy child (accordion, dnd, framer-motion,
  * collaborator cards, the two contact dialogs, the invite/seat dialogs and the
  * portal previews) is stubbed, so these tests assert Step 3's orchestration:
  * the contact roster and its fallback read, selection + cap enforcement,
- * plan-level contact writes, collaborator filtering and actions, and the FAQ
- * add/edit/enable/remove/save paths.
+ * plan-level contact writes, and collaborator filtering and actions.
+ *
+ * FAQs are no longer part of this step: a hub answers questions with its Quick
+ * Answers placements, and the stored list is left untouched by this screen.
  */
 
 const mocks = vi.hoisted(() => {
@@ -83,21 +85,6 @@ vi.mock("@/lib/benefits-wizard-store", async () => {
   };
 });
 
-vi.mock("@/lib/benefits-faq-defaults", () => ({
-  DEFAULT_FAQS: {
-    Retirement: [
-      {
-        id: "faq-default",
-        question: "Default question",
-        answer: "Default answer",
-        linkLabel: "Learn More",
-        linkHref: "#",
-        enabled: true,
-      },
-    ],
-  },
-}));
-
 vi.mock("@/lib/fetch-client", () => ({
   fetchClientOnce: mocks.fetchClientOnce,
   invalidateClientCache: mocks.invalidateClientCache,
@@ -122,8 +109,6 @@ vi.mock("@/hooks/use-dismissible-alert", () => ({
     dismiss: mocks.dismiss,
   }),
 }));
-
-vi.mock("uuid", () => ({ v4: () => "faq-new" }));
 
 vi.mock("sonner", () => ({
   toast: {
@@ -308,14 +293,6 @@ vi.mock("@/components/teammates/collaborator-detail-dialog", () => ({
     ) : null,
 }));
 
-vi.mock("@/components/faq-section", () => ({
-  FAQSection: (props: any) => (
-    <div data-testid="faq-preview">
-      {props.faqs.map((faq: any) => faq.question).join("|")}
-    </div>
-  ),
-}));
-
 vi.mock("@/components/pages/client-portal/sections/have-questions", () => ({
   HaveQuestions: (props: any) => (
     <div data-testid="contacts-preview">
@@ -412,7 +389,7 @@ function installFetch(handlers: Handlers = {}) {
   return fetchMock;
 }
 
-function renderStep(props: { section?: "contacts" | "faqs" } = {}) {
+function renderStep(props: { source?: "create_benefits" | "edit_benefit" } = {}) {
   return render(<BenefitsStep3 {...props} />);
 }
 
@@ -475,7 +452,7 @@ describe("BenefitsStep3", () => {
       installFetch();
       renderStep();
 
-      expect(screen.getByText("Contacts & FAQs")).toBeInTheDocument();
+      expect(screen.getByText("Contacts")).toBeInTheDocument();
       expect(screen.getByText("up to 4 support contacts")).toBeInTheDocument();
       expect(screen.getByTitle("Jane Advisor")).toBeInTheDocument();
       expect(screen.getByTitle("Bob Broker")).toBeInTheDocument();
@@ -838,7 +815,7 @@ describe("BenefitsStep3", () => {
 
     it("marks the invite as an Edit Benefit action when rendered for contacts only", () => {
       installFetch();
-      renderStep({ section: "contacts" });
+      renderStep({ source: "edit_benefit" });
 
       fireEvent.click(
         screen.getByRole("button", { name: "Add a collaborator" }),
@@ -980,167 +957,6 @@ describe("BenefitsStep3", () => {
     });
   });
 
-  describe("FAQs", () => {
-    it("renders the category's default questions", () => {
-      installFetch();
-      renderStep({ section: "faqs" });
-
-      expect(screen.getByText("Popular Questions (FAQ)")).toBeInTheDocument();
-      expect(screen.getByText("Default question")).toBeInTheDocument();
-      expect(screen.queryByText("Contacts & FAQs")).not.toBeInTheDocument();
-    });
-
-    it("adds a question at the top and stores it per category", () => {
-      installFetch();
-      renderStep({ section: "faqs" });
-
-      fireEvent.click(screen.getByRole("button", { name: /Add Question/ }));
-
-      const saved = lastStep3Save();
-      expect(saved.faqs[0]).toEqual(
-        expect.objectContaining({ id: "faq-new", question: "New Question?" }),
-      );
-      expect(saved.faqsByCategory.Retirement[0].id).toBe("faq-new");
-      expect(screen.getByPlaceholderText("Enter question...")).toHaveValue(
-        "New Question?",
-      );
-    });
-
-    it("edits a question's text", () => {
-      installFetch();
-      renderStep({ section: "faqs" });
-
-      fireEvent.pointerUp(screen.getByText("Default question"));
-      fireEvent.change(screen.getByPlaceholderText("Enter question..."), {
-        target: { value: "Updated question?" },
-      });
-
-      expect(lastStep3Save().faqs[0]).toEqual(
-        expect.objectContaining({
-          id: "faq-default",
-          question: "Updated question?",
-        }),
-      );
-    });
-
-    it("toggles a question's enabled flag", () => {
-      installFetch();
-      renderStep({ section: "faqs" });
-
-      fireEvent.click(screen.getByRole("switch"));
-
-      expect(lastStep3Save().faqs[0]).toEqual(
-        expect.objectContaining({ id: "faq-default", enabled: false }),
-      );
-    });
-
-    it("removes a question", () => {
-      mocks.reset(
-        baseStep1(),
-        baseStep3({
-          faqsByCategory: {
-            Retirement: [
-              {
-                id: "f1",
-                question: "First question",
-                answer: "Answer",
-                linkLabel: "",
-                linkHref: "#",
-                enabled: true,
-              },
-              {
-                id: "f2",
-                question: "Second question",
-                answer: "Answer",
-                linkLabel: "",
-                linkHref: "#",
-                enabled: true,
-              },
-            ],
-          },
-        }),
-      );
-      installFetch();
-      renderStep({ section: "faqs" });
-
-      const item = screen
-        .getByText("First question")
-        .closest(".rounded-lg") as HTMLElement;
-      fireEvent.click(within(item).getByRole("button"));
-
-      expect(lastStep3Save().faqs).toEqual([
-        expect.objectContaining({ id: "f2", question: "Second question" }),
-      ]);
-      expect(screen.queryByText("First question")).not.toBeInTheDocument();
-      expect(screen.getByText("Second question")).toBeInTheDocument();
-    });
-
-    it("saves the FAQs and support contacts through the benefit API", async () => {
-      const fetchMock = installFetch();
-      renderStep({ section: "faqs" });
-
-      fireEvent.click(screen.getByRole("button", { name: /Save/ }));
-
-      await waitFor(() =>
-        expect(mocks.toastSuccess).toHaveBeenCalledWith(
-          "FAQs saved successfully!",
-        ),
-      );
-      const call = fetchMock.mock.calls.find(([url]) =>
-        String(url).includes("/api/clients/plan-1/benefits/Retirement"),
-      );
-      expect(call).toBeTruthy();
-      expect(JSON.parse(String((call![1] as RequestInit).body))).toEqual(
-        expect.objectContaining({
-          faqs: [expect.objectContaining({ id: "faq-default" })],
-          supportContacts: [],
-        }),
-      );
-    });
-
-    it("maps Custom to the API's Company / Plan Sponsor category", async () => {
-      mocks.reset(baseStep1({ benefitCategory: "Custom" }), baseStep3());
-      const fetchMock = installFetch();
-      renderStep({ section: "faqs" });
-
-      fireEvent.click(screen.getByRole("button", { name: /Save/ }));
-
-      await waitFor(() =>
-        expect(fetchMock).toHaveBeenCalledWith(
-          "/api/clients/plan-1/benefits/Company%20%2F%20Plan%20Sponsor",
-          expect.objectContaining({ method: "PUT" }),
-        ),
-      );
-    });
-
-    it("reports a failed FAQ save with the server's message", async () => {
-      installFetch({
-        benefitPut: () => jsonResponse(true, { success: false, error: "boom" }),
-      });
-      renderStep({ section: "faqs" });
-
-      fireEvent.click(screen.getByRole("button", { name: /Save/ }));
-
-      await waitFor(() =>
-        expect(mocks.toastError).toHaveBeenCalledWith("Failed to save FAQs", {
-          description: "boom",
-        }),
-      );
-    });
-
-    it("refuses to save without the Step 1 context", async () => {
-      mocks.reset({}, baseStep3());
-      installFetch();
-      renderStep({ section: "faqs" });
-
-      fireEvent.click(screen.getByRole("button", { name: /Save/ }));
-
-      expect(mocks.toastError).toHaveBeenCalledWith(
-        "Missing plan or category data. Please complete Step 1 first.",
-      );
-    });
-  });
-
   describe("previews", () => {
     it("previews the enabled support contacts", () => {
       mocks.reset(
@@ -1163,7 +979,7 @@ describe("BenefitsStep3", () => {
         }),
       );
       installFetch();
-      renderStep({ section: "contacts" });
+      renderStep({ source: "edit_benefit" });
 
       fireEvent.click(
         screen.getByRole("button", { name: "Preview support contacts" }),
@@ -1174,41 +990,6 @@ describe("BenefitsStep3", () => {
       );
       expect(screen.getByTestId("contacts-preview")).not.toHaveTextContent(
         "Broker",
-      );
-    });
-
-    it("previews only enabled FAQs with content", () => {
-      mocks.reset(
-        baseStep1(),
-        baseStep3({
-          faqsByCategory: {
-            Retirement: [
-              {
-                id: "f1",
-                question: "Enabled question",
-                answer: "Answer",
-                enabled: true,
-              },
-              {
-                id: "f2",
-                question: "Disabled question",
-                answer: "Answer",
-                enabled: false,
-              },
-            ],
-          },
-        }),
-      );
-      installFetch();
-      renderStep({ section: "faqs" });
-
-      fireEvent.click(screen.getByRole("button", { name: /Preview/ }));
-
-      expect(screen.getByTestId("faq-preview")).toHaveTextContent(
-        "Enabled question",
-      );
-      expect(screen.getByTestId("faq-preview")).not.toHaveTextContent(
-        "Disabled question",
       );
     });
   });
