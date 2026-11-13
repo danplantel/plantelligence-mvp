@@ -31,6 +31,10 @@ interface PortalDisclaimersProps {
    * what participants see, and the disclosure text is edited in place.
    */
   disclosureNode?: ReactNode;
+  /** Plan-scoped Privacy Policy link; omitted in previews with no plan slug. */
+  privacyHref?: string;
+  /** Plan-scoped Terms of Service link; omitted in previews with no plan slug. */
+  termsHref?: string;
 }
 
 export function PortalDisclaimers({
@@ -39,6 +43,8 @@ export function PortalDisclaimers({
   textColor,
   onEdit,
   disclosureNode,
+  privacyHref,
+  termsHref,
 }: PortalDisclaimersProps) {
   // Light background → dark text; dark or coloured background → white. The same rule the
   // colour controls use, so every line of the footer adjusts together.
@@ -213,21 +219,26 @@ export function PortalDisclaimers({
 
             {/* Copyright */}
             <div className="text-center">
-              <p
-                className="text-xs opacity-70"
-                style={{ color: resolvedTextColor }}
-              >
-                © 2024{" "}
-                {companyData?.companyName || "Lighthouse Financial Advisors"}.
-                All rights reserved. |
-                <a href="#" className="ml-1 hover:opacity-100">
+              <p className="text-xs" style={{ color: resolvedTextColor }}>
+                <span className="opacity-70">
+                  © 2024{" "}
+                  {companyData?.companyName || "Lighthouse Financial Advisors"}.
+                  All rights reserved. |
+                </span>{" "}
+                <a
+                  href={privacyHref ?? "#"}
+                  className="ml-1 opacity-70 underline-offset-2 transition-all duration-150 hover:underline hover:opacity-100 focus-visible:underline focus-visible:opacity-100 focus-visible:outline-none"
+                >
                   Privacy Policy
                 </a>{" "}
-                |
-                <a href="#" className="ml-1 hover:opacity-100">
+                <span className="opacity-70">|</span>{" "}
+                <a
+                  href={termsHref ?? "#"}
+                  className="ml-1 opacity-70 underline-offset-2 transition-all duration-150 hover:underline hover:opacity-100 focus-visible:underline focus-visible:opacity-100 focus-visible:outline-none"
+                >
                   Terms of Service
                 </a>{" "}
-                | Powered by PlanTelligence™
+                <span className="opacity-70">| Powered by PlanTelligence™</span>
               </p>
             </div>
           </div>

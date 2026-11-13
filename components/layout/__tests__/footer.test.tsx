@@ -45,6 +45,28 @@ describe("Footer content", () => {
     expect(screen.getByText("Contact Information")).toBeInTheDocument();
   });
 
+  it("links the plan's legal pages when scoped hrefs are supplied", () => {
+    renderFooter({ privacyHref: "/acme/privacy", termsHref: "/acme/terms" });
+
+    expect(
+      screen.getByRole("link", { name: "Privacy Policy" }),
+    ).toHaveAttribute("href", "/acme/privacy");
+    expect(
+      screen.getByRole("link", { name: "Terms of Service" }),
+    ).toHaveAttribute("href", "/acme/terms");
+  });
+
+  it("keeps the legal links inert when there is no plan slug", () => {
+    renderFooter();
+
+    expect(
+      screen.getByRole("link", { name: "Privacy Policy" }),
+    ).toHaveAttribute("href", "#");
+    expect(
+      screen.getByRole("link", { name: "Terms of Service" }),
+    ).toHaveAttribute("href", "#");
+  });
+
   it("resolves organization and company placeholders", () => {
     renderFooter({
       disclosuresText:

@@ -24,6 +24,15 @@ interface FooterProps {
    * inside the real footer, so the preview and the editor are one surface.
    */
   disclosureNode?: ReactNode;
+  /**
+   * Plan-scoped links to the portal's legal pages.
+   *
+   * The live portal passes `/{slug}/privacy` and `/{slug}/terms`. Preview
+   * surfaces (the wizards and the editing panel) have no plan slug, so they
+   * omit these and the links keep their inert `#` placeholder.
+   */
+  privacyHref?: string;
+  termsHref?: string;
 }
 
 export function Footer({
@@ -33,6 +42,8 @@ export function Footer({
   organizationName,
   companyName,
   disclosureNode,
+  privacyHref,
+  termsHref,
 }: FooterProps) {
   const resolvedTextColor = textColor || lightSurfaceTextColor(brandColor);
   // Resolve the organization/company names for the disclaimer.
@@ -202,19 +213,24 @@ export function Footer({
 
             {/* Copyright */}
             <div className="text-center">
-              <p
-                className="text-xs opacity-70"
-                style={{ color: resolvedTextColor }}
-              >
-                © 2024 {resolvedOrg}. All rights reserved. |
-                <a href="#" className="ml-1 hover:opacity-100">
+              <p className="text-xs" style={{ color: resolvedTextColor }}>
+                <span className="opacity-70">
+                  © 2024 {resolvedOrg}. All rights reserved. |
+                </span>{" "}
+                <a
+                  href={privacyHref ?? "#"}
+                  className="ml-1 opacity-70 underline-offset-2 transition-all duration-150 hover:underline hover:opacity-100 focus-visible:underline focus-visible:opacity-100 focus-visible:outline-none"
+                >
                   Privacy Policy
                 </a>{" "}
-                |
-                <a href="#" className="ml-1 hover:opacity-100">
+                <span className="opacity-70">|</span>{" "}
+                <a
+                  href={termsHref ?? "#"}
+                  className="ml-1 opacity-70 underline-offset-2 transition-all duration-150 hover:underline hover:opacity-100 focus-visible:underline focus-visible:opacity-100 focus-visible:outline-none"
+                >
                   Terms of Service
                 </a>{" "}
-                | Powered by PlanTelligence™
+                <span className="opacity-70">| Powered by PlanTelligence™</span>
               </p>
             </div>
           </div>

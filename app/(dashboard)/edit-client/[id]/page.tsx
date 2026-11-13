@@ -245,6 +245,7 @@ import { BrandColorsSection } from "@/components/wizard/new-client-steps/section
 import { CardSelectionModal } from "@/components/ui/card-selection-modal";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
 import { parseFooterBackgroundPreference } from "@/lib/portal-footer-color";
+import { portalLegalHref } from "@/lib/legal/legal-config";
 import { uploadBrandingToR2 } from "@/lib/branding-r2";
 import { lightSurfaceTextColor } from "@/lib/color-utils";
 import {
@@ -5519,6 +5520,10 @@ export default function EditClientPage() {
                         brandColor: resolvedFooterBgColor,
                       }}
                       brandColor={resolvedFooterBgColor}
+                      // The preview footer links at the plan's live legal pages,
+                      // the same destinations the participant sees.
+                      privacyHref={portalLegalHref(companyData.portalUrl, "privacy")}
+                      termsHref={portalLegalHref(companyData.portalUrl, "terms")}
                       // Light background → dark copy; dark/coloured → white. Every line of
                       // the footer follows the colour controls above, not just the editor.
                       textColor={footerTextColor}

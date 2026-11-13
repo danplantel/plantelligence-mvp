@@ -39,6 +39,7 @@ import {
 } from "@/lib/benefit-custom-name";
 import { getPortalCountdown, normalizePortalCtaUrl } from "@/lib/portal-banner";
 import { resolvePortalFooterColor } from "@/lib/portal-footer-color";
+import { portalLegalHref } from "@/lib/legal/legal-config";
 
 interface BannerAsset {
   id: string;
@@ -734,6 +735,10 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
             disclosuresText={disclosuresText}
             organizationName={organizationName}
             companyName={clientData?.companyName || ""}
+            // The legal pages are plan-scoped: the footer on every portal page
+            // points at THIS plan's copy of each document.
+            privacyHref={portalLegalHref(clientId, "privacy")}
+            termsHref={portalLegalHref(clientId, "terms")}
           />
           <PortalSectionEditButton
             sectionId={PORTAL_SECTION_IDS.disclosure}
