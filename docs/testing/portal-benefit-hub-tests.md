@@ -13,12 +13,12 @@ The first three are the same page with different constants; the fourth adds a UR
 
 ## Summary
 
-- **Unit tests:** 421 passing in 26 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
+- **Unit tests:** 423 passing in 26 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
 - **E2E:** none yet
 - **Runner:** Vitest + React Testing Library + jsdom
 
 ```bash
-pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (421 tests)
+pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (423 tests)
 pnpm test:portal-hubs:watch
 pnpm test:portal-hubs:coverage
 ```
@@ -252,14 +252,14 @@ suite (`portal-disclosures.test.ts`, `portal-disclosure-section.test.tsx`).
 | 16  | `components/pages/client-portal/sections/__tests__/webinar-replay-card-poster.test.tsx`    |     8 | The poster card: 16:9 frame, white-ring play, gradient, title, runtime badge   |
 | 17  | `components/pages/client-portal/sections/__tests__/video-feature-player.test.tsx`          |    11 | The inline player: embed/direct/uploaded sources, errors, X and Escape         |
 | 18  | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-portrait.test.tsx` |    10 | The banner portrait: plan override, key-contact headshot default, placeholder  |
-| 19  | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-schedule.test.tsx` |     2 | The banner's Schedule CTA: handler vs scheduling URL                            |
+| 19  | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-schedule.test.tsx` |     3 | The banner's Schedule CTA: handler vs scheduling URL, full width on phones     |
 | 20  | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-edit-pencils.test.tsx` | 5 | The banner's per-element pencils and the panel anchors they name               |
 | 21  | `components/portal-editing/editors/__tests__/portal-benefit-editor-disclosure.test.tsx`     |     3 | The hub Edit Panel's Disclosure section, scoped to this benefit                |
 | 22  | `app/(portal)/[id]/employee-resources/__tests__/page-edit-affordances.test.tsx`            |     5 | Employee Resources' three blue buttons and the anchors they name               |
 | 23  | `app/(portal)/[id]/retirement/__tests__/page-edit-affordances.test.tsx`                    |     3 | A hub's five blue buttons, one template across four pages                      |
 | 24  | `lib/__tests__/benefits-video-fallback.test.ts`                                            |     7 | Per-category clips, plan video precedence, embed/URL fallbacks                 |
 | 25  | `lib/text/__tests__/linkify.test.ts`                                                       |     6 | Turning an address in answer copy into a real link                             |
-| 26  | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-mobile-gradient.test.tsx` | 3 | The banner's phone-wide gradient: full-bleed on the section, no card plate   |
+| 26  | `components/pages/client-portal/sections/__tests__/portal-welcome-banner-mobile-gradient.test.tsx` | 4 | The banner's phone-wide gradient: full-bleed on the section, no card plate, content above the plate |
 
 ## Remaining coverage
 

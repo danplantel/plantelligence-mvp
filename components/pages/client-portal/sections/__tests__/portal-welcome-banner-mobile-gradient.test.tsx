@@ -86,6 +86,24 @@ describe("PortalWelcomeBanner mobile gradient", () => {
     expect(plate.style.backgroundColor).toContain("0.4");
   });
 
+  it("keeps the card's content above its plate", () => {
+    banner({
+      employeePortalPreview: {
+        heroUseGradient: true,
+        heroContainerBlockOpacity: 0.5,
+      },
+    });
+
+    // The plate is a positioned layer and the card's `backdrop-blur` is a
+    // stacking context, so the grid must be positioned too — otherwise the
+    // wash paints over the copy and the brand-coloured CTA, which then only
+    // looks right while it is hovered.
+    const card = screen.getByTestId("welcome-banner-hero-card");
+    const content = card.querySelector(".grid") as HTMLElement;
+    expect(content.className).toContain("relative");
+    expect(content.className).toContain("z-10");
+  });
+
   it("uses the inverted wash colour for a light container", () => {
     banner({
       employeePortalPreview: {

@@ -79,4 +79,15 @@ describe("PortalWelcomeBanner schedule CTA", () => {
       screen.getByRole("link", { name: /schedule with dana/i }),
     ).toHaveAttribute("href", "https://cal.test");
   });
+
+  it("spans the column on phones and keeps half width from sm up", () => {
+    // The button is the row's only action on a narrow screen, so it fills the
+    // column the copy sits in; the half-row width is a desktop convention that
+    // survives above `sm`.
+    banner({ onScheduleClick: vi.fn() });
+
+    const cta = screen.getByRole("button", { name: /schedule with dana/i });
+    expect(cta.className).toContain("w-full");
+    expect(cta.className).toContain("sm:w-[calc(50%_-_0.375rem)]");
+  });
 });

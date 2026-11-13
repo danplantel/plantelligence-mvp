@@ -533,6 +533,9 @@ export function PortalWelcomeBanner({
               borderRadius: portalRadiusValue(2),
             }}
           />
+          {/* `relative z-10`: the plate above is absolutely positioned, and the
+              card's `backdrop-blur` makes it a stacking context — without this
+              the wash would paint OVER the copy and the brand-coloured CTA. */}
           <motion.div
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
@@ -540,7 +543,7 @@ export function PortalWelcomeBanner({
             // No min-height on the stacked (mobile/tablet) layout: the two rows
             // size to their content, so a short benefit does not get a card
             // padded out with empty space. The desktop split keeps its band.
-            className="grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] lg:min-h-[30rem]"
+            className="relative z-10 grid grid-cols-1 lg:grid-cols-[auto_minmax(0,1fr)] lg:min-h-[30rem]"
           >
             {/* RIGHT: Text content (left on mobile, where the image leads) */}
             {/* Mobile keeps a tight seam under the portrait block (it is the row
@@ -699,15 +702,18 @@ export function PortalWelcomeBanner({
                 </div>
               </div>
 
-              {/* CTA row. The Schedule button keeps the half-row width it had
-                  when it shared this row with the (now removed) "Meet the Team"
-                  link, so it does not stretch across the whole info column. */}
+              {/* CTA row. On phones the Schedule button spans the column: it is
+                  the only action in the row, and a half-width tap target on a
+                  narrow screen reads as a stray fragment. From `sm` up it keeps
+                  the half-row width it had when it shared this row with the
+                  (now removed) "Meet the Team" link, so it does not stretch
+                  across the whole info column. */}
               <div className="mt-auto flex flex-row gap-3 pt-6 sm:pt-8">
                 {onScheduleClick ? (
                   <button
                     type="button"
                     onClick={onScheduleClick}
-                    className="inline-flex w-[calc(50%_-_0.375rem)] items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
+                    className="inline-flex w-full items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90 sm:w-[calc(50%_-_0.375rem)]"
                     style={{
                       background: brandColor,
                       borderRadius: portalRadiusValue(),
@@ -720,7 +726,7 @@ export function PortalWelcomeBanner({
                     href={scheduleHref}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex w-[calc(50%_-_0.375rem)] items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
+                    className="inline-flex w-full items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90 sm:w-[calc(50%_-_0.375rem)]"
                     style={{
                       background: brandColor,
                       borderRadius: portalRadiusValue(),
@@ -731,7 +737,7 @@ export function PortalWelcomeBanner({
                 ) : (
                   <button
                     type="button"
-                    className="inline-flex w-[calc(50%_-_0.375rem)] items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90"
+                    className="inline-flex w-full items-center justify-center rounded-lg px-5 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-200 hover:opacity-90 sm:w-[calc(50%_-_0.375rem)]"
                     style={{
                       background: brandColor,
                       borderRadius: portalRadiusValue(),
