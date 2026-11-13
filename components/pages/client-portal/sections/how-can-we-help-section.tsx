@@ -71,7 +71,8 @@ export type { HelpCardData } from "@/types/benefit";
  *    The primary sits at the left or right edge of row 1 only.
  *  - Opening a card renders its detail panel directly BENEATH the row it belongs to,
  *    so the rest of the grid moves down instead of the page jumping to a modal.
- *    Rollovers & Distributions is open on first paint.
+ *    NOTHING is open on first paint: the grid is a set of collapsed choices until
+ *    the reader taps one (or follows a `#topic` deep link).
  *  - The whole tile is clickable, so a tap anywhere on the card opens it.
  *
  * The COPY is static: `lib/help-card-defaults.ts` owns it by card id, and a benefit
@@ -645,14 +646,11 @@ function AccountAccessCard({
 
           {/* Plan ID and administrator share one wrapped line — two short facts,
               not two stacked blocks that push the CTA to the far bottom of a wide
-              card. */}
+              card. Centred in the card at every width: the ID chip is the one
+              piece of chrome a participant scans, and it read as stranded on the
+              left on a phone. */}
           {(planIdLabel || providerName) && (
-            <div
-              className={cn(
-                "mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5",
-                isWide && "sm:justify-center",
-              )}
-            >
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-center">
               {planIdLabel && (
                 <span
                   className="inline-block rounded-md px-2 py-1 font-red-hat text-[13px] font-semibold leading-tight"
@@ -750,8 +748,10 @@ function AccountAccessCard({
               window.open(loginUrl, "_blank", "noopener,noreferrer");
             }}
             // Full width of the card's content column — on a wide card that column
-            // is the measured block above it, not the whole row.
-            className="h-auto w-full gap-2 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-[0.08em] shadow-sm hover:opacity-90"
+            // is the measured block above it, not the whole row. One line always:
+            // the label is short enough to fit a phone tile with the tighter
+            // padding/tracking below, and `whitespace-nowrap` makes that explicit.
+            className="h-auto w-full gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] shadow-sm hover:opacity-90 sm:px-4 sm:text-xs sm:tracking-[0.08em]"
             style={
               primary
                 ? // Inverse button: the readable colour as the fill, the primary as
@@ -1357,17 +1357,11 @@ export function HowCanWeHelpSection({
   /** Every resolved card, in visual order. */
   const resolvedCards = useMemo(() => rows.flat(), [rows]);
 
-  // `undefined` = untouched, so the default open card is used; `null` = the reader
-  // closed it and it must stay closed.
-  const [openCardId, setOpenCardId] = useState<string | null | undefined>(
-    undefined,
-  );
-
-  const defaultOpenCardId =
-    resolvedCards.find((card) =>
-      ROLLOVER_CARD_PATTERN.test(`${card.id} ${card.title}`),
-    )?.id ?? null;
-  const activeCardId = openCardId === undefined ? defaultOpenCardId : openCardId;
+  // Nothing starts open: the grid is collapsed choices until the reader picks
+  // one. `null` is the closed state; the first tap (or a `#topic` deep link)
+  // opens a panel, and tapping that card again closes it.
+  const [openCardId, setOpenCardId] = useState<string | null>(null);
+  const activeCardId = openCardId;
 
   // ── Deep links (TF-2) ──
   // `#<topic-slug>` opens the matching panel and `&option=` opens one Rollovers
@@ -1678,9 +1672,10 @@ export function HowCanWeHelpSection({
                   )}
                 >
                 <h3
-                  // Topic titles run a step larger than the Account Access card's,
-                  // since those cards carry far less content.
-                  className="font-dm-serif text-lg font-semibold leading-snug sm:text-xl"
+                  // A step down from the Account Access heading: on a phone these
+                  // tiles are half-width, so an 18px serif title crowded the copy
+                  // and the CTA under it. Desktop still gets the larger step.
+                  className="font-dm-serif text-base font-semibold leading-snug sm:text-lg"
                   style={{ color: isPrimary ? onPrimary : brandColor }}
                 >
                   {card.title}
@@ -1716,8 +1711,10 @@ export function HowCanWeHelpSection({
                     // Full width of the card's CONTENT column — the same rule the
                     // Account Access card follows. On a wide tile that column is the
                     // measured 44rem block above it, so the button matches the text
-                    // rather than spanning the whole row.
-                    className="w-full justify-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold uppercase tracking-[0.12em] shadow-sm hover:opacity-90"
+                    // rather than spanning the whole row. The phone size is tuned so
+                    // "Showing Below" stays on ONE line inside a half-width tile;
+                    // `whitespace-nowrap` is the guarantee, not a hope.
+                    className="w-full justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.04em] shadow-sm hover:opacity-90 sm:px-4 sm:text-xs sm:tracking-[0.12em]"
                     style={
                       isPrimary
                         ? // Inverse button on a filled card — never the secondary
@@ -1738,7 +1735,7 @@ export function HowCanWeHelpSection({
                     {isOpen ? "Showing Below" : "Learn more"}
                     <ChevronDown
                       className={cn(
-                        "h-3.5 w-3.5 transition-transform duration-200",
+                        "h-3 w-3 shrink-0 transition-transform duration-200 sm:h-3.5 sm:w-3.5",
                         isOpen && "rotate-180",
                       )}
                     />

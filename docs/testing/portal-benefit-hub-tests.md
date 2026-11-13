@@ -13,12 +13,12 @@ The first three are the same page with different constants; the fourth adds a UR
 
 ## Summary
 
-- **Unit tests:** 426 passing in 26 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
+- **Unit tests:** 429 passing in 26 files (the sections the four pages render, the floating benefits assistant, the portal benefit read, the hub Edit Panel's Disclosure section, and the pages' blue edit affordances)
 - **E2E:** none yet
 - **Runner:** Vitest + React Testing Library + jsdom
 
 ```bash
-pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (426 tests)
+pnpm test:portal-hubs           # the hub sections + assistant + portal benefit read (429 tests)
 pnpm test:portal-hubs:watch
 pnpm test:portal-hubs:coverage
 ```
@@ -237,7 +237,7 @@ suite (`portal-disclosures.test.ts`, `portal-disclosure-section.test.tsx`).
 | 1   | `lib/topics/__tests__/assistant.test.ts`                                                   |    31 | Assistant corpus, retrieval, intents, hubs, chips and exact-topic answers     |
 | 2   | `app/api/clients/[id]/portal/assistant/__tests__/route.test.ts`                            |     7 | The assistant's index read: portal gate, advisor scoping, payload, failures    |
 | 3   | `components/pages/client-portal/sections/__tests__/portal-chatbot.test.tsx`                |    25 | The sheet: greeting, hub turns, answers, hints, handoff, session, scroll lock  |
-| 4   | `components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx`       |    82 | Cards, layout, panels, placements, rollovers and chat deep links               |
+| 4   | `components/pages/client-portal/sections/__tests__/how-can-we-help-section.test.tsx`       |    85 | Cards, layout, panels, placements, rollovers, chat deep links, phone treatment |
 | 5   | `lib/__tests__/help-card-layout.test.ts`                                                   |    33 | Primary edge, row packing, hidden cards, ordering rules                        |
 | 6   | `lib/topics/__tests__/library-content.test.ts`                                             |     9 | Shipped card lines, answer groups, acronyms and legacy topics                  |
 | 7   | `lib/topics/__tests__/group-realign.test.ts`                                               |     9 | Restoring an older plan's Quick Answers groups to the library order            |

@@ -19,7 +19,8 @@ import type { EffectiveTopic } from "@/types/topic";
  * ONE card is primary and spans 2 columns; with the 7-card catalog that gives
  * row 1 = `2/4 + 1/4 + 1/4` and row 2 = `4 × 1/4`. The primary sits at the left
  * or right edge of row 1 only. A card's detail panel opens directly beneath the
- * row it belongs to, and Rollovers & Distributions is open on first paint.
+ * row it belongs to. NOTHING is open on first paint — the first open is always
+ * a tap (or a `#topic` deep link).
  *
  * The copy is STATIC (`lib/help-card-defaults.ts`); a benefit stores only the
  * layout, so the tests drive `cards` with ids + the primary flag.
@@ -29,6 +30,11 @@ let openSpy: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   openSpy = vi.spyOn(window, "open").mockImplementation(() => null);
+  // Every toggle writes the opened topic into the hash (that is the deep-link
+  // support), and the hash survives between tests in one jsdom document. Start
+  // each test on a clean URL so a previous test's `#topic` cannot pre-open a
+  // card inside the next one.
+  window.history.replaceState(null, "", "/");
 });
 
 /** Build a layout in visual order, with `primaryId` at the chosen edge. */
@@ -57,6 +63,18 @@ function tile(container: HTMLElement, id: string) {
   const found = container.querySelector<HTMLElement>(`[data-help-card="${id}"]`);
   if (!found) throw new Error(`No tile for ${id}`);
   return found;
+}
+
+/**
+ * Open a card's panel. Nothing is open on first paint, so every suite that
+ * asserts a panel's contents starts by clicking its tile.
+ */
+async function openCard(
+  user: ReturnType<typeof userEvent.setup>,
+  container: HTMLElement,
+  id: string,
+) {
+  await user.click(tile(container, id));
 }
 
 describe("HowCanWeHelpSection layout", () => {
@@ -321,7 +339,16 @@ describe("HowCanWeHelpSection tiles", () => {
     const user = userEvent.setup();
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
 
-    // Rollovers is open on first paint.
+    // Nothing opens on its own: every card starts closed.
+    expect(screen.queryByRole("region")).not.toBeInTheDocument();
+    expect(
+      within(tile(container, "rollovers-distributions")).getByRole("button", {
+        name: /Learn more/,
+      }),
+    ).toBeInTheDocument();
+
+    await openCard(user, container, "rollovers-distributions");
+
     expect(
       within(tile(container, "rollovers-distributions")).getByRole("button", {
         name: /Showing Below/,
@@ -603,10 +630,13 @@ describe("computeCaretPosition", () => {
     ).toEqual({ xPercent: 50, yPercent: 0 });
   });
 
-  it("writes percentages onto the caret, so a scaled preview cannot shift it", () => {
+  it("writes percentages onto the caret, so a scaled preview cannot shift it", async () => {
     // Every rect reports HALF the layout, as a `transform: scale(0.5)` preview
     // would: 1000px of layout rendered as 500px.
+    const user = userEvent.setup();
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+    await openCard(user, container, "rollovers-distributions");
+
     const caret = screen.getByTestId("help-card-caret");
     const grid = caret.parentElement as HTMLElement;
     const openTile = tile(container, "rollovers-distributions");
@@ -633,8 +663,14 @@ describe("computeCaretPosition", () => {
 });
 
 describe("HowCanWeHelpSection expansion", () => {
-  it("opens Rollovers beneath the first row on first paint", () => {
-    render(<HowCanWeHelpSection clientId="plan-1" />);
+  it("opens a panel only when a card is chosen, never on first paint", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    // The grid starts collapsed. Nothing — Rollovers included — opens itself.
+    expect(screen.queryByRole("region")).not.toBeInTheDocument();
+
+    await openCard(user, container, "rollovers-distributions");
 
     expect(
       screen.getByRole("region", { name: "Rollovers & Distributions" }),
@@ -716,8 +752,10 @@ describe("HowCanWeHelpSection expansion", () => {
     ).toBeInTheDocument();
   });
 
-  it("marks the panel's own border with the brand colour", () => {
-    render(<HowCanWeHelpSection clientId="plan-1" />);
+  it("marks the panel's own border with the brand colour", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+    await openCard(user, container, "rollovers-distributions");
 
     const panel = screen.getByRole("region", {
       name: "Rollovers & Distributions",
@@ -739,11 +777,14 @@ describe("HowCanWeHelpSection expansion", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("takes the brand ring off the card that was open", async () => {
+  it("moves the brand ring from the card that was open", async () => {
     const user = userEvent.setup();
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
 
-    // Rollovers is the default-open card, so it wears the ring on first paint.
+    // Nothing is open on first paint, so no card wears the ring.
+    expect(container.querySelector("[data-help-card-ring]")).toBeNull();
+
+    await user.click(tile(container, "rollovers-distributions"));
     expect(
       tile(container, "rollovers-distributions").querySelector(
         "[data-help-card-ring]",
@@ -773,7 +814,8 @@ describe("HowCanWeHelpSection expansion", () => {
     const user = userEvent.setup();
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
 
-    await user.click(tile(container, "rollovers-distributions"));
+    await user.click(tile(container, "rollovers-distributions")); // open
+    await user.click(tile(container, "rollovers-distributions")); // close
 
     expect(
       tile(container, "rollovers-distributions").querySelector(
@@ -809,8 +851,8 @@ describe("HowCanWeHelpSection expansion", () => {
       />,
     );
 
-    // Rollovers is still the card open on first paint, so this click opens the
-    // primary topic rather than toggling it shut.
+    // Nothing is open on first paint, so this single click opens the primary
+    // topic rather than toggling something shut.
     await user.click(tile(container, "financial-planning"));
 
     expect(
@@ -822,7 +864,8 @@ describe("HowCanWeHelpSection expansion", () => {
     const user = userEvent.setup();
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
 
-    await user.click(tile(container, "rollovers-distributions"));
+    await user.click(tile(container, "rollovers-distributions")); // open
+    await user.click(tile(container, "rollovers-distributions")); // close
 
     expect(
       screen.queryByRole("region", { name: "Rollovers & Distributions" }),
@@ -831,7 +874,9 @@ describe("HowCanWeHelpSection expansion", () => {
 
   it("closes the panel from its own close button", async () => {
     const user = userEvent.setup();
-    render(<HowCanWeHelpSection clientId="plan-1" />);
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    await openCard(user, container, "rollovers-distributions");
 
     await user.click(
       screen.getByRole("button", { name: "Close Rollovers & Distributions" }),
@@ -875,12 +920,14 @@ describe("HowCanWeHelpSection expansion", () => {
 
 /**
  * Rollovers & Distributions has its own panel body: the four options, the pros and
- * cons of the selected option, and the "talk it through" CTA. It is open on first
- * paint, so most of these assertions need no interaction.
+ * cons of the selected option, and the "talk it through" CTA. It is NOT open on
+ * first paint, so each test opens the card the way a reader would.
  */
 describe("HowCanWeHelpSection rollovers panel", () => {
-  it("lists the four options in order, numbered 01–04", () => {
-    render(<HowCanWeHelpSection clientId="plan-1" />);
+  it("lists the four options in order, numbered 01–04", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+    await openCard(user, container, "rollovers-distributions");
 
     const options = within(
       screen.getByTestId("rollover-options"),
@@ -900,7 +947,8 @@ describe("HowCanWeHelpSection rollovers panel", () => {
 
   it("hides the pros and cons until an option is selected", async () => {
     const user = userEvent.setup();
-    render(<HowCanWeHelpSection clientId="plan-1" />);
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+    await openCard(user, container, "rollovers-distributions");
 
     expect(screen.queryByTestId("rollover-detail")).not.toBeInTheDocument();
 
@@ -916,7 +964,8 @@ describe("HowCanWeHelpSection rollovers panel", () => {
 
   it("closes the pros and cons when the selected option is clicked again", async () => {
     const user = userEvent.setup();
-    render(<HowCanWeHelpSection clientId="plan-1" />);
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+    await openCard(user, container, "rollovers-distributions");
 
     const option = screen.getByRole("button", { name: /Cash Out/ });
     await user.click(option);
@@ -926,8 +975,10 @@ describe("HowCanWeHelpSection rollovers panel", () => {
     expect(screen.queryByTestId("rollover-detail")).not.toBeInTheDocument();
   });
 
-  it("offers a free call with the banner's key contact", () => {
-    render(<HowCanWeHelpSection clientId="plan-1" />);
+  it("offers a free call with the banner's key contact", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+    await openCard(user, container, "rollovers-distributions");
 
     expect(
       screen.getByRole("button", { name: "Talk through my options" }),
@@ -945,7 +996,8 @@ describe("HowCanWeHelpSection rollovers panel", () => {
     support.scrollIntoView = vi.fn();
     document.body.appendChild(support);
 
-    render(<HowCanWeHelpSection clientId="plan-1" />);
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+    await openCard(user, container, "rollovers-distributions");
 
     await user.click(
       screen.getByRole("button", { name: "Talk through my options" }),
@@ -1029,8 +1081,10 @@ describe("2/4 primary card width", () => {
 });
 
 describe("HowCanWeHelpSection panel CTAs", () => {
-  it("draws no panel CTA for the static catalog (every card has no button text)", () => {
-    render(<HowCanWeHelpSection clientId="plan-1" />);
+  it("draws no panel CTA for the static catalog (every card has no button text)", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+    await openCard(user, container, "rollovers-distributions");
 
     // The catalog ships `cta: ""`, so panels show copy only. A CTA is drawn only
     // for a catalog card that sets one.
@@ -1042,7 +1096,8 @@ describe("HowCanWeHelpSection panel CTAs", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("draws the Rollovers CTA once when the topic repeats the label", () => {
+  it("draws the Rollovers CTA once when the topic repeats the label", async () => {
+    const user = userEvent.setup();
     // The library seeds this topic's `cta.label` as the very same string the
     // Rollovers body prints in its own footer, so the panel must suppress one of
     // them — otherwise a portal plan shows two identical buttons, while the
@@ -1065,7 +1120,10 @@ describe("HowCanWeHelpSection panel CTAs", () => {
       sortOrder: 0,
     };
 
-    render(<HowCanWeHelpSection clientId="plan-1" topics={[rollovers]} />);
+    const { container } = render(
+      <HowCanWeHelpSection clientId="plan-1" topics={[rollovers]} />,
+    );
+    await openCard(user, container, "rollovers-distributions");
 
     expect(
       screen.getAllByRole("button", { name: "Talk through my options" }),
@@ -1753,5 +1811,59 @@ describe("HowCanWeHelpSection features placements", () => {
 
     const ids = tiles(container).map((element) => element.dataset.helpCard);
     expect(ids[ids.length - 1]).toBe("sys.mental-health-care");
+  });
+});
+
+/**
+ * The phone treatment the hub needed: smaller topic headings, single-line CTAs,
+ * and an Access card whose plan / group ID is centred in its tile.
+ */
+describe("HowCanWeHelpSection phone treatment", () => {
+  it("prints topic titles a step down from the Access card heading", () => {
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    const topic = within(tile(container, "rollovers-distributions")).getByRole(
+      "heading",
+      { name: "Rollovers & Distributions" },
+    );
+    expect(topic.className).toContain("text-base");
+    expect(topic.className).toContain("sm:text-lg");
+
+    const access = within(tile(container, "account-access")).getByRole(
+      "heading",
+      { name: "Account Access" },
+    );
+    expect(access.className).toContain("text-lg");
+  });
+
+  it("keeps every card CTA on one line", () => {
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    const learn = within(tile(container, "medicare")).getByRole("button", {
+      name: /Learn more/,
+    });
+    expect(learn.className).toContain("whitespace-nowrap");
+
+    const access = within(tile(container, "account-access")).getByRole(
+      "button",
+      { name: /Register or Log In/ },
+    );
+    expect(access.className).toContain("whitespace-nowrap");
+  });
+
+  it("centres the Account Access plan ID inside the card", () => {
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        planIdLabel="PLAN / GROUP ID: 1234"
+      />,
+    );
+
+    const chip = within(tile(container, "account-access")).getByText(
+      "PLAN / GROUP ID: 1234",
+    );
+    // The chip and the provider line share one centred row at every width.
+    expect(chip.parentElement?.className).toContain("justify-center");
+    expect(chip.parentElement?.className).toContain("text-center");
   });
 });
