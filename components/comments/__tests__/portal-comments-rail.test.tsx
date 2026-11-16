@@ -31,6 +31,8 @@ const mocks = vi.hoisted(() => ({
   isDesktop: true,
   canEdit: true,
   initialModes: [] as string[],
+  /** Whether the host let a stored "on" preference reopen the rail. */
+  restorePreferences: [] as boolean[],
   mode: {
     canComment: true,
     mode: "on" as "on" | "off",
@@ -93,11 +95,15 @@ vi.mock("@/components/comments/comment-mode-provider", () => ({
   CommentModeProvider: ({
     children,
     initialMode,
+    restorePreference,
   }: {
     children: React.ReactNode;
     initialMode?: string;
+    restorePreference?: boolean;
   }) => {
     mocks.initialModes.push(String(initialMode));
+    // Undefined means "default", i.e. the preference may reopen the rail.
+    mocks.restorePreferences.push(restorePreference !== false);
     return <div data-testid="comment-mode-provider">{children}</div>;
   },
   useCommentMode: () => mocks.mode,
@@ -141,6 +147,7 @@ beforeEach(() => {
   mocks.isDesktop = true;
   mocks.canEdit = true;
   mocks.initialModes = [];
+  mocks.restorePreferences = [];
   mocks.mode = {
     canComment: true,
     mode: "on",
@@ -214,19 +221,31 @@ describe("PortalCommentsRail gates", () => {
 
     expect(screen.getByTestId("comments-rail")).toBeInTheDocument();
     expect(screen.getByText("portal content")).toBeInTheDocument();
-    expect(mocks.initialModes).toEqual(["on"]);
   });
 
-  it("arms but opens CLOSED when another page sent the advisor to edit a section", () => {
+  it("arrives with the rail CLOSED, and lets a stored preference reopen nothing", () => {
+    // `?edit=true` arms the tree — provider, rails, launchers — it does not open
+    // anything. The advisor came to look at the page as a participant sees it.
+    setSearch("?edit=true&tab=docs");
+    renderRail();
+
+    expect(mocks.initialModes).toEqual(["off"]);
+    // A stored "on" from an earlier dashboard visit must not re-open it on
+    // arrival, or the flag would look broken on every visit after the first.
+    expect(mocks.restorePreferences).toEqual([false]);
+  });
+
+  it("stays closed when another page sent the advisor to edit a section", () => {
     // The footer's Edit button on My Benefits Team / News & Events links here with
     // `?edit=true&editSection=disclosure`: the flag still has to arm the chrome
-    // (there is no provider tree without it), but the advisor came to edit, so the
-    // rail must not cover the page it is opening the panel beside.
+    // (there is no provider tree without it), and the panel opens on arrival
+    // through the provider — the rail must not cover the page beside it.
     setSearch("?edit=true&editSection=disclosure&editFrom=News+%26+Events");
     renderRail();
 
     expect(screen.getByTestId("comments-rail")).toBeInTheDocument();
     expect(mocks.initialModes).toEqual(["off"]);
+    expect(mocks.restorePreferences).toEqual([false]);
   });
 
   it("names the plan/benefit conversation and shows the reader's identity", () => {

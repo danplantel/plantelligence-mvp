@@ -126,18 +126,25 @@ const CommentModeContext = createContext<CommentModeValue | null>(null);
 export function CommentModeProvider({
   children,
   initialMode,
+  restorePreference = true,
 }: {
   children: React.ReactNode;
   /**
    * The mode to start in, before the stored preference is read. Defaults to `"off"`.
    *
-   * The dashboard omits it and lets the preference decide. The PORTAL passes `"on"`: its rail exists
-   * only because the link asked for it (`?edit=true`), so an advisor who has never expressed a
-   * preference must not arrive at a rail that is already closed — that would make the button they
-   * pressed look like it did nothing. A stored `"on"` still wins, and nothing here can turn the rail
-   * OFF: the restore effect below only ever turns it on.
+   * The dashboard omits it and lets the preference decide. The PORTAL passes `"off"`: its rail exists
+   * only because the link asked for it (`?edit=true`), but the advisor arrives to LOOK at the page —
+   * both tool panels start closed and are opened deliberately, from the floating buttons.
    */
   initialMode?: CommentMode;
+  /**
+   * Whether the stored preference may turn the rail on at mount. Defaults to `true`.
+   *
+   * The portal passes `false`: "closed by default" has to mean closed even for an advisor who left
+   * comments open on the dashboard yesterday, or the flag would appear to do nothing on every visit.
+   * Opening the rail there still stores the choice, exactly as before.
+   */
+  restorePreference?: boolean;
 }) {
   const [surface, setSurface] = useState<CommentSurfaceInput | null>(null);
   const [surfaceResolved, setSurfaceResolved] = useState(false);
@@ -147,8 +154,10 @@ export function CommentModeProvider({
   const currentUserId = session?.user?.id ?? null;
 
   // Restore the reader's preference once on the client. Absent/blocked storage just
-  // leaves comments off.
+  // leaves comments off. A host that wants the rail closed on arrival opts out —
+  // see `restorePreference`.
   useEffect(() => {
+    if (!restorePreference) return;
     try {
       if (window.localStorage.getItem(MODE_STORAGE_KEY) === "on") {
         setModeState("on");
@@ -156,7 +165,7 @@ export function CommentModeProvider({
     } catch {
       // Private mode / storage disabled — comments default to off.
     }
-  }, []);
+  }, [restorePreference]);
 
   const setMode = useCallback((next: CommentMode) => {
     setModeState(next);

@@ -10,6 +10,8 @@
  * The five "Open Portal" buttons append `?edit=true` so an advisor can read a plan exactly as a
  * participant does and edit/comment on it in the same view. This is what makes that flag mean
  * something — it arms the Comments rail, the Edit launcher and the landing page's INCOMPLETE cards.
+ * Arming is not opening: both tool panels arrive CLOSED (see the provider below), because the
+ * advisor came to look at the page, not at a workspace.
  *
  * THREE GATES, and all three must open:
  *
@@ -60,7 +62,6 @@ import {
   portalCommentsSurface,
   wantsCommentsRail,
 } from "@/lib/comments/portal-surface";
-import { hasPortalEditIntent } from "@/lib/portal-editor-intent";
 import { benefitCategoryToVisibilityKey } from "@/lib/portal-category-visibility";
 import {
   customBenefitNameToSlug,
@@ -84,17 +85,8 @@ export function PortalCommentsRail({
   // for a panel it is about to be told it cannot have.
   const isDesktop = useMediaQuery(DESKTOP_QUERY, false);
 
-  /**
-   * True when another page sent the advisor here to edit a section (the footer
-   * disclosure). The flag still arms this tree — without it there would be no
-   * provider and no panel — but the rail itself opens CLOSED: they came to edit,
-   * not to read comments.
-   */
-  const [editingIntent, setEditingIntent] = useState(false);
-
   useEffect(() => {
     setFlagged(wantsCommentsRail(window.location.search));
-    setEditingIntent(hasPortalEditIntent(window.location.search));
   }, []);
 
   const armed = flagged && status === "authenticated" && isDesktop;
@@ -159,8 +151,13 @@ export function PortalCommentsRail({
 
   if (!armed) return <>{children}</>;
 
+  // Both tool panels start CLOSED. `?edit=true` arms this tree — provider, rails,
+  // launchers — it does not open anything: the advisor arrives to look at the page
+  // as a participant sees it, and opens the panel they want from the floating
+  // buttons. `restorePreference={false}` keeps a stored "on" (from a previous
+  // dashboard visit) from re-opening the rail behind their back on every arrival.
   return (
-    <CommentModeProvider initialMode={editingIntent ? "off" : "on"}>
+    <CommentModeProvider initialMode="off" restorePreference={false}>
       <MessagesModeProvider>
         <PortalEditingProvider>
           {children}
