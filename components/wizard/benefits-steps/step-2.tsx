@@ -13,6 +13,10 @@ import {
 } from "@/lib/typography-themes";
 import { fetchClientOnce } from "@/lib/fetch-client";
 import { usePreviewEditorLayout } from "@/lib/preview-editor-layout";
+import {
+    PREVIEW_SAFE_AREA_BOTTOM,
+    PREVIEW_SAFE_AREA_TOP,
+} from "@/lib/preview-safe-areas";
 import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
 import { Smartphone, Monitor } from "lucide-react";
 
@@ -119,25 +123,47 @@ export function MobilePreviewFrame({
                 border: "none",
                 background: "white",
                 flexShrink: 0,
-                maxHeight: "100%",
             }}
         >
             {mountNode &&
                 createPortal(
+                    /* The scrolling page, then the home-indicator strip. The strip
+                     * sits outside the scroll container, so the page's final row
+                     * stops above the bottom curve. The top safe area is NOT drawn
+                     * here: it belongs to the host's sticky header block, so the
+                     * notch's band and the chrome are one opaque surface and nothing
+                     * can slide through the seam between them. The screen keeps its
+                     * own rounded clip too, so the page is cut by a phone-shaped
+                     * screen rather than by the outer bezel. */
                     <div
                         style={{
                             width: `${REFERENCE_MOBILE_WIDTH}px`,
                             height: `${innerHeight}px`,
                             transform: `scale(${scale})`,
                             transformOrigin: "top left",
-                            overflowY: "auto",
-                            overflowX: "hidden",
-                            scrollbarWidth: "none",
-                            msOverflowStyle: "none",
+                            display: "flex",
+                            flexDirection: "column",
+                            overflow: "hidden",
+                            background: "white",
                         }}
-                        className="[&::-webkit-scrollbar]:hidden"
                     >
-                        {children}
+                        <div
+                            className="[&::-webkit-scrollbar]:hidden"
+                            style={{
+                                flex: "1 1 auto",
+                                minHeight: 0,
+                                overflowY: "auto",
+                                overflowX: "hidden",
+                                scrollbarWidth: "none",
+                                msOverflowStyle: "none",
+                            }}
+                        >
+                            {children}
+                        </div>
+                        <div
+                            aria-hidden
+                            style={{ height: PREVIEW_SAFE_AREA_BOTTOM, flexShrink: 0 }}
+                        />
                     </div>,
                     mountNode,
                 )}
@@ -743,29 +769,45 @@ export function BenefitsStep2() {
                 <div
                     ref={scrollableRef}
                     data-preview-scroll-container
-                    className={`flex-1 overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center ${
-                        previewMode === "mobile" ? "overflow-y-hidden justify-center" : "overflow-y-auto"
-                    }`}
+                    className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-300 dark:bg-gray-950 flex flex-col items-center"
                 >
                     {previewMode === "mobile" ? (
-                        /* ── Mobile phone frame — centered without scrolling ── */
-                        <div className="flex items-center justify-center w-full py-6 px-4 flex-shrink-0">
+                        /* ── Mobile phone frame ──
+                         * Centred by its own auto margins rather than by the
+                         * container's `justify-center`: an auto margin resolves to 0
+                         * once the device is taller than the viewport, so a short
+                         * window scrolls the whole bezel instead of slicing its top
+                         * and bottom edges off an un-scrollable overhang. */
+                        <div className="my-auto flex w-full flex-shrink-0 items-center justify-center px-4 py-6">
                             <div
-                                className="relative rounded-[36px] border-[4px] border-gray-800 dark:border-gray-700 bg-gray-900 shadow-2xl flex-shrink-0 overflow-hidden"
+                                className="relative rounded-[36px] border-[4px] border-gray-800 dark:border-gray-700 bg-gray-900 p-[4px] shadow-2xl flex-shrink-0"
                                 style={{ width: MOBILE_WIDTH + 20 }}
                             >
-                                {/* Phone notch */}
+                                {/* Phone notch — over the screen's status strip, never the header. */}
                                 <div className="absolute top-[7px] left-1/2 -translate-x-1/2 w-[90px] h-[5px] bg-gray-900 dark:bg-gray-800 rounded-full z-50" />
                                 {/* Side buttons (decorative) */}
                                 <div className="absolute top-24 -left-[3px] w-[3px] h-8 bg-gray-700 dark:bg-gray-600 rounded-l" />
                                 <div className="absolute top-36 -left-[3px] w-[3px] h-12 bg-gray-700 dark:bg-gray-600 rounded-l" />
                                 <div className="absolute top-20 -right-[3px] w-[3px] h-10 bg-gray-700 dark:bg-gray-600 rounded-r" />
-                                <div className="flex items-center justify-center py-2">
+                                {/* The screen carries the rounded clip, so the page is cut
+                                    by a phone-shaped screen rather than by the outer bezel.
+                                    The bezel keeps no clip of its own, which is what lets
+                                    the decorative side buttons sit outside its edge. */}
+                                <div className="overflow-hidden rounded-[25px] bg-white">
                                     <MobilePreviewFrame
                                         width={MOBILE_WIDTH}
                                         themeKey={step1Data?.typographyTheme}
                                     >
-                                        <div className="sticky top-0 w-full z-50 shrink-0">
+                                        {/* The screen's top safe area rides WITH the
+                                            header: one sticky, opaque surface flush with
+                                            the screen's top edge. As a separate band it
+                                            left a seam the page scrolled through, so
+                                            section content showed above the header. */}
+                                        <div className="sticky top-0 w-full z-50 shrink-0 bg-white">
+                                            <div
+                                                aria-hidden
+                                                style={{ height: PREVIEW_SAFE_AREA_TOP }}
+                                            />
                                             <PortalHeader
                                                 companyData={{ companyLogo: planCompanyLogo }}
                                                 brandColor={brandColor}

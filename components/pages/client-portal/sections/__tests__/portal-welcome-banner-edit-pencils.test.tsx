@@ -146,4 +146,94 @@ describe("PortalWelcomeBanner — per-element pencils", () => {
       expect(screen.queryByRole("button", { name })).not.toBeInTheDocument();
     }
   });
+
+  /**
+   * The Create/Edit Benefits previews (desktop AND the phone frame) render this
+   * banner without a portal editing provider — they own their Edit Panel and pass
+   * click handlers instead. Before the pencils accepted `onActivate`, every
+   * editable region of the banner was silently affordance-free there.
+   */
+  describe("in a preview, where the host owns the panel", () => {
+    beforeEach(() => {
+      mocks.editing.value = null;
+    });
+
+    function renderPreview(handlers: Record<string, unknown> = {}) {
+      const onTitleClick = vi.fn();
+      const onDescriptionClick = vi.fn();
+      const onClosingClick = vi.fn();
+      const onPortraitClick = vi.fn();
+      const onLogoClick = vi.fn();
+      renderBanner({
+        editTargets: undefined,
+        onTitleClick,
+        onDescriptionClick,
+        onClosingClick,
+        onPortraitClick,
+        onLogoClick,
+        ...handlers,
+      });
+      return {
+        onTitleClick,
+        onDescriptionClick,
+        onClosingClick,
+        onPortraitClick,
+        onLogoClick,
+      };
+    }
+
+    it("draws a pencil on every region the host can open", () => {
+      renderPreview();
+
+      for (const name of [
+        "Edit headline",
+        "Edit description",
+        "Edit closing and signature",
+        "Edit key contact portrait",
+        "Edit provider logo",
+      ]) {
+        expect(screen.getByRole("button", { name })).toBeInTheDocument();
+      }
+    });
+
+    it("hands each pencil the host's own handler", async () => {
+      const user = userEvent.setup();
+      const handlers = renderPreview();
+
+      await user.click(screen.getByRole("button", { name: "Edit headline" }));
+      await user.click(
+        screen.getByRole("button", { name: "Edit description" }),
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Edit closing and signature" }),
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Edit key contact portrait" }),
+      );
+      await user.click(
+        screen.getByRole("button", { name: "Edit provider logo" }),
+      );
+
+      expect(handlers.onTitleClick).toHaveBeenCalledTimes(1);
+      expect(handlers.onDescriptionClick).toHaveBeenCalledTimes(1);
+      expect(handlers.onClosingClick).toHaveBeenCalledTimes(1);
+      expect(handlers.onPortraitClick).toHaveBeenCalledTimes(1);
+      expect(handlers.onLogoClick).toHaveBeenCalledTimes(1);
+    });
+
+    it("draws nothing for a region the host did not offer", () => {
+      renderPreview({ onPortraitClick: undefined, onLogoClick: undefined });
+
+      expect(
+        screen.queryByRole("button", { name: "Edit key contact portrait" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole("button", { name: "Edit provider logo" }),
+      ).not.toBeInTheDocument();
+      // The regions it did offer keep their pencils.
+      expect(
+        screen.getByRole("button", { name: "Edit headline" }),
+      ).toBeInTheDocument();
+    });
+  });
 });

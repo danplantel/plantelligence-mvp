@@ -17,6 +17,8 @@ const editBenefitTests = [
   "components/pages/benefits/__tests__/benefit-edit-page.test.tsx",
   // The Preview tab: editor auto-open, modes, logo/brand/typography
   "components/pages/benefits/__tests__/edit-benefit-preview-section.test.tsx",
+  // The phone frame that tab shares with wizard Step 2: safe-area strips, height
+  "components/wizard/benefits-steps/__tests__/mobile-preview-frame.test.tsx",
   // The shared wizard steps the Edit page renders per tab
   "components/wizard/benefits-steps/__tests__/step-1.test.tsx",
   "components/wizard/benefits-steps/__tests__/step-3.test.tsx",

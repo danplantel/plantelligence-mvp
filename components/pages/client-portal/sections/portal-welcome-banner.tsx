@@ -28,6 +28,12 @@ interface PortalWelcomeBannerProps {
   onTitleClick?: () => void;
   /** Click handler for the summary description text. Opens the editor. */
   onDescriptionClick?: () => void;
+  /** Click handler for the closing line and the signature under it. */
+  onClosingClick?: () => void;
+  /** Click handler for the key-contact portrait. */
+  onPortraitClick?: () => void;
+  /** Click handler for the provider logo printed under the portrait. */
+  onLogoClick?: () => void;
   clientData?: {
     companyName?: string;
     missionHeadline?: string;
@@ -152,6 +158,9 @@ export function PortalWelcomeBanner({
   brandColor = "#1F3A60",
   onTitleClick,
   onDescriptionClick,
+  onClosingClick,
+  onPortraitClick,
+  onLogoClick,
   customHeadline,
   customDescription,
   customClosing,
@@ -409,11 +418,18 @@ export function PortalWelcomeBanner({
     effectiveContainerBlockOpacity * 0.3
   }))`;
 
-  /** True when this region can be opened in an Edit Panel at all. */
+  /**
+   * True when this region can be opened in an Edit Panel at all — by the portal
+   * provider (`editTargets`, the live hub) or by the host's own panel (the
+   * wizard/Edit Benefit previews, which pass the click handlers).
+   */
   const editableTitle = Boolean(onTitleClick || editTargets?.title);
   const editableDescription = Boolean(
     onDescriptionClick || editTargets?.description,
   );
+  const editableClosing = Boolean(onClosingClick || editTargets?.closing);
+  const editablePortrait = Boolean(onPortraitClick || editTargets?.portrait);
+  const editableLogo = Boolean(onLogoClick || editTargets?.logo);
 
   // ── Full-bleed welcome banner background ────────────────────────────────
   // Priority (matches the live hub): persisted per-category benefit image →
@@ -575,9 +591,10 @@ export function PortalWelcomeBanner({
                     Revealed on hover through CSS rather than state — a
                     state-rendered button unmounts the moment the pointer leaves
                     the region to reach it. */}
-                {editTargets?.title && (
+                {editableTitle && (
                   <PortalSectionEditButton
-                    sectionId={editTargets.title}
+                    sectionId={editTargets?.title}
+                    onActivate={onTitleClick}
                     label="Edit headline"
                     iconOnly
                     className="-left-2 -top-2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
@@ -604,9 +621,10 @@ export function PortalWelcomeBanner({
                   onDescriptionClick?.();
                 }}
               >
-                {editTargets?.description && (
+                {editableDescription && (
                   <PortalSectionEditButton
-                    sectionId={editTargets.description}
+                    sectionId={editTargets?.description}
+                    onActivate={onDescriptionClick}
                     label="Edit description"
                     iconOnly
                     className="-left-2 -top-2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
@@ -620,10 +638,23 @@ export function PortalWelcomeBanner({
               </div>
 
               {/* Closing & Signature */}
-              <div className="group relative pt-5">
-                {editTargets?.closing && (
+              <div
+                className={`group relative pt-5 ${
+                  onClosingClick ? "cursor-pointer" : ""
+                }`}
+                onClick={
+                  onClosingClick
+                    ? (e) => {
+                        e.stopPropagation();
+                        onClosingClick();
+                      }
+                    : undefined
+                }
+              >
+                {editableClosing && (
                   <PortalSectionEditButton
-                    sectionId={editTargets.closing}
+                    sectionId={editTargets?.closing}
+                    onActivate={onClosingClick}
                     label="Edit closing and signature"
                     iconOnly
                     className="-left-2 -top-2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
@@ -764,9 +795,10 @@ export function PortalWelcomeBanner({
                 image) in a circular frame, with the company logo beneath it. */}
             <div className="order-1 flex flex-col items-center justify-center gap-4 px-4 pb-4 pt-8 sm:gap-5 sm:pb-6 sm:pt-10 lg:order-1 lg:py-10 lg:pl-16 lg:pr-4">
               <div className="group relative">
-                {editTargets?.portrait && (
+                {editablePortrait && (
                   <PortalSectionEditButton
-                    sectionId={editTargets.portrait}
+                    sectionId={editTargets?.portrait}
+                    onActivate={onPortraitClick}
                     label="Edit key contact portrait"
                     iconOnly
                     className="-left-2 -top-2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
@@ -808,9 +840,10 @@ export function PortalWelcomeBanner({
                   Priority: per-category partnerLogo (set via wizard Provider Logo
                   upload) → plan-level companyLogo → fallback "LOGO HERE". */}
               <div className="group relative">
-              {editTargets?.logo && (
+              {editableLogo && (
                 <PortalSectionEditButton
-                  sectionId={editTargets.logo}
+                  sectionId={editTargets?.logo}
+                  onActivate={onLogoClick}
                   label="Edit provider logo"
                   iconOnly
                   className="-left-2 -top-2 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"

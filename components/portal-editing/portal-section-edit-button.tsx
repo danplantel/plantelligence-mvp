@@ -10,8 +10,14 @@ import {
 import { cn } from "@/lib/utils";
 
 export interface PortalSectionEditButtonProps {
-  /** The panel section to open, addressed with `portalSectionId`. */
-  sectionId: string;
+  /**
+   * The panel section to open, addressed with `portalSectionId`.
+   *
+   * Optional because a host can own its own Edit Panel instead — see
+   * `onActivate`. With neither a provider nor `onActivate` the button renders
+   * nothing, which is what keeps it safe to sit in shared sections.
+   */
+  sectionId?: string;
   /** Visible text, and the button's accessible name. Keep it short. */
   label: string;
   /** Positioning, from the caller (the button is absolutely positioned). */
@@ -39,6 +45,17 @@ export interface PortalSectionEditButtonProps {
    * path's name; the landing page uses it to explain why they were moved.
    */
   sourceLabel?: string;
+  /**
+   * What to do when NO portal editing provider is mounted.
+   *
+   * The wizard and Edit Benefit previews draw these pencils on a page the
+   * advisor is already editing, and they own their panel state directly (a click
+   * dispatches `openBenefitsEditor`/opens the inline panel). Inside a preview
+   * there is no provider to focus a section in, so without this the pencil
+   * rendered nothing at all and the editable regions of a section had no visible
+   * affordance.
+   */
+  onActivate?: () => void;
 }
 
 /**
@@ -61,9 +78,12 @@ export function PortalSectionEditButton({
   editPath,
   editHref,
   sourceLabel,
+  onActivate,
 }: PortalSectionEditButtonProps) {
   const editing = useOptionalPortalEditing();
-  if (!editing?.canEdit) return null;
+  // The provider can only focus a section it was given an address for.
+  const providerCanOpen = Boolean(editing?.canEdit && sectionId);
+  if (!providerCanOpen && !onActivate) return null;
 
   return (
     <button
@@ -73,6 +93,13 @@ export function PortalSectionEditButton({
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
+
+        // No provider (a wizard/Edit Benefit preview): the host opens its own
+        // panel, so hand the click straight to it.
+        if (!providerCanOpen) {
+          onActivate?.();
+          return;
+        }
 
         // Edited somewhere else: remember what to open, go there, and let the
         // panel on that page consume the intent. `editPath` stays hash-free so it
@@ -95,14 +122,14 @@ export function PortalSectionEditButton({
               search: window.location.search,
               editPath,
               editHref,
-              sectionId,
+              sectionId: sectionId!,
               sourceLabel: sourceLabel || portalPageLabel(window.location.pathname),
             }),
           );
           return;
         }
 
-        editing.focusSection(sectionId);
+        editing!.focusSection(sectionId!);
       }}
       aria-label={label}
       title={label}

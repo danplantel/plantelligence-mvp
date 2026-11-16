@@ -17,7 +17,6 @@ import {
   Eye,
   ChevronDown,
   ChevronUp,
-  ChevronLeft,
   Palette,
   Monitor,
   Smartphone,
@@ -56,11 +55,27 @@ import {
   KEY_CONTACT_CARD_STYLE_CHOICES,
   type KeyContactCardStyle,
 } from "@/lib/key-contact-card-style";
+import { PortalHeader } from "@/components/pages/client-portal/sections/portal-header";
+import {
+  PREVIEW_SAFE_AREA_BOTTOM,
+  PREVIEW_SAFE_AREA_TOP,
+} from "@/lib/preview-safe-areas";
+import {
+  PREVIEW_PHONE_INNER_HEIGHT,
+  PREVIEW_PHONE_REFERENCE_WIDTH,
+  PREVIEW_PHONE_SCALE,
+  PREVIEW_PHONE_SCREEN_HEIGHT,
+  PREVIEW_PHONE_WIDTH,
+} from "@/lib/preview-phone-frame";
 
 interface NewClientStep3dProps {
   errorFields?: string[];
   onNext?: () => void;
-  /** Called when user clicks Back to return to Category Explorer */
+  /**
+   * Accepted for the wizard's own navigation. The preview no longer draws a
+   * "Back to Categories" button — the stepper above it already moves back, and
+   * the button sat under the phone where it read as part of the preview.
+   */
   onBack?: () => void;
 }
 
@@ -160,6 +175,7 @@ function SortablePreviewCard({
   isDragging: externalIsDragging,
   onEdit,
   disabled = false,
+  controlsAboveCard = false,
 }: {
   id: string | number;
   /**
@@ -172,6 +188,13 @@ function SortablePreviewCard({
   onEdit?: () => void;
   /** When true the card cannot be dragged (e.g. the static Main Contact). */
   disabled?: boolean;
+  /**
+   * Draw the drag handle / Edit row ABOVE the card instead of inside its frame.
+   *
+   * The phone preview asks for this: in a 200 px screen the row took a third of
+   * the card and pushed the name and benefit pills into what was left.
+   */
+  controlsAboveCard?: boolean;
 }) {
   const {
     attributes,
@@ -251,15 +274,30 @@ function SortablePreviewCard({
           background of its own. It is handed to the card, which draws it inside its
           own frame above the benefit pills, so nothing sits on top of the card and
           nothing floats outside it. */}
-      {children(
-        <div className="flex w-full items-center justify-between gap-2">
-          <span className="opacity-70 transition-opacity group-hover:opacity-100">
-            {dragHandle}
-          </span>
-          {/* Always visible: on a touch device there is no hover, and the advisor
-              should not have to guess that the card is editable. */}
-          {editButton && <span>{editButton}</span>}
-        </div>,
+      {controlsAboveCard ? (
+        <>
+          {/* On the phone the row sits ABOVE the card instead of inside it: at
+              200 px the handle and the Edit button took a third of the card and
+              squeezed the name and benefit pills. Outside it they cost nothing. */}
+          <div className="mb-2 mt-4 flex w-full items-center justify-between gap-2">
+            <span className="opacity-70 transition-opacity group-hover:opacity-100">
+              {dragHandle}
+            </span>
+            {editButton && <span>{editButton}</span>}
+          </div>
+          {children(null)}
+        </>
+      ) : (
+        children(
+          <div className="flex w-full items-center justify-between gap-2">
+            <span className="opacity-70 transition-opacity group-hover:opacity-100">
+              {dragHandle}
+            </span>
+            {/* Always visible: on a touch device there is no hover, and the
+                advisor should not have to guess that the card is editable. */}
+            {editButton && <span>{editButton}</span>}
+          </div>,
+        )
       )}
     </div>
   );
@@ -1487,6 +1525,7 @@ export function NewClientStep3d({
             isDragging={activePreviewId === contact.id}
             disabled={mainContactId != null && contact.id === mainContactId}
             onEdit={() => handleCardClick(contact.id)}
+            controlsAboveCard={previewMode === "mobile"}
           >
             {(controls) => (
               <RenderCardBySlot
@@ -1652,6 +1691,154 @@ export function NewClientStep3d({
 
   const totalFixedHeight = HEADER_HEIGHT + barHeight + BOTTOM_NAV_HEIGHT;
 
+  /** Opens/closes the inline Edit Panel — first in the header's right column. */
+  const editPanelButton = (
+    <button
+      type="button"
+      onClick={() => {
+        if (isEditorOpen) {
+          setIsEditorAnimating(false);
+          setTimeout(() => setIsEditorOpen(false), 200);
+        } else {
+          setIsEditorOpen(true);
+          setTimeout(() => setIsEditorAnimating(true), 10);
+        }
+      }}
+      className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+    >
+      {isEditorOpen ? "Close Edit Panel" : "Open Edit Panel"}
+    </button>
+  );
+
+  /**
+   * The header's RIGHT column: the panel button, then Desktop/Mobile, the
+   * layout-options toggle and the key-contact style.
+   *
+   * They used to be split — an icon-only toggle in the toolbar and the labelled
+   * controls inside the preview card, on the SCALED 1400 px canvas, inches below
+   * the button that opens the panel they configure and shrunk with it. The
+   * toolbar is outside that canvas, so all of them read at their authored size.
+   */
+  const previewControls = (
+    <div className="flex flex-wrap items-center justify-end gap-1.5">
+      {editPanelButton}
+
+      {/* Desktop / Mobile Toggle */}
+      <div className="inline-flex shrink-0 items-center overflow-hidden rounded-lg border border-gray-200 dark:border-gray-600">
+        <button
+          type="button"
+          onClick={() => setPreviewMode("desktop")}
+          aria-pressed={previewMode === "desktop"}
+          className={cn(
+            "flex items-center gap-1 whitespace-nowrap px-2.5 py-1.5 text-xs transition-all cursor-pointer",
+            previewMode === "desktop"
+              ? "bg-accent-blue text-white"
+              : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
+          )}
+        >
+          <Monitor className="w-3.5 h-3.5 shrink-0" />
+          Desktop
+        </button>
+        <button
+          type="button"
+          onClick={() => setPreviewMode("mobile")}
+          aria-pressed={previewMode === "mobile"}
+          className={cn(
+            "flex items-center gap-1 whitespace-nowrap px-2.5 py-1.5 text-xs transition-all cursor-pointer",
+            previewMode === "mobile"
+              ? "bg-accent-blue text-white"
+              : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
+          )}
+        >
+          <Smartphone className="w-3.5 h-3.5 shrink-0" />
+          Mobile
+        </button>
+      </div>
+
+      {/* Collapsible Layout Button */}
+      <button
+        type="button"
+        onClick={() =>
+          setIsLayoutSectionCollapsed(!isLayoutSectionCollapsed)
+        }
+        aria-expanded={!isLayoutSectionCollapsed}
+        className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs transition-all cursor-pointer hover:border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-700"
+      >
+        <LayoutGrid className="w-3.5 h-3.5 shrink-0 text-accent-blue" />
+        <span className="text-gray-700 dark:text-gray-300">
+          {isLayoutSectionCollapsed
+            ? "Show Layout Options"
+            : "Hide Layout Options"}
+        </span>
+        {isLayoutSectionCollapsed ? (
+          <ChevronDown className="w-3.5 h-3.5 shrink-0 text-gray-500 dark:text-gray-400" />
+        ) : (
+          <ChevronUp className="w-3.5 h-3.5 shrink-0 text-gray-500 dark:text-gray-400" />
+        )}
+      </button>
+
+      {/* Key-contact card style — PREVIEW ONLY: the style itself lives on each
+          benefit (its Have Questions? section), and this plan-level preview has
+          no benefit to read it from, so the choice is not saved. */}
+      <div className="flex shrink-0 items-center gap-1">
+        <span className="whitespace-nowrap text-[11px] font-medium text-gray-500 dark:text-gray-400">
+          Key contact
+        </span>
+        <div
+          role="group"
+          aria-label="Key Contact Card Style"
+          className="inline-flex items-center overflow-hidden rounded-lg border border-gray-200 dark:border-gray-600"
+        >
+          {KEY_CONTACT_CARD_STYLE_CHOICES.map((choice) => {
+            const isSelected = keyContactStyle === choice.value;
+            return (
+              <button
+                key={choice.value}
+                type="button"
+                aria-pressed={isSelected}
+                title={choice.hint}
+                onClick={() => setKeyContactStyle(choice.value)}
+                className={cn(
+                  "whitespace-nowrap px-2.5 py-1.5 text-xs font-medium transition-all cursor-pointer",
+                  isSelected
+                    ? "bg-accent-blue text-white"
+                    : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
+                )}
+              >
+                {choice.value === "default" ? "Default" : "Highlighted"}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+
+  /** The sortable cards — shared by the desktop canvas and the phone screen. */
+  const sortablePreview = (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      measuring={{
+        droppable: {
+          strategy: MeasuringStrategy.Always,
+        },
+      }}
+      onDragStart={handlePreviewDragStart}
+      onDragOver={handlePreviewDragOver}
+      onDragEnd={handlePreviewDragEnd}
+      onDragCancel={handlePreviewDragCancel}
+    >
+      <SortableContext
+        key={`layout-${currentDisplayStyle}`}
+        items={previewOrder}
+        strategy={rectSortingStrategy}
+      >
+        <div className="w-full min-w-0 max-w-none">{previewContent}</div>
+      </SortableContext>
+    </DndContext>
+  );
+
   return (
     <div>
       {/* Spacer for fixed elements */}
@@ -1668,50 +1855,26 @@ export function NewClientStep3d({
         <div style={{ height: HEADER_HEIGHT }} />
         <div
           ref={barRef}
-          className="flex items-center justify-between px-4 py-3 bg-gray-100 border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700"
+          className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-2 bg-gray-100 border-b border-gray-200 dark:bg-gray-800 dark:border-gray-700"
         >
-          <button
-            type="button"
-            onClick={() => {
-              if (isEditorOpen) {
-                setIsEditorAnimating(false);
-                setTimeout(() => setIsEditorOpen(false), 200);
-              } else {
-                setIsEditorOpen(true);
-                setTimeout(() => setIsEditorAnimating(true), 10);
-              }
-            }}
-            className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors dark:border-gray-600 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
-          >
-            {isEditorOpen ? "Close Edit Panel" : "Open Edit Panel"}
-          </button>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setPreviewMode("desktop")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-2 text-sm transition-all rounded-l-lg border border-gray-200",
-                previewMode === "desktop"
-                  ? "bg-accent-blue text-white border-accent-blue"
-                  : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600",
-              )}
-            >
-              <Monitor className="w-4 h-4" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreviewMode("mobile")}
-              className={cn(
-                "flex items-center gap-1.5 px-3 py-2 text-sm transition-all rounded-r-lg border border-gray-200",
-                previewMode === "mobile"
-                  ? "bg-accent-blue text-white border-accent-blue"
-                  : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-600",
-              )}
-            >
-              <Smartphone className="w-4 h-4" />
-            </button>
+          {/* Two columns, the same shape Edit Client → Contacts → Contact Card
+              Layout Preview uses: LEFT names what is being previewed, RIGHT holds
+              the action (the Edit Panel button) and the controls that configure
+              it. */}
+          {/* Compact so the whole header — copy plus the five controls — holds
+              one row. */}
+          <div className="min-w-0">
+            <h2 className="mb-0.5 flex items-center gap-1.5 text-base font-semibold text-gray-900 dark:text-gray-100">
+              <Palette className="w-4 h-4 text-accent-blue" />
+              Preview
+            </h2>
+            <p className="max-w-[420px] text-xs leading-snug text-muted-foreground">
+              Choose a layout style for your contact cards. Drag and drop to
+              reorder contacts directly in the preview.
+            </p>
           </div>
+
+          {previewControls}
         </div>
       </div>
       {/* Side editor panel */}
@@ -1743,147 +1906,55 @@ export function NewClientStep3d({
         >
           {!showPreviewSkeleton ? (
             <div
-              style={{
-                height: scaledHeight != null ? `${scaledHeight}px` : "100%",
-              }}
+              className={previewMode === "mobile" ? "w-full" : undefined}
+              style={
+                previewMode === "mobile"
+                  ? undefined
+                  : {
+                      height:
+                        scaledHeight != null ? `${scaledHeight}px` : "100%",
+                    }
+              }
             >
               <div
                 ref={previewContentRef}
-                style={{
-                  transform: `scale(${scale})`,
-                  transformOrigin: "center top",
-                  width: `${DESKTOP_PREVIEW_WIDTH}px`,
-                  padding: "2rem",
-                }}
+                style={
+                  // The desktop canvas is laid out at 1400 px and scaled to fit.
+                  // The phone is NOT scaled with it: at 200 px it would shrink
+                  // below the size every other preview draws it at, so mobile
+                  // mode renders at its natural width, with no canvas padding to
+                  // nest the device inside.
+                  previewMode === "mobile"
+                    ? { width: "100%" }
+                    : {
+                        transform: `scale(${scale})`,
+                        transformOrigin: "center top",
+                        width: `${DESKTOP_PREVIEW_WIDTH}px`,
+                        padding: "2rem",
+                      }
+                }
               >
                 {/* Combined Preview Section with Collapsible Layout */}
-                <Card className="space-y-4 dark:bg-gray-800 dark:border-gray-700">
-                  <CardHeader>
-                    <div className="space-y-3">
-                      <div className="min-w-0">
-                        <h2 className="text-xl font-semibold text-gray-900 mb-1 flex items-center gap-2 dark:text-gray-100">
-                          <Palette className="w-5 h-5 text-accent-blue" />
-                          Preview
-                        </h2>
-                        <p className="text-sm max-w-[500px] text-muted-foreground">
-                          Choose a layout style for your contact cards. Drag and
-                          drop to reorder contacts directly in the preview.
-                        </p>
-                      </div>
-
-                      {/* Divider between the description above and the controls below. */}
-                      <div
-                        className="h-px w-full bg-gray-200 dark:bg-gray-700"
-                        aria-hidden
-                      />
-
-                      {/* Controls — a row of self-sized groups that WRAPS instead of
-                          squeezing, so no label is ever clipped by a neighbour. Each
-                          group keeps `shrink-0` and `whitespace-nowrap` so its text
-                          always fits its own box. */}
-                      <div className="flex flex-wrap items-center gap-2">
-                        {/* Desktop / Mobile Toggle */}
-                        <div className="inline-flex shrink-0 items-center overflow-hidden rounded-lg border border-gray-200 dark:border-gray-600">
-                          <button
-                            type="button"
-                            onClick={() => setPreviewMode("desktop")}
-                            aria-pressed={previewMode === "desktop"}
-                            className={cn(
-                              "flex items-center gap-1.5 whitespace-nowrap px-3 py-2 text-sm transition-all cursor-pointer",
-                              previewMode === "desktop"
-                                ? "bg-accent-blue text-white"
-                                : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
-                            )}
-                          >
-                            <Monitor className="w-4 h-4 shrink-0" />
-                            Desktop
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setPreviewMode("mobile")}
-                            aria-pressed={previewMode === "mobile"}
-                            className={cn(
-                              "flex items-center gap-1.5 whitespace-nowrap px-3 py-2 text-sm transition-all cursor-pointer",
-                              previewMode === "mobile"
-                                ? "bg-accent-blue text-white"
-                                : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
-                            )}
-                          >
-                            <Smartphone className="w-4 h-4 shrink-0" />
-                            Mobile
-                          </button>
-                        </div>
-
-                        {/* Collapsible Layout Button */}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setIsLayoutSectionCollapsed(
-                              !isLayoutSectionCollapsed,
-                            )
-                          }
-                          aria-expanded={!isLayoutSectionCollapsed}
-                          className="flex shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-gray-200 px-3 py-2 text-sm transition-all cursor-pointer hover:border-gray-300 hover:bg-gray-50 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-700"
-                        >
-                          <LayoutGrid className="w-4 h-4 shrink-0 text-accent-blue" />
-                          <span className="text-gray-700 dark:text-gray-300">
-                            {isLayoutSectionCollapsed
-                              ? "Show Layout Options"
-                              : "Hide Layout Options"}
-                          </span>
-                          {isLayoutSectionCollapsed ? (
-                            <ChevronDown className="w-4 h-4 shrink-0 text-gray-500 dark:text-gray-400" />
-                          ) : (
-                            <ChevronUp className="w-4 h-4 shrink-0 text-gray-500 dark:text-gray-400" />
-                          )}
-                        </button>
-
-                        {/* Key-contact card style — sits in the header so the advisor
-                            can see both looks without opening the layout options.
-                            PREVIEW ONLY: the style itself lives on each benefit (its
-                            Have Questions? section), and this plan-level preview has
-                            no benefit to read it from, so the choice is not saved. */}
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          <span className="whitespace-nowrap text-xs font-medium text-gray-500 dark:text-gray-400">
-                            Key contact
-                          </span>
-                          <div
-                            role="group"
-                            aria-label="Key Contact Card Style"
-                            className="inline-flex items-center overflow-hidden rounded-lg border border-gray-200 dark:border-gray-600"
-                          >
-                            {KEY_CONTACT_CARD_STYLE_CHOICES.map((choice) => {
-                              const isSelected =
-                                keyContactStyle === choice.value;
-                              return (
-                                <button
-                                  key={choice.value}
-                                  type="button"
-                                  aria-pressed={isSelected}
-                                  title={choice.hint}
-                                  onClick={() =>
-                                    setKeyContactStyle(choice.value)
-                                  }
-                                  className={cn(
-                                    "whitespace-nowrap px-3 py-2 text-sm font-medium transition-all cursor-pointer",
-                                    isSelected
-                                      ? "bg-accent-blue text-white"
-                                      : "bg-white text-gray-600 hover:bg-gray-50 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700",
-                                  )}
-                                >
-                                  {choice.value === "default"
-                                    ? "Default"
-                                    : "Highlighted"}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </CardHeader>
-
-                  <CardContent className="space-y-4">
+                {/* The card is content only: its title, description and controls
+                    all live in the fixed toolbar above, so nothing here has to be
+                    read through the scaled canvas. */}
+                <Card
+                  className={cn(
+                    "space-y-4",
+                    // In mobile mode the card chrome goes: the phone is the
+                    // preview, and a bordered, padded panel around it only added
+                    // a section inside a section. The desktop canvas keeps it,
+                    // because there it is the page's own surface.
+                    previewMode === "mobile"
+                      ? "border-0 bg-transparent py-4 shadow-none dark:bg-transparent"
+                      : "dark:bg-gray-800 dark:border-gray-700",
+                  )}
+                >
+                  <CardContent
+                    className={cn(
+                      previewMode === "mobile" ? "space-y-4 p-0" : "space-y-4",
+                    )}
+                  >
                     {/* Collapsible Layout Section */}
                     {!isLayoutSectionCollapsed && (
                       <div className="space-y-4 pb-6 border-b border-gray-200 dark:border-gray-700">
@@ -1976,90 +2047,140 @@ export function NewClientStep3d({
                       </div>
                     )}
 
-                    {/* Preview Content */}
-                    <div className="bg-[#F8F8F3] rounded-lg p-8 border border-gray-200">
-                      {/* Mobile frame wrapper */}
+                    {/* Preview Content.
+                        The phone drops straight into the card: no plate behind it
+                        and no sizing wrapper around it, so the device sits on the
+                        page instead of inside a section inside a section. Its own
+                        bezel is what gives it a box. The light plate stays for the
+                        desktop canvas, where the cards are shown at real size. */}
+                    {previewMode === "mobile" ? (
                       <div
-                        className={cn(
-                          previewMode === "mobile" &&
-                            "max-w-[375px] mx-auto rounded-[3rem] border-[6px] border-gray-800 dark:border-gray-600 bg-white dark:bg-gray-950 shadow-xl overflow-hidden",
-                        )}
+                        className="relative mx-auto rounded-[30px] border-[5px] border-gray-800 bg-gray-900 p-[4px] shadow-2xl dark:border-gray-700"
+                        style={{ width: PREVIEW_PHONE_WIDTH + 18 }}
                       >
-                        {/* Notch bar for mobile frame */}
-                        {previewMode === "mobile" && (
-                          <div className="flex items-center justify-center py-2 bg-gray-800 dark:bg-gray-600">
-                            <div className="w-16 h-1.5 rounded-full bg-gray-600 dark:bg-gray-400" />
-                          </div>
-                        )}
-
-                        <div
-                          className={cn(
-                            previewMode === "mobile" ? "px-3 py-4" : undefined,
-                          )}
-                        >
-                          <div
-                            className={cn(
-                              "text-center",
-                              previewMode === "mobile" ? "mb-4" : "mb-16",
-                            )}
-                          >
-                            <h1
-                              className={cn(
-                                "font-semibold",
-                                previewMode === "mobile"
-                                  ? "text-2xl"
-                                  : "text-4xl",
-                              )}
+                            {/* Notch — over the screen's status strip, never the content. */}
+                            <div className="absolute left-1/2 top-[7px] z-50 h-[5px] w-[76px] -translate-x-1/2 rounded-full bg-gray-900 dark:bg-gray-800" />
+                            {/* Side buttons (decorative) */}
+                            <div className="absolute -left-[5px] top-24 h-8 w-[3px] rounded-l bg-gray-700 dark:bg-gray-600" />
+                            <div className="absolute -left-[5px] top-36 h-12 w-[3px] rounded-l bg-gray-700 dark:bg-gray-600" />
+                            <div className="absolute -right-[5px] top-20 h-10 w-[3px] rounded-r bg-gray-700 dark:bg-gray-600" />
+                            {/* `bg-white` only: the portal has no dark mode, so the
+                                phone must not follow the dashboard's. */}
+                            <div
+                              className="overflow-hidden rounded-[25px] bg-white"
                               style={{
-                                fontFamily: "var(--font-headline)",
-                                color: brandColor,
+                                width: PREVIEW_PHONE_WIDTH,
+                                height: PREVIEW_PHONE_SCREEN_HEIGHT,
                               }}
                             >
-                              My Benefits Team
-                            </h1>
-                          </div>
-                          <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCenter}
-                            measuring={{
-                              droppable: {
-                                strategy: MeasuringStrategy.Always,
-                              },
-                            }}
-                            onDragStart={handlePreviewDragStart}
-                            onDragOver={handlePreviewDragOver}
-                            onDragEnd={handlePreviewDragEnd}
-                            onDragCancel={handlePreviewDragCancel}
-                          >
-                            <SortableContext
-                              key={`layout-${currentDisplayStyle}`}
-                              items={previewOrder}
-                              strategy={rectSortingStrategy}
-                            >
-                              <div className="w-full min-w-0 max-w-none">
-                                {previewContent}
+                              {/* `zoom`, not `transform: scale()`: these cards are
+                                  draggable, and a transformed ancestor makes
+                                  dnd-kit's pointer math disagree with what is on
+                                  screen. `zoom` is a real layout factor, so a
+                                  dragged card tracks the cursor. */}
+                              <div
+                                style={{
+                                  width: PREVIEW_PHONE_REFERENCE_WIDTH,
+                                  height: PREVIEW_PHONE_INNER_HEIGHT,
+                                  zoom: PREVIEW_PHONE_SCALE,
+                                  display: "flex",
+                                  flexDirection: "column",
+                                  // The page's own surface — the grey the desktop
+                                  // canvas shows behind the cards. Painted on the
+                                  // whole screen, so the margins around the cards
+                                  // and the area past the last one are grey too.
+                                  background: "#F8F8F3",
+                                }}
+                              >
+                                {/* Safe areas: the screen's corners are rounded,
+                                    so the page keeps clear of both curves. */}
+                                <div
+                                  aria-hidden
+                                  style={{
+                                    height: PREVIEW_SAFE_AREA_TOP,
+                                    flexShrink: 0,
+                                  }}
+                                />
+                                <div
+                                  className="[&::-webkit-scrollbar]:hidden"
+                                  style={{
+                                    flex: "1 1 auto",
+                                    minHeight: 0,
+                                    overflowY: "auto",
+                                    overflowX: "hidden",
+                                    scrollbarWidth: "none",
+                                    msOverflowStyle: "none",
+                                  }}
+                                >
+                                  {/* The portal's own chrome, so the phone shows the
+                                      page as a participant meets it — sticky, so the
+                                      cards scroll beneath their real header. */}
+                                  <div className="sticky top-0 z-50 w-full shrink-0 bg-white">
+                                    <PortalHeader
+                                      companyData={{
+                                        companyLogo: planCompanyLogo || undefined,
+                                      }}
+                                      brandColor={brandColor}
+                                      secondaryColor={secondaryColor}
+                                      enableNavigation={false}
+                                      // The team page has no header button in the
+                                      // live portal — the CTA belongs to the
+                                      // Benefit Hub pages.
+                                      headerCta={{ mode: "none" }}
+                                      // The phone draws a 390 px page inside a
+                                      // desktop window: `md:` would give it the
+                                      // desktop nav instead of the mobile one.
+                                      mobileChrome
+                                    />
+                                  </div>
+
+                                  {/* `pt-8`: the page's own heading needs room under
+                                      the sticky header, as on the live team page. */}
+                                  <div className="min-h-full px-4 pb-6 pt-8">
+                                    <div className="text-center">
+                                      <h1
+                                        className="text-2xl font-semibold"
+                                        style={{
+                                          fontFamily: "var(--font-headline)",
+                                          color: brandColor,
+                                        }}
+                                      >
+                                        My Benefits Team
+                                      </h1>
+                                    </div>
+                                    <div className="mt-4">
+                                      {sortablePreview}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div
+                                  aria-hidden
+                                  style={{
+                                    height: PREVIEW_SAFE_AREA_BOTTOM,
+                                    flexShrink: 0,
+                                  }}
+                                />
                               </div>
-                            </SortableContext>
-                          </DndContext>
-                        </div>
-                      </div>
-                    </div>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="rounded-lg border border-gray-200 bg-[#F8F8F3] p-8">
+                            <div className="mb-16 text-center">
+                              <h1
+                                className="text-4xl font-semibold"
+                                style={{
+                                  fontFamily: "var(--font-headline)",
+                                  color: brandColor,
+                                }}
+                              >
+                                My Benefits Team
+                              </h1>
+                            </div>
+                            {sortablePreview}
+                          </div>
+                        )}
                   </CardContent>
                 </Card>
-                {/* Back button to return to Category Explorer */}
-                {onBack && (
-                  <div className="flex justify-center pt-4 pb-8">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={onBack}
-                      className="flex items-center gap-2"
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                      Back to Categories
-                    </Button>
-                  </div>
-                )}
               </div>
             </div>
           ) : (

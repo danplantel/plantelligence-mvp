@@ -713,6 +713,13 @@ export function BenefitPortalPreview({
             onDescriptionClick={() =>
               handleEdit("messaging", "shortDescription")
             }
+            // The closing line and signature sit further down the same Messaging
+            // section, so they open it without naming a field.
+            onClosingClick={() => handleEdit("messaging")}
+            // The portrait and the provider logo are both Section 3 (Branding);
+            // the logo card names its own field so the panel lands on it.
+            onPortraitClick={() => handleEdit("branding")}
+            onLogoClick={() => handleEdit("branding", "companyLogo")}
             desktopHeroBackgroundPosition={
               (step1Data as any)?.desktopHeroBackgroundPosition
             }

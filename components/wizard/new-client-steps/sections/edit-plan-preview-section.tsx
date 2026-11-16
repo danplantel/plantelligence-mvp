@@ -12,6 +12,11 @@ import {
   getPortalShapeCssVars,
 } from "@/lib/typography-themes";
 import { usePreviewEditorLayout } from "@/lib/preview-editor-layout";
+import {
+  PREVIEW_SAFE_AREA_BOTTOM,
+  PREVIEW_SAFE_AREA_TOP,
+} from "@/lib/preview-safe-areas";
+import { PORTAL_SECTION_IDS } from "@/lib/portal-editor-sections";
 import type {
   CompanyBasicsData,
   CompanyLogoData,
@@ -117,25 +122,45 @@ function MobilePreviewFrame({
         border: "none",
         background: "white",
         flexShrink: 0,
-        maxHeight: "100%",
       }}
     >
       {mountNode &&
         createPortal(
+          // The scrolling page, then the home-indicator strip. The strip sits
+          // outside the scroll container, so the page's final row stops above the
+          // bottom curve. The TOP safe area is NOT drawn here: it rides with the
+          // sticky portal header in the preview markup, so the notch's band and the
+          // chrome are one opaque surface — as a separate band it left a seam the
+          // page scrolled through, showing section content above the header.
           <div
             style={{
               width: `${REFERENCE_MOBILE_WIDTH}px`,
               height: `${innerHeight}px`,
               transform: `scale(${scale})`,
               transformOrigin: "top left",
-              overflowY: "auto",
-              overflowX: "hidden",
-              scrollbarWidth: "none",
-              msOverflowStyle: "none",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+              background: "white",
             }}
-            className="[&::-webkit-scrollbar]:hidden"
           >
-            {children}
+            <div
+              className="[&::-webkit-scrollbar]:hidden"
+              style={{
+                flex: "1 1 auto",
+                minHeight: 0,
+                overflowY: "auto",
+                overflowX: "hidden",
+                scrollbarWidth: "none",
+                msOverflowStyle: "none",
+              }}
+            >
+              {children}
+            </div>
+            <div
+              aria-hidden
+              style={{ height: PREVIEW_SAFE_AREA_BOTTOM, flexShrink: 0 }}
+            />
           </div>,
           mountNode,
         )}
@@ -421,17 +446,78 @@ export function EditPlanPreviewSection({
     };
   }, [isEditorOpen]);
 
-  const scrollEditorToSection = useCallback((sectionIndex: number) => {
+  /**
+   * Scroll the Editing Panel to a section — or to an anchor INSIDE one.
+   *
+   * Addressed by id rather than by position: the preview used to pass array
+   * indices, which pointed a section early (the hero's text opened "Images", and
+   * the mission's opened "Hero Content"). The ids come from the same helpers the
+   * panel renders its sections with, so renaming a section cannot quietly
+   * mis-target these links.
+   */
+  const scrollEditorToSection = useCallback((target: string) => {
     const container = editorScrollContainerRef.current;
     if (!container) return;
-    const sectionHeaders = container.querySelectorAll('[data-section-index]');
-    const target = sectionHeaders[sectionIndex];
-    if (target) {
-      setTimeout(() => {
-        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 350);
-    }
+    const el = container.querySelector<HTMLElement>(
+      `[data-section-id="${target}"], [data-edit-anchor="${target}"]`,
+    );
+    if (!el) return;
+    setTimeout(() => {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 350);
   }, []);
+
+  /**
+   * The preview's click-to-edit affordances, in one place.
+   *
+   * Both the desktop and the phone preview draw the same page, so they must map
+   * the same regions to the same panel sections; keeping two copies is how they
+   * drift apart.
+   */
+  const previewEditHandlers = useMemo(
+    () => ({
+      onHeroTitleClick: () => {
+        handleOpenEditor();
+        onCompanyDataChange("heroTitle", companyData?.heroTitle || "");
+        scrollEditorToSection(PORTAL_SECTION_IDS.heroContent);
+      },
+      onHeroDescriptionClick: () => {
+        handleOpenEditor();
+        onCompanyDataChange(
+          "heroDescription",
+          companyData?.heroDescription || "",
+        );
+        scrollEditorToSection(PORTAL_SECTION_IDS.heroContent);
+      },
+      // The banner PHOTOGRAPH is edited by the "Hero Banner Image" card inside
+      // "Images", not by the Hero Content section — hence its anchor.
+      onHeroBackgroundClick: () => {
+        handleOpenEditor();
+        scrollEditorToSection(PORTAL_SECTION_IDS.heroBackground);
+      },
+      onMissionHeadlineClick: () => {
+        handleOpenEditor();
+        scrollEditorToSection(PORTAL_SECTION_IDS.missionStatement);
+      },
+      onMissionBodyClick: () => {
+        handleOpenEditor();
+        scrollEditorToSection(PORTAL_SECTION_IDS.missionStatement);
+      },
+      // The featured image is the first card of "Mission Statement" — an anchor
+      // inside that section, exactly as the live portal addresses it.
+      onFeaturedImageClick: () => {
+        handleOpenEditor();
+        scrollEditorToSection(PORTAL_SECTION_IDS.featuredImage);
+      },
+    }),
+    [
+      handleOpenEditor,
+      onCompanyDataChange,
+      companyData?.heroTitle,
+      companyData?.heroDescription,
+      scrollEditorToSection,
+    ],
+  );
 
   // -- Validation error scroll-to --
   // When the page flags an errored Tab 2 field, open the editor panel and
@@ -671,29 +757,40 @@ export function EditPlanPreviewSection({
               typographyTheme,
             ) as unknown as React.CSSProperties
           }
-          className={`flex-1 overflow-x-hidden bg-gray-300 dark:bg-gray-950 flex flex-col items-center ${
-            previewMode === "mobile" ? "overflow-y-hidden justify-center" : "overflow-y-auto"
-          }`}
+          className="flex-1 overflow-x-hidden overflow-y-auto bg-gray-300 dark:bg-gray-950 flex flex-col items-center"
         >
           {previewMode === "mobile" ? (
-            /* ── Mobile phone frame — centered without scrolling ── */
-            <div className="flex items-center justify-center w-full py-6 px-4 flex-shrink-0">
+            /* ── Mobile phone frame ──
+             *
+             * Laid out in normal flow and centred by its own flex row. The lift
+             * that used to be a negative offset (`bottom-9`, then `bottom-10`) is
+             * now expressed as asymmetric padding: with an auto margin on the
+             * frame, `pt-4 pb-24` raises it the same 40 px while reserving the
+             * space, so a short window can scroll the whole bezel instead of
+             * slicing its top edge off an un-scrollable overhang. The screen
+             * carries its own rounded clip too, so the page is cut by a
+             * phone-shaped screen rather than by the outer bezel's radius. */
+            <div className="flex w-full flex-1 justify-center px-4 pt-4 pb-24">
               <div
-                className="relative bottom-9 rounded-[36px] border-[4px] border-gray-800 dark:border-gray-700 bg-gray-900 shadow-2xl flex-shrink-0 overflow-hidden"
-                style={{ width: MOBILE_WIDTH + 20 }}
+                className="relative my-auto flex-shrink-0 rounded-[30px] border-[5px] border-gray-800 bg-gray-900 p-[4px] shadow-2xl dark:border-gray-700"
+                style={{ width: MOBILE_WIDTH + 18 }}
               >
-                {/* Phone notch */}
-                <div className="absolute top-[7px] left-1/2 -translate-x-1/2 w-[90px] h-[5px] bg-gray-900 dark:bg-gray-800 rounded-full z-50" />
+                {/* Phone notch — over the screen's status strip, never the header. */}
+                <div className="absolute left-1/2 top-[7px] z-50 h-[5px] w-[76px] -translate-x-1/2 rounded-full bg-gray-900 dark:bg-gray-800" />
                 {/* Side buttons (decorative) */}
-                <div className="absolute top-24 -left-[3px] w-[3px] h-8 bg-gray-700 dark:bg-gray-600 rounded-l" />
-                <div className="absolute top-36 -left-[3px] w-[3px] h-12 bg-gray-700 dark:bg-gray-600 rounded-l" />
-                <div className="absolute top-20 -right-[3px] w-[3px] h-10 bg-gray-700 dark:bg-gray-600 rounded-r" />
-                <div className="flex items-center justify-center py-2">
+                <div className="absolute -left-[5px] top-24 h-8 w-[3px] rounded-l bg-gray-700 dark:bg-gray-600" />
+                <div className="absolute -left-[5px] top-36 h-12 w-[3px] rounded-l bg-gray-700 dark:bg-gray-600" />
+                <div className="absolute -right-[5px] top-20 h-10 w-[3px] rounded-r bg-gray-700 dark:bg-gray-600" />
+                <div className="overflow-hidden rounded-[25px] bg-white">
                   <MobilePreviewFrame
                     width={MOBILE_WIDTH}
                     themeKey={typographyTheme}
                   >
-                    <div className="sticky top-0 w-full z-50 shrink-0">
+                    <div className="sticky top-0 w-full z-50 shrink-0 bg-white">
+                      <div
+                        aria-hidden
+                        style={{ height: PREVIEW_SAFE_AREA_TOP }}
+                      />
                       <PortalHeader
                         companyData={{ companyLogo: companyData?.companyLogo?.url ?? undefined }}
                         brandColor={companyData?.primaryColor || "#1F3A60"}
@@ -712,28 +809,15 @@ export function EditPlanPreviewSection({
                       <ClientPortal
                         data={portalData as any}
                         className="!min-h-0"
-                        hideHeader={true}
-                        hideFooter={true}
-                        hideBenefits={true}
+                        hideHeader
+                        hideFooter
+                        hideBenefits
                         clientId={clientId}
-                        onHeroTitleClick={() => {
-                          handleOpenEditor();
-                          onCompanyDataChange("heroTitle", companyData?.heroTitle || "");
-                          scrollEditorToSection(1);
-                        }}
-                        onHeroDescriptionClick={() => {
-                          handleOpenEditor();
-                          onCompanyDataChange("heroDescription", companyData?.heroDescription || "");
-                          scrollEditorToSection(1);
-                        }}
-                        onMissionHeadlineClick={() => {
-                          handleOpenEditor();
-                          scrollEditorToSection(2);
-                        }}
-                        onMissionBodyClick={() => {
-                          handleOpenEditor();
-                          scrollEditorToSection(2);
-                        }}
+                        // A 390 px iframe applies the CSS breakpoints but not the
+                        // JS ones — a media-query hook reads the PARENT window — so
+                        // the hero is told outright that this is a phone viewport.
+                        forcePhoneViewport
+                        {...previewEditHandlers}
                       />
                     </div>
                   </MobilePreviewFrame>
@@ -753,28 +837,11 @@ export function EditPlanPreviewSection({
               >
                 <ClientPortal
                   data={portalData as any}
-                  hideHeader={true}
-                  hideFooter={true}
-                  hideBenefits={true}
+                  hideHeader
+                  hideFooter
+                  hideBenefits
                   clientId={clientId}
-                  onHeroTitleClick={() => {
-                    handleOpenEditor();
-                    onCompanyDataChange("heroTitle", companyData?.heroTitle || "");
-                    scrollEditorToSection(1);
-                  }}
-                  onHeroDescriptionClick={() => {
-                    handleOpenEditor();
-                    onCompanyDataChange("heroDescription", companyData?.heroDescription || "");
-                    scrollEditorToSection(1);
-                  }}
-                  onMissionHeadlineClick={() => {
-                    handleOpenEditor();
-                    scrollEditorToSection(2);
-                  }}
-                  onMissionBodyClick={() => {
-                    handleOpenEditor();
-                    scrollEditorToSection(2);
-                  }}
+                  {...previewEditHandlers}
                 />
               </div>
             </div>

@@ -17,6 +17,8 @@ const createBenefitTests = [
   "components/wizard/benefits-steps/__tests__/step-3.test.tsx",
   "components/wizard/benefits-steps/__tests__/step-4.test.tsx",
   "components/wizard/benefits-steps/__tests__/step-5.test.tsx",
+  // Step 2's phone frame: the status/home-indicator strips and the device height
+  "components/wizard/benefits-steps/__tests__/mobile-preview-frame.test.tsx",
   // Step 3's invite surface
   "components/pages/benefits/__tests__/invite-collaborator-dialog.test.tsx",
   // Step 1 → Messaging's seed copy: the plan sponsor's headline, per-category message

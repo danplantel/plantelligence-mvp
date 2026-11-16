@@ -42,6 +42,16 @@ interface PortalHeroProps {
   onContainerClick?: () => void;
   onBackgroundClick?: () => void;
   showEditIndicators?: boolean;
+  /**
+   * Render the PHONE layout even when the browser window is wider than `sm`.
+   *
+   * The phone preview on Edit Client / Step 2 draws this hero inside a 390 px
+   * iframe, so its CSS breakpoints apply — but the JS ones do not: the media-query
+   * hook reads the PARENT window, which is a desktop. Without this flag the
+   * preview showed the desktop placeholder ("Ask a question or search for your
+   * benefits ...") in a phone-width screen.
+   */
+  forcePhoneViewport?: boolean;
   heroTitleSlot?: React.ReactNode;
   heroDescriptionSlot?: React.ReactNode;
   backgroundOpacity?: number; // Controls background image brightness (0-1)
@@ -83,6 +93,7 @@ export function PortalHero({
   backgroundInverted = false,
   useGradient = false,
   showEditIndicators = true,
+  forcePhoneViewport = false,
   desktopHeroBackgroundPosition,
   mobileHeroBackgroundPosition,
 }: PortalHeroProps) {
@@ -112,7 +123,10 @@ export function PortalHero({
   /** True only once there are topics to show — the moment the hero may grow. */
   const hasSuggestions = suggestionsOpen && suggestions.length > 0;
   /** Phones are below `sm`, matching the rest of the hero's mobile treatment. */
-  const isPhone = !useMediaQuery("(min-width: 640px)", true);
+  const mediaSaysPhone = !useMediaQuery("(min-width: 640px)", true);
+  // A caller that renders this hero in a phone-width preview knows the viewport
+  // better than the parent window does — see `forcePhoneViewport`.
+  const isPhone = forcePhoneViewport || mediaSaysPhone;
 
   /**
    * Hand the question to the assistant, which holds this plan's placements and can

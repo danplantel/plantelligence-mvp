@@ -184,6 +184,31 @@ describe("PortalMission", () => {
     expect(screen.queryByRole("button", { name: "Do good work" })).toBeNull();
   });
 
+  it("makes the featured image an editable target in preview", async () => {
+    const user = userEvent.setup();
+    const onFeaturedImageClick = vi.fn();
+    renderMission({
+      company: { missionHeadline: "Our mission" },
+      onFeaturedImageClick,
+    });
+
+    // The preview has no portal editing provider, so the resident
+    // PortalSectionEditButton renders nothing — the image itself is the target.
+    const media = screen.getByRole("button", { name: "Edit featured image" });
+    expect(media).toHaveAttribute("tabindex", "0");
+
+    await user.click(media);
+    expect(onFeaturedImageClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the featured image inert without a handler", () => {
+    renderMission({ company: { missionHeadline: "Our mission" } });
+
+    expect(
+      screen.queryByRole("button", { name: "Edit featured image" }),
+    ).toBeNull();
+  });
+
   it("renders the plan's thumbnail or a stock photo", () => {
     const { unmount } = renderMission({
       company: { thumbnailImg: "https://cdn.test/team.png" },
@@ -465,6 +490,37 @@ describe("PortalHero", () => {
         "placeholder",
         "Ask a question or search for your benefits ...",
       );
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  });
+
+  it("takes the phone placeholder when the caller forces a phone viewport", () => {
+    // The phone preview draws this hero inside a 390 px iframe. Its CSS
+    // breakpoints apply there, but the media-query hook still reads the desktop
+    // PARENT window — so the preview states the viewport instead of asking.
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn(() => ({
+      matches: true,
+      media: "(min-width: 640px)",
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })) as unknown as typeof window.matchMedia;
+
+    try {
+      renderHero({
+        companyData: { companyName: "Acme" },
+        forcePhoneViewport: true,
+      });
+      expect(
+        screen.getByRole("searchbox", {
+          name: "Ask a question or search for your benefits",
+        }),
+      ).toHaveAttribute("placeholder", "Ask a question");
     } finally {
       window.matchMedia = originalMatchMedia;
     }

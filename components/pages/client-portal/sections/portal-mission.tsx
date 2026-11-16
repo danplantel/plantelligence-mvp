@@ -21,6 +21,16 @@ interface PortalMissionProps {
   secondaryColor?: string;
   onMissionHeadlineClick?: () => void;
   onMissionBodyClick?: () => void;
+  /**
+   * Opens the editor on the plan's Featured Image (the `thumbnail` brand slot).
+   *
+   * The live portal renders the resident blue pencil through
+   * `PortalSectionEditButton`, which only appears when a portal editing provider is
+   * mounted. The Create/Edit Client previews have no provider — they point the
+   * panel at a region with a callback — so without this the preview's featured
+   * image was the one editable region with no affordance at all.
+   */
+  onFeaturedImageClick?: () => void;
   showEditIndicators?: boolean;
 }
 
@@ -30,6 +40,7 @@ export function PortalMission({
   secondaryColor = "#6B7280",
   onMissionHeadlineClick,
   onMissionBodyClick,
+  onFeaturedImageClick,
   showEditIndicators = true,
 }: PortalMissionProps) {
   const sectionRef = useRef<HTMLElement>(null);
@@ -216,7 +227,30 @@ export function PortalMission({
             between the header and the statement); the left column on desktop. */}
         <div
           data-testid="portal-mission-media"
-          className="relative order-2 w-full lg:order-none lg:col-start-1 lg:row-start-1"
+          // Same click-to-edit treatment as the headline and the statement: the
+          // featured image is a region the advisor can point at, so it behaves
+          // like one (pointer, keyboard, and a blue pencil while hovered).
+          role={onFeaturedImageClick ? "button" : undefined}
+          tabIndex={onFeaturedImageClick ? 0 : undefined}
+          aria-label={onFeaturedImageClick ? "Edit featured image" : undefined}
+          onClick={(e) => {
+            if (onFeaturedImageClick) {
+              e.stopPropagation();
+              onFeaturedImageClick();
+            }
+          }}
+          onKeyDown={(event: KeyboardEvent<HTMLDivElement>) =>
+            handleInteractiveKeyDown(event, onFeaturedImageClick)
+          }
+          onMouseEnter={() => setHoveredElement("featuredImage")}
+          onMouseLeave={() => setHoveredElement(null)}
+          onFocus={() => setHoveredElement("featuredImage")}
+          onBlur={() => setHoveredElement(null)}
+          className={`relative order-2 w-full lg:order-none lg:col-start-1 lg:row-start-1 ${
+            onFeaturedImageClick
+              ? "cursor-pointer focus-visible:outline-none"
+              : ""
+          }`}
         >
           {/* 9:10, and sized by the column rather than a fixed height.
            *
@@ -228,7 +262,15 @@ export function PortalMission({
            * also lets the image grow with the column, which is what keeps it in
            * step with the mission paragraphs beside it. */}
           <div
-            className="w-full aspect-[9/10] overflow-hidden rounded-lg"
+            // The hover ring belongs on the image, not on the wrapper: the frame
+            // already carries the theme's corner radius, so the ring follows it.
+            className={`w-full aspect-[9/10] overflow-hidden rounded-lg transition-all ${
+              showEditIndicators &&
+              onFeaturedImageClick &&
+              hoveredElement === "featuredImage"
+                ? "ring-2 ring-blue-500/50 ring-offset-2"
+                : ""
+            }`}
             // The mission image frame follows the theme's corner treatment.
             style={{ borderRadius: portalRadiusValue(1.5) }}
           >
@@ -249,9 +291,20 @@ export function PortalMission({
             )}
           </div>
 
-          {/* The blue Edit affordance for the featured image. It edits the plan's
-              brand images (the panel's Images section) and renders nothing for a
-              participant — see PortalSectionEditButton. */}
+          {/* The blue pencil while the image is hovered — the same treatment the
+              headline and the statement give, so all three editable regions read
+              alike. */}
+          {showEditIndicators &&
+            onFeaturedImageClick &&
+            hoveredElement === "featuredImage" && (
+              <div className="absolute right-3 top-3 z-20 rounded-full bg-blue-500 p-1.5 shadow-lg">
+                <Pencil className="h-3 w-3 text-white" strokeWidth={2.5} />
+              </div>
+            )}
+
+          {/* The resident blue Edit affordance for the featured image. It edits the
+              plan's brand images (the panel's Mission Statement section) and renders
+              nothing for a participant — see PortalSectionEditButton. */}
           <PortalSectionEditButton
             sectionId={PORTAL_SECTION_IDS.featuredImage}
             label="Edit featured image"

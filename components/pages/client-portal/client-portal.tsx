@@ -99,6 +99,14 @@ interface ClientPortalProps {
   onHeroBackgroundClick?: () => void;
   onMissionHeadlineClick?: () => void;
   onMissionBodyClick?: () => void;
+  /**
+   * Opens the editor on the plan's Featured Image. Same contract as the other
+   * click-to-edit handlers: the live portal draws its own pencil through
+   * `PortalSectionEditButton`, while a preview supplies this callback.
+   */
+  onFeaturedImageClick?: () => void;
+  /** See `PortalHero`'s `forcePhoneViewport` — set by the phone preview. */
+  forcePhoneViewport?: boolean;
   showEditIndicators?: boolean;
 }
 
@@ -189,6 +197,8 @@ export function ClientPortal({
   onHeroBackgroundClick,
   onMissionHeadlineClick,
   onMissionBodyClick,
+  onFeaturedImageClick,
+  forcePhoneViewport = false,
   showEditIndicators = true,
 }: ClientPortalProps) {
   const companyData = data?.companyData;
@@ -282,6 +292,7 @@ export function ClientPortal({
           onHeroTitleClick={onHeroTitleClick}
           onHeroDescriptionClick={onHeroDescriptionClick}
           onBackgroundClick={onHeroBackgroundClick}
+          forcePhoneViewport={forcePhoneViewport}
           showEditIndicators={showEditIndicators}
         />
       </div>
@@ -293,6 +304,7 @@ export function ClientPortal({
           secondaryColor={secondaryColor}
           onMissionHeadlineClick={onMissionHeadlineClick}
           onMissionBodyClick={onMissionBodyClick}
+          onFeaturedImageClick={onFeaturedImageClick}
           showEditIndicators={showEditIndicators}
         />
       </div>

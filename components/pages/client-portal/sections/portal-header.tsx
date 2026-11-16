@@ -165,6 +165,16 @@ interface PortalHeaderProps {
    * theme-aware wherever it is mounted.
    */
   typographyTheme?: string | null;
+  /**
+   * Draw the PHONE header regardless of the viewport.
+   *
+   * The phone previews draw the portal in a 390 px box inside a desktop window,
+   * so `sm:`/`md:` still evaluate against the window: the "phone" showed the
+   * desktop nav, the wide side padding and the full-size logo band. Previews
+   * that draw a device — and cannot use an iframe, because their cards are
+   * dragged — pass this instead.
+   */
+  mobileChrome?: boolean;
 }
 
 /**
@@ -192,6 +202,7 @@ export function PortalHeader({
   secondaryColor = "#6B7280",
   clientId,
   enableNavigation = true,
+  mobileChrome = false,
   showAlertBanner = true,
   enableLogoHover = false,
   onLogoClick,
@@ -234,8 +245,21 @@ export function PortalHeader({
         ? HOW_CAN_WE_HELP_SECTION_ID
         : HAVE_QUESTIONS_SECTION_ID,
     );
-  const headerCtaClass =
-    "order-1 gap-2 px-4 text-xs font-semibold shadow-sm transition-opacity hover:opacity-90 sm:text-sm md:order-2";
+  // Forced phone chrome keeps the phone's ordering and type size: at `sm`/`md`
+  // the window is wide, and those utilities would put the CTA back in its
+  // desktop slot beside the navigation.
+  const headerCtaClass = cn(
+    "order-1 gap-2 px-4 text-xs font-semibold shadow-sm transition-opacity hover:opacity-90",
+    !mobileChrome && "sm:text-sm md:order-2",
+  );
+  /**
+   * The logo band's cap. `HEADER_LOGO_BAND_STYLE` reads the CSS variables the md
+   * utilities raise; forced phone chrome pins the phone values instead, since
+   * those utilities are still firing at the window's width.
+   */
+  const logoBandStyle = mobileChrome
+    ? { maxHeight: 38, maxWidth: 176 }
+    : HEADER_LOGO_BAND_STYLE;
   const headerCtaStyle = {
     backgroundColor: brandColor,
     color: readableColor(brandColor),
@@ -551,7 +575,13 @@ export function PortalHeader({
             editing panel narrows the preview, so the nav never overflows. */}
         <div
           ref={headerContentRef}
-          className="px-4 py-2 sm:py-4 sm:px-6 lg:px-20"
+          className={cn(
+            "px-4 py-2",
+            // Both breakpoint upgrades are skipped when the chrome is forced to
+            // the phone: the window is still wide, so `sm:`/`lg:` would pad the
+            // 390 px header as if it were a desktop one.
+            !mobileChrome && "sm:py-4 sm:px-6 lg:px-20",
+          )}
           style={
             isScaled
               ? {
@@ -574,7 +604,7 @@ export function PortalHeader({
                     src={companyData.companyLogo}
                     alt="Company Logo"
                     className={`object-contain ${HEADER_LOGO_BAND_CLASS}`}
-                    style={HEADER_LOGO_BAND_STYLE}
+                    style={logoBandStyle}
                   />
                 )}
               </Link>
@@ -597,7 +627,7 @@ export function PortalHeader({
                           ? "ring-2 border-1 border-blue-500/50"
                           : ""
                       }`}
-                      style={HEADER_LOGO_BAND_STYLE}
+                      style={logoBandStyle}
                     />
                     {enableLogoHover && isLogoHovered && (
                       <div className="absolute top-[-6px] left-[-6px] z-20 bg-blue-500 rounded-full p-1.5 shadow-lg">
@@ -620,7 +650,9 @@ export function PortalHeader({
               {/* Mobile hamburger button. Sits AFTER the Ask CTA on mobile (see the
                   `order-*` utilities below) and is pulled back to its original place
                   from `md:` up, where the desktop nav sits between it and the CTA. */}
-              <div className="order-2 md:order-1 md:hidden">
+              <div
+                className={cn("order-2", !mobileChrome && "md:order-1 md:hidden")}
+              >
                 <button
                   type="button"
                   onClick={() => setMobileMenuOpen(true)}
@@ -632,7 +664,12 @@ export function PortalHeader({
               </div>
 
               {/* Desktop Navigation */}
-              <nav className="hidden items-center gap-8 md:flex">
+              <nav
+                className={cn(
+                  "items-center gap-8",
+                  mobileChrome ? "hidden" : "hidden md:flex",
+                )}
+              >
                 {/* Your Benefits dropdown: only show when at least one category is visible */}
                 {benefitsNavItems.length > 0 && (
                   <div
@@ -821,7 +858,10 @@ export function PortalHeader({
                 theme's variables of its own to keep the same corners. */}
             <div
               data-testid="portal-mobile-drawer"
-              className="fixed inset-0 z-[200] md:hidden"
+              className={cn(
+                "fixed inset-0 z-[200]",
+                !mobileChrome && "md:hidden",
+              )}
               style={themeStyle}
             >
               {/* Backdrop */}
@@ -853,7 +893,7 @@ export function PortalHeader({
                       src={companyData.companyLogo}
                       alt="Company Logo"
                       className={`object-contain ${HEADER_LOGO_BAND_CLASS}`}
-                      style={HEADER_LOGO_BAND_STYLE}
+                      style={logoBandStyle}
                     />
                   ) : (
                     <span aria-hidden="true" />
