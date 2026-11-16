@@ -1,16 +1,17 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowLeft,
   ChevronDown,
+  ChevronRight,
   PlayCircle,
   Search,
   User,
   X,
 } from "lucide-react";
-import { readableColor } from "polished";
+import { mix, readableColor } from "polished";
 import {
   HAVE_QUESTIONS_SECTION_ID,
   QUICK_ANSWERS_SECTION_ID,
@@ -104,12 +105,23 @@ export interface QuickAnswersSectionProps {
   className?: string;
 }
 
-/** The section heading participants read, above the search box. */
+/** The section heading participants read, above the category row. */
 const SECTION_TITLE = "Get Quick Answers to Common Benefits Questions";
 const SEARCH_PLACEHOLDER = "Search answers for this benefit";
 /** The supporting line under the heading — the skeleton shows it too. */
 const SECTION_SUBTITLE =
   "Every other question about this benefit, grouped and searchable.";
+
+/**
+ * The free-text search box.
+ *
+ * HIDDEN, NOT DELETED. The section now leads with a row of category buttons, and
+ * those cover the lookup a participant actually does ("where do I find …?" →
+ * pick a category). The field, its `?q=` deep-link handling and `filterTopicGroups`
+ * all still work and stay wired: flip this to `true` and the box returns above the
+ * category row, exactly as before.
+ */
+const SEARCH_ENABLED = false;
 
 /**
  * The heading block, shared by the live section and its skeleton so the two are the
@@ -154,57 +166,35 @@ function QuickAnswersSkeleton({ className }: { className?: string }) {
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <QuickAnswersHeading />
 
-        <div className="mx-auto mb-6 max-w-2xl">
-          <Skeleton
-            className="h-11 w-full"
-            style={{ borderRadius: portalRadiusValue() }}
-          />
-          <Skeleton className="mx-auto mt-2 h-3 w-24" />
+        {/* The category row, then the selected category's questions — the same
+            rhythm the real section uses, so the answers swap in without a jump. */}
+        <div className="mb-6 flex gap-2 overflow-hidden" aria-hidden="true">
+          {[0, 1, 2, 3].map((chip) => (
+            <Skeleton
+              key={chip}
+              className="h-10 w-36 shrink-0"
+              style={{ borderRadius: portalRadiusValue() }}
+            />
+          ))}
         </div>
 
         <p className="sr-only" role="status">
           Loading this benefit&rsquo;s answers…
         </p>
 
-        {/* The two-column rhythm of the real list: three group blocks per column,
-            each with its group label and three question bars. Decorative only —
-            the status line above is what tells assistive tech what is happening. */}
-        <div className="grid gap-6 md:grid-cols-2" aria-hidden="true">
-          {[0, 1].map((column) => (
-            <div key={column} className="space-y-6">
-              {[0, 1, 2].map((groupIndex) => (
-                <div key={groupIndex} className="space-y-2">
-                  <Skeleton className="mb-2 h-3 w-28" />
-                  {[0, 1, 2].map((question) => (
-                    <Skeleton
-                      key={question}
-                      className="h-[46px] w-full"
-                      style={{ borderRadius: portalRadiusValue(1.5) }}
-                    />
-                  ))}
-                </div>
-              ))}
-            </div>
+        <div className="grid gap-2 md:grid-cols-2" aria-hidden="true">
+          {[0, 1, 2, 3].map((question) => (
+            <Skeleton
+              key={question}
+              className="h-[46px] w-full"
+              style={{ borderRadius: portalRadiusValue(1.5) }}
+            />
           ))}
         </div>
       </div>
     </section>
   );
 }
-
-/**
- * The reorder animation.
- *
- * A long, soft exponential-out curve: the group glides into its new slot and settles
- * rather than snapping, which is what makes a drag in the editor read as movement
- * instead of a re-render. `initial={false}` keeps a participant's first paint static —
- * nobody should watch the page assemble itself — and it is also what makes the editor
- * preview animate only on CHANGE rather than on every mount.
- */
-const GROUP_LAYOUT_TRANSITION = {
-  duration: 0.45,
-  ease: [0.16, 1, 0.3, 1] as [number, number, number, number],
-};
 
 /**
  * TF-7: the matcher lives in `lib/topics/search.ts`.
@@ -514,6 +504,30 @@ export function QuickAnswersSection({
 
   const visibleCount = countMatchedTopics(filteredGroups);
 
+  const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+
+  /**
+   * The category row's source.
+   *
+   * `filteredGroups`, not `groups`: a `?q=` link can still narrow the set even
+   * though the search box is hidden, and a category that no longer matches must
+   * not stay selected. Falls back to the first category so the section always
+   * shows one.
+   */
+  const visibleGroups = filteredGroups;
+  const activeGroup =
+    visibleGroups.find((group) => group.id === activeGroupId) ??
+    visibleGroups[0] ??
+    null;
+
+  const selectGroup = (group: TopicGroup) => {
+    setActiveGroupId(group.id);
+    // An answer left open in the previous category would hang open under a list
+    // that no longer contains it.
+    setOpenSlug(null);
+    syncHash(null);
+  };
+
   /**
    * `?q=` (TF-7): a link can open the hub already filtered, and typing keeps the URL
    * in step so the filtered view is shareable. `replaceState` — never `pushState` — so
@@ -539,19 +553,6 @@ export function QuickAnswersSection({
     const fromUrl = readSearchQueryParam(window.location.search);
     if (fromUrl) setQuery(fromUrl);
   }, []);
-
-  /**
-   * Two columns, split into HALVES rather than alternating.
-   *
-   * Alternating (0 → left, 1 → right, 2 → left …) leaves group 1 sitting directly above
-   * group 3, so reading down a column skips every other group and the list stops
-   * matching the builder's top-to-bottom order. Splitting by halves keeps each column
-   * sequential: 1,2,3 down the left, then 4,5,6 down the right.
-   */
-  const columns = useMemo(() => {
-    const split = Math.ceil(filteredGroups.length / 2);
-    return [filteredGroups.slice(0, split), filteredGroups.slice(split)];
-  }, [filteredGroups]);
 
   const mobileTopic = allTopics.find((topic) => topic.slug === mobileSlug) ?? null;
 
@@ -659,10 +660,16 @@ export function QuickAnswersSection({
         aria-controls={`quick-answer-${topic.slug}`}
         onClick={() => toggleTopic(topic)}
         data-testid="quick-answer-question"
-        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors duration-200 hover:opacity-90 sm:px-5"
+        // CLOSED: a plain white bar with the question in the plan's colour — the
+        // card around it carries the shadow, because the card clips its corners
+        // and would cut a shadow drawn inside it.
+        // OPEN: the plan's colour fills the bar, and the label flips to whatever
+        // is readable on it. Only one can be open, so the coloured bar IS the
+        // "this one" marker — no extra icon needed.
+        className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left transition-colors duration-200 sm:px-5"
         style={{
-          backgroundColor: brandColor,
-          color: readableColor(brandColor),
+          backgroundColor: isOpen ? brandColor : "#ffffff",
+          color: isOpen ? readableColor(brandColor) : brandColor,
         }}
       >
         <span className="flex min-w-0 flex-wrap items-center gap-2">
@@ -672,20 +679,46 @@ export function QuickAnswersSection({
           {chip && (
             <span
               className="rounded-full px-2 py-0.5 font-red-hat text-[10px] font-bold uppercase tracking-[0.08em]"
+              // The chip follows the bar: a translucent white pill on the filled
+              // (open) bar, a wash of the brand on the white (closed) one — on
+              // white, white-on-white made it disappear.
               style={{
-                backgroundColor: "rgba(255,255,255,0.18)",
-                color: readableColor(brandColor),
+                backgroundColor: isOpen
+                  ? "rgba(255,255,255,0.18)"
+                  : mix(0.9, "#ffffff", brandColor),
+                color: isOpen ? readableColor(brandColor) : brandColor,
               }}
             >
               {chip}
             </span>
           )}
         </span>
+        {/* Phones: the bar opens the full-screen answer, so it carries a "go"
+            affordance — a chevron in a circle, in the plan's primary colour. The
+            circle keeps a wash of the brand behind it so it stays visible on a
+            plan whose primary colour is very light, and the icon itself stays
+            the plain brand colour. */}
+        {/* `hidden max-md:flex`, not `flex md:hidden`: the base state is hidden
+            and the phone range turns it on, so a desktop header can never draw
+            it whatever order the display utilities land in. */}
+        <span
+          data-testid="quick-answer-open-arrow"
+          className="hidden h-7 w-7 shrink-0 items-center justify-center rounded-full border max-md:flex"
+          style={{
+            borderColor: brandColor,
+            backgroundColor: mix(0.9, "#ffffff", brandColor),
+            color: brandColor,
+          }}
+          aria-hidden="true"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </span>
+
         <ChevronDown
           className={cn(
-            // Phones open the full-screen answer, not an in-place accordion, so
-            // the caret would promise a fold that does not exist. From `md` up
-            // (where the answer really does expand here) it is drawn.
+            // From `md` up the answer really does expand in place, so the caret
+            // is drawn there — and on a phone it would promise a fold that does
+            // not exist, which is why it is hidden below `md`.
             "hidden h-4 w-4 shrink-0 transition-transform duration-300 md:block",
             isOpen && "rotate-180",
           )}
@@ -720,105 +753,220 @@ export function QuickAnswersSection({
             itself is shared with the skeleton, so the two cannot drift apart. */}
         <QuickAnswersHeading />
 
-        <div className="mx-auto mb-6 max-w-2xl">
-          <label className="relative block">
-            <span className="sr-only">{SEARCH_PLACEHOLDER}</span>
-            <Search
-              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400"
-              aria-hidden="true"
-            />
-            <input
-              type="search"
-              value={query}
-              onChange={(event) => syncQuery(event.target.value)}
-              placeholder={SEARCH_PLACEHOLDER}
-              data-testid="quick-answers-search"
-              className="h-11 w-full border border-neutral-300 bg-white pl-9 pr-9 font-red-hat text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none"
-              style={{ borderRadius: portalRadiusValue() }}
-            />
-            {query && (
-              <button
-                type="button"
-                onClick={() => syncQuery("")}
-                aria-label="Clear the search"
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-neutral-400 hover:text-neutral-700"
-              >
-                <X className="h-3.5 w-3.5" aria-hidden="true" />
-              </button>
-            )}
-          </label>
+        {/* Free-text search — hidden for now, not deleted. `SEARCH_ENABLED` above
+            puts it back exactly as it was, `?q=` deep links and all. */}
+        {SEARCH_ENABLED && (
+          <div className="mx-auto mb-6 max-w-2xl">
+            <label className="relative block">
+              <span className="sr-only">{SEARCH_PLACEHOLDER}</span>
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400"
+                aria-hidden="true"
+              />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => syncQuery(event.target.value)}
+                placeholder={SEARCH_PLACEHOLDER}
+                data-testid="quick-answers-search"
+                className="h-11 w-full border border-neutral-300 bg-white pl-9 pr-9 font-red-hat text-sm text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none"
+                style={{ borderRadius: portalRadiusValue() }}
+              />
+              {query && (
+                <button
+                  type="button"
+                  onClick={() => syncQuery("")}
+                  aria-label="Clear the search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-neutral-400 hover:text-neutral-700"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden="true" />
+                </button>
+              )}
+            </label>
 
-          <p className="mt-2 text-center font-red-hat text-[12px] text-neutral-500">
-            {visibleCount === 0
-              ? "No answers match that search."
-              : `${visibleCount} answer${visibleCount === 1 ? "" : "s"}`}
-          </p>
-        </div>
-
-        {/* Two columns from `sm` up. The phone layout is the same list; tapping a
-            question opens the full-screen view below. */}
-        {/* `LayoutGroup` + `layoutId` is what lets a group animate BETWEEN the two
-            columns when its position changes: the group is reconciled into a different
-            parent, so a plain `layout` would remount it and jump. */}
-        <LayoutGroup>
-          <div className="grid gap-6 md:grid-cols-2">
-            {columns.map((column, columnIndex) => (
-              <div key={columnIndex} className="space-y-6">
-                {column.map((group) => (
-                  <motion.div
-                    key={group.id}
-                    layoutId={`quick-answer-group-${group.id}`}
-                    layout
-                    initial={false}
-                    transition={GROUP_LAYOUT_TRANSITION}
-                  >
-                  <h3
-                    className="mb-2 font-red-hat text-[11px] font-bold uppercase tracking-[0.14em] text-neutral-500"
-                  >
-                    {group.name}
-                  </h3>
-                  <div className="space-y-2">
-                    {group.topics.map((topic) => {
-                      const isOpen = openSlug === topic.slug;
-                      return (
-                        <div
-                          key={topic.slug}
-                          id={`quick-answer-card-${topic.slug}`}
-                          className="overflow-hidden border border-neutral-200 bg-white"
-                          style={{ borderRadius: portalRadiusValue(1.5) }}
-                        >
-                          {questionButton(topic)}
-                          {/* Desktop/tablet: the answer expands in its column. On a
-                              phone it is hidden here and shown full-screen instead. */}
-                          <div
-                            id={`quick-answer-${topic.slug}`}
-                            className="hidden md:block"
-                          >
-                            {isOpen && (
-                              <div className="border-t border-neutral-200 px-4 py-3 sm:px-5">
-                                <TopicAnswer
-                                  topic={topic}
-                                  brandColor={brandColor}
-                                  secondaryColor={secondaryColor}
-                                  basePath={basePath}
-                                  actionHubRows={actionHubPanels?.[topic.slug]}
-                                  advisorBookingUrl={resolvedBookingUrl}
-                                  recordkeeperUrl={resolvedLoginUrl}
-                                  fillTokens={fillTokens}
-                                />
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  </motion.div>
-                ))}
-              </div>
-            ))}
+            <p className="mt-2 text-center font-red-hat text-[12px] text-neutral-500">
+              {visibleCount === 0
+                ? "No answers match that search."
+                : `${visibleCount} answer${visibleCount === 1 ? "" : "s"}`}
+            </p>
           </div>
-        </LayoutGroup>
+        )}
+
+        {/* The category row: one chip per topic group, and the list below shows
+            exactly the selected one.
+
+            It SCROLLS rather than wraps. A benefit's categories ("Savings &
+            Contributions", "Getting Started", "Loans & Withdrawals", …) do not fit
+            a desktop row, and wrapping them turned the row into a block of buttons
+            that pushed the first answer below the fold. `snap-x` + `shrink-0` keep
+            a chip whole while it scrolls, and the scrollbar is hidden because the
+            row is short enough that a 16 px strip would read as a divider. */}
+        {/* Shown for ONE category too: the row carries the name of what is
+            listed below it, so a benefit with a single group still says which
+            group it is instead of starting at a bare stack of questions. */}
+        {visibleGroups.length > 0 && (
+          <>
+            {/* STICKY on a phone: the categories travel with the reader, so the
+                answers below can be swapped without scrolling back to the top of
+                the section. `top-14` clears the portal's fixed header (its phone
+                logo band is 38 px plus 8 px of padding each side); the row stops
+                sticking from `md`, where all of it is on screen at once anyway.
+
+                Centred from `md` up — it is a navigation strip, not a control
+                bar, so it should not hug the left edge. The centring lives on
+                this wrapper: `justify-center` on the scroller itself would push
+                the first chip out of reach once the row is wider than the
+                screen, because scrollable overflow cannot be scrolled into the
+                content box's left side. */}
+            <div className="sticky top-14 z-20 -mx-4 mb-3 bg-neutral-50/95 px-4 py-2 backdrop-blur-sm sm:-mx-6 sm:px-6 md:static md:mx-0 md:mb-6 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
+              <div className="relative flex justify-center">
+                {/* Right-edge fade. On a phone the row is a carousel — a chip and
+                    a bit of the next one are all that fit — and a hard edge reads
+                    as a clipped button rather than as "there is more this way". */}
+                <span
+                  aria-hidden="true"
+                  data-testid="quick-answer-categories-fade"
+                  className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-neutral-50 to-transparent md:hidden"
+                />
+                <div
+                  role="tablist"
+                  aria-label="Answer categories"
+                  data-testid="quick-answer-categories"
+                  className="flex max-w-full min-w-0 snap-x snap-mandatory gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                >
+            {visibleGroups.map((group) => {
+              const isActive = activeGroup?.id === group.id;
+              return (
+                <button
+                  key={group.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  data-testid="quick-answer-category"
+                  onClick={() => selectGroup(group)}
+                  // The SELECTED chip wears the portal header's own "you are here"
+                  // treatment — `text-gray-900`, a brand-coloured underline and a
+                  // wash of the brand (never the brand itself) — so the two
+                  // navigation rows on a hub page mean the same thing. See
+                  // `navLinkClass` / `navLinkStyle` in `portal-header.tsx`.
+                  // `min-w-[56%]` on a phone is what makes two chips read as a
+                  // SLIDER: two of them plus the gap are wider than the screen,
+                  // so the second is visibly cut and the row announces itself as
+                  // scrollable. From `md` the chips size to their labels.
+                  className={cn(
+                    "min-w-[56%] shrink-0 snap-start truncate border-0 border-b-2 px-4 py-2 text-center font-red-hat text-[13px] font-semibold transition-colors duration-200 md:min-w-0",
+                    isActive
+                      ? "text-gray-900"
+                      : "border-transparent bg-white text-gray-600 hover:bg-neutral-50 hover:text-gray-900",
+                  )}
+                  style={{
+                    borderRadius: portalRadiusValue(),
+                    ...(isActive
+                      ? {
+                          borderBottomColor: brandColor,
+                          backgroundColor: mix(0.88, "#ffffff", brandColor),
+                        }
+                      : {}),
+                  }}
+                >
+                  {group.name}
+                </button>
+              );
+            })}
+                </div>
+              </div>
+            </div>
+
+            {/* A hairline, so the sticky row never floats into the first
+                accordion as it passes over it. */}
+            <div
+              aria-hidden="true"
+              data-testid="quick-answer-categories-divider"
+              className="mb-6 h-px w-full bg-neutral-300/70"
+            />
+          </>
+        )}
+
+        {/* The selected category's questions, two columns from `md`. The phone
+            layout is the same list; tapping a question opens the full-screen
+            view below. It is the `tabpanel` for the chip row above, labelled by
+            the active category — no second copy of the name on screen.
+
+            `items-start` is load-bearing. Grid items stretch to the row's height
+            by default, so opening one answer made its NEIGHBOUR's white card
+            grow to the same height — a second "open" card with nothing in it.
+            Start-aligned items keep every card the height of its own content. */}
+        <div
+          role="tabpanel"
+          aria-label={activeGroup?.name}
+          data-testid="quick-answer-panel"
+          className="grid items-start gap-2 md:grid-cols-2"
+        >
+          {activeGroup?.topics.map((topic) => {
+            const isOpen = openSlug === topic.slug;
+            return (
+              <div
+                key={topic.slug}
+                id={`quick-answer-card-${topic.slug}`}
+                // The elevation lives here, not on the header: the card clips its
+                // corners, so a shadow drawn inside it would be cut off at the
+                // edges. A closed card sits proud of the page; the open one is
+                // flat, because its filled header is the emphasis.
+                className={cn(
+                  "group overflow-hidden border border-neutral-200 bg-white transition-shadow duration-200",
+                  isOpen ? "shadow-none" : "shadow-sm hover:shadow-md",
+                )}
+                style={{ borderRadius: portalRadiusValue(1.5) }}
+              >
+                {questionButton(topic)}
+                {/* Desktop/tablet: the answer expands in the list. On a phone it
+                    is hidden here and shown full-screen instead.
+
+                    The body grows and fades rather than appearing in one frame:
+                    a 300-600 px block of copy that pops in under the bar reads
+                    as a page jump, and with two columns of them it is easy to
+                    lose which bar was clicked. `initial={false}` keeps a deep
+                    link's answer already-open on first paint — nothing should
+                    animate itself as the page loads. */}
+                <div id={`quick-answer-${topic.slug}`} className="hidden md:block">
+                  <AnimatePresence initial={false}>
+                    {isOpen && (
+                      <motion.div
+                        key="answer"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{
+                          duration: 0.24,
+                          ease: [0.22, 1, 0.36, 1] as [
+                            number,
+                            number,
+                            number,
+                            number,
+                          ],
+                        }}
+                        className="overflow-hidden"
+                      >
+                        <div className="border-t border-neutral-200 px-4 py-3 sm:px-5">
+                          <TopicAnswer
+                            topic={topic}
+                            brandColor={brandColor}
+                            secondaryColor={secondaryColor}
+                            basePath={basePath}
+                            actionHubRows={actionHubPanels?.[topic.slug]}
+                            advisorBookingUrl={resolvedBookingUrl}
+                            recordkeeperUrl={resolvedLoginUrl}
+                            fillTokens={fillTokens}
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Phone answer view: a view within the page, with a back arrow. It

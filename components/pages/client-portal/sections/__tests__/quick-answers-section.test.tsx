@@ -175,17 +175,23 @@ describe("QuickAnswersSection", () => {
     expect(
       screen.getByText("For an immediate heavy need."),
     ).toBeInTheDocument();
-    expect(
-      screen.queryByText("You borrow and repay by payroll."),
-    ).not.toBeInTheDocument();
+    // The previous body LEAVES with an exit animation, so it is still mounted for
+    // a beat — wait for it rather than asserting in the same tick.
+    await waitFor(() =>
+      expect(
+        screen.queryByText("You borrow and repay by payroll."),
+      ).not.toBeInTheDocument(),
+    );
 
     // Pressing the open question again collapses it.
     await user.click(
       screen.getByRole("button", { name: /hardship withdrawals/i }),
     );
-    expect(
-      screen.queryByText("For an immediate heavy need."),
-    ).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(
+        screen.queryByText("For an immediate heavy need."),
+      ).not.toBeInTheDocument(),
+    );
   });
 
   it("renders steps as an ordered list", async () => {
@@ -305,7 +311,9 @@ describe("QuickAnswersSection", () => {
   });
 
   it("filters by question text and hides groups that lose every question", async () => {
-    const user = userEvent.setup();
+    // The search BOX is hidden for now (`SEARCH_ENABLED`), but the filter it
+    // drives is still honoured — a `?q=` link is how it is reached.
+    window.history.replaceState(null, "", "/acme/retirement?q=loan");
     render(
       <QuickAnswersSection
         groups={[
@@ -332,20 +340,18 @@ describe("QuickAnswersSection", () => {
       />,
     );
 
-    await user.type(screen.getByTestId("quick-answers-search"), "loan");
-
     expect(
-      screen.getByRole("button", { name: /401\(k\) loans/i }),
+      await screen.findByRole("button", { name: /401\(k\) loans/i }),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /target date funds/i }),
     ).not.toBeInTheDocument();
+    // A group with nothing left to show loses its category chip too.
     expect(screen.queryByText("Investing")).not.toBeInTheDocument();
-    expect(screen.getByText("1 answer")).toBeInTheDocument();
   });
 
   it("keeps a whole group when the search matches its name", async () => {
-    const user = userEvent.setup();
+    window.history.replaceState(null, "", "/acme/retirement?q=taking money");
     render(
       <QuickAnswersSection
         groups={[
@@ -365,23 +371,171 @@ describe("QuickAnswersSection", () => {
       />,
     );
 
-    await user.type(screen.getByTestId("quick-answers-search"), "taking money");
-
-    expect(screen.getByRole("button", { name: /alpha/i })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("button", { name: /alpha/i }),
+    ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /beta/i })).toBeInTheDocument();
   });
 
-  it("says so when nothing matches, without dropping the search box", async () => {
-    const user = userEvent.setup();
+  it("shows no answers when a ?q= matches nothing, and no search box either", async () => {
+    window.history.replaceState(
+      null,
+      "",
+      "/acme/retirement?q=zzzz-not-a-topic",
+    );
     render(<QuickAnswersSection groups={[group()]} />);
 
-    await user.type(
-      screen.getByTestId("quick-answers-search"),
-      "zzzz-not-a-topic",
+    await waitFor(() =>
+      expect(
+        screen.queryByRole("button", { name: /401\(k\) loans/i }),
+      ).toBeNull(),
+    );
+    // Hidden, not deleted — see `SEARCH_ENABLED`.
+    expect(screen.queryByTestId("quick-answers-search")).toBeNull();
+  });
+
+  it("switches categories from the row, one at a time", async () => {
+    const user = userEvent.setup();
+    render(
+      <QuickAnswersSection
+        groups={[
+          group(),
+          group({
+            id: "group-2",
+            name: "Investing",
+            sortOrder: 1,
+            topics: [
+              topic({
+                topicId: "topic-3",
+                placementId: "placement-3",
+                slug: "sys.target-date-funds",
+                title: "Target date funds",
+                groupId: "group-2",
+                tags: [],
+              }),
+            ],
+          }),
+        ]}
+      />,
     );
 
-    expect(screen.getByText("No answers match that search.")).toBeInTheDocument();
-    expect(screen.getByTestId("quick-answers-search")).toBeInTheDocument();
+    // The first category opens by default, so its questions are what is shown.
+    const chips = screen.getAllByTestId("quick-answer-category");
+    expect(chips).toHaveLength(2);
+    expect(chips[0]).toHaveAttribute("aria-selected", "true");
+    expect(chips[1]).toHaveAttribute("aria-selected", "false");
+    expect(
+      screen.queryByRole("button", { name: /target date funds/i }),
+    ).toBeNull();
+
+    await user.click(chips[1]);
+
+    expect(chips[1]).toHaveAttribute("aria-selected", "true");
+    expect(chips[0]).toHaveAttribute("aria-selected", "false");
+    expect(
+      screen.getByRole("button", { name: /target date funds/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /401\(k\) loans/i }),
+    ).toBeNull();
+  });
+
+  it("rules a line under the row and hints that it scrolls", () => {
+    render(
+      <QuickAnswersSection
+        groups={[
+          group(),
+          group({
+            id: "group-2",
+            name: "Investing",
+            sortOrder: 1,
+            topics: [
+              topic({
+                topicId: "topic-3",
+                placementId: "placement-3",
+                slug: "sys.target-date-funds",
+                title: "Target date funds",
+                groupId: "group-2",
+                tags: [],
+              }),
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    // The hairline that keeps a sticky row from floating into the first answer,
+    // and the fade that says "there is another chip this way" on a phone.
+    expect(
+      screen.getByTestId("quick-answer-categories-divider"),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("quick-answer-categories-fade")).toBeInTheDocument();
+
+    // The row travels with the reader on a phone; it is static from `md`.
+    const sticky = screen.getByTestId("quick-answer-categories").closest(
+      ".sticky",
+    );
+    expect(sticky).not.toBeNull();
+    expect(sticky?.className).toContain("md:static");
+
+    // Grid items must NOT stretch: with stretching, opening one answer grew the
+    // card beside it to the same height — a second "open" card, empty.
+    expect(screen.getByTestId("quick-answer-panel").className).toContain(
+      "items-start",
+    );
+  });
+
+  it("paints a closed header white on brand text, and an open one in the brand", async () => {
+    const user = userEvent.setup();
+    render(<QuickAnswersSection groups={[group()]} brandColor="#123456" />);
+
+    const question = screen.getByTestId("quick-answer-question");
+    // Closed: white bar, question in the plan's colour. jsdom normalises the
+    // inline hex to rgb().
+    expect(question.style.backgroundColor).toBe("rgb(255, 255, 255)");
+    expect(question.style.color).toBe("rgb(18, 52, 86)");
+
+    await user.click(question);
+
+    // Open: the bar is filled with the plan's colour.
+    expect(question.style.backgroundColor).toBe("rgb(18, 52, 86)");
+  });
+
+  it("opens exactly one answer, and only that question's body", async () => {
+    const user = userEvent.setup();
+    render(
+      <QuickAnswersSection
+        groups={[
+          group({
+            topics: [
+              topic(),
+              topic({
+                topicId: "topic-2",
+                placementId: "placement-2",
+                slug: "sys.withdrawals",
+                title: "Withdrawals",
+                bodyBlocks: [
+                  { type: "quick_answer", text: "Withdrawal copy." },
+                ],
+              }),
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    const first = screen.getByRole("button", { name: /401\(k\) loans/i });
+    await user.click(first);
+
+    expect(first).toHaveAttribute("aria-expanded", "true");
+    expect(
+      screen.getByText("You borrow and repay by payroll."),
+    ).toBeInTheDocument();
+    // Its neighbour stays shut, and shows no body of its own.
+    expect(
+      screen.getByRole("button", { name: /withdrawals/i }),
+    ).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Withdrawal copy.")).toBeNull();
   });
 
   it("opens the answer named in the URL hash", async () => {
@@ -639,15 +793,34 @@ describe("QuickAnswersSection", () => {
  * joins a pinned Close bar at the bottom.
  */
 describe("QuickAnswersSection phone answer sheet", () => {
-  it("hides the accordion caret, because the phone opens a sheet instead", () => {
+  it("offers a chevron-in-a-circle and hides the accordion caret", () => {
     setPhoneViewport(true);
-    const { container } = render(<QuickAnswersSection groups={[group()]} />);
+    const { container } = render(
+      <QuickAnswersSection groups={[group()]} brandColor="#123456" />,
+    );
 
-    const caret = container.querySelector(
-      '[data-testid="quick-answer-question"] svg',
+    // A phone opens the answer as a sheet, so the bar says "go" — an arrow in a
+    // circle drawn in the plan's primary colour — instead of the fold caret.
+    const arrow = screen.getByTestId("quick-answer-open-arrow");
+    // Hidden by default and switched on for the phone range only, so the desktop
+    // header never draws it.
+    expect(arrow.className).toContain("hidden");
+    expect(arrow.className).toContain("max-md:flex");
+    expect(arrow.className).not.toContain("md:hidden");
+    expect(arrow.style.color).toBe("rgb(18, 52, 86)");
+    expect(arrow.style.borderColor).toBe("rgb(18, 52, 86)");
+    expect(
+      arrow.querySelector("svg")?.getAttribute("class") ?? "",
+    ).toContain("lucide-chevron-right");
+
+    // The caret stays hidden here, and comes back where the answer really folds
+    // in place.
+    const caret = Array.from(
+      container.querySelectorAll('[data-testid="quick-answer-question"] svg'),
+    ).find((svg) =>
+      (svg.getAttribute("class") ?? "").includes("lucide-chevron-down"),
     );
     expect(caret?.getAttribute("class") ?? "").toContain("hidden");
-    // It comes back where the answer really folds in place.
     expect(caret?.getAttribute("class") ?? "").toContain("md:block");
   });
 
