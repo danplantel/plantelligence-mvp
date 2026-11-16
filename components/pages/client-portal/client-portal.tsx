@@ -319,6 +319,9 @@ export function ClientPortal({
             data?.employeePortalPreview?.benefits ??
             data?.employeePortalPreview?.previewData?.benefits
           }
+          // TF-6: the opt-in fifth hub gets its own card in this row, exactly as
+          // the header gives it a nav link.
+          employeeResourcesEnabled={data?.employeeResourcesEnabled === true}
           documents={data?.documents}
           employeePortalPreview={data?.employeePortalPreview}
           categoryPortalVisibility={data?.categoryPortalVisibility}

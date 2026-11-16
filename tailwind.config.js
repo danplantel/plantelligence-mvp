@@ -6,6 +6,11 @@ module.exports = {
     "./components/**/*.{ts,tsx}",
     "./constants/**/*.{ts,tsx}",
     "./app/**/*.{ts,tsx}",
+    // `lib` holds layout class strings that components only reference at run
+    // time (e.g. the row widths in `support-card-layout`). Without this they are
+    // assembled from variables and never emitted — the row then kept its `sm:`
+    // half-width instead of dividing into thirds/quarters/fifths.
+    "./lib/**/*.{ts,tsx}",
     "./src/**/*.{ts,tsx}",
   ],
   theme: {

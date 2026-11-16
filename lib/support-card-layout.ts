@@ -24,8 +24,11 @@ export const SUPPORT_CARD_MAX_PER_ROW = 4;
 /** Element tier of the card itself. */
 export type SupportCardSize = "sm" | "md" | "lg";
 
-/** The gap between cards: 1rem on phones, 1.5rem from `sm` (see `HaveQuestions`). */
-const SM_GAP_REM = 1.5;
+/**
+ * The gap between cards: 1rem on phones, 1.5rem from `sm` (see `HaveQuestions`).
+ * The row widths below bake that 1.5rem in, because Tailwind has to read the
+ * complete class name (see `LG_COLUMN_WIDTH`).
+ */
 
 function normalizeCount(count: number): number {
   if (!Number.isFinite(count) || count <= 0) return 0;
@@ -33,16 +36,34 @@ function normalizeCount(count: number): number {
 }
 
 /**
+ * The widest row any caller may ask for.
+ *
+ * Five is the ceiling the layouts were checked at: "Benefits at a Glance" adds
+ * the Employee Resources hub as a fifth card, and five cards of ~224–260 px
+ * still read on a `lg` screen. Nothing may go denser than that.
+ */
+export const SUPPORT_CARD_MAX_SLOTS = 5;
+
+/**
  * How many slots the `lg` row is divided into.
  *
  * A lone card is laid out as if the row held two, which is what keeps it from
- * spanning the full width. More than four cards (the data model does not
- * produce them) wrap onto another row at the quarter width.
+ * spanning the full width. Cards beyond the row's capacity wrap onto another
+ * row at the same column width.
+ *
+ * `maxSlots` lets a caller open the row wider than the support-contact default
+ * of four — the landing page's benefit cards hold five when the opt-in Employee
+ * Resources hub is published. It can never exceed `SUPPORT_CARD_MAX_SLOTS`.
  */
-export function supportCardRowSlots(count: number): number {
+export function supportCardRowSlots(
+  count: number,
+  maxSlots: number = SUPPORT_CARD_MAX_PER_ROW,
+): number {
   const total = normalizeCount(count);
   if (total <= 1) return 2;
-  return Math.min(total, SUPPORT_CARD_MAX_PER_ROW);
+  const requested = normalizeCount(maxSlots) || SUPPORT_CARD_MAX_PER_ROW;
+  const cap = Math.min(Math.max(requested, 1), SUPPORT_CARD_MAX_SLOTS);
+  return Math.min(total, cap);
 }
 
 /**
@@ -99,6 +120,25 @@ export function supportContactShowsCta(
 }
 
 /**
+ * The `lg` width for a row of N cards, written out literally.
+ *
+ * Tailwind generates what it can READ: a class assembled with a template
+ * literal (`lg:w-[calc((100%-${gap}rem)/${slots})]`) never appears in the
+ * source, so no CSS was ever emitted for it — the row silently kept the `sm:`
+ * half-width from `lg` up, which is why five cards stacked 2-up instead of
+ * sharing one row. Each supported slot count therefore has its own string.
+ *
+ * Gaps are `SM_GAP_REM` (1.5rem), so N cards have N-1 of them:
+ *   2 → 1.5rem · 3 → 3rem · 4 → 4.5rem · 5 → 6rem
+ */
+const LG_COLUMN_WIDTH: Record<number, string> = {
+  2: "lg:w-[calc((100%-1.5rem)/2)]",
+  3: "lg:w-[calc((100%-3rem)/3)]",
+  4: "lg:w-[calc((100%-4.5rem)/4)]",
+  5: "lg:w-[calc((100%-6rem)/5)]",
+};
+
+/**
  * The wrapper width class for one card.
  *
  * The wrapper — not the card — carries the column width, exactly as the
@@ -106,12 +146,14 @@ export function supportContactShowsCta(
  * Phones stack (full width), tablets pair up (`sm`), and from `lg` the row is
  * split into `supportCardRowSlots` equal columns with 1.5rem gaps.
  */
-export function supportCardColumnClass(count: number): string {
-  const slots = supportCardRowSlots(count);
-  const lgGapRem = SM_GAP_REM * (slots - 1);
+export function supportCardColumnClass(
+  count: number,
+  maxSlots: number = SUPPORT_CARD_MAX_PER_ROW,
+): string {
+  const slots = supportCardRowSlots(count, maxSlots);
   return [
     "w-full min-w-0",
     "sm:w-[calc((100%-1.5rem)/2)]",
-    `lg:w-[calc((100%-${lgGapRem}rem)/${slots})]`,
+    LG_COLUMN_WIDTH[slots] ?? LG_COLUMN_WIDTH[2],
   ].join(" ");
 }

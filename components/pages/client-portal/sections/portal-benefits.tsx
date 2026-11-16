@@ -26,7 +26,10 @@ import {
   syncBenefitsWithCategoryVisibility,
 } from "@/lib/portal-category-visibility";
 import { mergeUserBenefitWithHubDefaults } from "@/lib/hub-benefit-defaults";
-import { getCategoryDefaultInnerImageUrl } from "@/lib/portal-category-hero-background";
+import {
+  EMPLOYEE_RESOURCES_DEFAULT_BG,
+  getCategoryDefaultInnerImageUrl,
+} from "@/lib/portal-category-hero-background";
 import { supportCardColumnClass } from "@/lib/support-card-layout";
 import { portalRadiusValue } from "@/lib/typography-themes";
 
@@ -50,6 +53,15 @@ interface PortalBenefitsProps {
   benefitHubs?:
     | { category?: string; title?: string | null; isEnabled?: boolean }[]
     | null;
+  /**
+   * TF-6: has this plan published the Employee Resources hub?
+   *
+   * The fifth hub is opt-in and is NOT a benefit category — it has no Benefit row,
+   * no completeness rules and no key contact — so it cannot come through the
+   * `benefits` pipeline. When the flag is set, one extra card is appended to the
+   * row, in the same shape and the same styling as the four hub cards.
+   */
+  employeeResourcesEnabled?: boolean;
   baselineBackgroundColor?: string;
   /** Merged plan fields + keyContacts + documents + ep — matches benefits wizard’s merged plan for getBenefitCompleteness. */
   completenessClientData?: any;
@@ -66,6 +78,7 @@ export function PortalBenefits({
   employeePortalPreview,
   categoryPortalVisibility,
   benefitHubs,
+  employeeResourcesEnabled = false,
   baselineBackgroundColor,
   completenessClientData,
 }: PortalBenefitsProps) {
@@ -351,7 +364,47 @@ export function PortalBenefits({
       partnerName: getPartnerName(benefit),
     }));
 
+  /**
+   * The Employee Resources card, when the plan has published that hub.
+   *
+   * It reaches this row AFTER the benefits pipeline on purpose: it is not a
+   * benefit, so `isBenefitUnpublished`, the visibility map and
+   * `getBenefitCompleteness` have nothing to say about it — running it through
+   * them would either drop it or draw it as an unconfigured "INCOMPLETE"
+   * placeholder. `isEmployeeResources` tells the renderer to skip the
+   * completeness gate (and the click guard) for this one card.
+   */
+  const employeeResourcesCard = employeeResourcesEnabled
+    ? ({
+        id: "employee-resources",
+        title: "Employee Resources",
+        description:
+          "Forms, guides and helpful tools to support you through life's big moments.",
+        // `landingCardImage` rather than `image`: the card's image chain falls
+        // back to the Retirement stock photo for an unknown category, which would
+        // put a retirement picture on the Employee Resources card.
+        landingCardImage: EMPLOYEE_RESOURCES_DEFAULT_BG,
+        image: EMPLOYEE_RESOURCES_DEFAULT_BG,
+        buttonText: "EMPLOYEE RESOURCES>",
+        href: "/employee-resources",
+        category: "Employee Resources" as BenefitsCategory,
+        isEnabled: true,
+        isEmployeeResources: true,
+      } as Benefit & { isEmployeeResources?: boolean })
+    : null;
+
+  /** The row's cards: the benefits, plus Employee Resources when it exists. */
+  const cards: (Benefit & { isEmployeeResources?: boolean })[] =
+    employeeResourcesCard
+      ? [...displayBenefits, employeeResourcesCard]
+      : displayBenefits;
+
   const handleBenefitClick = (e: React.MouseEvent, benefit: any) => {
+    // Employee Resources is not a benefit: it has no completeness rules, and the
+    // gate below would read an unknown category as unfinished and swallow the
+    // navigation to the hub.
+    if (benefit?.isEmployeeResources) return true;
+
     // If we're on a view page (hasClientId), check for completeness
     if (hasClientId) {
       const category = (benefit.category ||
@@ -377,18 +430,23 @@ export function PortalBenefits({
    * Width of one card, from how many share the row — the same count-driven rule
    * the "Have Questions?" support cards use (`supportCardColumnClass`):
    *
-   *   1 card  → half the row (two of four slots), centred
+   *   1 card  → half the row (two slots), centred
    *   2 cards → halves
    *   3 cards → thirds from `lg`
    *   4 cards → quarters from `lg`
+   *   5 cards → fifths from `lg` (the four hubs + Employee Resources)
    *
    * Phones keep one card per line and tablets pair up. The wrapper carries the
    * width, so the card's image and copy scale with it.
+   *
+   * The 5 is passed explicitly: this row is allowed one slot wider than the
+   * support-card default, so a fifth hub joins the row instead of wrapping onto
+   * a line of its own and reading as an afterthought.
    */
-  const columnClass = supportCardColumnClass(displayBenefits.length);
+  const columnClass = supportCardColumnClass(cards.length, 5);
 
   // When all categories are hidden (portal visibility), do not render the benefits section
-  if (displayBenefits.length === 0) {
+  if (cards.length === 0) {
     return null;
   }
 
@@ -419,13 +477,22 @@ export function PortalBenefits({
       <div className="mx-auto w-full px-4 sm:px-6 lg:px-8">
         {/* A flex row rather than a grid, so a partial row is CENTRED — a lone
             card, or the third of a 3-up row on a tablet, sits in the middle
-            instead of hugging the left edge. Same layout as the support cards. */}
-        <div className="mx-auto flex w-full max-w-[1400px] flex-wrap justify-center gap-4 sm:gap-6">
-          {displayBenefits.map((benefit, index) => {
+            instead of hugging the left edge. Same layout as the support cards.
+
+            `items-stretch` is explicit: every card in a row is the same height,
+            whatever their copy, image or completeness state. Without it a short
+            "INCOMPLETE" placeholder ended above its neighbours and the Employee
+            Resources card (the longest sheet of copy) towered over them. */}
+        <div className="mx-auto flex w-full max-w-[1400px] flex-wrap items-stretch justify-center gap-4 sm:gap-6">
+          {cards.map((benefit, index) => {
             const category = (benefit.category ||
               benefit.title ||
               "") as BenefitsCategory;
-            const completeness = hasClientId
+            // Employee Resources is complete by definition — it is a page, not a
+            // benefit that has to be configured.
+            const completeness = benefit.isEmployeeResources
+              ? { isComplete: true, missingInfo: [] }
+              : hasClientId
               ? getBenefitCompleteness(category, completenessInput)
               : { isComplete: true, missingInfo: [] };
 
@@ -481,7 +548,11 @@ export function PortalBenefits({
                 }}
                 data-testid="benefit-column"
                 // The wrapper carries the row's column width for this card count.
-                className={`${columnClass} flex h-full justify-center`}
+                // No `h-full` here: with `items-stretch` on the row the wrapper
+                // takes the line's height, and the card inside fills that (its own
+                // `h-full`) — a percentage height needed a definite parent, which
+                // the auto-height row never provided.
+                className={`${columnClass} flex justify-center`}
               >
                 {!completeness.isComplete ? (
                   /* ── Placeholder Card for Incomplete Benefits ── */
@@ -499,8 +570,10 @@ export function PortalBenefits({
                       }
                     }}
                   >
-                    {/* Placeholder Image Area */}
-                    <div className="w-full h-[180px] sm:h-[200px] bg-gray-100 flex items-center justify-center relative">
+                    {/* Placeholder Image Area — `shrink-0`, matching the live
+                        card's image, so the two cards' image bands are the same
+                        height in a stretched row. */}
+                    <div className="w-full h-[180px] sm:h-[200px] shrink-0 bg-gray-100 flex items-center justify-center relative">
                       <div className="text-center">
                         <Shield className="w-12 h-12 mx-auto text-gray-300" />
                         <p className="text-xs text-gray-400 font-red-hat mt-2 font-medium">
@@ -520,7 +593,7 @@ export function PortalBenefits({
                     <div className="flex-1 pb-4 sm:pb-5 flex flex-col justify-between bg-gray-50/80">
                       <div className="px-3 sm:px-4 mt-3 sm:mt-4">
                         <h3
-                          className="text-xl sm:text-2xl font-dm-serif mb-2 sm:mb-3"
+                          className="text-xl sm:text-2xl font-dm-serif mb-2 sm:mb-3 line-clamp-2"
                           style={{ color: brandColor }}
                         >
                           {benefit.title}
@@ -576,16 +649,20 @@ export function PortalBenefits({
                     {/* Content Section - Bottom (White Background) */}
                     <div className="flex-1 pb-4 sm:pb-5 flex flex-col justify-between bg-white">
                       <div className="px-3 sm:px-4 mt-3 sm:mt-4">
-                        {/* Title */}
+                        {/* Title — two lines at most: in a fifth of the row a
+                            long benefit name would otherwise set the height for
+                            the whole row. */}
                         <h3
-                          className="text-xl sm:text-2xl font-dm-serif mb-2 sm:mb-3"
+                          className="text-xl sm:text-2xl font-dm-serif mb-2 sm:mb-3 line-clamp-2"
                           style={{ color: brandColor }}
                         >
                           {benefit.title}
                         </h3>
 
-                        {/* Description (max 75 characters, spaces included) */}
-                        <p className="text-gray-600 text-sm sm:text-base font-red-hat leading-relaxed mb-3 sm:mb-4 whitespace-pre-line">
+                        {/* Description (max 75 characters, spaces included, three
+                            lines shown) — the clamp keeps every card's copy block
+                            the same height at this column width. */}
+                        <p className="text-gray-600 text-sm sm:text-base font-red-hat leading-relaxed mb-3 sm:mb-4 whitespace-pre-line line-clamp-3">
                           {bodyText}
                         </p>
                       </div>

@@ -63,6 +63,8 @@ vi.mock("@/lib/landing-card-defaults", () => ({
 }));
 
 vi.mock("@/lib/portal-category-hero-background", () => ({
+  // The Employee Resources hub's own stock header image, used by its card.
+  EMPLOYEE_RESOURCES_DEFAULT_BG: "/gallery/employee-resources.jpg",
   getCategoryDefaultInnerImageUrl: (category: string) =>
     mocks.defaultImage(category),
 }));
@@ -253,6 +255,70 @@ describe("PortalBenefits cards", () => {
 
     expect(screen.queryAllByRole("link")).toHaveLength(0);
     expect(screen.getByText("RETIREMENT BENEFITS")).toBeInTheDocument();
+  });
+});
+
+/**
+ * TF-6 — Employee Resources.
+ *
+ * The fifth hub is opt-in and is NOT a benefit category: no Benefit row, no
+ * completeness rules, no key contact. Its card is appended to the row after the
+ * benefits pipeline rather than pushed through it, and the row opens one slot
+ * wider so all five share a single line.
+ */
+describe("PortalBenefits · Employee Resources", () => {
+  it("adds a fifth card when the plan publishes that hub", () => {
+    renderBenefits({ employeeResourcesEnabled: true });
+
+    expect(cardTitles()).toContain("Employee Resources");
+    expect(screen.getAllByTestId("benefit-column")).toHaveLength(5);
+    expect(
+      screen.getByRole("link", { name: /EMPLOYEE RESOURCES/ }),
+    ).toHaveAttribute("href", "/plan-1/employee-resources");
+  });
+
+  it("puts all five cards in ONE row", () => {
+    renderBenefits({ employeeResourcesEnabled: true });
+
+    // The wrapper carries the row width. A missing `lg:` width left the cards at
+    // their `sm:` half-width, so five of them stacked 2-up over three rows.
+    for (const column of screen.getAllByTestId("benefit-column")) {
+      expect(column.className).toContain("lg:w-[calc((100%-6rem)/5)]");
+    }
+  });
+
+  it("draws the hub's own stock image, not a benefit category's", () => {
+    // The card's image chain falls back to Retirement's stock photo for any
+    // category it does not know, so the card carries `landingCardImage`.
+    renderBenefits({ employeeResourcesEnabled: true });
+
+    expect(screen.getByAltText("Employee Resources")).toHaveAttribute(
+      "src",
+      "/gallery/employee-resources.jpg",
+    );
+  });
+
+  it("leaves the row at four cards when the hub is not published", () => {
+    renderBenefits();
+
+    expect(cardTitles()).not.toContain("Employee Resources");
+    expect(screen.getAllByTestId("benefit-column")).toHaveLength(4);
+  });
+
+  it("is never drawn as an unfinished benefit", async () => {
+    // "Employee Resources" is not a benefit category, so a completeness lookup
+    // would answer "incomplete" — drawing the placeholder and swallowing the
+    // click instead of opening the hub.
+    mocks.completeness = {
+      "Employee Resources": { isComplete: false, missingInfo: ["Anything"] },
+    };
+    const user = userEvent.setup();
+    renderBenefits({ employeeResourcesEnabled: true });
+
+    await user.click(screen.getByRole("link", { name: /EMPLOYEE RESOURCES/ }));
+
+    expect(screen.queryByText(/INCOMPLETE/)).not.toBeInTheDocument();
+    expect(screen.getByAltText("Employee Resources")).toBeInTheDocument();
   });
 });
 
