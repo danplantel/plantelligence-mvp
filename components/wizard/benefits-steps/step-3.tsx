@@ -1681,8 +1681,14 @@ export function BenefitsStep3({
           same `previewContacts` the section above builds, so the preview and the
           selection cannot disagree about who employees will be shown. */}
       <Dialog open={contactsPreviewOpen} onOpenChange={setContactsPreviewOpen}>
-        <DialogContent className="max-w-5xl max-h-[85vh] overflow-hidden flex flex-col">
-          <DialogHeader>
+        {/* The canvas is sized to the PORTAL's, not the dialog's convenience:
+            `HaveQuestions` centres a `max-w-6xl` (1152 px) row inside its own
+            `px-8`, so the section needs 1152 + 64 px to lay the cards out at the
+            width and element tier they get on the hub. At the old `max-w-5xl`
+            every card was drawn ~25% narrower than the page it previews — the
+            row read as a smaller design, not as the same one. */}
+        <DialogContent className="w-[min(96vw,1216px)] max-w-[1216px] max-h-[85vh] overflow-hidden flex flex-col gap-4 p-0">
+          <DialogHeader className="px-6 pt-6">
             <DialogTitle>Support Contacts Preview</DialogTitle>
             <DialogDescription>
               The portal shows these cards in its Have Questions section,
