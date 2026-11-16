@@ -417,14 +417,28 @@ describe("PortalHeader nav active state", () => {
     ["Retirement", "/plan-1/retirement"],
     ["Health Insurance", "/plan-1/health-insurance"],
     ["Life Insurance", "/plan-1/life-insurance"],
-    ["Custom benefit", "/plan-1/wellness-programs"],
-  ])("marks the benefit group on the %s hub", (_hub, pathname) => {
+    ["Wellness Programs", "/plan-1/wellness-programs"],
+  ])("names and marks the %s hub in the group's place", (hub, pathname) => {
     mocks.pathname = pathname;
     render(<PortalHeader clientId="plan-1" brandColor="#abcdef" />);
 
-    const trigger = screen.getByRole("button", { name: "Your Benefits" });
+    // On a hub the trigger IS the page name — "Your Benefits" announces a menu,
+    // and the reader is already past the menu.
+    const trigger = screen.getByRole("button", { name: hub });
     expect(trigger).toHaveStyle({ borderBottomColor: "#abcdef" });
     expect(trigger.style.backgroundColor).not.toBe("");
+    expect(
+      screen.queryByRole("button", { name: "Your Benefits" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps 'Your Benefits' away from the hubs", () => {
+    mocks.pathname = "/plan-1/news-events";
+    render(<PortalHeader clientId="plan-1" brandColor="#abcdef" />);
+
+    expect(
+      screen.getByRole("button", { name: "Your Benefits" }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -495,21 +509,25 @@ describe("PortalHeader mobile drawer", () => {
     ["Retirement", "/plan-1/retirement"],
     ["Health Insurance", "/plan-1/health-insurance"],
     ["Life Insurance", "/plan-1/life-insurance"],
-    ["Custom benefit", "/plan-1/wellness-programs"],
-  ])("marks the Your Benefits row on the %s hub", async (_hub, pathname) => {
+    ["Wellness Programs", "/plan-1/wellness-programs"],
+  ])("names and marks the %s hub on the group row", async (hub, pathname) => {
     mocks.pathname = pathname;
     const drawer = await openDrawer();
 
-    const group = drawer.getByText("Your Benefits");
+    const group = drawer.getByTestId("portal-benefits-group");
+    // The row carries the page name on a hub; the hub's own link below it says
+    // the same thing, which is why the row is addressed by test id.
+    expect(group).toHaveTextContent(hub);
     expect(group).toHaveStyle({ borderBottomColor: "#abcdef" });
     expect(group.style.backgroundColor).not.toBe("");
   });
 
-  it("leaves the Your Benefits row unmarked away from the hubs", async () => {
+  it("leaves the group row labelled and unmarked away from the hubs", async () => {
     mocks.pathname = "/plan-1/news-events";
     const drawer = await openDrawer();
 
-    const group = drawer.getByText("Your Benefits");
+    const group = drawer.getByTestId("portal-benefits-group");
+    expect(group).toHaveTextContent("Your Benefits");
     expect(group.className).toContain("border-transparent");
     expect(group.style.backgroundColor).toBe("");
   });

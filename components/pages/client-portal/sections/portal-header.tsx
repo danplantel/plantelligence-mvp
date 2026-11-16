@@ -400,6 +400,25 @@ export function PortalHeader({
   const isBenefitsActive = benefitsPaths.some((path) => isActive(path));
 
   /**
+   * The benefits group's label.
+   *
+   * "Your Benefits" announces a menu; once the reader is ON one of its pages the
+   * same spot names the page ("Retirement"), so the header answers "where am I?"
+   * without opening anything. The dropdown still lists every hub.
+   *
+   * The nav items are matched first because they carry the advisor's OWN name for
+   * the Custom hub (its `Benefit.title`, not "Wellness Programs"); the canonical
+   * list covers a hub that exists but is hidden from the menu, and the Custom
+   * title covers a named hub whose route is the slugified one.
+   */
+  const activeBenefitsLabel = !isBenefitsActive
+    ? null
+    : benefitsNavItems.find((item) => isActive(item.path))?.label ??
+      BENEFITS_NAV_ITEMS.find((item) => isActive(item.path))?.label ??
+      customHubTitle;
+  const benefitsGroupLabel = activeBenefitsLabel || "Your Benefits";
+
+  /**
    * Preview chrome — the editors' `enableNavigation={false}` — has no routes, so
    * `isBenefitsActive` cannot answer "are we on a benefit page?", and every editor
    * preview IS previewing one. So previews show the Login button as well, which is
@@ -699,7 +718,8 @@ export function PortalHeader({
                             isBenefitsActive || isBenefitsOpen,
                           )}
                         >
-                          Your Benefits <ChevronDown className="ml-1 h-4 w-4" />
+                          {benefitsGroupLabel}{" "}
+                          <ChevronDown className="ml-1 h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent
@@ -957,6 +977,7 @@ export function PortalHeader({
                       {/* The group row marks itself while one of its hubs is
                           open — the mobile counterpart of the desktop trigger. */}
                       <div
+                        data-testid="portal-benefits-group"
                         className={drawerLinkClass(isBenefitsActive)}
                         style={navLinkStyle(isBenefitsActive)}
                       >
@@ -972,7 +993,7 @@ export function PortalHeader({
                           <path d="M12 20h9" />
                           <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
                         </svg>
-                        Your Benefits
+                        {benefitsGroupLabel}
                       </div>
                       <div className="ml-4 space-y-0.5 border-l border-gray-200 pl-3">
                         {benefitsNavItems.map((item) =>
