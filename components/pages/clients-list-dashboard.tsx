@@ -727,7 +727,7 @@ export function ClientsListDashboardPage() {
                                             variant="ghost"
                                             size="icon"
                                             aria-label="Hub"
-                                            className="h-8 w-8"
+                                            className="h-8 w-8 hover:bg-muted hover:text-primary"
                                             onClick={() => {
                                               const slug =
                                                 client.slug || client.id;
@@ -756,7 +756,7 @@ export function ClientsListDashboardPage() {
                                             variant="ghost"
                                             size="icon"
                                             aria-label="Documents"
-                                            className="h-8 w-8"
+                                            className="h-8 w-8 hover:bg-muted hover:text-primary"
                                             onClick={() => {
                                               const searchParams =
                                                 new URLSearchParams({
@@ -781,7 +781,7 @@ export function ClientsListDashboardPage() {
                                             variant="ghost"
                                             size="icon"
                                             aria-label="Meetings"
-                                            className="h-8 w-8"
+                                            className="h-8 w-8 hover:bg-muted hover:text-primary"
                                             onClick={() => {
                                               const searchParams =
                                                 new URLSearchParams({
@@ -807,7 +807,7 @@ export function ClientsListDashboardPage() {
                                             variant="ghost"
                                             size="icon"
                                             aria-label="Marketing"
-                                            className="h-8 w-8"
+                                            className="h-8 w-8 hover:bg-muted hover:text-primary"
                                             onClick={() =>
                                               toast.info(
                                                 "Marketing feature will be implemented soon",
@@ -828,7 +828,7 @@ export function ClientsListDashboardPage() {
                                             variant="ghost"
                                             size="icon"
                                             aria-label="Edit"
-                                            className="h-8 w-8"
+                                            className="h-8 w-8 hover:bg-muted hover:text-primary"
                                             onClick={() =>
                                               handleEditClient(client.id)
                                             }
