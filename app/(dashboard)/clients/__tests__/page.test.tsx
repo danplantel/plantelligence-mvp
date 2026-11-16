@@ -485,7 +485,7 @@ describe("ClientsListDashboardPage", () => {
       );
     });
 
-    it("limits a draft to Delete and a resume path", async () => {
+    it("limits a draft to Cancel Draft and a resume path", async () => {
       const user = userEvent.setup();
       render(<ClientsListDashboardPage />);
       const row = within(rowFor("Draft Co"));
@@ -505,9 +505,14 @@ describe("ClientsListDashboardPage", () => {
       expect(
         row.queryByRole("button", { name: "Edit" }),
       ).not.toBeInTheDocument();
-      expect(row.getByRole("button", { name: "Delete" })).toBeInTheDocument();
+      expect(
+        row.queryByRole("button", { name: "Delete" }),
+      ).not.toBeInTheDocument();
+      expect(
+        row.getByRole("button", { name: "Cancel Draft" }),
+      ).toBeInTheDocument();
 
-      await user.click(row.getByRole("button", { name: /Finish Setup/ }));
+      await user.click(row.getByRole("button", { name: /Finish Draft/ }));
 
       expect(mocks.storePendingDraftSelection).toHaveBeenCalledWith(
         "plan-draft",
@@ -524,7 +529,7 @@ describe("ClientsListDashboardPage", () => {
 
         await user.click(
           within(rowFor("Draft Co")).getByRole("button", {
-            name: /Finish Setup/,
+            name: /Finish Draft/,
           }),
         );
 
@@ -675,6 +680,41 @@ describe("ClientsListDashboardPage", () => {
       expect(mocks.mutate).toHaveBeenCalled();
       // The Create Plan draft must not be resumable after its plan is deleted.
       expect(mocks.resetWizard).toHaveBeenCalled();
+    });
+
+    it("cancels a draft from its Cancel Draft button", async () => {
+      const user = userEvent.setup();
+      mocks.swrData = listResponse([draftPlan]);
+      render(<ClientsListDashboardPage />);
+
+      await user.click(
+        within(rowFor("Draft Co")).getByRole("button", {
+          name: "Cancel Draft",
+        }),
+      );
+
+      const dialog = await screen.findByRole("dialog");
+      expect(
+        within(dialog).getByRole("heading", { name: "Cancel Draft" }),
+      ).toBeInTheDocument();
+      expect(
+        within(dialog).getByText(/cancel the draft for/),
+      ).toBeInTheDocument();
+
+      await user.click(
+        within(dialog).getByRole("button", { name: "Cancel Draft" }),
+      );
+
+      await waitFor(() =>
+        expect(mocks.fetch).toHaveBeenCalledWith("/api/clients/plan-draft", {
+          method: "DELETE",
+        }),
+      );
+      await waitFor(() =>
+        expect(mocks.toastSuccess).toHaveBeenCalledWith(
+          "Draft cancelled successfully",
+        ),
+      );
     });
 
     it("reports a failed deletion and leaves the row in place", async () => {

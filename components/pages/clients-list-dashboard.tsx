@@ -117,6 +117,10 @@ export function ClientsListDashboardPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [clientToDelete, setClientToDelete] = useState<Client | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  // The row action reads "Cancel Draft" for a draft, so the confirmation dialog
+  // and its toast talk about cancelling rather than deleting.
+  const isDraftDeletion =
+    (clientToDelete?.status ?? "").toLowerCase() === "draft";
   const [planTypeFilter, setPlanTypeFilter] = useState<string>("all"); // "all", "client", "prospect"
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -260,7 +264,11 @@ export function ClientsListDashboardPage() {
 
       const result = await response.json();
       if (result.success) {
-        toast.success("Client deleted successfully");
+        toast.success(
+          isDraftDeletion
+            ? "Draft cancelled successfully"
+            : "Client deleted successfully",
+        );
 
         // Clear the Create Plan wizard's localStorage data AND in-memory Zustand
         // state so the user doesn't see stale draft info if they navigate to
@@ -716,9 +724,9 @@ export function ClientsListDashboardPage() {
                               <TooltipProvider>
                                 <div className="flex items-center space-x-1">
                                   {/* Drafts are not published yet, so Hub, Documents,
-                                    Meetings, Marketing and Edit are hidden — Quick
-                                    Actions shows Delete only, next to the Finish
-                                    Setup button in the final column. */}
+                                    Meetings, Marketing and Edit are hidden — a
+                                    draft's Quick Actions is just the Finish Draft /
+                                    Cancel Draft pair rendered further down. */}
                                   {!isDraft && (
                                     <>
                                       <Tooltip>
@@ -841,44 +849,61 @@ export function ClientsListDashboardPage() {
                                         </TooltipContent>
                                       </Tooltip>
 
-                                      {/* Delete is always available — a draft can be
-                                    discarded, and every other action needs a
-                                    completed plan (see the isDraft guard above). */}
+                                      {/* Published plans keep the icon-only Delete: it is
+                                    the only action left once the row's five toolbar
+                                    shortcuts are shown. */}
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            aria-label="Delete"
+                                            className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                            onClick={() =>
+                                              handleDeleteClient(client)
+                                            }
+                                          >
+                                            <Trash2 className="h-4 w-4" />
+                                          </Button>
+                                        </TooltipTrigger>
+                                        <TooltipContent>
+                                          <p>Delete</p>
+                                        </TooltipContent>
+                                      </Tooltip>
                                     </>
                                   )}
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
+
+                                  {/* A draft was never published, so it is cancelled
+                                    rather than deleted: the same red scheme as the
+                                    Delete icon, but spelled out so the destructive
+                                    action is not hidden behind a glyph. The wizard
+                                    resume sits beside it — it used to live in its own
+                                    column after Quick Actions, where the table's
+                                    column sizing pushed it away from the actions it
+                                    belongs to. */}
+                                  {isDraft && (
+                                    <>
                                       <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        aria-label="Delete"
-                                        className="h-8 w-8 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                        variant="default"
+                                        size="sm"
+                                        onClick={() => handleFinishSetup(client)}
+                                        className="h-8"
+                                      >
+                                        <CheckCircle className="mr-2 h-4 w-4" />
+                                        Finish Draft
+                                      </Button>
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
                                         onClick={() =>
                                           handleDeleteClient(client)
                                         }
+                                        className="h-8 border-red-200 text-red-600 hover:border-red-300 hover:bg-red-50 hover:text-red-700"
                                       >
-                                        <Trash2 className="h-4 w-4" />
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Cancel Draft
                                       </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>Delete</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-
-                                  {/* Drafts get the wizard resume right beside Delete. It
-                                    used to live in its own column after Quick Actions,
-                                    where the table's column sizing pushed it away from
-                                    the actions it belongs to. */}
-                                  {isDraft && (
-                                    <Button
-                                      variant="default"
-                                      size="sm"
-                                      onClick={() => handleFinishSetup(client)}
-                                      className="h-8"
-                                    >
-                                      <CheckCircle className="mr-2 h-4 w-4" />
-                                      Finish Setup
-                                    </Button>
+                                    </>
                                   )}
                                 </div>
                               </TooltipProvider>
@@ -962,15 +987,29 @@ export function ClientsListDashboardPage() {
           </div>
         </Card>
 
-        {/* Delete Confirmation Dialog */}
+        {/* Delete / Cancel Draft Confirmation Dialog */}
         <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Confirm Delete</DialogTitle>
+              <DialogTitle>
+                {isDraftDeletion ? "Cancel Draft" : "Confirm Delete"}
+              </DialogTitle>
               <DialogDescription>
-                Are you sure you want to delete{" "}
-                <strong>{clientToDelete?.companyName}</strong>? This action
-                cannot be undone and will also delete all associated documents.
+                {isDraftDeletion ? (
+                  <>
+                    Are you sure you want to cancel the draft for{" "}
+                    <strong>{clientToDelete?.companyName}</strong>? This action
+                    cannot be undone and will also remove anything saved in the
+                    draft.
+                  </>
+                ) : (
+                  <>
+                    Are you sure you want to delete{" "}
+                    <strong>{clientToDelete?.companyName}</strong>? This action
+                    cannot be undone and will also delete all associated
+                    documents.
+                  </>
+                )}
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
@@ -979,7 +1018,7 @@ export function ClientsListDashboardPage() {
                 onClick={() => setDeleteDialogOpen(false)}
                 disabled={isDeleting}
               >
-                Cancel
+                {isDraftDeletion ? "Keep Draft" : "Cancel"}
               </Button>
               <Button
                 variant="destructive"
@@ -989,8 +1028,10 @@ export function ClientsListDashboardPage() {
                 {isDeleting ? (
                   <>
                     <Icons.spinner className="mr-2 h-4 w-4 animate-spin" />
-                    Deleting
+                    {isDraftDeletion ? "Cancelling" : "Deleting"}
                   </>
+                ) : isDraftDeletion ? (
+                  "Cancel Draft"
                 ) : (
                   "Delete"
                 )}
