@@ -240,6 +240,66 @@ describe("PortalChatbot", () => {
     await user.keyboard("{Escape}");
   });
 
+  it("keeps the floating pill above the phone's browser toolbar", () => {
+    // `bottom: 1.5rem` is measured from the ICB bottom, which Chrome sizes to the
+    // LARGE viewport: with the toolbar showing, the pill sat behind it.
+    const originalInnerHeight = window.innerHeight;
+    Object.defineProperty(window, "visualViewport", {
+      value: {
+        height: 700,
+        offsetTop: 0,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      },
+      configurable: true,
+      writable: true,
+    });
+    Object.defineProperty(window, "innerHeight", {
+      value: 760,
+      configurable: true,
+    });
+
+    try {
+      render(<PortalChatbot />);
+      const fab = screen.getByRole("button", { name: "Ask a question" });
+      // 760 - 700 = 60px of toolbar, then the pill's own 1.5rem and the install
+      // prompt's inset, which the class used to contribute.
+      expect(fab.style.bottom).toContain("60px");
+      expect(fab.style.bottom).toContain("--portal-install-inset");
+    } finally {
+      Object.defineProperty(window, "visualViewport", {
+        value: undefined,
+        configurable: true,
+        writable: true,
+      });
+      Object.defineProperty(window, "innerHeight", {
+        value: originalInnerHeight,
+        configurable: true,
+      });
+    }
+  });
+
+  it("sizes the phone sheet with the browser's own dynamic viewport", async () => {
+    // Chrome resizes `dvh` itself as its bottom toolbar shows and hides, so the
+    // sheet needs no viewport maths of ours — and it stays pinned to the top
+    // (`inset-0`), which is what stops a stale scroll offset drawing it low.
+    const user = await openSheet();
+    const sheet = screen.getByRole("dialog", { name: "Benefits assistant" });
+
+    expect(sheet.style.height).toBe("100dvh");
+    expect(sheet.style.top).toBe("");
+
+    // The page behind cannot scroll: the ROOT is locked too, not just the body —
+    // a document still holding its scroll offset laid the fixed sheet out from
+    // that offset.
+    expect(document.documentElement.style.overflow).toBe("hidden");
+
+    await user.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(document.documentElement.style.overflow).toBe(""),
+    );
+  });
+
   it("opens with the greeting and the plan's published hubs", async () => {
     await openSheet();
 
@@ -352,17 +412,17 @@ describe("PortalChatbot", () => {
   it("locks page scrolling while the fullscreen sheet is open", async () => {
     const user = await openSheet();
 
-    // The phone sheet owns the screen: the page behind it cannot scroll and its
-    // scrollbar is gone.
-    expect(document.body.style.position).toBe("fixed");
+    // The phone sheet owns the screen: the page behind it cannot scroll. The lock
+    // is overflow only — the old `position: fixed; top: -scrollY` body re-anchored
+    // the document and left the sheet laid out below the top of the screen.
     expect(document.body.style.overflow).toBe("hidden");
-    expect(document.body.style.width).toBe("100%");
+    expect(document.body.style.position).toBe("");
+    expect(document.documentElement.style.overflow).toBe("hidden");
 
     await user.keyboard("{Escape}");
 
-    await waitFor(() => expect(document.body.style.position).toBe(""));
-    expect(document.body.style.overflow).toBe("");
-    expect(document.body.style.width).toBe("");
+    await waitFor(() => expect(document.body.style.overflow).toBe(""));
+    expect(document.documentElement.style.overflow).toBe("");
   });
 
   it("closes from its header button", async () => {

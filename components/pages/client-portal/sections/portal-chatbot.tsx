@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useVisualViewportBox } from "@/hooks/useVisualViewportBox";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowUp, MessageCircle, X } from "lucide-react";
 import { readableColor } from "polished";
@@ -526,6 +527,27 @@ export function PortalChatbot({
   };
   // Phones get a full-screen sheet; from `md` up it is the floating card again.
   const isDesktop = useMediaQuery("(min-width: 768px)", false);
+  /**
+   * The visible box on a phone.
+   *
+   * `fixed inset-0` and `bottom: 1.5rem` are laid out against the ICB, which Chrome
+   * on Android sizes to the LARGE viewport — so while the bottom toolbar is back,
+   * the floating pill sits behind it, and the full-screen sheet no longer covers
+   * what you can see (the header slides up under the address bar, leaving a gap
+   * above it). Tracking `visualViewport` keeps both exactly where the screen is.
+   */
+  const phoneViewport = useVisualViewportBox(!isDesktop);
+  /**
+   * The height the browser's bottom toolbar (or an open keyboard) is taking.
+   * `0` on a desktop, and on browsers with no `visualViewport`.
+   */
+  const phoneBottomGap =
+    phoneViewport && typeof window !== "undefined"
+      ? Math.max(
+          0,
+          window.innerHeight - (phoneViewport.offsetTop + phoneViewport.height),
+        )
+      : 0;
 
   // A fullscreen phone sheet owns the screen. Lock the page behind it so a swipe
   // scrolls the transcript, not the portal, and the page scrollbar disappears.
@@ -535,25 +557,25 @@ export function PortalChatbot({
     if (!open || isDesktop) return;
 
     const body = document.body;
+    const root = document.documentElement;
     const previous = {
-      position: body.style.position,
-      top: body.style.top,
-      width: body.style.width,
-      overflow: body.style.overflow,
+      bodyOverflow: body.style.overflow,
+      rootOverflow: root.style.overflow,
     };
-    const scrollY = window.scrollY;
 
-    body.style.position = "fixed";
-    body.style.top = `-${scrollY}px`;
-    body.style.width = "100%";
+    // Overflow only — deliberately NOT the `position: fixed; top: -scrollY` dance.
+    // That lock re-anchors the document while the sheet is open, and on a phone
+    // whose bottom toolbar has retracted it left the fixed sheet laid out lower
+    // than the screen top: a band above the chatbot header that vanished the
+    // moment anything forced the viewport to be recomputed (tapping the input).
+    // The transcript carries `overscroll-contain`, so a swipe still scrolls the
+    // conversation rather than the page behind it.
+    root.style.overflow = "hidden";
     body.style.overflow = "hidden";
 
     return () => {
-      body.style.position = previous.position;
-      body.style.top = previous.top;
-      body.style.width = previous.width;
-      body.style.overflow = previous.overflow;
-      if (scrollY) window.scrollTo(0, scrollY);
+      root.style.overflow = previous.rootOverflow;
+      body.style.overflow = previous.bodyOverflow;
     };
   }, [open, isDesktop]);
 
@@ -567,17 +589,27 @@ export function PortalChatbot({
             role="dialog"
             aria-modal="false"
             aria-label="Benefits assistant"
-            initial={{ opacity: 0, y: 12, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 12, scale: 0.98 }}
+            // Fade only on a phone. A transform (`y`, `scale`) on the sheet is a
+            // band of page showing above the header — and one that can outlive the
+            // animation on a busy phone. The floating card keeps its lift.
+            initial={isDesktop ? { opacity: 0, y: 12, scale: 0.98 } : { opacity: 0 }}
+            animate={isDesktop ? { opacity: 1, y: 0, scale: 1 } : { opacity: 1 }}
+            exit={isDesktop ? { opacity: 0, y: 12, scale: 0.98 } : { opacity: 0 }}
             transition={{ duration: 0.18, ease: "easeOut" }}
             // Fullscreen on a phone: the whole viewport, safe areas included, with
             // no card chrome. From `md` up it is the floating card that sits clear of
             // the comments rail and the mobile install bar.
             className="fixed inset-0 z-[60] flex h-full w-full flex-col overflow-hidden bg-white md:bottom-[5.5rem] md:left-auto md:right-auto md:top-auto md:h-[min(32rem,70vh)] md:w-[min(24rem,calc(100vw-2.5rem))] md:rounded-2xl md:border md:border-black/10 md:shadow-[0_20px_60px_rgba(15,23,42,0.28)]"
-            style={isDesktop ? edgeStyle : undefined}
+            /**
+             * `100dvh` is the browser's own DYNAMIC viewport height: Chrome resizes
+             * it itself as its bottom toolbar shows and hides, with no event timing
+             * of ours to get wrong. The sheet stays pinned to the top through
+             * `inset-0`, so it can never be drawn above the screen. Browsers too old
+             * to know `dvh` ignore this declaration and keep the `h-full` class.
+             */
+            style={isDesktop ? edgeStyle : { height: "100dvh" }}
           >
-            {/* Header — the portal's brand colour, like its other chrome. */}
+          {/* Header — the portal's brand colour, like its other chrome. */}
             <div
               className="flex items-center justify-between gap-3 px-4 pb-3 pt-[calc(0.75rem_+_env(safe-area-inset-top,0px))]"
               style={{
@@ -593,11 +625,14 @@ export function PortalChatbot({
                   <MessageCircle className="h-4 w-4" aria-hidden="true" />
                 </span>
                 <div className="min-w-0">
-                  <p className="truncate font-red-hat text-sm font-semibold">
+                  {/* Phone sizes run a step larger than the floating card's: the
+                      sheet owns the whole screen, and its copy is read at arm's
+                      length. `md:` restores the desktop card's typography. */}
+                  <p className="truncate font-red-hat text-[15px] font-semibold md:text-sm">
                     Benefits assistant
                   </p>
                   <p
-                    className="truncate font-red-hat text-[11px]"
+                    className="truncate font-red-hat text-[12px] md:text-[11px]"
                     style={{ color: readableColor(brandColor), opacity: 0.75 }}
                   >
                     Ask about your plan
@@ -642,8 +677,8 @@ export function PortalChatbot({
                       <p
                         className={
                           isUser
-                            ? "rounded-2xl rounded-br-sm px-3.5 py-2 font-red-hat text-[13px] leading-relaxed"
-                            : "rounded-2xl rounded-bl-sm border border-neutral-200 bg-white px-3.5 py-2 font-red-hat text-[13px] leading-relaxed text-neutral-700"
+                            ? "rounded-2xl rounded-br-sm px-3.5 py-2 font-red-hat text-[14.5px] leading-relaxed md:text-[13px]"
+                            : "rounded-2xl rounded-bl-sm border border-neutral-200 bg-white px-3.5 py-2 font-red-hat text-[14.5px] leading-relaxed text-neutral-700 md:text-[13px]"
                         }
                         style={
                           isUser
@@ -710,13 +745,16 @@ export function PortalChatbot({
               ) : null}
             </div>
 
-            {/* Composer */}
+            {/* Composer. The bottom padding is roomier than the top on purpose: on a
+                phone the sheet runs to the layout viewport's bottom, so this is the
+                clearance between the field and the browser's own bottom toolbar (on
+                top of the device's home-indicator inset). */}
             <form
               onSubmit={(event) => {
                 event.preventDefault();
                 send();
               }}
-              className="flex items-center gap-2 border-t border-neutral-200 bg-white px-3 pb-[calc(0.75rem_+_env(safe-area-inset-bottom,0px))] pt-3"
+              className="flex items-center gap-2 border-t border-neutral-200 bg-white px-3 pb-[calc(1.5rem_+_env(safe-area-inset-bottom,0px))] pt-3"
             >
               <input
                 ref={inputRef}
@@ -724,7 +762,9 @@ export function PortalChatbot({
                 onChange={(event) => setDraft(event.target.value)}
                 aria-label="Type your question"
                 placeholder="Type your question…"
-                className="h-10 min-w-0 flex-1 rounded-full border border-neutral-300 bg-white px-3.5 font-red-hat text-[13px] text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none"
+                // 16px on a phone: larger to read, and the threshold below which
+                // iOS zooms the whole page when the field takes focus.
+                className="h-10 min-w-0 flex-1 rounded-full border border-neutral-300 bg-white px-3.5 font-red-hat text-[16px] text-neutral-800 placeholder:text-neutral-400 focus:border-neutral-400 focus:outline-none md:text-[13px]"
               />
               <button
                 type="submit"
@@ -782,6 +822,14 @@ export function PortalChatbot({
           ...edgeStyle,
           backgroundColor: brandColor,
           color: readableColor(brandColor),
+          // Phone: measured from the visible bottom, so a toolbar that has
+          // reappeared cannot park the pill behind itself. The install-prompt
+          // inset the class adds is preserved.
+          ...(phoneViewport
+            ? {
+                bottom: `calc(${phoneBottomGap}px + 1.5rem + var(--portal-install-inset, 0px))`,
+              }
+            : {}),
         }}
       >
         {open ? (
@@ -824,7 +872,7 @@ function ReplyDetails({
   return (
     <div className="space-y-2">
       {reply.kind === "answer" && reply.steps.length > 0 ? (
-        <ol className="list-decimal space-y-0.5 pl-4 font-red-hat text-[12px] leading-relaxed text-neutral-600">
+        <ol className="list-decimal space-y-0.5 pl-4 font-red-hat text-[13.5px] leading-relaxed text-neutral-600 md:text-[12px]">
           {reply.steps.map((step) => (
             <li key={step}>{step}</li>
           ))}
@@ -832,7 +880,7 @@ function ReplyDetails({
       ) : null}
 
       {reply.kind === "answer" && reply.note ? (
-        <p className="font-red-hat text-[11px] leading-relaxed text-neutral-500">
+        <p className="font-red-hat text-[12.5px] leading-relaxed text-neutral-500 md:text-[11px]">
           {reply.note}
         </p>
       ) : null}
@@ -852,7 +900,7 @@ function ReplyDetails({
 
       {reply.kind === "answer" && reply.related.length > 0 ? (
         <div className="space-y-1">
-          <p className="font-red-hat text-[10px] font-semibold uppercase tracking-wide text-neutral-400">
+          <p className="font-red-hat text-[11px] font-semibold uppercase tracking-wide text-neutral-400 md:text-[10px]">
             Related
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -914,7 +962,7 @@ function AssistantChip({
     <button
       type="button"
       onClick={onClick}
-      className="rounded-full border px-2.5 py-1 text-left font-red-hat text-[12px] font-medium transition-opacity hover:opacity-90"
+      className="rounded-full border px-2.5 py-1 text-left font-red-hat text-[13.5px] font-medium transition-opacity hover:opacity-90 md:text-[12px]"
       style={assistantChipStyle(brandColor)}
     >
       {label}
@@ -979,12 +1027,12 @@ function ChatLink({
   const external =
     link.external === true || /^(https?:|mailto:|tel:)/i.test(link.href);
   const className =
-    "inline-flex flex-col items-start gap-0.5 rounded-xl border px-2.5 py-1 font-red-hat text-[12px] font-medium transition-opacity hover:opacity-90";
+    "inline-flex flex-col items-start gap-0.5 rounded-xl border px-2.5 py-1 font-red-hat text-[13.5px] font-medium transition-opacity hover:opacity-90 md:text-[12px]";
   const style = assistantChipStyle(brandColor);
   const content = (
     <>
       <span>{link.label}</span>
-      <span className="text-[10px] font-normal opacity-70">
+      <span className="text-[11px] font-normal opacity-70 md:text-[10px]">
         {destinationHint(link, plan)}
       </span>
     </>
