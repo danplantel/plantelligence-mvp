@@ -62,6 +62,17 @@ const portalHubTests = [
   "app/(portal)/[id]/retirement/__tests__/page-edit-affordances.test.tsx",
   // The welcome banner's per-element pencils and the anchors they name
   "components/pages/client-portal/sections/__tests__/portal-welcome-banner-edit-pencils.test.tsx",
+  // A document card's VIEW/DOWNLOAD: the plan-scoped view url, a working download,
+  // the `#` and Office-file states
+  "components/pages/client-portal/sections/__tests__/benefit-document-section-preview.test.tsx",
+  // The URL rules behind it: plan scoping, `#`, file type, saved file name
+  "lib/__tests__/portal-document-url.test.ts",
+  // The href each hub card carries: persisted cuid → /view, never the "r2:stored"
+  // placeholder the browser refuses to launch
+  "lib/__tests__/map-plan-documents-for-benefit-hub.test.ts",
+  // The flag that takes the floating "Ask a question" pill out of the way while a
+  // modal (the document preview) owns the screen
+  "lib/__tests__/portal-modal-flag.test.ts",
   // The assistant's brain: corpus over the whole shipped library + the plan's
   // placements, ranked retrieval, intent routing, hub and deep-link rules
   "lib/topics/__tests__/assistant.test.ts",

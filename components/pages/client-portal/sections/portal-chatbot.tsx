@@ -11,6 +11,7 @@ import useSWR from "swr";
 
 import { useOptionalClientPortal } from "@/contexts/client-portal-context";
 import { customBenefitTitleFromHubs } from "@/lib/benefit-custom-name";
+import { usePortalModalOpen } from "@/lib/portal-modal-flag";
 import {
   ASSISTANT_ASK_EVENT,
   ASSISTANT_HERO_VISIBLE_EVENT,
@@ -196,6 +197,12 @@ export function PortalChatbot({
   const [askInputFocused, setAskInputFocused] = useState(false);
   /** Whether the hero (with its own Ask bar) is on screen. */
   const [heroVisible, setHeroVisible] = useState(false);
+  /**
+   * A portal modal (the hub's document preview) is open. Its overlay covers the
+   * page but is mounted in the dialog's own portal, so it cannot hide this pill
+   * itself — the flag in `lib/portal-modal-flag` travels between the two trees.
+   */
+  const portalModalOpen = usePortalModalOpen();
   const [draft, setDraft] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: 0, role: "assistant", text: GREETING },
@@ -758,15 +765,18 @@ export function PortalChatbot({
         // phone sheet is open the pill is hidden — the header's X closes it. It also
         // steps aside on a phone while the landing page's Ask field is focused, and
         // stays hidden entirely while the hero's own Ask bar is on screen. It returns
-        // once the visitor scrolls past the hero.
+        // once the visitor scrolls past the hero — and it stays out of the way while
+        // a modal (the document preview) owns the screen.
         className={`fixed bottom-[calc(1.5rem_+_var(--portal-install-inset,0px))] z-[60] h-14 items-center justify-center gap-2 rounded-full text-white shadow-[0_10px_30px_rgba(15,23,42,0.28)] transition-transform hover:scale-105 print:hidden md:bottom-6 ${
-          open
-            ? "hidden w-14 md:flex"
-            : heroVisible
-              ? "hidden"
-              : askInputFocused
-                ? "hidden px-5 md:flex"
-                : "flex px-5"
+          portalModalOpen
+            ? "hidden"
+            : open
+              ? "hidden w-14 md:flex"
+              : heroVisible
+                ? "hidden"
+                : askInputFocused
+                  ? "hidden px-5 md:flex"
+                  : "flex px-5"
         }`}
         style={{
           ...edgeStyle,

@@ -66,6 +66,15 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { normalizePortalDocumentLanguage } from "@/lib/portal-document-language";
 import { portalRadiusValue } from "@/lib/typography-themes";
+import {
+  canPreviewDocumentInline,
+  documentDownloadFileName,
+  documentFileExtension,
+  resolveDocumentSourceUrl,
+  withDocumentDownloadFlag,
+} from "@/lib/portal-document-url";
+import { isPersistedDocumentId } from "@/lib/document-id";
+import { useHoldPortalModal } from "@/lib/portal-modal-flag";
 
 /**
  * Derive a user-facing accordion header title from a benefit category.
@@ -83,20 +92,6 @@ function deriveAccordionHeaderTitle(category?: string): string {
   }
 }
 
-function isPersistedMongoDocumentId(id: string): boolean {
-  if (typeof id !== "string" || id.length !== 24) return false;
-  if (!/^[0-9a-fA-F]{24}$/.test(id)) return false;
-  if (
-    id.startsWith("doc-") ||
-    id.startsWith("plan-doc-") ||
-    id.startsWith("optional-doc-") ||
-    id.startsWith("temp-")
-  ) {
-    return false;
-  }
-  return true;
-}
-
 export type RetirementDocumentLanguage = "EN" | "ES";
 
 export type RetirementDocumentItem = {
@@ -104,6 +99,9 @@ export type RetirementDocumentItem = {
   title: string;
   description: string;
   href: string;
+  /** The stored file's own name — the only reliable hint at its type, because
+   *  a `/api/documents/{id}/view` href ends in `/view`, not an extension. */
+  fileName?: string;
   language: RetirementDocumentLanguage;
   meta?: {
     source?: string;
@@ -127,6 +125,16 @@ export type RetirementDocumentItem = {
 interface BenefitDocumentSectionProps {
   brandColor?: string;
   accentColor?: string;
+  /**
+   * The plan's slug/ObjectId — the portal URL's own `[id]` segment.
+   *
+   * Required for a document to open on the anonymous portal:
+   * `GET /api/documents/{id}/view` resolves the owning advisor from
+   * `?clientSlug=` and answers 401 without it, which is what a preview modal
+   * with "nothing in it" actually was. Optional on the dashboard, where the
+   * session identifies the caller instead.
+   */
+  portalClientId?: string;
   retirementDocs?: RetirementDocumentItem[];
   mode?: "page" | "embedded" | "editable";
   className?: string;
@@ -237,6 +245,7 @@ const defaultRetirementDocs: RetirementDocumentItem[] = [
 export function BenefitDocumentSection({
   brandColor = "#002B5B",
   accentColor = "#E6C47A",
+  portalClientId,
   retirementDocs,
   mode = "page",
   className = "",
@@ -306,6 +315,7 @@ export function BenefitDocumentSection({
     null,
   );
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [orderedDocs, setOrderedDocs] =
     useState<RetirementDocumentItem[]>(actualRetirementDocs);
 
@@ -473,6 +483,57 @@ export function BenefitDocumentSection({
     onOrderChange?.(updated);
   };
 
+  // ── Document preview ────────────────────────────────────────────────────────
+  /**
+   * Open the preview and hold the spinner until the iframe reports the file has
+   * loaded. `/api/documents/{id}/view` answers with a 302 to a signed R2 URL, so a
+   * PDF takes a beat (and a cold object a few seconds) — an empty white pane in
+   * the meantime reads as "the modal is broken".
+   */
+  const openPreview = (doc: RetirementDocumentItem) => {
+    setPreviewDoc(doc);
+    setIsPreviewLoading(true);
+    setIsPreviewOpen(true);
+  };
+
+  // The iframe and the download share ONE resolved URL. The view route needs the
+  // plan's slug on the anonymous portal (without it, it answers 401 and the modal
+  // looks empty), and hub items with no stored file carry `href: "#"`, which is
+  // not something to hand an iframe.
+  // The floating "Ask a question" pill lives in the portal layout, not in this
+  // tree, so the open dialog publishes itself on a shared flag instead.
+  useHoldPortalModal(isPreviewOpen);
+
+  const previewSrc = previewDoc
+    ? resolveDocumentSourceUrl(previewDoc.href, portalClientId)
+    : "";
+  const previewExtension = previewDoc ? documentFileExtension(previewDoc) : "";
+  const previewInline = canPreviewDocumentInline(previewExtension);
+
+  /**
+   * The download is a LINK, not a `fetch`.
+   *
+   * `/api/documents/{id}/view` redirects to a signed R2 URL, and R2 answers
+   * without an `Access-Control-Allow-Origin` header — so `fetch` fails at the
+   * redirect ("has been blocked by CORS policy … net::ERR_FAILED") and the file
+   * never arrives. Following a same-origin link is not subject to CORS at all,
+   * and `?download=1` makes the route sign the object with
+   * `Content-Disposition: attachment`, so the browser saves it instead of
+   * opening a tab. `download` on the anchor is the filename hint for browsers
+   * that ignore the header.
+   */
+  const handleDownloadPreview = () => {
+    if (!previewDoc || !previewSrc) return;
+
+    const link = window.document.createElement("a");
+    link.href = withDocumentDownloadFlag(previewSrc);
+    link.download = documentDownloadFileName(previewDoc.title, previewExtension);
+    link.rel = "noopener";
+    window.document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   const outerClasses =
     mode === "page" ? `py-8 sm:py-16 bg-white ${className}` : className;
   const containerClasses =
@@ -504,10 +565,7 @@ export function BenefitDocumentSection({
               docs={filteredRetirementDocs}
               brandColor={brandColor}
               accentColor={accentColor}
-              onPreview={(doc) => {
-                setPreviewDoc(doc);
-                setIsPreviewOpen(true);
-              }}
+              onPreview={openPreview}
               onEdit={onEdit}
               isDraggable={isEditable}
               onSortChange={isEditable ? handleSortChange : undefined}
@@ -591,10 +649,7 @@ export function BenefitDocumentSection({
                       docs={filteredRetirementDocs}
                       brandColor={brandColor}
                       accentColor={accentColor}
-                      onPreview={(doc) => {
-                        setPreviewDoc(doc);
-                        setIsPreviewOpen(true);
-                      }}
+                      onPreview={openPreview}
                       onEdit={onEdit}
                       isDraggable={isEditable}
                       onSortChange={isEditable ? handleSortChange : undefined}
@@ -619,7 +674,10 @@ export function BenefitDocumentSection({
         open={isPreviewOpen}
         onOpenChange={(open) => {
           setIsPreviewOpen(open);
-          if (!open) setPreviewDoc(null);
+          if (!open) {
+            setPreviewDoc(null);
+            setIsPreviewLoading(false);
+          }
         }}
       >
         <DialogContent className="portal-root max-w-5xl bg-white">
@@ -631,28 +689,67 @@ export function BenefitDocumentSection({
             </DialogDescription>
           </DialogHeader>
 
-          {previewDoc?.href ? (
-            <div className="space-y-4">
-              <div className="h-[70vh] w-full overflow-hidden rounded-xl border border-gray-200 bg-white">
-                <iframe
-                  src={previewDoc.href}
-                  className="h-full w-full"
-                  title={previewDoc.title}
-                />
-              </div>
-              <div className="flex justify-end">
-                <Button asChild>
-                  <a href={previewDoc.href} target="_blank" rel="noreferrer">
-                    <Download className="mr-2 h-4 w-4" />
-                    Download PDF
-                  </a>
-                </Button>
-              </div>
-            </div>
-          ) : (
+          {!previewSrc ? (
             <p className="text-sm text-gray-600">
               Preview not available for this document.
             </p>
+          ) : (
+            <div className="space-y-4">
+              {previewInline ? (
+                <div className="relative h-[70vh] w-full overflow-hidden rounded-xl border border-gray-200 bg-white">
+                  {/* The viewer's own chrome appears only once the file has
+                      arrived; until then the frame is blank white. */}
+                  {isPreviewLoading && (
+                    <div
+                      data-testid="document-preview-spinner"
+                      className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      <Loader2
+                        className="h-9 w-9 animate-spin"
+                        style={{ color: brandColor }}
+                      />
+                      <span className="text-sm font-red-hat text-gray-600">
+                        Loading document…
+                      </span>
+                    </div>
+                  )}
+                  <iframe
+                    src={previewSrc}
+                    className="h-full w-full"
+                    title={previewDoc?.title || "Document preview"}
+                    onLoad={() => setIsPreviewLoading(false)}
+                  />
+                </div>
+              ) : (
+                <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center">
+                  <FileText className="mx-auto mb-3 h-8 w-8 text-gray-400" />
+                  <p className="text-sm font-medium text-gray-700">
+                    This {previewExtension.toUpperCase()} file can&rsquo;t be
+                    previewed in the browser.
+                  </p>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Download it to open it on your device.
+                  </p>
+                </div>
+              )}
+              <div className="flex flex-wrap justify-end gap-2">
+                {/* Closing is the safe way out — same as Escape or the overlay,
+                    but a visible target beside the download. */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsPreviewOpen(false)}
+                >
+                  Cancel
+                </Button>
+                <Button type="button" onClick={handleDownloadPreview}>
+                  <Download className="mr-2 h-4 w-4" />
+                  {`Download ${(previewExtension || "pdf").toUpperCase()}`}
+                </Button>
+              </div>
+            </div>
           )}
         </DialogContent>
       </Dialog>
@@ -714,7 +811,8 @@ function SortableCard({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const wasEditingRef = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
-  const persistedMongoId = isPersistedMongoDocumentId(doc.id);
+  // A cuid row is persisted too — the old check only accepted a MongoDB ObjectId.
+  const isPersisted = isPersistedDocumentId(doc.id);
 
   useEffect(() => {
     if (isEditing) {
@@ -1064,7 +1162,7 @@ function SortableCard({
                         Edit/Update
                       </DropdownMenuItem>
                     )}
-                    {doc.onArchive && persistedMongoId && (
+                    {doc.onArchive && isPersisted && (
                       <DropdownMenuItem onClick={doc.onArchive}>
                         <Minus className="h-4 w-4 mr-2" />
                         Archive

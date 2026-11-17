@@ -4,10 +4,50 @@ import { authOptions } from "@/lib/auth-options";
 import { prisma } from "@/lib/prisma";
 import { getPresignedReadUrl, isR2Configured } from "@/lib/r2";
 import {
+  isPersistedDocumentId,
+  R2_STORED_PLACEHOLDER,
+} from "@/lib/document-id";
+import {
   resolvePortalAdvisorId,
   isLocalDevLoopback,
 } from "@/lib/portal-access";
 import { resolvePlanAccess } from "@/lib/teammates/access.server";
+
+/**
+ * Fetch a signed R2 object and answer with its bytes.
+ *
+ * Keeps a download on the portal's own origin. Two things go wrong when the route
+ * redirects instead: from an `http://` page (`next dev` on a LAN address, e.g.
+ * http://192.168.0.134:3000) Chrome refuses the file — "The file at
+ * 'https://…r2.cloudflarestorage.com/…' was redirected through an insecure
+ * connection" — and R2 sends no `Access-Control-Allow-Origin`, so a `fetch` of the
+ * redirect target is blocked as a CORS failure. The server has no such limits.
+ */
+async function streamDocumentDownload(
+  signedUrl: string,
+  contentType: string,
+  fileName: string,
+): Promise<NextResponse> {
+  const object = await fetch(signedUrl);
+  if (!object.ok || !object.body) {
+    console.error("R2 object read failed:", object.status);
+    return NextResponse.json(
+      { error: "Document could not be downloaded" },
+      { status: 502 },
+    );
+  }
+
+  const headers: Record<string, string> = {
+    "Content-Type": contentType,
+    "Content-Disposition": `attachment; filename="${encodeURIComponent(fileName)}"`,
+    "Cache-Control": "private, no-store",
+    "X-Content-Type-Options": "nosniff",
+  };
+  const contentLength = object.headers.get("content-length");
+  if (contentLength) headers["Content-Length"] = contentLength;
+
+  return new NextResponse(object.body, { status: 200, headers });
+}
 
 export async function GET(
   request: NextRequest,
@@ -32,17 +72,13 @@ export async function GET(
 
     const documentId = params.id;
 
-    // Check if this is a temporary ID (not a database ID)
-    // Temporary IDs have formats like: "doc-{timestamp}-{random}", "plan-doc-{timestamp}-{random}", etc.
-    // MongoDB ObjectIDs are 24-character hex strings
-    const isTemporaryId = 
-      documentId.startsWith("doc-") ||
-      documentId.startsWith("plan-doc-") ||
-      documentId.startsWith("optional-doc-") ||
-      documentId.startsWith("temp-") ||
-      !/^[0-9a-fA-F]{24}$/.test(documentId); // Not a valid MongoDB ObjectID format
-
-    if (isTemporaryId) {
+    // A draft id is recognised by its prefix (`doc-…`, `plan-doc-…`, `temp-…`) —
+    // see lib/document-id.ts. This used to be "not a 24-character MongoDB
+    // ObjectId", which after the Postgres move refused EVERY real row, because
+    // `Document.id` is a cuid: the hub's preview modal asked for its document and
+    // got "temporary document ID" instead. Every document link on the portal went
+    // through this.
+    if (!isPersistedDocumentId(documentId)) {
       console.error("Attempted to fetch document with temporary ID:", documentId);
       return NextResponse.json(
         { error: "Document not found. This appears to be a temporary document ID." },
@@ -112,7 +148,18 @@ export async function GET(
       }
     }
 
-    // If file is in R2, redirect to a signed URL (no server file transfer)
+    // `?download=1` asks for the file itself rather than a preview. It is streamed
+    // through this route instead of redirecting (see `streamDocumentDownload`):
+    // a redirect from an `http://` dev page to an `https://` R2 URL makes Chrome
+    // stop the download — "was redirected through an insecure connection" — and a
+    // cross-origin redirect cannot be read by `fetch` either, because R2 answers
+    // without CORS headers.
+    const asAttachment =
+      request.nextUrl.searchParams.get("download") === "1";
+    const disposition = asAttachment ? "attachment" : "inline";
+    const downloadName = document.fileName || document.title || "document.pdf";
+
+    // If file is in R2, redirect (preview) or stream (download) from here.
     const docWithKey = document as { storageKey?: string | null };
     if (docWithKey.storageKey && isR2Configured()) {
       const ext = (document.fileName || "").toLowerCase().replace(/.*\./, "") || "pdf";
@@ -123,12 +170,32 @@ export async function GET(
         "application/pdf";
       const signedUrl = await getPresignedReadUrl({
         key: docWithKey.storageKey,
-        responseContentDisposition: `inline; filename="${encodeURIComponent(document.fileName)}"`,
+        // The preview redirects, so the SIGNED response carries the disposition;
+        // a download answers from this route, which sets its own header.
+        ...(asAttachment
+          ? {}
+          : {
+              responseContentDisposition: `inline; filename="${encodeURIComponent(downloadName)}"`,
+            }),
         responseContentType: contentType,
       });
       if (signedUrl) {
-        return NextResponse.redirect(signedUrl, 302);
+        if (!asAttachment) {
+          return NextResponse.redirect(signedUrl, 302);
+        }
+        return await streamDocumentDownload(signedUrl, contentType, downloadName);
       }
+    }
+
+    // `r2:stored` is a placeholder, not bytes. Reaching here means the object is
+    // in R2 but could not be signed — falling into the base64 path below would
+    // decode the placeholder and answer "Document appears to be corrupted".
+    if (docWithKey.storageKey || document.fileUrl === R2_STORED_PLACEHOLDER) {
+      console.error("Document is in R2 but no signed URL could be generated:", documentId);
+      return NextResponse.json(
+        { error: "Document storage is temporarily unavailable" },
+        { status: 503 }
+      );
     }
 
     // Legacy: serve from fileUrl (base64)
@@ -224,7 +291,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "application/pdf", // Always use application/pdf for PDFs
-        "Content-Disposition": `inline; filename="${encodeURIComponent(document.fileName)}"`,
+        "Content-Disposition": `${disposition}; filename="${encodeURIComponent(downloadName)}"`,
         "Content-Length": buffer.length.toString(), // Explicitly set content length
         "Cache-Control": "no-cache, no-store, must-revalidate", // Prevent caching to ensure updated files are shown
         "Pragma": "no-cache",

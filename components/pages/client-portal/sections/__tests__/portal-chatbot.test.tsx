@@ -4,6 +4,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { holdPortalModalOpen } from "@/lib/portal-modal-flag";
 import {
   ASSISTANT_ASK_EVENT,
   ASSISTANT_HERO_VISIBLE_EVENT,
@@ -189,6 +190,37 @@ describe("PortalChatbot", () => {
     expect(fab.className).not.toContain("w-14");
     // Dismissing the install prompt clears the inset and drops the pill down.
     expect(fab.className).toContain("--portal-install-inset");
+  });
+
+  it("steps aside while a portal modal owns the screen", async () => {
+    render(<PortalChatbot />);
+
+    let release: () => void = () => {};
+    try {
+      act(() => {
+        release = holdPortalModalOpen();
+      });
+
+      // A document preview covers the page; the pill would be painted over the
+      // modal's backdrop, so it is taken out of the layout entirely.
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: "Ask a question" }).className,
+        ).toContain("hidden"),
+      );
+      expect(
+        screen.getByRole("button", { name: "Ask a question" }).className,
+      ).not.toContain("flex px-5");
+    } finally {
+      act(() => release());
+    }
+
+    // Back as the labelled pill once the modal closes.
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Ask a question" }).className,
+      ).toContain("flex px-5"),
+    );
   });
 
   it("collapses to the close icon while the sheet is open", async () => {

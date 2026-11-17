@@ -1,4 +1,8 @@
 import { resolvePersistedDocumentCategory } from "@/lib/document-category";
+import {
+  isOpenableDocumentUrl,
+  isPersistedDocumentId,
+} from "@/lib/document-id";
 import { normalizePortalDocumentLanguage } from "@/lib/portal-document-language";
 import type { RetirementDocumentItem } from "@/components/pages/client-portal/sections/benefit-document-section";
 
@@ -63,24 +67,26 @@ function defaultDescription(doc: {
   return "Complete guide to your retirement plan options";
 }
 
-/** Same rules as BenefitPortalPreview href: persisted Mongo id → `/view`; else real URL or `#`. */
+/**
+ * A persisted row opens through `/api/documents/{id}/view`; anything else can
+ * only be opened if its `fileUrl` is a real URL.
+ *
+ * The persisted test used to be a 24-character MongoDB ObjectId shape check.
+ * Ids are cuids now (`prisma/schema.prisma`), so every row failed it and fell
+ * through to `fileUrl` — which for an R2 upload is the placeholder `"r2:stored"`.
+ * That is what the browser refused to launch, and why the hub's preview modal
+ * was empty. See `lib/document-id.ts`.
+ */
 function portalHrefForDocumentRow(doc: {
   id?: unknown;
   fileUrl?: string | null;
 }): string {
-  const id = doc.id;
-  const asId = typeof id === "string" ? id : "";
-  const isMongo =
-    /^[0-9a-fA-F]{24}$/.test(asId) &&
-    !asId.startsWith("doc-") &&
-    !asId.startsWith("plan-doc-") &&
-    !asId.startsWith("optional-doc-") &&
-    !asId.startsWith("temp-");
+  const asId = typeof doc.id === "string" ? doc.id.trim() : "";
+  if (isPersistedDocumentId(asId)) return `/api/documents/${asId}/view`;
 
-  if (isMongo) return `/api/documents/${asId}/view`;
-
-  const u = doc.fileUrl != null ? String(doc.fileUrl).trim() : "";
-  return u || "#";
+  // A row with no id yet: only an actual URL can be handed to a card.
+  const url = doc.fileUrl != null ? String(doc.fileUrl).trim() : "";
+  return isOpenableDocumentUrl(url) ? url : "";
 }
 
 /**
@@ -115,6 +121,10 @@ export function mapMergedRowsToBenefitHubItems(
       title: doc.title || doc.fileName || doc.name || "Document",
       description: defaultDescription(doc),
       href: portalHrefForDocumentRow(doc),
+      // Kept so the preview modal can tell a PDF from a Word/Excel file: the
+      // `/api/documents/{id}/view` href carries no extension, and a document
+      // whose title is copywritten ("Enrollment Booklet") carries none either.
+      fileName: doc.fileName || doc.name || undefined,
       language,
       meta: {
         source: "retirement",

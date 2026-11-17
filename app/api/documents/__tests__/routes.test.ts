@@ -915,6 +915,58 @@ describe("GET /api/documents/[id]/view", () => {
     });
   });
 
+  it("streams a download through this route instead of redirecting", async () => {
+    // A redirect from an http:// dev page to an https:// R2 URL makes Chrome stop
+    // the download ("was redirected through an insecure connection"), and R2 sends
+    // no CORS headers for a fetch to read. Answering with the bytes keeps the whole
+    // exchange on the portal's own origin.
+    mocks.isR2Configured.mockReturnValue(true);
+    mocks.getPresignedReadUrl.mockResolvedValue("https://r2.example/signed");
+    mocks.prisma.document.findUnique.mockResolvedValue({
+      id: DOC_ID,
+      clientId: PLAN_ID,
+      client: { userId: "owner-1" },
+      storageKey: "org/plans/docs/spd.pdf",
+      fileName: "spd.pdf",
+      title: "SPD",
+      fileUrl: null,
+    });
+
+    const bytes = new TextEncoder().encode("%PDF-1.4 test");
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(bytes, {
+        status: 200,
+        headers: {
+          "content-type": "application/pdf",
+          "content-length": String(bytes.byteLength),
+        },
+      }),
+    );
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fetchMock as unknown as typeof fetch;
+
+    try {
+      const response = await getDocumentView(
+        request(`/api/documents/${DOC_ID}/view?clientSlug=acme&download=1`),
+        ctx(),
+      );
+
+      expect(response.status).toBe(200);
+      expect(response.headers.get("content-disposition")).toBe(
+        `attachment; filename="${encodeURIComponent("spd.pdf")}"`,
+      );
+      expect(response.headers.get("content-type")).toBe("application/pdf");
+      expect(fetchMock).toHaveBeenCalledWith("https://r2.example/signed");
+      // The signed URL needs no disposition: this route sets its own.
+      expect(mocks.getPresignedReadUrl).toHaveBeenCalledWith({
+        key: "org/plans/docs/spd.pdf",
+        responseContentType: "application/pdf",
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
   it("returns 404 when a legacy document has no file data", async () => {
     mocks.prisma.document.findUnique.mockResolvedValue({
       id: DOC_ID,

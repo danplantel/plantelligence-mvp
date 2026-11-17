@@ -303,6 +303,9 @@ export default function LifeInsurancePage() {
         <BenefitDocumentSection
           brandColor={brandColor}
           accentColor={secondaryColor}
+          // The plan's slug: `/api/documents/{id}/view` resolves the owning
+          // advisor from it, and the portal is anonymous.
+          portalClientId={clientId}
           retirementDocs={lifeDocs}
           title="Life Insurance Documents & Forms"
           description="Access all your important life insurance plan documents, forms, and notices in one convenient location."
