@@ -29,6 +29,7 @@ import {
 } from "@/lib/help-card-defaults";
 import {
   HELP_CARD_ROW_SIZE,
+  clampHelpCards,
   helpCardFirstRowSize,
   helpCardPrimaryId,
   helpCardRowSpans,
@@ -75,17 +76,16 @@ interface HelpCardLayoutEditorProps {
   allowReorder?: boolean;
 }
 
-/** Column span → mini-mirror classes (a plain 4-column grid, so no prefixes). */
+/** Column span → mini-mirror classes (a plain 3-column grid, so no prefixes). */
 const MIRROR_SPAN_CLASS: Record<number, string> = {
   1: "col-span-1",
   2: "col-span-2",
   3: "col-span-3",
-  4: "col-span-4",
 };
 
 /**
  * The row and column span of every VISIBLE card, laid out with the same rule the
- * hub uses: rows divide their four columns between them, so hiding a card re-flows
+ * hub uses: rows divide their three columns between them, so hiding a card re-flows
  * the mirror exactly as it will re-flow the portal.
  */
 function planCardSlots(
@@ -230,7 +230,9 @@ function SortableHelpCardRow({
           {title}
         </p>
         <p className="text-[11px] text-muted-foreground">
-          {enabled ? `Row ${row} · ${span}/4 wide` : `Hidden · ${span}/4 wide`}
+          {enabled
+            ? `Row ${row} · ${span}/${HELP_CARD_ROW_SIZE} wide`
+            : `Hidden · ${span}/${HELP_CARD_ROW_SIZE} wide`}
           {isPrimary ? " · Primary" : ""}
         </p>
       </div>
@@ -259,9 +261,9 @@ function SortableHelpCardRow({
  *
  * Copy is STATIC (see `lib/help-card-defaults.ts`) — this only edits the layout:
  *  - one sortable list of all cards, so every card can be reordered, including the
- *    1/4 ones (positions 0–2 are row 1, 3–6 are row 2);
+ *    1/3 ones (positions 0–1 are the primary's row, 2–4 are the next one);
  *  - exactly one primary card, pinned to the LEFT or RIGHT edge of row 1, taking
- *    the widest slot in its row (2 of 4 across the full seven-card set, all 4 when
+ *    the widest slot in its row (2 of 3 across the full seven-card set, all 3 when
  *    a short plan leaves it alone in row 1). Dragging the primary is disabled —
  *    pick another card with "Make primary", and flip its edge with the Left/Right
  *    control.
@@ -297,16 +299,19 @@ export function HelpCardLayoutEditor({
   // The slot mirror shows what the hub will actually render, so a hidden card
   // leaves the mirror (and its columns) behind.
   const visibleLayout = layout.filter(isHelpCardEnabled);
+  // The hub paints eight cards at most, so the mirror stops there too — the
+  // remaining cards stay in the list below, ready to be brought back into view.
+  const mirroredLayout = clampHelpCards(visibleLayout);
   // Row + span of each visible card, so the mirror and the row labels agree with
   // what the hub will actually paint.
-  const slots = planCardSlots(visibleLayout);
+  const slots = planCardSlots(mirroredLayout);
   const slotById = new Map(
     visibleLayout.map((entry, index) => [entry.id, slots[index]]),
   );
-  // A primary that owns ALL four columns has no left/right edge to choose: it is
-  // the only card in row 1 (1, 5, 9… visible cards), so flipping the control
-  // produces the identical layout. The span is read from the same slot plan the
-  // mirror draws, so the two can never disagree about when the row is full.
+  // A primary that owns ALL three columns has no left/right edge to choose: it is
+  // the only card on the page, so flipping the control produces the identical
+  // layout. The span is read from the same slot plan the mirror draws, so the two
+  // can never disagree about when the row is full.
   const primaryVisibleIndex = visibleLayout.findIndex((entry) => entry.primary);
   const primarySpan =
     primaryVisibleIndex >= 0 ? slots[primaryVisibleIndex]?.span ?? 1 : 0;
@@ -371,18 +376,18 @@ export function HelpCardLayoutEditor({
         )}
       </div>
 
-      {/* 4-column slot mirror — the same shape the portal renders. */}
+      {/* 3-column slot mirror — the same shape the portal renders. */}
       <div
         aria-hidden="true"
         data-testid="help-card-slot-preview"
-        className="grid grid-cols-4 gap-1.5 rounded-lg border border-muted bg-muted/20 p-2"
+        className="grid grid-cols-3 gap-1.5 rounded-lg border border-muted bg-muted/20 p-2"
       >
-        {visibleLayout.length === 0 ? (
-          <p className="col-span-4 py-2 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+        {mirroredLayout.length === 0 ? (
+          <p className="col-span-3 py-2 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
             All cards hidden
           </p>
         ) : (
-          visibleLayout.map((entry, index) => {
+          mirroredLayout.map((entry, index) => {
             const content = getHelpCardContent(entry.id, catalog);
             const title = fillHelpCardTokens(
               content?.title ?? entry.id,

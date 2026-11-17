@@ -118,14 +118,18 @@ describe("HowCanWeHelpSection layout", () => {
     ]);
   });
 
-  it("gives the primary card the 2/4 slot and every other card one column", () => {
+  it("gives the primary card the 2/3 slot beside one single-column card", () => {
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
 
-    const [primary, ...narrow] = tiles(container);
+    const [primary, beside, ...midRow] = tiles(container);
     expect(primary).toHaveAttribute("data-help-card", "account-access");
     expect(primary.className).toContain("col-span-2");
+    expect(beside.className).not.toContain("col-span-2");
+    // The middle row is three equal thirds.
     expect(
-      narrow.every((element) => !element.className.includes("col-span-2")),
+      midRow
+        .slice(0, 3)
+        .every((element) => element.className.includes("col-span-1")),
     ).toBe(true);
   });
 
@@ -181,11 +185,11 @@ describe("HowCanWeHelpSection layout", () => {
     );
 
     const rendered = tiles(container);
-    // Row 1 is the first three tiles; the primary is the last of them.
-    expect(rendered[2]).toHaveAttribute("data-help-card", "account-access");
-    expect(rendered[2].className).toContain("col-span-2");
+    // Row 1 holds two cards; the primary is the last of them.
+    expect(rendered[1]).toHaveAttribute("data-help-card", "account-access");
+    expect(rendered[1].className).toContain("col-span-2");
     expect(rendered[0].className).not.toContain("col-span-2");
-    expect(rendered[1].className).not.toContain("col-span-2");
+    expect(rendered[2].className).not.toContain("col-span-2");
   });
 
   it("lets a topic card be the primary and demotes Account Access to 1/4", () => {
@@ -490,8 +494,8 @@ describe("HowCanWeHelpSection account access card", () => {
     }
   });
 
-  it("names the retirement recordkeeper and prints the support phone", () => {
-    const { container } = render(
+  it("names the retirement recordkeeper without the support phone line", () => {
+    const primaryView = render(
       <HowCanWeHelpSection
         clientId="plan-1"
         category="Retirement"
@@ -500,18 +504,36 @@ describe("HowCanWeHelpSection account access card", () => {
       />,
     );
 
-    const account = tile(container, "account-access");
+    const account = tile(primaryView.container, "account-access");
     expect(
       within(account).getByText(
         "Log in to Acme Retirement to see your balance, statements, and account details.",
       ),
     ).toBeInTheDocument();
-    expect(
-      within(account).getByTestId("account-access-secondary"),
-    ).toHaveTextContent("Call Acme Retirement at");
+    // No "Call <provider> at <phone>" line at any width — not even here, where the
+    // card owns the wide slot.
+    expect(within(account).queryByTestId("account-access-secondary")).toBeNull();
+    expect(within(account).queryByText(/Call Acme Retirement at/)).toBeNull();
     expect(
       within(account).getByRole("button", { name: /Register or Log In/ }),
     ).toBeInTheDocument();
+    primaryView.unmount();
+
+    // A topic owns the 2/3 slot here, so Account Access is a plain 1/3 tile.
+    const narrowView = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Retirement"
+        cards={layoutWith("financial-planning")}
+        provider={{ companyName: "Acme Retirement", phone: "5551234567" }}
+      />,
+    );
+    const narrow = tile(narrowView.container, "account-access");
+    expect(narrow.className).toContain("col-span-1");
+    expect(within(narrow).queryByTestId("account-access-secondary")).toBeNull();
+    expect(within(narrow).queryByText(/Call Acme Retirement at/)).toBeNull();
+    // The tile still names who administers the benefit.
+    expect(within(narrow).getByText(/Administered by/)).toBeInTheDocument();
   });
 
   it("adds https:// to a bare login host instead of resolving it as a path", async () => {
@@ -683,12 +705,12 @@ describe("HowCanWeHelpSection expansion", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders a second-row panel right below the phone line it belongs to", async () => {
+  it("renders a later-row panel right below the phone line it belongs to", async () => {
     const user = userEvent.setup();
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
 
-    // Financial Planning is the first of the two cards sharing row 2's first phone
-    // line, so the panel goes between that pair and the next pair.
+    // Financial Planning closes the first phone line of row 2 (Beneficiaries +
+    // Financial Planning), so the panel goes between that pair and Social Security.
     await user.click(tile(container, "financial-planning"));
 
     const grid = tile(container, "financial-planning").parentElement;
@@ -700,11 +722,13 @@ describe("HowCanWeHelpSection expansion", () => {
     const panelIndex = children.indexOf(panel as Element);
 
     expect(panelIndex).toBeGreaterThan(-1);
-    expect(children[panelIndex - 1]).toBe(tile(container, "social-security"));
-    expect(children[panelIndex + 1]).toBe(tile(container, "medicare"));
+    expect(children[panelIndex - 1]).toBe(
+      tile(container, "financial-planning"),
+    );
+    expect(children[panelIndex + 1]).toBe(tile(container, "social-security"));
   });
 
-  it("puts a last-pair second-row panel after those cards", async () => {
+  it("puts a last-pair final-row panel after those cards", async () => {
     const user = userEvent.setup();
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
 
@@ -719,7 +743,7 @@ describe("HowCanWeHelpSection expansion", () => {
     expect(children[children.length - 1]).toBe(panel);
   });
 
-  it("marks a second-row panel to move below the whole row on desktop", async () => {
+  it("marks a later-row panel to move below the whole row on desktop", async () => {
     const user = userEvent.setup();
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
 
@@ -1015,36 +1039,37 @@ describe("HowCanWeHelpSection rollovers panel", () => {
 });
 
 /**
- * A card that owns its whole row (a 5-card set puts the primary alone in row 1)
- * keeps its content — and therefore its CTA — in one measured column. The width
- * must not depend on WHICH card is the primary one.
+ * A card that owns its whole row (a one-card set leaves the primary alone) keeps
+ * its content — and therefore its CTA — in one measured column. The width must
+ * not depend on WHICH card is the primary one.
  */
 describe("wide card content width", () => {
-  function fiveCards(primaryId: string) {
-    // 7-card catalog minus two → 5 visible → row 1 holds the primary alone.
+  function loneCard(primaryId: string) {
+    // Every other card hidden → the primary alone owns the whole row: 3/3.
     return layoutWith(primaryId).map((entry) =>
-      entry.id === "savings" || entry.id === "medicare"
-        ? { ...entry, enabled: false }
-        : entry,
+      entry.id === primaryId ? entry : { ...entry, enabled: false },
     );
   }
 
   it("gives a topic tile and the Account Access card the same content column", () => {
     const topicView = render(
-      <HowCanWeHelpSection clientId="plan-1" cards={fiveCards("financial-planning")} />,
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        cards={loneCard("financial-planning")}
+      />,
     );
     const topicTile = tile(topicView.container, "financial-planning");
-    expect(topicTile.className).toContain("lg:col-span-4");
+    expect(topicTile.className).toContain("lg:col-span-3");
     expect(
       topicTile.querySelector('[class*="max-w-[44rem]"]'),
     ).not.toBeNull();
     topicView.unmount();
 
     const accessView = render(
-      <HowCanWeHelpSection clientId="plan-1" cards={fiveCards("account-access")} />,
+      <HowCanWeHelpSection clientId="plan-1" cards={loneCard("account-access")} />,
     );
     const accessTile = tile(accessView.container, "account-access");
-    expect(accessTile.className).toContain("lg:col-span-4");
+    expect(accessTile.className).toContain("lg:col-span-3");
     expect(
       accessTile.querySelector('[class*="max-w-[44rem]"]'),
     ).not.toBeNull();
@@ -1053,11 +1078,11 @@ describe("wide card content width", () => {
 
 /**
  * The counterpart of the wide card: a primary that shares its row (the classic
- * 2/4 slot) must still lay its CTA across the whole tile. The tile aligns its
+ * 2/3 slot) must still lay its CTA across the whole tile. The tile aligns its
  * children to the start, so a content column without `w-full` collapses to the
  * widest line of copy and the button shrinks with it.
  */
-describe("2/4 primary card width", () => {
+describe("2/3 primary card width", () => {
   it("fills the tile so the CTA spans the card", () => {
     const view = render(
       <HowCanWeHelpSection
@@ -1626,12 +1651,16 @@ describe("HowCanWeHelpSection features placements", () => {
   });
 
   it("centres the Account Access features when the card owns the whole row", () => {
-    // Nine cards puts Account Access alone in row 1, so it spans all four columns.
-    const eight = Array.from({ length: 8 }, (_, index) =>
-      topic(`extra-${index}`, `Extra ${index}`, index),
+    // Only Account Access is visible, so it owns row 1 and spans all three columns.
+    const loneCard = GROUP_HEALTH_LAYOUT.map((entry) =>
+      entry.id === "account-access" ? entry : { ...entry, enabled: false },
     );
     const { container } = render(
-      <HowCanWeHelpSection clientId="plan-1" category="Group Health" topics={eight} />,
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Health"
+        cards={loneCard}
+      />,
     );
 
     const actions = within(tile(container, "account-access")).getByTestId(
@@ -1643,7 +1672,7 @@ describe("HowCanWeHelpSection features placements", () => {
   });
 
   it("keeps the feature grid when the card shares its row", () => {
-    // The catalog default puts Account Access at 2/4 — a grid, not a centred row.
+    // The catalog default puts Account Access at 2/3 — a grid, not a centred row.
     const { container } = render(
       <HowCanWeHelpSection
         clientId="plan-1"
@@ -1756,8 +1785,9 @@ describe("HowCanWeHelpSection features placements", () => {
     expect(tile(container, "sys.understand-coverage")).toBeInTheDocument();
   });
 
-  it("follows the plan's order and takes the primary from the layout", () => {
-    // The layout only names the PRIMARY now; the board owns the order.
+  it("follows the plan's order and pins the layout's primary to its edge", () => {
+    // The board owns the order; the layout names the PRIMARY and which edge of
+    // row 1 it takes (index 1 = the right edge).
     const layout: HelpCardLayoutEntry[] = [
       { id: "account-access" },
       { id: "hsa-fsa-resources", primary: true },
@@ -1773,17 +1803,17 @@ describe("HowCanWeHelpSection features placements", () => {
 
     expect(tiles(container).map((element) => element.dataset.helpCard)).toEqual([
       "account-access",
+      "sys.hsa-fsa-resources",
       "sys.understand-coverage",
       "sys.find-care-providers",
       "sys.claims-bills-costs",
       "sys.add-remove-dependent",
-      "sys.hsa-fsa-resources",
     ]);
-    // The layout's primary is the wide tile, not Account Access.
-    expect(
-      tile(container, "sys.hsa-fsa-resources").querySelector("button")
-        ?.textContent,
-    ).toContain("Learn more");
+    // The layout's primary is the wide tile at the right edge of row 1, not
+    // Account Access.
+    const primary = tile(container, "sys.hsa-fsa-resources");
+    expect(primary.className).toContain("col-span-2");
+    expect(primary.querySelector("button")?.textContent).toContain("Learn more");
   });
 
   it("puts a re-promoted question last, even if the layout remembers its old slot", () => {

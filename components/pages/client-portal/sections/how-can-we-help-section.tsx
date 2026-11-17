@@ -27,6 +27,7 @@ import {
 } from "@/lib/help-card-defaults";
 import {
   HELP_CARD_ROW_SIZE,
+  clampHelpCards,
   helpCardFirstRowSize,
   helpCardRowSpans,
   resolveHelpCardRows,
@@ -65,10 +66,12 @@ export type { HelpCardData } from "@/types/benefit";
  * Layout contract (see `lib/help-card-layout.ts`):
  *  - The section fills the viewport (`min-h-screen`), so it owns a whole screen
  *    between the welcome banner and the video section.
- *  - The grid is 4 columns wide. ONE card is primary and spans 2 columns; every
- *    other card spans 1.
- *  - With the 7-card set that makes two rows: `2/4 + 1/4 + 1/4`, then `4 × 1/4`.
- *    The primary sits at the left or right edge of row 1 only.
+ *  - The grid is 3 columns wide. ONE card is primary and takes the widest slot in
+ *    its row (2 of the 3 columns); every other card spans 1.
+ *  - Row 1 belongs to the primary: `2/3 + 1/3`. Every later row holds three `1/3`
+ *    cards, and a short last row widens to reach the right edge — with the 7-card
+ *    set that reads `2/3 + 1/3`, then `3 × 1/3`, then `2/3 + 1/3`. The primary
+ *    sits at the left or right edge of row 1 only.
  *  - Opening a card renders its detail panel directly BENEATH the row it belongs to,
  *    so the rest of the grid moves down instead of the page jumping to a modal.
  *    NOTHING is open on first paint: the grid is a set of collapsed choices until
@@ -82,7 +85,7 @@ export type { HelpCardData } from "@/types/benefit";
  * Benefits Access & Materials hero — plan / group ID, the provider administering the
  * benefit, what the participant can do there, and a "Register or Log In →" button
  * that opens the plan's login URL in a new tab. It never opens a detail panel.
- * It can be the primary card (the default) or a standard 1/4 tile.
+ * It can be the primary card (the default) or a standard 1/3 tile.
  *
  * `[Benefit Category]` is a merge token in the catalog copy, resolved from the
  * `category` prop each hub passes ("Retirement", "Group Health", …) — so the wide
@@ -164,7 +167,7 @@ const MOBILE_ROW_CAPACITY = 2;
 /**
  * Column span → grid classes.
  *
- * The grid is 2 columns on a phone and 4 from `lg` up, so a card wider than half
+ * The grid is 2 columns on a phone and 3 from `lg` up, so a card wider than half
  * the phone grid simply owns the whole phone line. Written out as static strings
  * because Tailwind cannot see a computed `col-span-${n}`.
  */
@@ -172,17 +175,16 @@ const SPAN_CLASS: Record<number, string> = {
   1: "col-span-1",
   2: "col-span-2",
   3: "col-span-2 lg:col-span-3",
-  4: "col-span-2 lg:col-span-4",
 };
 
-/** The grid classes for a card spanning `span` of the 4 columns. */
+/** The grid classes for a card spanning `span` of the 3 columns. */
 function spanClass(span: number): string {
-  return SPAN_CLASS[Math.min(Math.max(span, 1), 4)];
+  return SPAN_CLASS[Math.min(Math.max(span, 1), HELP_CARD_ROW_SIZE)];
 }
 
 /**
  * The measured, centred content column every WIDE card uses — the Account Access
- * card and a 3–4 column topic tile alike.
+ * card and a full-row topic tile alike.
  *
  * Sharing one constant is the point: the CTA sits inside this column at full
  * width, so the button is the same size whichever card happens to be the primary
@@ -240,6 +242,29 @@ function chunkRowForPhone(row: HelpCardResolved[], spans: number[]): RowEntry[][
 
   if (current.length > 0) lines.push(current);
   return lines;
+}
+
+/**
+ * Pin the PRIMARY to its chosen edge of row 1.
+ *
+ * On a placement-driven page the board owns which cards exist and the order they
+ * appear in, so the saved layout cannot re-order them. The one thing it still owns
+ * is the primary's edge — the Left/Right control in Card Layout — and row 1 holds
+ * the primary plus one card, so the primary belongs in the first slot (left) or
+ * the second (right). Everything else keeps the board's order.
+ */
+function pinPrimaryToEdge(
+  cards: HelpCardResolved[],
+  primaryId: string,
+  layoutIdOf: (id: string) => string,
+  onRight: boolean,
+): HelpCardResolved[] {
+  const index = cards.findIndex((card) => layoutIdOf(card.id) === primaryId);
+  if (index < 0) return cards;
+  const primary = cards[index];
+  const rest = cards.filter((_card, cardIndex) => cardIndex !== index);
+  const at = onRight ? Math.min(1, rest.length) : 0;
+  return [...rest.slice(0, at), primary, ...rest.slice(at)];
 }
 
 /**
@@ -532,7 +557,6 @@ function AccountAccessCard({
   providerDetailLine,
   loginUrl,
   actions,
-  secondaryLinks,
 }: {
   title: string;
   description?: string;
@@ -552,12 +576,6 @@ function AccountAccessCard({
    * does not offer.
    */
   actions?: string[];
-  /**
-   * The handoff's "Secondary links" — the support phone line today; the app and
-   * forms destinations join it when those plan fields exist. Rendered as small
-   * print under the quick actions.
-   */
-  secondaryLinks?: string[];
 }) {
   const bullets =
     actions && actions.length > 0
@@ -569,18 +587,18 @@ function AccountAccessCard({
   const onPrimaryMuted = transparentize(0.2, onPrimary);
   const onPrimaryFaint = transparentize(0.35, onPrimary);
   /**
-   * A card that owns most of its row (3–4 of the 4 columns) lays out horizontally:
-   * the details in a measured left column, the CTA keeping its natural width on
-   * the right. Stacked at that width every line runs the full page and the tile
-   * reads as three disconnected islands.
+   * A card that owns its whole row (all 3 columns) lays out as one banner: the
+   * details in a measured, centred column with the CTA keeping its natural width
+   * beneath them. Stacked at that width every line runs the full page and the
+   * tile reads as three disconnected islands.
    */
-  const isWide = span >= 3;
+  const isWide = span >= HELP_CARD_ROW_SIZE;
   /**
    * The card has a row to itself. Its four feature bullets then sit as one centred
-   * group instead of being pushed to the edges of a full-width card — at 4/4 the
+   * group instead of being pushed to the edges of a full-width card — at 3/3 the
    * spaced-out version reads as stray text rather than a list.
    */
-  const isFullRow = span >= 4;
+  const isFullRow = isWide;
 
   return (
     <motion.div
@@ -601,8 +619,8 @@ function AccountAccessCard({
           ? "min-h-[132px] items-center justify-center"
           : "min-h-[180px] lg:min-h-[210px]",
         // The wide card is wide because its ROW says so, not because it is the
-        // Access card: with five cards it takes all four columns, in the classic
-        // seven it takes two, and in a four-card row it shares equally.
+        // Access card: a lone card takes all three columns, in the classic seven
+        // it takes two, and in a two-card row it shares with its neighbour.
         spanClass(span),
         primary
           ? "border-transparent"
@@ -681,28 +699,6 @@ function AccountAccessCard({
                   {providerDetailLine ? ` · ${providerDetailLine}` : ""}
                 </p>
               )}
-            </div>
-          )}
-
-          {/* Secondary links — call the recordkeeper, and (when the plan stores
-              them) the app and paper-form destinations. */}
-          {secondaryLinks && secondaryLinks.length > 0 && (
-            <div
-              data-testid="account-access-secondary"
-              className={cn(
-                "mt-2 space-y-0.5 font-red-hat text-[12px] leading-tight",
-                isWide && "text-center",
-              )}
-            >
-              {secondaryLinks.map((link) => (
-                <p
-                  key={link}
-                  style={primary ? { color: onPrimaryMuted } : undefined}
-                  className={!primary ? "text-neutral-500" : undefined}
-                >
-                  {link}
-                </p>
-              ))}
             </div>
           )}
 
@@ -1154,17 +1150,6 @@ export function HowCanWeHelpSection({
     .filter(Boolean)
     .join(" · ");
 
-  // The Account Access card's secondary line: the support phone the handoff
-  // prints under the quick actions. Mobile-app and paper-form destinations are
-  // per-plan fields that do not exist yet, so they are omitted rather than faked.
-  const accountAccessSecondaryLinks = providerContact?.phone
-    ? [
-        `Call ${resolvedProviderName || "your recordkeeper"} at ${formatPhoneWithExtension(
-          providerContact.phone,
-        )}`,
-      ]
-    : [];
-
   // The person the Rollovers panel offers a free call with. Resolved with the SAME
   // helper the welcome banner uses (`resolvePortalPrimaryContact`) and the same
   // category, so the two always name the same person for this benefit.
@@ -1329,8 +1314,21 @@ export function HowCanWeHelpSection({
         ? storedPrimaryId
         : ACCOUNT_ACCESS_CARD_ID;
 
+      // ...and the layout's EDGE is the one part of the order it still owns, so
+      // Left/Right in Card Layout moves the primary on a placement-driven page too.
+      const primaryOnRight =
+        stored.findIndex((entry) => entry.primary === true) >= 1;
+      const ordered = pinPrimaryToEdge(
+        withAccess,
+        primaryId,
+        layoutIdOf,
+        primaryOnRight,
+      );
+
+      // The grid shows eight cards at most, so the board's order is trimmed to
+      // its first eight once the primary has been marked.
       return chunkIntoRows(
-        withAccess.map((card) => ({
+        clampHelpCards(ordered).map((card) => ({
           ...card,
           primary: layoutIdOf(card.id) === primaryId,
         })),
@@ -1539,9 +1537,9 @@ export function HowCanWeHelpSection({
           const isFirstRow = rowIndex === 0;
           const openCard =
             row.find((card) => card.id === activeCardId) ?? null;
-          // The row's four columns, divided between its cards. The extra column
-          // follows the PRIMARY, so a primary at the right edge of row 1 stays the
-          // wide card there.
+          // The row's three columns, divided between its cards. The extra column
+          // of a short row follows the PRIMARY, so a primary at the right edge of
+          // row 1 stays the wide card there.
           const primaryIndexInRow = row.findIndex((card) => card.primary);
           const spans = helpCardRowSpans(
             row.length,
@@ -1587,18 +1585,17 @@ export function HowCanWeHelpSection({
                   providerDetailLine={resolvedProviderDetail || undefined}
                   loginUrl={resolvedLoginUrl}
                   actions={accountAccessActionsFor(category)}
-                  secondaryLinks={accountAccessSecondaryLinks}
                 />
               );
             }
 
             const isOpen = card.id === activeCardId;
             /**
-             * Same treatment as the Account Access card when a topic owns most of
-             * its row: the content and its button share one measured, centred
+             * Same treatment as the Account Access card when a topic owns its
+             * whole row: the content and its button share one measured, centred
              * column instead of each line running the full width of the grid.
              */
-            const isWide = span >= 3;
+            const isWide = span >= HELP_CARD_ROW_SIZE;
 
             return (
               <motion.div
@@ -1751,7 +1748,7 @@ export function HowCanWeHelpSection({
            *
            * `inGrid` places it INSIDE the row grid, spanning both phone columns, so on
            * a phone it lands directly under the cards it belongs to instead of after
-           * the whole row. `lg:order-last` moves it back below all four cards on
+           * the whole row. `lg:order-last` moves it back below all three cards on
            * desktop, where the row is a single line.
            */
           const panelNode = (inGrid: boolean) =>
@@ -1761,7 +1758,7 @@ export function HowCanWeHelpSection({
                 id={`help-card-${openCard.id}`}
                 ref={panelRef}
                 className={
-                  inGrid ? "col-span-2 lg:col-span-4 lg:order-last" : undefined
+                  inGrid ? "col-span-2 lg:col-span-3 lg:order-last" : undefined
                 }
               >
                 <HelpCardPanel
@@ -1805,9 +1802,9 @@ export function HowCanWeHelpSection({
               transition={HELPCARD_LAYOUT_TRANSITION}
               className="space-y-4"
             >
-              {/* The row's cards divide its four columns between them, so the row
+              {/* The row's cards divide its three columns between them, so the row
                   always reaches the right edge. */}
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
                 {isFirstRow
                   ? row.map((card, index) =>
                       renderCard(card, index, spans[index] ?? 1),

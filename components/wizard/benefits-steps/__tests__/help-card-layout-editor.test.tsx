@@ -96,7 +96,8 @@ describe("HelpCardLayoutEditor", () => {
     await user.click(screen.getByRole("button", { name: /^right$/i }));
 
     const layout = layoutOf(onChange);
-    expect(layout[2]).toEqual({ id: "account-access", primary: true });
+    // Row 1 holds two cards, so the right edge is the second slot.
+    expect(layout[1]).toEqual({ id: "account-access", primary: true });
     expect(layout.filter((entry) => entry.primary)).toHaveLength(1);
   });
 
@@ -158,14 +159,15 @@ describe("HelpCardLayoutEditor", () => {
   });
 
   it("hides the Left/Right control when the primary fills row 1", () => {
-    // Five visible cards leave the primary alone in row 1, where it spans all
-    // four columns — there is no edge left to choose.
-    const fiveCards = setHelpCardEnabled(
-      setHelpCardEnabled(defaultHelpCardLayout(), "medicare", false),
-      "savings",
-      false,
+    // A lone visible card owns the whole row, where it spans all three columns —
+    // there is no edge left to choose.
+    const loneCard = HELP_CARD_ORDER.filter(
+      (id) => id !== "account-access",
+    ).reduce(
+      (layout, id) => setHelpCardEnabled(layout, id, false),
+      defaultHelpCardLayout(),
     );
-    render(<HelpCardLayoutEditor value={fiveCards} onChange={() => {}} />);
+    render(<HelpCardLayoutEditor value={loneCard} onChange={() => {}} />);
 
     expect(
       screen.queryByRole("button", { name: /^left$/i }),
@@ -174,7 +176,7 @@ describe("HelpCardLayoutEditor", () => {
       screen.queryByRole("button", { name: /^right$/i }),
     ).not.toBeInTheDocument();
     expect(
-      within(row("account-access")).getByText(/Row 1 · 4\/4 wide · Primary/),
+      within(row("account-access")).getByText(/Row 1 · 3\/3 wide · Primary/),
     ).toBeInTheDocument();
   });
 
@@ -187,7 +189,7 @@ describe("HelpCardLayoutEditor", () => {
     ).toBeInTheDocument();
   });
 
-  it("draws a stored right-edge primary as the third row-1 card", () => {
+  it("draws a stored right-edge primary as the second row-1 card", () => {
     render(
       <HelpCardLayoutEditor
         value={setHelpCardSide(defaultHelpCardLayout(), "right")}
@@ -198,9 +200,9 @@ describe("HelpCardLayoutEditor", () => {
     const rows = Array.from(
       document.querySelectorAll<HTMLElement>("[data-help-layout-card]"),
     );
-    expect(rows[2].dataset.helpLayoutCard).toBe("account-access");
-    expect(rows[2].dataset.primary).toBe("true");
-    expect(within(rows[2]).getByText(/Row 1 · 2\/4 wide · Primary/)).toBeInTheDocument();
+    expect(rows[1].dataset.helpLayoutCard).toBe("account-access");
+    expect(rows[1].dataset.primary).toBe("true");
+    expect(within(rows[1]).getByText(/Row 1 · 2\/3 wide · Primary/)).toBeInTheDocument();
   });
 });
 

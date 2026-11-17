@@ -82,7 +82,7 @@ describe("HowCanWeHelpSection with placements", () => {
     expect(container.querySelector('[data-help-card="medicare"]')).toBeNull();
   });
 
-  it("splits a two-card row between Account Access and the topic", () => {
+  it("gives the primary the wide slot of a two-card row", () => {
     const { container } = render(
       <HowCanWeHelpSection
         clientId="plan-1"
@@ -98,15 +98,16 @@ describe("HowCanWeHelpSection with placements", () => {
       '[data-help-card="sys.financial-planning"]',
     );
 
-    // Two cards, four columns: half each, so the row reaches the right edge.
+    // Two cards, three columns: the primary takes two so it stays the wide card,
+    // and the topic fills the third — the row still reaches the right edge.
     expect(access?.className).toContain("col-span-2");
-    expect(topic?.className).toContain("col-span-2");
+    expect(topic?.className).toContain("col-span-1");
   });
 
   it("renders the advisor's saved card layout instead of the placements", () => {
     // Section 6 arranged five cards and hid the rest. The plan ALSO has featured
     // placements — but the portal must render the layout the preview showed, not a
-    // longer placement-driven grid that re-flows the primary to 2/4.
+    // longer placement-driven grid that re-flows the primary's slot.
     const { container } = render(
       <HowCanWeHelpSection
         clientId="plan-1"
@@ -137,12 +138,13 @@ describe("HowCanWeHelpSection with placements", () => {
       "social-security",
       "savings",
     ]);
-    // Five cards, so the primary owns row 1 alone at full width — the shape the
-    // editor showed.
-    expect(tiles(container)[0].className).toContain("lg:col-span-4");
+    // Five cards: the primary keeps the 2/3 slot beside one standard card — the
+    // shape the editor showed.
+    expect(tiles(container)[0].className).toContain("lg:col-span-2");
+    expect(tiles(container)[0].className).not.toContain("lg:col-span-3");
   });
 
-  it("gives Account Access the whole first row when that is what fills it", () => {
+  it("gives Account Access the wide slot with one card beside it", () => {
     const { container } = render(
       <HowCanWeHelpSection
         clientId="plan-1"
@@ -156,12 +158,12 @@ describe("HowCanWeHelpSection with placements", () => {
       />,
     );
 
-    // Five cards: the primary takes row 1 alone at full width, and the other four
-    // take one column each beneath it. Neither row is left with a gap.
+    // Five cards: the primary takes 2/3 with one standard card beside it, and the
+    // remaining three fill row 2. Neither row is left with a gap.
     const access = container.querySelector<HTMLElement>(
       `[data-help-card="${ACCOUNT_ACCESS_CARD_ID}"]`,
     );
-    expect(access?.className).toContain("lg:col-span-4");
+    expect(access?.className).toContain("lg:col-span-2");
 
     // One grid element per row, in DOM order.
     const rowGrids = Array.from(
@@ -172,12 +174,12 @@ describe("HowCanWeHelpSection with placements", () => {
       ),
     );
     expect(rowGrids).toHaveLength(2);
-    expect(rowGrids[0].querySelectorAll("[data-help-card]")).toHaveLength(1);
+    expect(rowGrids[0].querySelectorAll("[data-help-card]")).toHaveLength(2);
 
     const secondRow = Array.from(
       rowGrids[1].querySelectorAll<HTMLElement>("[data-help-card]"),
     );
-    expect(secondRow).toHaveLength(4);
+    expect(secondRow).toHaveLength(3);
     secondRow.forEach((rowTile) => {
       expect(rowTile.className).toContain("col-span-1");
       expect(rowTile.className).not.toContain("lg:col-span-2");

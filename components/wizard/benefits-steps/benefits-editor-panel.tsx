@@ -325,22 +325,47 @@ export function BenefitsEditorPanel({
   }, [featuredBoard.data, helpCardCategoryLabelValue]);
 
   /**
-   * The list Card Layout draws: the board's own order (Account Access first, then
-   * the Featured placements) carrying the saved PRIMARY flag.
+   * The list Card Layout draws: the board's own order (Account Access plus the
+   * Featured placements) carrying the saved PRIMARY at its saved EDGE.
    *
    * Using the board rather than the stored layout is what puts a question that was
    * demoted and then promoted back at the END of the list — the board appends it —
    * instead of in the slot it held before, which is what the stored layout would
    * still say.
+   *
+   * The board cannot answer which edge the primary sits on, though. Left/Right
+   * writes that into the stored layout (row 1 holds the primary plus one card, so
+   * index 0 = left and index 1 = right), so it is read back from there — without
+   * it the list would rebuild with the primary first on every render, the control
+   * would flip straight back to "left", and both buttons would look dead.
    */
   const helpCardLayoutValue = useMemo<HelpCardLayoutEntry[] | undefined>(() => {
     if (!featuredCardCatalog) return step1Data.helpCards;
     const stored = Array.isArray(step1Data.helpCards) ? step1Data.helpCards : [];
+    const catalogIds = featuredCardCatalog.map((card) => card.id);
+    const storedPrimaryIndex = stored.findIndex(
+      (entry) => entry?.primary === true,
+    );
+    const storedPrimaryId = stored[storedPrimaryIndex]?.id;
     const primaryId =
-      stored.find((entry) => entry?.primary)?.id ?? ACCOUNT_ACCESS_CARD_ID;
-    return featuredCardCatalog.map((card) => ({
-      id: card.id,
-      ...(card.id === primaryId ? { primary: true } : {}),
+      storedPrimaryId && catalogIds.includes(storedPrimaryId)
+        ? storedPrimaryId
+        : ACCOUNT_ACCESS_CARD_ID;
+
+    // Everybody else keeps the board's order; only the primary moves, into the
+    // first slot (left edge) or the second (right edge).
+    if (!catalogIds.includes(primaryId)) {
+      return featuredCardCatalog.map((card) => ({ id: card.id }));
+    }
+    const others = catalogIds.filter((id) => id !== primaryId);
+    const at = storedPrimaryIndex >= 1 ? Math.min(1, others.length) : 0;
+    return [
+      ...others.slice(0, at),
+      primaryId,
+      ...others.slice(at),
+    ].map((id) => ({
+      id,
+      ...(id === primaryId ? { primary: true } : {}),
     }));
   }, [featuredCardCatalog, step1Data.helpCards]);
 
