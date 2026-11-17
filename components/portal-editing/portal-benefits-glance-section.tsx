@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
+import Link from "next/link";
 import useSWR from "swr";
-import { ExternalLink, Loader2, Sparkles } from "lucide-react";
+import { ArrowRight, Loader2, Sparkles } from "lucide-react";
 
 import {
   Accordion,
@@ -35,8 +36,9 @@ import type { BrandImageData } from "@/types/new-client-wizard";
  *  - **A missing benefit cannot be created from here.** The portal only edits
  *    Benefit rows; creating one is Step 1's job (it seeds the category's default
  *    topics, headings and contacts). So a category with no row gets an explanation
- *    and a link to Create Benefit for that plan + category, opened in a new tab so
- *    the portal the advisor is editing stays put.
+ *    and a link to Create Benefit for that plan + category — an in-app link that
+ *    navigates THIS window, because the advisor is going there to build the
+ *    benefit, not to compare two screens side by side.
  *  - **These saves are their own.** The panel's Save bar writes the PLAN; these
  *    cards live on Benefit rows, so each one has its own Save, sent with
  *    `?updateOnly=1` (never upsets a row that does not exist, never creates one).
@@ -366,15 +368,16 @@ export function PortalBenefitsGlanceSection({
                         because a benefit also brings its own pages, questions and
                         contacts.
                       </p>
-                      <a
+                      {/* Same window, on purpose: this link is the way to go
+                          and build the benefit. `Link` keeps it a client-side
+                          navigation (no `target="_blank"`, no extra tab). */}
+                      <Link
                         href={createHref(row)}
-                        target="_blank"
-                        rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 font-semibold text-accent-blue underline"
                       >
                         Create the {row.label} benefit
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
+                        <ArrowRight className="h-3 w-3" />
+                      </Link>
                     </div>
                   ) : (
                     <div className="space-y-4">

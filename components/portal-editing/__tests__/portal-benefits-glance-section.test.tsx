@@ -44,6 +44,21 @@ vi.mock("@/contexts/client-portal-context", () => ({
   useClientPortal: () => ({ clientData: mocks.clientData }),
 }));
 
+// `next/link` as a plain anchor: the assertions are about the destination and
+// whether it is an in-app navigation, not about the router.
+vi.mock("next/link", () => ({
+  __esModule: true,
+  default: ({
+    href,
+    children,
+    ...rest
+  }: { href: string; children: React.ReactNode } & Record<string, unknown>) => (
+    <a href={href} {...rest}>
+      {children}
+    </a>
+  ),
+}));
+
 vi.mock("swr", () => ({
   default: () => ({
     data: mocks.rows,
@@ -159,8 +174,10 @@ describe("PortalBenefitsGlanceSection", () => {
       "href",
       "/new-benefits?planId=plan-1&category=Group%20Health",
     );
-    // A new tab: the portal being edited must stay put.
-    expect(link).toHaveAttribute("target", "_blank");
+    // This window, not a new tab: the link is how the advisor goes to build the
+    // benefit.
+    expect(link).not.toHaveAttribute("target");
+    expect(link).not.toHaveAttribute("rel");
   });
 
   it("links the Custom card to the Custom deep link", async () => {
