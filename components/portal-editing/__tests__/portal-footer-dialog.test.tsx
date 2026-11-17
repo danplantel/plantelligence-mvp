@@ -2,7 +2,7 @@ import { useState } from "react";
 
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import {
   PortalFooterDialog,
@@ -23,14 +23,6 @@ import {
  * not the editor, and the editor's textarea lives inside the real footer as it
  * does in Step 5.
  */
-
-const editing = vi.hoisted(() => ({
-  focusRequest: null as { id: string; nonce: number } | null,
-}));
-
-vi.mock("@/components/portal-editing/portal-editing-provider", () => ({
-  useOptionalPortalEditing: () => editing,
-}));
 
 // `DisclosureFooterEditor` renders the home footer via `PortalDisclaimers` and a
 // benefit hub's via `Footer`. Both only need to expose the colour they were
@@ -54,7 +46,12 @@ vi.mock("@/components/layout/footer", () => ({
 vi.mock("@/components/ui/dialog", () => ({
   Dialog: ({ open, children }: any) =>
     open ? <div role="dialog">{children}</div> : null,
-  DialogContent: ({ children }: any) => <div>{children}</div>,
+  // The className is kept so the dialog's width can be asserted.
+  DialogContent: ({ children, className }: any) => (
+    <div data-testid="dialog-content" className={className}>
+      {children}
+    </div>
+  ),
   DialogDescription: ({ children }: any) => <p>{children}</p>,
   DialogFooter: ({ children }: any) => <div>{children}</div>,
   DialogHeader: ({ children }: any) => <div>{children}</div>,
@@ -123,10 +120,6 @@ const openButton = () =>
   screen.getByRole("button", { name: /Open footer editor/i });
 
 describe("PortalFooterDialog — the panel card", () => {
-  beforeEach(() => {
-    editing.focusRequest = null;
-  });
-
   it("keeps the Step 5 editor out of the narrow panel until it is opened", () => {
     render(<Harness initial={storedEnvelope} onChange={vi.fn()} />);
 
@@ -150,8 +143,71 @@ describe("PortalFooterDialog — the panel card", () => {
 });
 
 describe("PortalFooterDialog — the Create Client Step 5 editor", () => {
-  beforeEach(() => {
-    editing.focusRequest = null;
+  it("names itself, so the editor is recognisable once the card opens it", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={storedEnvelope} onChange={vi.fn()} />);
+
+    await user.click(openButton());
+
+    expect(
+      screen.getByRole("heading", { name: "Edit Disclosure" }),
+    ).toBeInTheDocument();
+    // The description is not just for the screen reader either.
+    expect(
+      screen.getByText(/nothing is published until you save/i),
+    ).toBeInTheDocument();
+  });
+
+  it("is the same width as Edit Benefit's Disclosure section", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={storedEnvelope} onChange={vi.fn()} />);
+
+    await user.click(openButton());
+
+    // Edit Benefit renders this same editor in a `max-w-4xl` column; the dialog
+    // matches that cap instead of spanning the viewport.
+    const content = screen.getByTestId("dialog-content");
+    expect(content.className).toContain("max-w-4xl");
+    expect(content.className).not.toContain("max-w-[110rem]");
+  });
+
+  it("brings the advisor's own copy back when they return to Add my own", async () => {
+    const user = userEvent.setup();
+    render(<Harness initial={storedEnvelope} onChange={vi.fn()} />);
+
+    await user.click(openButton());
+    expect(screen.getByRole("radio", { name: /Add my own/i })).toBeChecked();
+    expect(screen.getByLabelText("Disclosure Text")).toHaveValue(
+      "Existing landing disclosure.",
+    );
+
+    // Peek at the platform copy…
+    await user.click(screen.getByRole("radio", { name: /Use Default/i }));
+    expect(screen.getByLabelText("Disclosure Text")).toHaveValue(
+      stripDisclaimerCopyright(
+        resolveDefaultDisclosuresText("Acme Benefits", "Acme Corp", false),
+      ),
+    );
+
+    // …and back: their words, not an empty box. A round trip through the other
+    // radio must not destroy a custom disclosure.
+    await user.click(screen.getByRole("radio", { name: /Add my own/i }));
+    expect(screen.getByLabelText("Disclosure Text")).toHaveValue(
+      "Existing landing disclosure.",
+    );
+  });
+
+  it("still starts a brand-new custom disclosure blank", async () => {
+    const user = userEvent.setup();
+    // Nothing stored and no fallback: there is no copy of theirs to restore, so
+    // the platform text must not be adopted as "their own".
+    render(<Harness initial={{}} fallbackText="" onChange={vi.fn()} />);
+
+    await user.click(openButton());
+    await user.click(screen.getByRole("radio", { name: /Use Default/i }));
+    await user.click(screen.getByRole("radio", { name: /Add my own/i }));
+
+    expect(screen.getByLabelText("Disclosure Text")).toHaveValue("");
   });
 
   it("opens the real footer, with the textarea inside it, at full width", async () => {
@@ -343,12 +399,16 @@ describe("PortalFooterDialog — the Create Client Step 5 editor", () => {
     expect(screen.getByLabelText("Disclosure Text")).toBeInTheDocument();
   });
 
-  it("opens on arrival when the panel asks for the Disclosure section", () => {
-    editing.focusRequest = { id: "disclosure", nonce: 1 };
+  it("stays closed when a page's Edit footer button scrolls the panel here", () => {
+    // The blue affordance opens the Editing Panel ON this section — it must not
+    // also throw a dialog over the panel it just opened. The card above is the
+    // way in, and it is what the advisor lands on.
     render(<Harness initial={storedEnvelope} onChange={vi.fn()} />);
 
-    expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(screen.getByLabelText("Disclosure Text")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Disclosure Text")).not.toBeInTheDocument();
+    expect(screen.getByText("Footer disclosure")).toBeInTheDocument();
+    expect(openButton()).toBeInTheDocument();
   });
 
   it("reads a benefit's own row when the scope names a hub", async () => {

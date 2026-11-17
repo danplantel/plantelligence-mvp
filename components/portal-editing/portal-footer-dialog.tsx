@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Loader2, Pencil } from "lucide-react";
 
 import {
   resolvePortalDisclosureText,
   type PortalDisclosureSectionProps,
 } from "@/components/portal-editing/portal-disclosure-section";
-import { useOptionalPortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import {
   DisclosureFooterEditor,
   type DisclosureEditorMode,
@@ -26,7 +25,6 @@ import {
   resolveDefaultDisclosuresText,
   stripDisclaimerCopyright,
 } from "@/lib/disclaimer-constants";
-import { PORTAL_SECTION_IDS } from "@/lib/portal-editor-sections";
 import { parseFooterBackgroundPreference } from "@/lib/portal-footer-color";
 import {
   withBenefitDisclosureText,
@@ -35,16 +33,6 @@ import {
 } from "@/lib/portal-disclosures";
 
 export interface PortalFooterDialogProps extends PortalDisclosureSectionProps {
-  /**
-   * The panel section that should open this dialog on arrival.
-   *
-   * The portal's blue affordances (the footer band's own "Edit footer", and the
-   * "Edit footer" links on My Benefits Team, News & Events and Employee
-   * Resources) ask the provider for `PORTAL_SECTION_IDS.disclosure`. Matching that
-   * request here means the advisor lands directly in the full-width footer editor
-   * instead of having to click a second time.
-   */
-  sectionId?: string;
   /**
    * Discard the draft from inside the dialog.
    *
@@ -75,6 +63,12 @@ export interface PortalFooterDialogProps extends PortalDisclosureSectionProps {
  * The panel therefore keeps a compact preview card, and the editor opens over the
  * page at full width.
  *
+ * Arriving from a page's blue **Edit footer** button is deliberately a two-step
+ * journey: the button asks the panel for `PORTAL_SECTION_IDS.disclosure`, the panel
+ * scrolls to this section, and the advisor sees the card above and decides when to
+ * open the editor. The dialog used to open itself on that request, which covered
+ * the very panel the click had just opened and read as a modal stealing the press.
+ *
  * The editor itself is Create Client Step 5's
  * [`DisclosureFooterEditor`](../../wizard/steps/sections/disclosure-footer-editor.tsx:67),
  * deliberately: the footer-background choices, "Use Default" / "Add my own", and
@@ -84,7 +78,6 @@ export interface PortalFooterDialogProps extends PortalDisclosureSectionProps {
  * the wizard store, and nothing reaches the API until the panel's Save.
  */
 export function PortalFooterDialog({
-  sectionId = PORTAL_SECTION_IDS.disclosure,
   scope = { kind: "landing" },
   value,
   fallbackText = "",
@@ -103,21 +96,11 @@ export function PortalFooterDialog({
   const [customModeChosen, setCustomModeChosen] = useState<boolean | null>(
     null,
   );
-  const editing = useOptionalPortalEditing();
-  const focusRequest = editing?.focusRequest;
-
   /** Open, re-deriving the radios from the stored disclosure each time. */
   const openEditor = () => {
     setCustomModeChosen(null);
     setOpen(true);
   };
-
-  // The panel was already asked to edit the Disclosure section: open with it.
-  useEffect(() => {
-    if (!focusRequest?.id || focusRequest.id !== sectionId) return;
-    setCustomModeChosen(null);
-    setOpen(true);
-  }, [focusRequest?.id, focusRequest?.nonce, sectionId]);
 
   const handleCancel = async () => {
     if (saving) return;
@@ -255,22 +238,28 @@ export function PortalFooterDialog({
             it, or the panel stays bright above the scrim and reads as clickable. */}
         <DialogContent
           overlayClassName="z-[110]"
-          // `m-10`-worth of breathing room on every side (2.5rem each): the dialog
-          // is capped 5rem below the viewport height and 5rem inside its width
-          // from `sm` up, so the portal stays visible around it. Phones keep 1rem
-          // side gutters. `md:w-[…]` deliberately overrides the shared dialog's
-          // `md:w-full`, which otherwise made it span the whole viewport again.
+          // Sized like the Disclosure section in Edit Benefit (and Create Plan
+          // Step 5): the same `max-w-4xl` editor column, so the footer preview
+          // reads the same width wherever the advisor meets it. Phones keep a 1rem
+          // gutter each side, `sm` 2.5rem, and from `md` the dialog is full width up
+          // to that cap. `md:w-full` deliberately overrides the shared dialog's own
+          // width class; `max-w-4xl` is what stops it spanning the viewport.
           // The content column scrolls; the button bar does not.
-          className="z-[110] flex max-h-[calc(100vh-5rem)] w-[calc(100vw-2rem)] max-w-[110rem] flex-col gap-0 overflow-hidden p-0 sm:w-[calc(100vw-5rem)] md:w-[calc(100vw-5rem)]"
+          className="z-[110] flex max-h-[calc(100vh-5rem)] w-[calc(100vw-2rem)] max-w-4xl flex-col gap-0 overflow-hidden p-0 sm:w-[calc(100vw-5rem)] md:w-full"
         >
           {/* Extra top padding keeps the content below the dialog's own close (X),
-              so the X sits above the "Applies to:" row rather than on top of it. */}
+              so the X sits above the heading rather than on top of it. */}
           <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6 pt-12">
-            {/* Radix needs a title/description for screen readers; the visible
-                content is Create Client Step 5's disclosure editor. */}
-            <DialogHeader className="sr-only">
-              <DialogTitle>Footer Disclosure</DialogTitle>
-              <DialogDescription>{scopeSummary}</DialogDescription>
+            {/* Radix needs a title and a description here, and the advisor needs to
+                see which editor the card opened: the same two elements, visible. */}
+            <DialogHeader className="mb-4 space-y-1 text-left">
+              <DialogTitle className="font-dm-serif text-xl leading-tight text-gray-900 dark:text-gray-100">
+                Edit Disclosure
+              </DialogTitle>
+              <DialogDescription className="text-sm leading-relaxed text-muted-foreground">
+                Changes preview live in the footer below — nothing is published
+                until you save.
+              </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 pb-1">

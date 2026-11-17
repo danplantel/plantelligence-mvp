@@ -24,6 +24,9 @@ const editBenefitTests = [
   "components/wizard/benefits-steps/__tests__/step-3.test.tsx",
   "components/wizard/benefits-steps/__tests__/step-4.test.tsx",
   "components/wizard/benefits-steps/__tests__/step-5.test.tsx",
+  // Step 5 with the REAL editor: the "Edit Disclosure" heading, and the radio
+  // round trip that used to erase a category's custom copy
+  "components/wizard/benefits-steps/__tests__/step-5-edit-disclosure.test.tsx",
   // The editor panel itself: Section 4's Account Access fields and Section 5's
   // video / default-image controls
   "components/wizard/benefits-steps/__tests__/benefits-editor-panel.test.tsx",

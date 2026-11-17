@@ -26,6 +26,7 @@ import {
   resolveDefaultDisclosuresText,
   ensurePlanTelligenceTrademark,
   stripDisclaimerCopyright,
+  stripDisclaimerCopyrightForEditing,
 } from "@/lib/disclaimer-constants";
 import { parseFooterBackgroundPreference } from "@/lib/portal-footer-color";
 import { Footer } from "@/components/layout/footer";
@@ -689,9 +690,14 @@ export function BenefitsStep5() {
 
   // ── Inline editor state ──
   const defaultDisclaimerText = stripDisclaimerCopyright(inheritedText);
+  /**
+   * The value the textarea shows. The whitespace-preserving strip matters: this
+   * runs on every keystroke, and the trimming form deleted the space as soon as it
+   * was typed.
+   */
   const resolvedStoredText = useCallback(
     (value: string) =>
-      stripDisclaimerCopyright(
+      stripDisclaimerCopyrightForEditing(
         value
           .replace(/\[Organization Name\]/g, disclaimerOrganizationName)
           .replace(/\[Company Name\]/g, companyName),
@@ -934,6 +940,23 @@ export function BenefitsStep5() {
               />
               Apply to all benefit categories
             </label>
+          </div>
+
+          {/* The editor is the page's Disclosure section, so it says so. Without a
+              title the surface opened straight into a textarea — the portal's
+              dialog names itself "Edit Disclosure", and this one is the same
+              editor for a benefit category. */}
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-gray-900 dark:text-white">
+              Edit Disclosure
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Use <strong className="text-gray-700 dark:text-gray-200">Default</strong>{" "}
+              for the platform copy, or{" "}
+              <strong className="text-gray-700 dark:text-gray-200">Add my own</strong>{" "}
+              to write this category&rsquo;s disclosure. It renders exactly as
+              employees will read it in the footer below.
+            </p>
           </div>
 
           {/* The editor lives inside the real footer — same surface as Edit Plan. */}

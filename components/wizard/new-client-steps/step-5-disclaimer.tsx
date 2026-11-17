@@ -23,6 +23,7 @@ import {
   resolveDefaultDisclosuresText,
   ensurePlanTelligenceTrademark,
   stripDisclaimerCopyright,
+  stripDisclaimerCopyrightForEditing,
 } from "@/lib/disclaimer-constants";
 import { parseFooterBackgroundPreference } from "@/lib/portal-footer-color";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
@@ -630,8 +631,10 @@ export function NewClientStep5({
   const defaultDisclaimerText = stripDisclaimerCopyright(
     resolveDefaultDisclosuresText(organizationName, companyName, true),
   );
+  // Whitespace-preserving: this is the textarea's controlled value, re-derived on
+  // every keystroke, and the trimming strip ate the space as it was typed.
   const editorText = disclaimer
-    ? stripDisclaimerCopyright(resolveDisclaimerText(disclaimer.text))
+    ? stripDisclaimerCopyrightForEditing(resolveDisclaimerText(disclaimer.text))
     : "";
   const [customModeChosen, setCustomModeChosen] = useState<boolean | null>(null);
   // Only a SAVED custom disclosure preselects a radio. Default/blank copy leaves
@@ -813,6 +816,21 @@ export function NewClientStep5({
             <span className="inline-flex items-center rounded-full bg-[#23919C]/10 px-2 py-0.5 text-[10px] font-semibold text-[#23919C]">
               Home Page
             </span>
+          </div>
+
+          {/* The editor is the page's Disclosure section, so it says so — the same
+              title Edit Benefit and the portal's dialog use. */}
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-gray-900 dark:text-white">
+              Edit Disclosure
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Use <strong className="text-gray-700 dark:text-gray-200">Default</strong>{" "}
+              for the platform copy, or{" "}
+              <strong className="text-gray-700 dark:text-gray-200">Add my own</strong>{" "}
+              to write your own. It renders exactly as employees will read it in the
+              footer below.
+            </p>
           </div>
 
           {/* The editor lives inside the real Home Page footer — the same surface

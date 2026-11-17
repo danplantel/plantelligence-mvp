@@ -2,12 +2,15 @@ import { describe, expect, it } from "vitest";
 
 import {
   DEFAULT_DISCLOSURES_TEXT,
+  DISCLAIMER_COPYRIGHT,
   ensurePlanTelligenceTrademark,
   getFlyerCategoryDisclaimer,
   mergeDisclaimersPayload,
   resolveDefaultDisclosuresText,
   resolveDisclaimerText,
   resolveOrgOnlyDisclaimerText,
+  stripDisclaimerCopyright,
+  stripDisclaimerCopyrightForEditing,
 } from "../disclaimer-constants";
 
 /**
@@ -275,5 +278,36 @@ describe("mergeDisclaimersPayload", () => {
     expect(mergeDisclaimersPayload("{not json", { footerBackground: {} })).toEqual(
       { footerBackground: {} },
     );
+  });
+});
+
+describe("stripDisclaimerCopyrightForEditing", () => {
+  it("keeps the space the advisor just typed", () => {
+    // The editors re-derive their textarea value from the plan on every keystroke;
+    // the trimming form deleted the trailing space, so the space key looked dead.
+    expect(stripDisclaimerCopyrightForEditing("Two words ")).toBe("Two words ");
+    expect(stripDisclaimerCopyrightForEditing("Two words")).toBe("Two words");
+  });
+
+  it("still removes the copyright line", () => {
+    expect(
+      stripDisclaimerCopyrightForEditing(`Body\n\n${DISCLAIMER_COPYRIGHT}`),
+    ).toBe("Body");
+    expect(
+      stripDisclaimerCopyrightForEditing(`Body\n\n${DISCLAIMER_COPYRIGHT}\n`),
+    ).toBe("Body\n");
+  });
+
+  it("agrees with the trimming form once the value is trimmed", () => {
+    const stored = `Body\n\n${DISCLAIMER_COPYRIGHT}\n`;
+    expect(stripDisclaimerCopyrightForEditing(stored).trim()).toBe(
+      stripDisclaimerCopyright(stored),
+    );
+  });
+
+  it("leaves the copyright line's text out of an otherwise blank value", () => {
+    expect(
+      stripDisclaimerCopyrightForEditing(DISCLAIMER_COPYRIGHT).trim(),
+    ).toBe("");
   });
 });

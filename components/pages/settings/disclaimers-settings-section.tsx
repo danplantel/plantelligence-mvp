@@ -197,12 +197,23 @@ export const DisclaimersSettingsSection = forwardRef<
     onDirtyChange?.(getIsDirty());
   }, [sections, getIsDirty, onDirtyChange]);
 
+  /**
+   * The advisor's own "Your Disclosure" per section, kept while they peek at
+   * "Use Default". "Use Default" replaces the field with the platform copy, so
+   * coming back to "Add my own" used to leave them with an empty box.
+   */
+  const customDraftsRef = useRef<Record<string, string>>({});
+
   const handleModeChange = (key: string, mode: SectionMode) => {
     const cfg = DISCLOSURE_SECTIONS.find((s) => s.key === key);
+    const current = sections[key];
+    if (current?.mode === "custom" && current.text.trim()) {
+      customDraftsRef.current[key] = current.text;
+    }
     const next: SectionState =
       mode === "recommended"
         ? { mode, text: cfg?.recommendedText || DEFAULT_YOUR_DISCLOSURE_TEXT }
-        : { mode, text: "" };
+        : { mode, text: customDraftsRef.current[key] ?? "" };
     setSections((prev) => ({ ...prev, [key]: next }));
   };
 

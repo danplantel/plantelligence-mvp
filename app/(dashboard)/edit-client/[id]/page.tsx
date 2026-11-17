@@ -258,6 +258,7 @@ import {
   resolveDisclaimerText,
   ensurePlanTelligenceTrademark,
   stripDisclaimerCopyright,
+  stripDisclaimerCopyrightForEditing,
 } from "@/lib/disclaimer-constants";
 import { DisclaimerUpdateConfirmDialog } from "@/components/pages/settings/disclaimer-update-confirm-dialog";
 import { fetchProfileOnce } from "@/lib/fetch-profile";
@@ -3852,6 +3853,8 @@ export default function EditClientPage() {
   // still contains the default copy — deriving the radio from text equality
   // alone would snap the selection back to "Use Default".
   const [customDisclaimerChosen, setCustomDisclaimerChosen] = useState(false);
+  /** The advisor's own copy, kept while they peek at "Use Default". */
+  const customDisclaimerDraftRef = useRef("");
   const disclaimersTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Disclaimer update confirmation dialog state (mirrors the Settings page flow).
@@ -4388,8 +4391,10 @@ export default function EditClientPage() {
       ? rawText
       : resolveDefaultDisclosuresText(disclaimerOrgName);
     // The editor never shows the copyright footer — it is appended only to the
-    // rendered output (PortalDisclaimers / the portal Footer).
-    return stripDisclaimerCopyright(
+    // rendered output (PortalDisclaimers / the portal Footer). The
+    // whitespace-preserving strip matters: this is the textarea's value on every
+    // keystroke, and the trimming form deleted the space as it was typed.
+    return stripDisclaimerCopyrightForEditing(
       base
         .replace(/\[Organization Name\]/g, disclaimerOrgName)
         .replace(/\[Company Name\]/g, disclaimerCompName),
@@ -4410,26 +4415,39 @@ export default function EditClientPage() {
 
   /**
    * The two choices Settings and Onboarding offer, applied to this one editor:
-   * "Use Default" writes the platform copy back in; "Add my own" leaves the field
-   * ready to type in (selecting the default copy so the first keystroke replaces
-   * it) instead of throwing the existing text away.
+   * "Use Default" writes the platform copy back in; "Add my own" puts the advisor's
+   * own words back — a round trip through the other radio must not destroy them.
+   * When there is no copy of theirs yet the field is left ready to type in, with
+   * the default text selected so the first keystroke replaces it.
    */
   const handleDisclaimerModeChange = (value: string) => {
     if (value === "default") {
+      // Their copy goes into the field — remember it before it is replaced.
+      const current = getResolvedDisclaimerText();
+      if (current.trim() && current.trim() !== defaultDisclaimerText.trim()) {
+        customDisclaimerDraftRef.current = current;
+      }
       setCustomDisclaimerChosen(false);
       disclaimerEditedRef.current = true;
       setDisclaimerText(defaultDisclaimerText);
       return;
     }
-    const wasDefault =
-      !customDisclaimerChosen &&
+
+    const returningFromDefault =
+      !customDisclaimerChosen ||
       getResolvedDisclaimerText().trim() === defaultDisclaimerText.trim();
+    const draft = customDisclaimerDraftRef.current;
     setCustomDisclaimerChosen(true);
+    if (returningFromDefault && draft) {
+      disclaimerEditedRef.current = true;
+      setDisclaimerText(draft);
+    }
     requestAnimationFrame(() => {
       const el = disclaimersTextareaRef.current;
       if (!el) return;
       el.focus();
-      if (wasDefault) el.select();
+      // No copy of theirs to put back: park the caret on the default text.
+      if (!draft) el.select();
     });
   };
 
@@ -5428,7 +5446,7 @@ export default function EditClientPage() {
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <CardTitle className="text-xl dark:text-gray-100">
-                        Disclosures
+                        Edit Disclosure
                       </CardTitle>
                       <p className="text-sm text-muted-foreground dark:text-gray-400 font-normal mt-1">
                         Manage disclosure text displayed in the employee portal

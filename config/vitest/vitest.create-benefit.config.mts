@@ -17,6 +17,9 @@ const createBenefitTests = [
   "components/wizard/benefits-steps/__tests__/step-3.test.tsx",
   "components/wizard/benefits-steps/__tests__/step-4.test.tsx",
   "components/wizard/benefits-steps/__tests__/step-5.test.tsx",
+  // Step 5 with the REAL editor: the "Edit Disclosure" heading, and the radio
+  // round trip that used to erase a category's custom copy
+  "components/wizard/benefits-steps/__tests__/step-5-edit-disclosure.test.tsx",
   // Step 2's phone frame: the status/home-indicator strips and the device height
   "components/wizard/benefits-steps/__tests__/mobile-preview-frame.test.tsx",
   // Step 3's invite surface

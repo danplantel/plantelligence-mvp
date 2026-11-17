@@ -284,16 +284,28 @@ export function Step5bDisclosures({
     onValidationChange?.(showEditor);
   }, [onValidationChange, showEditor]);
 
+  /**
+   * The advisor's own copy per section, kept while they peek at "Use Default".
+   * Without it, coming back to "Add my own" started from a blank slate and the
+   * paragraph they had written was gone.
+   */
+  const customDraftsRef = useRef<Record<string, string>>({});
+
   const handleModeChange = (key: string, mode: SectionMode) => {
     dirtyRef.current = true;
     const cfg = DISCLOSURE_SECTIONS.find((s) => s.key === key);
+    const current = sections[key];
+    if (current?.mode === "custom" && current.text.trim()) {
+      customDraftsRef.current[key] = current.text;
+    }
     // "Use Default" reveals the default language in the field (and persists it), so the advisor
-    // can read exactly what will be published. "Add my own" starts from a blank slate. The
-    // section still OPENS empty and unselected — only an explicit click fills it.
+    // can read exactly what will be published. "Add my own" puts their own words back — or a
+    // blank slate when they have not written any yet. The section still OPENS empty and
+    // unselected — only an explicit click fills it.
     const next: SectionState =
       mode === "recommended"
         ? { mode, text: cfg?.recommendedText || "" }
-        : { mode, text: "" };
+        : { mode, text: customDraftsRef.current[key] ?? "" };
     setSections((prev) => ({ ...prev, [key]: next }));
     upsertSection(key, next);
   };

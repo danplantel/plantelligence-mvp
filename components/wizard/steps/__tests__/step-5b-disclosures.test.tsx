@@ -155,6 +155,33 @@ describe("Step5bDisclosures", () => {
     );
   });
 
+  it("keeps the advisor's copy when they switch to Use Default and back", async () => {
+    render(<Step5bDisclosures errorFields={[]} />);
+    await openEditor();
+
+    const textarea = screen.getAllByPlaceholderText(
+      "Enter or paste your disclosure text here...",
+    )[0];
+    await userEvent.type(textarea, "Our own benefits hub language.");
+    expect(textarea).toHaveValue("Our own benefits hub language.");
+
+    // Peek at the recommended copy — the field now carries it…
+    await userEvent.click(
+      screen.getAllByRole("radio", { name: /Use Default/i })[0],
+    );
+    expect(textarea).not.toHaveValue("Our own benefits hub language.");
+
+    // …and back: their paragraph, not a blank slate.
+    await userEvent.click(
+      screen.getAllByRole("radio", { name: /Add my own/i })[0],
+    );
+    expect(
+      screen.getAllByPlaceholderText(
+        "Enter or paste your disclosure text here...",
+      )[0],
+    ).toHaveValue("Our own benefits hub language.");
+  });
+
   it("opens the disclosure editor from Add Now and reports the step as valid", async () => {
     const onValidationChange = vi.fn();
 

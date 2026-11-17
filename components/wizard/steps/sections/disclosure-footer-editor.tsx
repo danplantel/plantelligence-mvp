@@ -19,7 +19,7 @@
  * the WRAPPER, never the textarea itself.
  */
 
-import { useRef, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Pencil } from "lucide-react";
 import { Footer } from "@/components/layout/footer";
 import { PortalDisclaimers } from "@/components/pages/client-portal/sections/portal-disclaimers";
@@ -104,22 +104,63 @@ export function DisclosureFooterEditor({
       ? lightSurfaceTextColor(resolvedFooterBgColor)
       : ACCENT_BLUE;
 
+  /**
+   * The advisor's OWN words, kept while they peek at "Use Default".
+   *
+   * "Use Default" writes the platform copy into the field, so without a record of
+   * what was there, returning to "Add my own" had nothing to put back: a round trip
+   * through the other radio destroyed a custom disclosure. Only copy the advisor
+   * actually authored is remembered here, so a fresh "Add my own" still starts blank.
+   */
+  const customDraftRef = useRef("");
+  /**
+   * The mode the field was showing a moment ago.
+   *
+   * This — not a text comparison — decides whether returning to "Add my own" should
+   * put the draft back. Comparing the field against `defaultText` looks right and is
+   * wrong in the case that matters: a default built from the advisor's profile
+   * disclaimer carries `[Organization Name]` / `[Company Name]`, the host substitutes
+   * those when the text comes back from its store, and the string therefore never
+   * equals `defaultText`. Edit Benefit's Disclosure section hit exactly that — the
+   * advisor picked "Use Default", came back, and kept the platform copy.
+   */
+  const previousModeRef = useRef<DisclosureEditorMode | null>(mode);
+
+  const isDefaultCopy = (value: string) => value.trim() === defaultText.trim();
+
+  // Follow the mode the host renders (a category switch resets it to `null`). The
+  // effect writes the same value the handlers below already set, so it cannot undo
+  // a click that has not been rendered yet.
+  useEffect(() => {
+    if (mode === null) customDraftRef.current = "";
+    previousModeRef.current = mode;
+  }, [mode]);
+
   const handleModeChange = (value: string) => {
     if (value === "default") {
+      // Their copy goes into the field — remember it before it is replaced.
+      if (text.trim() && !isDefaultCopy(text)) customDraftRef.current = text;
+      previousModeRef.current = "default";
       onModeChange("default");
       onTextChange(defaultText);
       return;
     }
-    // Choosing "Add my own" starts from a blank editor. The field is empty while
-    // no radio is selected, and any default/inherited copy must not reappear.
-    const shouldClear = !text.trim() || text.trim() === defaultText.trim();
+
+    // Back to "Add my own". Coming from "Use Default" the field holds the platform
+    // copy, so put their own words back; the text comparison stays as a fallback
+    // for a host that changed the mode without going through this handler.
+    const returningFromDefault =
+      previousModeRef.current === "default" || isDefaultCopy(text);
+    previousModeRef.current = "custom";
     onModeChange("custom");
-    if (shouldClear) onTextChange("");
+    if (returningFromDefault) onTextChange(customDraftRef.current);
     requestAnimationFrame(() => {
       const el = textareaRef.current;
       if (!el) return;
       el.focus();
-      if (shouldClear) el.setSelectionRange(0, 0);
+      if (returningFromDefault) {
+        el.setSelectionRange(el.value.length, el.value.length);
+      }
     });
   };
 
@@ -188,8 +229,12 @@ export function DisclosureFooterEditor({
           id="disclosure-footer-text"
           value={text}
           onChange={(event) => {
+            const next = event.target.value;
+            // Keep their draft current, so a trip through "Use Default" cannot
+            // lose what they have typed so far.
+            if (!isDefaultCopy(next)) customDraftRef.current = next;
             onModeChange("custom");
-            onTextChange(event.target.value);
+            onTextChange(next);
           }}
           placeholder="Enter legal disclosures to display in the portal footer..."
           rows={12}

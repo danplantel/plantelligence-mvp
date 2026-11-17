@@ -237,6 +237,9 @@ export function appendDisclaimerCopyright(
  * Removes `DISCLAIMER_COPYRIGHT` so the editable value — and therefore every
  * textarea — never shows it. Applied when loading stored text into an editor;
  * the renderers add it back on output.
+ *
+ * It also `trimEnd()`s, which is right for a value being compared or seeded and
+ * WRONG for a value the advisor is typing (see the variant below).
  */
 export function stripDisclaimerCopyright(
   text: string | null | undefined,
@@ -247,6 +250,25 @@ export function stripDisclaimerCopyright(
       "",
     )
     .trimEnd();
+}
+
+/**
+ * `stripDisclaimerCopyright` for a CONTROLLED textarea.
+ *
+ * An editor that re-derives its value from the plan on every keystroke (Benefits
+ * Step 5, Create Plan Step 5) funnels each character through this helper. The
+ * trimming form deleted the space the instant it was typed, so the space key
+ * looked broken — "two words" could only be written by typing the next letter in
+ * the same frame. This variant removes the copyright line and hands back the
+ * value's own trailing whitespace, so what the advisor types survives the round
+ * trip through the store.
+ */
+export function stripDisclaimerCopyrightForEditing(
+  text: string | null | undefined,
+): string {
+  const value = text || "";
+  const trailing = /\s*$/.exec(value)?.[0] ?? "";
+  return `${stripDisclaimerCopyright(value)}${trailing}`;
 }
 
 /**
