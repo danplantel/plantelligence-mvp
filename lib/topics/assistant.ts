@@ -73,6 +73,18 @@ export const ASSISTANT_INPUT_FOCUS_EVENT = "portal-chatbot:ask-focus";
  */
 export const ASSISTANT_HERO_VISIBLE_EVENT = "portal-chatbot:hero-visible";
 
+/**
+ * `detail: { visible }` — the Mission Statement section entered or left the
+ * viewport.
+ *
+ * This is what the floating action button waits for on the landing page: the hero
+ * carries its own Ask bar, so the pill belongs to the page BELOW the banner, and
+ * "the mission is on screen" is the first moment the reader is actually reading
+ * the plan's content.
+ */
+export const ASSISTANT_MISSION_VISIBLE_EVENT =
+  "portal-chatbot:mission-visible";
+
 // ── Corpus ───────────────────────────────────────────────────────────────────
 
 /** One placement as the assistant reads it: already resolved against the library. */

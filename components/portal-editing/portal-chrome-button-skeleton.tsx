@@ -29,6 +29,11 @@ export function PortalChromeButtonSkeleton({
       role="status"
       aria-label={label}
       style={style}
+      // Counted as part of the corner row while the real button is still being
+      // resolved: the portal's assistant pill measures this row to park itself to
+      // its left, and a skeleton it could not see left the pill sitting ON TOP of
+      // these placeholders (see `portal-chatbot.tsx`).
+      data-portal-chrome-button="skeleton"
       className="fixed bottom-6 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-gray-200 bg-gray-100 animate-pulse"
     >
       <span className="sr-only">{label}</span>

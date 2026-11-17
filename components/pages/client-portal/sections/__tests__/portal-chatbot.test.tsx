@@ -7,8 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { holdPortalModalOpen } from "@/lib/portal-modal-flag";
 import {
   ASSISTANT_ASK_EVENT,
-  ASSISTANT_HERO_VISIBLE_EVENT,
   ASSISTANT_INPUT_FOCUS_EVENT,
+  ASSISTANT_MISSION_VISIBLE_EVENT,
 } from "@/lib/topics/assistant";
 
 import { CHAT_SESSION_MS, PortalChatbot } from "../portal-chatbot";
@@ -58,6 +58,7 @@ vi.mock("@/contexts/client-portal-context", () => ({
     profile: mocks.profile,
   }),
 }));
+
 
 vi.mock("next/navigation", () => ({
   useParams: () => ({ id: "acme" }),
@@ -166,6 +167,9 @@ beforeEach(() => {
   swr.isLoading = false;
   mocks.clientData = { ...BASE_CLIENT };
   mocks.profile = { name: "Jordan Lee" };
+  document
+    .querySelectorAll("[data-portal-chrome-button]")
+    .forEach((node) => node.parentElement?.remove());
 });
 
 describe("PortalChatbot", () => {
@@ -728,13 +732,14 @@ describe("PortalChatbot handoff", () => {
     ).toContain("flex px-5");
   });
 
-  it("stays hidden while the landing hero is on screen", () => {
+  it("waits for the Mission Statement, then stays", () => {
     render(<PortalChatbot />);
 
+    // The landing page has a mission section, and it is still below the fold.
     act(() => {
       window.dispatchEvent(
-        new CustomEvent(ASSISTANT_HERO_VISIBLE_EVENT, {
-          detail: { visible: true },
+        new CustomEvent(ASSISTANT_MISSION_VISIBLE_EVENT, {
+          detail: { visible: false },
         }),
       );
     });
@@ -742,17 +747,77 @@ describe("PortalChatbot handoff", () => {
       screen.getByRole("button", { name: "Ask a question" }).className,
     ).toContain("hidden");
 
+    // It reaches the viewport: the pill appears.
     act(() => {
       window.dispatchEvent(
-        new CustomEvent(ASSISTANT_HERO_VISIBLE_EVENT, {
+        new CustomEvent(ASSISTANT_MISSION_VISIBLE_EVENT, {
+          detail: { visible: true },
+        }),
+      );
+    });
+    expect(
+      screen.getByRole("button", { name: "Ask a question" }).className,
+    ).toContain("flex px-5");
+
+    // Scrolling back up to the banner does not take the action away again.
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent(ASSISTANT_MISSION_VISIBLE_EVENT, {
           detail: { visible: false },
         }),
       );
     });
-    // Scrolling past the hero brings the pill back.
     expect(
       screen.getByRole("button", { name: "Ask a question" }).className,
     ).toContain("flex px-5");
+  });
+
+  it("shows straight away on a page with no mission section", () => {
+    render(<PortalChatbot />);
+
+    // A hub has no hero and no mission, so nothing announces anything.
+    expect(
+      screen.getByRole("button", { name: "Ask a question" }).className,
+    ).toContain("flex px-5");
+  });
+
+  it("parks to the left of the advisor's chrome, and shows straight away there", async () => {
+    // `?edit=true` renders the Eye / Edit Panel / Comments row with its own
+    // provider, in a different tree, so the pill finds it in the DOM: the row's
+    // leftmost button sits 424px from the right edge here.
+    const row = document.createElement("div");
+    for (const name of ["visibility", "editor", "comments"]) {
+      const button = document.createElement("button");
+      button.setAttribute("data-portal-chrome-button", name);
+      row.appendChild(button);
+    }
+    Array.from(row.querySelectorAll("button")).forEach((button, index) => {
+      button.getBoundingClientRect = () =>
+        ({ left: 600 + index * 56, width: 48 }) as DOMRect;
+    });
+    document.body.appendChild(row);
+
+    try {
+      render(<PortalChatbot />);
+      const fab = screen.getByRole("button", { name: "Ask a question" });
+
+      // Measured, not guessed: the row starts at 600px, so the pill's right edge
+      // sits 424px (viewport − 600) plus a 12px gap from it. One frame after mount.
+      await waitFor(() => expect(fab.style.right).toBe("436px"));
+
+      // And the mission gate is the PARTICIPANT's rule — the advisor's chrome shows
+      // the pill from the first frame, even while standing at the top of the page.
+      act(() => {
+        window.dispatchEvent(
+          new CustomEvent(ASSISTANT_MISSION_VISIBLE_EVENT, {
+            detail: { visible: false },
+          }),
+        );
+      });
+      expect(fab.className).toContain("flex px-5");
+    } finally {
+      row.remove();
+    }
   });
 });
 

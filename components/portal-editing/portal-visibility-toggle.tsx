@@ -70,8 +70,9 @@ export function PortalVisibilityToggle() {
 
   const right =
     // The Edit button's own offset, plus one button width and the gap between
-    // them, so this one always lands to its left.
-    "calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + 19.5rem)";
+    // them, so this one always lands to its left. The corner row reads, left to
+    // right: the assistant pill, this Eye, Edit Panel, Comments.
+    "calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + 7rem)";
 
   // Either answer still in flight: wait as a skeleton, like its two neighbours,
   // rather than offering a control that cannot do anything yet.
@@ -91,6 +92,9 @@ export function PortalVisibilityToggle() {
       aria-pressed={chromeOpen}
       aria-label={label}
       title={label}
+      // Lets the portal's assistant pill sit to the LEFT of this row by
+      // measuring what is actually rendered (see `portal-chatbot.tsx`).
+      data-portal-chrome-button="visibility"
       style={{ right }}
       // Fixed light colours, for the same reason as its two neighbours: this
       // sits outside `.portal-root`, so theme tokens would follow the dashboard

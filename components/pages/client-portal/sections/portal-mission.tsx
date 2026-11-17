@@ -1,12 +1,13 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { useRef, useState, KeyboardEvent } from "react";
+import { useEffect, useRef, useState, KeyboardEvent } from "react";
 import { Pencil } from "lucide-react";
 import { readableColor } from "polished";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
 import { PORTAL_SECTION_IDS } from "@/lib/portal-editor-sections";
+import { ASSISTANT_MISSION_VISIBLE_EVENT } from "@/lib/topics/assistant";
 import { portalRadiusValue } from "@/lib/typography-themes";
 
 interface PortalMissionProps {
@@ -45,6 +46,38 @@ export function PortalMission({
 }: PortalMissionProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const [hoveredElement, setHoveredElement] = useState<string | null>(null);
+
+  /**
+   * Tell the portal's floating assistant when this section is on screen.
+   *
+   * The landing page's pill is hidden until the reader has scrolled past the hero
+   * — the banner has its own Ask bar, so a second one there is noise. "The mission
+   * is visible" is the first moment they are into the page proper, and it is what
+   * the pill waits for (see `portal-chatbot.tsx`). The cleanup announces "not
+   * visible" so a page swapped out from under it cannot leave the pill hidden.
+   */
+  useEffect(() => {
+    const section = sectionRef.current;
+    if (!section || typeof IntersectionObserver === "undefined") return;
+
+    const announce = (visible: boolean) =>
+      window.dispatchEvent(
+        new CustomEvent(ASSISTANT_MISSION_VISIBLE_EVENT, {
+          detail: { visible },
+        }),
+      );
+
+    const observer = new IntersectionObserver(
+      ([entry]) => announce(entry.isIntersecting),
+      { threshold: 0 },
+    );
+    observer.observe(section);
+
+    return () => {
+      observer.disconnect();
+      announce(false);
+    };
+  }, []);
 
   const handleInteractiveKeyDown = (
     event: KeyboardEvent<HTMLElement>,

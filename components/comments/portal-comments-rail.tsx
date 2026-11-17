@@ -183,8 +183,9 @@ export function PortalCommentsRail({
 }
 
 /**
- * The floating Comments button, bottom-right — but to the LEFT of the portal's
- * floating "Ask a question" action.
+ * The floating Comments button, bottom-right — the RIGHTMOST control of the
+ * advisor's corner row: Preview (Eye), Edit Panel, Comments, then the portal's
+ * "Ask a question" pill to their left.
  *
  * The portal has no header action cluster, so without this a reader who closes
  * the rail has no way back to it short of editing the URL. Same icon and active
@@ -195,12 +196,10 @@ export function PortalCommentsRail({
  *
  * It sits at the rail's LEFT edge while either rail is open
  * (`inset + 1.5rem`) — the single place to read the MAX of the two insets,
- * since only one can be open at a time. With both closed the expression
- * collapses to the corner. `PORTAL_CHATBOT_CLEARANCE` then moves it past the
- * chat pill: the chatbot is `z-[60]` and owns the corner, so without this the
- * two controls stack and Comments is invisible.
+ * since only one can be open at a time. With both closed it is simply the
+ * corner; the chatbot pill is placed to the LEFT of this cluster (see
+ * `edgeStyle` in `portal-chatbot.tsx`), so nothing has to dodge it.
  */
-const PORTAL_CHATBOT_CLEARANCE = "11.5rem";
 function PortalCommentsButton() {
   const { canComment, mode, needsDraft, toggleMode, hasSurface, surfaceResolved } =
     useCommentMode();
@@ -215,7 +214,8 @@ function PortalCommentsButton() {
       <PortalChromeButtonSkeleton
         label="Checking whether comments are available…"
         style={{
-          right: `calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + ${PORTAL_CHATBOT_CLEARANCE})`,
+          right:
+            "max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem))",
         }}
       />
     );
@@ -236,8 +236,12 @@ function PortalCommentsButton() {
       aria-pressed={active}
       aria-label={label}
       title={label}
+      // Lets the portal's assistant pill sit to the LEFT of this row by
+      // measuring what is actually rendered (see `portal-chatbot.tsx`).
+      data-portal-chrome-button="comments"
       style={{
-        right: `calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + ${PORTAL_CHATBOT_CLEARANCE})`,
+        right:
+          "max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem))",
       }}
       // Fixed light colours, for the same reason as the Edit button beside it:
       // this sits outside `.portal-root`, so its theme tokens follow the

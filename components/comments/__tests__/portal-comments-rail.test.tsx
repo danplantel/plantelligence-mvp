@@ -361,8 +361,10 @@ describe("PortalCommentsRail chrome", () => {
     expect(
       screen.getByRole("button", { name: "Turn comments off" }),
     ).toHaveStyle({
+      // The corner: the assistant pill sits to the LEFT of this cluster, so the
+      // row reads Ask a question, Eye, Edit Panel, Comments.
       right:
-        "calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + 11.5rem)",
+        "max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem))",
     });
   });
 

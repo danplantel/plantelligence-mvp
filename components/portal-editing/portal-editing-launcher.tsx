@@ -14,7 +14,7 @@ import { PortalChromeButtonSkeleton } from "@/components/portal-editing/portal-c
  * visible in the bottom-right cluster.
  */
 const EDIT_BUTTON_RIGHT =
-  "calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + 15.5rem)";
+  "calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + 3.5rem)";
 
 export function PortalEditingLauncher() {
   const { target, canEdit, isOpen, togglePanel, isAccessLoading } =
@@ -47,6 +47,9 @@ export function PortalEditingLauncher() {
       aria-pressed={isOpen}
       aria-label={label}
       title={label}
+      // Lets the portal's assistant pill sit to the LEFT of this row by
+      // measuring what is actually rendered (see `portal-chatbot.tsx`).
+      data-portal-chrome-button="editor"
       style={{ right: EDIT_BUTTON_RIGHT }}
       // Fixed light colours rather than the theme tokens: this button sits
       // OUTSIDE `.portal-root`, so the portal's light-theme overrides do not

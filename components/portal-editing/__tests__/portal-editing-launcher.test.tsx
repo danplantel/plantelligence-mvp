@@ -88,8 +88,9 @@ describe("PortalEditingLauncher theme", () => {
     expect(
       screen.getByRole("status", { name: "Checking your access…" }),
     ).toHaveStyle({
+      // One 3rem button + 0.5rem gap to the left of the Comments button.
       right:
-        "calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + 15.5rem)",
+        "calc(max(1.5rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.5rem)) + 3.5rem)",
     });
     expect(screen.queryByRole("button", { name: "Edit this page" })).toBeNull();
   });

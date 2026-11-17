@@ -15,8 +15,8 @@ import { customBenefitTitleFromHubs } from "@/lib/benefit-custom-name";
 import { usePortalModalOpen } from "@/lib/portal-modal-flag";
 import {
   ASSISTANT_ASK_EVENT,
-  ASSISTANT_HERO_VISIBLE_EVENT,
   ASSISTANT_INPUT_FOCUS_EVENT,
+  ASSISTANT_MISSION_VISIBLE_EVENT,
   buildAssistantCorpus,
   buildAssistantHubs,
   respondToHub,
@@ -196,8 +196,16 @@ export function PortalChatbot({
   const [warm, setWarm] = useState(false);
   /** Whether the landing page's Ask field holds focus (reported by the hero). */
   const [askInputFocused, setAskInputFocused] = useState(false);
-  /** Whether the hero (with its own Ask bar) is on screen. */
-  const [heroVisible, setHeroVisible] = useState(false);
+  /**
+   * Has the landing page's Mission Statement section been seen yet?
+   *
+   * `null` means this page has no mission section (a benefit hub), where the pill
+   * belongs straight away; `false` means it exists but is still below the fold, and
+   * the pill waits. Once it has been on screen the pill stays: scrolling back up to
+   * the banner does not take the action away again.
+   */
+  const [missionSeen, setMissionSeen] = useState<boolean | null>(null);
+  const missionSeenRef = useRef(false);
   /**
    * A portal modal (the hub's document preview) is open. Its overlay covers the
    * page but is mounted in the dialog's own portal, so it cannot hide this pill
@@ -507,23 +515,98 @@ export function PortalChatbot({
       window.removeEventListener(ASSISTANT_INPUT_FOCUS_EVENT, onAskFocus);
   }, []);
 
-  // The hero has its own Ask bar, so the floating pill stays hidden while any part
-  // of that section is on screen and returns once it is scrolled past.
+  // The landing page's pill appears when the Mission Statement section first
+  // reaches the viewport: the hero above it has its own Ask bar, so a second one
+  // there is noise, and the mission is where the reader enters the plan's own
+  // content. A page with no mission section never announces, and the pill shows.
   useEffect(() => {
-    const onHeroVisible = (event: Event) => {
+    const onMissionVisible = (event: Event) => {
       const detail = (event as CustomEvent<{ visible?: unknown }>).detail;
-      setHeroVisible(detail?.visible === true);
+      if (detail?.visible === true) {
+        missionSeenRef.current = true;
+        setMissionSeen(true);
+        return;
+      }
+      if (!missionSeenRef.current) setMissionSeen(false);
     };
-    window.addEventListener(ASSISTANT_HERO_VISIBLE_EVENT, onHeroVisible);
+    window.addEventListener(ASSISTANT_MISSION_VISIBLE_EVENT, onMissionVisible);
     return () =>
-      window.removeEventListener(ASSISTANT_HERO_VISIBLE_EVENT, onHeroVisible);
+      window.removeEventListener(
+        ASSISTANT_MISSION_VISIBLE_EVENT,
+        onMissionVisible,
+      );
   }, []);
 
-  // Sit clear of an open Comments / Messages rail, which occupies the right-hand
-  // column and sets these variables on the portal root.
+  /**
+   * How far the advisor's corner row (Eye, Edit Panel, Comments) extends from the
+   * right edge, measured from the DOM.
+   *
+   * `?edit=true` renders those three buttons as siblings of this component, in a
+   * different tree with its own provider — so the pill cannot ask a context whether
+   * they are there, and constants in three other files are exactly the arithmetic
+   * that drifted and overlapped them. It measures instead: the leftmost
+   * `[data-portal-chrome-button]` is the row's real edge, and the pill parks to the
+   * LEFT of it. No such buttons (a participant's page) → `null` → the corner.
+   */
+  const [chromeRowOffset, setChromeRowOffset] = useState<number | null>(null);
+  useEffect(() => {
+    let frame: number | null = null;
+
+    const measure = () => {
+      frame = null;
+      const buttons = Array.from(
+        document.querySelectorAll<HTMLElement>("[data-portal-chrome-button]"),
+      );
+      if (buttons.length === 0) {
+        setChromeRowOffset(null);
+        return;
+      }
+      const leftEdge = Math.min(
+        ...buttons.map((button) => button.getBoundingClientRect().left),
+      );
+      const offset = Math.max(0, window.innerWidth - leftEdge);
+      setChromeRowOffset((previous) => (previous === offset ? previous : offset));
+    };
+    const schedule = () => {
+      if (frame != null) return;
+      frame = requestAnimationFrame(measure);
+    };
+
+    schedule();
+    window.addEventListener("resize", schedule);
+    // The row appears once the access check answers, and moves when a rail opens
+    // or closes — a subtree watch plus a root-attribute watch covers both.
+    const observer =
+      typeof MutationObserver === "undefined"
+        ? null
+        : new MutationObserver(schedule);
+    observer?.observe(document.body, { childList: true, subtree: true });
+    observer?.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["style", "class"],
+    });
+
+    return () => {
+      window.removeEventListener("resize", schedule);
+      observer?.disconnect();
+      if (frame != null) cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  /**
+   * Where the pill sits, horizontally.
+   *
+   * Participant pages: the corner, clear of an open Comments / Messages rail
+   * (which sets those variables on the portal root).
+   *
+   * `?edit=true`: immediately to the LEFT of the advisor's row, which reads
+   * left → right **Ask a question, Eye, Edit Panel, Comments**.
+   */
   const edgeStyle: React.CSSProperties = {
     right:
-      "max(1.25rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.25rem))",
+      chromeRowOffset !== null
+        ? `${chromeRowOffset + 12}px`
+        : "max(1.25rem, calc(max(var(--comments-inset, 0px), var(--messages-inset, 0px)) + 1.25rem))",
   };
   // Phones get a full-screen sheet; from `md` up it is the floating card again.
   const isDesktop = useMediaQuery("(min-width: 768px)", false);
@@ -804,15 +887,14 @@ export function PortalChatbot({
         // Desktop uses the corner and ignores the variable. While the fullscreen
         // phone sheet is open the pill is hidden — the header's X closes it. It also
         // steps aside on a phone while the landing page's Ask field is focused, and
-        // stays hidden entirely while the hero's own Ask bar is on screen. It returns
-        // once the visitor scrolls past the hero — and it stays out of the way while
-        // a modal (the document preview) owns the screen.
+        // waits until the Mission Statement has been seen (the hero has its own Ask
+        // bar). It stays out of the way while a modal owns the screen.
         className={`fixed bottom-[calc(1.5rem_+_var(--portal-install-inset,0px))] z-[60] h-14 items-center justify-center gap-2 rounded-full text-white shadow-[0_10px_30px_rgba(15,23,42,0.28)] transition-transform hover:scale-105 print:hidden md:bottom-6 ${
           portalModalOpen
             ? "hidden"
             : open
               ? "hidden w-14 md:flex"
-              : heroVisible
+              : missionSeen === false && chromeRowOffset === null
                 ? "hidden"
                 : askInputFocused
                   ? "hidden px-5 md:flex"
