@@ -92,6 +92,17 @@ function deriveAccordionHeaderTitle(category?: string): string {
   }
 }
 
+/**
+ * How long the Download button stays busy.
+ *
+ * A same-origin download gives the page no event for "the file has started": the
+ * click begins a navigation whose body is streamed as an attachment, and the
+ * document never leaves the page. The button therefore holds its spinner for this
+ * long — or until the window regains focus, which happens as soon as the browser's
+ * save dialog is dismissed.
+ */
+const DOWNLOAD_FEEDBACK_MS = 4000;
+
 export type RetirementDocumentLanguage = "EN" | "ES";
 
 export type RetirementDocumentItem = {
@@ -316,6 +327,7 @@ export function BenefitDocumentSection({
   );
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  const [isDownloadStarting, setIsDownloadStarting] = useState(false);
   const [orderedDocs, setOrderedDocs] =
     useState<RetirementDocumentItem[]>(actualRetirementDocs);
 
@@ -532,7 +544,25 @@ export function BenefitDocumentSection({
     window.document.body.appendChild(link);
     link.click();
     link.remove();
+
+    // The press has been handed to the browser; show it until the download is
+    // under way (see DOWNLOAD_FEEDBACK_MS).
+    setIsDownloadStarting(true);
   };
+
+  // Release the busy button once the browser has the file — early on `focus`
+  // (the save dialog closed), and on a timer for browsers that never blur.
+  useEffect(() => {
+    if (!isDownloadStarting) return;
+
+    const release = () => setIsDownloadStarting(false);
+    const timer = window.setTimeout(release, DOWNLOAD_FEEDBACK_MS);
+    window.addEventListener("focus", release);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", release);
+    };
+  }, [isDownloadStarting]);
 
   const outerClasses =
     mode === "page" ? `py-8 sm:py-16 bg-white ${className}` : className;
@@ -677,6 +707,7 @@ export function BenefitDocumentSection({
           if (!open) {
             setPreviewDoc(null);
             setIsPreviewLoading(false);
+            setIsDownloadStarting(false);
           }
         }}
       >
@@ -744,9 +775,22 @@ export function BenefitDocumentSection({
                 >
                   Cancel
                 </Button>
-                <Button type="button" onClick={handleDownloadPreview}>
-                  <Download className="mr-2 h-4 w-4" />
-                  {`Download ${(previewExtension || "pdf").toUpperCase()}`}
+                <Button
+                  type="button"
+                  onClick={handleDownloadPreview}
+                  disabled={isDownloadStarting}
+                >
+                  {isDownloadStarting ? (
+                    <Loader2
+                      className="mr-2 h-4 w-4 animate-spin"
+                      data-testid="document-download-spinner"
+                    />
+                  ) : (
+                    <Download className="mr-2 h-4 w-4" />
+                  )}
+                  {isDownloadStarting
+                    ? "Preparing…"
+                    : `Download ${(previewExtension || "pdf").toUpperCase()}`}
                 </Button>
               </div>
             </div>

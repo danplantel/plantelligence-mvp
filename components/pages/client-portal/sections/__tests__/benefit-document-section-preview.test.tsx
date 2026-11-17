@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { isPortalModalOpen } from "@/lib/portal-modal-flag";
@@ -155,6 +155,35 @@ describe("BenefitDocumentSection preview", () => {
         download: "Enrollment Booklet.pdf",
       },
     ]);
+  });
+
+  it("spins on the Download button until the browser takes the file", () => {
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+
+    renderSection([doc()]);
+    openPreview();
+
+    fireEvent.click(screen.getByRole("button", { name: /^download pdf$/i }));
+
+    // The press was handed to the browser: it is busy, and cannot be pressed
+    // twice while the save is being prepared.
+    const busy = screen.getByRole("button", { name: /preparing/i });
+    expect(busy).toBeDisabled();
+    expect(screen.getByTestId("document-download-spinner")).toBeInTheDocument();
+    // Cancel stays available — the modal is not locked.
+    expect(screen.getByRole("button", { name: "Cancel" })).not.toBeDisabled();
+
+    // Coming back to the window means the save dialog is done.
+    act(() => {
+      window.dispatchEvent(new Event("focus"));
+    });
+
+    expect(
+      screen.getByRole("button", { name: /^download pdf$/i }),
+    ).not.toBeDisabled();
+    expect(
+      screen.queryByTestId("document-download-spinner"),
+    ).not.toBeInTheDocument();
   });
 
   it("names the download after a file the browser cannot draw", () => {
