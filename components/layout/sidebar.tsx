@@ -119,6 +119,8 @@ const Sidebar = memo(function Sidebar() {
   const effectiveOpen = isOpen && !forcedCollapsed;
   /** The rail's real width, and the value written to `--sidebar-width`. */
   const railWidth = effectiveOpen ? openRailWidth : "4rem";
+  /** The year the footer's copyright line prints — it rolls over with the calendar. */
+  const copyrightYear = new Date().getFullYear();
 
   useEffect(() => {
     setThemeMode(theme);
@@ -271,6 +273,39 @@ const Sidebar = memo(function Sidebar() {
           <DashboardNav items={visibleNavItems} isOpen={effectiveOpen} />
         )}
       </div>
+
+      {/* Legal + copyright, pinned under the nav at the very bottom of the rail.
+          The same two destinations the account menu carries (`/legal/privacy`,
+          `/legal/terms`), opened in a new tab so reading them never drops an
+          in-progress dashboard workflow. Only drawn while the rail is open: the
+          icon-only column has no room for a line of text. */}
+      {effectiveOpen && (
+        <div className="flex-shrink-0 border-t border-[#efefef] px-3 py-3 dark:border-[#1c1c1c] xl:px-4 xl:py-4">
+          <p className="flex flex-wrap items-center gap-x-1 text-[10px] leading-relaxed text-muted-foreground xl:text-[11px]">
+            <Link
+              href="/legal/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-sm transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              Privacy
+            </Link>
+            <span aria-hidden="true">·</span>
+            <Link
+              href="/legal/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-sm transition-colors hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            >
+              Terms
+            </Link>
+            <span aria-hidden="true">·</span>
+            <span className="whitespace-nowrap">
+              © {copyrightYear} PlanTelligence
+            </span>
+          </p>
+        </div>
+      )}
     </nav>
   );
 });

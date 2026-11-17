@@ -596,3 +596,47 @@ describe("Sidebar", () => {
     ).not.toThrow();
   });
 });
+
+/**
+ * The rail's footer: the platform's own legal documents and the copyright, on one
+ * line at the very bottom — the same two destinations the account menu carries.
+ */
+describe("Sidebar legal line", () => {
+  it("prints Privacy, Terms and the copyright on the open rail", () => {
+    render(<Sidebar />);
+
+    const privacy = screen.getByRole("link", { name: "Privacy" });
+    expect(privacy).toHaveAttribute("href", "/legal/privacy");
+    // A new tab, so reviewing the documents never drops dashboard work.
+    expect(privacy).toHaveAttribute("target", "_blank");
+
+    const terms = screen.getByRole("link", { name: "Terms" });
+    expect(terms).toHaveAttribute("href", "/legal/terms");
+    expect(terms).toHaveAttribute("target", "_blank");
+
+    expect(
+      screen.getByText(`© ${new Date().getFullYear()} PlanTelligence`),
+    ).toBeInTheDocument();
+  });
+
+  it("hides the legal line while the rail is collapsed", async () => {
+    render(<Sidebar />);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Collapse sidebar" }),
+    );
+
+    expect(screen.queryByRole("link", { name: "Privacy" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Terms" })).toBeNull();
+    expect(screen.queryByText(/© \d{4} PlanTelligence/)).toBeNull();
+  });
+
+  it("hides the legal line on a collapsed rail restored from storage", () => {
+    localStorage.setItem("sidebar-is-open", "false");
+
+    render(<Sidebar />);
+
+    expect(screen.queryByRole("link", { name: "Privacy" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Terms" })).toBeNull();
+  });
+});
