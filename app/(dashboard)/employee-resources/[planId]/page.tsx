@@ -2,35 +2,28 @@
 
 import { useParams } from "next/navigation";
 
-import { EmployeeResourcesEditor } from "@/components/pages/benefits/employee-resources-editor";
+import { EmployeeResourcesPreview } from "@/components/pages/employee-resources/employee-resources-preview";
 
 /**
  * Employee Resources admin (TF-6).
  *
- * The fifth hub is not a benefit category, so it has no Create/Edit Benefit page to
- * live on. This is its own surface: the enable toggle plus the same Quick Answers
- * builder, scoped to this plan.
+ * The fifth hub is not a benefit category, so it has no Create/Edit Benefit page to live
+ * on. This surface shows the plan's REAL portal page — and the portal's own Editing
+ * Panel, armed on the hub's hero section — instead of a second editor beside it. See
+ * [`EmployeeResourcesPreview`](../../../components/pages/employee-resources/employee-resources-preview.tsx:86)
+ * for why the panel is the one inside the frame rather than a re-implementation.
  */
 export default function EmployeeResourcesAdminPage() {
   const params = useParams();
-  const planId = params.planId as string;
+  const planId = typeof params?.planId === "string" ? params.planId : "";
 
-  return (
-    <div className="mx-auto w-full max-w-4xl space-y-6 p-4 sm:p-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
-          Employee Resources
-        </h1>
-        <p className="mt-1 text-sm text-neutral-600 dark:text-gray-400">
-          Publish an HR hub beside the benefit categories.
-        </p>
-      </div>
-
-      {planId ? (
-        <EmployeeResourcesEditor planId={planId} />
-      ) : (
+  if (!planId) {
+    return (
+      <div className="mx-auto w-full max-w-4xl p-4 sm:p-6">
         <p className="text-sm text-neutral-600">Select a plan first.</p>
-      )}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  return <EmployeeResourcesPreview planId={planId} />;
 }

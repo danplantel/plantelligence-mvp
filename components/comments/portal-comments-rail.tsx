@@ -55,6 +55,7 @@ import { PortalEditingLauncher } from "@/components/portal-editing/portal-editin
 import { PortalEditingPanel } from "@/components/portal-editing/portal-editing-panel";
 import { PortalVisibilityToggle } from "@/components/portal-editing/portal-visibility-toggle";
 import { PortalChromeButtonSkeleton } from "@/components/portal-editing/portal-chrome-button-skeleton";
+import { useIsFramed } from "@/hooks/useIsFramed";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import { cn } from "@/lib/utils";
@@ -84,6 +85,9 @@ export function PortalCommentsRail({
   // `serverFallback: false` — assume NOT desktop until measured, so a phone never reserves the column
   // for a panel it is about to be told it cannot have.
   const isDesktop = useMediaQuery(DESKTOP_QUERY, false);
+  // Framed (the dashboard's Employee Resources preview): the HOST owns the controls, so this page
+  // must not pin its own Edit / Comments / Preview pills over it.
+  const isFramed = useIsFramed();
 
   useEffect(() => {
     setFlagged(wantsCommentsRail(window.location.search));
@@ -168,13 +172,15 @@ export function PortalCommentsRail({
           />
           {/* Same column as Comments; `lib/right-panel.ts` keeps the two exclusive. */}
           <MessagesRail showPanelSwitch />
-          {/* Inside the providers: the portal's floating Comments button. */}
-          <PortalCommentsButton />
+          {/* Inside the providers: the portal's floating Comments button. Hidden in a
+              frame — the host toolbar has its own Open/Close Edit Panel control, so
+              these pills would duplicate it and cover the page. */}
+          {!isFramed && <PortalCommentsButton />}
           {/* The inline editor sits on the left and repaints the live page. */}
-          <PortalEditingLauncher />
+          {!isFramed && <PortalEditingLauncher />}
           {/* Furthest left: one click hides (or restores) BOTH surfaces, so the
               advisor can review the page exactly as an employee sees it. */}
-          <PortalVisibilityToggle />
+          {!isFramed && <PortalVisibilityToggle />}
           <PortalEditingPanel />
         </PortalEditingProvider>
       </MessagesModeProvider>

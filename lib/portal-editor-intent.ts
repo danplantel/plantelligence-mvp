@@ -23,6 +23,32 @@ export const PORTAL_EDIT_SECTION_PARAM = "editSection";
 /** The query parameter naming the page the advisor clicked from, in words. */
 export const PORTAL_EDIT_FROM_PARAM = "editFrom";
 
+/**
+ * "Open the Edit Panel" — a `postMessage` payload, for a host page that draws the portal
+ * inside a frame.
+ *
+ * The dashboard's Employee Resources preview embeds this page (armed with `?edit=true`)
+ * and offers one Open Edit Panel button in its own toolbar. Reloading the frame with an
+ * `editSection` on every click would throw away the advisor's scroll position, so the
+ * host posts this instead and `PortalEditingProvider` opens the panel in place.
+ *
+ * Only the TYPE travels; the receiver still decides whether the viewer may edit, and
+ * only accepts the message from its own origin.
+ */
+export const PORTAL_EDIT_OPEN_MESSAGE = "portal-editing:open-panel";
+
+/** "Close the Edit Panel" — the same channel, for the host's toggle. */
+export const PORTAL_EDIT_CLOSE_MESSAGE = "portal-editing:close-panel";
+
+/**
+ * The panel's own state, posted BY the framed portal TO its host.
+ *
+ * The host's button is a toggle, so it has to know what the panel is doing — including
+ * when the advisor closes it with the panel's own X, or opens it from a section's blue
+ * pencil. Sent on every change of `isOpen`.
+ */
+export const PORTAL_EDIT_STATE_MESSAGE = "portal-editing:panel-state";
+
 export interface PortalEditHrefInput {
   /** The current URL's query string, `?` optional. */
   search?: string | null;

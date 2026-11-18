@@ -179,8 +179,14 @@ export async function POST(
 
   try {
     // Idempotent: `ensureLocationSeeded` only fills a location that has nothing yet,
-    // so pressing this twice cannot duplicate a plan's topics.
-    const seeded = await ensureLocationSeeded({ clientId: access.clientId, category });
+    // so pressing this twice cannot duplicate a plan's topics. The LOCATION is passed
+    // as well as the category: Employee Resources has no Benefit category, so a
+    // category-only lookup could never resolve it and seeding this hub did nothing.
+    const seeded = await ensureLocationSeeded({
+      clientId: access.clientId,
+      category,
+      location,
+    });
     const board = await loadTopicBoard(access.clientId, location);
     return NextResponse.json({
       success: true,

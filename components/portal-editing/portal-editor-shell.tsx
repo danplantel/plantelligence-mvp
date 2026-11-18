@@ -37,7 +37,14 @@ export function PortalEditorShell({
   eyebrow,
   headerBadge,
 }: PortalEditorShellProps) {
-  const { isOpen, closePanel, target, focusRequest } = usePortalEditing();
+  const {
+    isOpen,
+    closePanel,
+    target,
+    focusRequest,
+    panelLeftOffset,
+    panelTopOffset,
+  } = usePortalEditing();
   if (!target) return null;
 
   return (
@@ -62,6 +69,11 @@ export function PortalEditorShell({
       // The page's blue edit affordances ask the provider to open the panel at a
       // section; the wrapper owns the scrolling.
       focusRequest={focusRequest}
+      // On the portal these are undefined (the panel is `left: 0`, full height). A
+      // host outside the portal — the dashboard's Employee Resources preview — sets
+      // them so the panel clears the sidebar and sits in the reserved column.
+      leftOffset={panelLeftOffset}
+      topOffset={panelTopOffset}
     >
       {children}
     </EditorPanelWrapper>

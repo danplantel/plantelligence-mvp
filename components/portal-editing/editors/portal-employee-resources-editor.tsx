@@ -9,6 +9,11 @@ import { PortalFooterSection } from "@/components/portal-editing/portal-footer-s
 import { brandImagesFromClient } from "@/components/portal-editing/portal-brand-images";
 import { SectionHeader } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import { BrandImagesSection } from "@/components/wizard/new-client-steps/sections/brand-images-section";
+import { TypographySection } from "@/components/wizard/new-client-steps/sections/typography-section";
+import {
+  normalizeTypographyThemeId,
+  type TypographyThemeId,
+} from "@/lib/typography-themes";
 import {
   QuickAnswersBuilder,
   type BoardPayload,
@@ -22,8 +27,15 @@ import {
 import type { BrandImagesData } from "@/types/new-client-wizard";
 
 /**
- * Employee Resources editor — the page's hero background, then the two sections
- * the page itself renders: "How Can We Help You Today?" and "Quick Answers".
+ * Employee Resources editor — the plan's typography theme, the page's hero background,
+ * then the two sections the page itself renders: "How Can We Help You Today?" and
+ * "Quick Answers".
+ *
+ * Typography is Section 1 because the theme is the whole page's frame — the same
+ * picker Create/Edit Client and Edit Benefit show — and it is a PLAN-level value
+ * (`Client.typographyTheme`), not something this hub owns. It drafts and saves with the
+ * hero: the page and header beside the panel repaint through `patchClientData`, and the
+ * value is written on Save.
  *
  * The hero is the "Employee Resources Header" Brand Images slot, the same
  * control Create Client Step 1 shows. That slot has no Client column: the save
@@ -52,18 +64,25 @@ export function PortalEmployeeResourcesEditor() {
     resetSave,
     patchClientData,
     refetchPortal,
+    employeeResourcesReadKey,
   } = usePortalEditing();
   const { clientData } = useClientPortal();
   const { mutate } = useSWRConfig();
 
   /**
-   * This page answers from its own read (`?forPortal=1`), not from the board the
-   * builders below edit. Both builders hand back the whole board the moment a
-   * question moves, so the page beside the panel repaints in the same frame
-   * instead of waiting for this read to come back.
+   * This page answers from its own read, not from the board the builders below edit.
+   * Both builders hand back the whole board the moment a question moves, so the page
+   * beside the panel repaints in the same frame instead of waiting for this read to
+   * come back.
+   *
+   * On the portal that read is the participant payload (`?forPortal=1`). A host that
+   * mounts the page as an EDITOR — the dashboard preview — supplies its own key via the
+   * provider, so the page and this patch target the same cache entry and the board is
+   * visible even while the hub is unpublished.
    */
   const topicsKey = planId
-    ? `/api/clients/${planId}/employee-resources?forPortal=1`
+    ? employeeResourcesReadKey ??
+      `/api/clients/${planId}/employee-resources?forPortal=1`
     : null;
   const patchTopics = useCallback(
     (board: BoardPayload) => {
@@ -97,6 +116,40 @@ export function PortalEmployeeResourcesEditor() {
   const [isDirty, setIsDirty] = useState(false);
   const brandImagesRef = useRef<BrandImagesData>(savedBrandImages);
   const heroDirtyRef = useRef(false);
+
+  /**
+   * Section 1 — the plan's typography theme.
+   *
+   * `Client.typographyTheme`, like Create/Edit Client and Edit Benefit: the theme frames
+   * the whole portal page, so it is drafted here and written with the hero on Save.
+   */
+  const savedTheme = useMemo(
+    () =>
+      normalizeTypographyThemeId(
+        clientData?.typographyTheme,
+      ) as TypographyThemeId,
+    [clientData?.typographyTheme],
+  );
+  const [themeDraft, setThemeDraft] =
+    useState<TypographyThemeId>(savedTheme);
+  const themeDirtyRef = useRef(false);
+
+  // Re-seed from the plan whenever it reloads and the advisor has not picked one.
+  useEffect(() => {
+    if (themeDirtyRef.current) return;
+    setThemeDraft(savedTheme);
+  }, [savedTheme]);
+
+  /** Live-preview the theme: the page and the header read it from the context. */
+  const changeTheme = useCallback(
+    (id: TypographyThemeId) => {
+      themeDirtyRef.current = true;
+      setThemeDraft(id);
+      setIsDirty(true);
+      patchClientData({ typographyTheme: id } as any);
+    },
+    [patchClientData],
+  );
 
   // Re-seed from the plan whenever it reloads and nothing is drafted. Guarded by
   // the serialized value so an equal-but-new object cannot re-render forever.
@@ -166,7 +219,11 @@ export function PortalEmployeeResourcesEditor() {
       const response = await fetch(`/api/clients/${planId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brandImages: payload }),
+        // The theme travels with the hero: both are plan-level values this panel drafts.
+        body: JSON.stringify({
+          brandImages: payload,
+          typographyTheme: themeDraft,
+        }),
       });
       if (!response.ok) {
         const body = await response.json().catch(() => null);
@@ -174,6 +231,7 @@ export function PortalEmployeeResourcesEditor() {
       }
 
       heroDirtyRef.current = false;
+      themeDirtyRef.current = false;
       setIsDirty(false);
       finishSave();
       // The stored value replaces the optimistic data URL.
@@ -185,11 +243,12 @@ export function PortalEmployeeResourcesEditor() {
           : "Could not save the header image.",
       );
     }
-  }, [planId, beginSave, finishSave, failSave, refetchPortal]);
+  }, [planId, themeDraft, beginSave, finishSave, failSave, refetchPortal]);
 
   /** Throw the draft away; the portal refetch restores the saved band. */
   const cancel = useCallback(async () => {
     heroDirtyRef.current = false;
+    themeDirtyRef.current = false;
     setIsDirty(false);
     resetSave();
     await refetchPortal();
@@ -209,11 +268,31 @@ export function PortalEmployeeResourcesEditor() {
         {/* This panel renders its sections as children rather than through the
             wrapper's `sections` list, so each one carries its own anchor — the
             address the page's three blue buttons scroll to. */}
+        <section className="space-y-4">
+          <SectionHeader number={1} title="Typography Theme" />
+          <p className="text-[12px] leading-relaxed text-muted-foreground">
+            The fonts and corner treatment for this plan&rsquo;s whole portal. It is
+            the same PLAN-level setting Create Plan → Step 2, Edit Plan and the benefit
+            panels edit, so changing it here changes every portal page.
+          </p>
+          <div className="rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
+            <TypographySection
+              value={themeDraft}
+              onChange={changeTheme}
+              // The panel is narrow: one card per row.
+              compact
+              enableAiSuggestion
+              websiteUrl={clientData?.companyWebsite}
+              companyName={clientData?.companyName}
+            />
+          </div>
+        </section>
+
         <section
           className="space-y-4"
           data-edit-anchor={portalEditAnchor.employeeResourcesHero}
         >
-          <SectionHeader number={1} title="Hero Background" />
+          <SectionHeader number={2} title="Hero Background" />
           <p className="text-[12px] leading-relaxed text-muted-foreground">
             The image behind this page&rsquo;s &ldquo;Employee Resources&rdquo;
             title. It fills a band 400&nbsp;px tall on a desktop screen
@@ -238,7 +317,7 @@ export function PortalEmployeeResourcesEditor() {
           className="space-y-4"
           data-edit-anchor={portalEditAnchor.employeeResourcesHelp}
         >
-          <SectionHeader number={2} title="How Can We Help You Today?" />
+          <SectionHeader number={3} title="How Can We Help You Today?" />
           <p className="text-[12px] leading-relaxed text-muted-foreground">
             The cards participants choose from, in the order they appear.
             Promote a question here, reorder the cards, or move one down to
@@ -258,7 +337,7 @@ export function PortalEmployeeResourcesEditor() {
           className="space-y-4"
           data-edit-anchor={portalEditAnchor.employeeResourcesQuickAnswers}
         >
-          <SectionHeader number={3} title="Quick Answers" />
+          <SectionHeader number={4} title="Quick Answers" />
           <p className="text-[12px] leading-relaxed text-muted-foreground">
             The grouped questions below the cards — the same board as above, so
             a question is always in exactly one place.
@@ -278,7 +357,7 @@ export function PortalEmployeeResourcesEditor() {
           className="space-y-4"
           data-edit-anchor={PORTAL_SECTION_IDS.disclosure}
         >
-          <SectionHeader number={4} title="Disclosure" />
+          <SectionHeader number={5} title="Disclosure" />
           <PortalFooterSection />
         </section>
       </div>

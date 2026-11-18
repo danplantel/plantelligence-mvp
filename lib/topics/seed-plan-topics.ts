@@ -579,10 +579,21 @@ export async function syncNewLibraryTopics(params: {
 export async function ensureLocationSeeded(params: {
   clientId: string;
   category?: string | null;
+  /**
+   * The location itself, for a hub that has no Benefit category — Employee Resources.
+   *
+   * `topicLocationForCategory("Employee Resources")` is deliberately null (it is not a
+   * benefit category), so the category alone could never resolve this hub and the
+   * builder's "seed" action was a silent no-op: the plan kept an empty board while a
+   * plan seeded through the publish path had its defaults. Callers that know the
+   * location pass it.
+   */
+  location?: TopicLocation | null;
   store?: TopicSeedStore;
 }): Promise<SeedTopicsResult> {
   const clientId = (params.clientId || "").trim();
-  const location = topicLocationForCategory(params.category);
+  const location =
+    params.location ?? topicLocationForCategory(params.category);
   if (!clientId || !location) return NOTHING_SEEDED;
 
   const store = params.store ?? createPrismaTopicSeedStore();
@@ -591,7 +602,12 @@ export async function ensureLocationSeeded(params: {
     return { ...NOTHING_SEEDED, location };
   }
 
-  return seedLocationTopics({ clientId, category: params.category, store });
+  return seedLocationTopics({
+    clientId,
+    category: params.category,
+    location,
+    store,
+  });
 }
 
 /**

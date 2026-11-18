@@ -122,11 +122,20 @@ export function useOptionalClientPortal(): ClientPortalContextType {
 
 export function ClientPortalProvider({
   children,
+  clientId: clientIdProp,
 }: {
   children: React.ReactNode;
+  /**
+   * The plan to load, when the provider is mounted outside the portal's own route.
+   *
+   * The dashboard's Employee Resources preview renders the portal page itself, so
+   * there is no `[id]` segment to read; it passes the plan id explicitly. The portal
+   * itself omits this and keeps resolving from the route.
+   */
+  clientId?: string;
 }) {
   const params = useParams();
-  const clientId = params.id as string;
+  const clientId = clientIdProp ?? (params.id as string);
   const pathname = usePathname();
   const router = useRouter();
 

@@ -120,12 +120,17 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } },
 ) {
+  const forPortal = request.nextUrl.searchParams.get("forPortal") === "1";
   const [plan, error] = await resolveHubPlan(params.id, request);
   if (error) return error;
 
-  if (!plan!.employeeResourcesEnabled) {
-    // Not enabled: no placements are read at all, so a plan that has never opted in
-    // pays nothing for the hub existing.
+  if (!plan!.employeeResourcesEnabled && forPortal) {
+    // Not PUBLISHED: the public payload carries no placements at all, so a plan that has
+    // never opted in pays nothing for the hub existing and a participant is told
+    // nothing. The DASHBOARD read is not gated: it is already authorized as builder
+    // access (the "Employee Resources" scope), and an unpublished hub is exactly when
+    // the advisor has questions to arrange — hiding the board there left the editor's
+    // page with an empty Quick Answers section beside a panel full of questions.
     return NextResponse.json({
       success: true,
       enabled: false,

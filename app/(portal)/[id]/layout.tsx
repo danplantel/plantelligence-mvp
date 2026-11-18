@@ -20,6 +20,7 @@ import {
 } from "@/components/comments/portal-comments-zoom";
 import { PortalInstallApp } from "@/components/pages/client-portal/sections/portal-install-app";
 import { PortalChatbot } from "@/components/pages/client-portal/sections/portal-chatbot";
+import { useIsFramed } from "@/hooks/useIsFramed";
 import { portalCommentsSurface } from "@/lib/comments/portal-surface";
 import { Button } from "@/components/ui/button";
 import { PortalPopUpOverlay } from "@/components/pages/client-portal/sections/portal-popup-overlay";
@@ -52,6 +53,9 @@ interface BannerAsset {
 
 function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
   const { clientData } = useClientPortal();
+  // A framed portal (the dashboard's Employee Resources preview) never shows the
+  // plan's authored pop-up — see the `PortalPopUpOverlay` block below.
+  const isFramed = useIsFramed();
   // Logged-in user's organization name — used as a fallback when the
   // advisor's onboarding branding org name is empty, so the footer's
   // [Organization Name] doesn't collapse to the plan's company name.
@@ -752,15 +756,22 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
           transform: `fixed inset-0` resolved against the replica's box and the
           card was drawn at the replica's scale, so with the Editing Panel or the
           Comments rail open it appeared tiny and off to one side. Same reason the
-          header is drawn outside the transform. */}
-      <PortalPopUpOverlay
-        clientId={clientId}
-        companyName={clientData?.companyName}
-        companyLogo={clientData?.companyLogo}
-        // Extra paths that count as "benefits" pages for pop-up targeting, so a
-        // pop-up scoped to the benefit hubs still shows on the Custom benefit page.
-        benefitPagePaths={customHubSlug ? [`/${customHubSlug}`] : []}
-      />
+          header is drawn outside the transform.
+
+          Omitted when framed: a dashboard preview is a WORKING surface, and a
+          modal the advisor once published would cover the page they came to edit
+          (and fight the Editing Panel for the screen). The pop-up belongs to the
+          participant's visit, not to the preview — see `useIsFramed`. */}
+      {!isFramed && (
+        <PortalPopUpOverlay
+          clientId={clientId}
+          companyName={clientData?.companyName}
+          companyLogo={clientData?.companyLogo}
+          // Extra paths that count as "benefits" pages for pop-up targeting, so a
+          // pop-up scoped to the benefit hubs still shows on the Custom benefit page.
+          benefitPagePaths={customHubSlug ? [`/${customHubSlug}`] : []}
+        />
+      )}
     </div>
   );
 }
@@ -770,6 +781,11 @@ export default function ClientViewLayout({
 }: {
   children: React.ReactNode;
 }) {
+  // Inside another page's frame (the dashboard's Employee Resources preview) the host
+  // toolbar owns the floating controls, so the "Ask a question" pill stays out of the
+  // replica. A portal in its own tab is never framed, so nothing changes there.
+  const isFramed = useIsFramed();
+
   return (
     <ClientPortalProvider>
       {/* Arm the Comments rail. The provider renders its children untouched unless the link asked
@@ -788,8 +804,9 @@ export default function ClientViewLayout({
       {/* The floating "Ask a question" action replaces the old header button. Sits
           outside the zoom wrapper for the same reason as the install prompt: it is
           portal chrome, not page content, and must stay full size and pinned to the
-          viewport corner. Reads the plan's colours from the portal context. */}
-      <PortalChatbot />
+          viewport corner. Reads the plan's colours from the portal context.
+          Omitted when framed — see `useIsFramed`. */}
+      {!isFramed && <PortalChatbot />}
     </ClientPortalProvider>
   );
 }

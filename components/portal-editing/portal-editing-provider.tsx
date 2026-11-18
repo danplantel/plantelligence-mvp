@@ -19,8 +19,11 @@ import {
 import { useViewerAccess } from "@/hooks/useViewerAccess";
 import { useOptionalCommentMode } from "@/components/comments/comment-mode-provider";
 import {
+  PORTAL_EDIT_CLOSE_MESSAGE,
   PORTAL_EDIT_FROM_PARAM,
+  PORTAL_EDIT_OPEN_MESSAGE,
   PORTAL_EDIT_SECTION_PARAM,
+  PORTAL_EDIT_STATE_MESSAGE,
 } from "@/lib/portal-editor-intent";
 import { toast } from "sonner";
 import { benefitCategoryToVisibilityKey } from "@/lib/portal-category-visibility";
@@ -88,6 +91,26 @@ interface PortalEditingContextValue {
    * the panel comes up already scrolled to it.
    */
   focusSection: (sectionId: string) => void;
+  /**
+   * Where the panel is drawn, for a provider hosted OUTSIDE the portal.
+   *
+   * On the portal the panel is `left: 0` and full height because nothing sits
+   * beside it. In the dashboard preview it must clear the sidebar and reserve its
+   * column exactly as the Edit Plan / Edit Benefit panels do, so the provider
+   * passes the offsets down to every `PortalEditorShell`.
+   */
+  panelLeftOffset?: string;
+  /** Top inset for the panel, when the host draws chrome above it. */
+  panelTopOffset?: number;
+  /**
+   * The Employee Resources read the page and its panel share.
+   *
+   * On the portal both read `…?forPortal=1` — the participant-facing payload. A host
+   * that mounts the page as an EDITOR (the dashboard preview) passes the builder read
+   * instead, because the public one answers `topics: null` while the hub is unpublished
+   * and would show an empty Quick Answers board beside a panel full of questions.
+   */
+  employeeResourcesReadKey?: string;
   saveState: SaveState;
   saveError: string | null;
   beginSave: () => void;
@@ -123,10 +146,38 @@ export function usePortalEditing(): PortalEditingContextValue {
   return context;
 }
 
-export function PortalEditingProvider({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
+export function PortalEditingProvider({
+  children,
+  planId: planIdProp,
+  pathname: pathnameProp,
+  panelLeftOffset,
+  panelTopOffset,
+  employeeResourcesReadKey,
+}: {
+  children: ReactNode;
+  /**
+   * The plan this panel edits, when the portal is NOT the router's current page.
+   *
+   * The dashboard's Employee Resources preview mounts this provider around a page
+   * it renders itself, so `useParams()` there is `[planId]`'s — which is the same
+   * plan, but the ROUTE is not the portal's. Defaults to the route param, which is
+   * what the portal itself relies on.
+   */
+  planId?: string;
+  /** The portal pathname to resolve the panel's target from (defaults to the route). */
+  pathname?: string;
+  /** See `PortalEditingContextValue.panelLeftOffset`. */
+  panelLeftOffset?: string;
+  /** See `PortalEditingContextValue.panelTopOffset`. */
+  panelTopOffset?: number;
+  /** See `PortalEditingContextValue.employeeResourcesReadKey`. */
+  employeeResourcesReadKey?: string;
+}) {
+  const routePathname = usePathname();
   const params = useParams<{ id?: string }>();
-  const planId = typeof params?.id === "string" ? params.id : "";
+  const planId2 = typeof params?.id === "string" ? params.id : "";
+  const planId = planIdProp ?? planId2;
+  const pathname = pathnameProp ?? routePathname;
   const { clientData, patchClientData, refetch } = useClientPortal();
   const { can, isLoading: isAccessLoading } = useViewerAccess();
 
@@ -205,6 +256,46 @@ export function PortalEditingProvider({ children }: { children: ReactNode }) {
     setSaveError(null);
     setIsOpen(true);
   }, [canEdit]);
+
+  /**
+   * "Open the Edit Panel" from the page that embeds this one.
+   *
+   * The dashboard's Employee Resources preview draws the portal inside a frame and puts
+   * one Open Edit Panel button in its toolbar. Re-navigating the frame with
+   * `?editSection=…` would reload the page and lose the advisor's place, so the host
+   * posts [`PORTAL_EDIT_OPEN_MESSAGE`](../../lib/portal-editor-intent.ts:26) instead and
+   * the panel opens in place. Same-origin only, and only for a viewer who may edit —
+   * `openPanel` is the same gate the launcher uses.
+   */
+  useEffect(() => {
+    if (!canEdit) return;
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === PORTAL_EDIT_OPEN_MESSAGE) {
+        openPanel();
+      } else if (event.data?.type === PORTAL_EDIT_CLOSE_MESSAGE) {
+        setIsOpen(false);
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [canEdit, openPanel]);
+
+  /**
+   * Tell the host when the panel opens or closes.
+   *
+   * The dashboard's preview toolbar shows ONE button whose label follows this state, so
+   * it has to hear about a close that happened here — the panel's own X, or an "open
+   * this section" arrival. Only posted when framed, so the portal's own tab never talks
+   * to itself.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined" || window.parent === window) return;
+    window.parent.postMessage(
+      { type: PORTAL_EDIT_STATE_MESSAGE, isOpen: isOpen && canEdit },
+      window.location.origin,
+    );
+  }, [isOpen, canEdit]);
 
   /**
    * The last section the page asked for. `nonce` is what makes clicking the same
@@ -308,6 +399,9 @@ export function PortalEditingProvider({ children }: { children: ReactNode }) {
       togglePanel,
       focusRequest,
       focusSection,
+      panelLeftOffset,
+      panelTopOffset,
+      employeeResourcesReadKey,
       saveState,
       saveError,
       beginSave,
@@ -332,6 +426,9 @@ export function PortalEditingProvider({ children }: { children: ReactNode }) {
       togglePanel,
       focusRequest,
       focusSection,
+      panelLeftOffset,
+      panelTopOffset,
+      employeeResourcesReadKey,
       saveState,
       saveError,
       beginSave,

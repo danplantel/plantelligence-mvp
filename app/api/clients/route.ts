@@ -127,6 +127,10 @@ export async function GET(request: NextRequest) {
       updatedAt: true,
       currentStep: true,
       keyContacts: true,
+      // TF-6: a single boolean, so the Employee Resources index can say which plans
+      // have published the fifth hub without a per-plan request. It is the plan's own
+      // flag because the hub has no `Benefit` row to derive it from.
+      employeeResourcesEnabled: true,
     };
 
     const fullSelect = {

@@ -1,210 +1,22 @@
 "use client";
 
-import { useMemo } from "react";
 import { useParams } from "next/navigation";
-import useSWR from "swr";
 
-import { useClientPortal } from "@/contexts/client-portal-context";
-import { NewsEventsHeader } from "@/components/pages/client-portal/sections/news-events-header";
-import {
-  HowCanWeHelpSection,
-} from "@/components/pages/client-portal/sections/how-can-we-help-section";
-import { QuickAnswersSection } from "@/components/pages/client-portal/sections/quick-answers-section";
-import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
-import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
-import { buildFaqSupportContacts } from "@/lib/faq-support-contacts";
-import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
-import { EMPLOYEE_RESOURCES_DEFAULT_BG } from "@/lib/portal-category-hero-background";
-import { portalEditAnchor } from "@/lib/portal-editor-sections";
-import { HAVE_QUESTIONS_SECTION_ID } from "@/lib/portal-section-anchors";
-import { portalRadiusValue } from "@/lib/typography-themes";
-import type { ActionHubRow, ResolvedLocationTopics } from "@/types/topic";
+import { EmployeeResourcesPortalPage } from "@/components/pages/employee-resources/employee-resources-portal-page";
 
 /**
  * Employee Resources — the fifth hub (TF-6).
  *
- * It uses the SAME template as a benefit category: a header, "How Can We Help You
- * Today?" driven by placements, Quick Answers, then the contact band. What it does
- * NOT have is a `Benefit` row, which is the whole point: it is not a benefit
- * category, so it cannot count toward the 1–4 limit, cannot appear in Benefits at a
- * Glance, and cannot change a plan's completion state.
- *
- * The header is the News & Events band rather than the welcome banner: this hub has
- * no plan mission statement to sign, and a short, image-led hero reads better for an
- * HR-resources index. Its background is this hub's OWN "Employee Resources Header"
- * image (`employeePortalPreview.employeeResourcesHeroImage`, chosen in Create Plan →
- * Branding, Edit Client → Branding or the portal's Editing Panel), then a default of
- * its own.
- *
- * It deliberately does NOT fall back to the Page Image Header: that slot belongs to
- * the interior benefit pages (and to News & Events), so borrowing it meant setting a
- * News & Events hero silently replaced this page's default.
- *
- * The page is opt-in per plan (`Client.employeeResourcesEnabled`). When the plan has not
- * switched it on, the API answers `enabled: false` and nothing renders — a URL that was
- * bookmarked before the toggle was turned off must not expose HR content.
+ * The page body lives in [`EmployeeResourcesPortalPage`](<../../../components/pages/employee-resources/employee-resources-portal-page.tsx:60>)
+ * because the dashboard's plan-scoped preview renders the same page beside the portal's
+ * Editing Panel. This route only resolves the plan from `[id]`, which the portal
+ * addresses by slug.
  */
-
-const CATEGORY = "Employee Resources";
-
-interface EmployeeResourcesResponse {
-  enabled: boolean;
-  /** Same shape the benefit read returns, plus the TF-5 Action Hub panels. */
-  topics:
-    | (ResolvedLocationTopics & {
-        actionHubPanels?: Record<string, ActionHubRow[]>;
-      })
-    | null;
-}
-
-const fetcher = (url: string) => fetch(url).then((r) => r.json());
-
 export default function EmployeeResourcesPage() {
-  const { clientData } = useClientPortal();
   const params = useParams();
-  const clientId = params.id as string;
+  const clientId = typeof params?.id === "string" ? params.id : "";
 
-  const brandColor = clientData?.brandColor || "#1F3A60";
-  const secondaryColor = clientData?.secondaryColor || "#6B7280";
+  if (!clientId) return null;
 
-  // This hub's own header image, then the bundled default of its own — never the
-  // plan's Page Image Header, which belongs to the interior benefit pages and to
-  // News & Events. Resolved through useBrandingImageUrl because the stored value can
-  // be an R2 key (`org/…`) as well as an absolute URL; a bare key would otherwise be
-  // requested as the relative path /org/… and 404.
-  const ownHeaderImage =
-    (clientData as any)?.employeePortalPreview?.employeeResourcesHeroImage;
-  const storedHeaderImage =
-    typeof ownHeaderImage === "string" ? ownHeaderImage.trim() : "";
-  const { url: resolvedHeaderImageUrl } = useBrandingImageUrl(
-    storedHeaderImage || null,
-  );
-
-  const { data, error } = useSWR<EmployeeResourcesResponse>(
-    clientId ? `/api/clients/${clientId}/employee-resources?forPortal=1` : null,
-    fetcher,
-    { revalidateOnFocus: false, dedupingInterval: 60_000 },
-  );
-
-  // There is no Benefit row for this hub, so the contact band resolves the plan's own
-  // key contacts (the sponsor's HR people) instead of a category's support list.
-  const supportContacts = useMemo(
-    () =>
-      buildFaqSupportContacts({
-        keyContacts: clientData?.keyContacts,
-        // No Benefit row: there is no per-category support list to merge.
-        supportContacts: undefined,
-      }),
-    [clientData?.keyContacts],
-  );
-
-  if (error) {
-    return <HubNotice brandColor={brandColor} />;
-  }
-
-  if (!data) {
-    // Nothing renders until the toggle is known: showing the section and then removing
-    // it would flash HR content on a plan that has the hub switched off.
-    return <div className="min-h-screen w-full bg-white" />;
-  }
-
-  if (!data.enabled) {
-    return <HubNotice brandColor={brandColor} />;
-  }
-
-  const topics = data.topics;
-
-  return (
-    <div className="min-h-screen w-full">
-      <main className="w-full">
-        {/* Each region the panel edits gets its own blue button, which opens the
-            panel on that section: this page's three sections are Section 1 (the
-            header photograph), 2 (the help cards) and 3 (the quick answers).
-            `relative` wrappers are the button's anchor — it is positioned. */}
-        <div className="relative">
-          <NewsEventsHeader
-            title="Employee Resources"
-            // Its OWN default, never the News & Events band: two interior pages that
-            // open with the same photograph read as the same page.
-            backgroundImage={
-              resolvedHeaderImageUrl ?? EMPLOYEE_RESOURCES_DEFAULT_BG
-            }
-            backgroundImageAlt="Employee resources"
-          />
-          <PortalSectionEditButton
-            sectionId={portalEditAnchor.employeeResourcesHero}
-            label="Edit hero background"
-            className="right-4 top-4"
-          />
-        </div>
-
-        {/* Placements drive both question areas, exactly like a benefit hub. */}
-        <div className="relative">
-          <HowCanWeHelpSection
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            clientId={clientId}
-            category={CATEGORY}
-            topics={topics?.featured}
-            actionHubPanels={topics?.actionHubPanels}
-          />
-          <PortalSectionEditButton
-            sectionId={portalEditAnchor.employeeResourcesHelp}
-            label="Edit how we can help"
-            className="right-4 top-4"
-          />
-        </div>
-
-        <div className="relative">
-          <QuickAnswersSection
-            groups={topics?.groups ?? []}
-            brandColor={brandColor}
-            secondaryColor={secondaryColor}
-            basePath={`/${clientId}`}
-            actionHubPanels={topics?.actionHubPanels}
-          />
-          <PortalSectionEditButton
-            sectionId={portalEditAnchor.employeeResourcesQuickAnswers}
-            label="Edit quick answers"
-            className="right-4 top-4"
-          />
-        </div>
-
-        <HaveQuestions
-          brandColor={brandColor}
-          secondaryColor={secondaryColor}
-          contacts={supportContacts}
-          keyContacts={clientData?.keyContacts}
-          category={CATEGORY}
-        />
-      </main>
-    </div>
-  );
-}
-
-/** Shown when the plan has not enabled the hub, or the read failed. */
-function HubNotice({ brandColor }: { brandColor: string }) {
-  return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-white px-4">
-      <div
-        className="w-full max-w-md border border-neutral-200 p-8 text-center"
-        style={{ borderRadius: portalRadiusValue(1.5) }}
-      >
-        <h1 className="font-dm-serif text-2xl leading-tight text-gray-900">
-          Employee Resources is not available yet
-        </h1>
-        <p className="mt-2 font-red-hat text-sm text-neutral-600">
-          Your employer has not published HR resources here. In the meantime,{" "}
-          <a
-            href={`#${HAVE_QUESTIONS_SECTION_ID}`}
-            className="font-semibold underline"
-            style={{ color: brandColor }}
-          >
-            contact your benefits team
-          </a>
-          .
-        </p>
-      </div>
-    </div>
-  );
+  return <EmployeeResourcesPortalPage clientId={clientId} />;
 }

@@ -47,6 +47,15 @@ export function PortalEditingPanel() {
     return <PortalNewsEditor />;
   }
 
+  // Employee Resources owns its shell as well (it needs its own footer action bar).
+  // Wrapping it again drew a SECOND fixed panel on top of the first — both `left: 0`,
+  // both `max-w-xl` — and the inner one's header and footer landed over the outer's,
+  // which is what made the panel's contents look mis-fitted.
+  if (target.page === "documents") {
+    return <PortalEmployeeResourcesEditor />;
+  }
+
+  // What is left is an editor that renders bare content: Team.
   return (
     <PortalEditorShell>
       <EditorForPage />

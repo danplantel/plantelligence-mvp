@@ -23,6 +23,10 @@ const APP_ROUTES = [
   "/benefits",
   "/new-benefits",
   "/edit-benefit",
+  // The Employee Resources hub's dashboard index, plus its plan-scoped editor
+  // (`/employee-resources/[planId]`). Without this entry the path would be
+  // mistaken for a `(portal)` plan slug and served without a session check.
+  "/employee-resources",
   "/settings",
   "/documents",
   "/communications",

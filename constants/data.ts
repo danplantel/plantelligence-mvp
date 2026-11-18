@@ -1174,6 +1174,25 @@ export const navItems: NavItem[] = [
     ],
   },
   {
+    // The fifth hub's own index (TF-6). Employee Resources is not a benefit
+    // category, so it cannot live inside Benefits; it gets its own dashboard
+    // destination. It sits directly under Plans because, like a plan, it is
+    // per-plan work rather than a cross-plan library.
+    title: "Employee Resources",
+    href: "/employee-resources",
+    icon: "handshake",
+    label: "Employee Resources",
+  },
+  {
+    // A LEAF link, not a group: clicking Benefits goes straight to the list. The
+    // Create Benefit wizard is reached from that page's own "Create Benefit"
+    // button, so the sidebar no longer carries a second `/new-benefits` entry.
+    title: "Benefits",
+    href: "/benefits",
+    icon: "wand-sparkles",
+    label: "Benefits",
+  },
+  {
     title: "Communications",
     href: "/communications",
     icon: "megaphone",
@@ -1220,15 +1239,6 @@ export const navItems: NavItem[] = [
   //     },
   //   ],
   // },
-  {
-    // A LEAF link, not a group: clicking Benefits goes straight to the list. The
-    // Create Benefit wizard is reached from that page's own "Create Benefit"
-    // button, so the sidebar no longer carries a second `/new-benefits` entry.
-    title: "Benefits",
-    href: "/benefits",
-    icon: "wand-sparkles",
-    label: "Benefits",
-  },
   {
     title: "Settings",
     href: "/settings",
