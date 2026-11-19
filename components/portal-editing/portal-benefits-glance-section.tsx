@@ -19,8 +19,19 @@ import { SimpleImageEditorModal } from "@/components/ui/simple-image-editor-moda
 import { Textarea } from "@/components/ui/textarea";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import { useClientPortal } from "@/contexts/client-portal-context";
-import { getDefaultLandingCardBody } from "@/lib/landing-card-defaults";
-import { getCategoryDefaultInnerImageUrl } from "@/lib/portal-category-hero-background";
+import {
+  EMPLOYEE_RESOURCES_LANDING_CARD_BODY,
+  getDefaultLandingCardBody,
+} from "@/lib/landing-card-defaults";
+import {
+  EMPLOYEE_RESOURCES_LANDING_CARD_BODY_KEY,
+  EMPLOYEE_RESOURCES_LANDING_CARD_IMAGE_KEY,
+  readEmployeeResourcesLandingCard,
+} from "@/lib/employee-resources-landing-card";
+import {
+  EMPLOYEE_RESOURCES_DEFAULT_BG,
+  getCategoryDefaultInnerImageUrl,
+} from "@/lib/portal-category-hero-background";
 import type { BrandImageData } from "@/types/new-client-wizard";
 
 /**
@@ -49,6 +60,12 @@ import type { BrandImageData } from "@/types/new-client-wizard";
  *    gives Choose File / Choose Default Image while empty, then Edit / New / Delete
  *    once one is set — one uploader, one cropper, no second set of rules.
  */
+
+/**
+ * The fifth card's key. It is not a Benefit category, so it never comes from
+ * `loadRows`; it is appended from the plan while the hub is published.
+ */
+const EMPLOYEE_RESOURCES_ROW_KEY = "Employee Resources";
 
 /** The four cards, in the order the landing page draws them. */
 const CARD_CATEGORIES = [
@@ -93,6 +110,8 @@ interface GlanceRow {
   createCategory: string;
   label: string;
   benefit: GlanceBenefit | null;
+  /** The fifth hub's card is stored on the PLAN, not on a Benefit row. */
+  kind?: "benefit" | "employee-resources";
 }
 
 /** One draft per category, holding only the fields the advisor has touched. */
@@ -179,6 +198,25 @@ export function PortalBenefitsGlanceSection({
     (apiCategory: string, patch: CardDraft) => {
       const current = (clientData as Record<string, any> | null)
         ?.employeePortalPreview;
+
+      // Employee Resources has no Benefit row and no `benefits[]` entry: its
+      // draft is the plan's own envelope fields, which is what the card beside
+      // the panel reads.
+      if (apiCategory === EMPLOYEE_RESOURCES_ROW_KEY) {
+        patchClientData({
+          employeePortalPreview: {
+            ...(current ?? {}),
+            ...(patch.image !== undefined
+              ? { [EMPLOYEE_RESOURCES_LANDING_CARD_IMAGE_KEY]: patch.image }
+              : {}),
+            ...(patch.body !== undefined
+              ? { [EMPLOYEE_RESOURCES_LANDING_CARD_BODY_KEY]: patch.body }
+              : {}),
+          },
+        });
+        return;
+      }
+
       const benefits = Array.isArray(current?.benefits)
         ? [...current.benefits]
         : [];
@@ -221,21 +259,45 @@ export function PortalBenefitsGlanceSection({
       setError(null);
       beginSave();
       try {
-        const response = await fetch(
-          `/api/clients/${planId}/benefits/${encodeURIComponent(
-            row.apiCategory,
-          )}?updateOnly=1`,
-          {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            // `undefined` leaves a column untouched; "" clears it. JSON drops the
-            // keys the advisor did not touch, which is exactly that contract.
-            body: JSON.stringify({
-              landingCardImage: draft.image,
-              landingCardBody: draft.body,
-            }),
-          },
-        );
+        // Employee Resources is a PLAN value, not a Benefit row: the two fields
+        // ride the portal envelope, merged over what is already stored so the
+        // hub's header image and the rest of the JSON stay put.
+        const response =
+          row.kind === "employee-resources"
+            ? await fetch(`/api/clients/${planId}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  employeePortalPreview: {
+                    ...((clientData as Record<string, any> | null)
+                      ?.employeePortalPreview ?? {}),
+                    ...(draft.image !== undefined
+                      ? {
+                          [EMPLOYEE_RESOURCES_LANDING_CARD_IMAGE_KEY]:
+                            draft.image,
+                        }
+                      : {}),
+                    ...(draft.body !== undefined
+                      ? { [EMPLOYEE_RESOURCES_LANDING_CARD_BODY_KEY]: draft.body }
+                      : {}),
+                  },
+                }),
+              })
+            : await fetch(
+                `/api/clients/${planId}/benefits/${encodeURIComponent(
+                  row.apiCategory,
+                )}?updateOnly=1`,
+                {
+                  method: "PUT",
+                  headers: { "Content-Type": "application/json" },
+                  // `undefined` leaves a column untouched; "" clears it. JSON drops
+                  // the keys the advisor did not touch, exactly that contract.
+                  body: JSON.stringify({
+                    landingCardImage: draft.image,
+                    landingCardBody: draft.body,
+                  }),
+                },
+              );
         if (!response.ok) {
           const body = await response.json().catch(() => null);
           throw new Error(body?.error || "Could not save this card.");
@@ -262,11 +324,56 @@ export function PortalBenefitsGlanceSection({
         setSavingCategory(null);
       }
     },
-    [beginSave, drafts, failSave, finishSave, mutate, planId, refetchPortal],
+    [
+      beginSave,
+      clientData,
+      drafts,
+      failSave,
+      finishSave,
+      mutate,
+      planId,
+      refetchPortal,
+    ],
   );
 
   const saving = savingCategory !== null;
   const busy = saving || saveState === "saving";
+
+  /**
+   * The fifth card, when the plan has published the hub.
+   *
+   * It is appended rather than loaded: there is no Benefit row to read, so its
+   * image and copy come from the plan's envelope (see
+   * `readEmployeeResourcesLandingCard`). Everything else — the uploader, the
+   * suggested text, the per-card Save — is the same control the four cards use.
+   */
+  const glanceRows = useMemo<GlanceRow[]>(() => {
+    const base = rows ?? [];
+    const enabled =
+      (clientData as { employeeResourcesEnabled?: boolean } | null)
+        ?.employeeResourcesEnabled === true;
+    if (!enabled) return base;
+
+    const stored = readEmployeeResourcesLandingCard(
+      (clientData as Record<string, any> | null)?.employeePortalPreview,
+    );
+    return [
+      ...base,
+      {
+        apiCategory: EMPLOYEE_RESOURCES_ROW_KEY,
+        createCategory: EMPLOYEE_RESOURCES_ROW_KEY,
+        label: "Employee Resources",
+        kind: "employee-resources",
+        benefit: {
+          id: "employee-resources",
+          // Empty until the advisor picks one, so the uploader reads "Choose
+          // Image" and the hint names the bundled default the page is using.
+          landingCardImage: stored.image || "",
+          landingCardBody: stored.body,
+        },
+      },
+    ];
+  }, [rows, clientData]);
 
   const createHref = useMemo(
     () => (row: GlanceRow) =>
@@ -281,14 +388,16 @@ export function PortalBenefitsGlanceSection({
   return (
     <div className="space-y-4">
       <p className="text-[12px] leading-relaxed text-muted-foreground">
-        The four cards participants click from this page. Each one is a field of its
-        benefit, so it is edited here or in{" "}
+        The cards participants click from this page. Each benefit card is a field of
+        its benefit, so it is edited here or in{" "}
         <span className="font-semibold">
           Create Benefit / Edit Benefit → Step 1 → Branding → Your Benefits at a
           Glance Card
         </span>
-        . A card saves on its own — the panel&rsquo;s Save button writes the plan,
-        not a benefit.
+        . The Employee Resources card — shown once that hub is published — has no
+        benefit behind it, so its image and text are the plan&rsquo;s own and are
+        saved here. A card saves on its own; the panel&rsquo;s Save button writes the
+        plan, not the cards.
       </p>
 
       {isLoading && !rows ? (
@@ -302,7 +411,11 @@ export function PortalBenefitsGlanceSection({
           className="space-y-2"
           data-testid="glance-cards-accordion"
         >
-          {(rows ?? []).map((row) => {
+          {glanceRows.map((row) => {
+            const rowId =
+              row.kind === "employee-resources"
+                ? "employee-resources"
+                : row.apiCategory;
             const draft = drafts[row.apiCategory] || {};
             const image =
               draft.image !== undefined
@@ -314,7 +427,10 @@ export function PortalBenefitsGlanceSection({
                 : row.benefit?.landingCardBody || "";
             const isDirty =
               draft.image !== undefined || draft.body !== undefined;
-            const suggested = getDefaultLandingCardBody(row.apiCategory);
+            const suggested =
+              row.kind === "employee-resources"
+                ? EMPLOYEE_RESOURCES_LANDING_CARD_BODY
+                : getDefaultLandingCardBody(row.apiCategory);
             // The uploader wants a complete `BrandImageData`; only `url` and the
             // filename matter for showing (and re-opening) a saved card image, so
             // the measurements it would carry from a fresh upload are filled with
@@ -334,10 +450,10 @@ export function PortalBenefitsGlanceSection({
 
             return (
               <AccordionItem
-                key={row.apiCategory}
-                value={row.apiCategory}
+                key={rowId}
+                value={rowId}
                 className="rounded-none border bg-card px-4"
-                data-testid={`glance-card-${row.apiCategory}`}
+                data-testid={`glance-card-${rowId}`}
               >
                 <AccordionTrigger className="py-3 text-left text-sm hover:no-underline">
                   <span className="flex min-w-0 items-center gap-2">
@@ -389,7 +505,7 @@ export function PortalBenefitsGlanceSection({
                           Card Image
                         </Label>
                         <BrandImageUpload
-                          slotKey={`glance-card-${row.apiCategory}`}
+                          slotKey={`glance-card-${rowId}`}
                           slot={{
                             // No title: the label above already names the field, and
                             // `BrandImageUpload` skips the heading entirely when the
@@ -437,7 +553,10 @@ export function PortalBenefitsGlanceSection({
                           <p className="text-[11px] leading-relaxed text-muted-foreground">
                             Showing the {row.label} default image:{" "}
                             <span className="italic">
-                              {getCategoryDefaultInnerImageUrl(row.apiCategory)
+                              {(row.kind === "employee-resources"
+                                ? EMPLOYEE_RESOURCES_DEFAULT_BG
+                                : getCategoryDefaultInnerImageUrl(row.apiCategory)
+                              )
                                 .split("/")
                                 .pop()}
                             </span>

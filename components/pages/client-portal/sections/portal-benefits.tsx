@@ -16,6 +16,10 @@ import {
 import { getBenefitCompleteness } from "@/lib/benefit-completeness";
 import { wantsCommentsRail } from "@/lib/comments/portal-surface";
 import { getDefaultLandingCardBody } from "@/lib/landing-card-defaults";
+import {
+  employeeResourcesLandingCardBody,
+  readEmployeeResourcesLandingCard,
+} from "@/lib/employee-resources-landing-card";
 import { PORTAL_SECTION_IDS } from "@/lib/portal-editor-sections";
 import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
 import { IncompleteBenefitDialog } from "./incomplete-benefit-dialog";
@@ -378,13 +382,19 @@ export function PortalBenefits({
     ? ({
         id: "employee-resources",
         title: "Employee Resources",
-        description:
-          "Forms, guides and helpful tools to support you through life's big moments.",
+        description: employeeResourcesLandingCardBody(employeePortalPreview),
         // `landingCardImage` rather than `image`: the card's image chain falls
         // back to the Retirement stock photo for an unknown category, which would
         // put a retirement picture on the Employee Resources card.
-        landingCardImage: EMPLOYEE_RESOURCES_DEFAULT_BG,
-        image: EMPLOYEE_RESOURCES_DEFAULT_BG,
+        //
+        // The plan's own image (chosen in the Editing Panel's Section 5) wins; the
+        // bundled Employee Resources default stands in while none is set.
+        landingCardImage:
+          readEmployeeResourcesLandingCard(employeePortalPreview).image ||
+          EMPLOYEE_RESOURCES_DEFAULT_BG,
+        image:
+          readEmployeeResourcesLandingCard(employeePortalPreview).image ||
+          EMPLOYEE_RESOURCES_DEFAULT_BG,
         buttonText: "EMPLOYEE RESOURCES>",
         href: "/employee-resources",
         category: "Employee Resources" as BenefitsCategory,

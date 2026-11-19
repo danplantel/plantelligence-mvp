@@ -60,6 +60,9 @@ vi.mock("@/lib/hub-benefit-defaults", () => ({
 
 vi.mock("@/lib/landing-card-defaults", () => ({
   getDefaultLandingCardBody: (category: string) => mocks.defaultBody(category),
+  // The fifth hub's own card copy (no Benefit row to fall back from).
+  EMPLOYEE_RESOURCES_LANDING_CARD_BODY:
+    "Forms, guides and helpful tools to support you through life's big moments.",
 }));
 
 vi.mock("@/lib/portal-category-hero-background", () => ({

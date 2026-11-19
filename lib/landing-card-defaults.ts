@@ -7,6 +7,18 @@
  * benefits the advisor never customised — and clearing the field restores the
  * default instead of leaving the card blank.
  */
+
+/**
+ * Employee Resources' card copy.
+ *
+ * The fifth hub has no Benefit row, so there is no `landingCardBody` column to
+ * fall back from: the plan stores its own copy in `employeePortalPreview` and this
+ * string is the default while that is empty. Exported so the card and the panel
+ * that edits it can never disagree.
+ */
+export const EMPLOYEE_RESOURCES_LANDING_CARD_BODY =
+  "Forms, guides and helpful tools to support you through life's big moments.";
+
 const DEFAULT_LANDING_CARD_BODY: Record<string, string> = {
   retirement:
     "Enrollment guidance, investment options, and retirement resources.",
@@ -26,6 +38,7 @@ const DEFAULT_LANDING_CARD_BODY: Record<string, string> = {
   custom: "Programs that support your health, mind, and financial well-being.",
   wellness: "Programs that support your health, mind, and financial well-being.",
   other: "Additional benefits and resources to support your well-being.",
+  "employee resources": EMPLOYEE_RESOURCES_LANDING_CARD_BODY,
 };
 
 /** The card body to show for a category when no custom copy is saved. */

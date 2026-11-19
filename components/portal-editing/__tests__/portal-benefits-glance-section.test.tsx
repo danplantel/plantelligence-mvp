@@ -69,10 +69,12 @@ vi.mock("swr", () => ({
 
 vi.mock("@/lib/landing-card-defaults", () => ({
   getDefaultLandingCardBody: (category: string) => `${category} suggested copy`,
+  EMPLOYEE_RESOURCES_LANDING_CARD_BODY: "Employee Resources default copy",
 }));
 
 vi.mock("@/lib/portal-category-hero-background", () => ({
   getCategoryDefaultInnerImageUrl: () => "/default-card.webp",
+  EMPLOYEE_RESOURCES_DEFAULT_BG: "/gallery/employee-resources.jpg",
 }));
 
 vi.mock("@/components/ui/branding-image", () => ({
@@ -287,5 +289,104 @@ describe("PortalBenefitsGlanceSection", () => {
     await user.click(screen.getByRole("button", { name: /Retirement/ }));
 
     expect(screen.getByRole("button", { name: "Save card" })).toBeDisabled();
+  });
+
+  it("hides the Employee Resources card while the hub is unpublished", () => {
+    renderSection();
+
+    expect(screen.queryByText("Employee Resources")).not.toBeInTheDocument();
+  });
+
+  it("adds the Employee Resources card once the hub is published", async () => {
+    mocks.clientData = {
+      employeeResourcesEnabled: true,
+      employeePortalPreview: {
+        benefits: [],
+        employeeResourcesLandingCardBody: "Saved ER copy",
+      },
+    };
+    const user = userEvent.setup();
+    renderSection();
+
+    expect(screen.getByText("Employee Resources")).toBeInTheDocument();
+
+    // It is a fifth accordion editing the plan's own fields.
+    await user.click(screen.getByRole("button", { name: /Employee Resources/ }));
+    expect(screen.getByLabelText("Employee Resources card text")).toHaveValue(
+      "Saved ER copy",
+    );
+
+    // Its suggested copy is the hub's own default, not a benefit category's.
+    await user.click(
+      screen.getByRole("button", { name: /Use the suggested text/ }),
+    );
+    expect(screen.getByLabelText("Employee Resources card text")).toHaveValue(
+      "Employee Resources default copy",
+    );
+  });
+
+  it("saves the Employee Resources card onto the plan, not a Benefit row", async () => {
+    mocks.clientData = {
+      employeeResourcesEnabled: true,
+      employeePortalPreview: {
+        benefits: [],
+        employeeResourcesLandingCardImage: "/cards/er.png",
+        employeeResourcesHeroImage: "org/plan-1/branding/er-hero.png",
+      },
+    };
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.click(screen.getByRole("button", { name: /Employee Resources/ }));
+    await user.type(
+      screen.getByLabelText("Employee Resources card text"),
+      "New ER copy",
+    );
+    await user.click(screen.getByRole("button", { name: "Save card" }));
+
+    const puts = () =>
+      mocks.fetch.mock.calls.filter(([, init]) => init?.method === "PUT");
+    await waitFor(() => expect(puts()).toHaveLength(1));
+    const [url, init] = puts()[0];
+    // The PLAN, not /benefits/<category>: there is no Benefit row for this hub.
+    expect(url).toBe("/api/clients/plan-1");
+    const body = JSON.parse(String(init?.body));
+    // The envelope is merged, so the card's image and the hub's header survive.
+    expect(body.employeePortalPreview).toMatchObject({
+      employeeResourcesLandingCardBody: "New ER copy",
+      employeeResourcesLandingCardImage: "/cards/er.png",
+      employeeResourcesHeroImage: "org/plan-1/branding/er-hero.png",
+      benefits: [],
+    });
+    expect(mocks.finishSave).toHaveBeenCalled();
+    expect(mocks.refetchPortal).toHaveBeenCalled();
+  });
+
+  it("mirrors an Employee Resources keystroke onto the plan envelope", async () => {
+    mocks.clientData = {
+      employeeResourcesEnabled: true,
+      employeePortalPreview: {
+        benefits: [],
+        employeeResourcesHeroImage: "org/plan-1/branding/er-hero.png",
+      },
+    };
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.click(screen.getByRole("button", { name: /Employee Resources/ }));
+    await user.type(
+      screen.getByLabelText("Employee Resources card text"),
+      "Hi",
+    );
+
+    // Live preview: the card beside the panel reads the plan envelope.
+    const lastCall = mocks.patchClientData.mock.calls.at(-1)?.[0] as {
+      employeePortalPreview: Record<string, unknown>;
+    };
+    expect(lastCall.employeePortalPreview).toMatchObject({
+      employeeResourcesLandingCardBody: "Hi",
+      employeeResourcesHeroImage: "org/plan-1/branding/er-hero.png",
+    });
+    expect(mocks.fetch).not.toHaveBeenCalled();
   });
 });
