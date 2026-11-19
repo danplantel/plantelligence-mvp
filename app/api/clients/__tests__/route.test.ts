@@ -124,13 +124,59 @@ describe("GET /api/clients", () => {
       const body = await payload(response);
 
       expect(body.data).toEqual([
-        { id: "plan-array", companyName: "Array Co", keyContactsCount: 2 },
-        { id: "plan-object", companyName: "Object Co", keyContactsCount: 1 },
-        { id: "plan-null", companyName: "Null Co", keyContactsCount: 0 },
+        {
+          id: "plan-array",
+          companyName: "Array Co",
+          keyContactsCount: 2,
+          employeeResourcesCreated: false,
+        },
+        {
+          id: "plan-object",
+          companyName: "Object Co",
+          keyContactsCount: 1,
+          employeeResourcesCreated: false,
+        },
+        {
+          id: "plan-null",
+          companyName: "Null Co",
+          keyContactsCount: 0,
+          employeeResourcesCreated: false,
+        },
       ]);
       for (const row of body.data) {
         expect(row).not.toHaveProperty("keyContacts");
       }
+    });
+
+    it("collapses the hub relation to a created flag and drops it from the row", async () => {
+      mocks.prisma.client.findMany.mockResolvedValue([
+        { id: "plan-set-up", topicPlacements: [{ id: "p1" }] },
+        { id: "plan-empty", topicPlacements: [] },
+        { id: "plan-missing" },
+      ]);
+      mocks.prisma.client.count.mockResolvedValue(3);
+
+      const response = await GET(request("/api/clients?view=table"));
+      const body = await payload(response);
+
+      expect(body.data.map((row: any) => row.employeeResourcesCreated)).toEqual([
+        true,
+        false,
+        false,
+      ]);
+      for (const row of body.data) {
+        expect(row).not.toHaveProperty("topicPlacements");
+      }
+    });
+
+    it("asks only whether the Employee Resources location has a placement", async () => {
+      await GET(request("/api/clients?view=table"));
+
+      expect(lastQuery().select.topicPlacements).toEqual({
+        where: { location: "employee_resources" },
+        select: { id: true },
+        take: 1,
+      });
     });
 
     it("selects the slim projection and never the heavy JSON columns", async () => {

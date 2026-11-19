@@ -8,28 +8,17 @@ import { toast } from "sonner";
 import {
   ChevronsUpDown,
   ExternalLink,
-  Eye,
-  Filter,
   Loader2,
+  Pencil,
+  Plus,
   RefreshCw,
   Search,
-  Users,
 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { BrandingImage } from "@/components/ui/branding-image";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -47,12 +36,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
 import { useViewerAccess } from "@/hooks/useViewerAccess";
 import { withCommentsRail } from "@/lib/comments/portal-surface";
@@ -65,17 +48,19 @@ import { cn } from "@/lib/utils";
  * The table itself is the View Plans table
  * ([`ClientsListDashboardPage`](../clients-list-dashboard.tsx:112)): same search,
  * sorting, pagination and row rendering. What changes is the two right-hand columns —
- * Quick Actions is replaced by the hub's own controls, and the Key Contacts column is
- * kept because the person who owns HR content on a plan is exactly who you chase when
- * the hub is empty.
+ * Quick Actions is replaced by the hub's own controls.
  *
- *   Employee Resources  Published / Hidden + the publish switch
- *   Actions             View (the plan-scoped editor) and Open Portal (the live page)
+ *   Show Page           Published / Hidden + the publish switch
+ *   Actions             Create Page until the hub exists, then Edit Page (the
+ *                       plan-scoped editor) and Open Portal (the live page)
  *
  * Publishing is the plan's own `employeeResourcesEnabled` flag, written through
  * `/api/clients/{id}/employee-resources` — the hub has no `Benefit` row, so there is
- * no category endpoint to toggle. "View" opens `/employee-resources/{id}`, not an Edit
- * Benefit page, for the same reason.
+ * no category endpoint to toggle. "Create Page" and "Edit Page" both open
+ * `/employee-resources/{id}`, not an Edit Benefit page, for the same reason: the
+ * editor seeds the location the first time it mounts, which is what "creates" the
+ * page. `employeeResourcesCreated` (a single placement's existence, from the
+ * `view=table` projection) is what tells the two apart.
  */
 
 /** One row of the `view=table` projection, plus this page's two facts. */
@@ -89,10 +74,10 @@ interface PlanRow {
   type?: string;
   createdAt: string;
   updatedAt: string;
-  /** The API sends a count; the contact JSON (with base64 headshots) never arrives. */
-  keyContactsCount?: number;
   /** TF-6: has this plan published the portal's fifth hub? */
   employeeResourcesEnabled?: boolean;
+  /** TF-6: has the hub ever been set up (any placement in that location)? */
+  employeeResourcesCreated?: boolean;
 }
 
 type SortColumn =
@@ -102,10 +87,8 @@ type SortColumn =
   | "status"
   | "type";
 type SortDirection = "asc" | "desc";
-type StatusFilter = "all" | "active" | "draft";
-type PlanTypeFilter = "all" | "client" | "prospect";
 
-const COLUMN_COUNT = 8;
+const COLUMN_COUNT = 7;
 
 // `cache: "no-store"` keeps the browser's HTTP cache from answering the list with a
 // stale body; SWR's own cache is what makes a revisit instant.
@@ -142,8 +125,6 @@ export function EmployeeResourcesListPage() {
   const [searchDebounce] = useDebounceValue(searchQuery, 300);
   const [sortColumn, setSortColumn] = useState<SortColumn>("updatedAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [planTypeFilter, setPlanTypeFilter] = useState<PlanTypeFilter>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   /** Plans whose publish write is in flight, keyed by plan id. */
@@ -156,8 +137,6 @@ export function EmployeeResourcesListPage() {
     const params = new URLSearchParams({
       view: "table",
       search: searchDebounce,
-      status: statusFilter,
-      type: planTypeFilter,
       page: currentPage.toString(),
       limit: itemsPerPage.toString(),
       sortColumn,
@@ -166,8 +145,6 @@ export function EmployeeResourcesListPage() {
     return `/api/clients?${params.toString()}`;
   }, [
     searchDebounce,
-    statusFilter,
-    planTypeFilter,
     currentPage,
     itemsPerPage,
     sortColumn,
@@ -178,7 +155,6 @@ export function EmployeeResourcesListPage() {
     data: swrData,
     error: listError,
     isLoading,
-    isValidating,
     mutate: refreshPlans,
   } = useSWR(swrKey, jsonFetcher, {
     keepPreviousData: true,
@@ -190,10 +166,10 @@ export function EmployeeResourcesListPage() {
   const total: number = swrData?.pagination?.total ?? 0;
   const totalPages = Math.ceil(total / itemsPerPage);
 
-  // A new filter or search is a new result set, so it always starts at page 1.
+  // A new search or page size is a new result set, so it always starts at page 1.
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchDebounce, statusFilter, planTypeFilter, itemsPerPage]);
+  }, [searchDebounce, itemsPerPage]);
 
   // A plan deleted elsewhere can leave the table asking for a page that no longer
   // exists; clamp back to the last real page once the fresh total arrives.
@@ -303,85 +279,6 @@ export function EmployeeResourcesListPage() {
                   aria-label="Search plans"
                 />
               </div>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0 text-sm"
-                  >
-                    <Filter className="mr-2 h-4 w-4" />
-                    Advanced Filter
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-64" align="end">
-                  <DropdownMenuLabel>Status</DropdownMenuLabel>
-                  <DropdownMenuRadioGroup
-                    value={statusFilter}
-                    onValueChange={(value) =>
-                      setStatusFilter(value as StatusFilter)
-                    }
-                  >
-                    <DropdownMenuRadioItem value="all">
-                      All statuses
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="active">
-                      Active
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="draft">
-                      Draft
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuLabel>Plan Type</DropdownMenuLabel>
-                  <DropdownMenuRadioGroup
-                    value={planTypeFilter}
-                    onValueChange={(value) =>
-                      setPlanTypeFilter(value as PlanTypeFilter)
-                    }
-                  >
-                    <DropdownMenuRadioItem value="all">
-                      All plans
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="client">
-                      Client
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="prospect">
-                      Prospect
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-
-                  <DropdownMenuSeparator />
-
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault();
-                      setStatusFilter("all");
-                      setPlanTypeFilter("all");
-                    }}
-                  >
-                    Reset filters
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <div className="ml-auto flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => refreshPlans()}
-                  disabled={isValidating}
-                >
-                  <RefreshCw
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      isValidating && "animate-spin",
-                    )}
-                  />
-                  Refresh
-                </Button>
-              </div>
             </div>
 
             <div className="overflow-hidden rounded-md border">
@@ -405,7 +302,7 @@ export function EmployeeResourcesListPage() {
                           onClick={() => handleSort("status")}
                           className="h-auto p-0 font-semibold"
                         >
-                          Status
+                          Client Status
                           <ChevronsUpDown className="ml-2 h-4 w-4" />
                         </Button>
                       </TableHead>
@@ -439,8 +336,7 @@ export function EmployeeResourcesListPage() {
                           <ChevronsUpDown className="ml-2 h-4 w-4" />
                         </Button>
                       </TableHead>
-                      <TableHead className="py-4">Key Contacts</TableHead>
-                      <TableHead className="py-4">Employee Resources</TableHead>
+                      <TableHead className="py-4">Show Page</TableHead>
                       <TableHead className="py-4">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -465,9 +361,6 @@ export function EmployeeResourcesListPage() {
                           </TableCell>
                           <TableCell className="py-4">
                             <div className="h-4 w-20 animate-pulse rounded bg-gray-200" />
-                          </TableCell>
-                          <TableCell className="py-4">
-                            <div className="h-8 w-24 animate-pulse rounded bg-gray-200" />
                           </TableCell>
                           <TableCell className="py-4">
                             <div className="h-8 w-28 animate-pulse rounded bg-gray-200" />
@@ -513,6 +406,10 @@ export function EmployeeResourcesListPage() {
                           plan.companyName?.trim() || "Untitled plan";
                         const published =
                           plan.employeeResourcesEnabled === true;
+                        // No placement yet = the page has never been created, so there
+                        // is nothing to edit and no portal page to open.
+                        const pageCreated =
+                          plan.employeeResourcesCreated === true;
                         const isToggling = toggling[plan.id] === true;
                         const normalizedStatus = (
                           plan.status || "active"
@@ -529,8 +426,6 @@ export function EmployeeResourcesListPage() {
                             : normalizedStatus === "active"
                               ? "border-green-200 bg-green-50 text-green-700"
                               : "border-gray-200 bg-gray-50 text-gray-700";
-                        const contactCount = plan.keyContactsCount ?? 0;
-
                         return (
                           <TableRow key={plan.id}>
                             <TableCell className="px-3 py-4 font-medium">
@@ -591,30 +486,6 @@ export function EmployeeResourcesListPage() {
                               {formatDate(plan.updatedAt)}
                             </TableCell>
                             <TableCell className="py-4">
-                              {/* The people who own HR content on this plan. The
-                                  contacts themselves stay in Edit Plan → Contacts;
-                                  only the count crosses the wire. */}
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  router.push(
-                                    `/edit-client/${encodeURIComponent(
-                                      plan.id,
-                                    )}?tab=contacts`,
-                                  )
-                                }
-                                className="gap-1.5 text-sm hover:text-primary"
-                              >
-                                <Users className="h-4 w-4" />
-                                {contactCount > 0
-                                  ? `${contactCount} contact${
-                                      contactCount === 1 ? "" : "s"
-                                    }`
-                                  : "Add contacts"}
-                              </Button>
-                            </TableCell>
-                            <TableCell className="py-4">
                               {mayPublish ? (
                                 <div className="flex items-center gap-2">
                                   <span
@@ -655,62 +526,67 @@ export function EmployeeResourcesListPage() {
                               )}
                             </TableCell>
                             <TableCell className="py-4">
-                              <TooltipProvider>
-                                <div className="flex items-center space-x-1">
+                              {!pageCreated ? (
+                                /* Nothing exists yet: one action, and it is the one
+                                   that creates the page (the editor seeds the location
+                                   when it mounts). Offering "Open Portal" here would
+                                   only lead to a hub that has no content. */
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="gap-1.5"
+                                  onClick={() =>
+                                    router.push(
+                                      `/employee-resources/${encodeURIComponent(
+                                        plan.id,
+                                      )}`,
+                                    )
+                                  }
+                                >
+                                  <Plus className="h-4 w-4" />
+                                  Create Page
+                                </Button>
+                              ) : (
+                                <div className="flex items-center gap-2">
                                   {/* The plan-scoped editor. `/edit-benefit/…` is the
                                       benefit editor and has no category to open here —
                                       this hub has no Benefit row. */}
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        aria-label="View"
-                                        className="h-8 w-8 hover:bg-muted hover:text-primary"
-                                        onClick={() =>
-                                          router.push(
-                                            `/employee-resources/${encodeURIComponent(
-                                              plan.id,
-                                            )}`,
-                                          )
-                                        }
-                                      >
-                                        <Eye className="h-4 w-4" />
-                                      </Button>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>View</p>
-                                    </TooltipContent>
-                                  </Tooltip>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-1.5"
+                                    onClick={() =>
+                                      router.push(
+                                        `/employee-resources/${encodeURIComponent(
+                                          plan.id,
+                                        )}`,
+                                      )
+                                    }
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                    Edit Page
+                                  </Button>
 
                                   {/* Only a PUBLISHED hub has a portal page worth
                                       opening; a hidden one answers "not available
                                       yet". */}
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <span>
-                                        <Button
-                                          variant="ghost"
-                                          size="icon"
-                                          aria-label="Open Portal"
-                                          className="h-8 w-8 hover:bg-muted hover:text-primary"
-                                          disabled={!published}
-                                          onClick={() => openPortal(plan)}
-                                        >
-                                          <ExternalLink className="h-4 w-4" />
-                                        </Button>
-                                      </span>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p>
-                                        {published
-                                          ? "Open Portal"
-                                          : "Publish the hub first"}
-                                      </p>
-                                    </TooltipContent>
-                                  </Tooltip>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="gap-1.5"
+                                    disabled={!published}
+                                    title={
+                                      published
+                                        ? "Open Portal"
+                                        : "Publish the hub first"
+                                    }
+                                    onClick={() => openPortal(plan)}
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                    Open Portal
+                                  </Button>
                                 </div>
-                              </TooltipProvider>
+                              )}
                             </TableCell>
                           </TableRow>
                         );

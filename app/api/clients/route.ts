@@ -131,6 +131,17 @@ export async function GET(request: NextRequest) {
       // have published the fifth hub without a per-plan request. It is the plan's own
       // flag because the hub has no `Benefit` row to derive it from.
       employeeResourcesEnabled: true,
+      // TF-6: whether that hub has ever been CREATED for this plan — i.e. whether the
+      // location has a placement at all. Seeding happens the first time the plan's
+      // Employee Resources surface mounts (or when it is published), so this is the
+      // row's "Create Page" vs. "Edit Page" decision. One row suffices: existence is
+      // all that is asked. It is replaced with a plain boolean before the response is
+      // written, so the table still ships no relation payload.
+      topicPlacements: {
+        where: { location: "employee_resources" },
+        select: { id: true },
+        take: 1,
+      },
     };
 
     const fullSelect = {
@@ -197,8 +208,15 @@ export async function GET(request: NextRequest) {
     if (summary || tableView) {
       const rows = tableView
         ? (clients as any[]).map((row) => {
-            const { keyContacts, ...rest } = row;
-            return { ...rest, keyContactsCount: countKeyContacts(keyContacts) };
+            const { keyContacts, topicPlacements, ...rest } = row;
+            return {
+              ...rest,
+              keyContactsCount: countKeyContacts(keyContacts),
+              // Existence, not content: the index only needs to know whether the hub
+              // has been set up, so the relation read collapses to one boolean.
+              employeeResourcesCreated:
+                Array.isArray(topicPlacements) && topicPlacements.length > 0,
+            };
           })
         : clients;
 
