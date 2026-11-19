@@ -18,6 +18,7 @@ import {
   getPortalShapeCssVars,
   getTypographyCssVars,
   isTypographyThemeId,
+  portalRadiusValue,
   resolveTypographyTheme,
   type TypographyThemeId,
 } from "@/lib/typography-themes";
@@ -239,8 +240,10 @@ export function TypographySection({
         >
           {TYPOGRAPHY_THEME_LIST.map((theme) => {
             const isSelected = selectedId === theme.id;
-            // Activate this theme's fonts AND corner treatment for the preview
-            // subtree only, so the sample below shows the real shape.
+            // Activate this theme's fonts AND corner treatment for the whole card,
+            // so the example's OWN edges show the shape — not just the sample
+            // inside it. Each card is a `<button>`, so without this every card wore
+            // the host's radius and the Sharp ones still looked rounded.
             const previewVars = {
               ...getTypographyCssVars(theme.id),
               ...getPortalShapeCssVars(theme.id),
@@ -253,6 +256,16 @@ export function TypographySection({
                 onClick={() => onChange(theme.id)}
                 aria-pressed={isSelected}
                 aria-label={`${theme.label} typography theme`}
+                // The card's own edge (xl) is stated inline as well as by
+                // `rounded-xl`: the utility reads `--portal-radius`, but a stray
+                // stylesheet can re-pin a radius class, and this example must always
+                // demonstrate its theme.
+                style={
+                  {
+                    ...previewVars,
+                    borderRadius: portalRadiusValue(1.5),
+                  } as React.CSSProperties
+                }
                 className={cn(
                   "relative flex flex-col gap-3 rounded-xl border-2 p-4 text-left transition-all",
                   // Keyboard focus ring — visible in both light and dark themes
@@ -288,10 +301,13 @@ export function TypographySection({
                   )}
                 </div>
 
-                {/* Live preview — rendered in this theme's fonts. */}
+                {/* Live preview — rendered in this theme's fonts, inside the
+                    card's scoped `--portal-radius`, so the sample surface and its
+                    button inherit the same sharp/round treatment as the card. Both
+                    radii are also stated inline (lg / md) for the same reason. */}
                 <div
                   className="rounded-lg border border-gray-100 bg-white px-3 py-3 dark:border-gray-700 dark:bg-gray-900/60"
-                  style={previewVars as React.CSSProperties}
+                  style={{ borderRadius: portalRadiusValue(1) }}
                 >
                   <p
                     className="text-[22px] leading-tight font-semibold text-gray-900 dark:text-gray-100"
@@ -309,7 +325,12 @@ export function TypographySection({
                   {/* UI sample — always Outfit via --font-ui. */}
                   <span
                     className="mt-3 inline-flex rounded-md bg-accent-blue px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-white"
-                    style={{ fontFamily: theme.ui }}
+                    style={{
+                      fontFamily: theme.ui,
+                      // Square under a sharp theme, softly rounded under a round
+                      // one — the sample button follows the card's theme.
+                      borderRadius: portalRadiusValue(0.75),
+                    }}
                   >
                     View Details
                   </span>

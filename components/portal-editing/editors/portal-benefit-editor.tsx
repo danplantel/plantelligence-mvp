@@ -12,6 +12,7 @@ import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
 import { usePortalDirtyReport } from "@/components/portal-editing/portal-draft-badge";
 import { PortalBenefitVisibilityToggle } from "@/components/portal-editing/portal-benefit-visibility-toggle";
+import { sameDraft } from "@/lib/portal-draft-compare";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import { usePortalPublishAccess } from "@/components/portal-editing/portal-visibility-switch";
 import type {
@@ -37,6 +38,11 @@ import type {
 } from "@/types/new-client-wizard";
 
 const fetcher = (url: string) => fetch(url).then((response) => response.json());
+
+/** A deep copy for a draft baseline — plain wizard data, never functions. */
+function cloneDraft<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value ?? null)) as T;
+}
 
 /** The stored API category for a hub route. A custom hub is the Plan Sponsor row. */
 export function portalBenefitApiCategory(category: string | null): string {
@@ -317,10 +323,17 @@ export function PortalBenefitEditor() {
   });
 
   const [hydrated, setHydrated] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
-  // The panel header's "Unsaved changes" badge follows this draft.
-  usePortalDirtyReport(isDirty);
   const hydratedKeyRef = useRef<string | null>(null);
+  /**
+   * The Steps/hub data as they were LOADED — the comparison for "is this a
+   * change?". A one-way "touched a field" flag stayed on after a revert, so the
+   * header badge (and Save) never came back to clean on their own.
+   */
+  const baselineStepsRef = useRef<{
+    step1: BenefitsStep1Data | null;
+    step3: BenefitsStep3Data | null;
+  } | null>(null);
+  const baselineDisclaimersRef = useRef<unknown>(undefined);
   const skipFirstChangeRef = useRef(true);
   const savingRef = useRef(false);
   // The draft effect needs the newest plan without re-subscribing on every patch.
@@ -345,8 +358,9 @@ export function PortalBenefitEditor() {
 
   const handleDisclaimersChange = useCallback(
     (next: PortalDisclaimersEnvelope) => {
+      // The ref is what Save reads to know the plan needs the PUT; the badge is
+      // derived from `clientData.disclaimers` vs its baseline below.
       disclaimersDirtyRef.current = true;
-      setIsDirty(true);
       // Live preview: the layout resolves this hub's footer from this value.
       patchClientData({ disclaimers: next });
     },
@@ -358,11 +372,21 @@ export function PortalBenefitEditor() {
     (benefit: Record<string, any> | null, plan: Record<string, any> | null) => {
       setHydrated(false);
       const store = useBenefitsWizardStore.getState();
-      store.saveStepData(
-        1,
-        step1FromBenefit({ benefit, clientData: plan, planId, apiCategory }),
-      );
-      store.saveStepData(3, step3FromBenefit(benefit, apiCategory));
+      const step1 = step1FromBenefit({
+        benefit,
+        clientData: plan,
+        planId,
+        apiCategory,
+      });
+      const step3 = step3FromBenefit(benefit, apiCategory);
+      store.saveStepData(1, step1);
+      store.saveStepData(3, step3);
+      // What the panel now shows becomes the baseline the badge compares to.
+      baselineStepsRef.current = {
+        step1: cloneDraft(step1),
+        step3: cloneDraft(step3),
+      };
+      baselineDisclaimersRef.current = plan?.disclaimers;
       skipFirstChangeRef.current = true;
       setHydrated(true);
     },
@@ -386,6 +410,19 @@ export function PortalBenefitEditor() {
   const stepData = useBenefitsWizardStore((state) => state.stepData);
 
   /**
+   * The badge follows the DRAFT: edit a field and set it back, and this is false
+   * again. `hydrated` gates it so the loading pass is never reported as a change.
+   */
+  const baselineSteps = baselineStepsRef.current;
+  const isDirty =
+    hydrated &&
+    (baselineSteps == null ||
+      !sameDraft(stepData.step1 ?? null, baselineSteps.step1) ||
+      !sameDraft(stepData.step3 ?? null, baselineSteps.step3) ||
+      !sameDraft(clientData?.disclaimers, baselineDisclaimersRef.current));
+  usePortalDirtyReport(isDirty);
+
+  /**
    * Any store change after hydration is a user edit. Repaint the hub from the
    * draft (SWR cache + the plan-level slices the page reads) and light up the
    * action bar; nothing is written until Save.
@@ -396,8 +433,6 @@ export function PortalBenefitEditor() {
       skipFirstChangeRef.current = false;
       return;
     }
-
-    setIsDirty(true);
 
     const step1 = stepData.step1 as BenefitsStep1Data | undefined;
     if (!benefitKey || !step1) return;
@@ -485,7 +520,13 @@ export function PortalBenefitEditor() {
         disclaimersDirtyRef.current = false;
       }
 
-      setIsDirty(false);
+      // What was just saved becomes the baseline the badge compares to.
+      const savedSteps = useBenefitsWizardStore.getState().stepData;
+      baselineStepsRef.current = {
+        step1: cloneDraft((savedSteps.step1 ?? null) as BenefitsStep1Data | null),
+        step3: cloneDraft((savedSteps.step3 ?? null) as BenefitsStep3Data | null),
+      };
+      baselineDisclaimersRef.current = clientDataRef.current?.disclaimers;
       finishSave();
       // The saved row is the source of truth now — drop the optimistic cache.
       if (benefitKey) await mutate(benefitKey);
@@ -507,7 +548,6 @@ export function PortalBenefitEditor() {
    */
   const cancel = useCallback(async () => {
     if (savingRef.current) return;
-    setIsDirty(false);
     disclaimersDirtyRef.current = false;
     resetSave();
 

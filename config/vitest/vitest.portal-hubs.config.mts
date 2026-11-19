@@ -65,6 +65,8 @@ const portalHubTests = [
   "components/portal-editing/__tests__/portal-benefit-visibility-toggle.test.tsx",
   // The panel header's amber "Unsaved changes" chip and the hook editors report with
   "components/portal-editing/__tests__/portal-draft-badge.test.tsx",
+  // The comparison behind "is this actually a change?" (revert clears the badge)
+  "lib/__tests__/portal-draft-compare.test.ts",
   // Employee Resources' three blue buttons: each names its own panel section
   "app/(portal)/[id]/employee-resources/__tests__/page-edit-affordances.test.tsx",
   // A benefit hub's five blue buttons (one template, four pages)

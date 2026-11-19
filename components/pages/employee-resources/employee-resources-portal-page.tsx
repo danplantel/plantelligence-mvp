@@ -101,14 +101,21 @@ export function EmployeeResourcesPortalPage({
   );
 
   /**
-   * The hub read. Participants get the public payload; a host that mounts this page as
-   * an EDITOR (the dashboard preview) passes its own key through the editing provider,
-   * because the public read answers `topics: null` while the hub is unpublished — which
-   * is exactly when the advisor is setting the questions up.
+   * The hub read. Participants get the public payload; an ARMED edit view gets the
+   * builder payload.
+   *
+   * The public read answers `topics: null` while the hub is unpublished — correct for
+   * a participant, wrong for the advisor arranging the questions. That gate is why
+   * Quick Answers used to disappear on the portal's own `?edit=true` view until the
+   * page was published: the page read the participant payload there. A mounted
+   * editing provider means an editor (the portal's armed view, or the dashboard
+   * preview, which supplies its own key), so the board is read directly.
    */
   const readKey = clientId
     ? (editing?.employeeResourcesReadKey ??
-      `/api/clients/${clientId}/employee-resources?forPortal=1`)
+      (editing
+        ? `/api/clients/${clientId}/employee-resources`
+        : `/api/clients/${clientId}/employee-resources?forPortal=1`))
     : null;
 
   const { data, error, mutate } = useSWR<EmployeeResourcesResponse>(
@@ -123,19 +130,19 @@ export function EmployeeResourcesPortalPage({
    * A plan that has published the hub already has the library's recommended questions,
    * grouped — the publish path seeds them. A plan that has never been seeded shows an
    * empty board, and the page then has no Quick Answers section to render at all.
-   * Seeding here makes the editor preview match what a published plan looks like, which
-   * is the whole point of previewing.
+   * Seeding here makes the editor view match what a published plan looks like.
    *
-   * Only for the editor host (it is the one that supplies `employeeResourcesReadKey`)
-   * and only when the viewer may edit. It fires for an empty board AND for a board
-   * whose cards have no answer behind them: a plan seeded before the library shipped
-   * answers holds the topic rows with an empty body, and the seed endpoint backfills
-   * those (never overwriting one that already has content). The endpoint is
-   * idempotent, so asking for both states costs nothing when neither applies.
+   * Any mounted editing provider counts as the editor host now (the dashboard preview
+   * and the portal's own `?edit=true` view), and only when the viewer may edit. It
+   * fires for an empty board AND for a board whose cards have no answer behind them:
+   * a plan seeded before the library shipped answers holds the topic rows with an
+   * empty body, and the seed endpoint backfills those (never overwriting one that
+   * already has content). The endpoint is idempotent, so asking for both states costs
+   * nothing when neither applies.
    */
   const seededRef = useRef(false);
   useEffect(() => {
-    if (!editing?.employeeResourcesReadKey || !editing.canEdit) return;
+    if (!editing || !editing.canEdit) return;
     if (!data || seededRef.current) return;
     const topics = data.topics;
     const placed = topics

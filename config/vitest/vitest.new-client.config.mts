@@ -23,6 +23,8 @@ const newClientTests = [
   "components/wizard/__tests__/new-client-wizard.test.tsx",
   // Brand-image utilities (hero/thumbnail crops, URL resolution)
   "components/wizard/new-client-steps/sections/utils/__tests__/utils.test.ts",
+  // The theme picker's example cards carry their own theme's shape and fonts
+  "components/wizard/new-client-steps/sections/__tests__/typography-section.test.tsx",
   // Step 1 — company basics / branding
   "components/wizard/new-client-steps/__tests__/step-1-company-basics.test.tsx",
   // Step 3 — key-contact slide routing

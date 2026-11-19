@@ -19,6 +19,7 @@ import {
   normalizeKeyContactCardStyle,
   type KeyContactCardStyle,
 } from "@/lib/key-contact-card-style";
+import { sameDraft } from "@/lib/portal-draft-compare";
 import type { KeyContact } from "@/types/new-client-wizard";
 
 interface KeyContactsBlob {
@@ -102,19 +103,18 @@ export function PortalTeamEditor() {
   const [blob, setBlob] = useState<KeyContactsBlob>(() =>
     normalizeBlob(clientData?.keyContacts),
   );
-  const dirtyRef = useRef(false);
   /**
-   * The same fact as `dirtyRef`, as STATE: the ref keeps the debounce correct
-   * without re-rendering, this one feeds the panel header's "Unsaved changes"
-   * badge. Autosave means the window is short, but while a keystroke is still
-   * waiting to be written the page beside the panel genuinely is a draft.
+   * "A write is pending" — the ref the debounce reads. It is NOT the badge: the
+   * badge compares the draft with `baselineRef`, so putting a value back the way it
+   * was clears it even before autosave runs (and the timer then skips the write).
    */
-  const [isDirty, setIsDirty] = useState(false);
+  const dirtyRef = useRef(false);
+  /** The blob as it was LOADED, or last written. The comparison for the badge. */
+  const baselineRef = useRef<KeyContactsBlob>(
+    normalizeBlob(clientData?.keyContacts),
+  );
+  const isDirty = !sameDraft(blob, baselineRef.current);
   usePortalDirtyReport(isDirty);
-  const markDirty = useCallback((dirty: boolean) => {
-    dirtyRef.current = dirty;
-    setIsDirty(dirty);
-  }, []);
   const hydratedRef = useRef<string | null>(null);
 
   // The latest blob for handlers that must not close over a stale render (a
@@ -126,7 +126,9 @@ export function PortalTeamEditor() {
     const id = clientData?.id ?? null;
     if (!id || hydratedRef.current === id) return;
     hydratedRef.current = id;
-    setBlob(normalizeBlob(clientData?.keyContacts));
+    const next = normalizeBlob(clientData?.keyContacts);
+    baselineRef.current = next;
+    setBlob(next);
   }, [clientData]);
 
   /** Write the blob to the plan. Reports whether the server accepted it. */
@@ -144,6 +146,8 @@ export function PortalTeamEditor() {
           const payload = await response.json().catch(() => null);
           throw new Error(payload?.error || "Could not save the team.");
         }
+        // What the server accepted becomes the baseline the badge compares to.
+        baselineRef.current = next;
         finishSave();
         return true;
       } catch (error) {
@@ -168,11 +172,13 @@ export function PortalTeamEditor() {
   useEffect(() => {
     if (!dirtyRef.current) return;
     const timer = setTimeout(() => {
-      markDirty(false);
+      dirtyRef.current = false;
+      // Typed and typed back: nothing to write.
+      if (sameDraft(blobRef.current, baselineRef.current)) return;
       void autosave();
     }, AUTOSAVE_DELAY);
     return () => clearTimeout(timer);
-  }, [blob, autosave, markDirty]);
+  }, [blob, autosave]);
 
   /**
    * One changed field: update the draft, push it into the portal's plan data so
@@ -180,7 +186,7 @@ export function PortalTeamEditor() {
    */
   const patchContact = useCallback(
     (contactId: string | number, updates: Record<string, any>) => {
-      markDirty(true);
+      dirtyRef.current = true;
       setBlob((previous) => {
         const contacts = previous.contacts.map((contact) =>
           contact.id === contactId ? { ...contact, ...updates } : contact,
@@ -190,7 +196,7 @@ export function PortalTeamEditor() {
         return next;
       });
     },
-    [markDirty, patchClientData],
+    [patchClientData],
   );
 
   /**
@@ -200,7 +206,7 @@ export function PortalTeamEditor() {
    */
   const setMainContactStyle = useCallback(
     (next: KeyContactCardStyle) => {
-      markDirty(true);
+      dirtyRef.current = true;
       setBlob((previous) => {
         const updated: KeyContactsBlob = {
           ...previous,
@@ -210,7 +216,7 @@ export function PortalTeamEditor() {
         return updated;
       });
     },
-    [markDirty, patchClientData],
+    [patchClientData],
   );
 
   /**
@@ -220,7 +226,7 @@ export function PortalTeamEditor() {
   const saveContact = useCallback(
     async (contactId: string | number) => {
       void contactId;
-      markDirty(false);
+      dirtyRef.current = false;
       const accepted = await persist(blobRef.current);
       if (!accepted) {
         toast.error("Could not save this contact. Please try again.");
@@ -229,12 +235,12 @@ export function PortalTeamEditor() {
       toast.success("Contact saved");
       return true;
     },
-    [markDirty, persist],
+    [persist],
   );
 
   const deleteContact = useCallback(
     async (contactId: string | number) => {
-      markDirty(false);
+      dirtyRef.current = false;
       const previous = blobRef.current;
       const contacts = previous.contacts.filter(
         (contact) => contact.id !== contactId,
@@ -258,7 +264,7 @@ export function PortalTeamEditor() {
       }
       toast.success("Contact removed");
     },
-    [markDirty, patchClientData, persist],
+    [patchClientData, persist],
   );
 
   return (

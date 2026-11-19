@@ -16,6 +16,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   focusSection: vi.fn(),
+  /** The key the page hands SWR — which payload it reads from. */
+  swrKey: null as string | null,
   editing: {
     value: null as null | { canEdit: boolean; focusSection: (id: string) => void },
   },
@@ -34,11 +36,15 @@ vi.mock("@/contexts/client-portal-context", () => ({
 }));
 
 // The page renders nothing until the hub read answers; only `enabled` matters here.
+// The KEY is captured: it decides whether an armed editor sees a hidden hub's board.
 vi.mock("swr", () => ({
-  default: () => ({
-    data: { enabled: true, topics: null },
-    error: null,
-  }),
+  default: (key: string) => {
+    mocks.swrKey = key;
+    return {
+      data: { enabled: true, topics: null },
+      error: null,
+    };
+  },
 }));
 
 vi.mock("@/hooks/useBrandingImageUrl", () => ({
@@ -77,6 +83,7 @@ import EmployeeResourcesPage from "../page";
 describe("Employee Resources — blue edit affordances", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.swrKey = null;
     mocks.editing.value = {
       canEdit: true,
       focusSection: mocks.focusSection,
@@ -109,6 +116,25 @@ describe("Employee Resources — blue edit affordances", () => {
     );
 
     expect(mocks.focusSection).toHaveBeenCalledWith("employee-resources-help");
+  });
+
+  it("reads the BUILDER payload in an armed edit view", () => {
+    // The participant payload answers `topics: null` while the hub is unpublished,
+    // which is why Quick Answers vanished until the page was published. An armed
+    // editor reads the builder payload, where the board is always present.
+    render(<EmployeeResourcesPage />);
+
+    expect(mocks.swrKey).toBe("/api/clients/plan-1/employee-resources");
+  });
+
+  it("keeps the participant payload when no editor is armed", () => {
+    mocks.editing.value = null;
+
+    render(<EmployeeResourcesPage />);
+
+    expect(mocks.swrKey).toBe(
+      "/api/clients/plan-1/employee-resources?forPortal=1",
+    );
   });
 
   it("opens the panel on the quick answers' section", async () => {

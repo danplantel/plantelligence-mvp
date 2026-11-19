@@ -33,6 +33,7 @@ import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
 import { usePortalDirtyReport } from "@/components/portal-editing/portal-draft-badge";
 import { PortalFooterSection } from "@/components/portal-editing/portal-footer-section";
+import { sameDraft } from "@/lib/portal-draft-compare";
 import { SectionHeader } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import {
   PORTAL_SECTION_IDS,
@@ -63,6 +64,19 @@ interface MarketingAssetDraft {
   /** The window the row is shown on the portal, as stored by the API. */
   startDate?: string | null;
   endDate?: string | null;
+}
+
+/**
+ * The four fields Save writes for an asset. The draft-only window fields are not
+ * in the PATCH, so they must not count as a change either.
+ */
+function assetSaveShape(asset: Partial<MarketingAssetDraft> | undefined) {
+  return {
+    headline: asset?.headline,
+    body: asset?.body,
+    ctaText: asset?.ctaText,
+    status: asset?.status,
+  };
 }
 
 /**
@@ -288,9 +302,6 @@ export function PortalNewsEditor() {
     : [];
 
   const [drafts, setDrafts] = useState<Record<string, MarketingAssetDraft>>({});
-  const [isDirty, setIsDirty] = useState(false);
-  // The panel header's "Unsaved changes" badge follows this draft.
-  usePortalDirtyReport(isDirty);
 
   /** Which creator is open, and what it creates. `null` renders none at all. */
   const [creator, setCreator] = useState<{
@@ -430,7 +441,6 @@ export function PortalNewsEditor() {
         delete next[id];
         return next;
       });
-      setIsDirty(heroDirtyRef.current || dirtyAssetsRef.current.size > 0);
       await refreshAssets();
     } catch (error) {
       // The panel's own error bar: the row is still there, and so is the reason.
@@ -453,6 +463,8 @@ export function PortalNewsEditor() {
   const [brandImages, setBrandImages] =
     useState<BrandImagesData>(savedBrandImages);
   const brandImagesRef = useRef<BrandImagesData>(savedBrandImages);
+  /** The header as it was loaded, for the "is this a change?" comparison. */
+  const baselineBrandImagesRef = useRef<BrandImagesData>(savedBrandImages);
   const heroDirtyRef = useRef(false);
   const dirtyAssetsRef = useRef<Set<string>>(new Set());
   const draftsRef = useRef<Record<string, MarketingAssetDraft>>({});
@@ -463,6 +475,19 @@ export function PortalNewsEditor() {
   // object every render (or a context that re-creates it) must not re-render
   // forever.
   const seededHeroRef = useRef<string>("");
+  /**
+   * Put the header back to a saved plan — baseline included, so the badge and the
+   * Save bar go clean. Save and Cancel both land here; the seed effect above only
+   * fires when the context CHANGES, which an optimistic draft can hide.
+   */
+  const reseedBrandImages = useCallback((plan: Record<string, any> | null) => {
+    const saved = brandImagesFromClient(plan);
+    seededHeroRef.current = JSON.stringify(saved);
+    baselineBrandImagesRef.current = saved;
+    brandImagesRef.current = saved;
+    setBrandImages(saved);
+  }, []);
+
   useEffect(() => {
     const json = JSON.stringify(savedBrandImages);
     if (heroDirtyRef.current) {
@@ -471,9 +496,24 @@ export function PortalNewsEditor() {
     }
     if (seededHeroRef.current === json) return;
     seededHeroRef.current = json;
+    baselineBrandImagesRef.current = savedBrandImages;
     brandImagesRef.current = savedBrandImages;
     setBrandImages(savedBrandImages);
   }, [savedBrandImages]);
+
+  /**
+   * The badge follows the DRAFT, not the keystroke: edit a row and set it back the
+   * way it was (or do the same with the header) and this is false again — no save
+   * needed, and the Save bar is disabled because there is nothing to write.
+   */
+  const changedAssets = assets.filter((asset) => {
+    const draft = drafts[asset.id];
+    return draft && !sameDraft(assetSaveShape(draft), assetSaveShape(asset));
+  });
+  const isDirty =
+    changedAssets.length > 0 ||
+    !sameDraft(brandImages, baselineBrandImagesRef.current);
+  usePortalDirtyReport(isDirty);
 
   // Re-seed each row from the server list, keeping rows the advisor has edited.
   useEffect(() => {
@@ -526,7 +566,6 @@ export function PortalNewsEditor() {
   const update = useCallback(
     (id: string, patch: Partial<MarketingAssetDraft>) => {
       dirtyAssetsRef.current.add(id);
-      setIsDirty(true);
       setDrafts((previous) => ({
         ...previous,
         [id]: { ...previous[id], ...patch },
@@ -542,7 +581,6 @@ export function PortalNewsEditor() {
       const banner = next.secondaryBanner ?? null;
       brandImagesRef.current = next;
       heroDirtyRef.current = true;
-      setIsDirty(true);
       setBrandImages(next);
       patchClientData({
         brandImages: next,
@@ -556,8 +594,18 @@ export function PortalNewsEditor() {
   /** Persist the drafted hero + every edited row. Only the bar calls this. */
   const save = useCallback(async () => {
     if (!planId) return;
-    const heroDirty = heroDirtyRef.current;
-    const assetIds = Array.from(dirtyAssetsRef.current);
+    const heroDirty = !sameDraft(
+      brandImagesRef.current,
+      baselineBrandImagesRef.current,
+    );
+    // Only rows that genuinely differ are PATCHed — a row typed back to its saved
+    // values is not a change, which is the same rule the header badge follows.
+    const assetIds = assets
+      .filter((asset) => {
+        const draft = draftsRef.current[asset.id];
+        return draft && !sameDraft(assetSaveShape(draft), assetSaveShape(asset));
+      })
+      .map((asset) => asset.id);
     if (!heroDirty && assetIds.length === 0) return;
 
     beginSave();
@@ -597,7 +645,6 @@ export function PortalNewsEditor() {
 
       heroDirtyRef.current = false;
       dirtyAssetsRef.current.clear();
-      setIsDirty(false);
       finishSave();
 
       // The saved rows are the source of truth now.
@@ -607,7 +654,16 @@ export function PortalNewsEditor() {
           ? cacheKey.startsWith(PUBLIC_ASSETS_PREFIX)
           : false,
       );
-      if (heroDirty) await refetchPortal();
+      if (heroDirty) {
+        const fresh = await refetchPortal();
+        if (fresh) {
+          reseedBrandImages(fresh as Record<string, any>);
+        } else {
+          // No refetched plan: what was written is the new baseline.
+          seededHeroRef.current = JSON.stringify(brandImagesRef.current);
+          baselineBrandImagesRef.current = brandImagesRef.current;
+        }
+      }
     } catch (error) {
       // Keep the draft and its preview so the advisor can retry.
       failSave(
@@ -618,6 +674,7 @@ export function PortalNewsEditor() {
     }
   }, [
     planId,
+    assets,
     key,
     mutateList,
     mutate,
@@ -625,23 +682,42 @@ export function PortalNewsEditor() {
     finishSave,
     failSave,
     refetchPortal,
+    reseedBrandImages,
   ]);
 
   /** Throw the draft away: revalidate both sources and re-seed from them. */
   const cancel = useCallback(async () => {
     heroDirtyRef.current = false;
     dirtyAssetsRef.current.clear();
-    setIsDirty(false);
+    // Rows go back to the server copy immediately: the reseed effect only fires
+    // when the list CHANGES, and a refetch can hand back an equal one.
+    setDrafts(
+      Object.fromEntries(assets.map((asset) => [asset.id, { ...asset }])),
+    );
     resetSave();
 
-    await refetchPortal();
+    const fresh = await refetchPortal();
+    // The refetched plan is the saved truth; without one, the context is the best
+    // available answer (the editor patches it optimistically).
+    reseedBrandImages(
+      (fresh ?? clientData) as Record<string, any> | null,
+    );
     if (key) await mutateList();
     await mutate((cacheKey: string | null) =>
       typeof cacheKey === "string"
         ? cacheKey.startsWith(PUBLIC_ASSETS_PREFIX)
         : false,
     );
-  }, [key, mutateList, mutate, refetchPortal, resetSave]);
+  }, [
+    assets,
+    clientData,
+    key,
+    mutateList,
+    mutate,
+    refetchPortal,
+    resetSave,
+    reseedBrandImages,
+  ]);
 
   return (
     <PortalEditorShell

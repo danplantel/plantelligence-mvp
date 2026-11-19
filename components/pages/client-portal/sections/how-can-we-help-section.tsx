@@ -651,8 +651,11 @@ function AccountAccessCard({
 
           {description && (
             <p
+              // The theme's BODY font (`--font-body` via `font-red-hat`), like the
+              // rest of the portal's copy. Without it this line inherited Manrope
+              // from `html` and ignored the plan's typography theme.
               className={cn(
-                "mt-0.5 text-[15px] leading-snug",
+                "mt-0.5 font-red-hat text-[15px] leading-snug",
                 isWide ? "line-clamp-2" : "line-clamp-1",
                 !primary && "text-neutral-600",
               )}
@@ -934,12 +937,14 @@ function HelpCardPanel({
       ) : (
         <>
           {card.introBold && (
-            <p className="mt-3 text-[15px] font-semibold text-neutral-900">
+            <p className="mt-3 font-red-hat text-[15px] font-semibold text-neutral-900">
               {card.introBold}
             </p>
           )}
 
-          <div className="mt-2 space-y-2 text-[15px] leading-relaxed text-neutral-700">
+          {/* The theme's body font for the expanded answer, the same face the card
+              lines use — the detail panel is still the plan's copy. */}
+          <div className="mt-2 space-y-2 font-red-hat text-[15px] leading-relaxed text-neutral-700">
             {(card.paragraphs ?? [])
               .map(fillPlanTokens)
               .filter((paragraph) => paragraph && paragraph.trim())
@@ -1678,11 +1683,13 @@ export function HowCanWeHelpSection({
                   {card.title}
                 </h3>
 
-                {/* Body text — the short supporting line on the card itself. */}
+                {/* Body text — the short supporting line on the card itself.
+                    `font-red-hat` is the theme's body role (`--font-body`), so the
+                    card copy follows the plan's Typography Theme. */}
                 {card.body && (
                   <p
                     className={cn(
-                      "text-[15px] leading-snug",
+                      "font-red-hat text-[15px] leading-snug",
                       !isPrimary && "text-neutral-600",
                     )}
                     style={isPrimary ? { color: onPrimaryMuted } : undefined}

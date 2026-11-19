@@ -3,10 +3,19 @@ import { Toaster as ToasterContainer } from "@/components/ui/toaster";
 import { Toaster } from "@/components/ui/sonner";
 import { PageTitleProvider } from "@/hooks/usePageTitleContext";
 import { LoadingProvider } from "@/contexts/loading-context";
-import "@uploadthing/react/styles.css";
 import type { Metadata, Viewport } from "next";
 import { Manrope, Playfair_Display, Sora, Lora, Outfit } from "next/font/google";
 import localFont from "next/font/local";
+/**
+ * `@uploadthing/react/styles.css` is deliberately NOT imported.
+ *
+ * Nothing in the client renders UploadThing's own components (only its
+ * `uploadthing/next` route helpers are used), so the sheet bought us nothing — and
+ * it is a prebuilt Tailwind build whose unprefixed rules (`.rounded`, `.rounded-md`,
+ * `.rounded-lg`, `.flex-col`, …) landed AFTER this app's utilities and won on equal
+ * specificity. That silently re-pinned every `rounded-md`/`rounded-lg` to fixed radii,
+ * which is why a "sharp" typography theme could not square a portal button.
+ */
 import "./globals.css";
 import { getServerSession } from "next-auth";
 import { headers } from "next/headers";

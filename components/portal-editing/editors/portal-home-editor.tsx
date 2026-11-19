@@ -22,6 +22,7 @@ import {
   readPortalContacts,
   resolvePortalPrimaryContact,
 } from "@/lib/portal-primary-contact";
+import { sameDraft } from "@/lib/portal-draft-compare";
 import type {
   BrandImageData,
   BrandImagesData,
@@ -160,6 +161,18 @@ function payloadForField(field: string, value: any): Record<string, unknown> {
 }
 
 /**
+ * A logo's URL, whichever shape it arrives in.
+ *
+ * The draft holds the upload result (`CompanyLogoData`); the plan stores the URL,
+ * and the baseline can be either (straight from the API, or merged from a save
+ * payload). Comparing the URL is what makes "put the old logo back" read as clean.
+ */
+function logoUrlOf(value: any): string {
+  if (typeof value === "string") return value;
+  return String(value?.url ?? "");
+}
+
+/**
  * Portal Home editor.
  *
  * Renders the exact same Editing Panel sections as Create Plan Step 2 and Edit
@@ -199,6 +212,12 @@ export function PortalHomeEditor() {
   const [isDirty, setIsDirty] = useState(false);
   // The panel header's "Unsaved changes" badge follows this draft.
   usePortalDirtyReport(isDirty);
+  /**
+   * The plan as it was LOADED — the comparison for "is this actually a change?".
+   * `pendingRef` alone could not answer that: queueing a field and then setting it
+   * back left its key queued forever, so the badge stayed on after a revert.
+   */
+  const baselineRef = useRef<Record<string, any> | null>(null);
 
   // Re-seed the local editor from the saved plan on first mount (and after a
   // failed save refetch). Optimistic patches this editor made keep the same
@@ -209,6 +228,7 @@ export function PortalHomeEditor() {
     if (!clientData) return;
     if (hydratedKeyRef.current === hydrationKey) return;
     hydratedKeyRef.current = hydrationKey;
+    baselineRef.current = { ...(clientData as Record<string, any>) };
     setCompanyData(companyFromClient(clientData as Record<string, any>));
     setUseDefaultWelcomeMessage(
       !clientData.heroDescription ||
@@ -221,8 +241,21 @@ export function PortalHomeEditor() {
   }, [clientData, hydrationKey]);
 
   const queueChange = useCallback((fields: Record<string, any>) => {
-    pendingRef.current = { ...pendingRef.current, ...fields };
-    setIsDirty(true);
+    const baseline = baselineRef.current ?? {};
+    const next: Record<string, any> = { ...pendingRef.current, ...fields };
+    // A field put back exactly as it was loaded is not a change: drop it, so the
+    // header badge disappears without a save. A logo compares by URL (the draft
+    // holds the data object; the plan stores the URL).
+    for (const key of Object.keys(next)) {
+      const saved = baseline[key];
+      const unchanged =
+        key === "companyLogo"
+          ? logoUrlOf(next[key]) === logoUrlOf(saved)
+          : sameDraft(next[key], saved);
+      if (unchanged) delete next[key];
+    }
+    pendingRef.current = next;
+    setIsDirty(Object.keys(next).length > 0);
   }, []);
 
   const updateField = useCallback(
@@ -295,8 +328,10 @@ export function PortalHomeEditor() {
         throw new Error(body?.error || "Could not save this page.");
       }
       // Everything queued was in this payload, and the live preview already
-      // shows exactly what the server accepted.
+      // shows exactly what the server accepted. The baseline moves with it, so
+      // the next edit is compared against what is now stored.
       pendingRef.current = {};
+      baselineRef.current = { ...(baselineRef.current ?? {}), ...payload };
       setIsDirty(false);
       finishSave();
     } catch (error) {
@@ -323,6 +358,7 @@ export function PortalHomeEditor() {
 
     const fresh = await refetchPortal();
     if (fresh) {
+      baselineRef.current = { ...(fresh as Record<string, any>) };
       setCompanyData(companyFromClient(fresh as Record<string, any>));
       setUseDefaultWelcomeMessage(
         !fresh.heroDescription ||

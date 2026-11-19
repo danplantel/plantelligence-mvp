@@ -16,6 +16,7 @@ import {
   normalizeTypographyThemeId,
   type TypographyThemeId,
 } from "@/lib/typography-themes";
+import { sameDraft } from "@/lib/portal-draft-compare";
 import {
   QuickAnswersBuilder,
   type BoardPayload,
@@ -87,14 +88,16 @@ export function PortalEmployeeResourcesEditor() {
    * beside the panel repaints in the same frame instead of waiting for this read to
    * come back.
    *
-   * On the portal that read is the participant payload (`?forPortal=1`). A host that
-   * mounts the page as an EDITOR — the dashboard preview — supplies its own key via the
-   * provider, so the page and this patch target the same cache entry and the board is
-   * visible even while the hub is unpublished.
+   * The read is the BUILDER payload, not the participant `?forPortal=1` one: that
+   * answers `topics: null` while the hub is unpublished, so a patch would repaint
+   * nothing and the page's Quick Answers section would stay empty until publishing.
+   * The page reads this same key in an armed edit view (and the dashboard preview
+   * supplies its own via the provider), so this patch and the page share one cache
+   * entry and the board is visible even while the hub is unpublished.
    */
   const topicsKey = planId
     ? employeeResourcesReadKey ??
-      `/api/clients/${planId}/employee-resources?forPortal=1`
+      `/api/clients/${planId}/employee-resources`
     : null;
   const patchTopics = useCallback(
     (board: BoardPayload) => {
@@ -125,11 +128,17 @@ export function PortalEmployeeResourcesEditor() {
   );
   const [brandImages, setBrandImages] =
     useState<BrandImagesData>(savedBrandImages);
-  const [isDirty, setIsDirty] = useState(false);
-  // The panel header's "Unsaved changes" badge follows this draft.
-  usePortalDirtyReport(isDirty);
   const brandImagesRef = useRef<BrandImagesData>(savedBrandImages);
   const heroDirtyRef = useRef(false);
+  /**
+   * What this panel LOADED, for "is this actually a change?".
+   *
+   * `savedBrandImages` follows the live portal context, which this editor patches
+   * on every upload, so it cannot serve as the baseline. This snapshot changes only
+   * when the draft is (re)seeded or saved — which is what makes a revert to the
+   * original image read as clean again.
+   */
+  const baselineBrandImagesRef = useRef<BrandImagesData>(savedBrandImages);
 
   /**
    * Section 1 — the plan's typography theme.
@@ -147,10 +156,22 @@ export function PortalEmployeeResourcesEditor() {
   const [themeDraft, setThemeDraft] =
     useState<TypographyThemeId>(savedTheme);
   const themeDirtyRef = useRef(false);
+  /** The theme the panel loaded — same role as the hero baseline above. */
+  const baselineThemeRef = useRef<TypographyThemeId>(savedTheme);
+
+  /**
+   * The badge follows the DRAFT, not the click: pick a value, pick the original
+   * back, and this is false again. Nothing else has to remember to clear it.
+   */
+  const themeDirty = themeDraft !== baselineThemeRef.current;
+  const heroDirty = !sameDraft(brandImages, baselineBrandImagesRef.current);
+  const isDirty = themeDirty || heroDirty;
+  usePortalDirtyReport(isDirty);
 
   // Re-seed from the plan whenever it reloads and the advisor has not picked one.
   useEffect(() => {
     if (themeDirtyRef.current) return;
+    baselineThemeRef.current = savedTheme;
     setThemeDraft(savedTheme);
   }, [savedTheme]);
 
@@ -159,7 +180,6 @@ export function PortalEmployeeResourcesEditor() {
     (id: TypographyThemeId) => {
       themeDirtyRef.current = true;
       setThemeDraft(id);
-      setIsDirty(true);
       patchClientData({ typographyTheme: id } as any);
     },
     [patchClientData],
@@ -176,6 +196,7 @@ export function PortalEmployeeResourcesEditor() {
     }
     if (seededHeroRef.current === json) return;
     seededHeroRef.current = json;
+    baselineBrandImagesRef.current = savedBrandImages;
     brandImagesRef.current = savedBrandImages;
     setBrandImages(savedBrandImages);
   }, [savedBrandImages]);
@@ -187,7 +208,6 @@ export function PortalEmployeeResourcesEditor() {
       const currentPlan = (clientData ?? {}) as Record<string, any>;
       brandImagesRef.current = next;
       heroDirtyRef.current = true;
-      setIsDirty(true);
       setBrandImages(next);
       // `employeePortalPreview` is merged here: `patchClientData` replaces the
       // key it is given, and this hub's image lives inside that blob.
@@ -203,9 +223,29 @@ export function PortalEmployeeResourcesEditor() {
     [clientData, patchClientData],
   );
 
-  /** Persist the drafted hero. Only the bar calls this. */
+  /**
+   * Re-seed the drafts AND their baselines from the saved plan.
+   *
+   * Save and Cancel both land here: the optimistic draft may have patched the
+   * context, so "equal to what the server now holds" has to be re-established, not
+   * assumed. That is what leaves the header badge clean afterwards.
+   */
+  const reseedFromPlan = useCallback((plan: Record<string, any> | null) => {
+    const nextTheme = normalizeTypographyThemeId(
+      plan?.typographyTheme,
+    ) as TypographyThemeId;
+    const nextBrandImages = brandImagesFromClient(plan);
+    baselineThemeRef.current = nextTheme;
+    setThemeDraft(nextTheme);
+    baselineBrandImagesRef.current = nextBrandImages;
+    brandImagesRef.current = nextBrandImages;
+    setBrandImages(nextBrandImages);
+    seededHeroRef.current = JSON.stringify(nextBrandImages);
+  }, []);
+
+  /** Persist the drafted hero and theme. Only the bar calls this. */
   const save = useCallback(async () => {
-    if (!planId || !heroDirtyRef.current) return;
+    if (!planId || !isDirty) return;
 
     beginSave();
     try {
@@ -246,10 +286,11 @@ export function PortalEmployeeResourcesEditor() {
 
       heroDirtyRef.current = false;
       themeDirtyRef.current = false;
-      setIsDirty(false);
       finishSave();
-      // The stored value replaces the optimistic data URL.
-      await refetchPortal();
+      // The stored value replaces the optimistic data URL (and the R2 key the
+      // upload produced), so the drafts are re-seeded from the saved plan.
+      const fresh = await refetchPortal();
+      reseedFromPlan(fresh as Record<string, any> | null);
     } catch (error) {
       failSave(
         error instanceof Error
@@ -257,16 +298,25 @@ export function PortalEmployeeResourcesEditor() {
           : "Could not save the header image.",
       );
     }
-  }, [planId, themeDraft, beginSave, finishSave, failSave, refetchPortal]);
+  }, [
+    planId,
+    isDirty,
+    themeDraft,
+    beginSave,
+    finishSave,
+    failSave,
+    refetchPortal,
+    reseedFromPlan,
+  ]);
 
   /** Throw the draft away; the portal refetch restores the saved band. */
   const cancel = useCallback(async () => {
     heroDirtyRef.current = false;
     themeDirtyRef.current = false;
-    setIsDirty(false);
     resetSave();
-    await refetchPortal();
-  }, [refetchPortal, resetSave]);
+    const fresh = await refetchPortal();
+    reseedFromPlan(fresh as Record<string, any> | null);
+  }, [refetchPortal, resetSave, reseedFromPlan]);
 
   return (
     <PortalEditorShell
