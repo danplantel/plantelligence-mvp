@@ -1881,7 +1881,7 @@ describe("HowCanWeHelpSection phone treatment", () => {
     expect(access.className).toContain("whitespace-nowrap");
   });
 
-  it("centres the Account Access plan ID inside the card", () => {
+  it("left-aligns the Account Access plan ID when the card is the primary", () => {
     const { container } = render(
       <HowCanWeHelpSection
         clientId="plan-1"
@@ -1892,8 +1892,45 @@ describe("HowCanWeHelpSection phone treatment", () => {
     const chip = within(tile(container, "account-access")).getByText(
       "PLAN / GROUP ID: 1234",
     );
-    // The chip and the provider line share one centred row at every width.
+    // A primary card is left-aligned copy: its plan ID and recordkeeper line sit
+    // on that same edge instead of floating in the middle of the tile.
+    expect(chip.parentElement?.className).toContain("justify-start");
+    expect(chip.parentElement?.className).toContain("text-left");
+    expect(chip.parentElement?.className).not.toContain("justify-center");
+  });
+
+  it("keeps the plan ID centred when the Access card is not the primary", () => {
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        planIdLabel="PLAN / GROUP ID: 1234"
+        // Medicare takes the primary slot, so Account Access is a standard tile.
+        cards={[{ id: "medicare", primary: true }]}
+      />,
+    );
+
+    const chip = within(tile(container, "account-access")).getByText(
+      "PLAN / GROUP ID: 1234",
+    );
     expect(chip.parentElement?.className).toContain("justify-center");
     expect(chip.parentElement?.className).toContain("text-center");
+  });
+
+  it("left-aligns the Employee Resources Access card's plan ID too", () => {
+    const { container } = render(
+      <HowCanWeHelpSection
+        category="Employee Resources"
+        clientId="plan-1"
+        planIdLabel="PLAN / GROUP ID: 5678"
+      />,
+    );
+
+    const chip = within(tile(container, "account-access")).getByText(
+      "PLAN / GROUP ID: 5678",
+    );
+    // The fifth hub uses the same Account Access tile, so the primary rule is
+    // the same one — it must not be a benefit-only alignment.
+    expect(chip.parentElement?.className).toContain("justify-start");
+    expect(chip.parentElement?.className).toContain("text-left");
   });
 });

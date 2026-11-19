@@ -667,11 +667,18 @@ function AccountAccessCard({
 
           {/* Plan ID and administrator share one wrapped line — two short facts,
               not two stacked blocks that push the CTA to the far bottom of a wide
-              card. Centred in the card at every width: the ID chip is the one
-              piece of chrome a participant scans, and it read as stranded on the
-              left on a phone. */}
+              card. A PRIMARY tile anchors them to the same left edge as its title
+              and copy, so the chip does not float in the middle of a left-aligned
+              card; a non-primary tile keeps its centred band. */}
           {(planIdLabel || providerName) && (
-            <div className="mt-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 text-center">
+            <div
+              className={cn(
+                "mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5",
+                primary
+                  ? "justify-start text-left"
+                  : "justify-center text-center",
+              )}
+            >
               {planIdLabel && (
                 <span
                   className="inline-block rounded-md px-2 py-1 font-red-hat text-[13px] font-semibold leading-tight"
