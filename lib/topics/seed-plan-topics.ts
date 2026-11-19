@@ -69,6 +69,22 @@ export interface NewPlacementInput {
 export interface TopicSeedStore {
   findTopicsBySlug(slugs: string[]): Promise<TopicRecord[]>;
   createTopic(input: NewTopicInput): Promise<TopicRecord>;
+  /**
+   * Fill in the body of an EXISTING Topic row.
+   *
+   * Topic rows are shared across plans, so the first plan to save after a content
+   * pass creates `sys.<slug>` — but a plan that already held that row keeps the
+   * blank body it was created with, because seeding never overwrites. This is the
+   * one write that closes that gap: it is only ever called for a row with NO
+   * answer body, so an advisor's copy (or a previous pass) is never replaced.
+   *
+   * Optional because it is a content fix-up, not part of placing topics: a store
+   * that does not implement it skips the backfill instead of failing the contract.
+   */
+  updateTopicContent?(input: {
+    topicId: string;
+    bodyBlocks: TopicBodyBlock[] | null;
+  }): Promise<void>;
   listGroups(clientId: string, location: TopicLocation): Promise<AccordionGroupRecord[]>;
   createGroup(input: NewGroupInput): Promise<AccordionGroupRecord>;
   listPlacements(
@@ -148,6 +164,19 @@ export function createPrismaTopicSeedStore(
         defaultCta: row.defaultCta,
         status: row.status as TopicRecord["status"],
       };
+    },
+
+    async updateTopicContent({ topicId, bodyBlocks }) {
+      await prisma.topic.update({
+        where: { id: topicId },
+        data: {
+          // Same structural cast as `createTopic`: a plain interface is not
+          // assignable to Prisma's index-signature JSON input type.
+          bodyBlocks: (bodyBlocks ?? undefined) as
+            | Prisma.InputJsonValue
+            | undefined,
+        },
+      });
     },
 
     async listGroups(clientId, location) {
@@ -292,6 +321,77 @@ function groupOrderFor(
   return declared;
 }
 
+/** A row whose `bodyBlocks` is a non-empty list already has an answer. */
+function hasAnswerBody(value: unknown): boolean {
+  return Array.isArray(value) && value.length > 0;
+}
+
+/**
+ * Write the shipped answer into every Topic row that has none yet.
+ *
+ * Seeding only ever creates a row it does not find, so the answers a later content
+ * pass adds would otherwise never reach a plan: the row is shared, and the plan that
+ * created it did so before the answers existed. This fills exactly those rows — a
+ * row with any body is left alone, so an advisor's own copy is never replaced.
+ *
+ * Returns how many rows were filled (0 when the store cannot update).
+ */
+async function backfillBodies(input: {
+  seeds: LibraryTopicSeed[];
+  topicBySlug: Map<string, TopicRecord>;
+  store: TopicSeedStore;
+}): Promise<number> {
+  const { seeds, topicBySlug, store } = input;
+  if (!store.updateTopicContent) return 0;
+
+  let updated = 0;
+  for (const seed of seeds) {
+    const bodyBlocks = seed.bodyBlocks ?? [];
+    if (bodyBlocks.length === 0) continue;
+    const topic = topicBySlug.get(systemTopicSlug(seed.slug));
+    if (!topic?.id) continue;
+    if (hasAnswerBody(topic.bodyBlocks)) continue;
+    await store.updateTopicContent({ topicId: topic.id, bodyBlocks });
+    updated += 1;
+  }
+
+  return updated;
+}
+
+/**
+ * Give a location's already-seeded topics the answers the library ships today.
+ *
+ * Idempotent and safe to call on every read: it writes only rows with no body, so a
+ * plan that already has content costs one slug lookup and no writes. A location that
+ * has never been seeded has no rows to fill — `seedLocationTopics` creates them with
+ * their bodies.
+ */
+export async function backfillLocationTopicContent(params: {
+  category?: string | null;
+  location?: TopicLocation | null;
+  store?: TopicSeedStore;
+}): Promise<{ updatedTopics: number; location: TopicLocation | null }> {
+  const location =
+    params.location ?? topicLocationForCategory(params.category);
+  if (!location) return { updatedTopics: 0, location: null };
+
+  const seeds = dedupeSeedTopics(libraryTopicsForLocation(location));
+  if (seeds.length === 0) return { updatedTopics: 0, location };
+
+  const store = params.store ?? createPrismaTopicSeedStore();
+  if (!store.updateTopicContent) return { updatedTopics: 0, location };
+
+  const existingTopics = await store.findTopicsBySlug(
+    seeds.map((seed) => systemTopicSlug(seed.slug)),
+  );
+  const topicBySlug = new Map(
+    existingTopics.map((topic) => [topic.slug, topic]),
+  );
+
+  const updatedTopics = await backfillBodies({ seeds, topicBySlug, store });
+  return { updatedTopics, location };
+}
+
 /**
  * Seed one location of one plan from the shipped library.
  *
@@ -359,6 +459,11 @@ export async function seedLocationTopics(params: {
     topicBySlug.set(slug, created);
     createdTopics += 1;
   }
+
+  // A row that already existed may predate the answers the library ships today —
+  // the plan that created it did so before they were written. Give it a body; a
+  // row with content (an advisor's copy included) is never touched.
+  await backfillBodies({ seeds, topicBySlug, store });
 
   // 3. Placements — only where the plan does not already have one for this location.
   const existingPlacements = await store.listPlacements(clientId, location);
@@ -469,6 +574,11 @@ export async function syncNewLibraryTopics(params: {
   const topicBySlug = new Map(
     existingTopics.map((topic) => [topic.slug, topic]),
   );
+
+  // The rows this location already holds may predate the answers the library
+  // ships today, so give them a body before deciding nothing is missing.
+  await backfillBodies({ seeds, topicBySlug, store });
+
   const placedTopicIds = new Set(
     existingPlacements.map((placement) => placement.topicId),
   );
@@ -597,6 +707,14 @@ export async function ensureLocationSeeded(params: {
   if (!clientId || !location) return NOTHING_SEEDED;
 
   const store = params.store ?? createPrismaTopicSeedStore();
+
+  // A location that was seeded before the library shipped answers has placements
+  // but blank cards. Seeding has nothing left to place, so fill the bodies here —
+  // it is idempotent, and it is the only path that reaches a plan whose topics were
+  // created without content. Existing placements are still proof the location was
+  // seeded: nothing is re-added.
+  await backfillLocationTopicContent({ location, store });
+
   const existing = await store.listPlacements(clientId, location);
   if (existing.length > 0) {
     return { ...NOTHING_SEEDED, location };

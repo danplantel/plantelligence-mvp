@@ -3,6 +3,7 @@
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import type { EditorSection } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import { PortalLiveBadge } from "@/components/portal-editing/portal-live-badge";
+import { PortalDraftBadge } from "@/components/portal-editing/portal-draft-badge";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
 
 interface PortalEditorShellProps {
@@ -61,6 +62,8 @@ export function PortalEditorShell({
       headerBadge={
         <>
           <PortalLiveBadge />
+          {/* A draft on the live page: amber, right beside the red tag. */}
+          <PortalDraftBadge />
           {headerBadge}
         </>
       }

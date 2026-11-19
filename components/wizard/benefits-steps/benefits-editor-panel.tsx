@@ -180,13 +180,22 @@ interface BenefitsEditorPanelProps {
   /** Lenis-backed scroll for the editor panel (falls back to native scroll) */
   onScrollEditorTo?: (top: number) => void;
   /**
-   * Sections appended AFTER Section 8, numbered from 9.
+   * Sections appended AFTER Section 8, numbered from 9 (or 10 when a
+   * `visibilitySection` leads the panel).
    *
    * Create/Edit Benefits has no footer of its own, so the portal's panel passes
    * its Disclosure section here instead of the wizard growing a section it would
    * never fill.
    */
   extraSections?: { title: string; content: React.ReactNode }[];
+  /**
+   * The portal's "Hidden / Published" control, rendered as Section 1 above every
+   * other section — and shifting the rest down one.
+   *
+   * Only the PORTAL panel passes it: the dashboard wizard and Edit Benefit have no
+   * publish switch, and an unset value keeps their numbering exactly as before.
+   */
+  visibilitySection?: React.ReactNode;
   /**
    * "Open on this section", from the portal page's blue button.
    *
@@ -217,6 +226,7 @@ export function BenefitsEditorPanel({
   onTopicsBoardChange,
   onHeroSegmentModeChange,
   extraSections,
+  visibilitySection,
   focusRequest,
 }: BenefitsEditorPanelProps & { highlightedField?: string | null }) {
   const { stepData, saveStepData } = useBenefitsWizardStore();
@@ -881,6 +891,12 @@ export function BenefitsEditorPanel({
     return () => clearTimeout(timer);
   }, [step1Data.planId, step1Data.headerCta, headerCtaPayloadKey]);
 
+  /**
+   * The visibility section, when present, is Section 1 — every numbered section
+   * below moves down one so the panel never shows two "Section 1"s.
+   */
+  const sectionNumber = (index: number) => index + (visibilitySection ? 1 : 0);
+
   const SectionHeader = ({
     number,
     title,
@@ -933,9 +949,27 @@ export function BenefitsEditorPanel({
       }
     >
       <div className="flex flex-col gap-12 p-6 pb-20">
-        {/* Portal Header Button — the only plan-level section, so it leads. */}
+        {/* Visibility — only the portal panel passes this, and it leads: whether the
+            hub is published frames everything set below it. The description matches
+            the Employee Resources panel's Section 1 word for word, adapted to a
+            benefit rather than the fifth hub. */}
+        {visibilitySection ? (
+          <div className="transition-all duration-500 rounded-xl">
+            <SectionHeader number={1} title="Visibility" />
+            <p className="mb-4 text-[13px] text-muted-foreground leading-relaxed">
+              Whether participants can reach this page. Publishing adds this benefit
+              to the Benefits Hub - nothing is deleted.
+            </p>
+            {visibilitySection}
+          </div>
+        ) : null}
+
+        {/* Portal Header Button — the only other plan-level section. */}
         <div className="transition-all duration-500 rounded-xl">
-          <SectionHeader number={1} title="Portal Header Button" />
+          <SectionHeader
+            number={sectionNumber(1)}
+            title="Portal Header Button"
+          />
           <div className="space-y-4">
             <p className="text-[13px] text-muted-foreground leading-relaxed">
               Every portal page carries one call to action in its header. This
@@ -1047,7 +1081,7 @@ export function BenefitsEditorPanel({
           ref={sectionsRef.typography}
           className="transition-all duration-500 rounded-xl"
         >
-          <SectionHeader number={2} title="Typography" />
+          <SectionHeader number={sectionNumber(2)} title="Typography" />
           <TypographySection
             value={step1Data?.typographyTheme}
             onChange={(id) =>
@@ -1074,7 +1108,7 @@ export function BenefitsEditorPanel({
               : "",
           )}
         >
-          <SectionHeader number={3} title="Branding" />
+          <SectionHeader number={sectionNumber(3)} title="Branding" />
           <div className="space-y-8">
             <div
               className={cn(
@@ -1247,7 +1281,7 @@ export function BenefitsEditorPanel({
               : "",
           )}
         >
-          <SectionHeader number={4} title="Benefit Messaging" />
+          <SectionHeader number={sectionNumber(4)} title="Benefit Messaging" />
           <div className="space-y-6">
             <div
               className="space-y-2"
@@ -1686,7 +1720,7 @@ export function BenefitsEditorPanel({
               : "",
           )}
         >
-          <SectionHeader number={5} title="Video Source" />
+          <SectionHeader number={sectionNumber(5)} title="Video Source" />
           <p className="text-[13px] text-muted-foreground mb-6">
             Add the video shown in the journey section, say what it covers, and
             choose a poster image. With no video, the Default Image below is
@@ -2172,7 +2206,10 @@ export function BenefitsEditorPanel({
               : "",
           )}
         >
-          <SectionHeader number={6} title="How Can We Help You Today?" />
+          <SectionHeader
+            number={sectionNumber(6)}
+            title="How Can We Help You Today?"
+          />
           <p className="text-[13px] text-muted-foreground mb-6">
             Choose the card layout below, then edit the Account Access fields —
             Plan / Group ID, where the &ldquo;Register or Log In&rdquo;
@@ -2396,7 +2433,7 @@ export function BenefitsEditorPanel({
             )}
           >
             <SectionHeader
-              number={7}
+              number={sectionNumber(7)}
               title="Get Quick Answers to Common Benefits Questions"
             />
             <p className="text-[13px] text-muted-foreground mb-6">
@@ -2428,7 +2465,7 @@ export function BenefitsEditorPanel({
               : "",
           )}
         >
-          <SectionHeader number={8} title="Have Questions?" />
+          <SectionHeader number={sectionNumber(8)} title="Have Questions?" />
           <p className="text-[13px] text-muted-foreground mb-6">
             The people who close the page for this benefit, taken from its
             support contacts. Its key contact can be drawn like everyone else,
@@ -2529,7 +2566,10 @@ export function BenefitsEditorPanel({
           data-section-id={portalSectionId(section.title)}
           className="mt-8 border-t pt-6"
         >
-          <SectionHeader number={9 + index} title={section.title} />
+          <SectionHeader
+            number={sectionNumber(9) + index}
+            title={section.title}
+          />
           {section.content}
         </div>
       ))}

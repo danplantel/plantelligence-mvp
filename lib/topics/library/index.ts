@@ -2191,58 +2191,208 @@ const CUSTOM_TOPICS: LibraryTopicSeed[] = [
 const EMPLOYEE_RESOURCES: TopicLocation[] = ["employee_resources"];
 
 const EMPLOYEE_RESOURCES_TOPICS: LibraryTopicSeed[] = [
-  // Featured (default), in card order.
+  // Featured (default), in card order. Each card carries a real answer, like the
+  // benefit hubs' cards: a Featured topic a participant can open must SAY something,
+  // or the card reads as a placeholder.
   featured("change-my-address", "Change My Address", EMPLOYEE_RESOURCES, {
     summary: "Update your address with payroll and every benefit carrier.",
+    bodyBlocks: [
+      qa(
+        "Start with your employer's HR or payroll system, because most benefit carriers are fed from it. Then confirm the change with any carrier or recordkeeper that mails cards, statements or tax forms.",
+      ),
+      numbered(
+        "Update your address in the HR or payroll portal.",
+        "Check that your tax withholding still reflects the right state and locality.",
+        "Update your address with each benefit carrier and your recordkeeper.",
+        "Confirm the next statement or card arrives at the new address.",
+      ),
+    ],
     isActionHub: true,
     tags: ["address", "life event", "personal details"],
   }),
   featured("pay-stubs-direct-deposit", "Pay Stubs & Direct Deposit", EMPLOYEE_RESOURCES, {
     summary: "See your pay history and where your paycheck is sent.",
+    bodyBlocks: [
+      qa(
+        "Every paycheck produces a stub showing gross pay, deductions, contributions and taxes, and older stubs stay in the payroll portal. Direct deposit can usually be split across more than one account.",
+      ),
+      numbered(
+        "Open the payroll portal and go to Pay or Pay History.",
+        "Download or print the stub you need.",
+        "To change where the money goes, edit Direct Deposit.",
+        "Allow one pay cycle for the change, then confirm it on the next stub.",
+      ),
+    ],
     tags: ["payroll", "pay stub", "direct deposit"],
   }),
   featured("time-off-leave", "Time Off & Leave", EMPLOYEE_RESOURCES, {
     summary: "PTO balances, holidays, and the leave options available to you.",
+    bodyBlocks: [
+      qa(
+        "PTO balances, holidays and leaves of absence all run through HR, although the rules themselves come from the employee handbook. For a medical or family leave, start with HR rather than your manager so the paperwork is filed correctly.",
+      ),
+      numbered(
+        "Check your balance and request time off in the HR portal.",
+        "For anything longer than a few days, or for a medical or family leave, contact HR before your start date.",
+        "Ask HR which forms and notices your leave requires.",
+        "Confirm the approved hours appear on your next stub.",
+      ),
+    ],
     tags: ["pto", "fmla", "parental leave"],
   }),
   featured("who-do-i-contact", "Who Do I Contact?", EMPLOYEE_RESOURCES, {
     summary: "The right person for payroll, benefits, and HR questions.",
+    bodyBlocks: [
+      qa(
+        "Pay questions go to payroll, benefit questions to your benefits team, and leave or policy questions to HR. The contact section at the bottom of this page lists the people who own each.",
+      ),
+      numbered(
+        "Decide what the question is about: pay, benefits, or policy and leave.",
+        "Use the contact section below to reach the right person.",
+        "Include your employee ID and the dates involved so they can look it up.",
+        "If you are not sure who owns it, start with HR.",
+      ),
+    ],
     tags: ["contact", "hr"],
   }),
 
   // Pay & Taxes.
   answer("pay-stubs", "Pay stubs", EMPLOYEE_RESOURCES, "Pay & Taxes", {
+    bodyBlocks: [
+      qa(
+        "Your pay stub itemises gross pay, taxes, deductions and any benefit contributions for that pay period. Past stubs stay available in the payroll portal.",
+      ),
+      numbered(
+        "Open the payroll portal.",
+        "Choose the pay period, or search by date.",
+        "Download or print the stub.",
+      ),
+    ],
     tags: ["payroll"],
   }),
   answer("w2-tax-forms", "W-2 & tax forms", EMPLOYEE_RESOURCES, "Pay & Taxes", {
+    bodyBlocks: [
+      qa(
+        "Your W-2 covers one calendar year and is issued by the end of January, usually in the payroll portal before a paper copy arrives. Earlier years stay available there too.",
+      ),
+      numbered(
+        "Log in to the payroll portal.",
+        "Go to Tax Forms or W-2.",
+        "Select the year and download the PDF.",
+        "If a form is missing, contact payroll.",
+      ),
+    ],
     tags: ["w-2", "tax"],
   }),
   answer("direct-deposit", "Direct deposit", EMPLOYEE_RESOURCES, "Pay & Taxes", {
+    bodyBlocks: [
+      qa(
+        "You can send your paycheck to one account or split it across several by percentage or flat amount. A change applies from the first payroll after it is approved.",
+      ),
+      numbered(
+        "Open the payroll portal.",
+        "Go to Direct Deposit and add the account and routing numbers.",
+        "Split the amount if you want more than one destination.",
+        "Confirm the split on your next stub.",
+      ),
+    ],
     tags: ["payroll"],
   }),
   answer("tax-withholding", "Tax withholding", EMPLOYEE_RESOURCES, "Pay & Taxes", {
+    bodyBlocks: [
+      qa(
+        "Withholding is set by the W-4 you filed, and a life change such as marriage, a new child or a move can leave it out of date. You can file a new W-4 in the payroll portal at any time.",
+      ),
+      numbered(
+        "Open the payroll portal.",
+        "Go to Tax Withholding or W-4.",
+        "Complete the federal and state forms.",
+        "Confirm the new withholding on your next stub.",
+      ),
+    ],
     tags: ["tax", "w-4"],
   }),
 
   // Time Off & Leave.
   answer("pto-policy", "PTO policy", EMPLOYEE_RESOURCES, "Time Off & Leave", {
+    bodyBlocks: [
+      qa(
+        "PTO is earned and used under the rules in the employee handbook, and your current balance is in the HR portal. Requests are approved by your manager.",
+      ),
+      numbered(
+        "Check your balance in the HR portal.",
+        "Submit the request with the dates you need.",
+        "Wait for the approval before booking anything non-refundable.",
+      ),
+    ],
     tags: ["pto"],
   }),
   answer("fmla", "FMLA", EMPLOYEE_RESOURCES, "Time Off & Leave", {
+    bodyBlocks: [
+      qa(
+        "FMLA gives eligible employees unpaid, job-protected leave for certain family and medical reasons. Eligibility and the certification paperwork are handled by HR, so that is where to start.",
+      ),
+      numbered(
+        "Tell HR you may need FMLA leave, before the leave begins when possible.",
+        "Complete the medical certification HR sends you.",
+        "Track your remaining entitlement with HR.",
+        "Ask HR how your premiums are handled while you are out.",
+      ),
+    ],
     tags: ["leave"],
   }),
   answer("parental-leave", "Parental leave", EMPLOYEE_RESOURCES, "Time Off & Leave", {
+    bodyBlocks: [
+      qa(
+        "Parental leave combines your employer's policy with any state or federal leave you qualify for. HR coordinates the two and tells you what to file and by when.",
+      ),
+      numbered(
+        "Notify HR and your manager as early as you can.",
+        "Ask HR for the parental leave policy and its forms.",
+        "Confirm pay, benefits continuation and your return date in writing.",
+      ),
+    ],
     tags: ["leave", "life event"],
   }),
   answer("holidays", "Holidays", EMPLOYEE_RESOURCES, "Time Off & Leave", {
+    bodyBlocks: [
+      qa(
+        "The company holiday calendar is published by HR, and some years add floating holidays you schedule yourself. The current year's dates are always in the HR portal.",
+      ),
+      numbered(
+        "Open the holiday calendar in the HR portal.",
+        "Add the dates to your own calendar.",
+        "Request any floating holiday through the normal time-off request.",
+      ),
+    ],
     tags: ["holiday", "calendar"],
   }),
 
   // Policies.
   answer("employee-handbook", "Employee handbook", EMPLOYEE_RESOURCES, "Policies", {
+    bodyBlocks: [
+      qa(
+        "The employee handbook is your employer's own policy document: conduct, attendance, time off and benefits eligibility all come from it. HR keeps the current version.",
+      ),
+      numbered(
+        "Open the handbook from the HR portal or your onboarding materials.",
+        "Check the revision date before relying on a section.",
+        "Ask HR if a policy is unclear or has recently changed.",
+      ),
+    ],
     tags: ["handbook"],
   }),
   answer("code-of-conduct", "Code of conduct", EMPLOYEE_RESOURCES, "Policies", {
+    bodyBlocks: [
+      qa(
+        "The code of conduct sets the standards everyone is expected to follow, including how to handle a conflict of interest and how to raise a concern. It applies to employees and contractors alike.",
+      ),
+      numbered(
+        "Read the code in the handbook.",
+        "Disclose any conflict of interest to HR as soon as it arises.",
+        "Report a concern through the channel the code names.",
+      ),
+    ],
     tags: ["policy"],
   }),
   answer(
@@ -2250,7 +2400,19 @@ const EMPLOYEE_RESOURCES_TOPICS: LibraryTopicSeed[] = [
     "Reporting concerns",
     EMPLOYEE_RESOURCES,
     "Policies",
-    { tags: ["policy", "compliance"] },
+    {
+      bodyBlocks: [
+        qa(
+          "Concerns about conduct, safety or compliance can be raised with HR or through the reporting channel your employer publishes. Retaliation against a good-faith report is not tolerated.",
+        ),
+        numbered(
+          "Decide whether the concern is about conduct, safety, or something else.",
+          "Raise it with HR or the reporting channel named in the handbook.",
+          "Keep a record of what you reported and when.",
+        ),
+      ],
+      tags: ["policy", "compliance"],
+    },
   ),
 
   // Employment.
@@ -2259,16 +2421,61 @@ const EMPLOYEE_RESOURCES_TOPICS: LibraryTopicSeed[] = [
     "Verification of employment",
     EMPLOYEE_RESOURCES,
     "Employment",
-    { tags: ["employment", "letter"] },
+    {
+      bodyBlocks: [
+        qa(
+          "Lenders, landlords and background checkers usually verify employment through the company's HR or payroll provider. If they need a letter instead, HR can issue one.",
+        ),
+        numbered(
+          "Ask the requester what they need: a letter, a verbal confirmation, or a form.",
+          "Send the request to HR with the requester's contact details.",
+          "Allow a few business days for HR to respond.",
+        ),
+      ],
+      tags: ["employment", "letter"],
+    },
   ),
   answer("name-change", "Change my name", EMPLOYEE_RESOURCES, "Employment", {
+    bodyBlocks: [
+      qa(
+        "A legal name change starts with Social Security and then moves through the HR system, payroll and every benefit carrier. Your benefit records use the name on file with Social Security.",
+      ),
+      numbered(
+        "Update your name with the Social Security Administration.",
+        "Send HR the documentation they ask for.",
+        "Confirm the change reaches payroll and your next stub.",
+        "Update your beneficiaries and any carrier accounts you hold.",
+      ),
+    ],
     isActionHub: true,
     tags: ["name change", "life event", "personal details"],
   }),
   answer("onboarding", "Onboarding", EMPLOYEE_RESOURCES, "Employment", {
+    bodyBlocks: [
+      qa(
+        "New hires complete onboarding in the HR portal: tax forms, direct deposit and benefit elections. Benefit elections are usually due within a window measured from your start date.",
+      ),
+      numbered(
+        "Complete the onboarding tasks in the HR portal.",
+        "File your W-4 and direct deposit details.",
+        "Enroll in benefits before the deadline shown in the portal.",
+        "Check that your elections show correctly afterwards.",
+      ),
+    ],
     tags: ["new hire"],
   }),
   answer("offboarding-cobra", "Offboarding & COBRA", EMPLOYEE_RESOURCES, "Employment", {
+    bodyBlocks: [
+      qa(
+        "When employment ends, HR confirms your final pay date, when benefits end, and whether COBRA is offered. COBRA continues coverage after a termination or a reduction in hours, at your own cost.",
+      ),
+      numbered(
+        "Ask HR for your final pay date and your benefits end date.",
+        "Watch for the COBRA election packet by mail or email.",
+        "Elect coverage before the deadline if you want to keep it.",
+        "Return company property and confirm your last paycheck.",
+      ),
+    ],
     tags: ["leaving", "cobra"],
   }),
 ];

@@ -56,6 +56,15 @@ const portalHubTests = [
   // The hub Edit Panel's Disclosure section: this benefit's own row, written to
   // the plan on Save
   "components/portal-editing/editors/__tests__/portal-benefit-editor-disclosure.test.tsx",
+  // Employee Resources' read and per-plan toggle: the portal gate, the STORED flag
+  // on the dashboard read, and the PUT scoped to "Employee Resources"
+  "app/api/clients/[id]/employee-resources/__tests__/route.test.ts",
+  // The "Hidden / Published" switch in the Employee Resources panel header
+  "components/portal-editing/__tests__/portal-employee-resources-visibility-toggle.test.tsx",
+  // The same switch as Section 1 of a benefit hub's panel: the category map write
+  "components/portal-editing/__tests__/portal-benefit-visibility-toggle.test.tsx",
+  // The panel header's amber "Unsaved changes" chip and the hook editors report with
+  "components/portal-editing/__tests__/portal-draft-badge.test.tsx",
   // Employee Resources' three blue buttons: each names its own panel section
   "app/(portal)/[id]/employee-resources/__tests__/page-edit-affordances.test.tsx",
   // A benefit hub's five blue buttons (one template, four pages)

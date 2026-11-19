@@ -159,6 +159,57 @@ describe("GET /api/clients/[id]/employee-resources", () => {
     expect(response.status).toBe(403);
     expect(mocks.loadLocationTopics).not.toHaveBeenCalled();
   });
+
+  describe("the DASHBOARD read", () => {
+    function dashboardGet(id = "plan-1") {
+      return new NextRequest(
+        `http://localhost/api/clients/${id}/employee-resources`,
+        { method: "GET" },
+      );
+    }
+
+    it("reports `enabled: false` for a hidden plan, and still returns its board", async () => {
+      mocks.resolveBuilderClient.mockResolvedValue({
+        ok: true,
+        clientId: "plan-1",
+      });
+      // `findUnique` (the dashboard lookup) is enabled:false in `beforeEach`, which is
+      // the state the plans table shows as Hidden. The admin preview derives its
+      // switch from this payload, so it has to say Hidden too — while the board is
+      // still read, because a hidden hub is exactly when it is being set up.
+      const body = await (
+        await GET(dashboardGet(), { params: { id: "plan-1" } })
+      ).json();
+
+      expect(body.enabled).toBe(false);
+      expect(body.slug).toBe("acme");
+      expect(body.topics).toEqual(
+        expect.objectContaining({ location: "employee_resources" }),
+      );
+      expect(mocks.loadLocationTopics).toHaveBeenCalledWith(
+        "plan-1",
+        "employee_resources",
+      );
+    });
+
+    it("reports `enabled: true` once the plan has published it", async () => {
+      mocks.resolveBuilderClient.mockResolvedValue({
+        ok: true,
+        clientId: "plan-1",
+      });
+      mocks.prisma.client.findUnique.mockResolvedValue({
+        id: "plan-1",
+        slug: "acme",
+        employeeResourcesEnabled: true,
+      });
+
+      const body = await (
+        await GET(dashboardGet(), { params: { id: "plan-1" } })
+      ).json();
+
+      expect(body.enabled).toBe(true);
+    });
+  });
 });
 
 describe("PUT /api/clients/[id]/employee-resources", () => {

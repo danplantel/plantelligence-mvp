@@ -7,6 +7,7 @@ import { PortalFooterDialog } from "@/components/portal-editing/portal-footer-di
 import { PortalBenefitsGlanceSection } from "@/components/portal-editing/portal-benefits-glance-section";
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
+import { usePortalDirtyReport } from "@/components/portal-editing/portal-draft-badge";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import { customBenefitTitleFromHubs } from "@/lib/benefit-custom-name";
 import type { PortalDisclaimersEnvelope } from "@/lib/portal-disclosures";
@@ -196,6 +197,8 @@ export function PortalHomeEditor() {
   const pendingRef = useRef<Record<string, any>>({});
   const savingRef = useRef(false);
   const [isDirty, setIsDirty] = useState(false);
+  // The panel header's "Unsaved changes" badge follows this draft.
+  usePortalDirtyReport(isDirty);
 
   // Re-seed the local editor from the saved plan on first mount (and after a
   // failed save refetch). Optimistic patches this editor made keep the same

@@ -126,19 +126,26 @@ export function EmployeeResourcesPortalPage({
    * Seeding here makes the editor preview match what a published plan looks like, which
    * is the whole point of previewing.
    *
-   * Only for the editor host (it is the one that supplies `employeeResourcesReadKey`),
-   * only when the viewer may edit, and only when the board is entirely empty — the
-   * endpoint is idempotent, but a board with anything on it is left untouched.
+   * Only for the editor host (it is the one that supplies `employeeResourcesReadKey`)
+   * and only when the viewer may edit. It fires for an empty board AND for a board
+   * whose cards have no answer behind them: a plan seeded before the library shipped
+   * answers holds the topic rows with an empty body, and the seed endpoint backfills
+   * those (never overwriting one that already has content). The endpoint is
+   * idempotent, so asking for both states costs nothing when neither applies.
    */
   const seededRef = useRef(false);
   useEffect(() => {
     if (!editing?.employeeResourcesReadKey || !editing.canEdit) return;
     if (!data || seededRef.current) return;
     const topics = data.topics;
-    const nothingPlaced =
-      !topics ||
-      (topics.featured.length === 0 && topics.groups.length === 0);
-    if (!nothingPlaced) return;
+    const placed = topics
+      ? [...topics.featured, ...topics.groups.flatMap((group) => group.topics)]
+      : [];
+    const nothingPlaced = placed.length === 0;
+    const missingAnswers = placed.some(
+      (topic) => (topic.bodyBlocks?.length ?? 0) === 0,
+    );
+    if (!nothingPlaced && !missingAnswers) return;
 
     seededRef.current = true;
     void (async () => {

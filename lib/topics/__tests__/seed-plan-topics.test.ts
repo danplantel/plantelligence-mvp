@@ -57,6 +57,10 @@ function createMemoryStore(): MemoryStore {
       topics.push(row);
       return row;
     },
+    async updateTopicContent({ topicId, bodyBlocks }) {
+      const row = topics.find((topic) => topic.id === topicId);
+      if (row) row.bodyBlocks = bodyBlocks;
+    },
     async listGroups(clientId, location) {
       return groups.filter(
         (group) => group.clientId === clientId && group.location === location,
@@ -516,6 +520,55 @@ describe("ensureLocationSeeded", () => {
 
     expect(result.seeded).toBe(false);
     expect(memory.placements).toEqual([]);
+  });
+
+  it("fills the answers on topics that were seeded without them", async () => {
+    const memory = createMemoryStore();
+    // Seed as a fresh plan does, then blank the bodies: that is the state a plan
+    // is in when it was seeded before the library shipped answers for its topics.
+    await ensureLocationSeeded({
+      clientId: "plan-a",
+      location: "employee_resources",
+      store: memory.store,
+    });
+    for (const topic of memory.topics) topic.bodyBlocks = null;
+
+    await ensureLocationSeeded({
+      clientId: "plan-a",
+      location: "employee_resources",
+      store: memory.store,
+    });
+
+    expect(memory.topics.length).toBeGreaterThan(0);
+    expect(
+      memory.topics.every(
+        (topic) =>
+          Array.isArray(topic.bodyBlocks) && topic.bodyBlocks.length > 0,
+      ),
+    ).toBe(true);
+    // Placements are proof the location was seeded, so nothing is re-added.
+    expect(memory.placements).toHaveLength(
+      libraryTopicsForLocation("employee_resources").length,
+    );
+  });
+
+  it("never overwrites an answer a topic already has", async () => {
+    const memory = createMemoryStore();
+    await ensureLocationSeeded({
+      clientId: "plan-a",
+      location: "employee_resources",
+      store: memory.store,
+    });
+    const ownAnswer = [{ type: "quick_answer" as const, text: "Our own answer" }];
+    memory.topics[0].bodyBlocks = ownAnswer;
+
+    await ensureLocationSeeded({
+      clientId: "plan-a",
+      location: "employee_resources",
+      store: memory.store,
+    });
+
+    expect(memory.topics[0].bodyBlocks).toEqual(ownAnswer);
   });
 });
 

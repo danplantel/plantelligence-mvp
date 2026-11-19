@@ -143,9 +143,15 @@ export async function GET(
     const topics = await loadLocationTopics(plan!.id, LOCATION);
     // `slug` lets the admin card link to the PUBLIC portal URL rather than to the
     // plan id, which is what `/…/<slug>/employee-resources` is addressed by.
+    //
+    // `enabled` is the STORED flag, not `true`. Only the portal read is gated above;
+    // the dashboard read renders the board for a hidden plan (so it can still be set
+    // up), but it must report the plan's real state. Answering `true` here made the
+    // admin preview's visibility switch open on "Published" for a plan the plans
+    // table showed as Hidden.
     return NextResponse.json({
       success: true,
-      enabled: true,
+      enabled: plan!.employeeResourcesEnabled === true,
       slug: plan!.slug,
       topics,
     });

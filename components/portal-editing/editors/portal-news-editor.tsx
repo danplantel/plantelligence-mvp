@@ -31,6 +31,7 @@ import { WebinarCreateDialog } from "@/components/webinars/webinar-create-dialog
 import { notifyPortalMeetingsChanged } from "@/lib/portal-data-events";
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
+import { usePortalDirtyReport } from "@/components/portal-editing/portal-draft-badge";
 import { PortalFooterSection } from "@/components/portal-editing/portal-footer-section";
 import { SectionHeader } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import {
@@ -288,6 +289,8 @@ export function PortalNewsEditor() {
 
   const [drafts, setDrafts] = useState<Record<string, MarketingAssetDraft>>({});
   const [isDirty, setIsDirty] = useState(false);
+  // The panel header's "Unsaved changes" badge follows this draft.
+  usePortalDirtyReport(isDirty);
 
   /** Which creator is open, and what it creates. `null` renders none at all. */
   const [creator, setCreator] = useState<{

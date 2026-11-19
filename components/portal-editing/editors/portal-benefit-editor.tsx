@@ -7,9 +7,13 @@ import { Loader2 } from "lucide-react";
 import { BenefitsEditorPanel } from "@/components/wizard/benefits-steps/benefits-editor-panel";
 import { PortalFooterDialog } from "@/components/portal-editing/portal-footer-dialog";
 import { PortalLiveBadge } from "@/components/portal-editing/portal-live-badge";
+import { PortalDraftBadge } from "@/components/portal-editing/portal-draft-badge";
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
+import { usePortalDirtyReport } from "@/components/portal-editing/portal-draft-badge";
+import { PortalBenefitVisibilityToggle } from "@/components/portal-editing/portal-benefit-visibility-toggle";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
+import { usePortalPublishAccess } from "@/components/portal-editing/portal-visibility-switch";
 import type {
   BenefitDisclosureCategory,
   PortalDisclaimersEnvelope,
@@ -290,6 +294,12 @@ export function PortalBenefitEditor() {
   } = usePortalEditing();
   const { clientData } = useClientPortal();
   const { mutate } = useSWRConfig();
+  /**
+   * Whether the panel leads with "Visibility". The switch itself refuses the same
+   * viewers, but the SECTION must be omitted for them too: an empty Section 1 above
+   * everything else reads as a broken panel.
+   */
+  const { mayPublish } = usePortalPublishAccess();
 
   const canEditBenefit = canEditFunction("create_benefits");
   const category = target?.category ?? null;
@@ -308,6 +318,8 @@ export function PortalBenefitEditor() {
 
   const [hydrated, setHydrated] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  // The panel header's "Unsaved changes" badge follows this draft.
+  usePortalDirtyReport(isDirty);
   const hydratedKeyRef = useRef<string | null>(null);
   const skipFirstChangeRef = useRef(true);
   const savingRef = useRef(false);
@@ -538,8 +550,22 @@ export function PortalBenefitEditor() {
       isOpen={isOpen}
       isAnimating={isOpen}
       onClose={closePanel}
-      // The portal's red Live tag, beside the plan/category badge.
-      headerBadgePrefix={<PortalLiveBadge />}
+      // Section 1 — can participants reach this hub? Same visibility switch the
+      // Benefits table shows, so arranging the page and publishing it live in one
+      // panel. Omitted (and the numbering closes up) for a viewer who may not publish.
+      visibilitySection={
+        mayPublish ? (
+          <PortalBenefitVisibilityToggle category={apiCategory} />
+        ) : undefined
+      }
+      // The portal's red Live tag (and the amber draft tag beside it), next to the
+      // plan/category badge.
+      headerBadgePrefix={
+        <>
+          <PortalLiveBadge />
+          <PortalDraftBadge />
+        </>
+      }
       planCompanyName={String(clientData?.companyName || "")}
       companyWebsite={clientData?.companyWebsite || ""}
       // A hub page's blue button (and the layout's "Edit footer") asks for a

@@ -5,6 +5,8 @@ import { useSWRConfig } from "swr";
 
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
+import { usePortalDirtyReport } from "@/components/portal-editing/portal-draft-badge";
+import { PortalEmployeeResourcesVisibilityToggle } from "@/components/portal-editing/portal-employee-resources-visibility-toggle";
 import { PortalFooterSection } from "@/components/portal-editing/portal-footer-section";
 import { brandImagesFromClient } from "@/components/portal-editing/portal-brand-images";
 import { SectionHeader } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
@@ -19,6 +21,7 @@ import {
   type BoardPayload,
 } from "@/components/wizard/benefits-steps/quick-answers-builder";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
+import { usePortalPublishAccess } from "@/components/portal-editing/portal-visibility-switch";
 import { useClientPortal } from "@/contexts/client-portal-context";
 import {
   PORTAL_SECTION_IDS,
@@ -27,15 +30,16 @@ import {
 import type { BrandImagesData } from "@/types/new-client-wizard";
 
 /**
- * Employee Resources editor — the plan's typography theme, the page's hero background,
- * then the two sections the page itself renders: "How Can We Help You Today?" and
- * "Quick Answers".
+ * Employee Resources editor — whether the page is published, the plan's typography
+ * theme, the page's hero background, then the two sections the page itself renders:
+ * "How Can We Help You Today?" and "Quick Answers".
  *
- * Typography is Section 1 because the theme is the whole page's frame — the same
- * picker Create/Edit Client and Edit Benefit show — and it is a PLAN-level value
- * (`Client.typographyTheme`), not something this hub owns. It drafts and saves with the
- * hero: the page and header beside the panel repaint through `patchClientData`, and the
- * value is written on Save.
+ * Visibility is Section 1 because the hub is opt-in per plan: an advisor arranging
+ * questions on a hidden page has to see that first. Typography follows, because the
+ * theme is the whole page's frame — the same picker Create/Edit Client and Edit Benefit
+ * show — and it is a PLAN-level value (`Client.typographyTheme`), not something this hub
+ * owns. It drafts and saves with the hero: the page and header beside the panel repaint
+ * through `patchClientData`, and the value is written on Save.
  *
  * The hero is the "Employee Resources Header" Brand Images slot, the same
  * control Create Client Step 1 shows. That slot has no Client column: the save
@@ -68,6 +72,14 @@ export function PortalEmployeeResourcesEditor() {
   } = usePortalEditing();
   const { clientData } = useClientPortal();
   const { mutate } = useSWRConfig();
+
+  /**
+   * Whether the "Visibility" section is offered at all, and therefore whether every
+   * section below it moves down one. The same decision the switch itself makes — a
+   * viewer who may not publish does not see an empty section 1.
+   */
+  const { mayPublish } = usePortalPublishAccess();
+  const sectionNumber = (index: number) => index + (mayPublish ? 1 : 0);
 
   /**
    * This page answers from its own read, not from the board the builders below edit.
@@ -114,6 +126,8 @@ export function PortalEmployeeResourcesEditor() {
   const [brandImages, setBrandImages] =
     useState<BrandImagesData>(savedBrandImages);
   const [isDirty, setIsDirty] = useState(false);
+  // The panel header's "Unsaved changes" badge follows this draft.
+  usePortalDirtyReport(isDirty);
   const brandImagesRef = useRef<BrandImagesData>(savedBrandImages);
   const heroDirtyRef = useRef(false);
 
@@ -265,11 +279,25 @@ export function PortalEmployeeResourcesEditor() {
       }
     >
       <div className="space-y-8">
+        {/* Section 1 — can employees reach this page at all? The hub is opt-in per
+            plan, so its state belongs at the top: an advisor who sets up questions on
+            a hidden hub has to know they are not live yet. */}
+        {mayPublish ? (
+          <section className="space-y-4">
+            <SectionHeader number={1} title="Visibility" />
+            <p className="text-[12px] leading-relaxed text-muted-foreground">
+              Whether employees can reach this page. Publishing adds Employee
+              Resources to the plan&rsquo;s portal header; hiding it removes the link - nothing is deleted.
+            </p>
+            <PortalEmployeeResourcesVisibilityToggle />
+          </section>
+        ) : null}
+
         {/* This panel renders its sections as children rather than through the
             wrapper's `sections` list, so each one carries its own anchor — the
             address the page's three blue buttons scroll to. */}
         <section className="space-y-4">
-          <SectionHeader number={1} title="Typography Theme" />
+          <SectionHeader number={sectionNumber(1)} title="Typography Theme" />
           <p className="text-[12px] leading-relaxed text-muted-foreground">
             The fonts and corner treatment for this plan&rsquo;s whole portal. It is
             the same PLAN-level setting Create Plan → Step 2, Edit Plan and the benefit
@@ -292,7 +320,7 @@ export function PortalEmployeeResourcesEditor() {
           className="space-y-4"
           data-edit-anchor={portalEditAnchor.employeeResourcesHero}
         >
-          <SectionHeader number={2} title="Hero Background" />
+          <SectionHeader number={sectionNumber(2)} title="Hero Background" />
           <p className="text-[12px] leading-relaxed text-muted-foreground">
             The image behind this page&rsquo;s &ldquo;Employee Resources&rdquo;
             title. It fills a band 400&nbsp;px tall on a desktop screen
@@ -317,7 +345,7 @@ export function PortalEmployeeResourcesEditor() {
           className="space-y-4"
           data-edit-anchor={portalEditAnchor.employeeResourcesHelp}
         >
-          <SectionHeader number={3} title="How Can We Help You Today?" />
+          <SectionHeader number={sectionNumber(3)} title="How Can We Help You Today?" />
           <p className="text-[12px] leading-relaxed text-muted-foreground">
             The cards participants choose from, in the order they appear.
             Promote a question here, reorder the cards, or move one down to
@@ -337,7 +365,7 @@ export function PortalEmployeeResourcesEditor() {
           className="space-y-4"
           data-edit-anchor={portalEditAnchor.employeeResourcesQuickAnswers}
         >
-          <SectionHeader number={4} title="Quick Answers" />
+          <SectionHeader number={sectionNumber(4)} title="Quick Answers" />
           <p className="text-[12px] leading-relaxed text-muted-foreground">
             The grouped questions below the cards — the same board as above, so
             a question is always in exactly one place.
@@ -352,12 +380,12 @@ export function PortalEmployeeResourcesEditor() {
           </div>
         </section>
 
-        {/* Section 4 — the footer disclosure shared by the four non-hub pages. */}
+        {/* The footer disclosure shared by the four non-hub pages. */}
         <section
           className="space-y-4"
           data-edit-anchor={PORTAL_SECTION_IDS.disclosure}
         >
-          <SectionHeader number={5} title="Disclosure" />
+          <SectionHeader number={sectionNumber(5)} title="Disclosure" />
           <PortalFooterSection />
         </section>
       </div>

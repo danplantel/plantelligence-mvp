@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { KeyContactsEditor } from "@/components/contacts/key-contacts-editor";
 import { MainContactStyleSection } from "@/components/contacts/main-contact-style-section";
 import { PortalFooterSection } from "@/components/portal-editing/portal-footer-section";
+import { usePortalDirtyReport } from "@/components/portal-editing/portal-draft-badge";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import { SectionHeader } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import { useClientPortal } from "@/contexts/client-portal-context";
@@ -102,6 +103,18 @@ export function PortalTeamEditor() {
     normalizeBlob(clientData?.keyContacts),
   );
   const dirtyRef = useRef(false);
+  /**
+   * The same fact as `dirtyRef`, as STATE: the ref keeps the debounce correct
+   * without re-rendering, this one feeds the panel header's "Unsaved changes"
+   * badge. Autosave means the window is short, but while a keystroke is still
+   * waiting to be written the page beside the panel genuinely is a draft.
+   */
+  const [isDirty, setIsDirty] = useState(false);
+  usePortalDirtyReport(isDirty);
+  const markDirty = useCallback((dirty: boolean) => {
+    dirtyRef.current = dirty;
+    setIsDirty(dirty);
+  }, []);
   const hydratedRef = useRef<string | null>(null);
 
   // The latest blob for handlers that must not close over a stale render (a
@@ -155,11 +168,11 @@ export function PortalTeamEditor() {
   useEffect(() => {
     if (!dirtyRef.current) return;
     const timer = setTimeout(() => {
-      dirtyRef.current = false;
+      markDirty(false);
       void autosave();
     }, AUTOSAVE_DELAY);
     return () => clearTimeout(timer);
-  }, [blob, autosave]);
+  }, [blob, autosave, markDirty]);
 
   /**
    * One changed field: update the draft, push it into the portal's plan data so
@@ -167,7 +180,7 @@ export function PortalTeamEditor() {
    */
   const patchContact = useCallback(
     (contactId: string | number, updates: Record<string, any>) => {
-      dirtyRef.current = true;
+      markDirty(true);
       setBlob((previous) => {
         const contacts = previous.contacts.map((contact) =>
           contact.id === contactId ? { ...contact, ...updates } : contact,
@@ -177,7 +190,7 @@ export function PortalTeamEditor() {
         return next;
       });
     },
-    [patchClientData],
+    [markDirty, patchClientData],
   );
 
   /**
@@ -187,7 +200,7 @@ export function PortalTeamEditor() {
    */
   const setMainContactStyle = useCallback(
     (next: KeyContactCardStyle) => {
-      dirtyRef.current = true;
+      markDirty(true);
       setBlob((previous) => {
         const updated: KeyContactsBlob = {
           ...previous,
@@ -197,7 +210,7 @@ export function PortalTeamEditor() {
         return updated;
       });
     },
-    [patchClientData],
+    [markDirty, patchClientData],
   );
 
   /**
@@ -207,7 +220,7 @@ export function PortalTeamEditor() {
   const saveContact = useCallback(
     async (contactId: string | number) => {
       void contactId;
-      dirtyRef.current = false;
+      markDirty(false);
       const accepted = await persist(blobRef.current);
       if (!accepted) {
         toast.error("Could not save this contact. Please try again.");
@@ -216,12 +229,12 @@ export function PortalTeamEditor() {
       toast.success("Contact saved");
       return true;
     },
-    [persist],
+    [markDirty, persist],
   );
 
   const deleteContact = useCallback(
     async (contactId: string | number) => {
-      dirtyRef.current = false;
+      markDirty(false);
       const previous = blobRef.current;
       const contacts = previous.contacts.filter(
         (contact) => contact.id !== contactId,
@@ -245,7 +258,7 @@ export function PortalTeamEditor() {
       }
       toast.success("Contact removed");
     },
-    [patchClientData, persist],
+    [markDirty, patchClientData, persist],
   );
 
   return (

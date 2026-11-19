@@ -71,6 +71,16 @@ interface PortalEditingContextValue {
    * and showing the second while the first is true read as a broken control.
    */
   isAccessLoading: boolean;
+  /**
+   * The panel's editor holds a draft it has NOT saved.
+   *
+   * Reported by each editor through [`usePortalDirtyReport`](components/portal-editing/portal-draft-badge.tsx:1)
+   * rather than derived here: only the editor knows whether what it shows differs
+   * from the saved row. The panel header turns it into the amber **Unsaved changes**
+   * badge beside **Live**, so the warning sits where the advisor looks.
+   */
+  isDirty: boolean;
+  setDirty: (dirty: boolean) => void;
   isOpen: boolean;
   openPanel: () => void;
   closePanel: () => void;
@@ -229,6 +239,14 @@ export function PortalEditingProvider({
   const [isOpen, setIsOpen] = useState(false);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isDirty, setIsDirty] = useState(false);
+  const setDirty = useCallback((dirty: boolean) => setIsDirty(dirty), []);
+
+  // A different page or hub means a different editor: a badge left on by the
+  // previous draft must not follow the advisor onto the next panel.
+  useEffect(() => {
+    setIsDirty(false);
+  }, [target]);
 
   // A viewer who loses edit access (or navigates to a page they cannot edit)
   // must not keep a panel open over read-only content.
@@ -393,6 +411,8 @@ export function PortalEditingProvider({
       canEditFunction,
       canEditBranding,
       isAccessLoading,
+      isDirty,
+      setDirty,
       isOpen,
       openPanel,
       closePanel,
@@ -420,6 +440,8 @@ export function PortalEditingProvider({
       canEditFunction,
       canEditBranding,
       isAccessLoading,
+      isDirty,
+      setDirty,
       isOpen,
       openPanel,
       closePanel,
