@@ -11,6 +11,8 @@ import baseConfig from "./vitest.config.mts";
  */
 const headerSidebarTests = [
   "components/layout/__tests__/header.test.tsx",
+  // The bell's feed, folded by message type (Team / Meetings / Documents)
+  "components/layout/__tests__/notifications-menu.test.tsx",
   "components/layout/__tests__/sidebar.test.tsx",
   // Route-level chrome selection and the onboarding → dashboard hook-order fix
   "components/layout/__tests__/layout-client.test.tsx",

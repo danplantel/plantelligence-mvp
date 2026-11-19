@@ -7,11 +7,18 @@ import {
   Bell,
   Calendar,
   CalendarClock,
+  ChevronDown,
   Clock,
   FileText,
   UserPlus,
   X,
 } from "lucide-react";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -98,6 +105,17 @@ const SECTION_LABEL_CLASS =
 const TIER_PILL_CLASS =
   "mt-1 text-xs px-2 py-0.5 rounded border inline-block";
 
+/**
+ * One accordion per MESSAGE TYPE, all open on first paint.
+ *
+ * The menu listed Team, Meetings and Documents as three stacked blocks; folding is
+ * what lets a reader with a long team feed get to their meeting reminders without
+ * scrolling past it. All three start expanded so the menu still shows everything it
+ * ever did until the reader chooses otherwise, and `type="multiple"` keeps each
+ * type's fold independent of the others.
+ */
+const NOTIFICATION_GROUPS = ["team", "meetings", "documents"] as const;
+
 /** Short "when" for a persisted notification. Rendered client-side only. */
 function formatNotificationWhen(iso: string): string {
   const then = new Date(iso).getTime();
@@ -113,8 +131,44 @@ function formatNotificationWhen(iso: string): string {
 }
 
 /**
+ * The fold control, drawn as a SIBLING of the accordion trigger.
+ *
+ * It cannot be a child of the trigger: the trigger is a real `<button>`, and these
+ * header rows also carry the section's own action ("Mark all read"), so nesting one
+ * button in another would be invalid markup — the parser hoists it out on hydration.
+ * As a sibling it stays clickable, and its rotation follows the section's open state
+ * (which is held here, so a fold survives closing and reopening the menu).
+ */
+function SectionFoldToggle({
+  label,
+  open,
+  onToggle,
+}: {
+  label: string;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={`${open ? "Collapse" : "Expand"} ${label} notifications`}
+      aria-expanded={open}
+      onClick={onToggle}
+      className="shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-black/5 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring dark:hover:bg-white/10"
+    >
+      <ChevronDown
+        className={cn(
+          "h-3.5 w-3.5 transition-transform duration-200",
+          open && "rotate-180",
+        )}
+      />
+    </button>
+  );
+}
+
+/**
  * Header notifications bell. Renders upcoming meeting reminders and expiring
- * documents in one dropdown, newest urgency first, with a combined count badge.
+ * documents in one dropdown, folded by message type, with a combined count badge.
  */
 export function NotificationsMenu() {
   const router = useRouter();
@@ -129,6 +183,18 @@ export function NotificationsMenu() {
     remove: removeNotification,
   } = useNotifications();
   const [open, setOpen] = useState(false);
+  /** Which message types are expanded; see `NOTIFICATION_GROUPS`. */
+  const [openGroups, setOpenGroups] = useState<string[]>([
+    ...NOTIFICATION_GROUPS,
+  ]);
+
+  const toggleGroup = (group: string) => {
+    setOpenGroups((previous) =>
+      previous.includes(group)
+        ? previous.filter((value) => value !== group)
+        : [...previous, group],
+    );
+  };
 
   // Rows the user has closed are filtered out before anything is counted, so the
   // bell badge and the per-section counts always match what is actually listed.
@@ -269,33 +335,55 @@ export function NotificationsMenu() {
           </div>
         ) : (
           <div className="max-h-[420px] w-full min-w-0 overflow-y-auto overflow-x-hidden py-1">
-            {/* Team — persisted, per-user notifications (read state on the server). */}
-            <div className="w-full min-w-0 px-2">
-              <div className="flex w-full min-w-0 items-center justify-between gap-2 px-2 py-1.5">
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <UserPlus className="h-3 w-3 shrink-0 text-muted-foreground" />
-                  <span className={SECTION_LABEL_CLASS}>Team</span>
+            {/* One accordion per message type — see `NOTIFICATION_GROUPS`. */}
+            <Accordion
+              type="multiple"
+              value={openGroups}
+              onValueChange={setOpenGroups}
+              className="w-full min-w-0"
+            >
+              {/* Team — persisted, per-user notifications (read state on the server). */}
+              <AccordionItem value="team" className="border-0 px-2">
+                {/* The action is a SIBLING of the trigger, never a child: the trigger
+                    is a real <button>, and a button inside a button is invalid markup
+                    (the parser hoists it out on hydration). The shared chevron is
+                    hidden and drawn after the action, so the fold control still sits
+                    at the far right. */}
+                <div className="flex w-full min-w-0 items-center gap-2 px-2">
+                  <div className="min-w-0 flex-1">
+                    <AccordionTrigger className="w-full gap-2 py-1.5 hover:no-underline [&>svg]:hidden">
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <UserPlus className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        <span className={SECTION_LABEL_CLASS}>Team</span>
+                      </span>
+                    </AccordionTrigger>
+                  </div>
+                  {unreadCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={markAllRead}
+                      className="shrink-0 text-[10px] font-medium text-accent-blue hover:underline"
+                    >
+                      Mark all read
+                    </button>
+                  ) : appNotifications.length > 0 ? (
+                    <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
+                      {appNotifications.length}
+                    </span>
+                  ) : null}
+                  <SectionFoldToggle
+                    label="Team"
+                    open={openGroups.includes("team")}
+                    onToggle={() => toggleGroup("team")}
+                  />
                 </div>
-                {unreadCount > 0 ? (
-                  <button
-                    type="button"
-                    onClick={markAllRead}
-                    className="shrink-0 text-[10px] font-medium text-accent-blue hover:underline"
-                  >
-                    Mark all read
-                  </button>
-                ) : appNotifications.length > 0 ? (
-                  <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
-                    {appNotifications.length}
-                  </span>
-                ) : null}
-              </div>
-              {appNotifications.length === 0 ? (
-                <p className="px-2 pb-2 text-xs text-muted-foreground">
-                  No new team activity.
-                </p>
-              ) : (
-                appNotifications.map((notification) => (
+                <AccordionContent className="pb-2 pt-0">
+                  {appNotifications.length === 0 ? (
+                    <p className="px-2 text-xs text-muted-foreground">
+                      No new team activity.
+                    </p>
+                  ) : (
+                    appNotifications.map((notification) => (
                   // The row and its Delete are SIBLINGS, exactly as the meeting and document rows
                   // are: a button nested inside a `DropdownMenuItem` would also fire the item's
                   // `onSelect`, so deleting one would open it on the way out.
@@ -348,31 +436,42 @@ export function NotificationsMenu() {
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </div>
-                ))
-              )}
-            </div>
+                    ))
+                  )}
+                </AccordionContent>
+              </AccordionItem>
 
-            <DropdownMenuSeparator />
+              <DropdownMenuSeparator />
 
-            {/* Meetings */}
-            <div className="w-full min-w-0 px-2">
-              <div className="flex w-full min-w-0 items-center justify-between gap-2 px-2 py-1.5">
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <CalendarClock className="h-3 w-3 shrink-0 text-muted-foreground" />
-                  <span className={SECTION_LABEL_CLASS}>Meetings</span>
+              {/* Meetings */}
+              <AccordionItem value="meetings" className="border-0 px-2">
+                <div className="flex w-full min-w-0 items-center gap-2 px-2">
+                  <div className="min-w-0 flex-1">
+                    <AccordionTrigger className="w-full gap-2 py-1.5 hover:no-underline [&>svg]:hidden">
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <CalendarClock className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        <span className={SECTION_LABEL_CLASS}>Meetings</span>
+                      </span>
+                    </AccordionTrigger>
+                  </div>
+                  {visibleMeetings.length > 0 && (
+                    <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
+                      {visibleMeetings.length}
+                    </span>
+                  )}
+                  <SectionFoldToggle
+                    label="Meetings"
+                    open={openGroups.includes("meetings")}
+                    onToggle={() => toggleGroup("meetings")}
+                  />
                 </div>
-                {visibleMeetings.length > 0 && (
-                  <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
-                    {visibleMeetings.length}
-                  </span>
-                )}
-              </div>
-              {visibleMeetings.length === 0 ? (
-                <p className="px-2 pb-2 text-xs text-muted-foreground">
-                  No upcoming meetings.
-                </p>
-              ) : (
-                visibleMeetings.map((reminder) => {
+                <AccordionContent className="pb-2 pt-0">
+                  {visibleMeetings.length === 0 ? (
+                    <p className="px-2 text-xs text-muted-foreground">
+                      No upcoming meetings.
+                    </p>
+                  ) : (
+                    visibleMeetings.map((reminder) => {
                   const tier = MEETING_TIER_STYLES[reminder.reminderStatus];
                   const TierIcon = tier.icon;
                   return (
@@ -427,31 +526,42 @@ export function NotificationsMenu() {
                     </button>
                     </div>
                   );
-                })
-              )}
-            </div>
-
-            <DropdownMenuSeparator />
-
-            {/* Documents */}
-            <div className="w-full min-w-0 px-2">
-              <div className="flex w-full min-w-0 items-center justify-between gap-2 px-2 py-1.5">
-                <div className="flex min-w-0 items-center gap-1.5">
-                  <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
-                  <span className={SECTION_LABEL_CLASS}>Documents</span>
-                </div>
-                {visibleDocuments.length > 0 && (
-                  <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
-                    {visibleDocuments.length}
-                  </span>
+                  })
                 )}
-              </div>
-              {visibleDocuments.length === 0 ? (
-                <p className="px-2 pb-2 text-xs text-muted-foreground">
-                  No expiring documents.
-                </p>
-              ) : (
-                visibleDocuments.map((document) => {
+                </AccordionContent>
+              </AccordionItem>
+
+              <DropdownMenuSeparator />
+
+              {/* Documents */}
+              <AccordionItem value="documents" className="border-0 px-2">
+                <div className="flex w-full min-w-0 items-center gap-2 px-2">
+                  <div className="min-w-0 flex-1">
+                    <AccordionTrigger className="w-full gap-2 py-1.5 hover:no-underline [&>svg]:hidden">
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        <span className={SECTION_LABEL_CLASS}>Documents</span>
+                      </span>
+                    </AccordionTrigger>
+                  </div>
+                  {visibleDocuments.length > 0 && (
+                    <span className="shrink-0 text-[10px] font-medium text-muted-foreground">
+                      {visibleDocuments.length}
+                    </span>
+                  )}
+                  <SectionFoldToggle
+                    label="Documents"
+                    open={openGroups.includes("documents")}
+                    onToggle={() => toggleGroup("documents")}
+                  />
+                </div>
+                <AccordionContent className="pb-2 pt-0">
+                  {visibleDocuments.length === 0 ? (
+                    <p className="px-2 text-xs text-muted-foreground">
+                      No expiring documents.
+                    </p>
+                  ) : (
+                    visibleDocuments.map((document) => {
                   const tier = DOCUMENT_TIER_STYLES[document.status];
                   const TierIcon = tier.icon;
                   return (
@@ -504,9 +614,11 @@ export function NotificationsMenu() {
                     </button>
                     </div>
                   );
-                })
-              )}
-            </div>
+                  })
+                )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
         )}
       </DropdownMenuContent>
