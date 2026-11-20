@@ -10,6 +10,10 @@ import {
   type BoardPayload,
 } from "./quick-answers-builder";
 import type { HelpCardContent, HelpCardLayoutEntry } from "@/types/benefit";
+import {
+  helpCardRowSizes,
+  normalizeHelpCardColumns,
+} from "@/lib/help-card-layout";
 import { topicLocationForCategory } from "@/lib/topic-locations";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import {
@@ -353,6 +357,11 @@ export function BenefitsEditorPanel({
     if (!featuredCardCatalog) return step1Data.helpCards;
     const stored = Array.isArray(step1Data.helpCards) ? step1Data.helpCards : [];
     const catalogIds = featuredCardCatalog.map((card) => card.id);
+    // The primary's right-edge slot depends on the grid width AND the packing
+    // rule: slot 1 with 3 across, slot 2 with 4 (slot 1 on a full 8-card page).
+    const columns = normalizeHelpCardColumns(step1Data.helpCardColumns);
+    const row1Slots = helpCardRowSizes(catalogIds.length, columns)[0] ?? 1;
+    const rightEdge = Math.max(row1Slots - 1, 1);
     const storedPrimaryIndex = stored.findIndex(
       (entry) => entry?.primary === true,
     );
@@ -363,12 +372,15 @@ export function BenefitsEditorPanel({
         : ACCOUNT_ACCESS_CARD_ID;
 
     // Everybody else keeps the board's order; only the primary moves, into the
-    // first slot (left edge) or the second (right edge).
+    // first slot (left edge) or the last slot of the primary's row (right edge).
     if (!catalogIds.includes(primaryId)) {
       return featuredCardCatalog.map((card) => ({ id: card.id }));
     }
     const others = catalogIds.filter((id) => id !== primaryId);
-    const at = storedPrimaryIndex >= 1 ? Math.min(1, others.length) : 0;
+    const at =
+      storedPrimaryIndex >= rightEdge
+        ? Math.min(rightEdge, others.length)
+        : 0;
     return [
       ...others.slice(0, at),
       primaryId,
@@ -377,7 +389,7 @@ export function BenefitsEditorPanel({
       id,
       ...(id === primaryId ? { primary: true } : {}),
     }));
-  }, [featuredCardCatalog, step1Data.helpCards]);
+  }, [featuredCardCatalog, step1Data.helpCards, step1Data.helpCardColumns]);
 
   // Field-level refs so a validation error (e.g. the required Login URL) can
   // scroll the editor straight to the offending input instead of just the
@@ -2220,6 +2232,11 @@ export function BenefitsEditorPanel({
           <div className="mb-4 rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
             <HelpCardLayoutEditor
               value={helpCardLayoutValue}
+              // 3 or 4 across, stored beside the layout it belongs to.
+              columns={step1Data.helpCardColumns}
+              onColumnsChange={(helpCardColumns) =>
+                saveStepData(1, { ...step1Data, helpCardColumns } as any)
+              }
               // The benefit being created/edited, so `[Benefit Category]` reads
               // "Retirement Account Access" (or the advisor's Custom name).
               category={helpCardCategoryLabelValue}

@@ -839,6 +839,9 @@ export function BenefitPortalPreview({
             cards={
               step1Data?.helpCards?.length ? step1Data.helpCards : undefined
             }
+            // The Cards-per-row choice made in Card Layout, so the preview is the
+            // same grid the hub will draw.
+            helpCardColumns={step1Data?.helpCardColumns ?? null}
             onCardEdit={(cardId) => handleEdit("helpCards", cardId)}
           />
         </div>

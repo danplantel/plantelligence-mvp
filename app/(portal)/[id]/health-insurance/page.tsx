@@ -267,6 +267,8 @@ export default function HealthInsurancePage() {
             topics={topics?.featured}
             actionHubPanels={topics?.actionHubPanels}
             cards={(benefitData as any)?.helpCards ?? undefined}
+            // 3 or 4 cards per row, chosen in the panel's Card Layout section.
+            helpCardColumns={(benefitData as any)?.helpCardColumns ?? null}
           />
           <PortalSectionEditButton
             sectionId={benefitEditAnchor.help}

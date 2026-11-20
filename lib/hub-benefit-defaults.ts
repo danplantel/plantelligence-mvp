@@ -205,5 +205,10 @@ export function mergeUserBenefitWithHubDefaults(
     ...(p.journeyBodyText ? { journeyBodyText: p.journeyBodyText } : {}),
     // Preserve "How Can We Help You Today?" cards from wizard Step 2 Section 4
     ...(p.helpCards ? { helpCards: p.helpCards } : {}),
+    // ... and how many of them share a row (3 or 4). Only when the draft actually
+    // carried a choice, so a save that never opened Card Layout changes nothing.
+    ...(p.helpCardColumns != null
+      ? { helpCardColumns: p.helpCardColumns }
+      : {}),
   };
 }

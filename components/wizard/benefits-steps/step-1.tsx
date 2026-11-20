@@ -835,6 +835,8 @@ export function BenefitsStep1({
           // "How Can We Help You Today?" cards (Section 4 in the Step 2 editor).
           // Persist so the live Benefits Hub pages show the wizard's cards.
           helpCards: currentStepData.helpCards || null,
+          // ...and the 3-or-4-across choice made beside them.
+          helpCardColumns: currentStepData.helpCardColumns ?? null,
         };
         const payloadKey = JSON.stringify(payload);
 
@@ -2617,6 +2619,8 @@ export function BenefitsStep1({
         favicon: null,
       },
       helpCards: existingBenefit?.helpCards || undefined,
+      // 3 or 4 cards per row; absent means the default of 3.
+      helpCardColumns: existingBenefit?.helpCardColumns ?? undefined,
       insurancePlanId: existingBenefit?.insurancePlanId || "",
       insuranceLoginUrl: existingBenefit?.insuranceLoginUrl || "",
       insuranceBackgroundImage: existingBenefit?.insuranceBackgroundImage || "",

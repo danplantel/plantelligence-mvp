@@ -12,9 +12,12 @@ import {
   helpCardFirstRowSize,
   helpCardPrimaryId,
   helpCardRowSpans,
+  helpCardMaxSpan,
+  helpCardRowSizes,
   helpCardSide,
   isHelpCardEnabled,
   moveHelpCard,
+  normalizeHelpCardColumns,
   normalizeHelpCardLayout,
   resolveHelpCardRows,
   setHelpCardEnabled,
@@ -34,6 +37,92 @@ import {
 function ids(layout: { id: string }[]): string[] {
   return layout.map((entry) => entry.id);
 }
+
+/**
+ * The "cards per row" choice: 3 (the classic grid, default) or 4.
+ *
+ * With 4 across the grid has four columns but NO card may run wider than two —
+ * the Primary included — so the Primary's row holds one standard card fewer than
+ * the grid has columns, and a lone card in a short row keeps half the row empty
+ * instead of becoming a banner. Either layout is capped at eight cards.
+ */
+describe("cards per row", () => {
+  it("normalizes any stored value to 3 or 4", () => {
+    expect(normalizeHelpCardColumns(4)).toBe(4);
+    expect(normalizeHelpCardColumns("4")).toBe(4);
+    expect(normalizeHelpCardColumns(3)).toBe(3);
+    expect(normalizeHelpCardColumns(5)).toBe(3);
+    expect(normalizeHelpCardColumns(null)).toBe(3);
+    expect(normalizeHelpCardColumns(undefined)).toBe(3);
+  });
+
+  it("gives the Primary's row one standard card fewer than the column count", () => {
+    expect(helpCardFirstRowSize(7, 3)).toBe(2);
+    expect(helpCardFirstRowSize(7, 4)).toBe(3);
+    expect(helpCardFirstRowSize(2, 4)).toBe(2);
+    expect(helpCardFirstRowSize(1, 4)).toBe(1);
+  });
+
+  it("never lets a card exceed two columns with 4 across", () => {
+    expect(helpCardRowSpans(3, 4, 0, helpCardMaxSpan(4))).toEqual([2, 1, 1]);
+    expect(helpCardRowSpans(2, 4, 0, helpCardMaxSpan(4))).toEqual([2, 2]);
+    // A lone card would be four columns wide; the cap keeps it at two.
+    expect(helpCardRowSpans(1, 4, 0, helpCardMaxSpan(4))).toEqual([2]);
+  });
+
+  it("keeps the classic three-column spans untouched", () => {
+    expect(helpCardRowSpans(3, 3, 0, helpCardMaxSpan(3))).toEqual([1, 1, 1]);
+    expect(helpCardRowSpans(2, 3, 0, helpCardMaxSpan(3))).toEqual([2, 1]);
+    expect(helpCardRowSpans(1, 3, 0, helpCardMaxSpan(3))).toEqual([3]);
+  });
+
+  it("packs the seven-card catalog as 2 + 3 + 2, or 3 + 4 with 4 across", () => {
+    const layout = defaultHelpCardLayout();
+
+    expect(
+      resolveHelpCardRows(layout, undefined, 3).map((row) => row.length),
+    ).toEqual([2, 3, 2]);
+    expect(
+      resolveHelpCardRows(layout, undefined, 4).map((row) => row.length),
+    ).toEqual([3, 4]);
+  });
+
+  it("makes the first four of eight cards two columns each with 4 across", () => {
+    // 2+2 / 2+2 / 1+1+1+1, so the first four cards are each half a row.
+    expect(helpCardRowSizes(8, 4)).toEqual([2, 2, 4]);
+    expect(helpCardRowSpans(2, 4, 0, helpCardMaxSpan(4))).toEqual([2, 2]);
+    expect(helpCardRowSpans(4, 4, 0, helpCardMaxSpan(4))).toEqual([
+      1, 1, 1, 1,
+    ]);
+  });
+
+  it("keeps the Primary-row packing for fewer than eight cards", () => {
+    expect(helpCardRowSizes(7, 4)).toEqual([3, 4]);
+    expect(helpCardRowSizes(6, 4)).toEqual([3, 3]);
+    // 3 across is untouched by the eight-card rule.
+    expect(helpCardRowSizes(8, 3)).toEqual([2, 3, 3]);
+    expect(helpCardRowSizes(7, 3)).toEqual([2, 3, 2]);
+  });
+
+  it("puts a right-edge primary in the last slot of its row", () => {
+    const base = defaultHelpCardLayout();
+
+    // 3 across: row 1 holds two cards, so "right" is index 1.
+    expect(setHelpCardSide(base, "right", { columns: 3 })[1]).toEqual({
+      id: "account-access",
+      primary: true,
+    });
+    // 4 across: row 1 holds three cards, so "right" is index 2.
+    expect(setHelpCardSide(base, "right", { columns: 4 })[2]).toEqual({
+      id: "account-access",
+      primary: true,
+    });
+  });
+
+  it("still caps either layout at eight cards", () => {
+    expect(HELP_CARD_MAX_VISIBLE).toBe(8);
+  });
+});
 
 describe("normalizeHelpCardLayout", () => {
   it("returns the whole catalog with Account Access primary on the left", () => {

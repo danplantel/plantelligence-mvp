@@ -40,8 +40,37 @@ import type {
  * the first row's size from the card count with [`helpCardFirstRowSize`].
  */
 export const HELP_CARD_ROW_1_SIZE = 2;
-/** How many columns the grid has, and the size of every row after the first. */
+/** How many columns the grid has by default, and the size of every row after the first. */
 export const HELP_CARD_ROW_SIZE = 3;
+
+/**
+ * The "cards per row" choices offered in the Card Layout editor.
+ *
+ * 3 is the classic grid (the Primary takes two of the three columns); 4 is the
+ * denser one. A stored value that is neither falls back to 3, so a legacy row —
+ * or a bad payload — can never produce a grid the renderer does not know.
+ */
+export const HELP_CARD_COLUMNS_OPTIONS = [3, 4] as const;
+export type HelpCardColumns = (typeof HELP_CARD_COLUMNS_OPTIONS)[number];
+export const HELP_CARD_DEFAULT_COLUMNS: HelpCardColumns = 3;
+
+/** A stored column count → the only two values the grid can draw. */
+export function normalizeHelpCardColumns(value: unknown): HelpCardColumns {
+  const parsed = typeof value === "number" ? value : Number(value);
+  return parsed === 4 ? 4 : 3;
+}
+
+/**
+ * The widest a single card may be.
+ *
+ * In the 3-column grid that is the whole row (a lone card fills it). In the
+ * 4-column grid NOTHING may exceed two columns — the Primary included — so a
+ * lone card in a short row keeps half the row empty rather than turning into a
+ * full-width banner.
+ */
+export function helpCardMaxSpan(columns: HelpCardColumns = HELP_CARD_DEFAULT_COLUMNS): number {
+  return columns === 4 ? 2 : columns;
+}
 
 /**
  * The most cards the grid shows.
@@ -62,24 +91,61 @@ export function clampHelpCards<T>(cards: readonly T[]): T[] {
 /**
  * How many cards share the FIRST row.
  *
- * Row 1 belongs to the PRIMARY: it takes two of the three columns at its edge and
- * one standard card fills the third, which is what keeps a card visibly the wide
- * one. Packing three equal thirds would leave the primary no wider than its
- * neighbours, so the primary's row is the one row that holds two. Every later row
- * holds three, and a short final row widens the cards it does hold instead of
- * trailing off short of the right edge:
+ * Row 1 belongs to the PRIMARY: it takes two columns at its edge and standard
+ * cards fill the rest of the row, which is what keeps a card visibly the wide
+ * one. Every later row holds `columns` cards, and a short final row widens the
+ * cards it does hold instead of trailing off short of the right edge.
  *
+ * 3 columns (the default):
  *   1 card  → 1           (the primary owns the row: all three columns)
  *   2 cards → 2           (primary + one)
  *   3 cards → 2 + 1
- *   4 cards → 2 + 2
- *   5 cards → 2 + 3
- *   6 cards → 2 + 3 + 1
- *   7 cards → 2 + 3 + 2
+ *   … later rows of 3
+ *
+ * 4 columns (no card may exceed two columns):
+ *   1 card  → 1           (primary, 2 of 4 — the rest of the row stays empty)
+ *   2 cards → 2           (primary + one, each 2 of 4)
+ *   3 cards → 2 + 1 + 1
+ *   … later rows of 4
  */
-export function helpCardFirstRowSize(cardCount: number): number {
+export function helpCardFirstRowSize(
+  cardCount: number,
+  columns: HelpCardColumns = HELP_CARD_DEFAULT_COLUMNS,
+): number {
   if (cardCount <= 0) return 0;
-  return Math.min(cardCount, HELP_CARD_ROW_1_SIZE);
+  // The primary owns two columns, so the rest of its row holds `columns - 2`
+  // standard cards — i.e. `columns - 1` cards in total.
+  return Math.min(cardCount, Math.max(1, columns - 1));
+}
+
+/**
+ * How many cards sit in each row, top to bottom.
+ *
+ * The default is the Primary's row (`columns - 1` cards) followed by full rows
+ * of `columns`. The 4-across grid has ONE deliberate exception: a FULL page of
+ * eight cards reads as two rows of two half-width cards and then one row of
+ * four — `2+2 / 2+2 / 1+1+1+1`, i.e. the first four cards are each two columns
+ * wide. Seven or fewer keep the Primary-row packing.
+ *
+ * Shared by the portal, the editor's slot mirror and the layout math, so the
+ * three can never disagree about where a row breaks.
+ */
+export function helpCardRowSizes(
+  count: number,
+  columns: HelpCardColumns = HELP_CARD_DEFAULT_COLUMNS,
+): number[] {
+  if (count <= 0) return [];
+  if (columns === 4 && count === HELP_CARD_MAX_VISIBLE) {
+    return [2, 2, HELP_CARD_MAX_VISIBLE - 4];
+  }
+  const sizes = [helpCardFirstRowSize(count, columns)];
+  let remaining = count - sizes[0];
+  while (remaining > 0) {
+    const size = Math.min(columns, remaining);
+    sizes.push(size);
+    remaining -= size;
+  }
+  return sizes;
 }
 
 /**
@@ -96,8 +162,9 @@ export function helpCardFirstRowSize(cardCount: number): number {
  */
 export function helpCardRowSpans(
   rowSize: number,
-  columns: number = HELP_CARD_ROW_SIZE,
+  columns: HelpCardColumns = HELP_CARD_DEFAULT_COLUMNS,
   emphasisIndex = 0,
+  maxSpan: number = columns,
 ): number[] {
   if (rowSize <= 0) return [];
   // A row never holds more cards than the grid has columns; clamping keeps the
@@ -110,7 +177,9 @@ export function helpCardRowSpans(
     const index = (emphasisIndex + offset) % size;
     spans[index] += 1;
   }
-  return spans;
+  // The 4-column grid caps every card at two columns, so a lone card in a short
+  // row keeps the row half empty instead of becoming a banner.
+  return spans.map((span) => Math.min(span, maxSpan));
 }
 
 export type HelpCardSide = "left" | "right";
@@ -125,6 +194,12 @@ export interface NormalizeHelpCardOptions {
   side?: HelpCardSide;
   /** Force this card to be the primary (the stored flags are otherwise used). */
   primaryId?: string;
+  /**
+   * The grid width, because the primary's RIGHT-edge slot depends on it: row 1
+   * holds `columns - 1` cards, so "right" is index 1 with 3 across and index 2
+   * with 4 across. Defaults to 3.
+   */
+  columns?: HelpCardColumns;
 }
 
 function readStoredEntries(entries: unknown): StoredEntry[] {
@@ -163,12 +238,17 @@ function arrangeHelpCards(
   primaryId: string,
   side: HelpCardSide,
   disabled: Set<string>,
+  columns: HelpCardColumns = HELP_CARD_DEFAULT_COLUMNS,
 ): HelpCardLayoutEntry[] {
   const rest = ids.filter((id) => id !== primaryId);
+  // The right edge is the last slot of row 1 — whose size the packing rule
+  // decides (a full 4-across page puts just two cards there).
+  const row1Slots = helpCardRowSizes(ids.length, columns)[0] ?? 1;
+  const rightAt = Math.min(Math.max(row1Slots - 1, 1), rest.length);
   const ordered =
     side === "left"
       ? [primaryId, ...rest]
-      : [...rest.slice(0, 1), primaryId, ...rest.slice(1)];
+      : [...rest.slice(0, rightAt), primaryId, ...rest.slice(rightAt)];
 
   return ordered.map((id) => {
     const entry: HelpCardLayoutEntry = { id };
@@ -226,11 +306,14 @@ export function normalizeHelpCardLayout(
     defaultPrimaryId;
 
   // Where the primary currently sits decides its edge, unless the caller forces
-  // one. The canonical slots are 0 (left) and 1 (right) — row 1 holds exactly
-  // those two cards — and anything past index 1 is treated as right.
+  // one. Row 1 holds `columns - 1` cards, so its right edge is slot 1 with 3
+  // across and slot 2 with 4; the left edge is always slot 0.
+  const columns = options.columns ?? HELP_CARD_DEFAULT_COLUMNS;
+  const row1Slots = helpCardRowSizes(storedIds.length, columns)[0] ?? 1;
+  const rightEdge = Math.max(row1Slots - 1, 1);
   const storedIndex = stored.findIndex((entry) => entry.id === primaryId);
   const side: HelpCardSide =
-    options.side ?? (storedIndex >= 1 ? "right" : "left");
+    options.side ?? (storedIndex >= rightEdge ? "right" : "left");
 
   const disabled = disabledIdsOf(stored);
   for (const card of catalog) {
@@ -239,7 +322,7 @@ export function normalizeHelpCardLayout(
     }
   }
 
-  return arrangeHelpCards(storedIds, primaryId, side, disabled);
+  return arrangeHelpCards(storedIds, primaryId, side, disabled, columns);
 }
 
 /**
@@ -281,6 +364,7 @@ export function setHelpCardPrimary(
     id,
     helpCardSide(entries, options),
     disabledIdsOf(entries),
+    options.columns,
   );
 }
 
@@ -296,6 +380,7 @@ export function setHelpCardSide(
     helpCardPrimaryId(entries, options),
     side,
     disabledIdsOf(entries),
+    options.columns,
   );
 }
 
@@ -361,7 +446,7 @@ export function moveHelpCard(
 
   // Dropped on the primary slot → promote the dragged card, keeping the edge.
   if (overId === primaryId) {
-    return arrangeHelpCards(visual, activeId, side, disabled);
+    return arrangeHelpCards(visual, activeId, side, disabled, options.columns);
   }
 
   const standards = visual.filter((id) => id !== primaryId);
@@ -370,7 +455,7 @@ export function moveHelpCard(
   if (standardFrom < 0 || standardTo < 0) return entries;
 
   standards.splice(standardTo, 0, ...standards.splice(standardFrom, 1));
-  return arrangeHelpCards(standards, primaryId, side, disabled);
+  return arrangeHelpCards(standards, primaryId, side, disabled, options.columns);
 }
 
 /**
@@ -407,9 +492,10 @@ export function defaultHelpCardLayout(
 export function resolveHelpCardRows(
   layout: HelpCardLayoutEntry[] | undefined | null,
   category?: string | null,
+  columns: HelpCardColumns = HELP_CARD_DEFAULT_COLUMNS,
 ): HelpCardResolved[][] {
   const catalog = helpCardCatalogFor(category);
-  const entries = normalizeHelpCardLayout(layout, { catalog });
+  const entries = normalizeHelpCardLayout(layout, { catalog, columns });
 
   const cards: HelpCardResolved[] = [];
   for (const entry of entries) {
@@ -425,16 +511,18 @@ export function resolveHelpCardRows(
   const rows: HelpCardResolved[][] = [];
   const hasPrimary = visible.some((card) => card.primary);
   if (!hasPrimary) {
-    for (let i = 0; i < visible.length; i += HELP_CARD_ROW_SIZE) {
-      rows.push(visible.slice(i, i + HELP_CARD_ROW_SIZE));
+    // No wide card to lay out around: the remaining cards simply pack
+    // `columns` to a row.
+    for (let i = 0; i < visible.length; i += columns) {
+      rows.push(visible.slice(i, i + columns));
     }
     return rows;
   }
 
-  const firstRowSize = helpCardFirstRowSize(visible.length);
-  if (firstRowSize > 0) rows.push(visible.slice(0, firstRowSize));
-  for (let i = firstRowSize; i < visible.length; i += HELP_CARD_ROW_SIZE) {
-    rows.push(visible.slice(i, i + HELP_CARD_ROW_SIZE));
+  let start = 0;
+  for (const size of helpCardRowSizes(visible.length, columns)) {
+    rows.push(visible.slice(start, start + size));
+    start += size;
   }
   return rows;
 }

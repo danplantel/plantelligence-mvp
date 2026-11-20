@@ -1632,6 +1632,34 @@ describe("HowCanWeHelpSection features placements", () => {
     topic("hsa-fsa-resources", "HSA / FSA", 4),
   ];
 
+  it("gives the first four of eight cards two columns each with 4 across", () => {
+    // Account Access + seven Featured topics is a full page of eight cards.
+    const seven = [
+      ...FIVE_FEATURED,
+      topic("mental-health-care", "Mental Health Care", 5),
+      topic("prescription-drugs", "Prescription Drugs", 6),
+    ];
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        category="Group Health"
+        helpCardColumns={4}
+        topics={seven}
+      />,
+    );
+
+    const all = tiles(container);
+    expect(all).toHaveLength(8);
+    // 2+2 / 2+2 / 1+1+1+1: the first four cards are each two columns wide.
+    for (const element of all.slice(0, 4)) {
+      expect(element.className).toContain("col-span-2");
+    }
+    for (const element of all.slice(4)) {
+      expect(element.className).toContain("col-span-1");
+      expect(element.className).not.toContain("col-span-2");
+    }
+  });
+
   it("adds a tile for a topic promoted to Featured, layout or not", () => {
     const promoted = [
       ...FIVE_FEATURED,
@@ -1932,5 +1960,67 @@ describe("HowCanWeHelpSection phone treatment", () => {
     // the same one — it must not be a benefit-only alignment.
     expect(chip.parentElement?.className).toContain("justify-start");
     expect(chip.parentElement?.className).toContain("text-left");
+  });
+});
+
+/**
+ * Cards per row: 3 (the classic grid) or 4.
+ *
+ * With 4 across the grid has four columns, but NO card runs wider than two of
+ * them — the Primary included. So the Primary's row holds three cards
+ * (2 + 1 + 1) and every later row holds four; the eight-card cap is unchanged.
+ */
+describe("HowCanWeHelpSection cards per row", () => {
+  it("draws a four-column grid when the plan chooses 4 across", () => {
+    const { container } = render(
+      <HowCanWeHelpSection clientId="plan-1" helpCardColumns={4} />,
+    );
+
+    const grid = container.querySelector(".grid");
+    expect(grid?.className).toContain("lg:grid-cols-4");
+    expect(grid?.className).not.toContain("lg:grid-cols-3");
+  });
+
+  it("keeps every card at two columns or fewer with 4 across", () => {
+    const { container } = render(
+      <HowCanWeHelpSection clientId="plan-1" helpCardColumns={4} />,
+    );
+
+    const [primary, beside, third] = tiles(container);
+    expect(primary.className).toContain("col-span-2");
+    expect(beside.className).not.toContain("col-span-2");
+    expect(third.className).not.toContain("col-span-2");
+
+    // Nothing becomes a full-row banner: the widest any card can be is 2/4.
+    for (const element of tiles(container)) {
+      expect(element.className).not.toContain("lg:col-span-3");
+      expect(element.className).not.toContain("lg:col-span-4");
+    }
+  });
+
+  it("packs the remaining cards four to a row", () => {
+    const { container } = render(
+      <HowCanWeHelpSection clientId="plan-1" helpCardColumns={4} />,
+    );
+
+    const all = tiles(container);
+    expect(all).toHaveLength(7);
+    // Row 1 is the Primary (2) + two standard cards; the four left after it
+    // fill one row of four equal columns.
+    expect(
+      all
+        .slice(3)
+        .every((element) => element.className.includes("col-span-1")),
+    ).toBe(true);
+  });
+
+  it("falls back to three across for an unknown stored value", () => {
+    const { container } = render(
+      <HowCanWeHelpSection clientId="plan-1" helpCardColumns={9} />,
+    );
+
+    expect(container.querySelector(".grid")?.className).toContain(
+      "lg:grid-cols-3",
+    );
   });
 });

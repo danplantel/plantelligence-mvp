@@ -65,6 +65,11 @@ export interface BenefitsStep1Data {
   benefitVisibility?: Record<string, boolean>;
   /** "How Can We Help You Today?" card layout (order + primary); copy is static. */
   helpCards?: HelpCardLayoutEntry[];
+  /**
+   * How many cards share a row in that grid: 3 (the classic layout) or 4. Absent
+   * means 3, so a draft saved before this existed keeps its current shape.
+   */
+  helpCardColumns?: number;
   /** Plan ID displayed in the Insurance Benefits Access & Materials section */
   insurancePlanId?: string;
   /** URL for the Register or Login Here button in the Insurance Benefits section */

@@ -169,6 +169,7 @@ export async function saveBenefit(
         journeySubtitle: step1Data?.journeySubtitle,
         journeyBodyText: step1Data?.journeyBodyText,
         helpCards: step1Data?.helpCards,
+        helpCardColumns: step1Data?.helpCardColumns,
       },
       step1Data?.benefitCategory,
       { saveMode: true },
@@ -635,6 +636,9 @@ export async function saveBenefit(
             insuranceContainerBlockOpacity:
               step1Data?.insuranceContainerBlockOpacity ?? null,
             helpCards: step1Data?.helpCards || null,
+            // 3 or 4 cards per row. Null means "the shipped default (3)", so a
+            // draft that never chose a value writes nothing meaningful.
+            helpCardColumns: step1Data?.helpCardColumns ?? null,
             // Persist Step 3 FAQs + support contacts to the Benefit row (the
             // source read by the wizard's Step 1 pre-population and by the live
             // hub pages) — they were previously only written to the legacy

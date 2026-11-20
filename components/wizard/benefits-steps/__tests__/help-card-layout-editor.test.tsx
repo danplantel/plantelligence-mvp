@@ -101,6 +101,109 @@ describe("HelpCardLayoutEditor", () => {
     expect(layout.filter((entry) => entry.primary)).toHaveLength(1);
   });
 
+  it("puts a right-edge primary in the last slot of a four-across row", async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <HelpCardLayoutEditor
+        onChange={onChange}
+        columns={4}
+        onColumnsChange={() => {}}
+      />,
+    );
+
+    await user.click(screen.getByRole("button", { name: /^right$/i }));
+
+    // Row 1 holds three cards with 4 across, so the right edge is slot 2.
+    const layout = layoutOf(onChange);
+    expect(layout[2]).toEqual({ id: "account-access", primary: true });
+  });
+
+  it("offers 3 or 4 cards per row and reports the choice", async () => {
+    const user = userEvent.setup();
+    const onColumnsChange = vi.fn();
+    render(
+      <HelpCardLayoutEditor
+        onChange={() => {}}
+        columns={3}
+        onColumnsChange={onColumnsChange}
+      />,
+    );
+
+    expect(
+      screen.getByRole("button", { name: "3 cards per row" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "4 cards per row" }));
+
+    expect(onColumnsChange).toHaveBeenCalledWith(4);
+    // The choice is separate from the layout: nothing about the card order moved.
+    expect(onColumnsChange).toHaveBeenCalledTimes(1);
+  });
+
+  it("draws the slot mirror with four columns, capped at two per card", () => {
+    render(
+      <HelpCardLayoutEditor
+        onChange={() => {}}
+        columns={4}
+        onColumnsChange={() => {}}
+      />,
+    );
+
+    const mirror = screen.getByTestId("help-card-slot-preview");
+    expect(mirror).toHaveAttribute("data-columns", "4");
+    expect(mirror.className).toContain("grid-cols-4");
+
+    // With 4 across the Primary takes 2 of the 4 columns and no card — not even
+    // in a short row — runs wider than that.
+    for (const cell of Array.from(mirror.children) as HTMLElement[]) {
+      expect(cell.className).not.toContain("col-span-3");
+      expect(cell.className).not.toContain("col-span-4");
+    }
+    const first = mirror.children[0] as HTMLElement;
+    expect(first.className).toContain("col-span-2");
+  });
+
+  it("mirrors two half-width rows when eight cards use 4 across", () => {
+    const catalog: HelpCardContent[] = Array.from({ length: 8 }, (_, index) => ({
+      id: `card-${index + 1}`,
+      title: `Card ${index + 1}`,
+      paragraphs: [],
+      cta: "",
+    }));
+
+    render(
+      <HelpCardLayoutEditor
+        onChange={() => {}}
+        catalog={catalog}
+        columns={4}
+        onColumnsChange={() => {}}
+      />,
+    );
+
+    const mirror = screen.getByTestId("help-card-slot-preview");
+    const cells = Array.from(mirror.children) as HTMLElement[];
+    expect(cells).toHaveLength(8);
+    // 2+2 / 2+2 / 1+1+1+1: the first four cards are each two columns wide.
+    expect(
+      cells
+        .slice(0, 4)
+        .every((cell) => cell.className.includes("col-span-2")),
+    ).toBe(true);
+    expect(
+      cells
+        .slice(4)
+        .every((cell) => cell.className.includes("col-span-1")),
+    ).toBe(true);
+  });
+
+  it("hides the cards-per-row control when the host cannot store it", () => {
+    render(<HelpCardLayoutEditor onChange={() => {}} />);
+
+    expect(
+      screen.queryByRole("button", { name: "4 cards per row" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("fills [Benefit Category] with the benefit being edited", () => {
     render(
       <HelpCardLayoutEditor category="Retirement" onChange={() => {}} />,

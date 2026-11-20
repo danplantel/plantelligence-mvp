@@ -151,6 +151,11 @@ function step1FromBenefit(input: {
       Custom: visibility.Other !== false,
     },
     helpCards: benefit?.helpCards || undefined,
+    // `null` (no choice stored yet) is carried as absent, which the editor reads
+    // as the default of 3.
+    ...(benefit?.helpCardColumns != null
+      ? { helpCardColumns: Number(benefit.helpCardColumns) }
+      : {}),
     insurancePlanId: String(benefit?.insurancePlanId ?? ""),
     insuranceLoginUrl: String(benefit?.insuranceLoginUrl ?? ""),
     insuranceBackgroundImage: String(benefit?.insuranceBackgroundImage ?? ""),
@@ -240,6 +245,7 @@ function benefitPatchFromStepData(
     insuranceContainerBlockOpacity: step1.insuranceContainerBlockOpacity,
     providerContact: step1.providerContact,
     helpCards: step1.helpCards,
+    helpCardColumns: step1.helpCardColumns,
     heroBackgroundOpacity: step1.heroBackgroundOpacity,
     heroContainerBlockOpacity: step1.heroContainerBlockOpacity,
     heroContainerInverted: step1.heroContainerInverted,

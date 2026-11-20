@@ -183,6 +183,14 @@ export interface BenefitData {
   helpCards?: HelpCardLayoutEntry[] | null;
 
   /**
+   * How many cards share a row on "How Can We Help You Today?": 3 (the classic
+   * three-column grid, the default) or 4 (the denser grid, where no card may run
+   * wider than two of the four columns). Absent/null means 3
+   * (`lib/help-card-layout.ts` → `normalizeHelpCardColumns`).
+   */
+  helpCardColumns?: number | null;
+
+  /**
    * "Have Questions?" — how the benefit's KEY CONTACT card is drawn:
    * `"default"` (the neutral card the rest of the row uses) or `"highlighted"`
    * (filled with the plan's primary colour, contents inverted — the primary-card

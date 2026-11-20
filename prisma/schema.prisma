@@ -1066,6 +1066,12 @@ model Benefit {
 
   // Help Cards
   helpCards Json?
+  // How many cards share a row on the "How Can We Help You Today?" grid: 3 (the
+  // classic layout) or 4. NULL means the shipped default of 3, so every existing
+  // row keeps its current shape. Either layout shows at most eight cards, and in
+  // the 4-across grid no single card may run wider than two columns. See
+  // lib/help-card-layout.ts.
+  helpCardColumns Int?
 
   // Insurance / Portal Materials
   insurancePlanId               String?

@@ -190,6 +190,7 @@ export function forgetDraftBenefit(planId: string, category: string): void {
             journeySubtitle: undefined,
             journeyBodyText: undefined,
             helpCards: undefined,
+            helpCardColumns: undefined,
             insurancePlanId: "",
             insuranceLoginUrl: "",
             insuranceBackgroundImage: "",

@@ -28,18 +28,22 @@ import {
   helpCardCatalogFor,
 } from "@/lib/help-card-defaults";
 import {
-  HELP_CARD_ROW_SIZE,
+  HELP_CARD_COLUMNS_OPTIONS,
+  HELP_CARD_MAX_VISIBLE,
   clampHelpCards,
-  helpCardFirstRowSize,
+  helpCardMaxSpan,
   helpCardPrimaryId,
+  helpCardRowSizes,
   helpCardRowSpans,
   helpCardSide,
   isHelpCardEnabled,
   moveHelpCard,
+  normalizeHelpCardColumns,
   normalizeHelpCardLayout,
   setHelpCardEnabled,
   setHelpCardPrimary,
   setHelpCardSide,
+  type HelpCardColumns,
 } from "@/lib/help-card-layout";
 import { cn } from "@/lib/utils";
 
@@ -74,36 +78,56 @@ interface HelpCardLayoutEditorProps {
    * only make the two lists disagree — so this control picks the Primary instead.
    */
   allowReorder?: boolean;
+  /**
+   * How many cards share a row: 3 (the classic grid, the default) or 4. The same
+   * value the portal uses, so the slot mirror below is never a different shape
+   * from the page it is previewing.
+   */
+  columns?: number | null;
+  /**
+   * Change the cards-per-row choice. Omitted by a host that has nowhere to store
+   * it yet — the control is then simply not drawn, rather than writing a value
+   * nothing reads.
+   */
+  onColumnsChange?: (columns: HelpCardColumns) => void;
 }
 
-/** Column span → mini-mirror classes (a plain 3-column grid, so no prefixes). */
+/** Column span → mini-mirror classes (a plain grid, so no breakpoint prefixes). */
 const MIRROR_SPAN_CLASS: Record<number, string> = {
   1: "col-span-1",
   2: "col-span-2",
   3: "col-span-3",
+  4: "col-span-4",
+};
+
+/** The mirror's own grid, which follows the chosen cards-per-row. */
+const MIRROR_GRID_CLASS: Record<number, string> = {
+  3: "grid-cols-3",
+  4: "grid-cols-4",
 };
 
 /**
  * The row and column span of every VISIBLE card, laid out with the same rule the
- * hub uses: rows divide their three columns between them, so hiding a card re-flows
- * the mirror exactly as it will re-flow the portal.
+ * hub uses: rows divide their columns between them, so hiding a card re-flows the
+ * mirror exactly as it will re-flow the portal.
  */
 function planCardSlots(
   visible: HelpCardLayoutEntry[],
+  columns: HelpCardColumns,
 ): { row: number; span: number }[] {
   const slots: { row: number; span: number }[] = [];
-  const firstRowSize = helpCardFirstRowSize(visible.length);
+  const maxSpan = helpCardMaxSpan(columns);
 
   let start = 0;
   let row = 1;
-  while (start < visible.length) {
-    const size = row === 1 ? firstRowSize : HELP_CARD_ROW_SIZE;
+  for (const size of helpCardRowSizes(visible.length, columns)) {
     const rowCards = visible.slice(start, start + size);
     const primaryInRow = rowCards.findIndex((entry) => entry.primary);
     const spans = helpCardRowSpans(
       rowCards.length,
-      HELP_CARD_ROW_SIZE,
+      columns,
       primaryInRow >= 0 ? primaryInRow : 0,
+      maxSpan,
     );
     spans.forEach((span) => slots.push({ row, span }));
     start += size;
@@ -124,6 +148,7 @@ function SortableHelpCardRow({
   allowReorder = true,
   row = 1,
   span = 1,
+  columns = 3,
   onMakePrimary,
   onToggleEnabled,
 }: {
@@ -131,6 +156,8 @@ function SortableHelpCardRow({
   index: number;
   isPrimary: boolean;
   category?: string;
+  /** The chosen cards-per-row, for the "n/4 wide" label. */
+  columns?: HelpCardColumns;
   /**
    * The CATEGORY's catalog. Reading the copy from the shared fallback would leave
    * a Retirement card titled by its id ("manage-investments") — the row must read
@@ -231,8 +258,8 @@ function SortableHelpCardRow({
         </p>
         <p className="text-[11px] text-muted-foreground">
           {enabled
-            ? `Row ${row} · ${span}/${HELP_CARD_ROW_SIZE} wide`
-            : `Hidden · ${span}/${HELP_CARD_ROW_SIZE} wide`}
+            ? `Row ${row} · ${span}/${columns} wide`
+            : `Hidden · ${span}/${columns} wide`}
           {isPrimary ? " · Primary" : ""}
         </p>
       </div>
@@ -279,7 +306,14 @@ export function HelpCardLayoutEditor({
   catalog: catalogProp,
   showEnabledToggle = true,
   allowReorder = true,
+  columns: columnsProp,
+  onColumnsChange,
 }: HelpCardLayoutEditorProps) {
+  /** 3 or 4 cards per row — anything else in storage falls back to 3. */
+  const columns = useMemo(
+    () => normalizeHelpCardColumns(columnsProp),
+    [columnsProp],
+  );
   // The cards this plan has: the Featured placements when the host supplies them,
   // otherwise the category's OWN catalog (Retirement has its six Featured topics,
   // every other category keeps the shared set). Normalizing against it is what
@@ -291,11 +325,11 @@ export function HelpCardLayoutEditor({
     [catalogProp, category],
   );
   const layout = useMemo(
-    () => normalizeHelpCardLayout(value, { catalog }),
-    [value, catalog],
+    () => normalizeHelpCardLayout(value, { catalog, columns }),
+    [value, catalog, columns],
   );
-  const primaryId = helpCardPrimaryId(layout, { catalog });
-  const side = helpCardSide(layout, { catalog });
+  const primaryId = helpCardPrimaryId(layout, { catalog, columns });
+  const side = helpCardSide(layout, { catalog, columns });
   // The slot mirror shows what the hub will actually render, so a hidden card
   // leaves the mirror (and its columns) behind.
   const visibleLayout = layout.filter(isHelpCardEnabled);
@@ -304,7 +338,7 @@ export function HelpCardLayoutEditor({
   const mirroredLayout = clampHelpCards(visibleLayout);
   // Row + span of each visible card, so the mirror and the row labels agree with
   // what the hub will actually paint.
-  const slots = planCardSlots(mirroredLayout);
+  const slots = planCardSlots(mirroredLayout, columns);
   const slotById = new Map(
     visibleLayout.map((entry, index) => [entry.id, slots[index]]),
   );
@@ -315,7 +349,7 @@ export function HelpCardLayoutEditor({
   const primaryVisibleIndex = visibleLayout.findIndex((entry) => entry.primary);
   const primarySpan =
     primaryVisibleIndex >= 0 ? slots[primaryVisibleIndex]?.span ?? 1 : 0;
-  const primaryFillsRow = primarySpan >= HELP_CARD_ROW_SIZE;
+  const primaryFillsRow = primarySpan >= columns;
   const sensors = useSensors(
     useSensor(PointerSensor),
     useSensor(KeyboardSensor, {
@@ -327,7 +361,10 @@ export function HelpCardLayoutEditor({
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     onChange(
-      moveHelpCard(layout, String(active.id), String(over.id), { catalog }),
+      moveHelpCard(layout, String(active.id), String(over.id), {
+        catalog,
+        columns,
+      }),
     );
   };
 
@@ -346,9 +383,39 @@ export function HelpCardLayoutEditor({
             {showEnabledToggle
               ? "Untick a card to hide it from the portal — it keeps its place here, and the remaining cards re-fill the rows."
               : "Which cards are on the page comes from Quick Access: promote a question there to add one, or move it back to remove it. Dragging here sets the order participants see, and the Featured Cards list follows."}{" "}
-            Copy is fixed per card.
+            Copy is fixed per card. Either layout shows at most{" "}
+            {HELP_CARD_MAX_VISIBLE} cards; with 4 across no card is wider than two
+            columns.
           </p>
         </div>
+        {/* Cards per row. Only drawn when the host can store the choice — a
+            control that wrote nowhere would look like it did nothing. */}
+        {onColumnsChange && (
+          <div className="flex flex-col items-end gap-1">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+              Cards per row
+            </span>
+            <div className="inline-flex overflow-hidden rounded-md border border-muted text-[11px] font-semibold">
+              {HELP_CARD_COLUMNS_OPTIONS.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={columns === option}
+                  aria-label={`${option} cards per row`}
+                  onClick={() => onColumnsChange(option)}
+                  className={cn(
+                    "px-2.5 py-1.5 transition-colors",
+                    columns === option
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-muted-foreground hover:bg-muted dark:bg-gray-800",
+                  )}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         {/* Where the primary sits in row 1 — only meaningful while row 1 holds
             more than one card. When the primary fills the row there is no edge
             to pick, so the control is left out entirely. */}
@@ -360,7 +427,9 @@ export function HelpCardLayoutEditor({
                 type="button"
                 aria-pressed={side === option}
                 onClick={() =>
-                  onChange(setHelpCardSide(layout, option, { catalog }))
+                  onChange(
+                    setHelpCardSide(layout, option, { catalog, columns }),
+                  )
                 }
                 className={cn(
                   "px-2.5 py-1.5 capitalize transition-colors",
@@ -376,14 +445,23 @@ export function HelpCardLayoutEditor({
         )}
       </div>
 
-      {/* 3-column slot mirror — the same shape the portal renders. */}
+      {/* Slot mirror — the same shape the portal renders. */}
       <div
         aria-hidden="true"
         data-testid="help-card-slot-preview"
-        className="grid grid-cols-3 gap-1.5 rounded-lg border border-muted bg-muted/20 p-2"
+        data-columns={columns}
+        className={cn(
+          "grid gap-1.5 rounded-lg border border-muted bg-muted/20 p-2",
+          MIRROR_GRID_CLASS[columns],
+        )}
       >
         {mirroredLayout.length === 0 ? (
-          <p className="col-span-3 py-2 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+          <p
+            className={cn(
+              "py-2 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground",
+              MIRROR_SPAN_CLASS[columns],
+            )}
+          >
             All cards hidden
           </p>
         ) : (
@@ -435,12 +513,18 @@ export function HelpCardLayoutEditor({
                 allowReorder={allowReorder}
                 row={slotById.get(entry.id)?.row ?? 1}
                 span={slotById.get(entry.id)?.span ?? 1}
+                columns={columns}
                 onMakePrimary={(id) =>
-                  onChange(setHelpCardPrimary(layout, id, { catalog }))
+                  onChange(setHelpCardPrimary(layout, id, { catalog, columns }))
                 }
                 onToggleEnabled={(id, nextEnabled) =>
                   onChange(
-                    setHelpCardEnabled(layout, id, nextEnabled, { catalog }),
+                    // `columns` matters here too: normalizing under the wrong
+                    // width would slide a right-edge primary out of slot 2.
+                    setHelpCardEnabled(layout, id, nextEnabled, {
+                      catalog,
+                      columns,
+                    }),
                   )
                 }
               />

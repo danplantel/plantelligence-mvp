@@ -453,6 +453,11 @@ export async function PUT(
         landingCardImage: landingCardImage ?? null,
         landingCardBody: body.landingCardBody ?? null,
         helpCards: body.helpCards ?? null,
+        // 3 or 4 cards per row. Null keeps the shipped default (3).
+        helpCardColumns:
+          body.helpCardColumns === undefined || body.helpCardColumns === null
+            ? null
+            : Number(body.helpCardColumns),
         insurancePlanId: body.insurancePlanId ?? null,
         insuranceLoginUrl: body.insuranceLoginUrl ?? null,
         insuranceBackgroundImage: insuranceBackgroundImage ?? null,
@@ -523,6 +528,13 @@ export async function PUT(
         landingCardBody:
           body.landingCardBody !== undefined ? body.landingCardBody : undefined,
         helpCards: body.helpCards !== undefined ? body.helpCards : undefined,
+        // Patch semantics: an omitted value leaves the stored choice alone.
+        helpCardColumns:
+          body.helpCardColumns !== undefined
+            ? body.helpCardColumns === null
+              ? null
+              : Number(body.helpCardColumns)
+            : undefined,
         insurancePlanId:
           body.insurancePlanId !== undefined ? body.insurancePlanId : undefined,
         insuranceLoginUrl:
