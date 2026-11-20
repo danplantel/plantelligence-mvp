@@ -2,7 +2,11 @@ import React from "react";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { QuickAnswersBuilder, reorderFeaturedCards } from "../quick-answers-builder";
+import {
+  QuickAnswersBuilder,
+  demoteFeaturedCard,
+  reorderFeaturedCards,
+} from "../quick-answers-builder";
 import type { BoardPayload } from "../quick-answers-builder";
 
 const TITLES: Record<string, string> = {
@@ -180,6 +184,50 @@ function installFetch(board: BoardPayload = INITIAL_BOARD) {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+});
+
+/**
+ * Card Layout's "Move to Quick Answers" is the builder's own move: the same board
+ * write, the same optimistic cache, one behaviour instead of two.
+ */
+describe("QuickAnswersBuilder — demoting a Featured card", () => {
+  it("moves the card into the chosen section through the board endpoint", async () => {
+    installFetch();
+    const onBoardChange = vi.fn();
+
+    const save = demoteFeaturedCard({
+      planId: "plan-1",
+      location: "retirement",
+      board: REMEMBERED_GROUP_BOARD,
+      topicId: "f-1",
+      groupId: "g-1",
+      onBoardChange,
+    });
+
+    await waitFor(() => expect(pending).toHaveLength(1));
+    const body = pending[0].body;
+    expect(
+      body.placements.find((placement) => placement.topicId === "f-1"),
+    ).toMatchObject({
+      displayMode: "quick_answers",
+      groupId: "g-1",
+      sortOrder: 0,
+    });
+    // Nothing is left on the grid.
+    expect(
+      body.placements.some((placement) => placement.displayMode === "featured"),
+    ).toBe(false);
+
+    pending[0].respond(boardFromBody(body));
+    await save;
+
+    // OPTIMISTIC first, then the reconciled board — both handed to the page.
+    const optimistic = onBoardChange.mock.calls[0][0] as BoardPayload;
+    expect(optimistic.featured).toHaveLength(0);
+    expect(optimistic.groups[0].topics.map((topic) => topic.topicId)).toEqual([
+      "f-1",
+    ]);
+  });
 });
 
 /**

@@ -196,6 +196,36 @@ describe("HelpCardLayoutEditor", () => {
     ).toBe(true);
   });
 
+  it("offers Move to Quick Answers per placement card, never for Account Access", async () => {
+    const user = userEvent.setup();
+    const onMove = vi.fn();
+    render(
+      <HelpCardLayoutEditor onChange={() => {}} onMoveToQuickAnswers={onMove} />,
+    );
+
+    // Account Access is synthesised from the catalog, not a placement.
+    expect(
+      within(row("account-access")).queryByRole("button", {
+        name: "Move to Quick Answers",
+      }),
+    ).not.toBeInTheDocument();
+
+    await user.click(
+      within(row("savings")).getByRole("button", {
+        name: "Move to Quick Answers",
+      }),
+    );
+    expect(onMove).toHaveBeenCalledWith("savings");
+  });
+
+  it("hides Move to Quick Answers when the host has no board", () => {
+    render(<HelpCardLayoutEditor onChange={() => {}} />);
+
+    expect(
+      screen.queryByRole("button", { name: "Move to Quick Answers" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("hides the cards-per-row control when the host cannot store it", () => {
     render(<HelpCardLayoutEditor onChange={() => {}} />);
 

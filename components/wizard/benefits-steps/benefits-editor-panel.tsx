@@ -5,10 +5,13 @@ import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { HelpCardLayoutEditor } from "./help-card-layout-editor";
 import {
   QuickAnswersBuilder,
+  QuickAnswersDestinationDialog,
+  demoteFeaturedCard,
   reorderFeaturedCards,
   useTopicBoard,
   type BoardPayload,
 } from "./quick-answers-builder";
+import { UNGROUPED_TOPIC_GROUP_ID } from "@/lib/topics/ungrouped";
 import type { HelpCardContent, HelpCardLayoutEntry } from "@/types/benefit";
 import {
   helpCardRowSizes,
@@ -357,6 +360,15 @@ export function BenefitsEditorPanel({
     if (!featuredCardCatalog) return step1Data.helpCards;
     const stored = Array.isArray(step1Data.helpCards) ? step1Data.helpCards : [];
     const catalogIds = featuredCardCatalog.map((card) => card.id);
+    // Hidden cards keep their flag: the board says which cards EXIST, while
+    // `enabled: false` is the advisor's own show/hide choice, saved with the layout
+    // and read by the portal section. Dropping it here made a hidden card reappear
+    // the moment this list was rebuilt.
+    const disabledIds = new Set(
+      stored
+        .filter((entry) => entry?.enabled === false)
+        .map((entry) => entry.id),
+    );
     // The primary's right-edge slot depends on the grid width AND the packing
     // rule: slot 1 with 3 across, slot 2 with 4 (slot 1 on a full 8-card page).
     const columns = normalizeHelpCardColumns(step1Data.helpCardColumns);
@@ -388,8 +400,73 @@ export function BenefitsEditorPanel({
     ].map((id) => ({
       id,
       ...(id === primaryId ? { primary: true } : {}),
+      ...(disabledIds.has(id) ? { enabled: false } : {}),
     }));
   }, [featuredCardCatalog, step1Data.helpCards, step1Data.helpCardColumns]);
+
+  /**
+   * A card the advisor asked to send back to Quick Answers. Held until they pick
+   * a section — the SAME dialog the Quick Answers builder shows (that component
+   * is exported from there), so the two halves of the panel cannot disagree.
+   */
+  const [pendingDemotion, setPendingDemotion] = useState<{
+    topicId: string;
+    title: string;
+  } | null>(null);
+
+  /** Card Layout's "Move to Quick Answers" — find the Featured placement behind it. */
+  const moveCardToQuickAnswers = (cardId: string) => {
+    const board = featuredBoard.data?.board;
+    if (!board) return;
+    const topic = board.featured.find(
+      (entry) => entry.slug.replace(/^sys\./, "") === cardId,
+    );
+    if (!topic) {
+      toast.error("That card is not a Featured question, so it cannot move.");
+      return;
+    }
+    setPendingDemotion({ topicId: topic.topicId, title: topic.title });
+  };
+
+  /** Answer the section picker with the builder's own demote write. */
+  const moveIntoQuickAnswers = (groupId: string) => {
+    const board = featuredBoard.data?.board;
+    const pending = pendingDemotion;
+    setPendingDemotion(null);
+    if (!board || !pending || !step1Data.planId || !quickAnswersLocation) {
+      return;
+    }
+    void demoteFeaturedCard({
+      planId: step1Data.planId,
+      location: quickAnswersLocation,
+      board,
+      topicId: pending.topicId,
+      groupId,
+      onBoardChange: onTopicsBoardChange,
+    })
+      // The page beside the panel renders from the BENEFIT payload, so give it the
+      // same nudge a builder save does.
+      .then(() => onTopicsSaved?.())
+      .catch((error: unknown) => {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Could not move the card to Quick Answers.",
+        );
+      });
+  };
+
+  /**
+   * The real sections a demoted card can join — never the virtual "Questions"
+   * group, which the participant page draws as a stray last group.
+   */
+  const demotionGroups = useMemo(
+    () =>
+      (featuredBoard.data?.board?.groups ?? []).filter(
+        (group) => group.id !== UNGROUPED_TOPIC_GROUP_ID,
+      ),
+    [featuredBoard.data],
+  );
 
   // Field-level refs so a validation error (e.g. the required Login URL) can
   // scroll the editor straight to the offending input instead of just the
@@ -2244,9 +2321,15 @@ export function BenefitsEditorPanel({
               // Access — so an advisor can never arrange a card that is not on
               // the page, and a promoted question appears here straight away.
               catalog={featuredCardCatalog}
-              // Membership is Quick Access's job (it has "Move to Quick Access"
-              // and "Hidden"); two on/off switches could only disagree.
-              showEnabledToggle={!featuredCardCatalog}
+              // The show/hide checkbox is offered here too: it writes the layout's
+              // own `enabled` flag, which the portal section reads, so it hides a
+              // card without touching its Featured membership.
+              showEnabledToggle
+              // Only a placement can be sent back to Quick Answers; Account Access
+              // is synthesised, and the editor leaves its button out.
+              onMoveToQuickAnswers={
+                featuredCardCatalog ? moveCardToQuickAnswers : undefined
+              }
               onChange={(helpCards) => {
                 saveStepData(1, { ...step1Data, helpCards } as any);
 
@@ -2289,6 +2372,14 @@ export function BenefitsEditorPanel({
                   );
                 });
               }}
+            />
+
+            <QuickAnswersDestinationDialog
+              open={pendingDemotion !== null}
+              topicTitle={pendingDemotion?.title ?? ""}
+              groups={demotionGroups}
+              onPick={moveIntoQuickAnswers}
+              onCancel={() => setPendingDemotion(null)}
             />
           </div>
 

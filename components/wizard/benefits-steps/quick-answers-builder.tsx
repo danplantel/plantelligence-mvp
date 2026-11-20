@@ -176,6 +176,117 @@ function placementLink(topic: BoardTopic) {
     : {};
 }
 
+/** One placement row as the board endpoint takes it. */
+interface PlacementWrite {
+  topicId: string;
+  displayMode: "featured" | "quick_answers" | "hidden";
+  sortOrder: number;
+  groupId?: string | null;
+  actionHubLink?: ActionHubLink;
+}
+
+/**
+ * Boom the whole board into the endpoint's placement list.
+ *
+ * The virtual "Questions" group is not a real row: its topics travel ungrouped
+ * (groupId null), and is never sent as a group.
+ */
+function placementsFromBoard(board: BoardPayload): PlacementWrite[] {
+  const realGroups = board.groups.filter((group) => group.id !== UNGROUPED_KEY);
+  const ungrouped = board.groups.find((group) => group.id === UNGROUPED_KEY);
+
+  return [
+    ...board.featured.map((topic, index) => ({
+      topicId: topic.topicId,
+      displayMode: "featured" as const,
+      sortOrder: index,
+      ...placementLink(topic),
+    })),
+    ...realGroups.flatMap((group) =>
+      group.topics.map((topic, index) => ({
+        topicId: topic.topicId,
+        displayMode: "quick_answers" as const,
+        groupId: group.id,
+        sortOrder: index,
+        ...placementLink(topic),
+      })),
+    ),
+    ...(ungrouped?.topics ?? []).map((topic, index) => ({
+      topicId: topic.topicId,
+      displayMode: "quick_answers" as const,
+      groupId: null,
+      sortOrder: index,
+      ...placementLink(topic),
+    })),
+    ...board.hidden.map((topic, index) => ({
+      topicId: topic.topicId,
+      displayMode: "hidden" as const,
+      sortOrder: index,
+      ...placementLink(topic),
+    })),
+  ];
+}
+
+/**
+ * Send a whole board and keep both caches in step.
+ *
+ * INSTANT: the optimistic board is written to the shared SWR cache (both the
+ * builder and the preview read it) and handed to `onBoardChange` (the portal's
+ * section reads the benefit payload) BEFORE the request lands. The reconciled
+ * board the server returns replaces both, so nothing it normalised is left behind.
+ */
+async function putBoard(params: {
+  planId: string;
+  location: TopicLocation;
+  nextBoard: BoardPayload;
+  errorMessage: string;
+  onBoardChange?: (board: BoardPayload) => void;
+}): Promise<void> {
+  const key = boardKey(params.planId, params.location);
+  void globalMutate(
+    key,
+    (current: TopicsResponse | undefined) =>
+      current ? { ...current, board: params.nextBoard } : current,
+    { revalidate: false },
+  );
+  params.onBoardChange?.(params.nextBoard);
+
+  const realGroups = params.nextBoard.groups.filter(
+    (group) => group.id !== UNGROUPED_KEY,
+  );
+  const response = await fetch(key, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      location: params.location,
+      groups: realGroups.map((group, index) => ({
+        id: group.id,
+        name: group.name,
+        sortOrder: index,
+      })),
+      placements: placementsFromBoard(params.nextBoard),
+    }),
+  });
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body?.error || params.errorMessage);
+  }
+
+  void globalMutate(
+    key,
+    (current: TopicsResponse | undefined) =>
+      current
+        ? {
+            ...current,
+            board: body.board as BoardPayload,
+            library: body.library ?? current.library,
+          }
+        : current,
+    { revalidate: false },
+  );
+  params.onBoardChange?.(body.board as BoardPayload);
+}
+
 /**
  * Re-write the Featured placements in a given order.
  *
@@ -209,85 +320,75 @@ export async function reorderFeaturedCards(params: {
     .filter((topic): topic is BoardTopic => Boolean(topic));
   if (featured.length !== board.featured.length) return;
 
-  // The virtual "Questions" group is not a real row: its topics travel ungrouped.
-  const realGroups = board.groups.filter((group) => group.id !== UNGROUPED_KEY);
-  const ungrouped = board.groups.find((group) => group.id === UNGROUPED_KEY);
-
-  const placements = [
-    ...featured.map((topic, index) => ({
-      topicId: topic.topicId,
-      displayMode: "featured" as const,
-      sortOrder: index,
-      ...placementLink(topic),
-    })),
-    ...realGroups.flatMap((group) =>
-      group.topics.map((topic, index) => ({
-        topicId: topic.topicId,
-        displayMode: "quick_answers" as const,
-        groupId: group.id,
-        sortOrder: index,
-        ...placementLink(topic),
-      })),
-    ),
-    ...(ungrouped?.topics ?? []).map((topic, index) => ({
-      topicId: topic.topicId,
-      displayMode: "quick_answers" as const,
-      groupId: null,
-      sortOrder: index,
-      ...placementLink(topic),
-    })),
-    ...board.hidden.map((topic, index) => ({
-      topicId: topic.topicId,
-      displayMode: "hidden" as const,
-      sortOrder: index,
-      ...placementLink(topic),
-    })),
-  ];
-
-  const key = boardKey(params.planId, params.location);
-  const nextBoard: BoardPayload = { ...board, featured };
-  // INSTANT: both lists read this cache, so they re-order before the request lands.
-  void globalMutate(
-    key,
-    (current: TopicsResponse | undefined) =>
-      current ? { ...current, board: nextBoard } : current,
-    { revalidate: false },
-  );
-  // And the portal's own section, which reads the benefit payload.
-  params.onBoardChange?.(nextBoard);
-
-  const response = await fetch(key, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      location: params.location,
-      groups: realGroups.map((group, index) => ({
-        id: group.id,
-        name: group.name,
-        sortOrder: index,
-      })),
-      placements,
-    }),
+  await putBoard({
+    planId: params.planId,
+    location: params.location,
+    nextBoard: { ...board, featured },
+    errorMessage: "Could not save the card order.",
+    onBoardChange: params.onBoardChange,
   });
-  const body = await response.json();
-  if (!response.ok) {
-    throw new Error(body?.error || "Could not save the card order.");
+}
+
+/**
+ * Take one Featured card off the grid and put it back in Quick Answers.
+ *
+ * This is the board half of the Quick Answers builder's "Move to Quick Answers":
+ * the card joins the section the advisor picked (`groupId`), or the section it
+ * was promoted FROM when no pick is supplied. Only a question that never had a
+ * section goes to the ungrouped list.
+ *
+ * Exported so Section 6's Card Layout performs the SAME move, through the same
+ * endpoint and the same optimistic cache write, instead of a second opinion about
+ * what demoting means.
+ */
+export async function demoteFeaturedCard(params: {
+  planId: string;
+  location: TopicLocation;
+  board: BoardPayload;
+  topicId: string;
+  groupId?: string | null;
+  onBoardChange?: (board: BoardPayload) => void;
+}): Promise<void> {
+  const { board } = params;
+  const topic = board.featured.find((entry) => entry.topicId === params.topicId);
+  if (!topic) return;
+
+  const featured = board.featured.filter(
+    (entry) => entry.topicId !== params.topicId,
+  );
+  const groups = board.groups.map((group) => ({ ...group, topics: [...group.topics] }));
+  const targetId = params.groupId === undefined ? topic.groupId : params.groupId;
+  const target = targetId
+    ? groups.find((group) => group.id === targetId)
+    : undefined;
+  const placed: BoardTopic = {
+    ...topic,
+    displayMode: "quick_answers",
+    groupId: target ? target.id : null,
+  };
+  if (target) {
+    target.topics = [...target.topics, placed];
+  } else {
+    const ungrouped = groups.find((group) => group.id === UNGROUPED_KEY);
+    if (ungrouped) {
+      ungrouped.topics = [...ungrouped.topics, placed];
+    } else {
+      groups.push({
+        id: UNGROUPED_KEY,
+        name: UNGROUPED_TOPIC_GROUP_NAME,
+        sortOrder: groups.length,
+        topics: [placed],
+      });
+    }
   }
 
-  // The reconciled board, so nothing the server normalised is left behind.
-  void globalMutate(
-    key,
-    (current: TopicsResponse | undefined) =>
-      current
-        ? {
-            ...current,
-            board: body.board as BoardPayload,
-            library: body.library ?? current.library,
-          }
-        : current,
-    { revalidate: false },
-  );
-  params.onBoardChange?.(body.board as BoardPayload);
+  await putBoard({
+    planId: params.planId,
+    location: params.location,
+    nextBoard: { ...board, featured, groups },
+    errorMessage: "Could not move the card to Quick Answers.",
+    onBoardChange: params.onBoardChange,
+  });
 }
 
 /**
@@ -545,6 +646,81 @@ function ActionHubLinkFields({
         className="h-7 text-[11px]"
       />
     </div>
+  );
+}
+
+/**
+ * "Choose a section" for a card being sent back to Quick Answers.
+ *
+ * Quick Answers is grouped and "Questions" is a last resort (the participant page
+ * draws it as a stray group at the bottom), so a demoted card always names a REAL
+ * section. Exported because Section 6's Card Layout offers the same move and must
+ * ask the same question with the same list — not a second, drifting copy.
+ */
+export function QuickAnswersDestinationDialog({
+  open,
+  topicTitle,
+  groups,
+  onPick,
+  onCancel,
+}: {
+  open: boolean;
+  /** The card's title, named in the description. */
+  topicTitle: string;
+  /** The REAL sections — the virtual "Questions" group is never one of them. */
+  groups: { id: string; name: string; topics: unknown[] }[];
+  onPick: (groupId: string) => void;
+  onCancel: () => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={(next) => { if (!next) onCancel(); }}>
+      <DialogContent
+        // Above the Editing Panel (`z-[51]`).
+        overlayClassName="z-[110]"
+        className="z-[110] max-w-md"
+      >
+        <DialogHeader>
+          <DialogTitle>Choose a section</DialogTitle>
+          <DialogDescription>
+            Quick Answers is grouped, so{" "}
+            <span className="font-semibold text-foreground">{topicTitle}</span>{" "}
+            needs a section. Pick the one it belongs in.
+          </DialogDescription>
+        </DialogHeader>
+
+        {groups.length === 0 ? (
+          <p className="rounded-md border border-dashed border-muted px-3 py-2 text-[12px] text-muted-foreground">
+            This benefit has no sections yet. Add one below, then move the card
+            again.
+          </p>
+        ) : (
+          <ul className="max-h-64 space-y-1 overflow-y-auto">
+            {groups.map((group) => (
+              <li key={group.id}>
+                <button
+                  type="button"
+                  aria-label={`Move ${topicTitle} to ${group.name}`}
+                  onClick={() => onPick(group.id)}
+                  className="flex w-full items-center justify-between gap-3 rounded-md border border-muted/60 px-3 py-2 text-left text-[12px] font-medium transition-colors hover:border-neutral-300 hover:bg-neutral-50 dark:hover:bg-gray-800"
+                >
+                  <span className="min-w-0 truncate">{group.name}</span>
+                  <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
+                    {group.topics.length} question
+                    {group.topics.length === 1 ? "" : "s"}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <DialogFooter className="gap-2">
+          <Button type="button" variant="outline" onClick={onCancel}>
+            Cancel
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -1548,69 +1724,15 @@ export function QuickAnswersBuilder({
         </DialogContent>
       </Dialog>
 
-      {/*
-        Demoting a card names the SECTION it lands in. Quick Answers is grouped, and
-        "Questions" is a last resort — the participant page renders it as a stray
-        group at the bottom — so the advisor picks one of the real sections.
-      */}
-      <Dialog
+      {/* Demoting a card names the SECTION it lands in — one component, shared
+          with Section 6's Card Layout so the two ask the identical question. */}
+      <QuickAnswersDestinationDialog
         open={pendingDemotion !== null}
-        onOpenChange={(open) => {
-          if (!open) setPendingDemotion(null);
-        }}
-      >
-        <DialogContent
-          // Above the Editing Panel (`z-[51]`), like the dialog above.
-          overlayClassName="z-[110]"
-          className="z-[110] max-w-md"
-        >
-          <DialogHeader>
-            <DialogTitle>Choose a section</DialogTitle>
-            <DialogDescription>
-              Quick Answers is grouped, so{" "}
-              <span className="font-semibold text-foreground">
-                {pendingDemotion?.title}
-              </span>{" "}
-              needs a section. Pick the one it belongs in.
-            </DialogDescription>
-          </DialogHeader>
-
-          {draft.groups.length === 0 ? (
-            <p className="rounded-md border border-dashed border-muted px-3 py-2 text-[12px] text-muted-foreground">
-              This benefit has no sections yet. Add one below, then move the card
-              again.
-            </p>
-          ) : (
-            <ul className="max-h-64 space-y-1 overflow-y-auto">
-              {draft.groups.map((group) => (
-                <li key={group.id}>
-                  <button
-                    type="button"
-                    onClick={() => demoteIntoGroup(group.id)}
-                    className="flex w-full items-center justify-between gap-3 rounded-md border border-muted/60 px-3 py-2 text-left text-[12px] font-medium transition-colors hover:border-neutral-300 hover:bg-neutral-50 dark:hover:bg-gray-800"
-                  >
-                    <span className="min-w-0 truncate">{group.name}</span>
-                    <span className="shrink-0 text-[11px] font-semibold text-muted-foreground">
-                      {group.topics.length} question
-                      {group.topics.length === 1 ? "" : "s"}
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <DialogFooter className="gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setPendingDemotion(null)}
-            >
-              Cancel
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        topicTitle={pendingDemotion?.title ?? ""}
+        groups={draft.groups}
+        onPick={demoteIntoGroup}
+        onCancel={() => setPendingDemotion(null)}
+      />
     </div>
   );
 }

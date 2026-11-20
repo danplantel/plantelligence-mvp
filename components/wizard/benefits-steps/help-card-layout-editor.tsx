@@ -23,6 +23,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { HelpCardContent, HelpCardLayoutEntry } from "@/types/benefit";
 import {
+  ACCOUNT_ACCESS_CARD_ID,
   fillHelpCardTokens,
   getHelpCardContent,
   helpCardCatalogFor,
@@ -90,6 +91,13 @@ interface HelpCardLayoutEditorProps {
    * nothing reads.
    */
   onColumnsChange?: (columns: HelpCardColumns) => void;
+  /**
+   * Send a card back to Quick Answers. Supplied only by a placement-driven plan:
+   * a card that is not a Featured placement (Account Access) has nowhere to go,
+   * so its button is not drawn. The move itself is the builder's own
+   * `demoteFeaturedCard`, so both halves of the panel behave identically.
+   */
+  onMoveToQuickAnswers?: (cardId: string) => void;
 }
 
 /** Column span → mini-mirror classes (a plain grid, so no breakpoint prefixes). */
@@ -106,6 +114,12 @@ const MIRROR_GRID_CLASS: Record<number, string> = {
   4: "grid-cols-4",
 };
 
+/** A single visible card is three columns wide and centred, like the portal. */
+const MIRROR_LONE_WIDTH: Record<number, string> = {
+  3: "w-3/4",
+  4: "w-3/4",
+};
+
 /**
  * The row and column span of every VISIBLE card, laid out with the same rule the
  * hub uses: rows divide their columns between them, so hiding a card re-flows the
@@ -116,7 +130,9 @@ function planCardSlots(
   columns: HelpCardColumns,
 ): { row: number; span: number }[] {
   const slots: { row: number; span: number }[] = [];
-  const maxSpan = helpCardMaxSpan(columns);
+  // The ONE-card exception: three columns wide, centred, in either grid.
+  const maxSpan =
+    visible.length === 1 ? 3 : helpCardMaxSpan(columns);
 
   let start = 0;
   let row = 1;
@@ -149,6 +165,7 @@ function SortableHelpCardRow({
   row = 1,
   span = 1,
   columns = 3,
+  onMoveToQuickAnswers,
   onMakePrimary,
   onToggleEnabled,
 }: {
@@ -173,6 +190,8 @@ function SortableHelpCardRow({
   /** Which row the card lands in, and how many columns it takes there. */
   row?: number;
   span?: number;
+  /** Present only when this card is a Featured placement. */
+  onMoveToQuickAnswers?: (id: string) => void;
   onMakePrimary: (id: string) => void;
   onToggleEnabled: (id: string, enabled: boolean) => void;
 }) {
@@ -264,6 +283,21 @@ function SortableHelpCardRow({
         </p>
       </div>
 
+      {/* The builder's own demote action, offered here too. Account Access is
+          synthesised from the catalog and is not a placement, so it has no row
+          to move and the button is left out for it. */}
+      {onMoveToQuickAnswers && entry.id !== ACCOUNT_ACCESS_CARD_ID && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="shrink-0 text-[11px]"
+          onClick={() => onMoveToQuickAnswers(entry.id)}
+        >
+          Move to Quick Answers
+        </Button>
+      )}
+
       {isPrimary ? (
         <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-blue-700 dark:bg-blue-950 dark:text-blue-300">
           Primary
@@ -308,6 +342,7 @@ export function HelpCardLayoutEditor({
   allowReorder = true,
   columns: columnsProp,
   onColumnsChange,
+  onMoveToQuickAnswers,
 }: HelpCardLayoutEditorProps) {
   /** 3 or 4 cards per row — anything else in storage falls back to 3. */
   const columns = useMemo(
@@ -451,8 +486,10 @@ export function HelpCardLayoutEditor({
         data-testid="help-card-slot-preview"
         data-columns={columns}
         className={cn(
-          "grid gap-1.5 rounded-lg border border-muted bg-muted/20 p-2",
-          MIRROR_GRID_CLASS[columns],
+          "rounded-lg border border-muted bg-muted/20 p-2",
+          mirroredLayout.length === 1
+            ? "flex justify-center"
+            : cn("grid gap-1.5", MIRROR_GRID_CLASS[columns]),
         )}
       >
         {mirroredLayout.length === 0 ? (
@@ -477,7 +514,9 @@ export function HelpCardLayoutEditor({
                 title={title}
                 className={cn(
                   "flex h-9 items-center justify-center overflow-hidden rounded-md px-1 text-center text-[9px] font-semibold leading-tight",
-                  MIRROR_SPAN_CLASS[slots[index]?.span ?? 1],
+                  mirroredLayout.length === 1
+                    ? MIRROR_LONE_WIDTH[columns]
+                    : MIRROR_SPAN_CLASS[slots[index]?.span ?? 1],
                   entry.primary
                     ? "bg-blue-600 text-white"
                     : "bg-white text-muted-foreground dark:bg-gray-800",
@@ -514,6 +553,7 @@ export function HelpCardLayoutEditor({
                 row={slotById.get(entry.id)?.row ?? 1}
                 span={slotById.get(entry.id)?.span ?? 1}
                 columns={columns}
+                onMoveToQuickAnswers={onMoveToQuickAnswers}
                 onMakePrimary={(id) =>
                   onChange(setHelpCardPrimary(layout, id, { catalog, columns }))
                 }

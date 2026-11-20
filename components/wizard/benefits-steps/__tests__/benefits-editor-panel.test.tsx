@@ -45,6 +45,40 @@ function renderPanel() {
   );
 }
 
+/**
+ * The Card Layout section's own controls: the show/hide checkbox (it writes the
+ * layout's `enabled` flag, which the portal section reads) and, when the plan is
+ * driven by Featured placements, "Move to Quick Answers" on each card.
+ */
+describe("BenefitsEditorPanel card layout", () => {
+  beforeEach(() => {
+    seed();
+  });
+
+  it("offers the show/hide checkbox on each card again", () => {
+    renderPanel();
+
+    expect(
+      within(sectionSix()).getByTestId("help-card-enabled-account-access"),
+    ).toBeInTheDocument();
+  });
+
+  it("hides a card through the checkbox, keeping its slot", () => {
+    renderPanel();
+
+    fireEvent.click(
+      within(sectionSix()).getByTestId("help-card-enabled-account-access"),
+    );
+
+    const layout = (step1()?.helpCards ?? []) as { id: string; enabled?: boolean }[];
+    const hidden = layout.find((entry) => entry.id === "account-access");
+    expect(hidden?.enabled).toBe(false);
+    // The card keeps its place: only the flag changed.
+    expect(layout.length).toBeGreaterThan(1);
+    expect(layout[0].id).toBe("account-access");
+  });
+});
+
 describe("BenefitsEditorPanel account access fields", () => {
   beforeEach(() => {
     seed();

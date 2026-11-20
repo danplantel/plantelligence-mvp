@@ -1039,19 +1039,19 @@ describe("HowCanWeHelpSection rollovers panel", () => {
 });
 
 /**
- * A card that owns its whole row (a one-card set leaves the primary alone) keeps
- * its content — and therefore its CTA — in one measured column. The width must
- * not depend on WHICH card is the primary one.
+ * A ONE-card section is the exception to the two-column cap: the card is THREE
+ * columns wide in either grid (the full 3-column row, three quarters of a
+ * 4-column one) and centred.
  */
-describe("wide card content width", () => {
+describe("centred lone card", () => {
   function loneCard(primaryId: string) {
-    // Every other card hidden → the primary alone owns the whole row: 3/3.
+    // Every other card hidden → the primary is the section's only card.
     return layoutWith(primaryId).map((entry) =>
       entry.id === primaryId ? entry : { ...entry, enabled: false },
     );
   }
 
-  it("gives a topic tile and the Account Access card the same content column", () => {
+  it("centres a lone topic tile and a lone Account Access card alike", () => {
     const topicView = render(
       <HowCanWeHelpSection
         clientId="plan-1"
@@ -1059,20 +1059,55 @@ describe("wide card content width", () => {
       />,
     );
     const topicTile = tile(topicView.container, "financial-planning");
-    expect(topicTile.className).toContain("lg:col-span-3");
-    expect(
-      topicTile.querySelector('[class*="max-w-[44rem]"]'),
-    ).not.toBeNull();
+    // Three columns on the four-column measure — never the whole row...
+    expect(topicTile.className).toContain("lg:w-3/4");
+    // ...and the desktop row is a centred flex line.
+    expect(topicTile.parentElement?.className).toContain("lg:justify-center");
     topicView.unmount();
 
     const accessView = render(
       <HowCanWeHelpSection clientId="plan-1" cards={loneCard("account-access")} />,
     );
     const accessTile = tile(accessView.container, "account-access");
-    expect(accessTile.className).toContain("lg:col-span-3");
-    expect(
-      accessTile.querySelector('[class*="max-w-[44rem]"]'),
-    ).not.toBeNull();
+    expect(accessTile.className).toContain("lg:w-3/4");
+    expect(accessTile.parentElement?.className).toContain("lg:justify-center");
+  });
+
+  it("gives a lone card three of the four columns with 4 across", () => {
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        helpCardColumns={4}
+        planIdLabel="PLAN / GROUP ID: 1234"
+        cards={loneCard("account-access")}
+      />,
+    );
+
+    const accessTile = tile(container, "account-access");
+    expect(accessTile.className).toContain("lg:w-3/4");
+    expect(accessTile.parentElement?.className).toContain("lg:justify-center");
+    // Centred like the 3-across lone card...
+    expect(accessTile.className).toContain("items-center");
+    // ...including the plan ID / recordkeeper line, even though it is the primary.
+    const chip = within(accessTile).getByText("PLAN / GROUP ID: 1234");
+    expect(chip.parentElement?.className).toContain("justify-center");
+    expect(chip.parentElement?.className).toContain("text-center");
+  });
+
+  it("centres a lone card's plan ID line in the 3-across grid too", () => {
+    const { container } = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        planIdLabel="PLAN / GROUP ID: 1234"
+        cards={loneCard("account-access")}
+      />,
+    );
+
+    const chip = within(tile(container, "account-access")).getByText(
+      "PLAN / GROUP ID: 1234",
+    );
+    expect(chip.parentElement?.className).toContain("justify-center");
+    expect(chip.parentElement?.className).toContain("text-center");
   });
 });
 
@@ -1679,7 +1714,8 @@ describe("HowCanWeHelpSection features placements", () => {
   });
 
   it("centres the Account Access features when the card owns the whole row", () => {
-    // Only Account Access is visible, so it owns row 1 and spans all three columns.
+    // Only Account Access is visible: a lone card is three columns wide, which
+    // IS the whole 3-across row, so its features sit as one centred group.
     const loneCard = GROUP_HEALTH_LAYOUT.map((entry) =>
       entry.id === "account-access" ? entry : { ...entry, enabled: false },
     );
@@ -1691,9 +1727,11 @@ describe("HowCanWeHelpSection features placements", () => {
       />,
     );
 
-    const actions = within(tile(container, "account-access")).getByTestId(
-      "account-access-actions",
-    );
+    const accessTile = tile(container, "account-access");
+    expect(accessTile.className).toContain("lg:w-3/4");
+    expect(accessTile.parentElement?.className).toContain("lg:justify-center");
+
+    const actions = within(accessTile).getByTestId("account-access-actions");
     expect(actions.className).toContain("justify-center");
     // It is no longer a four-column grid pushed out to the card's edges.
     expect(actions.className).not.toContain("grid-cols-2");

@@ -209,6 +209,17 @@ const PANEL_SPAN_CLASS: Record<HelpCardColumns, string> = {
 };
 
 /**
+ * The ONE-card exception: a lone card is centred and THREE COLUMNS WIDE on the
+ * four-column measure — three quarters of the section — in EITHER setting. It
+ * never runs the whole row (the 3-across grid included), and every other row
+ * obeys the two-column cap.
+ */
+const LONE_CARD_WIDTH: Record<HelpCardColumns, string> = {
+  3: "lg:w-3/4",
+  4: "lg:w-3/4",
+};
+
+/**
  * The measured, centred content column every WIDE card uses — the Account Access
  * card and a full-row topic tile alike.
  *
@@ -588,6 +599,7 @@ function AccountAccessCard({
   primary = false,
   span = 2,
   columns = 3,
+  lone = false,
   planIdLabel,
   providerName,
   providerDetailLine,
@@ -603,6 +615,8 @@ function AccountAccessCard({
   span?: number;
   /** The grid's column count, so "owns the whole row" is measured correctly. */
   columns?: HelpCardColumns;
+  /** The only card in the section: centred on desktop, two columns wide. */
+  lone?: boolean;
   planIdLabel?: string;
   providerName?: string;
   providerDetailLine?: string;
@@ -630,7 +644,9 @@ function AccountAccessCard({
    * beneath them. Stacked at that width every line runs the full page and the
    * tile reads as three disconnected islands.
    */
-  const isWide = span >= columns;
+  // A lone card is centred like a full-row card, in either grid — `lone` is what
+  // makes the 4-across case (3 of 4 columns) read the same as the 3-across one.
+  const isWide = span >= columns || lone;
   /**
    * The card has a row to itself. Its four feature bullets then sit as one centred
    * group instead of being pushed to the edges of a full-width card — at 3/3 the
@@ -657,9 +673,12 @@ function AccountAccessCard({
           ? "min-h-[132px] items-center justify-center"
           : "min-h-[180px] lg:min-h-[210px]",
         // The wide card is wide because its ROW says so, not because it is the
-        // Access card: a lone card takes all three columns, in the classic seven
-        // it takes two, and in a two-card row it shares with its neighbour.
+        // Access card: in the classic seven it takes two columns, and in a
+        // two-card row it shares with its neighbour.
         spanClass(span),
+        // The ONE-card section: three columns wide and centred (the row is a
+        // flex line then), whatever the cards-per-row setting.
+        lone && LONE_CARD_WIDTH[columns],
         primary
           ? "border-transparent"
           : "border-neutral-200 bg-white hover:border-neutral-300",
@@ -712,7 +731,10 @@ function AccountAccessCard({
             <div
               className={cn(
                 "mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5",
-                primary
+                // A LONE card is centred (its title and CTA are too), so its plan
+                // ID / recordkeeper line centres with them even though it is the
+                // primary. A primary sharing its row keeps its left edge.
+                primary && !lone
                   ? "justify-start text-left"
                   : "justify-center text-center",
               )}
@@ -1596,14 +1618,14 @@ export function HowCanWeHelpSection({
             row.find((card) => card.id === activeCardId) ?? null;
           // The row's columns, divided between its cards. The extra column of a
           // short row follows the PRIMARY, so a primary at the right edge of row 1
-          // stays the wide card there. The 4-column grid caps every card at two
-          // columns, so a lone card keeps half that row empty.
+          // stays the wide card there. Every card is capped at two columns — except
+          // a section holding ONE card, which is three columns wide and centred.
           const primaryIndexInRow = row.findIndex((card) => card.primary);
           const spans = helpCardRowSpans(
             row.length,
             columns,
             primaryIndexInRow >= 0 ? primaryIndexInRow : 0,
-            helpCardMaxSpan(columns),
+            row.length === 1 ? 3 : helpCardMaxSpan(columns),
           );
           const phoneLines = chunkRowForPhone(row, spans);
 
@@ -1611,6 +1633,7 @@ export function HowCanWeHelpSection({
             card: HelpCardResolved,
             cardIndex: number,
             span: number,
+            lone = false,
           ): React.ReactNode => {
             const isAccountAccess = card.id === ACCOUNT_ACCESS_CARD_ID;
             const isPrimary = card.primary;
@@ -1640,6 +1663,7 @@ export function HowCanWeHelpSection({
                   primary={isPrimary}
                   span={span}
                   columns={columns}
+                  lone={lone}
                   planIdLabel={resolvedPlanIdLabel || undefined}
                   providerName={resolvedProviderName || undefined}
                   providerDetailLine={resolvedProviderDetail || undefined}
@@ -1655,7 +1679,7 @@ export function HowCanWeHelpSection({
              * whole row: the content and its button share one measured, centred
              * column instead of each line running the full width of the grid.
              */
-            const isWide = span >= columns;
+            const isWide = span >= columns || lone;
 
             return (
               <motion.div
@@ -1689,6 +1713,8 @@ export function HowCanWeHelpSection({
                   // Width comes from the row's span plan, so every row reaches the
                   // right edge however many cards the plan shows.
                   spanClass(span, columns),
+                  // The only card in the section: three columns, centred.
+                  lone && LONE_CARD_WIDTH[columns],
                   isPrimary ? "border-transparent" : "bg-white",
                   !isPrimary &&
                     (isOpen
@@ -1867,12 +1893,21 @@ export function HowCanWeHelpSection({
               <div
                 className={cn(
                   "grid grid-cols-2 gap-3 sm:gap-4",
-                  GRID_CLASS[columns],
+                  // A lone card is CENTRED: a flex line with the card at two
+                  // columns, rather than a grid row it cannot fill.
+                  row.length === 1
+                    ? "lg:flex lg:justify-center"
+                    : GRID_CLASS[columns],
                 )}
               >
                 {isFirstRow
                   ? row.map((card, index) =>
-                      renderCard(card, index, spans[index] ?? 1),
+                      renderCard(
+                        card,
+                        index,
+                        spans[index] ?? 1,
+                        row.length === 1,
+                      ),
                     )
                   : phoneLines.map((line, lineIndex) => (
                       <Fragment key={lineIndex}>

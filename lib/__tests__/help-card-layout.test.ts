@@ -66,14 +66,45 @@ describe("cards per row", () => {
   it("never lets a card exceed two columns with 4 across", () => {
     expect(helpCardRowSpans(3, 4, 0, helpCardMaxSpan(4))).toEqual([2, 1, 1]);
     expect(helpCardRowSpans(2, 4, 0, helpCardMaxSpan(4))).toEqual([2, 2]);
-    // A lone card would be four columns wide; the cap keeps it at two.
-    expect(helpCardRowSpans(1, 4, 0, helpCardMaxSpan(4))).toEqual([2]);
   });
 
-  it("keeps the classic three-column spans untouched", () => {
+  it("never lets a card fill its row in the 3-column grid either", () => {
     expect(helpCardRowSpans(3, 3, 0, helpCardMaxSpan(3))).toEqual([1, 1, 1]);
     expect(helpCardRowSpans(2, 3, 0, helpCardMaxSpan(3))).toEqual([2, 1]);
-    expect(helpCardRowSpans(1, 3, 0, helpCardMaxSpan(3))).toEqual([3]);
+  });
+
+  it("makes a lone card three columns wide, in either grid", () => {
+    // The ONE exception to the two-column cap: a section holding a single card.
+    expect(helpCardRowSpans(1, 3, 0, 3)).toEqual([3]);
+    expect(helpCardRowSpans(1, 4, 0, 3)).toEqual([3]);
+  });
+
+  it("fills every row, whatever the card count", () => {
+    const spansOf = (count: number, columns: 3 | 4) =>
+      helpCardRowSizes(count, columns).map((size) => {
+        const spans = helpCardRowSpans(size, columns, 0, helpCardMaxSpan(columns));
+        return spans.reduce((sum, span) => sum + span, 0);
+      });
+
+    for (const columns of [3, 4] as const) {
+      // A single card is the documented exception (three columns wide).
+      for (let count = 2; count <= 8; count += 1) {
+        expect(spansOf(count, columns).every((sum) => sum === columns)).toBe(
+          true,
+        );
+      }
+    }
+  });
+
+  it("turns four cards into two rows of two with 4 across", () => {
+    expect(helpCardRowSizes(4, 4)).toEqual([2, 2]);
+    expect(helpCardRowSpans(2, 4, 0, helpCardMaxSpan(4))).toEqual([2, 2]);
+  });
+
+  it("keeps a 3-across set full without a full-length card", () => {
+    expect(helpCardRowSizes(3, 3)).toEqual([3]);
+    expect(helpCardRowSizes(6, 3)).toEqual([2, 2, 2]);
+    expect(helpCardRowSizes(8, 3)).toEqual([2, 3, 3]);
   });
 
   it("packs the seven-card catalog as 2 + 3 + 2, or 3 + 4 with 4 across", () => {
@@ -591,8 +622,8 @@ describe("resolveHelpCardRows with a short card set", () => {
       setHelpCardEnabled(defaultHelpCardLayout(), "savings", false),
     );
 
-    // 2 + 3 + 1: the lone last card spans the whole row.
-    expect(rows.map((row) => row.length)).toEqual([2, 3, 1]);
+    // 2 + 2 + 2: the lone tail card is folded back in, so no row ends short.
+    expect(rows.map((row) => row.length)).toEqual([2, 2, 2]);
   });
 });
 

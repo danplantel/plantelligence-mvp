@@ -61,15 +61,17 @@ export function normalizeHelpCardColumns(value: unknown): HelpCardColumns {
 }
 
 /**
- * The widest a single card may be.
+ * The widest a single card may be: TWO columns, in either grid.
  *
- * In the 3-column grid that is the whole row (a lone card fills it). In the
- * 4-column grid NOTHING may exceed two columns — the Primary included — so a
- * lone card in a short row keeps half the row empty rather than turning into a
- * full-width banner.
+ * No row may contain a card that runs the full length of that row — the Primary
+ * included — so the 3-column grid caps at 2 as well. A lone card is the one case
+ * that cannot fill its row (3 needs a 3-wide card); it stays 2 wide rather than
+ * becoming a banner.
  */
-export function helpCardMaxSpan(columns: HelpCardColumns = HELP_CARD_DEFAULT_COLUMNS): number {
-  return columns === 4 ? 2 : columns;
+export function helpCardMaxSpan(
+  _columns: HelpCardColumns = HELP_CARD_DEFAULT_COLUMNS,
+): number {
+  return 2;
 }
 
 /**
@@ -144,6 +146,30 @@ export function helpCardRowSizes(
     const size = Math.min(columns, remaining);
     sizes.push(size);
     remaining -= size;
+  }
+
+  /**
+   * A trailing row of ONE would leave an unfillable single card, so the last two
+   * rows are re-balanced together — every row then reaches the right edge:
+   *
+   *   columns 4, 4 cards:  [3, 1] → [2, 2]   (four 2-wide cards, as asked)
+   *   columns 3, 6 cards:  [2, 3, 1] → [2, 2, 2]
+   *   columns 3, 3 cards:  [2, 1] → [3]      (one full row of three 1-wide cards)
+   */
+  if (sizes.length > 1 && sizes[sizes.length - 1] === 1) {
+    const combined = sizes[sizes.length - 2] + 1;
+    sizes.splice(sizes.length - 2, 2);
+    if (combined === 4 && columns === 4) {
+      // The advisor's own example: four cards, four columns, all 2 wide.
+      sizes.push(2, 2);
+    } else if (combined <= columns) {
+      // The pair fits one row, and it is then FULL by definition.
+      sizes.push(combined);
+    } else {
+      // Two rows of halves, so neither row ends with a lone card.
+      const half = Math.ceil(combined / 2);
+      sizes.push(half, combined - half);
+    }
   }
   return sizes;
 }
