@@ -1033,6 +1033,10 @@ export function QuickAnswersBuilder({
         setDraft(previous);
         if (key && previousData) {
           void globalMutate(key, previousData, { revalidate: false });
+          // …and tell the panel beside us the same thing: it holds the board it
+          // was last handed while that board carries a card the read does not, so
+          // without this the rollback would only reach our own list.
+          onBoardChange?.(previousData.board);
         }
         setSaveError(
           error instanceof Error ? error.message : "Could not save Quick Answers.",

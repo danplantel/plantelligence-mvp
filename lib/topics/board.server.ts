@@ -237,33 +237,42 @@ async function resolvePlacementTopics(
   const sentinels = requested.filter((value) => !known.has(value));
   if (sentinels.length === 0) return placements;
 
-  const topicIdBySlug = new Map<string, string>();
-  for (const sentinel of sentinels) {
-    const seed = libraryTopicBySlug(sentinel);
-    if (!seed) continue;
+  // One batch, one round-trip. Sequentially these upserts cost a network trip
+  // each, which is most of the latency of "Add from the library".
+  const seeds = [...new Set(sentinels.map(libraryTopicBySlug))]
+    .filter((seed): seed is NonNullable<typeof seed> => Boolean(seed));
+  if (seeds.length === 0) return placements;
 
-    // `update: {}` on purpose: the row is shared by every plan, so inserting a
-    // topic here must never rewrite copy another plan is already reading.
-    const row = await prisma.topic.upsert({
-      where: { slug: systemTopicSlug(seed.slug) },
-      update: {},
-      create: {
-        scope: "system",
-        slug: systemTopicSlug(seed.slug),
-        title: seed.title,
-        summary: seed.summary ?? null,
-        isActionHub: seed.isActionHub ?? false,
-        defaultLocations: seed.defaultLocations,
-        bodyBlocks: (seed.bodyBlocks ?? undefined) as
-          | Prisma.InputJsonValue
-          | undefined,
-        defaultCta: (seed.cta ?? undefined) as Prisma.InputJsonValue | undefined,
-        tags: seed.tags ?? [],
-      },
-      select: { id: true },
-    });
-    topicIdBySlug.set(sentinel, row.id);
-  }
+  // `update: {}` on purpose: the row is shared by every plan, so inserting a
+  // topic here must never rewrite copy another plan is already reading.
+  const rows = await prisma.$transaction(
+    seeds.map((seed) =>
+      prisma.topic.upsert({
+        where: { slug: systemTopicSlug(seed.slug) },
+        update: {},
+        create: {
+          scope: "system",
+          slug: systemTopicSlug(seed.slug),
+          title: seed.title,
+          summary: seed.summary ?? null,
+          isActionHub: seed.isActionHub ?? false,
+          defaultLocations: seed.defaultLocations,
+          bodyBlocks: (seed.bodyBlocks ?? undefined) as
+            | Prisma.InputJsonValue
+            | undefined,
+          defaultCta: (seed.cta ?? undefined) as Prisma.InputJsonValue | undefined,
+          tags: seed.tags ?? [],
+        },
+        select: { id: true },
+      }),
+    ),
+  );
+
+  const topicIdBySlug = new Map<string, string>();
+  seeds.forEach((seed, index) => {
+    const row = rows[index];
+    if (row) topicIdBySlug.set(seed.slug, row.id);
+  });
 
   return mapPlacementTopicIds(placements, topicIdBySlug);
 }
@@ -325,30 +334,55 @@ export async function applyTopicBoard(params: {
     return { ok: true, plan, applied: false };
   }
 
-  await prisma.$transaction(async (tx) => {
-    // Groups first: a new group's id is what a new placement needs.
-    const createdGroupIds = new Map<string, string>();
-    for (const group of plan.groupsToCreate) {
-      const created = await tx.accordionGroup.create({
-        data: {
-          clientId,
-          location,
-          name: group.name,
-          sortOrder: group.sortOrder,
-        },
-      });
+  /**
+   * Batched, not an interactive callback transaction.
+   *
+   * The callback form round-trips once PER STATEMENT, so an eight-card reorder
+   * was a dozen sequential writes on one held-open transaction. Against a pooled
+   * remote database that took 13 s and the server killed it mid-flight
+   * (`P2028 Transaction not found`), which the editor then rolled back — the
+   * reorder visibly snapped away seconds after it was made. `$transaction([...])`
+   * sends the same statements as ONE implicit transaction in ONE round-trip, so
+   * the write is still atomic and finishes in a fraction of the time.
+   */
+
+  // Groups first: a new group's id is what a new placement needs.
+  const createdGroups = plan.groupsToCreate.length
+    ? await prisma.$transaction(
+        plan.groupsToCreate.map((group) =>
+          prisma.accordionGroup.create({
+            data: {
+              clientId,
+              location,
+              name: group.name,
+              sortOrder: group.sortOrder,
+            },
+          }),
+        ),
+      )
+    : [];
+  const createdGroupIds = new Map<string, string>();
+  plan.groupsToCreate.forEach((group, index) => {
+    const created = createdGroups[index];
+    if (created) {
       createdGroupIds.set(group.name.trim().toLowerCase(), created.id);
     }
+  });
 
-    for (const group of plan.groupsToUpdate) {
-      await tx.accordionGroup.update({
-        where: { id: group.id },
-        data: { name: group.name, sortOrder: group.sortOrder },
-      });
-    }
+  if (plan.groupsToUpdate.length) {
+    await prisma.$transaction(
+      plan.groupsToUpdate.map((group) =>
+        prisma.accordionGroup.update({
+          where: { id: group.id },
+          data: { name: group.name, sortOrder: group.sortOrder },
+        }),
+      ),
+    );
+  }
 
-    for (const placement of plan.placementsToUpdate) {
-      await tx.topicPlacement.update({
+  const placementWrites = [
+    ...plan.placementsToUpdate.map((placement) =>
+      prisma.topicPlacement.update({
         where: { id: placement.id },
         data: {
           displayMode: placement.displayMode,
@@ -360,10 +394,9 @@ export async function applyTopicBoard(params: {
             ? {}
             : { actionHubLink: actionHubLinkJson(placement.actionHubLink) }),
         },
-      });
-    }
-
-    for (const placement of plan.placementsToCreate) {
+      }),
+    ),
+    ...plan.placementsToCreate.map((placement) => {
       // `planBoardApply` marks a group it is creating in this same request as
       // `name:<key>`; swap that for the id the create above returned.
       const rawGroupId = placement.groupId;
@@ -371,7 +404,7 @@ export async function applyTopicBoard(params: {
         ? createdGroupIds.get(rawGroupId.slice("name:".length)) ?? null
         : rawGroupId;
 
-      await tx.topicPlacement.create({
+      return prisma.topicPlacement.create({
         data: {
           clientId,
           topicId: placement.topicId,
@@ -382,8 +415,25 @@ export async function applyTopicBoard(params: {
           actionHubLink: actionHubLinkJson(placement.actionHubLink),
         },
       });
+    }),
+  ];
+
+  if (placementWrites.length) {
+    try {
+      await prisma.$transaction(placementWrites);
+    } catch (error) {
+      // The placements did not land, so the groups created above must not be
+      // left behind as empty sections: put the board back exactly as it was.
+      if (createdGroupIds.size > 0) {
+        await prisma.accordionGroup
+          .deleteMany({
+            where: { id: { in: [...createdGroupIds.values()] } },
+          })
+          .catch(() => undefined);
+      }
+      throw error;
     }
-  });
+  }
 
   return { ok: true, plan, applied: true };
 }

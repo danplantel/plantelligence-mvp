@@ -122,6 +122,35 @@ import {
  * "Have Questions?" band. The copy lives with the buttons that render it; the
  * values and the fallback rule live in `lib/key-contact-card-style.ts`.
  */
+/**
+ * The last Quick Answers board seen for a plan + location, kept at MODULE scope.
+ *
+ * Card Options is built from this board (its cards ARE the Featured placements).
+ * It used to live in component state only, so a remount — which happens while the
+ * portal panel re-reads its benefit — started from "no board", fell back to the
+ * static catalog, and dropped a card the advisor had just promoted out of the
+ * list for the seconds the read took. Coming back here means the list never
+ * blinks: a promoted card is simply there.
+ */
+const lastBoardByPlanLocation = new Map<string, BoardPayload>();
+
+function boardMemoryKey(
+  planId: string | null | undefined,
+  location: string | null | undefined,
+): string | null {
+  return planId && location ? `${planId}:${location}` : null;
+}
+
+function rememberTopicBoard(
+  planId: string | null | undefined,
+  location: string | null | undefined,
+  board: BoardPayload | null | undefined,
+): void {
+  const key = boardMemoryKey(planId, location);
+  if (!key || !board) return;
+  lastBoardByPlanLocation.set(key, board);
+}
+
 const KEY_CONTACT_CARD_STYLE_CHOICES: {
   value: KeyContactCardStyle;
   label: string;
@@ -327,6 +356,44 @@ export function BenefitsEditorPanel({
     step1Data.benefitTitle,
   );
   /**
+   * The NEWEST board this panel has been handed.
+   *
+   * Quick Access writes placements optimistically and tells us through
+   * `onBoardChange`, but the board READ that follows can still answer with the
+   * pre-write list for a few seconds (the benefit GET runs beside it). Reading
+   * only the cache there made a just-promoted card show up, blink out, and come
+   * back — so the board we were told about wins while it carries a card the read
+   * does not. A failed write hands back the rolled-back board, which clears it.
+   */
+  const latestBoardRef = useRef<BoardPayload | null>(null);
+  const handleTopicsBoardChange = (board: BoardPayload) => {
+    latestBoardRef.current = board;
+    rememberTopicBoard(step1Data.planId, quickAnswersLocation, board);
+    onTopicsBoardChange?.(board);
+  };
+  // Whatever the panel last saw of this board — including from before a remount.
+  const liveBoard = featuredBoard.data?.board;
+  useEffect(() => {
+    rememberTopicBoard(step1Data.planId, quickAnswersLocation, liveBoard);
+  }, [liveBoard, step1Data.planId, quickAnswersLocation]);
+  const featuredSource = useMemo(() => {
+    const remembered =
+      lastBoardByPlanLocation.get(
+        boardMemoryKey(step1Data.planId, quickAnswersLocation) ?? "",
+      ) ?? null;
+    const held = latestBoardRef.current ?? remembered;
+    if (!liveBoard) return held ?? undefined;
+    if (!held) return liveBoard;
+    const liveTopicIds = new Set(
+      liveBoard.featured.map((topic) => topic.topicId),
+    );
+    const heldAddsCard = held.featured.some(
+      (topic) => !liveTopicIds.has(topic.topicId),
+    );
+    return heldAddsCard ? held : liveBoard;
+  }, [liveBoard, step1Data.planId, quickAnswersLocation]);
+
+  /**
    * The last board that actually carried this plan's Featured list.
    *
    * The Card Layout below lists those cards, and a revalidating (or
@@ -339,9 +406,9 @@ export function BenefitsEditorPanel({
   const lastFeaturedCatalogRef = useRef<HelpCardContent[] | undefined>(undefined);
   const featuredCardCatalog = useMemo<HelpCardContent[] | undefined>(() => {
     // No payload at all yet: the first read, or a revalidation in flight.
-    if (!featuredBoard.data?.board) return lastFeaturedCatalogRef.current;
+    if (!featuredSource) return lastFeaturedCatalogRef.current;
 
-    const featured = featuredBoard.data.board.featured ?? [];
+    const featured = featuredSource.featured ?? [];
     // The plan genuinely has no placements: keep the catalog behaviour.
     if (featured.length === 0) {
       lastFeaturedCatalogRef.current = undefined;
@@ -360,7 +427,7 @@ export function BenefitsEditorPanel({
     const next = [...(access ? [access] : []), ...topicCards];
     lastFeaturedCatalogRef.current = next;
     return next;
-  }, [featuredBoard.data, helpCardCategoryLabelValue]);
+  }, [featuredSource, helpCardCategoryLabelValue]);
 
   /**
    * The list Card Layout draws: the board's own order (Account Access plus the
@@ -467,7 +534,7 @@ export function BenefitsEditorPanel({
 
   /** Card Layout's "Move to Quick Answers" — find the Featured placement behind it. */
   const moveCardToQuickAnswers = (cardId: string) => {
-    const board = featuredBoard.data?.board;
+    const board = featuredSource;
     if (!board) return;
     const topic = board.featured.find(
       (entry) => entry.slug.replace(/^sys\./, "") === cardId,
@@ -484,7 +551,7 @@ export function BenefitsEditorPanel({
 
   /** Answer the section picker with the builder's own demote write. */
   const moveIntoQuickAnswers = (groupId: string) => {
-    const board = featuredBoard.data?.board;
+    const board = featuredSource;
     const pending = pendingDemotion;
     setPendingDemotion(null);
     if (!board || !pending || !step1Data.planId || !quickAnswersLocation) {
@@ -517,7 +584,8 @@ export function BenefitsEditorPanel({
       board,
       topicId: pending.topicId,
       groupId,
-      onBoardChange: onTopicsBoardChange,
+      // Also keeps this panel's own list in step, not just the host's preview.
+      onBoardChange: handleTopicsBoardChange,
     })
       // The page beside the panel renders from the BENEFIT payload, so give it the
       // same nudge a builder save does.
@@ -538,7 +606,7 @@ export function BenefitsEditorPanel({
    */
   const demotionGroups = useMemo(
     () =>
-      (featuredBoard.data?.board?.groups ?? []).filter(
+      (featuredSource?.groups ?? []).filter(
         (group) => group.id !== UNGROUPED_TOPIC_GROUP_ID,
       ),
     [featuredBoard.data],
@@ -2582,7 +2650,7 @@ export function BenefitsEditorPanel({
 
                 // The order is arranged HERE, so it has to reach the placements
                 // too — the Featured list in Quick Access reads the same board.
-                const board = featuredBoard.data?.board;
+                const board = featuredSource;
                 if (
                   !board ||
                   board.featured.length === 0 ||
@@ -2610,7 +2678,7 @@ export function BenefitsEditorPanel({
                   // The page beside the panel renders from the BENEFIT payload, so
                   // the new order has to reach that cache too — otherwise the grid
                   // only catches up on a reload.
-                  onBoardChange: onTopicsBoardChange,
+                  onBoardChange: handleTopicsBoardChange,
                 }).catch((error: unknown) => {
                   toast.error(
                     error instanceof Error
@@ -2669,7 +2737,7 @@ export function BenefitsEditorPanel({
                 // Section 6, so they are not listed a second time here.
                 mode="answers"
                 onSaved={onTopicsSaved}
-                onBoardChange={onTopicsBoardChange}
+                onBoardChange={handleTopicsBoardChange}
               />
             </div>
           </div>

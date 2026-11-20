@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { GripVertical, Loader2, Star } from "lucide-react";
+import { LayoutGroup, motion } from "framer-motion";
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
   PointerSensor,
   closestCenter,
@@ -11,6 +13,7 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
@@ -133,6 +136,32 @@ const CAPTION_CLASS =
   "text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground";
 
 /**
+ * The preview's re-order animation.
+ *
+ * dnd-kit's transform-only displacement cannot animate a MIXED-SPAN grid: a
+ * two-column card moving into a one-column slot has to change WIDTH, which the
+ * sorting strategy can only express as a non-uniform scale — so the wide cards
+ * snapped into place while the single-column ones slid. The preview is animated
+ * by framer-motion's `layout` instead (position AND box), and the drag itself is
+ * drawn in a `DragOverlay`, so every card moves the same way whatever its span.
+ */
+const MIRROR_LAYOUT_TRANSITION = {
+  duration: 0.24,
+  ease: [0.2, 0.8, 0.2, 1] as [number, number, number, number],
+};
+
+/** The shared look of a preview tile — the drag overlay draws the same one. */
+const MIRROR_TILE_CLASS =
+  "flex h-9 items-center justify-center gap-1 overflow-hidden rounded-md px-1 text-center text-[9px] font-semibold leading-tight";
+
+/** One tile's fill: the Primary keeps the brand colour, the rest sit darker. */
+function mirrorTileTone(primary: boolean | undefined): string {
+  return primary
+    ? "bg-blue-600 text-white"
+    : "border border-dashed border-muted-foreground/30 bg-muted text-muted-foreground shadow-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300";
+}
+
+/**
  * The row and column span of every VISIBLE card, laid out with the same rule the
  * hub uses: rows divide their columns between them, so hiding a card re-flows the
  * mirror exactly as it will re-flow the portal.
@@ -179,33 +208,32 @@ function SortableMirrorCard({
   disabled,
   className,
 }: SortableMirrorCardProps) {
-  const { listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({
-      id: mirrorSortableId(entry.id),
-      disabled: Boolean(disabled),
-    });
+  const { listeners, setNodeRef, isDragging } = useSortable({
+    id: mirrorSortableId(entry.id),
+    disabled: Boolean(disabled),
+  });
 
   return (
-    <div
+    <motion.div
       ref={setNodeRef}
+      // Position AND box: a card that lands in a wider or narrower slot grows or
+      // shrinks into it instead of jumping (see MIRROR_LAYOUT_TRANSITION).
+      layout
+      layoutId={`help-card-mirror-${entry.id}`}
+      transition={MIRROR_LAYOUT_TRANSITION}
       title={title}
       data-mirror-card={entry.id}
       {...(disabled ? {} : listeners)}
-      style={{
-        transform: CSS.Transform.toString(transform),
-        transition,
-      }}
       className={cn(
-        "flex h-9 items-center justify-center gap-1 overflow-hidden rounded-md px-1 text-center text-[9px] font-semibold leading-tight",
+        MIRROR_TILE_CLASS,
         // The Primary keeps its brand fill; every other card sits a shade darker
         // than the mirror's own background, so the accent card stands out.
-        entry.primary
-          ? "bg-blue-600 text-white"
-          : "border border-dashed border-muted-foreground/30 bg-muted text-muted-foreground shadow-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300",
+        mirrorTileTone(entry.primary),
         // …and it LOOKS movable: dashed edge, grip, grab cursor, hover tint.
         !disabled &&
           "cursor-grab touch-none hover:border-blue-400 hover:text-foreground active:cursor-grabbing",
-        isDragging && "relative z-10 shadow-md ring-2 ring-blue-400/70",
+        // The lifted card rides the DragOverlay; leave its slot empty meanwhile.
+        isDragging && "opacity-30",
         className,
       )}
     >
@@ -216,7 +244,7 @@ function SortableMirrorCard({
         />
       )}
       <span className="line-clamp-2">{title}</span>
-    </div>
+    </motion.div>
   );
 }
 
@@ -497,6 +525,16 @@ export function HelpCardLayoutEditor({
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   );
+  /**
+   * The preview tile currently lifted out of the grid.
+   *
+   * The lift is drawn in a `DragOverlay` rather than by transforming the tile:
+   * the tiles animate their own boxes with framer-motion, and a dnd-kit
+   * transform on the same element would fight that.
+   */
+  const [mirrorDraggingId, setMirrorDraggingId] = useState<string | null>(null);
+  const mirrorDraggingEntry =
+    mirroredLayout.find((entry) => entry.id === mirrorDraggingId) ?? null;
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -514,7 +552,12 @@ export function HelpCardLayoutEditor({
    * `moveHelpCard` rule, so the preview and the list can never write two
    * different layouts.
    */
+  const handleMirrorDragStart = (event: DragStartEvent) => {
+    setMirrorDraggingId(cardIdFromMirror(String(event.active.id)));
+  };
+
   const handleMirrorDragEnd = (event: DragEndEvent) => {
+    setMirrorDraggingId(null);
     const { active, over } = event;
     if (!over || active.id === over.id) return;
     onChange(
@@ -622,59 +665,86 @@ export function HelpCardLayoutEditor({
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
+        onDragStart={handleMirrorDragStart}
         onDragEnd={handleMirrorDragEnd}
+        onDragCancel={() => setMirrorDraggingId(null)}
       >
         <SortableContext
           items={mirroredLayout.map((entry) => mirrorSortableId(entry.id))}
           strategy={rectSortingStrategy}
         >
-          <div
-            aria-hidden="true"
-            data-testid="help-card-slot-preview"
-            data-columns={columns}
-            className={cn(
-              "rounded-lg border border-muted bg-muted/20 p-2",
-              mirroredLayout.length === 1
-                ? "flex justify-center"
-                : cn("grid gap-1.5", MIRROR_GRID_CLASS[columns]),
-            )}
-          >
-            {mirroredLayout.length === 0 ? (
-              <p
-                className={cn(
-                  "py-2 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground",
-                  MIRROR_SPAN_CLASS[columns],
-                )}
-              >
-                All cards hidden
-              </p>
-            ) : (
-              mirroredLayout.map((entry, index) => {
-                const content = getHelpCardContent(entry.id, catalog);
-                const title = fillHelpCardTokens(
-                  content?.title ?? entry.id,
-                  category,
-                );
-                return (
-                  <SortableMirrorCard
-                    key={entry.id}
-                    entry={entry}
-                    title={title}
-                    // The Primary is pinned (dropping ON it promotes another
-                    // card), and a plan whose order Quick Access owns cannot be
-                    // re-ordered here at all.
-                    disabled={!allowReorder || Boolean(entry.primary)}
-                    className={
-                      mirroredLayout.length === 1
-                        ? MIRROR_LONE_WIDTH[columns]
-                        : MIRROR_SPAN_CLASS[slots[index]?.span ?? 1]
-                    }
-                  />
-                );
-              })
-            )}
-          </div>
+          {/* `LayoutGroup`: every tile animates from its OLD box to its NEW one,
+              span included, whenever the order changes. */}
+          <LayoutGroup>
+            <div
+              aria-hidden="true"
+              data-testid="help-card-slot-preview"
+              data-columns={columns}
+              className={cn(
+                "rounded-lg border border-muted bg-muted/20 p-2",
+                mirroredLayout.length === 1
+                  ? "flex justify-center"
+                  : cn("grid gap-1.5", MIRROR_GRID_CLASS[columns]),
+              )}
+            >
+              {mirroredLayout.length === 0 ? (
+                <p
+                  className={cn(
+                    "py-2 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground",
+                    MIRROR_SPAN_CLASS[columns],
+                  )}
+                >
+                  All cards hidden
+                </p>
+              ) : (
+                mirroredLayout.map((entry, index) => {
+                  const content = getHelpCardContent(entry.id, catalog);
+                  const title = fillHelpCardTokens(
+                    content?.title ?? entry.id,
+                    category,
+                  );
+                  return (
+                    <SortableMirrorCard
+                      key={entry.id}
+                      entry={entry}
+                      title={title}
+                      // The Primary is pinned (dropping ON it promotes another
+                      // card), and a plan whose order Quick Access owns cannot be
+                      // re-ordered here at all.
+                      disabled={!allowReorder || Boolean(entry.primary)}
+                      className={
+                        mirroredLayout.length === 1
+                          ? MIRROR_LONE_WIDTH[columns]
+                          : MIRROR_SPAN_CLASS[slots[index]?.span ?? 1]
+                      }
+                    />
+                  );
+                })
+              )}
+            </div>
+          </LayoutGroup>
         </SortableContext>
+        {/* The lifted tile follows the pointer out here, so the grid itself can
+            animate both position and width. */}
+        <DragOverlay dropAnimation={null}>
+          {mirrorDraggingEntry ? (
+            <div
+              className={cn(
+                MIRROR_TILE_CLASS,
+                "w-full shadow-lg ring-2 ring-blue-400/70",
+                mirrorTileTone(mirrorDraggingEntry.primary),
+              )}
+            >
+              <span className="line-clamp-2">
+                {fillHelpCardTokens(
+                  getHelpCardContent(mirrorDraggingEntry.id, catalog)?.title ??
+                    mirrorDraggingEntry.id,
+                  category,
+                )}
+              </span>
+            </div>
+          ) : null}
+        </DragOverlay>
       </DndContext>
 
       {/* How many cards the page actually shows, in counter form — above the list,

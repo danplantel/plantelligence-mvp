@@ -1138,6 +1138,42 @@ describe("2/3 primary card width", () => {
     });
     expect(cta.className).toContain("w-full");
   });
+
+  it("does not let the CTA grow past its card on hover", () => {
+    const view = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        cards={layoutWith("financial-planning")}
+      />,
+    );
+    const cta = within(tile(view.container, "financial-planning")).getByRole(
+      "button",
+      { name: /Learn more|Showing Below/ },
+    );
+
+    // The shared Button variant scales 5% on hover; on a `w-full` CTA that grew
+    // the button past the card's content column, so it looked like it stretched
+    // to the card's edge. The scale is cancelled here.
+    expect(cta.className).toContain("hover:!scale-100");
+    expect(cta.className).toContain("active:scale-100");
+  });
+});
+
+describe("HowCanWeHelpSection Account Access CTA hover", () => {
+  it("keeps the Account Access button inside its card on hover too", () => {
+    const view = render(
+      <HowCanWeHelpSection
+        clientId="plan-1"
+        accountAccessHref="https://example.com/login"
+      />,
+    );
+    const cta = within(tile(view.container, "account-access")).getByTestId(
+      "account-access-cta",
+    );
+
+    expect(cta.className).toContain("w-full");
+    expect(cta.className).toContain("hover:!scale-100");
+  });
 });
 
 describe("HowCanWeHelpSection panel CTAs", () => {

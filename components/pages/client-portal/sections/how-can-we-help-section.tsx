@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import { LayoutGroup, motion } from "framer-motion";
 import {
   ArrowRight,
   ChevronDown,
@@ -660,6 +660,9 @@ function AccountAccessCard({
       // Reflow with the other cards when the layout changes, and keep the hover
       // lift on framer (an inline layout transform would override the CSS one).
       layout
+      // Same identity rule as the topic cards: this one changes rows whenever the
+      // Primary moves to the other edge.
+      layoutId={`help-card-${ACCOUNT_ACCESS_CARD_ID}`}
       initial={false}
       transition={HELPCARD_LAYOUT_TRANSITION}
       whileHover={{ y: -2 }}
@@ -817,7 +820,11 @@ function AccountAccessCard({
             // is the measured block above it, not the whole row. One line always:
             // the label is short enough to fit a phone tile with the tighter
             // padding/tracking below, and `whitespace-nowrap` makes that explicit.
-            className="h-auto w-full gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] shadow-sm hover:opacity-90 sm:px-4 sm:text-xs sm:tracking-[0.08em]"
+            //
+            // No hover SCALE here either: the shared variant's `hover:scale-105`
+            // pushed this `w-full` button past the card's content column, so it
+            // looked like it stretched to the card's edge.
+            className="h-auto w-full gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.06em] shadow-sm hover:scale-100 hover:!scale-100 hover:opacity-90 active:scale-100 sm:px-4 sm:text-xs sm:tracking-[0.08em]"
             style={
               primary
                 ? // Inverse button: the readable colour as the fill, the primary as
@@ -1586,6 +1593,14 @@ export function HowCanWeHelpSection({
         ref={rowsContainerRef}
         className="relative mx-auto w-full max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8"
       >
+        {/* ONE layout group for the whole grid.
+            A row is keyed by its INDEX, so a card that changes rows is unmounted
+            from one wrapper and mounted in another — framer can only animate
+            across that boundary when the cards share a `layoutId`, which is what
+            the group makes possible. Without it the TWO-COLUMN cards (the ones
+            that trade places with a narrower card in the next row) snapped into
+            their new slot while the rest glided. */}
+        <LayoutGroup>
         {/* Caret — a rotated square straddling the open panel's top border, aimed at
             the card that opened it. It is ONE element for the whole section, so
             changing cards slides it across the grid instead of popping up a new one.
@@ -1688,6 +1703,10 @@ export function HowCanWeHelpSection({
                 // A reorder in the Editing Panel animates the card into its new
                 // slot; a participant's first paint stays static (`initial={false}`).
                 layout
+                // The card's identity across ROWS: a two-column card moving to a
+                // narrower slot lives under a different row wrapper afterwards, and
+                // the shared id is what lets framer carry it there.
+                layoutId={`help-card-${card.id}`}
                 initial={false}
                 transition={HELPCARD_LAYOUT_TRANSITION}
                 whileHover={{ y: -2 }}
@@ -1799,7 +1818,13 @@ export function HowCanWeHelpSection({
                     // rather than spanning the whole row. The phone size is tuned so
                     // "Showing Below" stays on ONE line inside a half-width tile;
                     // `whitespace-nowrap` is the guarantee, not a hope.
-                    className="w-full justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.04em] shadow-sm hover:opacity-90 sm:px-4 sm:text-xs sm:tracking-[0.12em]"
+                    //
+                    // `hover:!scale-100` cancels the shared button variant's
+                    // `hover:scale-105`: on a `w-full` CTA that scaling grew the
+                    // button past its card's content column — it looked like it was
+                    // stretching to the card's edge on hover. The lift on the tile
+                    // (framer) and the opacity change below are the feedback instead.
+                    className="w-full justify-center gap-1.5 whitespace-nowrap rounded-lg px-2 py-2 text-[10px] font-semibold uppercase tracking-[0.04em] shadow-sm hover:scale-100 hover:!scale-100 hover:opacity-90 active:scale-100 sm:px-4 sm:text-xs sm:tracking-[0.12em]"
                     style={
                       isPrimary
                         ? // Inverse button on a filled card — never the secondary
@@ -1928,6 +1953,7 @@ export function HowCanWeHelpSection({
             </motion.div>
           );
         })}
+        </LayoutGroup>
       </div>
     </section>
   );
