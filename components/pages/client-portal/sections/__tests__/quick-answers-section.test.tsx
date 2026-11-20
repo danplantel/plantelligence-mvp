@@ -440,7 +440,7 @@ describe("QuickAnswersSection", () => {
     ).toBeNull();
   });
 
-  it("rules a line under the row and hints that it scrolls", () => {
+  it("draws the desktop strip and its hairline, with no phone slider", () => {
     render(
       <QuickAnswersSection
         groups={[
@@ -464,24 +464,166 @@ describe("QuickAnswersSection", () => {
       />,
     );
 
-    // The hairline that keeps a sticky row from floating into the first answer,
-    // and the fade that says "there is another chip this way" on a phone.
+    // The chip row and the hairline under it.
+    expect(screen.getByTestId("quick-answer-categories")).toBeInTheDocument();
     expect(
       screen.getByTestId("quick-answer-categories-divider"),
     ).toBeInTheDocument();
-    expect(screen.getByTestId("quick-answer-categories-fade")).toBeInTheDocument();
-
-    // The row travels with the reader on a phone; it is static from `md`.
-    const sticky = screen.getByTestId("quick-answer-categories").closest(
-      ".sticky",
-    );
-    expect(sticky).not.toBeNull();
-    expect(sticky?.className).toContain("md:static");
+    // The sideways-scroll affordance is gone: a phone gets a stack instead.
+    expect(screen.queryByTestId("quick-answer-categories-fade")).toBeNull();
+    expect(screen.queryByTestId("quick-answer-mobile-groups")).toBeNull();
 
     // Grid items must NOT stretch: with stretching, opening one answer grew the
     // card beside it to the same height — a second "open" card, empty.
     expect(screen.getByTestId("quick-answer-panel").className).toContain(
       "items-start",
+    );
+  });
+
+  it("gives a phone a stack of category buttons, each with its topics under it", () => {
+    setPhoneViewport(true);
+    render(
+      <QuickAnswersSection
+        brandColor="#123456"
+        groups={[
+          group(),
+          group({
+            id: "group-2",
+            name: "Investing",
+            sortOrder: 1,
+            topics: [
+              topic({
+                topicId: "topic-3",
+                placementId: "placement-3",
+                slug: "sys.target-date-funds",
+                title: "Target date funds",
+                groupId: "group-2",
+                tags: [],
+              }),
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    // No slider and no desktop panel: the phone reads ONE stacked list.
+    expect(screen.queryByTestId("quick-answer-categories")).toBeNull();
+    expect(screen.queryByTestId("quick-answer-panel")).toBeNull();
+
+    const headers = screen.getAllByTestId("quick-answer-mobile-group");
+    expect(headers).toHaveLength(2);
+    // Each header names its category and counts its topics in brackets.
+    expect(headers[0]).toHaveTextContent("Taking Money Out");
+    expect(headers[0]).toHaveTextContent("(1)");
+    expect(headers[1]).toHaveTextContent("Investing");
+
+    // It is an ACCORDION: only the first category is open on arrival, so only
+    // its questions are on the page.
+    expect(headers[0]).toHaveAttribute("aria-expanded", "true");
+    expect(headers[1]).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.getAllByTestId("quick-answer-question-mobile").map((button) =>
+        button.textContent?.trim(),
+      ),
+    ).toEqual(["401(k) loans"]);
+  });
+
+  it("keeps ONE category open: opening another closes the first", async () => {
+    setPhoneViewport(true);
+    const user = userEvent.setup();
+    render(
+      <QuickAnswersSection
+        groups={[
+          group(),
+          group({
+            id: "group-2",
+            name: "Investing",
+            sortOrder: 1,
+            topics: [
+              topic({
+                topicId: "topic-3",
+                placementId: "placement-3",
+                slug: "sys.target-date-funds",
+                title: "Target date funds",
+                groupId: "group-2",
+              }),
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    // Open the second category: the first one closes, so the stack still shows a
+    // single group's questions.
+    await user.click(screen.getAllByTestId("quick-answer-mobile-group")[1]);
+
+    const headers = screen.getAllByTestId("quick-answer-mobile-group");
+    expect(headers[0]).toHaveAttribute("aria-expanded", "false");
+    expect(headers[1]).toHaveAttribute("aria-expanded", "true");
+    // The first group's questions leave as the second unfolds.
+    await waitFor(() =>
+      expect(
+        screen.getAllByTestId("quick-answer-question-mobile").map((button) =>
+          button.textContent?.trim(),
+        ),
+      ).toEqual(["Target date funds"]),
+    );
+
+    // Tapping the open header folds everything away.
+    await user.click(screen.getAllByTestId("quick-answer-mobile-group")[1]);
+    await waitFor(() =>
+      expect(
+        screen.queryAllByTestId("quick-answer-question-mobile"),
+      ).toHaveLength(0),
+    );
+  });
+
+  it("paints a closed category header white and an open one in the plan colour", async () => {
+    setPhoneViewport(true);
+    const user = userEvent.setup();
+    render(
+      <QuickAnswersSection
+        brandColor="#123456"
+        groups={[
+          group(),
+          group({
+            id: "group-2",
+            name: "Investing",
+            sortOrder: 1,
+            topics: [
+              topic({
+                topicId: "topic-3",
+                placementId: "placement-3",
+                slug: "sys.target-date-funds",
+                title: "Target date funds",
+                groupId: "group-2",
+              }),
+            ],
+          }),
+        ]}
+      />,
+    );
+
+    const [first, second] = screen.getAllByTestId("quick-answer-mobile-group");
+    // Open: the plan's colour fills the bar, with readable text on it.
+    expect(first.style.backgroundColor).toBe("rgb(18, 52, 86)");
+    expect(first.style.color).toBe("rgb(255, 255, 255)");
+    expect(first).toHaveAttribute("aria-expanded", "true");
+
+    // The closed one is white with the category in the plan's colour.
+    expect(second.style.backgroundColor).toBe("rgb(255, 255, 255)");
+    expect(second.style.color).toBe("rgb(18, 52, 86)");
+
+    // Clicking the open one folds it away — nothing is open then.
+    await user.click(first);
+    const folded = screen.getAllByTestId("quick-answer-mobile-group")[0];
+    expect(folded.style.backgroundColor).toBe("rgb(255, 255, 255)");
+    expect(folded.style.color).toBe("rgb(18, 52, 86)");
+    expect(folded).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() =>
+      expect(
+        screen.queryAllByTestId("quick-answer-question-mobile"),
+      ).toHaveLength(0),
     );
   });
 
@@ -814,9 +956,11 @@ describe("QuickAnswersSection phone answer sheet", () => {
     ).toContain("lucide-chevron-right");
 
     // The caret stays hidden here, and comes back where the answer really folds
-    // in place.
+    // in place. A phone reads the stacked list, so that is the copy to inspect.
     const caret = Array.from(
-      container.querySelectorAll('[data-testid="quick-answer-question"] svg'),
+      container.querySelectorAll(
+        '[data-testid="quick-answer-question-mobile"] svg',
+      ),
     ).find((svg) =>
       (svg.getAttribute("class") ?? "").includes("lucide-chevron-down"),
     );

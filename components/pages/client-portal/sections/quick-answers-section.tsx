@@ -40,6 +40,7 @@ import {
 import { resolveTopicHref } from "@/lib/topics/link-href";
 import { cn } from "@/lib/utils";
 import { participantCopy } from "@/lib/participant-copy";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ActionHubPanel } from "./action-hub-panel";
 import type { ActionHubRow, EffectiveTopic, TopicGroup } from "@/types/topic";
@@ -167,13 +168,17 @@ function QuickAnswersSkeleton({ className }: { className?: string }) {
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <QuickAnswersHeading />
 
-        {/* The category row, then the selected category's questions — the same
-            rhythm the real section uses, so the answers swap in without a jump. */}
-        <div className="mb-6 flex gap-2 overflow-hidden" aria-hidden="true">
+        {/* The categories take the shape they will actually have: a STACK of
+            full-width rows on a phone, one row of chips from `md` — so the
+            answers swap in without a jump on either layout. */}
+        <div
+          className="mb-6 flex flex-col gap-2 md:flex-row"
+          aria-hidden="true"
+        >
           {[0, 1, 2, 3].map((chip) => (
             <Skeleton
               key={chip}
-              className="h-10 w-36 shrink-0"
+              className="h-12 w-full md:h-10 md:w-36 md:shrink-0"
               style={{ borderRadius: portalRadiusValue() }}
             />
           ))}
@@ -504,6 +509,17 @@ export function QuickAnswersSection({
     );
   };
 
+  /**
+   * Which of the two layouts to DRAW.
+   *
+   * Not a CSS-only split: the phone stack and the desktop panel list the same
+   * questions, so leaving both in the DOM would read every question twice to a
+   * screen reader (and make every "the question button" query ambiguous). The
+   * server renders the desktop layout — `serverFallback: false` — and a phone
+   * swaps to the stack on its first measured frame.
+   */
+  const isPhone = useMediaQuery("(max-width: 767px)", false);
+
   const [query, setQuery] = useState("");
   const [openSlug, setOpenSlug] = useState<string | null>(null);
   /** Phone-only answer view. Kept apart so the two layouts cannot fight. */
@@ -519,6 +535,36 @@ export function QuickAnswersSection({
   const visibleCount = countMatchedTopics(filteredGroups);
 
   const [activeGroupId, setActiveGroupId] = useState<string | null>(null);
+
+  /**
+   * The ONE category a phone has open — the stack is an accordion, not a list.
+   *
+   * Three states on purpose:
+   *  - `undefined`: nothing chosen yet, which resolves to the FIRST category, so
+   *    the section opens with one group showing and no state to keep in step when
+   *    the list changes (a reload, a `?q=` link);
+   *  - a group id: that category is open and every other one is closed;
+   *  - `null`: the reader closed the open one, so the stack is fully folded.
+   */
+  const [openMobileGroupId, setOpenMobileGroupId] = useState<
+    string | null | undefined
+  >(undefined);
+
+  // `filteredGroups` IS `visibleGroups`; it is simply declared first, so the
+  // default can be read here without a second render.
+  const resolvedMobileGroupId =
+    openMobileGroupId === undefined
+      ? (filteredGroups[0]?.id ?? null)
+      : openMobileGroupId;
+
+  const toggleMobileGroup = (groupId: string) =>
+    setOpenMobileGroupId((current) => {
+      const openId =
+        current === undefined ? (filteredGroups[0]?.id ?? null) : current;
+      // Opening a category closes the one that was open; tapping the open one
+      // folds it away.
+      return openId === groupId ? null : groupId;
+    });
 
   /**
    * The category row's source.
@@ -591,17 +637,6 @@ export function QuickAnswersSection({
         })
       : null;
 
-  /**
-   * Phones get the full-screen answer; everything from `md` up expands in place.
-   * The breakpoint must match the CSS (`md:hidden` on the view, `md:block` on
-   * the inline answer and the caret), or a tablet width would land on neither
-   * layout.
-   */
-  const isPhoneViewport = () =>
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(max-width: 767px)").matches;
-
   // A deep link (`#401k-loans`) opens that answer on first paint.
   useEffect(() => {
     const fromHash = readHashTopicSlug(window.location.hash);
@@ -636,7 +671,7 @@ export function QuickAnswersSection({
   };
 
   const toggleTopic = (topic: EffectiveTopic) => {
-    if (isPhoneViewport()) {
+    if (isPhone) {
       setMobileSlug(topic.slug);
       try {
         window.history.pushState(
@@ -662,7 +697,18 @@ export function QuickAnswersSection({
     }
   };
 
-  const questionButton = (topic: EffectiveTopic) => {
+  /**
+   * One question's bar.
+   *
+   * `testId` is a parameter because the phone stack draws the same questions as
+   * the desktop panel: two nodes with one test id would make every query
+   * ambiguous, so the phone copy names itself (`quick-answer-question-mobile`).
+   */
+  const questionButton = (
+    topic: EffectiveTopic,
+    testId = "quick-answer-question",
+    controlsId = `quick-answer-${topic.slug}`,
+  ) => {
     const isOpen = openSlug === topic.slug;
     const chip = topicChip(topic);
 
@@ -671,9 +717,9 @@ export function QuickAnswersSection({
         key={topic.slug}
         type="button"
         aria-expanded={isOpen}
-        aria-controls={`quick-answer-${topic.slug}`}
+        aria-controls={controlsId}
         onClick={() => toggleTopic(topic)}
-        data-testid="quick-answer-question"
+        data-testid={testId}
         // CLOSED: a plain white bar with the question in the plan's colour — the
         // card around it carries the shadow, because the card clips its corners
         // and would cut a shadow drawn inside it.
@@ -742,6 +788,76 @@ export function QuickAnswersSection({
     );
   };
 
+  /**
+   * One question as a CARD.
+   *
+   * The desktop panel and the phone stack draw the same card; only the desktop
+   * one carries an in-place answer, because a phone opens the full-screen view
+   * instead. `idPrefix` keeps the two copies' element ids apart.
+   */
+  const questionCard = (
+    topic: EffectiveTopic,
+    options: { testId: string; idPrefix: string; withAnswer: boolean },
+  ) => {
+    const isOpen = openSlug === topic.slug;
+    return (
+      <div
+        key={topic.slug}
+        id={`${options.idPrefix}-card-${topic.slug}`}
+        className={cn(
+          "group overflow-hidden border border-neutral-200 bg-white transition-shadow duration-200",
+          isOpen ? "shadow-none" : "shadow-sm hover:shadow-md",
+        )}
+        style={{ borderRadius: portalRadiusValue(1.5) }}
+      >
+        {questionButton(
+          topic,
+          options.testId,
+          // The phone copy has no body on this page — the answer is the sheet.
+          options.withAnswer ? `quick-answer-${topic.slug}` : undefined,
+        )}
+
+        {options.withAnswer && (
+          <div id={`quick-answer-${topic.slug}`} className="hidden md:block">
+            <AnimatePresence initial={false}>
+              {isOpen && (
+                <motion.div
+                  key="answer"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{
+                    duration: 0.24,
+                    ease: [0.22, 1, 0.36, 1] as [
+                      number,
+                      number,
+                      number,
+                      number,
+                    ],
+                  }}
+                  className="overflow-hidden"
+                >
+                  <div className="border-t border-neutral-200 px-4 py-3 sm:px-5">
+                    <TopicAnswer
+                      topic={topic}
+                      brandColor={brandColor}
+                      secondaryColor={secondaryColor}
+                      basePath={basePath}
+                      actionHubRows={actionHubPanels?.[topic.slug]}
+                      advisorBookingUrl={resolvedBookingUrl}
+                      recordkeeperUrl={resolvedLoginUrl}
+                      fillTokens={fillTokens}
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   // The hub is still fetching this benefit's placements: draw the section's frame so
   // it does not arrive late and shove the page down. Only while there is nothing to
   // show — a revalidation over data already on screen must not flash a skeleton.
@@ -806,42 +922,19 @@ export function QuickAnswersSection({
           </div>
         )}
 
-        {/* The category row: one chip per topic group, and the list below shows
-            exactly the selected one.
-
-            It SCROLLS rather than wraps. A benefit's categories ("Savings &
-            Contributions", "Getting Started", "Loans & Withdrawals", …) do not fit
-            a desktop row, and wrapping them turned the row into a block of buttons
-            that pushed the first answer below the fold. `snap-x` + `shrink-0` keep
-            a chip whole while it scrolls, and the scrollbar is hidden because the
-            row is short enough that a 16 px strip would read as a divider. */}
-        {/* Shown for ONE category too: the row carries the name of what is
-            listed below it, so a benefit with a single group still says which
-            group it is instead of starting at a bare stack of questions. */}
+        {/* The category row — `md` AND UP ONLY.
+            On a phone the categories are a STACK (below): a sideways scrolling
+            strip hid every category but one, and finding the rest meant dragging
+            the row. On a wide screen the same chips fit in one row, where a
+            slider is the compact, familiar shape.
+            Shown for ONE category too: the row carries the name of what is listed
+            below it, so a benefit with a single group still says which group it
+            is instead of starting at a bare stack of questions. */}
         {visibleGroups.length > 0 && (
           <>
-            {/* STICKY on a phone: the categories travel with the reader, so the
-                answers below can be swapped without scrolling back to the top of
-                the section. `top-14` clears the portal's fixed header (its phone
-                logo band is 38 px plus 8 px of padding each side); the row stops
-                sticking from `md`, where all of it is on screen at once anyway.
-
-                Centred from `md` up — it is a navigation strip, not a control
-                bar, so it should not hug the left edge. The centring lives on
-                this wrapper: `justify-center` on the scroller itself would push
-                the first chip out of reach once the row is wider than the
-                screen, because scrollable overflow cannot be scrolled into the
-                content box's left side. */}
-            <div className="sticky top-14 z-20 -mx-4 mb-3 bg-neutral-50/95 px-4 py-2 backdrop-blur-sm sm:-mx-6 sm:px-6 md:static md:mx-0 md:mb-6 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none">
+            {!isPhone && (
+            <div className="mb-6">
               <div className="relative flex justify-center">
-                {/* Right-edge fade. On a phone the row is a carousel — a chip and
-                    a bit of the next one are all that fit — and a hard edge reads
-                    as a clipped button rather than as "there is more this way". */}
-                <span
-                  aria-hidden="true"
-                  data-testid="quick-answer-categories-fade"
-                  className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-neutral-50 to-transparent md:hidden"
-                />
                 <div
                   role="tablist"
                   aria-label="Answer categories"
@@ -890,14 +983,111 @@ export function QuickAnswersSection({
                 </div>
               </div>
             </div>
+            )}
 
-            {/* A hairline, so the sticky row never floats into the first
-                accordion as it passes over it. */}
+            {/* A hairline between the strip and the first answer. Desktop only —
+                the phone's stack brings its own edges. */}
+            {!isPhone && (
             <div
               aria-hidden="true"
               data-testid="quick-answer-categories-divider"
               className="mb-6 h-px w-full bg-neutral-300/70"
             />
+            )}
+
+            {/* PHONES: every category, STACKED, as an accordion. No slider: a
+                category is a full-width button and its questions sit directly
+                beneath. ONE category is open at a time — the first on arrival —
+                so the stack never turns into a wall of questions. */}
+            {isPhone && (
+            <div
+              data-testid="quick-answer-mobile-groups"
+              className="mb-6 space-y-3"
+            >
+              {visibleGroups.map((group) => {
+                const collapsed = group.id !== resolvedMobileGroupId;
+                return (
+                  <div
+                    key={group.id}
+                    className="overflow-hidden border border-neutral-200 bg-white shadow-sm"
+                    style={{ borderRadius: portalRadiusValue(1.5) }}
+                  >
+                    <button
+                      type="button"
+                      aria-expanded={!collapsed}
+                      aria-controls={`quick-answer-mobile-group-${group.id}`}
+                      data-testid="quick-answer-mobile-group"
+                      onClick={() => toggleMobileGroup(group.id)}
+                      className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left font-red-hat text-[13px] font-semibold transition-colors duration-200"
+                      style={{
+                        // Closed: a plain white bar with the category in the
+                        // plan's colour. Open: the plan's colour fills it and the
+                        // label flips to whatever is readable on it — the same
+                        // "this one is open" signal the question bars use.
+                        backgroundColor: collapsed ? "#ffffff" : brandColor,
+                        color: collapsed
+                          ? brandColor
+                          : readableColor(brandColor),
+                      }}
+                    >
+                      <span className="min-w-0 flex-1 truncate">
+                        {group.name}
+                      </span>
+                      {/* The topic count, in brackets — it reads as a note beside
+                          the category rather than part of its name. */}
+                      <span className="shrink-0 font-red-hat text-[11px] font-semibold opacity-70">
+                        ({group.topics.length})
+                      </span>
+                      <ChevronDown
+                        className={cn(
+                          "h-4 w-4 shrink-0 transition-transform duration-300",
+                          !collapsed && "rotate-180",
+                        )}
+                        aria-hidden="true"
+                      />
+                    </button>
+                    {/* The topics unfold rather than appearing in one frame —
+                        the same height-and-fade the desktop answers use, so the
+                        two layouts move the same way. `initial={false}` keeps the
+                        category that starts open already-open on first paint. */}
+                    <AnimatePresence initial={false}>
+                      {!collapsed && (
+                        <motion.div
+                          key="topics"
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{
+                            duration: 0.24,
+                            ease: [0.22, 1, 0.36, 1] as [
+                              number,
+                              number,
+                              number,
+                              number,
+                            ],
+                          }}
+                          className="overflow-hidden"
+                        >
+                          <div
+                            id={`quick-answer-mobile-group-${group.id}`}
+                            className="space-y-1.5 border-t border-neutral-200 p-1.5"
+                          >
+                            {group.topics.map((topic) =>
+                              questionCard(topic, {
+                                testId: "quick-answer-question-mobile",
+                                idPrefix: "quick-answer-mobile",
+                                withAnswer: false,
+                              }),
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                );
+              })}
+            </div>
+            )}
           </>
         )}
 
@@ -910,77 +1100,23 @@ export function QuickAnswersSection({
             by default, so opening one answer made its NEIGHBOUR's white card
             grow to the same height — a second "open" card with nothing in it.
             Start-aligned items keep every card the height of its own content. */}
+        {!isPhone && (
         <div
           role="tabpanel"
           aria-label={activeGroup?.name}
           data-testid="quick-answer-panel"
+          // A phone reads the stacked categories above instead.
           className="grid items-start gap-2 md:grid-cols-2"
         >
-          {activeGroup?.topics.map((topic) => {
-            const isOpen = openSlug === topic.slug;
-            return (
-              <div
-                key={topic.slug}
-                id={`quick-answer-card-${topic.slug}`}
-                // The elevation lives here, not on the header: the card clips its
-                // corners, so a shadow drawn inside it would be cut off at the
-                // edges. A closed card sits proud of the page; the open one is
-                // flat, because its filled header is the emphasis.
-                className={cn(
-                  "group overflow-hidden border border-neutral-200 bg-white transition-shadow duration-200",
-                  isOpen ? "shadow-none" : "shadow-sm hover:shadow-md",
-                )}
-                style={{ borderRadius: portalRadiusValue(1.5) }}
-              >
-                {questionButton(topic)}
-                {/* Desktop/tablet: the answer expands in the list. On a phone it
-                    is hidden here and shown full-screen instead.
-
-                    The body grows and fades rather than appearing in one frame:
-                    a 300-600 px block of copy that pops in under the bar reads
-                    as a page jump, and with two columns of them it is easy to
-                    lose which bar was clicked. `initial={false}` keeps a deep
-                    link's answer already-open on first paint — nothing should
-                    animate itself as the page loads. */}
-                <div id={`quick-answer-${topic.slug}`} className="hidden md:block">
-                  <AnimatePresence initial={false}>
-                    {isOpen && (
-                      <motion.div
-                        key="answer"
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{
-                          duration: 0.24,
-                          ease: [0.22, 1, 0.36, 1] as [
-                            number,
-                            number,
-                            number,
-                            number,
-                          ],
-                        }}
-                        className="overflow-hidden"
-                      >
-                        <div className="border-t border-neutral-200 px-4 py-3 sm:px-5">
-                          <TopicAnswer
-                            topic={topic}
-                            brandColor={brandColor}
-                            secondaryColor={secondaryColor}
-                            basePath={basePath}
-                            actionHubRows={actionHubPanels?.[topic.slug]}
-                            advisorBookingUrl={resolvedBookingUrl}
-                            recordkeeperUrl={resolvedLoginUrl}
-                            fillTokens={fillTokens}
-                          />
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </div>
-              </div>
-            );
-          })}
+          {activeGroup?.topics.map((topic) =>
+            questionCard(topic, {
+              testId: "quick-answer-question",
+              idPrefix: "quick-answer",
+              withAnswer: true,
+            }),
+          )}
         </div>
+        )}
       </div>
 
       {/* Phone answer view: a view within the page, with a back arrow. It
