@@ -119,6 +119,32 @@ describe("HelpCardLayoutEditor", () => {
     expect(layout[2]).toEqual({ id: "account-access", primary: true });
   });
 
+  it("labels the Left/Right control as the Primary card's positioning", () => {
+    render(<HelpCardLayoutEditor onChange={() => {}} />);
+
+    // The two buttons sat on their own with no caption, so what they moved was a
+    // guess; the label names it.
+    const label = screen.getByText("Primary Card Positioning");
+    const group = label.parentElement as HTMLElement;
+    expect(within(group).getByRole("button", { name: /^left$/i })).toBeInTheDocument();
+    expect(
+      within(group).getByRole("button", { name: /^right$/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("drops the positioning control when the primary owns its whole row", () => {
+    const solo: HelpCardContent[] = [
+      { id: "account-access", title: "Account Access", paragraphs: [], cta: "" },
+    ];
+    render(<HelpCardLayoutEditor catalog={solo} onChange={() => {}} />);
+
+    // One card fills the row: there is no edge to choose, so neither the
+    // control nor its label is drawn.
+    expect(
+      screen.queryByText("Primary Card Positioning"),
+    ).not.toBeInTheDocument();
+  });
+
   it("offers 3 or 4 cards per row and reports the choice", async () => {
     const user = userEvent.setup();
     const onColumnsChange = vi.fn();
@@ -161,6 +187,50 @@ describe("HelpCardLayoutEditor", () => {
     }
     const first = mirror.children[0] as HTMLElement;
     expect(first.className).toContain("col-span-2");
+  });
+
+  it("makes the preview tiles draggable, a shade darker than the Primary", () => {
+    render(<HelpCardLayoutEditor onChange={() => {}} />);
+
+    // The preview is named, and says what the advisor can do with it.
+    expect(screen.getByText("Card Layout Preview")).toBeInTheDocument();
+    expect(screen.getByText("Drag to reorder")).toBeInTheDocument();
+
+    const mirror = screen.getByTestId("help-card-slot-preview");
+    const tiles = Array.from(mirror.children) as HTMLElement[];
+    const primaryTile = tiles.find(
+      (tile) => tile.dataset.mirrorCard === "account-access",
+    );
+    expect(primaryTile?.className).toContain("bg-blue-600");
+
+    // Every other card is a drag handle in its own right, filled a shade darker
+    // than the preview so the accent Primary still stands out.
+    const standards = tiles.filter(
+      (tile) => tile.dataset.mirrorCard !== "account-access",
+    );
+    expect(standards).toHaveLength(HELP_CARD_ORDER.length - 1);
+    for (const tile of standards) {
+      expect(tile.className).toContain("cursor-grab");
+      expect(tile.className).toContain("bg-muted");
+      expect(tile.className).not.toContain("bg-white");
+      // A grip icon, so the tile LOOKS like something you can pick up.
+      expect(tile.querySelector("svg")).not.toBeNull();
+    }
+
+    // The Primary is pinned: dropping ON it promotes another card, but it cannot
+    // itself be dragged.
+    expect(primaryTile?.className).not.toContain("cursor-grab");
+  });
+
+  it("leaves the preview read-only when Quick Access owns the order", () => {
+    render(<HelpCardLayoutEditor allowReorder={false} onChange={() => {}} />);
+
+    const mirror = screen.getByTestId("help-card-slot-preview");
+    for (const tile of Array.from(mirror.children) as HTMLElement[]) {
+      expect(tile.className).not.toContain("cursor-grab");
+    }
+    // No drag hint either — nothing here can be picked up.
+    expect(screen.queryByText("Drag to reorder")).not.toBeInTheDocument();
   });
 
   it("mirrors two half-width rows when eight cards use 4 across", () => {

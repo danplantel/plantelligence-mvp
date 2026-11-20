@@ -7,12 +7,14 @@ import {
   KeyboardSensor,
   PointerSensor,
   closestCenter,
+  closestCorners,
   useSensor,
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import {
   SortableContext,
+  rectSortingStrategy,
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
@@ -123,10 +125,101 @@ const MIRROR_LONE_WIDTH: Record<number, string> = {
 };
 
 /**
+ * ONE caption style for every control group in this editor — "Cards per row",
+ * "Primary Card Positioning", "Card Layout Preview" and "Card Options" all read
+ * as the same kind of heading.
+ */
+const CAPTION_CLASS =
+  "text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground";
+
+/**
  * The row and column span of every VISIBLE card, laid out with the same rule the
  * hub uses: rows divide their columns between them, so hiding a card re-flows the
  * mirror exactly as it will re-flow the portal.
  */
+/**
+ * Mirror tiles register under a PREFIXED id.
+ *
+ * The list below is its own `DndContext` over the plain card ids, and a single
+ * context cannot hold two sortables with the same id — prefixing keeps the two
+ * drag surfaces independent while both write the same `onChange` layout.
+ */
+const MIRROR_ID_PREFIX = "mirror:";
+
+function mirrorSortableId(cardId: string): string {
+  return `${MIRROR_ID_PREFIX}${cardId}`;
+}
+
+function cardIdFromMirror(sortableId: string): string {
+  return sortableId.startsWith(MIRROR_ID_PREFIX)
+    ? sortableId.slice(MIRROR_ID_PREFIX.length)
+    : sortableId;
+}
+
+interface SortableMirrorCardProps {
+  entry: HelpCardLayoutEntry;
+  title: string;
+  /** The quick answers builder owns the order, so this preview is read-only. */
+  disabled?: boolean;
+  /** The slot's own grid classes (span, or the lone card's centred width). */
+  className?: string;
+}
+
+/**
+ * One tile in the slot mirror.
+ *
+ * It is DRAGGABLE, so the advisor can re-order the cards on the shape they are
+ * actually looking at instead of finding the same card in the list below. Only
+ * pointer listeners are attached: the mirror is a decorative preview
+ * (`aria-hidden`), and the sortable list underneath is the accessible path.
+ */
+function SortableMirrorCard({
+  entry,
+  title,
+  disabled,
+  className,
+}: SortableMirrorCardProps) {
+  const { listeners, setNodeRef, transform, transition, isDragging } =
+    useSortable({
+      id: mirrorSortableId(entry.id),
+      disabled: Boolean(disabled),
+    });
+
+  return (
+    <div
+      ref={setNodeRef}
+      title={title}
+      data-mirror-card={entry.id}
+      {...(disabled ? {} : listeners)}
+      style={{
+        transform: CSS.Transform.toString(transform),
+        transition,
+      }}
+      className={cn(
+        "flex h-9 items-center justify-center gap-1 overflow-hidden rounded-md px-1 text-center text-[9px] font-semibold leading-tight",
+        // The Primary keeps its brand fill; every other card sits a shade darker
+        // than the mirror's own background, so the accent card stands out.
+        entry.primary
+          ? "bg-blue-600 text-white"
+          : "border border-dashed border-muted-foreground/30 bg-muted text-muted-foreground shadow-sm dark:border-gray-600 dark:bg-gray-700 dark:text-gray-300",
+        // …and it LOOKS movable: dashed edge, grip, grab cursor, hover tint.
+        !disabled &&
+          "cursor-grab touch-none hover:border-blue-400 hover:text-foreground active:cursor-grabbing",
+        isDragging && "relative z-10 shadow-md ring-2 ring-blue-400/70",
+        className,
+      )}
+    >
+      {!disabled && !entry.primary && (
+        <GripVertical
+          className="h-2.5 w-2.5 shrink-0 opacity-70"
+          aria-hidden="true"
+        />
+      )}
+      <span className="line-clamp-2">{title}</span>
+    </div>
+  );
+}
+
 function planCardSlots(
   visible: HelpCardLayoutEntry[],
   columns: HelpCardColumns,
@@ -416,14 +509,32 @@ export function HelpCardLayoutEditor({
     );
   };
 
+  /**
+   * The mirror's own drag: strip the prefix back to card ids and reuse the same
+   * `moveHelpCard` rule, so the preview and the list can never write two
+   * different layouts.
+   */
+  const handleMirrorDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    onChange(
+      moveHelpCard(
+        layout,
+        cardIdFromMirror(String(active.id)),
+        cardIdFromMirror(String(over.id)),
+        { catalog, columns },
+      ),
+    );
+  };
+
   return (
     <div className={cn("space-y-3", className)}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <Label className="text-xs font-bold text-foreground">Card Layout</Label>
           <p className="mt-0.5 text-[11px] text-muted-foreground">
-            Drag to reorder. One card is the Primary: it takes the widest slot in
-            its row
+            Drag a card in the preview, or in Card Options below, to reorder.
+            One card is the Primary: it takes the widest slot in its row
             {primaryFillsRow
               ? ", which is the whole first row here."
               : ", at the left or right edge of row 1."}{" "}
@@ -440,9 +551,7 @@ export function HelpCardLayoutEditor({
             control that wrote nowhere would look like it did nothing. */}
         {onColumnsChange && (
           <div className="flex flex-col items-end gap-1">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-              Cards per row
-            </span>
+            <span className={CAPTION_CLASS}>Cards per row</span>
             <div className="inline-flex overflow-hidden rounded-md border border-muted text-[11px] font-semibold">
               {HELP_CARD_COLUMNS_OPTIONS.map((option) => (
                 <button
@@ -468,87 +577,111 @@ export function HelpCardLayoutEditor({
             more than one card. When the primary fills the row there is no edge
             to pick, so the control is left out entirely. */}
         {!primaryFillsRow && (
-          <div className="inline-flex overflow-hidden rounded-md border border-muted text-[11px] font-semibold">
-            {(["left", "right"] as const).map((option) => (
-              <button
-                key={option}
-                type="button"
-                aria-pressed={side === option}
-                onClick={() =>
-                  onChange(
-                    setHelpCardSide(layout, option, { catalog, columns }),
-                  )
-                }
-                className={cn(
-                  "px-2.5 py-1.5 capitalize transition-colors",
-                  side === option
-                    ? "bg-blue-600 text-white"
-                    : "bg-white text-muted-foreground hover:bg-muted dark:bg-gray-800",
-                )}
-              >
-                {option}
-              </button>
-            ))}
+          <div className="flex flex-col items-end gap-1">
+            <span className={CAPTION_CLASS}>Primary Card Positioning</span>
+            <div className="inline-flex overflow-hidden rounded-md border border-muted text-[11px] font-semibold">
+              {(["left", "right"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={side === option}
+                  onClick={() =>
+                    onChange(
+                      setHelpCardSide(layout, option, { catalog, columns }),
+                    )
+                  }
+                  className={cn(
+                    "px-2.5 py-1.5 capitalize transition-colors",
+                    side === option
+                      ? "bg-blue-600 text-white"
+                      : "bg-white text-muted-foreground hover:bg-muted dark:bg-gray-800",
+                  )}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Slot mirror — the same shape the portal renders. */}
-      <div
-        aria-hidden="true"
-        data-testid="help-card-slot-preview"
-        data-columns={columns}
-        className={cn(
-          "rounded-lg border border-muted bg-muted/20 p-2",
-          mirroredLayout.length === 1
-            ? "flex justify-center"
-            : cn("grid gap-1.5", MIRROR_GRID_CLASS[columns]),
-        )}
-      >
-        {mirroredLayout.length === 0 ? (
-          <p
-            className={cn(
-              "py-2 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground",
-              MIRROR_SPAN_CLASS[columns],
-            )}
-          >
-            All cards hidden
-          </p>
-        ) : (
-          mirroredLayout.map((entry, index) => {
-            const content = getHelpCardContent(entry.id, catalog);
-            const title = fillHelpCardTokens(
-              content?.title ?? entry.id,
-              category,
-            );
-            return (
-              <div
-                key={entry.id}
-                title={title}
-                className={cn(
-                  "flex h-9 items-center justify-center overflow-hidden rounded-md px-1 text-center text-[9px] font-semibold leading-tight",
-                  mirroredLayout.length === 1
-                    ? MIRROR_LONE_WIDTH[columns]
-                    : MIRROR_SPAN_CLASS[slots[index]?.span ?? 1],
-                  entry.primary
-                    ? "bg-blue-600 text-white"
-                    : "bg-white text-muted-foreground dark:bg-gray-800",
-                )}
-              >
-                <span className="line-clamp-2">{title}</span>
-              </div>
-            );
-          })
+      {/* What the mirror is — and that it can be rearranged. */}
+      <div className="flex items-center justify-between gap-2 px-0.5">
+        <span className={CAPTION_CLASS}>Card Layout Preview</span>
+        {allowReorder && (
+          <span className={cn(CAPTION_CLASS, "inline-flex items-center gap-1")}>
+            <GripVertical className="h-3 w-3" aria-hidden="true" />
+            Drag to reorder
+          </span>
         )}
       </div>
+
+      {/* Slot mirror — the same shape the portal renders, and DRAGGABLE: a card
+          is re-ordered on the shape it will actually take, not only by finding
+          it again in the list below. */}
+      <DndContext
+        sensors={sensors}
+        collisionDetection={closestCorners}
+        onDragEnd={handleMirrorDragEnd}
+      >
+        <SortableContext
+          items={mirroredLayout.map((entry) => mirrorSortableId(entry.id))}
+          strategy={rectSortingStrategy}
+        >
+          <div
+            aria-hidden="true"
+            data-testid="help-card-slot-preview"
+            data-columns={columns}
+            className={cn(
+              "rounded-lg border border-muted bg-muted/20 p-2",
+              mirroredLayout.length === 1
+                ? "flex justify-center"
+                : cn("grid gap-1.5", MIRROR_GRID_CLASS[columns]),
+            )}
+          >
+            {mirroredLayout.length === 0 ? (
+              <p
+                className={cn(
+                  "py-2 text-center text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground",
+                  MIRROR_SPAN_CLASS[columns],
+                )}
+              >
+                All cards hidden
+              </p>
+            ) : (
+              mirroredLayout.map((entry, index) => {
+                const content = getHelpCardContent(entry.id, catalog);
+                const title = fillHelpCardTokens(
+                  content?.title ?? entry.id,
+                  category,
+                );
+                return (
+                  <SortableMirrorCard
+                    key={entry.id}
+                    entry={entry}
+                    title={title}
+                    // The Primary is pinned (dropping ON it promotes another
+                    // card), and a plan whose order Quick Access owns cannot be
+                    // re-ordered here at all.
+                    disabled={!allowReorder || Boolean(entry.primary)}
+                    className={
+                      mirroredLayout.length === 1
+                        ? MIRROR_LONE_WIDTH[columns]
+                        : MIRROR_SPAN_CLASS[slots[index]?.span ?? 1]
+                    }
+                  />
+                );
+              })
+            )}
+          </div>
+        </SortableContext>
+      </DndContext>
 
       {/* How many cards the page actually shows, in counter form — above the list,
           where the advisor is arranging them. Hidden cards are not counted: the
           portal draws the visible ones, and eight is the cap. */}
       <div className="flex items-center justify-between gap-2 px-0.5">
-        <Label className="text-[11px] font-bold uppercase tracking-[0.08em] text-foreground">
-          Featured cards
-        </Label>
+        <span className={CAPTION_CLASS}>Card Options</span>
         <span
           data-testid="help-card-layout-count"
           className="text-[11px] font-semibold tabular-nums text-muted-foreground"

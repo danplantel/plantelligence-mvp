@@ -279,6 +279,80 @@ describe("QuickAnswersBuilder — counters and confirmations", () => {
 });
 
 /**
+ * Section 7 edits only the grouped questions: the Featured cards are arranged in
+ * Section 6's Card Layout, so the builder's own Featured list is left out there.
+ */
+describe("QuickAnswersBuilder — answers-only mode", () => {
+  it("leaves the Featured Cards list out when only the questions are edited", async () => {
+    installFetch(REMEMBERED_GROUP_BOARD);
+    render(
+      <QuickAnswersBuilder
+        planId="plan-answers-only"
+        location="retirement"
+        mode="answers"
+      />,
+    );
+
+    // The grouped questions are drawn…
+    expect(
+      await screen.findByText("Saving & Contributions"),
+    ).toBeInTheDocument();
+    // …and the Featured half — its list, counter and demote buttons — is not.
+    expect(screen.queryByText("Featured Cards")).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId("featured-card-count"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("points a promotion's View action at the card's Card Layout row", async () => {
+    toastSuccess.mockClear();
+    // jsdom does not implement scrolling, so watch the call instead.
+    const scrollIntoView = vi.fn();
+    installFetch(SEVEN_BOARD);
+    const { container } = render(
+      <QuickAnswersBuilder
+        planId="plan-promote-view"
+        location="retirement"
+        mode="answers"
+      />,
+    );
+
+    // Promote the hidden question from its own row.
+    const hiddenRow = await waitFor(() => {
+      const found = container.querySelector<HTMLElement>(
+        '[data-qa-topic="t-9"]',
+      );
+      if (!found) throw new Error("no hidden row");
+      return found;
+    });
+    fireEvent.change(within(hiddenRow).getByRole("combobox"), {
+      target: { value: "featured" },
+    });
+
+    await waitFor(() => expect(toastSuccess).toHaveBeenCalled());
+    const calls = toastSuccess.mock.calls;
+    const options = calls[calls.length - 1]?.[1] as {
+      action?: { label: string; onClick: () => void };
+    };
+    expect(options.action?.label).toBe("View");
+
+    // Section 6's Card Layout draws the promoted card now — this builder no
+    // longer lists it — so its row is the node the action brings into view.
+    const layoutRow = document.createElement("div");
+    layoutRow.setAttribute("data-help-layout-card", "t-9");
+    layoutRow.scrollIntoView = scrollIntoView;
+    document.body.appendChild(layoutRow);
+
+    options.action?.onClick();
+    expect(scrollIntoView).toHaveBeenCalled();
+
+    layoutRow.remove();
+    pending[0]?.respond(boardFromBody(pending[0].body));
+    await waitFor(() => expect(pending).toHaveLength(1));
+  });
+});
+
+/**
  * Card Layout's "Move to Quick Answers" is the builder's own move: the same board
  * write, the same optimistic cache, one behaviour instead of two.
  */

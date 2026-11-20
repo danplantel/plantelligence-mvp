@@ -78,44 +78,80 @@ export interface BoardPayload {
   featuredCap: number;
 }
 
-/** The animated row a question currently occupies, wherever that half is. */
-function findQuickAnswersTopicRow(topicId: string): HTMLElement | null {
+/**
+ * Where a moved card can be brought into view.
+ *
+ * A card that joins the Featured half is drawn by Section 6's Card Layout list
+ * (all this builder shows is the questions), so that row wins when it exists;
+ * a card that joins a question section is drawn by this builder's own animated
+ * row. Both selectors are tried on every retry, in that order.
+ */
+export interface MovedCardTarget {
+  /** The question's row in this builder (`data-qa-topic`). */
+  topicId?: string;
+  /** The card's row in Section 6's Card Layout list (`data-help-layout-card`). */
+  featuredCardId?: string;
+}
+
+function escapeAttributeValue(value: string): string {
   // `CSS` is imported from @dnd-kit/utilities in this module, so read the DOM
   // helper off `globalThis` instead of the shadowed binding.
   const cssApi = (globalThis as { CSS?: { escape?: (v: string) => string } }).CSS;
-  const escaped =
-    typeof cssApi?.escape === "function"
-      ? cssApi.escape(topicId)
-      : topicId.replace(/["\\]/g, "\\$&");
-  return document.querySelector<HTMLElement>(`[data-qa-topic="${escaped}"]`);
+  return typeof cssApi?.escape === "function"
+    ? cssApi.escape(value)
+    : value.replace(/["\\]/g, "\\$&");
+}
+
+function movedCardSelectors(target: MovedCardTarget): string[] {
+  return [
+    target.featuredCardId
+      ? `[data-help-layout-card="${escapeAttributeValue(target.featuredCardId)}"]`
+      : null,
+    target.topicId
+      ? `[data-qa-topic="${escapeAttributeValue(target.topicId)}"]`
+      : null,
+  ].filter((selector): selector is string => Boolean(selector));
 }
 
 /**
- * Scroll the editing panel to one question's row.
+ * Scroll the editing panel to the row a moved card now occupies.
  *
- * Exported for the move confirmations: after a card changes half, the toast's
- * "View" action brings the row it now lives in into view — the same node the
- * builder animates, so the reader can see where it landed.
+ * Exported for the move confirmations: the toast's "View" action brings that row
+ * into view, so the reader can see where the card landed.
  *
  * The row can land a frame or two AFTER the toast: the board write is
  * optimistic, but React still has to render the new list. So a miss retries for
  * a short while instead of doing nothing when the click beats the re-render.
  */
-export function scrollToQuickAnswersTopic(topicId: string, retries = 12): boolean {
-  if (typeof document === "undefined" || !topicId) return false;
-  const target = findQuickAnswersTopicRow(topicId);
-  if (target) {
-    target.scrollIntoView({
-      behavior: "smooth",
-      block: "center",
-      inline: "nearest",
-    });
-    return true;
+export function scrollToMovedCard(
+  target: MovedCardTarget,
+  retries = 12,
+): boolean {
+  if (typeof document === "undefined") return false;
+  const selectors = movedCardSelectors(target);
+  if (selectors.length === 0) return false;
+
+  for (const selector of selectors) {
+    const found = document.querySelector<HTMLElement>(selector);
+    if (found) {
+      found.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+        inline: "nearest",
+      });
+      return true;
+    }
   }
+
   if (retries > 0 && typeof window !== "undefined") {
-    window.setTimeout(() => scrollToQuickAnswersTopic(topicId, retries - 1), 60);
+    window.setTimeout(() => scrollToMovedCard(target, retries - 1), 60);
   }
   return false;
+}
+
+/** Scroll to one question's row (the Quick Answers half). */
+export function scrollToQuickAnswersTopic(topicId: string, retries = 12): boolean {
+  return scrollToMovedCard({ topicId }, retries);
 }
 
 interface LibraryItem {
@@ -206,6 +242,15 @@ export function useTopicBoard(
   const response = useSWR<TopicsResponse>(key, fetcher, {
     revalidateOnFocus: false,
     dedupingInterval: 5_000,
+    /**
+     * A remount or a key swap must not blank the board.
+     *
+     * The Card Layout beside this builder lists its Featured cards FROM this
+     * cache: one render of "no data" put the editor back into catalog mode, which
+     * dropped a card the advisor had just promoted out of the list — the card
+     * then reappeared when the read settled, seconds later.
+     */
+    keepPreviousData: true,
   });
   return { key, ...response };
 }
@@ -215,6 +260,15 @@ function placementLink(topic: BoardTopic) {
   return topic.isActionHub && topic.actionHubLink
     ? { actionHubLink: topic.actionHubLink }
     : {};
+}
+
+/**
+ * The id Card Layout gives a Featured card: its slug without the `sys.` prefix.
+ * Section 6's list renders one row per card under `data-help-layout-card`, which
+ * is what a promotion's "View" action scrolls to.
+ */
+function featuredCardIdOf(slug: string): string {
+  return slug.replace(/^sys\./, "");
 }
 
 /** One placement row as the board endpoint takes it. */
@@ -835,7 +889,14 @@ export function QuickAnswersBuilder({
    */
   const persist = (
     next: Draft,
-    notice?: { title: string; description?: string; topicId?: string },
+    notice?: {
+      title: string;
+      description?: string;
+      /** The question's row in this builder, for the Quick Answers half. */
+      topicId?: string;
+      /** The card's row in Section 6's Card Layout list, for a promotion. */
+      featuredCardId?: string;
+    },
   ) => {
     const previous = draft;
     const previousData = data;
@@ -856,17 +917,18 @@ export function QuickAnswersBuilder({
     // on screen, so waiting for the round trip made the toast feel 3–4 s late. A
     // rejected write rolls the board back and says so with an error toast below.
     if (notice) {
-      const movedTopic = notice.topicId;
+      const { topicId, featuredCardId } = notice;
       toast.success(notice.title, {
         description: notice.description,
         // The card has already landed in its new half — hand the reader a link
-        // that scrolls the panel to the row it now occupies.
-        ...(movedTopic
+        // that scrolls the panel to the row it now occupies: Section 6's Card
+        // Layout row for a promotion, this builder's own row for a demotion.
+        ...(topicId || featuredCardId
           ? {
               action: {
                 label: "View",
                 onClick: () => {
-                  scrollToQuickAnswersTopic(movedTopic);
+                  scrollToMovedCard({ topicId, featuredCardId });
                 },
               },
             }
@@ -1089,6 +1151,8 @@ export function QuickAnswersBuilder({
             title: `${topic.title} moved to How Can We Help You Today?`,
             description: "It now shows as a Featured card.",
             topicId: topic.topicId,
+            // The card is on the Card Layout list now, not in this list.
+            featuredCardId: featuredCardIdOf(topic.slug),
           }
         : to === "hidden"
           ? undefined
@@ -1146,6 +1210,7 @@ export function QuickAnswersBuilder({
       title: `${incoming.title} moved to How Can We Help You Today?`,
       description: `${outgoing.title} returned to Quick Answers.`,
       topicId: incoming.topicId,
+      featuredCardId: featuredCardIdOf(incoming.slug),
     });
   };
 
@@ -1258,6 +1323,7 @@ export function QuickAnswersBuilder({
         title: `${topic.title} moved to How Can We Help You Today?`,
         description: "It now shows as a Featured card.",
         topicId: topic.topicId,
+        featuredCardId: featuredCardIdOf(topic.slug),
       },
     );
   };

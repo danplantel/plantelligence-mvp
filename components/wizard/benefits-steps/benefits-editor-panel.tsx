@@ -326,12 +326,27 @@ export function BenefitsEditorPanel({
     step1Data.benefitCategory,
     step1Data.benefitTitle,
   );
+  /**
+   * The last board that actually carried this plan's Featured list.
+   *
+   * The Card Layout below lists those cards, and a revalidating (or
+   * re-mounting) read hands back `undefined` for a moment. Falling straight into
+   * "catalog mode" there dropped a card the advisor had just promoted out of the
+   * list, and the card came back when the read settled — a flash of a row that
+   * vanished and returned seconds later. Holding the last good board keeps the
+   * row exactly where it is.
+   */
+  const lastFeaturedCatalogRef = useRef<HelpCardContent[] | undefined>(undefined);
   const featuredCardCatalog = useMemo<HelpCardContent[] | undefined>(() => {
-    // A host/test can answer the read with something that is not a board; only a
-    // real payload swaps the list into placement mode.
-    const featured = featuredBoard.data?.board?.featured ?? [];
-    // No placements (a plan still on the catalog) keeps the old behaviour.
-    if (featured.length === 0) return undefined;
+    // No payload at all yet: the first read, or a revalidation in flight.
+    if (!featuredBoard.data?.board) return lastFeaturedCatalogRef.current;
+
+    const featured = featuredBoard.data.board.featured ?? [];
+    // The plan genuinely has no placements: keep the catalog behaviour.
+    if (featured.length === 0) {
+      lastFeaturedCatalogRef.current = undefined;
+      return undefined;
+    }
 
     const catalog = helpCardCatalogFor(helpCardCategoryLabelValue);
     const access = getHelpCardContent(ACCOUNT_ACCESS_CARD_ID, catalog);
@@ -342,7 +357,9 @@ export function BenefitsEditorPanel({
       cta: topic.cta?.label ?? "",
       ...(topic.summary ? { body: topic.summary } : {}),
     }));
-    return [...(access ? [access] : []), ...topicCards];
+    const next = [...(access ? [access] : []), ...topicCards];
+    lastFeaturedCatalogRef.current = next;
+    return next;
   }, [featuredBoard.data, helpCardCategoryLabelValue]);
 
   /**
@@ -2359,9 +2376,9 @@ export function BenefitsEditorPanel({
             title="How Can We Help You Today?"
           />
           <p className="text-[13px] text-muted-foreground mb-6">
-            Start with the Account Access card's Plan / Group ID, where its
-            &ldquo;Register or Log In&rdquo; button sends participants, and who
-            administers the benefit — then arrange the card layout below.
+            Start with the Plan / Group ID the Account Access card prints, where
+            its &ldquo;Register or Log In&rdquo; button sends participants, and
+            who administers the benefit — then arrange the card layout below.
           </p>
 
           <div className="space-y-4 rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
@@ -2619,7 +2636,11 @@ export function BenefitsEditorPanel({
             table Section 4 arranges. It writes placements directly rather than the
             wizard's `faqs` draft, because a question needs a group and an order that
             the legacy FAQ array cannot express, and because promoting one to a
-            Featured card has to remove it from here. */}
+            Featured card has to remove it from here.
+
+            `mode="answers"` on purpose: Section 6's Card Layout already owns which
+            cards are Featured and in what order, so this half edits ONLY the grouped
+            questions. A second Featured list here could only disagree with it. */}
         {quickAnswersLocation && step1Data.planId && (
           <div
             ref={sectionsRef.quickAnswers}
@@ -2637,13 +2658,16 @@ export function BenefitsEditorPanel({
             />
             <p className="text-[13px] text-muted-foreground mb-6">
               Every other question about this benefit, grouped and searchable.
-              Move one to &ldquo;Featured card&rdquo; to promote it into the
+              Move one to &ldquo;Featured card&rdquo; to promote it into the card
               grid above, or to &ldquo;Hidden&rdquo; to take it off the page.
             </p>
             <div className="rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
               <QuickAnswersBuilder
                 planId={step1Data.planId}
                 location={quickAnswersLocation}
+                // The questions half only — the Featured cards are arranged in
+                // Section 6, so they are not listed a second time here.
+                mode="answers"
                 onSaved={onTopicsSaved}
                 onBoardChange={onTopicsBoardChange}
               />
