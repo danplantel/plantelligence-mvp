@@ -178,23 +178,37 @@ export function formatPlanGroupIdLabel(value?: string | null): string {
 /** Cards that share one line of the 2-column phone grid. */
 const MOBILE_ROW_CAPACITY = 2;
 
-/**
- * Column span → grid classes.
- *
- * The grid is 2 columns on a phone and 3 from `lg` up, so a card wider than half
- * the phone grid simply owns the whole phone line. Written out as static strings
- * because Tailwind cannot see a computed `col-span-${n}`.
- */
-const SPAN_CLASS: Record<number, string> = {
-  1: "col-span-1",
-  2: "col-span-2",
-  3: "col-span-2 lg:col-span-3",
-  4: "col-span-2 lg:col-span-4",
+/** The DESKTOP half of a card's span, per grid width. */
+const DESKTOP_SPAN_CLASS: Record<HelpCardColumns, Record<number, string>> = {
+  3: { 1: "lg:col-span-1", 2: "lg:col-span-2", 3: "lg:col-span-3" },
+  4: {
+    1: "lg:col-span-1",
+    2: "lg:col-span-2",
+    3: "lg:col-span-3",
+    4: "lg:col-span-4",
+  },
 };
 
-/** The grid classes for a card spanning `span` of the `columns` columns. */
+/**
+ * Column span → grid classes, for the TWO grids the card lives in.
+ *
+ * The phone grid is two columns and the desktop grid is `columns` wide, so a span
+ * means different things at each width — the phone half is a base utility and the
+ * desktop half is the `lg:` override. Written out as static strings because
+ * Tailwind cannot see a computed `col-span-${n}`.
+ *
+ * On a phone there is ONE grid for the whole section (the desktop row wrappers
+ * are `display: contents` at that width), so a span of two — the primary, or any
+ * card that owns a whole desktop row — takes the line to itself and every
+ * narrower card pairs with the card AFTER it, whichever desktop row it came
+ * from. That is what stops a row of three singles from stranding its last card
+ * with an empty column beside it: it pairs with the first card of the next row.
+ * An odd tail (no card left to pair with) simply keeps one column, as asked.
+ */
 function spanClass(span: number, columns: HelpCardColumns = 3): string {
-  return SPAN_CLASS[Math.min(Math.max(span, 1), columns)];
+  const clamped = Math.min(Math.max(span, 1), columns);
+  const phone = clamped >= MOBILE_ROW_CAPACITY ? "col-span-2" : "col-span-1";
+  return cn(phone, DESKTOP_SPAN_CLASS[columns][clamped]);
 }
 
 /** The desktop column count, written out because Tailwind cannot see `${n}`. */
@@ -256,10 +270,13 @@ interface RowEntry {
 }
 
 /**
- * Group a row into the lines a PHONE shows. The mobile grid is two columns, so a
- * card spanning more than that takes a line of its own and everything else pairs
- * up. The grouping exists so the open card's panel can be inserted directly under
- * the line it belongs to.
+ * Group a row into the lines a PHONE shows, so the open card's panel can be
+ * inserted directly under the line it belongs to.
+ *
+ * The pairing itself is CSS: every desktop row wrapper is `display: contents` on
+ * a phone, so all the cards flow into the section's single two-column grid and
+ * neighbours pair up across row boundaries. This grouping only decides WHERE the
+ * panel goes — after the last card of the line the open card sits on.
  */
 function chunkRowForPhone(row: HelpCardResolved[], spans: number[]): RowEntry[][] {
   const lines: RowEntry[][] = [];
@@ -678,8 +695,9 @@ function AccountAccessCard({
           : "min-h-[180px] lg:min-h-[210px]",
         // The wide card is wide because its ROW says so, not because it is the
         // Access card: in the classic seven it takes two columns, and in a
-        // two-card row it shares with its neighbour.
-        spanClass(span),
+        // two-card row it shares with its neighbour. On a phone a two-column card
+        // takes the whole line, and a one-column card pairs with its neighbour.
+        spanClass(span, columns),
         // The ONE-card section: three columns wide and centred (the row is a
         // flex line then), whatever the cards-per-row setting.
         lone && LONE_CARD_WIDTH[columns],
@@ -1601,7 +1619,16 @@ export function HowCanWeHelpSection({
 
       <div
         ref={rowsContainerRef}
-        className="relative mx-auto w-full max-w-7xl space-y-4 px-4 sm:px-6 lg:px-8"
+        // ONE grid for the whole section. On a phone that is the two-column grid
+        // every card lands in (the row wrappers are `display: contents` there),
+        // which is what lets two cards share a line across desktop row
+        // boundaries. On desktop it is a stack of rows — each row spans the
+        // whole line and runs its own grid — and the gaps do the spacing that
+        // `space-y-4` used to.
+        className={cn(
+          "relative mx-auto grid w-full max-w-7xl grid-cols-2 gap-3 px-4 sm:gap-4 sm:px-6 lg:px-8",
+          GRID_CLASS[columns],
+        )}
       >
         {/* ONE layout group for the whole grid.
             A row is keyed by its INDEX, so a card that changes rows is unmounted
@@ -1638,7 +1665,6 @@ export function HowCanWeHelpSection({
         />
 
         {rows.map((row, rowIndex) => {
-          const isFirstRow = rowIndex === 0;
           const openCard =
             row.find((card) => card.id === activeCardId) ?? null;
           // The row's columns, divided between its cards. The extra column of a
@@ -1916,50 +1942,41 @@ export function HowCanWeHelpSection({
           return (
             <motion.div
               key={rowIndex}
-              // The row itself reflows when a card leaves/arrives, so the grid
-              // below is never left with a gap mid-animation.
-              layout
-              initial={false}
-              transition={HELPCARD_LAYOUT_TRANSITION}
-              className="space-y-4"
+              // On a PHONE this wrapper leaves the layout entirely (`display:
+              // contents`), so its cards become items of the section's single
+              // two-column grid and pair up with the cards of the rows above and
+              // below. That is the fix for the hole a row of three singles used
+              // to leave: its third card now pairs with the next row's first.
+              // On DESKTOP the wrapper is the row's own grid, filling one line of
+              // the outer grid, which is what keeps three columns per row.
+              className={cn(
+                "contents",
+                row.length === 1
+                  ? // A lone card is CENTRED: a flex line, rather than a grid row
+                    // it cannot fill.
+                    "lg:col-span-full lg:flex lg:justify-center"
+                  : cn("lg:col-span-full lg:grid lg:gap-4", GRID_CLASS[columns]),
+              )}
             >
-              {/* The row's cards divide its columns between them, so the row always
-                  reaches the right edge. */}
-              <div
-                className={cn(
-                  "grid grid-cols-2 gap-3 sm:gap-4",
-                  // A lone card is CENTRED: a flex line with the card at two
-                  // columns, rather than a grid row it cannot fill.
-                  row.length === 1
-                    ? "lg:flex lg:justify-center"
-                    : GRID_CLASS[columns],
-                )}
-              >
-                {isFirstRow
-                  ? row.map((card, index) =>
-                      renderCard(
-                        card,
-                        index,
-                        spans[index] ?? 1,
-                        row.length === 1,
-                      ),
-                    )
-                  : phoneLines.map((line, lineIndex) => (
-                      <Fragment key={lineIndex}>
-                        {line.map((entry) =>
-                          renderCard(entry.card, entry.index, entry.span),
-                        )}
-                        {/* Below the phone line the open card sits on — and below
-                            everything on desktop, via `lg:order-last`. */}
-                        {line.some((entry) => entry.card.id === activeCardId)
-                          ? panelNode(true)
-                          : null}
-                      </Fragment>
-                    ))}
-              </div>
-
-              {/* Row 1 keeps its panel under the whole row. */}
-              {isFirstRow ? panelNode(false) : null}
+              {/* EVERY row renders through its PHONE lines — row 1 included.
+                  The line plan decides where the open card's panel goes: after
+                  the last card of the line it belongs to. On desktop the panel's
+                  `lg:order-last` puts it below the whole row instead. */}
+              {phoneLines.map((line, lineIndex) => (
+                <Fragment key={lineIndex}>
+                  {line.map((entry) =>
+                    renderCard(
+                      entry.card,
+                      entry.index,
+                      entry.span,
+                      row.length === 1,
+                    ),
+                  )}
+                  {line.some((entry) => entry.card.id === activeCardId)
+                    ? panelNode(true)
+                    : null}
+                </Fragment>
+              ))}
             </motion.div>
           );
         })}

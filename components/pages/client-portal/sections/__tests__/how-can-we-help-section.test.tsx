@@ -2098,3 +2098,62 @@ describe("HowCanWeHelpSection cards per row", () => {
     );
   });
 });
+
+/**
+ * The phone lines.
+ *
+ * Outside the Primary — which owns a line of its own — the cards have to sit TWO
+ * to a line, and a line that cannot be filled keeps ONE card at ONE column
+ * rather than stretching it across both.
+ *
+ * That is a FLOW problem, not a chunking one: rows are computed per DESKTOP row,
+ * so a row of three singles used to leave its third card beside an empty column.
+ * The section therefore owns ONE two-column grid on a phone and every desktop row
+ * wrapper steps out of the layout at that width (`display: contents`), which lets
+ * a row's odd card pair with the first card of the row below it.
+ */
+describe("HowCanWeHelpSection phone lines", () => {
+  it("flows every card into one two-column phone grid", () => {
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    const grid = container.querySelector(".grid") as HTMLElement;
+    expect(grid).not.toBeNull();
+    expect(grid.classList.contains("grid-cols-2")).toBe(true);
+    // The desktop column count rides on the same element, so the two widths
+    // cannot disagree about how the grid is drawn.
+    expect(grid.classList.contains("lg:grid-cols-3")).toBe(true);
+
+    // A row wrapper that stayed a grid of its own would trap its cards: its odd
+    // one could only ever sit alone with an empty column beside it.
+    for (const element of tiles(container)) {
+      expect(element.parentElement?.classList.contains("contents")).toBe(true);
+    }
+  });
+
+  it("leaves an odd tail card at one column instead of widening it", () => {
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    // The classic seven: the primary (2), one card beside it, three across the
+    // middle, then a two-wide card and one more — five one-column cards, so the
+    // last one has nothing left to pair with.
+    const all = tiles(container);
+    const tail = all[all.length - 1];
+    expect(tail.classList.contains("col-span-1")).toBe(true);
+    expect(tail.classList.contains("col-span-2")).toBe(false);
+
+    // Every one-column card follows the same rule: it never fills the line.
+    for (const element of all) {
+      if (element.classList.contains("lg:col-span-1")) {
+        expect(element.classList.contains("col-span-1")).toBe(true);
+        expect(element.classList.contains("col-span-2")).toBe(false);
+      }
+    }
+  });
+
+  it("keeps the primary on a line of its own", () => {
+    const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
+
+    const primary = tile(container, "account-access");
+    expect(primary.classList.contains("col-span-2")).toBe(true);
+  });
+});
