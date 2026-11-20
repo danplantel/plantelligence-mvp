@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import {
@@ -214,6 +215,43 @@ const DEFAULT_MEETING_FORM_DATA: MeetingFormData = {
   customBenefitsCategory: "",
 };
 
+/**
+ * What a duplicated meeting may change.
+ *
+ * The post-save prompt asks the advisor to pick the parts they want to edit; the
+ * duplicate form then shows ONLY those sections and every other field is carried
+ * over from the meeting that was just created. The keys double as the `data-testid`
+ * suffix and the field-group switch, so one list drives the copy, the checkboxes
+ * and the form.
+ */
+type DuplicateChangeKey = "dateTime" | "location" | "language" | "topic" | "format";
+
+const DUPLICATE_CHANGE_OPTIONS: ReadonlyArray<{
+  key: DuplicateChangeKey;
+  label: string;
+}> = [
+  { key: "dateTime", label: "Date and/or time" },
+  // "Location" alone read as the street address, but this choice also covers the
+  // meeting link an online meeting is joined through.
+  { key: "location", label: "Location / URL" },
+  { key: "language", label: "Language" },
+  { key: "topic", label: "Meeting topic" },
+  { key: "format", label: "Meeting format (Online or In Person)" },
+];
+
+/** Nothing chosen yet — every box starts clear, so Continue starts disabled. */
+const NO_DUPLICATE_CHANGES: Record<DuplicateChangeKey, boolean> = {
+  dateTime: false,
+  location: false,
+  language: false,
+  topic: false,
+  format: false,
+};
+
+/** Shown when Continue is pressed with no box ticked. */
+const DUPLICATE_CHANGE_REQUIRED_MESSAGE =
+  "Select at least one change to duplicate this meeting.";
+
 function hasMeaningfulMeetingChanges(formData: MeetingFormData, editingMeetingId: string | null) {
   if (editingMeetingId) return true;
   const keysToCheck: (keyof MeetingFormData)[] = [
@@ -235,7 +273,27 @@ function getMeetingTypeLabel(formData: Pick<MeetingFormData, "meetingType" | "cu
   return formData.meetingType || "—";
 }
 
-const FORMATS = ["Virtual", "In-Person", "Virtual & In-Person"];
+/**
+ * The meeting formats, as the advisor picks them.
+ *
+ * The STORED value is still `Virtual` — existing meetings hold it, the API takes
+ * it, and every format-dependent rule on this page (platform, link, address) keys
+ * off it — but the advisor reads "Online". Only the label changed, so no stored
+ * meeting has to be migrated and the portal keeps rendering as it does today.
+ */
+const FORMATS: ReadonlyArray<{ value: string; label: string }> = [
+  { value: "Virtual", label: "Online" },
+  { value: "In-Person", label: "In-Person" },
+  { value: "Virtual & In-Person", label: "Online & In-Person" },
+];
+
+/** A stored format value, as this page names it. */
+const formatLabel = (value?: string): string => {
+  if (!value) return "";
+  if (value === "Virtual") return "Online";
+  if (value === "Virtual & In-Person") return "Online & In-Person";
+  return value;
+};
 
 const PLATFORMS = [
   { value: "Zoom", label: "Zoom" },
@@ -551,7 +609,22 @@ export default function MeetingsPage() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [meetingToDelete, setMeetingToDelete] = useState<{ id: string; title: string } | null>(null);
   const [postSaveDialogOpen, setPostSaveDialogOpen] = useState(false);
-  const [postSaveView, setPostSaveView] = useState<"created" | "duplicate">("created");
+  /**
+   * The post-save dialog walks three steps: the meeting was created → pick what
+   * the duplicate may change → fill in those changes. "created" and "choose" are
+   * the same modal body width; the last step is the duplicate form.
+   */
+  const [postSaveView, setPostSaveView] = useState<"created" | "choose" | "duplicate">("created");
+  /** Which parts of the duplicated meeting the advisor chose to change. */
+  const [duplicateChanges, setDuplicateChanges] = useState<Record<DuplicateChangeKey, boolean>>(NO_DUPLICATE_CHANGES);
+  /** Set only when Continue is pressed with nothing ticked. */
+  const [duplicateChangeError, setDuplicateChangeError] = useState(false);
+  /** The plan the duplicate is for, named in the prompt. */
+  const duplicateCompanyName = formData.client?.trim() || "this plan";
+  /** At least one part of the duplicate chosen? Continue depends on it. */
+  const hasDuplicateChange = DUPLICATE_CHANGE_OPTIONS.some(
+    (option) => duplicateChanges[option.key],
+  );
   /** Snapshot of the just-created meeting so the duplicate form inherits all fields
    *  (meetingType, duration, format, etc.) that the duplicate page doesn't re-collect. */
   const createdMeetingData = useRef<MeetingFormData | null>(null);
@@ -904,6 +977,100 @@ export default function MeetingsPage() {
     } catch { toast.error("An error occurred while saving the draft"); }
     finally { setIsSubmitting(false); }
   };
+  /** Clear the choice, so the next duplicate opens with Continue disabled. */
+  const resetDuplicateChanges = () => {
+    setDuplicateChanges({ ...NO_DUPLICATE_CHANGES });
+    setDuplicateChangeError(false);
+  };
+
+  /** Tick / untick one part of the duplicate. Ticking clears a stale error. */
+  const toggleDuplicateChange = (key: DuplicateChangeKey, next: boolean) => {
+    setDuplicateChanges((prev) => ({ ...prev, [key]: next }));
+    if (next) setDuplicateChangeError(false);
+  };
+
+  /**
+   * Cancel closes the prompt WITHOUT creating anything: nothing is sent, so the
+   * original meeting is untouched, and the half-filled duplicate is dropped so
+   * the next "Add Meeting" opens on the defaults.
+   */
+  const closePostSaveDialog = () => {
+    resetDuplicateChanges();
+    setPostSaveView("created");
+    setPostSaveDialogOpen(false);
+    resetMeetingForm();
+  };
+
+  /**
+   * Move on to the duplicate form.
+   *
+   * Continue is marked `aria-disabled` rather than `disabled` on purpose: the
+   * prompt has to be able to TELL the advisor why it will not continue, and a
+   * natively disabled button swallows the click that would say so. The button is
+   * painted as disabled (dimmed, no pointer) and the message appears on the
+   * attempt, which is the behaviour the prompt promises.
+   */
+  const handleDuplicateContinue = () => {
+    if (!hasDuplicateChange) {
+      setDuplicateChangeError(true);
+      return;
+    }
+    setDuplicateChangeError(false);
+    setPostSaveView("duplicate");
+  };
+
+  /**
+   * "Yes, duplicate": carry the created meeting over WHOLESALE, then ask what to
+   * change. Nothing is blanked — that is what "everything else will be copied
+   * from the original meeting" means — so the duplicate is complete before the
+   * advisor touches a single field.
+   */
+  const startDuplicate = () => {
+    const snap = createdMeetingData.current;
+    setFormData({
+      ...DEFAULT_MEETING_FORM_DATA,
+      ...(snap ?? {}),
+      timezone: snap?.timezone || DEFAULT_MEETING_FORM_DATA.timezone,
+    });
+    setStartTimeText(snap?.time ? formatTimeAbbrev(snap.time) : "");
+    setEndTimeText(snap?.endTime ? formatTimeAbbrev(snap.endTime) : "");
+    setErrors({});
+    setTimeConflictWarning("");
+    setHasConfirmedConflict(false);
+    resetDuplicateChanges();
+    setPostSaveView("choose");
+  };
+
+  /**
+   * Validate ONLY the sections the advisor chose to change. The fields copied
+   * from the original are already valid, and flagging a field that is not on
+   * screen would be an error the advisor cannot explain.
+   */
+  const validateDuplicateChanges = () => {
+    const next: Record<string, boolean> = {};
+    if (duplicateChanges.topic) {
+      if (!formData.meetingType) next.meetingType = true;
+      if (formData.meetingType === "Custom" && !formData.customMeetingType.trim()) next.customMeetingType = true;
+    }
+    if (duplicateChanges.dateTime) {
+      if (!formData.date) next.date = true;
+      if (!formData.time) next.time = true;
+      if (!formData.endTime) next.endTime = true;
+      if (formData.time && formData.endTime && minutesBetweenTimes(formData.time, formData.endTime) <= 0) next.endTime = true;
+    }
+    if (duplicateChanges.format) {
+      if (!formData.format) next.format = true;
+      if (formData.format === "Virtual" && !formData.platform) next.platform = true;
+      if (formData.format === "Virtual" && formData.platform === "Other" && !formData.customPlatform.trim()) next.customPlatform = true;
+    }
+    if (duplicateChanges.location) {
+      if ((formData.format === "In-Person" || formData.format === "Virtual & In-Person") && !formData.address) next.address = true;
+      if ((formData.format === "Virtual" || formData.format === "Virtual & In-Person") && !resolveRsvpUrl(formData)) next.meetingLink = true;
+    }
+    setErrors((prev) => ({ ...prev, ...next }));
+    return Object.keys(next).length === 0;
+  };
+
   const handleCreateDuplicate = async () => {
     if (!formData.clientId) { toast.error("You must select a plan before scheduling a meeting"); return; }
     if (!formData.date || !formData.time) { toast.error("Date and time are required to duplicate the meeting"); return; }
@@ -911,6 +1078,15 @@ export default function MeetingsPage() {
     // duration is derived from the start/end pair. Duplicating with a start time
     // alone would recompute the inherited duration to blank and submit it empty.
     if (!formData.endTime) { toast.error("Please choose an end time for the duplicated meeting"); return; }
+    // Only the sections the advisor chose to change can be incomplete.
+    if (!validateDuplicateChanges()) { toast.error("Please complete the changes you selected before duplicating"); return; }
+    // A duplicate has to move to a FREE slot. Only now — when the advisor has
+    // actually asked for it — is a taken date AND time refused; opening the prompt
+    // says nothing, because the same time on another date is perfectly valid.
+    if (checkTimeConflict(formData.date, formData.time, formData.address || "", formData.format)) {
+      toast.error("That date and time is already taken. Choose a different date or time for the duplicate.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       const response = await fetch("/api/meetings", {
@@ -929,6 +1105,7 @@ export default function MeetingsPage() {
         toast.success("Meeting duplicated successfully!");
         setPostSaveDialogOpen(false);
         setPostSaveView("created");
+        resetDuplicateChanges();
         createdMeetingData.current = null;
         await fetchMeetings();
       } else {
@@ -949,13 +1126,20 @@ export default function MeetingsPage() {
     finally { setDeletingMeetingId(null); setMeetingToDelete(null); }
   };
   const resolveClientIdForMeeting = (m: Meeting) => { if (m.clientId) return m.clientId; const byName = clients.find((c) => c.companyName.toLowerCase() === (m.client || "").toLowerCase()); return byName?.id ?? ""; };
-  const handleEditMeeting = (meeting: Meeting) => {
+  /**
+   * A stored meeting → the form fields both Edit and Duplicate start from.
+   *
+   * One mapping, so a duplicate can never inherit something the edit form would
+   * have shown differently — and so the two flows always agree about the end
+   * time and duration derived from the stored pair.
+   */
+  const meetingToFormData = (meeting: Meeting): MeetingFormData => {
     const [hour24, minute] = meeting.time.split(":"); const h24 = parseInt(hour24);
     const end = deriveEndTimeFields(meeting.time || "", meeting.duration || "");
     // A meeting type that isn't one of the preset types was entered via the
-    // "Custom" option — on edit, select "Custom" and pre-fill the custom name.
+    // "Custom" option — select "Custom" and pre-fill the custom name.
     const isCustomType = !MEETING_TYPES.some((t) => t.value === meeting.meetingType);
-    setFormData({
+    return {
       meetingType: isCustomType ? "Custom" : (meeting.meetingType || ""),
       customMeetingType: isCustomType ? (meeting.meetingType || "") : "",
       client: meeting.client || "", clientId: resolveClientIdForMeeting(meeting),
@@ -969,36 +1153,36 @@ export default function MeetingsPage() {
       meetingUrl: meeting.meetingUrl || "", meetingLink: meeting.meetingLink || "", maxAttendees: meeting.maxAttendees?.toString() || "",
       description: meeting.description || "", address: meeting.address || "", city: meeting.city || "", state: meeting.state || "", zip: meeting.zip || "",
       language: meeting.language || "", benefitsCategory: meeting.benefitsCategory || "", customBenefitsCategory: meeting.customBenefitsCategory || ""
-    });
-    setStartTimeText(formatTimeAbbrev(meeting.time || ""));
-    setEndTimeText(formatTimeAbbrev(end.endTime || ""));
+    };
+  };
+  const handleEditMeeting = (meeting: Meeting) => {
+    const form = meetingToFormData(meeting);
+    setFormData(form);
+    setStartTimeText(formatTimeAbbrev(form.time));
+    setEndTimeText(formatTimeAbbrev(form.endTime));
     setEditingMeetingId(meeting.id); setHasConfirmedConflict(false); setMeetingModalOpen(true);
     toast.success("Meeting data loaded for editing. Make your changes and submit to update.");
   };
+  /**
+   * Duplicate from a meeting card (or the day drawer): the SAME two-step workflow
+   * the post-save prompt uses. The card's fields become the source of truth, then
+   * step 1 asks what to change and step 2 shows only those sections — everything
+   * else is copied from the original. A duplicate always CREATES, so it never
+   * carries an editing id.
+   */
   const handleDuplicateMeeting = (meeting: Meeting) => {
-    const [hour24, minute] = meeting.time.split(":"); const h24 = parseInt(hour24);
-    const end = deriveEndTimeFields(meeting.time || "", meeting.duration || "");
-    // A meeting type that isn't one of the preset types was entered via the
-    // "Custom" option — on duplicate, select "Custom" and pre-fill the custom name.
-    const isCustomType = !MEETING_TYPES.some((t) => t.value === meeting.meetingType);
-    setFormData({
-      meetingType: isCustomType ? "Custom" : (meeting.meetingType || ""),
-      customMeetingType: isCustomType ? (meeting.meetingType || "") : "",
-      client: meeting.client || "", clientId: resolveClientIdForMeeting(meeting),
-      date: toScheduleDayKey(meeting.date), time: meeting.time || "",
-      hour: (h24 === 0 ? 12 : h24 > 12 ? h24 - 12 : h24).toString(), minute: minute || "00", ampm: h24 >= 12 ? "PM" : "AM",
-      endTime: end.endTime, endHour: end.endHour, endMinute: end.endMinute, endAmpm: end.endAmpm,
-      timezone: meeting.timezone || "", duration: end.duration || meeting.duration || "", customDuration: "",
-      format: meeting.format || "", platform: meeting.platform || "", customPlatform: meeting.customPlatform || "",
-      meetingUrl: meeting.meetingUrl || "", meetingLink: meeting.meetingLink || "", maxAttendees: meeting.maxAttendees?.toString() || "",
-      description: meeting.description || "", address: meeting.address || "", city: meeting.city || "", state: meeting.state || "", zip: meeting.zip || "",
-      language: meeting.language || "", benefitsCategory: meeting.benefitsCategory || "", customBenefitsCategory: meeting.customBenefitsCategory || ""
-    });
-    setStartTimeText(formatTimeAbbrev(meeting.time || ""));
-    setEndTimeText(formatTimeAbbrev(end.endTime || ""));
-    setEditingMeetingId(null); setHasConfirmedConflict(false); setMeetingModalOpen(true);
-    if (meeting.date && meeting.time) { const hasConflict = checkTimeConflict(meeting.date, meeting.time, meeting.address || "", meeting.format); if (hasConflict) toast.warning("Meeting duplicated. \u26A0\uFE0F Time conflict detected - please choose a different time or confirm to proceed.", { duration: 5000 }); else toast.success("Meeting duplicated successfully. Review the details and submit."); }
-    else toast.success("Meeting duplicated successfully. Review the details and submit.");
+    const form = meetingToFormData(meeting);
+    setFormData(form);
+    setStartTimeText(form.time ? formatTimeAbbrev(form.time) : "");
+    setEndTimeText(form.endTime ? formatTimeAbbrev(form.endTime) : "");
+    setEditingMeetingId(null);
+    setErrors({});
+    setHasConfirmedConflict(false);
+    resetDuplicateChanges();
+    setPostSaveView("choose");
+    setPostSaveDialogOpen(true);
+    // No conflict warning on OPEN: a copy may legitimately keep the time and move
+    // to another date, so a clash is only refused when Create Duplicate is pressed.
   };
   const handleCancelEdit = () => {
     setFormData({ meetingType: "", customMeetingType: "", client: "", clientId: "", date: "", time: "", hour: "", minute: "", ampm: "", endTime: "", endHour: "", endMinute: "", endAmpm: "", timezone: "America/New_York", duration: "", customDuration: "", format: "", platform: "", customPlatform: "", meetingUrl: "", meetingLink: "", maxAttendees: "", description: "", address: "", city: "", state: "", zip: "", language: "", benefitsCategory: "", customBenefitsCategory: "" });
@@ -1217,7 +1401,7 @@ export default function MeetingsPage() {
                           <div className="space-y-1"><div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Calendar className="h-3 w-3 shrink-0" /><span className="font-medium uppercase tracking-wider">Date</span></div><div className="text-xs font-semibold pl-[18px]">{meetingDate}</div><div className="text-[11px] text-muted-foreground pl-[18px]">{formatTime12h(meeting.time)}{meeting.timezone && <span className="text-[10px] ml-1 opacity-75">({getTimezoneAbbr(meeting.timezone)})</span>}</div></div>
                           <div className="space-y-1"><div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Clock className="h-3 w-3 shrink-0" /><span className="font-medium uppercase tracking-wider">Duration</span></div><div className="text-xs font-semibold pl-[18px]">{meeting.duration}</div></div>
                           <div className="space-y-1"><div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><Users className="h-3 w-3 shrink-0" /><span className="font-medium uppercase tracking-wider">Attendees</span></div><div className="text-xs font-semibold pl-[18px]">{meeting.attendees}{meeting.maxAttendees && ` / ${meeting.maxAttendees}`}</div></div>
-                          <div className="space-y-1 min-w-0"><div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><FormatIcon className="h-3 w-3 shrink-0" /><span className="font-medium uppercase tracking-wider truncate">{meeting.format === "Virtual" && meeting.platform ? meeting.platform : meeting.format}</span></div>{meeting.format !== "In-Person" && meeting.meetingLink && <a href={normalizeUrl(meeting.meetingLink || meeting.meetingUrl)} target="_blank" rel="noopener noreferrer" className="text-xs font-medium pl-[18px] text-primary/80 truncate hover:underline">View link &rarr;</a>}{meeting.format !== "In-Person" && !meeting.meetingLink && <div className="text-xs font-medium pl-[18px] text-muted-foreground truncate">No link</div>}{(meeting.format === "In-Person" || meeting.format === "Virtual & In-Person") && meeting.address && <div className="text-xs font-semibold pl-[18px] truncate">{meeting.city}, {meeting.state}</div>}{(meeting.format === "In-Person" || meeting.format === "Virtual & In-Person") && !meeting.address && <div className="text-xs font-medium pl-[18px] text-muted-foreground">TBA</div>}</div>
+                          <div className="space-y-1 min-w-0"><div className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><FormatIcon className="h-3 w-3 shrink-0" /><span className="font-medium uppercase tracking-wider truncate">{meeting.format === "Virtual" && meeting.platform ? meeting.platform : formatLabel(meeting.format)}</span></div>{meeting.format !== "In-Person" && meeting.meetingLink && <a href={normalizeUrl(meeting.meetingLink || meeting.meetingUrl)} target="_blank" rel="noopener noreferrer" className="text-xs font-medium pl-[18px] text-primary/80 truncate hover:underline">View link &rarr;</a>}{meeting.format !== "In-Person" && !meeting.meetingLink && <div className="text-xs font-medium pl-[18px] text-muted-foreground truncate">No link</div>}{(meeting.format === "In-Person" || meeting.format === "Virtual & In-Person") && meeting.address && <div className="text-xs font-semibold pl-[18px] truncate">{meeting.city}, {meeting.state}</div>}{(meeting.format === "In-Person" || meeting.format === "Virtual & In-Person") && !meeting.address && <div className="text-xs font-medium pl-[18px] text-muted-foreground">TBA</div>}</div>
                         </div>
                         <div className="flex items-center gap-1.5 pt-2.5 border-t border-border/50 mt-auto bg-muted/30 -mx-4 -mb-4 px-4 pb-3 rounded-b-xl"><Building2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" /><span className="text-[11px] font-medium text-muted-foreground/70 shrink-0">Client</span><span className="text-xs font-semibold truncate">{meeting.client}</span></div>
                       </div>
@@ -1436,7 +1620,7 @@ export default function MeetingsPage() {
                     <SelectValue placeholder="Select format" />
                   </SelectTrigger>
                   <SelectContent>
-                    {FORMATS.map((fmt) => <SelectItem key={fmt} value={fmt}>{fmt}</SelectItem>)}
+                    {FORMATS.map((fmt) => <SelectItem key={fmt.value} value={fmt.value}>{fmt.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
@@ -1452,7 +1636,7 @@ export default function MeetingsPage() {
                 </Select>
               </div>
 
-              {/* Platform (Virtual) */}
+              {/* Platform (Online) */}
               {formData.format === "Virtual" && (
                 <div className="space-y-2">
                   <Label>Platform <span className="text-red-500">*</span></Label>
@@ -1472,7 +1656,7 @@ export default function MeetingsPage() {
                 </div>
               )}
 
-              {/* Address (In-Person / Virtual & In-Person) */}
+              {/* Address (In-Person / Online & In-Person) */}
               {(formData.format === "In-Person" || formData.format === "Virtual & In-Person") && (
                 <div className="space-y-2 md:col-span-2">
                   <Label>Location <span className="text-red-500">*</span></Label>
@@ -1569,7 +1753,7 @@ export default function MeetingsPage() {
       </Dialog>
 
       {/* Post-Save Dialog â€” ask if user wants to duplicate */}
-      <Dialog open={postSaveDialogOpen} onOpenChange={(open) => { setPostSaveDialogOpen(open); if (!open) setPostSaveView("created"); }}>
+      <Dialog open={postSaveDialogOpen} onOpenChange={(open) => { setPostSaveDialogOpen(open); if (!open) { setPostSaveView("created"); resetDuplicateChanges(); } }}>
         <DialogContent className="max-w-md max-h-[80vh] overflow-y-auto">
           {postSaveView === "created" ? (
             <div key="created">
@@ -1585,31 +1769,7 @@ export default function MeetingsPage() {
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="gap-2">
-                <Button variant="outline" onClick={() => {
-                  // Always start with empty editable fields (date, time, language,
-                  // format, link) — only inherit the hidden fields required by the API.
-                  const snap = createdMeetingData.current;
-                  setFormData({
-                    ...DEFAULT_MEETING_FORM_DATA,
-                    ...(snap ? {
-                      meetingType: snap.meetingType,
-                      customMeetingType: snap.customMeetingType || "",
-                      client: snap.client,
-                      clientId: snap.clientId,
-                      duration: snap.duration,
-                      description: snap.description || DEFAULT_MEETING_DESCRIPTION,
-                      platform: snap.platform || "",
-                      maxAttendees: snap.maxAttendees || "",
-                      meetingUrl: snap.meetingUrl || "",
-                      timezone: snap.timezone || "America/New_York",
-                      benefitsCategory: snap.benefitsCategory || "",
-                      customBenefitsCategory: snap.customBenefitsCategory || "",
-                    } : {}),
-                  });
-                  setStartTimeText("");
-                  setEndTimeText("");
-                  setPostSaveView("duplicate");
-                }}>
+                <Button variant="outline" onClick={startDuplicate}>
                   Yes, duplicate
                 </Button>
                 <Button onClick={() => { resetMeetingForm(); setPostSaveDialogOpen(false); }}>
@@ -1617,7 +1777,90 @@ export default function MeetingsPage() {
                 </Button>
               </DialogFooter>
             </div>
+          ) : postSaveView === "choose" ? (
+            /* Step 2 — what may the duplicate change? Only these parts are
+               offered, because everything else is copied from the meeting that
+               was just saved. */
+            <div key="choose" className="animate-in slide-in-from-right-5 duration-300">
+              <DialogHeader>
+                <div className="flex justify-center mb-2">
+                  <div className="w-12 h-12 rounded-full bg-accent-blue/10 flex items-center justify-center">
+                    <Copy className="h-6 w-6 text-accent-blue" />
+                  </div>
+                </div>
+                {/* The duplicate is a TWO-step job; the success prompt before it
+                    is not part of the count. */}
+                <div className="flex justify-center">
+                  <span
+                    data-testid="duplicate-step"
+                    className="rounded-full bg-accent-blue/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-accent-blue"
+                  >
+                    Step 1 of 2
+                  </span>
+                </div>
+                <DialogTitle>Duplicate Meeting</DialogTitle>
+                <DialogDescription>
+                  What would you like to change for this duplicated meeting for {duplicateCompanyName}?
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-3 py-2">
+                <p className="text-sm text-muted-foreground">
+                  Select all that apply. Everything else will be copied from the original meeting.
+                </p>
+                <div role="group" aria-label="Changes for the duplicated meeting" className="space-y-2">
+                  {DUPLICATE_CHANGE_OPTIONS.map((option) => {
+                    const checked = duplicateChanges[option.key];
+                    return (
+                      <label
+                        key={option.key}
+                        htmlFor={`duplicate-change-${option.key}`}
+                        className={cn(
+                          "flex cursor-pointer items-start gap-3 rounded-lg border p-3 transition-colors",
+                          checked
+                            ? "border-accent-blue/50 bg-accent-blue/5"
+                            : "border-border/60 hover:border-accent-blue/30",
+                        )}
+                      >
+                        <Checkbox
+                          id={`duplicate-change-${option.key}`}
+                          data-testid={`duplicate-change-${option.key}`}
+                          checked={checked}
+                          onCheckedChange={(next) => toggleDuplicateChange(option.key, next === true)}
+                          className="mt-0.5"
+                        />
+                        <span className="text-sm font-medium leading-snug">{option.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                {duplicateChangeError && (
+                  <p
+                    role="alert"
+                    data-testid="duplicate-change-error"
+                    className="text-xs font-medium text-destructive"
+                  >
+                    {DUPLICATE_CHANGE_REQUIRED_MESSAGE}
+                  </p>
+                )}
+              </div>
+              <DialogFooter className="gap-2 pt-2">
+                <Button type="button" variant="outline" onClick={closePostSaveDialog}>
+                  Cancel
+                </Button>
+                {/* `aria-disabled` rather than `disabled` — see handleDuplicateContinue. */}
+                <Button
+                  type="button"
+                  onClick={handleDuplicateContinue}
+                  aria-disabled={!hasDuplicateChange}
+                  data-testid="duplicate-continue"
+                  className={cn(!hasDuplicateChange && "cursor-not-allowed opacity-50")}
+                >
+                  Continue
+                </Button>
+              </DialogFooter>
+            </div>
           ) : (
+            /* Step 3 — the duplicate form, showing ONLY the parts ticked in step 2. */
             <div key="duplicate" className="animate-in slide-in-from-right-5 duration-300">
               <DialogHeader>
                 <div className="flex justify-center mb-2">
@@ -1625,13 +1868,22 @@ export default function MeetingsPage() {
                     <Copy className="h-6 w-6 text-accent-blue" />
                   </div>
                 </div>
+                <div className="flex justify-center">
+                  <span
+                    data-testid="duplicate-step"
+                    className="rounded-full bg-accent-blue/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-accent-blue"
+                  >
+                    Step 2 of 2
+                  </span>
+                </div>
                 <DialogTitle>Duplicate Meeting</DialogTitle>
                 <DialogDescription>
-                  Adjust the description, language, date, and times for the duplicated meeting.
+                  Change only what you picked. Everything else is copied from the original meeting.
                 </DialogDescription>
               </DialogHeader>
               <div className="space-y-4 py-2">
-                {/* Inherited meeting info (read-only fields not editable here) */}
+                {/* The duplicate as it stands — the sections below are the parts
+                    being changed, so this stays a read-only receipt. */}
                 <div className="bg-muted/50 rounded-lg p-3 border border-border/60">
                   <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                     <span className="text-muted-foreground">Meeting Type:</span>
@@ -1642,212 +1894,298 @@ export default function MeetingsPage() {
                     <span className="font-medium">{formData.duration || "—"}</span>
                     <span className="text-muted-foreground">Plan:</span>
                     <span className="font-medium truncate">{formData.client || "—"}</span>
+                    <span className="text-muted-foreground">Date:</span>
+                    <span className="font-medium">{formData.date ? format(parseLocalDate(formData.date), "PPP") : "—"}</span>
+                    <span className="text-muted-foreground">Time:</span>
+                    <span className="font-medium">
+                      {formData.time
+                        ? `${formatTime12h(formData.time)}${formData.endTime ? ` – ${formatTime12h(formData.endTime)}` : ""}`
+                        : "—"}
+                    </span>
                     <span className="text-muted-foreground">Benefit Category:</span>
                     <span className="font-medium truncate">{formData.benefitsCategory || "—"}</span>
                   </div>
                 </div>
 
-                {/* Description — editable and pre-filled with the description of
-                    the meeting being duplicated. */}
-                <div className="space-y-2">
-                  <Label>Description</Label>
-                  <Textarea
-                    value={formData.description}
-                    onChange={(e) => handleInputChange("description", e.target.value)}
-                    rows={3}
-                    placeholder={DEFAULT_MEETING_DESCRIPTION}
-                    maxLength={MAX_DESCRIPTION_LENGTH}
-                  />
-                  <div className="flex justify-end">
-                    <span className={cn(
-                      "text-xs tabular-nums",
-                      formData.description.length >= MAX_DESCRIPTION_LENGTH
-                        ? "text-red-500 font-medium"
-                        : formData.description.length >= MAX_DESCRIPTION_LENGTH * 0.9
-                          ? "text-amber-500"
-                          : "text-muted-foreground"
-                    )}>
-                      {formData.description.length}/{MAX_DESCRIPTION_LENGTH}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Language */}
-                <div className="space-y-2">
-                  <Label>Language</Label>
-                  <Select value={formData.language || undefined} onValueChange={(v) => handleInputChange("language", v)}>
-                    <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="Select language" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="English">English</SelectItem>
-                      <SelectItem value="Spanish">Spanish</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Date */}
-                <div className="space-y-2">
-                  <Label>Date</Label>
-                  <Popover open={datePickerOpen} onOpenChange={(open) => { setDatePickerOpen(open); if (open) setTempDate(formData.date); }}>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.date && "text-muted-foreground"} dark:bg-gray-800`}>
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {formData.date ? format(parseLocalDate(formData.date), "PPP") : "Pick a date"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start" side="top">
-                      <div className="flex max-h-[70vh] flex-col overflow-hidden">
-                        <div className="overflow-y-auto min-h-0">
-                          <CalendarComponent mode="single" selected={tempDate ? parseLocalDate(tempDate) : undefined} onSelect={(d) => { if (d) setTempDate(format(d, "yyyy-MM-dd")); }} disabled={(date) => isBefore(date, minSelectableDate)} initialFocus />
-                        </div>
-                        <div className="flex items-center justify-end gap-2 p-3 border-t border-border shrink-0">
-                          <Button type="button" size="sm" variant="outline" onClick={() => setDatePickerOpen(false)}>Cancel</Button>
-                          <Button type="button" size="sm" onClick={() => { if (tempDate) handleInputChange("date", tempDate); setDatePickerOpen(false); }}>OK</Button>
-                        </div>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* Start Time — same input as Schedule: type it, or pick from the
-                    scrollable list, which centres the closest slot. */}
-                <div className="space-y-2">
-                  <Label>Start Time <span className="text-red-500">*</span></Label>
-                  <Popover open={timePickerOpen} onOpenChange={setTimePickerOpen}>
-                    <div className="relative">
-                      <Input
-                        value={startTimeText}
-                        onChange={(e) => handleStartTimeTextChange(e.target.value)}
-                        onBlur={handleStartTimeBlur}
-                        onFocus={() => setTimePickerOpen(true)}
-                        onKeyDown={(e) => { if (e.key === "Enter") setTimePickerOpen(false); }}
-                        placeholder="e.g. 1:30pm"
-                        className={`pr-9 ${errors.time ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" : ""} dark:bg-gray-800`}
-                      />
-                      <PopoverTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label="Pick start time"
-                          onClick={(e) => { e.preventDefault(); setTimePickerOpen(true); }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
-                        >
-                          <Clock className="h-4 w-4" />
-                        </button>
-                      </PopoverTrigger>
-                    </div>
-                    <PopoverContent className="w-56 p-1" align="end" side="bottom">
-                      <div
-                        ref={startTimeListRef}
-                        className="max-h-[160px] overflow-y-auto overscroll-contain pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent"
-                        style={{ scrollbarWidth: "thin" }}
-                        onWheel={(e) => e.stopPropagation()}
-                      >
-                        {TIME_OPTIONS.map((opt, index) => {
-                          const isHighlighted = startTimeHighlightIndex === index;
-                          return (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              onClick={() => { applyStartTime(opt.value); setStartTimeText(opt.label); setTimePickerOpen(false); }}
-                              className={`w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors ${isHighlighted ? "bg-accent-blue/20 text-accent-blue font-medium" : "hover:bg-muted"}`}
-                            >
-                              {opt.label}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* End Time — pickable only once a start time exists, and limited
-                    to later slots, each showing the resulting duration. */}
-                <div className="space-y-2">
-                  <Label>End Time <span className="text-red-500">*</span></Label>
-                  <Popover open={endTimePickerOpen} onOpenChange={setEndTimePickerOpen}>
-                    <div className="relative">
-                      <Input
-                        value={endTimeText}
-                        onChange={(e) => handleEndTimeTextChange(e.target.value)}
-                        onBlur={handleEndTimeBlur}
-                        onFocus={() => { if (formData.time) setEndTimePickerOpen(true); }}
-                        onKeyDown={(e) => { if (e.key === "Enter") setEndTimePickerOpen(false); }}
-                        placeholder="e.g. 2:00pm"
-                        disabled={!formData.time}
-                        className={`pr-9 ${errors.endTime ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" : ""} dark:bg-gray-800`}
-                      />
-                      <PopoverTrigger asChild>
-                        <button
-                          type="button"
-                          aria-label="Pick end time"
-                          disabled={!formData.time}
-                          onClick={(e) => { e.preventDefault(); if (formData.time) setEndTimePickerOpen(true); }}
-                          className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Clock className="h-4 w-4" />
-                        </button>
-                      </PopoverTrigger>
-                    </div>
-                    <PopoverContent className="w-64 p-1" align="end" side="bottom">
-                      <div
-                        ref={endTimeListRef}
-                        className="max-h-[160px] overflow-y-auto overscroll-contain pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent"
-                        style={{ scrollbarWidth: "thin" }}
-                        onWheel={(e) => e.stopPropagation()}
-                      >
-                        {endTimeOptions.map((opt, index) => {
-                          const isHighlighted = endTimeHighlightIndex === index;
-                          const durationLabel = formatMeetingDuration(minutesBetweenTimes(formData.time, opt.value));
-                          return (
-                            <button
-                              key={opt.value}
-                              type="button"
-                              onClick={() => { applyEndTime(opt.value); setEndTimeText(opt.label); setEndTimePickerOpen(false); }}
-                              className={`w-full flex items-center justify-between gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors ${isHighlighted ? "bg-accent-blue/20 text-accent-blue font-medium" : "hover:bg-muted"}`}
-                            >
-                              <span>{opt.label}</span>
-                              {durationLabel && (
-                                <span className="text-xs text-muted-foreground shrink-0">({durationLabel})</span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </PopoverContent>
-                  </Popover>
-                </div>
-
-                {/* Format */}
-                <div className="space-y-2">
-                  <Label>Format</Label>
-                  <Select value={formData.format || undefined} onValueChange={(v) => handleInputChange("format", v)}>
-                    <SelectTrigger className={cn("dark:bg-gray-800", !formData.format && "text-gray-400 dark:text-gray-500")}>
-                      <SelectValue placeholder="Select format" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {FORMATS.map((fmt) => <SelectItem key={fmt} value={fmt}>{fmt}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Link (Virtual / Virtual & In-Person) or Location (In-Person / Virtual & In-Person) */}
-                {(formData.format === "Virtual" || formData.format === "Virtual & In-Person") && (
-                  <div className="space-y-2">
-                    <Label>Meeting Link</Label>
-                    <Input value={formData.meetingLink} onChange={(e) => handleInputChange("meetingLink", e.target.value)} placeholder="https://" />
+                {/* The slot the copy would land in is taken — said here so the
+                    refusal outlives the toast that announced it, whichever
+                    sections the advisor chose to change. */}
+                {timeConflictWarning && (
+                  <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 dark:border-amber-700/50 dark:bg-amber-900/30">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                    <p className="text-xs text-amber-700 dark:text-amber-200">{timeConflictWarning}</p>
                   </div>
                 )}
-                {(formData.format === "In-Person" || formData.format === "Virtual & In-Person") && (
-                  <div className="space-y-2">
-                    <Label>Location</Label>
-                    <AddressSearch value={formData.address} onChange={(v) => handleInputChange("address", v)} onLocationSelect={handleLocationSelect} />
-                    {formData.address && (
-                      <p className="text-xs text-muted-foreground">{formData.address}, {formData.city}, {formData.state} {formData.zip}</p>
+
+                {/* Meeting topic — the meeting type, plus the description that
+                    explains it. */}
+                {duplicateChanges.topic && (
+                  <div className="space-y-4 rounded-lg border border-border/60 p-3">
+                    <div className="space-y-2">
+                      <Label>Meeting Type <span className="text-red-500">*</span></Label>
+                      <Select value={formData.meetingType} onValueChange={(v) => handleInputChange("meetingType", v)}>
+                        <SelectTrigger className={`${errors.meetingType ? "border-red-500" : ""} dark:bg-gray-800`}>
+                          <SelectValue placeholder="Select type" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {allMeetingTypes.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {formData.meetingType === "Custom" && (
+                        <Input placeholder="Enter custom meeting type" value={formData.customMeetingType}
+                          onChange={(e) => handleInputChange("customMeetingType", e.target.value)}
+                          className={errors.customMeetingType ? "border-red-500" : ""} />
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Description</Label>
+                      <Textarea
+                        value={formData.description}
+                        onChange={(e) => handleInputChange("description", e.target.value)}
+                        rows={3}
+                        placeholder={DEFAULT_MEETING_DESCRIPTION}
+                        maxLength={MAX_DESCRIPTION_LENGTH}
+                      />
+                      <div className="flex justify-end">
+                        <span className={cn(
+                          "text-xs tabular-nums",
+                          formData.description.length >= MAX_DESCRIPTION_LENGTH
+                            ? "text-red-500 font-medium"
+                            : formData.description.length >= MAX_DESCRIPTION_LENGTH * 0.9
+                              ? "text-amber-500"
+                              : "text-muted-foreground"
+                        )}>
+                          {formData.description.length}/{MAX_DESCRIPTION_LENGTH}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Date and/or time — the inherited slot, pre-filled, so only the
+                    part being changed needs a visit. */}
+                {duplicateChanges.dateTime && (
+                  <div className="space-y-4 rounded-lg border border-border/60 p-3">
+                    <div className="space-y-2">
+                      <Label>Date</Label>
+                      <Popover open={datePickerOpen} onOpenChange={(open) => { setDatePickerOpen(open); if (open) setTempDate(formData.date); }}>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className={`w-full justify-start text-left font-normal ${!formData.date && "text-muted-foreground"} ${errors.date ? "border-red-500" : ""} dark:bg-gray-800`}>
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {formData.date ? format(parseLocalDate(formData.date), "PPP") : "Pick a date"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start" side="top">
+                          <div className="flex max-h-[70vh] flex-col overflow-hidden">
+                            <div className="overflow-y-auto min-h-0">
+                              <CalendarComponent mode="single" selected={tempDate ? parseLocalDate(tempDate) : undefined} onSelect={(d) => { if (d) setTempDate(format(d, "yyyy-MM-dd")); }} disabled={(date) => isBefore(date, minSelectableDate)} initialFocus />
+                            </div>
+                            <div className="flex items-center justify-end gap-2 p-3 border-t border-border shrink-0">
+                              <Button type="button" size="sm" variant="outline" onClick={() => setDatePickerOpen(false)}>Cancel</Button>
+                              <Button type="button" size="sm" onClick={() => { if (tempDate) handleInputChange("date", tempDate); setDatePickerOpen(false); }}>OK</Button>
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {/* Start Time — same input as Schedule: type it, or pick from
+                        the scrollable list, which centres the closest slot. */}
+                    <div className="space-y-2">
+                      <Label>Start Time <span className="text-red-500">*</span></Label>
+                      <Popover open={timePickerOpen} onOpenChange={setTimePickerOpen}>
+                        <div className="relative">
+                          <Input
+                            value={startTimeText}
+                            onChange={(e) => handleStartTimeTextChange(e.target.value)}
+                            onBlur={handleStartTimeBlur}
+                            onFocus={() => setTimePickerOpen(true)}
+                            onKeyDown={(e) => { if (e.key === "Enter") setTimePickerOpen(false); }}
+                            placeholder="e.g. 1:30pm"
+                            className={`pr-9 ${errors.time ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" : ""} dark:bg-gray-800`}
+                          />
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Pick start time"
+                              onClick={(e) => { e.preventDefault(); setTimePickerOpen(true); }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground"
+                            >
+                              <Clock className="h-4 w-4" />
+                            </button>
+                          </PopoverTrigger>
+                        </div>
+                        <PopoverContent className="w-56 p-1" align="end" side="bottom">
+                          <div
+                            ref={startTimeListRef}
+                            className="max-h-[160px] overflow-y-auto overscroll-contain pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent"
+                            style={{ scrollbarWidth: "thin" }}
+                            onWheel={(e) => e.stopPropagation()}
+                          >
+                            {TIME_OPTIONS.map((opt, index) => {
+                              const isHighlighted = startTimeHighlightIndex === index;
+                              return (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() => { applyStartTime(opt.value); setStartTimeText(opt.label); setTimePickerOpen(false); }}
+                                  className={`w-full rounded-md px-3 py-1.5 text-left text-sm transition-colors ${isHighlighted ? "bg-accent-blue/20 text-accent-blue font-medium" : "hover:bg-muted"}`}
+                                >
+                                  {opt.label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {/* End Time — pickable only once a start time exists, and
+                        limited to later slots, each showing the resulting
+                        duration. */}
+                    <div className="space-y-2">
+                      <Label>End Time <span className="text-red-500">*</span></Label>
+                      <Popover open={endTimePickerOpen} onOpenChange={setEndTimePickerOpen}>
+                        <div className="relative">
+                          <Input
+                            value={endTimeText}
+                            onChange={(e) => handleEndTimeTextChange(e.target.value)}
+                            onBlur={handleEndTimeBlur}
+                            onFocus={() => { if (formData.time) setEndTimePickerOpen(true); }}
+                            onKeyDown={(e) => { if (e.key === "Enter") setEndTimePickerOpen(false); }}
+                            placeholder="e.g. 2:00pm"
+                            disabled={!formData.time}
+                            className={`pr-9 ${errors.endTime ? "border-red-500 focus:border-red-500 focus:ring-red-500/20" : ""} dark:bg-gray-800`}
+                          />
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              aria-label="Pick end time"
+                              disabled={!formData.time}
+                              onClick={(e) => { e.preventDefault(); if (formData.time) setEndTimePickerOpen(true); }}
+                              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              <Clock className="h-4 w-4" />
+                            </button>
+                          </PopoverTrigger>
+                        </div>
+                        <PopoverContent className="w-64 p-1" align="end" side="bottom">
+                          <div
+                            ref={endTimeListRef}
+                            className="max-h-[160px] overflow-y-auto overscroll-contain pr-1 [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300 dark:[&::-webkit-scrollbar-thumb]:bg-gray-600 [&::-webkit-scrollbar-track]:bg-transparent"
+                            style={{ scrollbarWidth: "thin" }}
+                            onWheel={(e) => e.stopPropagation()}
+                          >
+                            {endTimeOptions.map((opt, index) => {
+                              const isHighlighted = endTimeHighlightIndex === index;
+                              const durationLabel = formatMeetingDuration(minutesBetweenTimes(formData.time, opt.value));
+                              return (
+                                <button
+                                  key={opt.value}
+                                  type="button"
+                                  onClick={() => { applyEndTime(opt.value); setEndTimeText(opt.label); setEndTimePickerOpen(false); }}
+                                  className={`w-full flex items-center justify-between gap-2 rounded-md px-3 py-1.5 text-left text-sm transition-colors ${isHighlighted ? "bg-accent-blue/20 text-accent-blue font-medium" : "hover:bg-muted"}`}
+                                >
+                                  <span>{opt.label}</span>
+                                  {durationLabel && (
+                                    <span className="text-xs text-muted-foreground shrink-0">({durationLabel})</span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {formData.duration && (
+                      <div className="flex items-center gap-2 rounded-md border border-border/60 bg-muted/40 px-3 py-2">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium text-foreground">{formData.duration}</span>
+                      </div>
                     )}
+                  </div>
+                )}
+
+                {/* Meeting format — Online or In Person, plus the platform an
+                    online meeting happens on. */}
+                {duplicateChanges.format && (
+                  <div className="space-y-4 rounded-lg border border-border/60 p-3">
+                    <div className="space-y-2">
+                      <Label>Format <span className="text-red-500">*</span></Label>
+                      <Select value={formData.format || undefined} onValueChange={(v) => handleInputChange("format", v)}>
+                        <SelectTrigger className={cn(`${errors.format ? "border-red-500" : ""} dark:bg-gray-800`, !formData.format && "text-gray-400 dark:text-gray-500")}>
+                          <SelectValue placeholder="Select format" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {FORMATS.map((fmt) => <SelectItem key={fmt.value} value={fmt.value}>{fmt.label}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    {formData.format === "Virtual" && (
+                      <div className="space-y-2">
+                        <Label>Platform <span className="text-red-500">*</span></Label>
+                        <Select value={formData.platform} onValueChange={(v) => handleInputChange("platform", v)}>
+                          <SelectTrigger className={`${errors.platform ? "border-red-500" : ""} dark:bg-gray-800`}>
+                            <SelectValue placeholder="Select platform" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {PLATFORMS.map((p) => <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        {formData.platform === "Other" && (
+                          <Input placeholder="Enter platform name" value={formData.customPlatform}
+                            onChange={(e) => handleInputChange("customPlatform", e.target.value)}
+                            className={errors.customPlatform ? "border-red-500" : ""} />
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Location — the address for an in-person meeting, the link for a
+                    online one. Also shown when only the FORMAT is being changed:
+                    switching to In-Person (or to Online) needs the address / link
+                    that goes with it, and the API would reject a field the advisor
+                    could not see. */}
+                {(duplicateChanges.location || duplicateChanges.format) &&
+                  (formData.format === "In-Person" || formData.format === "Virtual & In-Person") && (
+                    <div className="space-y-2 rounded-lg border border-border/60 p-3">
+                      <Label>Location {duplicateChanges.location && <span className="text-red-500">*</span>}</Label>
+                      <AddressSearch value={formData.address} onChange={(v) => handleInputChange("address", v)} onLocationSelect={handleLocationSelect} />
+                      {formData.address && (
+                        <p className="text-xs text-muted-foreground">{formData.address}, {formData.city}, {formData.state} {formData.zip}</p>
+                      )}
+                    </div>
+                  )}
+                {(duplicateChanges.location || duplicateChanges.format) &&
+                  (formData.format === "Virtual" || formData.format === "Virtual & In-Person") && (
+                    <div className="space-y-2 rounded-lg border border-border/60 p-3">
+                      <Label>Meeting Link {duplicateChanges.location && <span className="text-red-500">*</span>}</Label>
+                      <Input value={formData.meetingLink} onChange={(e) => handleInputChange("meetingLink", e.target.value)}
+                        placeholder="https://" className={errors.meetingLink ? "border-red-500" : ""} />
+                    </div>
+                  )}
+
+                {/* Language */}
+                {duplicateChanges.language && (
+                  <div className="space-y-2 rounded-lg border border-border/60 p-3">
+                    <Label>Language</Label>
+                    <Select value={formData.language || undefined} onValueChange={(v) => handleInputChange("language", v)}>
+                      <SelectTrigger className="dark:bg-gray-800"><SelectValue placeholder="Select language" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="English">English</SelectItem>
+                        <SelectItem value="Spanish">Spanish</SelectItem>
+                      </SelectContent>
+                    </Select>
                   </div>
                 )}
               </div>
               <DialogFooter className="gap-2 pt-4">
-                <Button type="button" variant="outline" onClick={() => setPostSaveView("created")}>Back</Button>
+                <Button type="button" variant="outline" onClick={() => setPostSaveView("choose")}>Back</Button>
+                <Button type="button" variant="outline" onClick={closePostSaveDialog}>Cancel</Button>
                 <Button type="button" onClick={handleCreateDuplicate} disabled={isSubmitting}>
                   {isSubmitting ? "Duplicating..." : "Create Duplicate"}
                 </Button>

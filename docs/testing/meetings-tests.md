@@ -9,7 +9,7 @@ This document is the test inventory for the Meetings surface:
 
 ## Summary
 
-- **Unit tests:** 224 passing in 12 files
+- **Unit tests:** 231 passing in 12 files
 - **Runner:** Vitest + React Testing Library + jsdom
 - **E2E:** [`e2e/meetings.spec.ts`](../../e2e/meetings.spec.ts) — skips unless `E2E_BASE_URL` (or `E2E_START_SERVER=1`) and `E2E_EMAIL` / `E2E_PASSWORD` are set; plan journeys also need `E2E_PLAN_NAME`.
 
@@ -18,7 +18,7 @@ This document is the test inventory for the Meetings surface:
 Meetings-only commands:
 
 ```bash
-pnpm test:meetings           # all Meetings unit suites (224 tests)
+pnpm test:meetings           # all Meetings unit suites (231 tests)
 pnpm test:meetings:watch     # Meetings unit tests in watch mode
 pnpm test:meetings:coverage  # Meetings unit tests + V8 coverage
 ```
@@ -57,7 +57,7 @@ The live journeys still worth adding: create → reload persistence, edit/status
 
 | # | Suite | Tests | Focus |
 | - | ----- | ----: | ----- |
-| 1 | `app/(dashboard)/communications/meetings/__tests__/page.test.tsx` | 58 | Plan picker and sticky selection, URL deep links, plan-change loading (including the 6s cap), meeting cards, filters/sorting, calendar + drawer, preview, schedule/edit/duplicate validation and submission, drafts, delete, post-save duplicate flow, edge branches |
+| 1 | `app/(dashboard)/communications/meetings/__tests__/page.test.tsx` | 65 | Plan picker and sticky selection, URL deep links, plan-change loading (including the 6s cap), meeting cards, filters/sorting, calendar + drawer, preview, schedule/edit validation and submission, drafts, delete, the two-step duplicate workflow (choose what to change → fill only those in) from BOTH the post-save prompt and a card's ⋯ / drawer Duplicate, the taken-slot refusal at Create, the Online format wording, edge branches |
 | 2 | `app/api/meetings/__tests__/routes.test.ts` | 48 | POST/GET meetings, PUT/PATCH/DELETE by id, reminders, custom meeting types |
 | 3 | `lib/__tests__/meeting-reminders.test.ts` | 14 | Reminder tiers/constants, day-key math, formatting, ordering |
 | 4 | `lib/__tests__/meeting-schedule-shared.test.ts` | 19 | Date/time formatting, duration pickers, RSVP fallback, shared validation, payload mapping, default form |

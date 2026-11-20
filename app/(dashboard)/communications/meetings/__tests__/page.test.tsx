@@ -1142,7 +1142,7 @@ describe("Schedule meeting dialog", () => {
     expect(screen.getByPlaceholderText("e.g. 1:30pm")).toHaveValue("");
   });
 
-  it("duplicates a meeting with prefilled details and warns about the slot", async () => {
+  it("opens the duplicate prompt from a card, not the schedule form", async () => {
     const user = userEvent.setup();
     renderPage();
     await screen.findByText("Benefits Overview");
@@ -1153,13 +1153,97 @@ describe("Schedule meeting dialog", () => {
       }),
     );
 
-    expect(screen.getByText("Schedule a Meeting")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("e.g. 1:30pm")).toHaveValue("2:00pm");
-    expect(screen.getByPlaceholderText("e.g. 2:00pm")).toHaveValue("4:00pm");
-    expect(selectNear(/^Format/)).toHaveValue("In-Person");
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      expect.stringContaining("Time conflict detected"),
-      { duration: 5000 },
+    // The SAME two-step workflow as the post-save prompt — step 1 first, and the
+    // schedule form never opens.
+    expect(screen.queryByText("Schedule a Meeting")).not.toBeInTheDocument();
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByTestId("duplicate-step")).toHaveTextContent(
+      "Step 1 of 2",
+    );
+    expect(
+      within(dialog).getByText(
+        "What would you like to change for this duplicated meeting for Acme Corp?",
+      ),
+    ).toBeInTheDocument();
+    expect(within(dialog).getByTestId("duplicate-continue")).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
+    // Opening the prompt says NOTHING about the slot: the same time on another
+    // date is a perfectly good duplicate, so there is no warning to give yet.
+    expect(mocks.toastWarning).not.toHaveBeenCalled();
+    expect(mocks.toastError).not.toHaveBeenCalled();
+  });
+
+  it("refuses a duplicate in the slot the original already takes", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Benefits Overview");
+
+    await user.click(
+      within(cardFor("Benefits Overview")).getByRole("button", {
+        name: "Duplicate",
+      }),
+    );
+
+    // Only the language changes, so the date and time stay the original's…
+    await user.click(screen.getByTestId("duplicate-change-language"));
+    await user.click(screen.getByTestId("duplicate-continue"));
+    fireEvent.change(selectNear(/^Language/), { target: { value: "Spanish" } });
+
+    expect(screen.getByTestId("duplicate-step")).toHaveTextContent("Step 2 of 2");
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("2 hours")).toBeInTheDocument();
+    expect(within(dialog).getByText("2:00 PM – 4:00 PM")).toBeInTheDocument();
+
+    // …so asking to create it is refused, and nothing is sent.
+    await user.click(screen.getByRole("button", { name: "Create Duplicate" }));
+
+    expect(mocks.toastError).toHaveBeenCalledWith(
+      "That date and time is already taken. Choose a different date or time for the duplicate.",
+    );
+    expect(postCalls()).toHaveLength(0);
+    expect(screen.getByTestId("duplicate-step")).toHaveTextContent("Step 2 of 2");
+  });
+
+  it("duplicates a card into a new date, keeping the same time", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await screen.findByText("Benefits Overview");
+
+    await user.click(
+      within(cardFor("Benefits Overview")).getByRole("button", {
+        name: "Duplicate",
+      }),
+    );
+
+    await user.click(screen.getByTestId("duplicate-change-dateTime"));
+    await user.click(screen.getByTestId("duplicate-continue"));
+    // The date is ALREADY the original's, so the trigger reads its date rather
+    // than "Pick a date" — open it and choose a new day.
+    await user.click(screen.getByRole("button", { name: /2027/ }));
+    await user.click(screen.getByRole("button", { name: "pick-calendar-date" }));
+    await user.click(screen.getByRole("button", { name: "OK" }));
+
+    await user.click(screen.getByRole("button", { name: "Create Duplicate" }));
+
+    await waitFor(() => expect(postCalls()).toHaveLength(1));
+    const [, init] = postCalls()[0];
+    expect(JSON.parse(init.body)).toMatchObject({
+      meetingType: "Understanding Your Benefits",
+      clientId: "plan-1",
+      // The NEW date…
+      date: "2027-05-10",
+      // …on the SAME time, which is allowed.
+      time: "14:00",
+      endTime: "16:00",
+      duration: "2 hours",
+      format: "In-Person",
+      address: "1 Main St",
+      status: "Upcoming",
+    });
+    expect(mocks.toastSuccess).toHaveBeenCalledWith(
+      "Meeting duplicated successfully!",
     );
   });
 
@@ -1233,6 +1317,14 @@ describe("Schedule meeting dialog", () => {
 });
 
 describe("Post-save duplicate flow", () => {
+  /** Create a meeting, then open the duplicate prompt from the success dialog. */
+  async function openDuplicatePrompt(user: ReturnType<typeof userEvent.setup>) {
+    renderPage();
+    await screen.findByText("Open Enrollment Session");
+    await createMeeting(user);
+    await user.click(screen.getByRole("button", { name: "Yes, duplicate" }));
+  }
+
   it("closes without duplicating when No is chosen", async () => {
     const user = userEvent.setup();
     renderPage();
@@ -1246,46 +1338,104 @@ describe("Post-save duplicate flow", () => {
     expect(mocks.refreshMeetings).toHaveBeenCalledTimes(1);
   });
 
-  it("inherits the snapshot and requires date/time/end before duplicating", async () => {
+  it("asks what to change, naming the plan the duplicate is for", async () => {
     const user = userEvent.setup();
-    renderPage();
-    await screen.findByText("Open Enrollment Session");
-    await createMeeting(user);
+    await openDuplicatePrompt(user);
+    const dialog = screen.getByRole("dialog");
 
-    await user.click(screen.getByRole("button", { name: "Yes, duplicate" }));
-
-    const duplicateDialog = screen.getByRole("dialog");
-    expect(within(duplicateDialog).getByText("Duplicate Meeting")).toBeInTheDocument();
-    expect(within(duplicateDialog).getByText("Open Enrollment")).toBeInTheDocument();
-    expect(within(duplicateDialog).getByText("1.5 hours")).toBeInTheDocument();
-    expect(within(duplicateDialog).getByText("Acme Corp")).toBeInTheDocument();
     expect(
-      within(duplicateDialog).getByPlaceholderText(DEFAULT_DESCRIPTION),
-    ).toHaveValue(DEFAULT_DESCRIPTION);
-
-    await user.click(screen.getByRole("button", { name: "Create Duplicate" }));
-    expect(mocks.toastError).toHaveBeenCalledWith(
-      "Date and time are required to duplicate the meeting",
-    );
-
-    await pickDate(user);
-    await user.type(screen.getByPlaceholderText("e.g. 1:30pm"), "1:30pm");
-    await user.click(screen.getByRole("button", { name: "Create Duplicate" }));
-    expect(mocks.toastError).toHaveBeenCalledWith(
-      "Please choose an end time for the duplicated meeting",
+      within(dialog).getByText(
+        "What would you like to change for this duplicated meeting for Acme Corp?",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      within(dialog).getByText(
+        "Select all that apply. Everything else will be copied from the original meeting.",
+      ),
+    ).toBeInTheDocument();
+    // The five offered changes, in the order the prompt lists them.
+    for (const label of [
+      "Date and/or time",
+      "Location / URL",
+      "Language",
+      "Meeting topic",
+      "Meeting format (Online or In Person)",
+    ]) {
+      expect(within(dialog).getByText(label)).toBeInTheDocument();
+    }
+    expect(within(dialog).getAllByRole("checkbox")).toHaveLength(5);
+    // Nothing is ticked yet.
+    for (const box of within(dialog).getAllByRole("checkbox")) {
+      expect(box).toHaveAttribute("aria-checked", "false");
+    }
+    // The duplicate is two steps; choosing is the first.
+    expect(within(dialog).getByTestId("duplicate-step")).toHaveTextContent(
+      "Step 1 of 2",
     );
   });
 
-  it("creates the duplicate and closes the dialog", async () => {
+  it("keeps Continue disabled until a change is chosen, and says why", async () => {
     const user = userEvent.setup();
-    renderPage();
-    await screen.findByText("Open Enrollment Session");
-    await createMeeting(user);
+    await openDuplicatePrompt(user);
+    const dialog = screen.getByRole("dialog");
+    const continueButton = within(dialog).getByTestId("duplicate-continue");
 
-    await user.click(screen.getByRole("button", { name: "Yes, duplicate" }));
-    await pickDate(user);
-    await user.type(screen.getByPlaceholderText("e.g. 1:30pm"), "1:30pm");
-    await user.type(screen.getByPlaceholderText("e.g. 2:00pm"), "3:00pm");
+    expect(continueButton).toHaveAttribute("aria-disabled", "true");
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+
+    await user.click(continueButton);
+
+    expect(within(dialog).getByRole("alert")).toHaveTextContent(
+      "Select at least one change to duplicate this meeting.",
+    );
+    // The prompt stayed put and nothing was sent.
+    expect(within(dialog).getByText("Duplicate Meeting")).toBeInTheDocument();
+    expect(postCalls()).toHaveLength(1);
+
+    await user.click(within(dialog).getByTestId("duplicate-change-language"));
+    expect(continueButton).toHaveAttribute("aria-disabled", "false");
+    // Choosing a change clears the warning.
+    expect(within(dialog).queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows only the chosen sections on the duplicate form", async () => {
+    const user = userEvent.setup();
+    await openDuplicatePrompt(user);
+    const dialog = screen.getByRole("dialog");
+
+    await user.click(within(dialog).getByTestId("duplicate-change-language"));
+    await user.click(within(dialog).getByTestId("duplicate-continue"));
+
+    // The duplicate is already complete — the receipt shows what is copied.
+    expect(within(dialog).getByText("1.5 hours")).toBeInTheDocument();
+    expect(within(dialog).getByText("Acme Corp")).toBeInTheDocument();
+    // And the counter moves on to the second (last) step.
+    expect(screen.getByTestId("duplicate-step")).toHaveTextContent(
+      "Step 2 of 2",
+    );
+
+    // Language is the only editable section: nothing else is on screen.
+    expect(screen.getByText("Language", { selector: "label" })).toBeInTheDocument();
+    expect(
+      screen.queryByText("Start Time", { selector: "label" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText("Meeting Link", { selector: "label" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText("Enter custom meeting type"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("creates the duplicate with everything else inherited", async () => {
+    const user = userEvent.setup();
+    await openDuplicatePrompt(user);
+    const dialog = screen.getByRole("dialog");
+
+    await user.click(within(dialog).getByTestId("duplicate-change-language"));
+    await user.click(within(dialog).getByTestId("duplicate-continue"));
+
+    fireEvent.change(selectNear(/^Language/), { target: { value: "Spanish" } });
     await user.click(screen.getByRole("button", { name: "Create Duplicate" }));
 
     await waitFor(() => expect(postCalls()).toHaveLength(2));
@@ -1297,6 +1447,10 @@ describe("Post-save duplicate flow", () => {
       time: "13:30",
       endTime: "15:00",
       duration: "1.5 hours",
+      format: "Virtual",
+      platform: "Zoom",
+      meetingLink: "https://zoom.us/j/123",
+      language: "Spanish",
       status: "Upcoming",
     });
     expect(mocks.toastSuccess).toHaveBeenCalledWith(
@@ -1306,19 +1460,78 @@ describe("Post-save duplicate flow", () => {
     expect(mocks.refreshMeetings).toHaveBeenCalledTimes(2);
   });
 
-  it("returns from the duplicate view with Back", async () => {
+  it("returns to the choices with Back, keeping what was ticked", async () => {
     const user = userEvent.setup();
-    renderPage();
-    await screen.findByText("Open Enrollment Session");
-    await createMeeting(user);
+    await openDuplicatePrompt(user);
+    const dialog = screen.getByRole("dialog");
 
-    await user.click(screen.getByRole("button", { name: "Yes, duplicate" }));
+    await user.click(within(dialog).getByTestId("duplicate-change-language"));
+    await user.click(within(dialog).getByTestId("duplicate-continue"));
     expect(screen.getByText("Duplicate Meeting")).toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Back" }));
 
-    expect(screen.getByText("Meeting Created")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "What would you like to change for this duplicated meeting for Acme Corp?",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByTestId("duplicate-step")).toHaveTextContent(
+      "Step 1 of 2",
+    );
+    expect(screen.getByTestId("duplicate-change-language")).toHaveAttribute(
+      "aria-checked",
+      "true",
+    );
+    expect(screen.getByTestId("duplicate-continue")).toHaveAttribute(
+      "aria-disabled",
+      "false",
+    );
+  });
+
+  it("cancels without creating anything and leaves the original alone", async () => {
+    const user = userEvent.setup();
+    await openDuplicatePrompt(user);
+
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
     expect(screen.queryByText("Duplicate Meeting")).not.toBeInTheDocument();
+    expect(screen.queryByText("Meeting Created")).not.toBeInTheDocument();
+    // Only the original create was sent — no publish, no update.
+    expect(postCalls()).toHaveLength(1);
+    expect(
+      mocks.fetch.mock.calls.filter(([, init]) => init?.method === "PUT"),
+    ).toHaveLength(0);
+    expect(mocks.refreshMeetings).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts the next duplicate with every box clear again", async () => {
+    const user = userEvent.setup();
+    await openDuplicatePrompt(user);
+
+    await user.click(screen.getByTestId("duplicate-change-location"));
+    await user.click(screen.getByRole("button", { name: "Cancel" }));
+
+    // A fresh duplicate prompt must not remember the previous choices.
+    await openSchedule(user);
+    await pickDate(user);
+    await user.type(screen.getByPlaceholderText("e.g. 1:30pm"), "1:30pm");
+    await user.type(screen.getByPlaceholderText("e.g. 2:00pm"), "3:00pm");
+    fireEvent.change(selectNear(/^Format/), { target: { value: "Virtual" } });
+    fireEvent.change(selectNear(/^Platform/), { target: { value: "Zoom" } });
+    await user.type(screen.getByPlaceholderText("https://"), "https://zoom.us/j/777");
+    await user.click(screen.getByRole("button", { name: "Schedule Meeting" }));
+    await screen.findByText("Meeting Created");
+    await user.click(screen.getByRole("button", { name: "Yes, duplicate" }));
+
+    expect(screen.getByTestId("duplicate-change-location")).toHaveAttribute(
+      "aria-checked",
+      "false",
+    );
+    expect(screen.getByTestId("duplicate-continue")).toHaveAttribute(
+      "aria-disabled",
+      "true",
+    );
   });
 });
 
@@ -1564,7 +1777,7 @@ describe("Meetings page edge cases", () => {
     expect(screen.queryByRole("button", { name: /Add Meeting/ })).not.toBeInTheDocument();
   });
 
-  it("forwards the drawer duplicate action", async () => {
+  it("forwards the drawer duplicate action into the same prompt", async () => {
     const user = userEvent.setup();
     renderPage();
     await screen.findByText("Open Enrollment Session");
@@ -1573,11 +1786,11 @@ describe("Meetings page edge cases", () => {
 
     await user.click(screen.getByRole("button", { name: "drawer-duplicate" }));
 
-    expect(screen.getByText("Schedule a Meeting")).toBeInTheDocument();
-    expect(mocks.toastWarning).toHaveBeenCalledWith(
-      expect.stringContaining("Time conflict detected"),
-      { duration: 5000 },
-    );
+    expect(screen.queryByText("Schedule a Meeting")).not.toBeInTheDocument();
+    expect(screen.getByTestId("duplicate-step")).toHaveTextContent("Step 1 of 2");
+    // No slot warning on open — the same time on another date is fine, so the
+    // clash is only refused when the duplicate is actually created.
+    expect(mocks.toastWarning).not.toHaveBeenCalled();
   });
 
   it("renders the no-link, TBA, and hybrid-link branches", async () => {
@@ -1618,6 +1831,37 @@ describe("Meetings page edge cases", () => {
     expect(
       within(cardFor("Hybrid Link")).getByRole("link", { name: /View link/ }),
     ).toHaveAttribute("href", "https://hybrid.example");
+  });
+
+  it("names the Virtual format 'Online' without touching the stored value", async () => {
+    const user = userEvent.setup();
+    mocks.meetingsData = {
+      data: [
+        // No platform, so the card prints the format itself.
+        { ...MEETINGS[0], id: "on-1", meeting: "Online Session", platform: undefined },
+      ],
+    };
+    renderPage();
+    await screen.findByText("Online Session");
+
+    expect(
+      within(cardFor("Online Session")).getByText("Online"),
+    ).toBeInTheDocument();
+
+    // The picker OFFERS the new wording, but keeps the values the API and the
+    // stored meetings already use.
+    await openSchedule(user);
+    const format = selectNear(/^Format/);
+    expect(Array.from(format.options).map((option) => option.textContent)).toEqual([
+      "Online",
+      "In-Person",
+      "Online & In-Person",
+    ]);
+    expect(Array.from(format.options).map((option) => option.value)).toEqual([
+      "Virtual",
+      "In-Person",
+      "Virtual & In-Person",
+    ]);
   });
 
   it("maps Completed and Cancelled statuses to Past", async () => {
