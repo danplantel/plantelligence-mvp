@@ -99,7 +99,8 @@ export function buildIntroMessage(input: {
   orgName?: string | null;
 }): string {
   const company = (input.companyName || "").trim() || "your company";
-  const org = (input.orgName || "").trim() || "your advisor";
+  // Participants meet this person as their SPECIALIST.
+  const org = (input.orgName || "").trim() || "your specialist";
   const template = MESSAGE_TEMPLATES[messageFamilyFor(input.category)];
   return template(company, org).slice(0, INTRO_MESSAGE_MAX_LENGTH);
 }

@@ -867,7 +867,9 @@ function ctaLink(
   // Shipped CTAs such as "Talk Through My Options" carry no target, but their
   // label says who they belong to. Route those to the advisor before falling back
   // to the provider portal, so a conversation CTA never opens a login page.
-  if (/(advisor|adviser|talk|book|meet|call|help|ask)/i.test(cta.label)) {
+  // `specialist` is the participant-facing word for the same person, so a label
+  // written either way hands off to them.
+  if (/(advisor|adviser|specialist|talk|book|meet|call|help|ask)/i.test(cta.label)) {
     return { ...advisorLink(plan), label: cta.label };
   }
 
@@ -938,7 +940,7 @@ const SMALL_TALK = new Set([
 ]);
 
 const CONTACT_RE =
-  /\b(talk|speak|call|email|contact|advisor|adviser|human|someone|representative|rep|hr|support)\b/;
+  /\b(talk|speak|call|email|contact|advisor|adviser|specialist|human|someone|representative|rep|hr|support)\b/;
 
 const NAVIGATION_RE =
   /\b(where|find|open|take me|go to|goto|link|page|hub|portal|log in|login|sign in|signin|recordkeeper|account access|my account|documents|forms|news|events|webinar|videos|team)\b/;
@@ -950,7 +952,7 @@ const DOCUMENT_RE = /\b(document|documents|form|forms|notice|notices|paperwork|p
 
 const NEWS_RE = /\b(news|event|events|webinar|webinars|video|videos)\b/;
 
-const TEAM_RE = /\b(team|advisor|adviser|consultant)\b/;
+const TEAM_RE = /\b(team|advisor|adviser|specialist|consultant)\b/;
 
 const HUB_WORDS: Record<TopicLocation, string[]> = {
   retirement: ["retirement", "401k", "403b", "457", "pension", "ira"],
@@ -1190,10 +1192,15 @@ function fillPlanTokens(text: string, plan: AssistantPlan): string {
       /\{\{recordkeeper_name\}\}/g,
       trimmed(plan.recordkeeperName) || "your recordkeeper",
     )
-    .replace(/\{\{advisor_name\}\}/g, trimmed(plan.advisorName) || "your advisor")
+    .replace(
+      /\{\{advisor_name\}\}/g,
+      // Participants see this person as their SPECIALIST; the token keeps its
+      // name so every stored topic that already uses it keeps resolving.
+      trimmed(plan.advisorName) || "your specialist",
+    )
     .replace(
       /\{\{advisor_firm\}\}/g,
-      trimmed(plan.advisorFirm) || "your advisor's firm",
+      trimmed(plan.advisorFirm) || "your specialist's firm",
     )
     .replace(
       /\{\{plan_sponsor_name\}\}/g,

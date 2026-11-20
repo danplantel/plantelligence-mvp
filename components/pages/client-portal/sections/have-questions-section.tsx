@@ -115,7 +115,9 @@ const defaultContacts: ContactInfo[] = [
   },
   {
     id: "advisor",
-    title: "Retirement Plan Advisor",
+    // The id stays as it is (it is the contact's key); the participant reads
+    // "Specialist", which is what this person is called on the page.
+    title: "Retirement Plan Specialist",
     description:
       "For investment guidance, retirement planning, and financial advice.",
     icon: ExternalLink,

@@ -750,7 +750,7 @@ describe("QuickAnswersSection", () => {
       ),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: "Talk to an Advisor" }),
+      screen.getByRole("link", { name: "Talk to a Specialist" }),
     ).toHaveAttribute("href", "https://book.test/jane");
   });
 

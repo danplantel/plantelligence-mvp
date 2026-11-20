@@ -88,7 +88,8 @@ describe("buildIntroMessage", () => {
     const text = buildIntroMessage({ category: "Group Health" });
 
     expect(text).toContain("your company");
-    expect(text).toContain("your advisor");
+    // Participants meet this person as their specialist.
+    expect(text).toContain("your specialist");
   });
 
   it("always fits the 450-character Intro Message field", () => {

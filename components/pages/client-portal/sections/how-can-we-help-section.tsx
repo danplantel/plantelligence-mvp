@@ -35,6 +35,7 @@ import {
   resolveHelpCardRows,
   type HelpCardColumns,
 } from "@/lib/help-card-layout";
+import { participantCopy } from "@/lib/participant-copy";
 import {
   HAVE_QUESTIONS_SECTION_ID,
   QUICK_ANSWERS_SECTION_ID,
@@ -570,7 +571,7 @@ function RolloversDetail({
           Talk through my options
         </Button>
         <span className="font-red-hat text-[13px] text-neutral-600">
-          Free call with {contactName || "your advisor"}
+          Free call with {contactName || "your specialist"}
         </span>
       </div>
     </div>
@@ -909,15 +910,18 @@ function HelpCardPanel({
   const isRollovers = ROLLOVER_CARD_PATTERN.test(`${card.id} ${card.title}`);
   /** Per-plan values a topic's copy may name. */
   const fillPlanTokens = (text: string) =>
-    text
+    participantCopy(
+      text
       .replace(
         /\{\{recordkeeper_url\}\}/g,
         (loginUrl || "").trim() || "your recordkeeper's website",
       )
-      .replace(/\{\{advisor_name\}\}/g, contactName || "your advisor")
+      // The key contact is the participant's SPECIALIST; the token keeps its name
+      // so every stored topic that already uses it keeps resolving.
+      .replace(/\{\{advisor_name\}\}/g, contactName || "your specialist")
       .replace(
         /\{\{advisor_firm\}\}/g,
-        (advisorFirm || "").trim() || "your advisor's firm",
+        (advisorFirm || "").trim() || "your specialist's firm",
       )
       .replace(
         /\{\{plan_sponsor_name\}\}/g,
@@ -927,10 +931,11 @@ function HelpCardPanel({
       // Annual IRS figures — global values, updated each January.
       .replace(/\{\{plan_year\}\}/g, String(CONTRIBUTION_LIMITS_YEAR))
       .replace(/\{\{deferral_limit\}\}/g, ELECTIVE_DEFERRAL_LIMIT)
-      .replace(
-        /\{\{recordkeeper_name\}\}/g,
-        (recordkeeperName || "").trim() || "your recordkeeper",
-      );
+        .replace(
+          /\{\{recordkeeper_name\}\}/g,
+          (recordkeeperName || "").trim() || "your recordkeeper",
+        ),
+    );
   const steps = (card.steps ?? []).map(fillPlanTokens);
   const docs = card.docs ?? [];
   const video = fillPlanTokens((card.video || "").trim());
@@ -955,7 +960,8 @@ function HelpCardPanel({
         : loginUrl || "";
   const ctaHref = (card.href || fallbackCtaHref || "").trim();
   const resolved = ctaHref ? resolveCardHref(ctaHref, basePath) : null;
-  const ctaLabel = card.cta?.trim() ? card.cta : "";
+  // Stored labels ("Talk to an Advisor") read as "Specialist" on the portal.
+  const ctaLabel = card.cta?.trim() ? participantCopy(card.cta) : "";
   // Rollovers already closes with its own CTA — the same "Talk through my options"
   // button, plus the "Free call with …" line. The topic also carries that label as
   // its `cta` (the library seeds it), so printing the generic button too would put
@@ -977,7 +983,7 @@ function HelpCardPanel({
       style={{ borderColor: brandColor }}
       // The panel belongs to the tile that opened it.
       role="region"
-      aria-label={card.title}
+      aria-label={participantCopy(card.title)}
     >
       <div className="flex items-start justify-between gap-4">
         <h3
@@ -988,12 +994,12 @@ function HelpCardPanel({
           )}
           style={{ color: brandColor }}
         >
-          {card.title}
+          {participantCopy(card.title)}
         </h3>
         <button
           type="button"
           onClick={onClose}
-          aria-label={`Close ${card.title}`}
+          aria-label={`Close ${participantCopy(card.title)}`}
           className="shrink-0 rounded-full p-1.5 text-neutral-500 transition-colors hover:bg-white hover:text-neutral-800"
         >
           <X className="h-4 w-4" />
@@ -1354,7 +1360,9 @@ export function HowCanWeHelpSection({
            */
           const cardLine = (topic.summary || "").trim() || quickAnswer;
           if (cardLine) {
-            card.body = fillHelpCardTokens(cardLine, category);
+            card.body = participantCopy(
+              fillHelpCardTokens(cardLine, category),
+            );
           }
           if (topic.cta?.destination) {
             card.href = topic.cta.destination;
@@ -1426,8 +1434,10 @@ export function HowCanWeHelpSection({
     return resolveHelpCardRows(cards, category, columns).map((row) =>
       row.map((card) => ({
         ...card,
-        title: fillHelpCardTokens(card.title, category),
-        body: card.body ? fillHelpCardTokens(card.body, category) : undefined,
+        title: participantCopy(fillHelpCardTokens(card.title, category)),
+        body: card.body
+          ? participantCopy(fillHelpCardTokens(card.body, category))
+          : undefined,
         introBold: card.introBold
           ? fillHelpCardTokens(card.introBold, category)
           : undefined,
@@ -1671,7 +1681,7 @@ export function HowCanWeHelpSection({
               return (
                 <AccountAccessCard
                   key={card.id}
-                  title={card.title}
+                  title={participantCopy(card.title)}
                   description={description}
                   brandColor={brandColor}
                   secondaryColor={secondaryColor}
@@ -1780,7 +1790,7 @@ export function HowCanWeHelpSection({
                   className="font-dm-serif text-base font-semibold leading-snug sm:text-lg"
                   style={{ color: isPrimary ? onPrimary : brandColor }}
                 >
-                  {card.title}
+                  {participantCopy(card.title)}
                 </h3>
 
                 {/* Body text — the short supporting line on the card itself.

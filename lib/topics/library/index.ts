@@ -251,7 +251,7 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
       numbered(
         "Check your vested balance.",
         "Compare your options in the Quick Answers below.",
-        "Talk with your advisor before you choose.",
+        "Talk with your specialist before you choose.",
         "Request your rollover or distribution through your recordkeeper.",
       ),
     ],
@@ -272,7 +272,7 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
     summary: "Get help building a financial plan around your goals.",
     bodyBlocks: [
       qa(
-        "Your advisor works with employees of your plan sponsor on retirement goals, savings, and the bigger financial picture. Financial planning may be included at no additional cost as part of your benefits. You can meet one-on-one or join an upcoming session.",
+        "Your specialist works with employees of your plan sponsor on retirement goals, savings, and the bigger financial picture. Financial planning may be included at no additional cost as part of your benefits. You can meet one-on-one or join an upcoming session.",
       ),
       numbered(
         "Book a time that works for you.",
@@ -357,7 +357,7 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
       { type: "video", videoId: "Roth vs. Pre-Tax" },
     ],
     cta: {
-      label: "Talk to an Advisor",
+      label: "Talk to a Specialist",
       actionType: "external_url",
       target: "advisor",
     },
@@ -596,7 +596,7 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
     {
       bodyBlocks: [
         qa(
-          "Your advisor can review your IRAs, old 401(k)s, and other accounts alongside this plan so they work together.",
+          "Your specialist can review your IRAs, old 401(k)s, and other accounts alongside this plan so they work together.",
         ),
       ],
       cta: { label: "Book a Review", actionType: "external_url" },
@@ -617,7 +617,7 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
     {
       bodyBlocks: [
         qa(
-          "A 529 college savings plan lets your savings grow tax-free when used for qualified education costs, such as college or vocational school. Plans vary by state, and some states offer a tax deduction for contributions. Your advisor can help you compare options.",
+          "A 529 college savings plan lets your savings grow tax-free when used for qualified education costs, such as college or vocational school. Plans vary by state, and some states offer a tax deduction for contributions. Your specialist can help you compare options.",
         ),
       ],
       cta: { label: "Book a Meeting", actionType: "external_url" },
@@ -668,7 +668,7 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
           "Any unpaid balance usually must be repaid soon after you leave. If it isn't, it's treated as a withdrawal and becomes taxable income. You may also owe a 10% penalty if you're under 59½.",
         ),
       ],
-      cta: { label: "Talk to an Advisor", actionType: "external_url" },
+      cta: { label: "Talk to a Specialist", actionType: "external_url" },
       tags: ["loan leaving", "default", "outstanding loan", "quit with loan"],
     },
   ),
@@ -695,10 +695,10 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
     {
       bodyBlocks: [
         qa(
-          "Money taken out before age 59½ is generally taxed as income, plus a 10% penalty. Some exceptions apply, such as leaving the company in or after the year you turn 55. Talk with your advisor before withdrawing.",
+          "Money taken out before age 59½ is generally taxed as income, plus a 10% penalty. Some exceptions apply, such as leaving the company in or after the year you turn 55. Talk with your specialist before withdrawing.",
         ),
       ],
-      cta: { label: "Talk to an Advisor", actionType: "external_url" },
+      cta: { label: "Talk to a Specialist", actionType: "external_url" },
       tags: ["penalty", "10%", "early withdrawal", "taxes", "59 1/2"],
     },
   ),
@@ -713,7 +713,7 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
           "If your plan allows in-service withdrawals, you can withdraw from your account while you're still working here after the plan's stated age. Withdrawals are taxable, and rolling them to an IRA may avoid immediate taxes.",
         ),
       ],
-      cta: { label: "Talk to an Advisor", actionType: "external_url" },
+      cta: { label: "Talk to a Specialist", actionType: "external_url" },
       tags: ["in-service", "withdraw while working", "age 59 1/2"],
     },
   ),
@@ -821,7 +821,7 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
         "Cash-outs are taxed as income, and 20% is withheld for federal taxes. If you're under 59½, you may also owe a 10% penalty. There's no penalty if you leave the company in or after the year you turn 55.",
       ),
     ],
-    cta: { label: "Talk to an Advisor First", actionType: "external_url" },
+    cta: { label: "Talk to a Specialist First", actionType: "external_url" },
     tags: [
       "cash out",
       "lump sum",
@@ -867,7 +867,7 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
           "Required withdrawals generally begin at age 73, or age 75 if you were born in 1960 or later. If you're still working here and own less than 5% of the company, you can usually wait until you retire.",
         ),
       ],
-      cta: { label: "Talk to an Advisor", actionType: "external_url" },
+      cta: { label: "Talk to a Specialist", actionType: "external_url" },
       tags: ["RMD", "required distribution", "age 73", "must withdraw"],
     },
   ),
@@ -931,7 +931,7 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
   answer("cant-log-in", "I can't log in to my account", RETIREMENT, "Account & Administration", {
     bodyBlocks: [
       qa(
-        "Use the \"Forgot username or password\" link on your recordkeeper's login page. If you're locked out, call your recordkeeper. For your security, your employer and your advisor can't reset your login.",
+        "Use the \"Forgot username or password\" link on your recordkeeper's login page. If you're locked out, call your recordkeeper. For your security, your employer and your specialist can't reset your login.",
       ),
     ],
     cta: { label: "Go to Login", actionType: "external_url" },
@@ -1005,7 +1005,7 @@ const RETIREMENT_TOPICS: LibraryTopicSeed[] = [
   answer("who-do-i-contact", "Who do I contact?", RETIREMENT, "Account & Administration", {
     bodyBlocks: [
       qa(
-        "Account access, balances, and transactions go to your recordkeeper. Eligibility, payroll, and beneficiary consent go to HR. Investment, rollover, and planning questions go to your advisor.",
+        "Account access, balances, and transactions go to your recordkeeper. Eligibility, payroll, and beneficiary consent go to HR. Investment, rollover, and planning questions go to your specialist.",
       ),
     ],
     cta: { label: "Contact Us", actionType: "external_url" },
@@ -1618,11 +1618,11 @@ const GROUP_HEALTH_TOPICS: LibraryTopicSeed[] = [
   answer("turning-65", "Turning 65", GROUP_HEALTH, "Leaving / Aging", {
     bodyBlocks: [
       qa(
-        "Your Medicare Initial Enrollment Period lasts 7 months: the 3 months before, the month of, and the 3 months after your 65th birthday month. If you're still working here and covered by this plan, you may be able to delay Part B without a penalty, depending on the size of your employer. Talk with an advisor before you decide.",
+        "Your Medicare Initial Enrollment Period lasts 7 months: the 3 months before, the month of, and the 3 months after your 65th birthday month. If you're still working here and covered by this plan, you may be able to delay Part B without a penalty, depending on the size of your employer. Talk with a specialist before you decide.",
       ),
     ],
     tags: ["turning 65", "Medicare enrollment", "Part B", "still working at 65"],
-    cta: advisorCta("Talk to a Medicare Advisor"),
+    cta: advisorCta("Talk to a Medicare Specialist"),
   }),
   answer("medicare", "Medicare", GROUP_HEALTH, "Leaving / Aging", {
     bodyBlocks: [
@@ -1631,7 +1631,7 @@ const GROUP_HEALTH_TOPICS: LibraryTopicSeed[] = [
       ),
     ],
     tags: ["Medicare", "Part A", "Part B", "Part D", "Medigap", "Medicare Advantage"],
-    cta: advisorCta("Talk to a Medicare Advisor"),
+    cta: advisorCta("Talk to a Medicare Specialist"),
   }),
 ];
 
@@ -1906,7 +1906,7 @@ const GROUP_LIFE_TOPICS: LibraryTopicSeed[] = [
       ),
     ],
     tags: ["minor beneficiary", "child beneficiary", "guardian", "custodian"],
-    cta: advisorCta("Talk to an Advisor"),
+    cta: advisorCta("Talk to a Specialist"),
   }),
   answer("naming-a-trust", "Naming a trust", GROUP_LIFE, "Beneficiaries", {
     bodyBlocks: [
@@ -2045,7 +2045,7 @@ const GROUP_LIFE_TOPICS: LibraryTopicSeed[] = [
         "retire",
         "life insurance after job",
       ],
-      cta: advisorCta("Talk to an Advisor"),
+      cta: advisorCta("Talk to a Specialist"),
     },
   ),
 

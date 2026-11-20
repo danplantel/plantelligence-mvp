@@ -74,14 +74,14 @@ export function BenefitsTeam({
                 {contact?.headshot ? (
                   <BrandingImage
                     src={contact.headshot}
-                    alt="Professional advisor"
+                    alt="Professional specialist"
                     className="rounded-lg shadow-xl w-80 h-96 object-cover"
                     fillContainer
                   />
                 ) : (
                   <img
                     src="https://images.unsplash.com/photo-1560250097-0b93528c311a?w=500&h=500&fit=crop"
-                    alt="Professional advisor"
+                    alt="Professional specialist"
                     className="rounded-lg shadow-xl w-80 h-96 object-cover"
                   />
                 )}

@@ -1009,7 +1009,7 @@ describe("HowCanWeHelpSection rollovers panel", () => {
     ).toBeInTheDocument();
     // No portal provider in this test, so the fallback copy is used.
     expect(
-      screen.getByText("Free call with your advisor"),
+      screen.getByText("Free call with your specialist"),
     ).toBeInTheDocument();
   });
 
@@ -1229,7 +1229,7 @@ describe("HowCanWeHelpSection panel CTAs", () => {
       screen.queryByRole("link", { name: "Talk through my options" }),
     ).not.toBeInTheDocument();
     // The footer button keeps the "free call" line that identifies its owner.
-    expect(screen.getByText("Free call with your advisor")).toBeInTheDocument();
+    expect(screen.getByText("Free call with your specialist")).toBeInTheDocument();
   });
 });
 
@@ -1358,7 +1358,7 @@ describe("Retirement topic blocks", () => {
       within(resources).getByText("Understanding Target-Date Funds"),
     ).toBeInTheDocument();
     // `{{advisor_name}}` falls back to the plain phrase without a portal contact.
-    expect(within(resources).getByText("your advisor")).toBeInTheDocument();
+    expect(within(resources).getByText("your specialist")).toBeInTheDocument();
 
     expect(within(panel).getByTestId("help-card-related")).toHaveTextContent(
       "Fees and expenses",
@@ -1422,7 +1422,7 @@ describe("Retirement topic blocks", () => {
     const steps = within(panel).getByTestId("help-card-steps");
     expect(steps.children).toHaveLength(4);
     // Without a portal contact or provider the tokens fall back to plain phrases.
-    expect(steps).toHaveTextContent("Talk with your advisor before you choose.");
+    expect(steps).toHaveTextContent("Talk with your specialist before you choose.");
     expect(steps).toHaveTextContent(
       "Request your rollover or distribution through your recordkeeper.",
     );
@@ -1460,7 +1460,7 @@ describe("Retirement topic blocks", () => {
     const panel = screen.getByRole("region", { name: "Financial Planning" });
     // Tokens fall back to plain phrases without a portal contact or plan.
     expect(panel).toHaveTextContent(
-      "your advisor of your advisor's firm works with employees of your employer",
+      "your specialist of your specialist's firm works with employees of your employer",
     );
     expect(within(panel).getByTestId("help-card-steps").children).toHaveLength(
       3,

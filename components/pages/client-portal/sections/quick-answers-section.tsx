@@ -39,6 +39,7 @@ import {
 } from "@/lib/topics/search";
 import { resolveTopicHref } from "@/lib/topics/link-href";
 import { cn } from "@/lib/utils";
+import { participantCopy } from "@/lib/participant-copy";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ActionHubPanel } from "./action-hub-panel";
 import type { ActionHubRow, EffectiveTopic, TopicGroup } from "@/types/topic";
@@ -276,7 +277,10 @@ function resolveTopicCta(
   if (!label) return null;
 
   const { basePath, advisorBookingUrl, recordkeeperUrl } = options;
-  const labelImpliesAdvisor = /book|advisor|talk|review|counsel/i.test(label);
+  // `specialist` is the participant-facing word for the same person: a label
+  // written either way still hands off to their booking link.
+  const labelImpliesAdvisor =
+    /book|advisor|specialist|talk|review|counsel/i.test(label);
   const target =
     topic.cta?.target ?? (labelImpliesAdvisor ? "advisor" : "recordkeeper");
   const targetUrl =
@@ -290,7 +294,11 @@ function resolveTopicCta(
     basePath,
   );
 
-  return { label, href: resolved.href || "#", external: resolved.external };
+  return {
+    label: participantCopy(label),
+    href: resolved.href || "#",
+    external: resolved.external,
+  };
 }
 
 /** The answer body: quick answer, then steps, then the placement CTA. */
@@ -467,7 +475,10 @@ export function QuickAnswersSection({
     const advisorFirm = String(
       keyContact?.companyName || keyContact?.company || "",
     ).trim();
-    return text
+    // Stored copy ("Talk to an Advisor", "your advisor can help") reads as
+    // "Specialist" on the portal.
+    return participantCopy(
+      text
       .replace(
         /\{\{recordkeeper_url\}\}/g,
         resolvedLoginUrl || "your recordkeeper's website",
@@ -476,18 +487,21 @@ export function QuickAnswersSection({
         /\{\{recordkeeper_name\}\}/g,
         (recordkeeperName || "").trim() || "your recordkeeper",
       )
-      .replace(/\{\{advisor_name\}\}/g, advisorName || "your advisor")
+      // The key contact is the participant's SPECIALIST; the token keeps its name
+      // so every stored answer that already uses it keeps resolving.
+      .replace(/\{\{advisor_name\}\}/g, advisorName || "your specialist")
       .replace(
         /\{\{advisor_firm\}\}/g,
-        advisorFirm || "your advisor's firm",
+        advisorFirm || "your specialist's firm",
       )
       .replace(
         /\{\{plan_sponsor_name\}\}/g,
         (planSponsorName || "").trim() || "your employer",
       )
-      // Annual IRS figures — global values, updated each January.
-      .replace(/\{\{plan_year\}\}/g, String(CONTRIBUTION_LIMITS_YEAR))
-      .replace(/\{\{deferral_limit\}\}/g, ELECTIVE_DEFERRAL_LIMIT);
+        // Annual IRS figures — global values, updated each January.
+        .replace(/\{\{plan_year\}\}/g, String(CONTRIBUTION_LIMITS_YEAR))
+        .replace(/\{\{deferral_limit\}\}/g, ELECTIVE_DEFERRAL_LIMIT),
+    );
   };
 
   const [query, setQuery] = useState("");
