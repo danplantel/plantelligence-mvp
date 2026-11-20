@@ -3,7 +3,8 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
-import { AlertTriangle, GripVertical, Plus, Search } from "lucide-react";
+import { AlertTriangle, GripVertical, Loader2, Plus, Search } from "lucide-react";
+import { toast } from "sonner";
 import {
   DndContext,
   KeyboardSensor,
@@ -75,6 +76,46 @@ export interface BoardPayload {
   groups: BoardGroup[];
   hidden: BoardTopic[];
   featuredCap: number;
+}
+
+/** The animated row a question currently occupies, wherever that half is. */
+function findQuickAnswersTopicRow(topicId: string): HTMLElement | null {
+  // `CSS` is imported from @dnd-kit/utilities in this module, so read the DOM
+  // helper off `globalThis` instead of the shadowed binding.
+  const cssApi = (globalThis as { CSS?: { escape?: (v: string) => string } }).CSS;
+  const escaped =
+    typeof cssApi?.escape === "function"
+      ? cssApi.escape(topicId)
+      : topicId.replace(/["\\]/g, "\\$&");
+  return document.querySelector<HTMLElement>(`[data-qa-topic="${escaped}"]`);
+}
+
+/**
+ * Scroll the editing panel to one question's row.
+ *
+ * Exported for the move confirmations: after a card changes half, the toast's
+ * "View" action brings the row it now lives in into view — the same node the
+ * builder animates, so the reader can see where it landed.
+ *
+ * The row can land a frame or two AFTER the toast: the board write is
+ * optimistic, but React still has to render the new list. So a miss retries for
+ * a short while instead of doing nothing when the click beats the re-render.
+ */
+export function scrollToQuickAnswersTopic(topicId: string, retries = 12): boolean {
+  if (typeof document === "undefined" || !topicId) return false;
+  const target = findQuickAnswersTopicRow(topicId);
+  if (target) {
+    target.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+      inline: "nearest",
+    });
+    return true;
+  }
+  if (retries > 0 && typeof window !== "undefined") {
+    window.setTimeout(() => scrollToQuickAnswersTopic(topicId, retries - 1), 60);
+  }
+  return false;
 }
 
 interface LibraryItem {
@@ -574,6 +615,9 @@ const AnimatedRow = forwardRef<HTMLDivElement, AnimatedRowProps>(
     return (
       <motion.div
         ref={ref}
+        // The toast's "View" action scrolls to this row, wherever the question
+        // currently sits (Featured, a section, Questions, or Hidden).
+        data-qa-topic={topicId}
         // Position only: interpolating the box too would scale the text mid-move.
         layout="position"
         layoutId={`quick-answer-row-${topicId}`}
@@ -789,7 +833,10 @@ export function QuickAnswersBuilder({
    * question promoted to Featured keeps a stable order, and so nothing is silently
    * dropped by a board that only mentioned the Quick Answers half.
    */
-  const persist = (next: Draft) => {
+  const persist = (
+    next: Draft,
+    notice?: { title: string; description?: string; topicId?: string },
+  ) => {
     const previous = draft;
     const previousData = data;
     const sequence = ++saveSequence.current;
@@ -804,6 +851,28 @@ export function QuickAnswersBuilder({
     }
     // And the portal's own section, which reads the benefit payload, not this board.
     onBoardChange?.(optimistic.board);
+
+    // Confirmation with the same optimism as the grid: the card has already MOVED
+    // on screen, so waiting for the round trip made the toast feel 3–4 s late. A
+    // rejected write rolls the board back and says so with an error toast below.
+    if (notice) {
+      const movedTopic = notice.topicId;
+      toast.success(notice.title, {
+        description: notice.description,
+        // The card has already landed in its new half — hand the reader a link
+        // that scrolls the panel to the row it now occupies.
+        ...(movedTopic
+          ? {
+              action: {
+                label: "View",
+                onClick: () => {
+                  scrollToQuickAnswersTopic(movedTopic);
+                },
+              },
+            }
+          : {}),
+      });
+    }
 
     const placements = [
       ...next.featured.map((topic, index) => ({
@@ -906,6 +975,14 @@ export function QuickAnswersBuilder({
         setSaveError(
           error instanceof Error ? error.message : "Could not save Quick Answers.",
         );
+        if (notice) {
+          toast.error("Could not move the card", {
+            description:
+              error instanceof Error
+                ? error.message
+                : "The move was rolled back.",
+          });
+        }
       } finally {
         if (sequence === saveSequence.current) setSaving(false);
       }
@@ -1003,7 +1080,31 @@ export function QuickAnswersBuilder({
       );
     }
 
-    void persist(next);
+    // A move the advisor can SEE succeed: name the card, the section it landed
+    // in, and which way it went. Hiding a card is not a promotion, so it is left
+    // without a toast.
+    const notice =
+      to === "featured"
+        ? {
+            title: `${topic.title} moved to How Can We Help You Today?`,
+            description: "It now shows as a Featured card.",
+            topicId: topic.topicId,
+          }
+        : to === "hidden"
+          ? undefined
+          : {
+              title: `${topic.title} moved to Quick Answers`,
+              description:
+                to === UNGROUPED_KEY
+                  ? "It now sits in Questions."
+                  : `It now sits in ${
+                      draft.groups.find((group) => group.id === to)?.name ??
+                      "Quick Answers"
+                    }.`,
+              topicId: topic.topicId,
+            };
+
+    void persist(next, notice);
   };
 
   /**
@@ -1041,7 +1142,11 @@ export function QuickAnswersBuilder({
     for (const card of [outgoing, ...overflowing]) {
       next = returnToQuickAnswers(next, card, card.groupId ?? fallbackGroupId);
     }
-    void persist(next);
+    void persist(next, {
+      title: `${incoming.title} moved to How Can We Help You Today?`,
+      description: `${outgoing.title} returned to Quick Answers.`,
+      topicId: incoming.topicId,
+    });
   };
 
   const sensors = useSensors(
@@ -1147,7 +1252,14 @@ export function QuickAnswersBuilder({
       return;
     }
 
-    void persist({ ...draft, featured: [...draft.featured, topic] });
+    void persist(
+      { ...draft, featured: [...draft.featured, topic] },
+      {
+        title: `${topic.title} moved to How Can We Help You Today?`,
+        description: "It now shows as a Featured card.",
+        topicId: topic.topicId,
+      },
+    );
   };
 
   /**
@@ -1210,7 +1322,17 @@ export function QuickAnswersBuilder({
     if (!draft || !pendingDemotion) return;
     const topic = pendingDemotion;
     setPendingDemotion(null);
-    void persist(returnToQuickAnswers(withoutTopic(draft, topic), topic, groupId));
+    const groupName =
+      draft.groups.find((group) => group.id === groupId)?.name ??
+      "Quick Answers";
+    void persist(
+      returnToQuickAnswers(withoutTopic(draft, topic), topic, groupId),
+      {
+        title: `${topic.title} moved to Quick Answers`,
+        description: `It now sits in ${groupName}.`,
+        topicId: topic.topicId,
+      },
+    );
   };
 
   /**
@@ -1337,9 +1459,13 @@ export function QuickAnswersBuilder({
                   Featured Cards
                 </Label>
                 {/* Order and membership are arranged in Section 6's Card Layout,
-                    so there is nothing to drag here — a card only moves out. */}
-                <span className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                  {draft.featured.length} of {FEATURED_ROW_CAP}
+                    so there is nothing to drag here — a card only moves out.
+                    Counter form ("7/8"), matching Card Layout's own count. */}
+                <span
+                  data-testid="featured-card-count"
+                  className="text-[11px] font-semibold tabular-nums text-muted-foreground"
+                >
+                  {draft.featured.length}/{FEATURED_ROW_CAP}
                 </span>
               </div>
               <div className="space-y-1.5">
@@ -1367,6 +1493,12 @@ export function QuickAnswersBuilder({
                         disabled={saving}
                         onClick={() => demoteFeatured(topic)}
                       >
+                        {saving && (
+                          <Loader2
+                            className="mr-1 h-3.5 w-3.5 animate-spin"
+                            aria-hidden="true"
+                          />
+                        )}
                         Move to Quick Answers
                       </Button>
                     </AnimatedRow>

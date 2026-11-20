@@ -196,6 +196,19 @@ describe("HelpCardLayoutEditor", () => {
     ).toBe(true);
   });
 
+  it("counts the visible cards above the list", () => {
+    const { rerender } = render(<HelpCardLayoutEditor onChange={() => {}} />);
+    expect(screen.getByTestId("help-card-layout-count")).toHaveTextContent(
+      "7/8",
+    );
+
+    const hidden = setHelpCardEnabled(defaultHelpCardLayout(), "savings", false);
+    rerender(<HelpCardLayoutEditor value={hidden} onChange={() => {}} />);
+    expect(screen.getByTestId("help-card-layout-count")).toHaveTextContent(
+      "6/8",
+    );
+  });
+
   it("offers Move to Quick Answers per placement card, never for Account Access", async () => {
     const user = userEvent.setup();
     const onMove = vi.fn();

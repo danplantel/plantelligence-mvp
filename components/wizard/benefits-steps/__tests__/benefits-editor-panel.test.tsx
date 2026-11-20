@@ -77,6 +77,50 @@ describe("BenefitsEditorPanel card layout", () => {
     expect(layout.length).toBeGreaterThan(1);
     expect(layout[0].id).toBe("account-access");
   });
+
+  it("sets the card's own fields before the layout that arranges them", () => {
+    renderPanel();
+
+    const section = sectionSix();
+    // Plan / Group ID, the Register or Log In URL and the Provider /
+    // Recordkeeper describe what the Account Access card SAYS, so they lead the
+    // section and the Card Layout follows them.
+    const fieldsLabel = within(section).getByText("Plan / Group ID");
+    const layoutLabel = within(section).getByText("Card Layout");
+
+    expect(
+      fieldsLabel.compareDocumentPosition(layoutLabel) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("offers a visibility checkbox beside the card's own fields", () => {
+    renderPanel();
+
+    // On by default: a plan that stores no layout still shows the card.
+    expect(
+      within(sectionSix()).getByTestId("account-access-visible"),
+    ).toBeChecked();
+  });
+
+  it("hides the Account Access card from beside its own fields, keeping its slot", () => {
+    renderPanel();
+
+    fireEvent.click(within(sectionSix()).getByTestId("account-access-visible"));
+
+    const layout = (step1()?.helpCards ?? []) as {
+      id: string;
+      primary?: boolean;
+      enabled?: boolean;
+    }[];
+    const hidden = layout.find((entry) => entry.id === "account-access");
+    // The same `enabled` flag the Card Layout checkbox writes, so the two
+    // controls read back each other's state.
+    expect(hidden?.enabled).toBe(false);
+    // Hiding is not deleting: the card keeps its slot and its Primary flag.
+    expect(layout[0]?.id).toBe("account-access");
+    expect(layout[0]?.primary).toBe(true);
+  });
 });
 
 describe("BenefitsEditorPanel account access fields", () => {

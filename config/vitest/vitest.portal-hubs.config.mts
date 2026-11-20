@@ -84,6 +84,12 @@ const portalHubTests = [
   // The flag that takes the floating "Ask a question" pill out of the way while a
   // modal (the document preview) owns the screen
   "lib/__tests__/portal-modal-flag.test.ts",
+  // The flag that keeps overlays with their own theme prop (the toaster) light on
+  // a portal page, whatever the dashboard's dark-mode preference is
+  "lib/__tests__/portal-light-surface.test.ts",
+  // The toaster follows the class the page is rendered with, so portal pages get
+  // light confirmations instead of the dashboard's dark ones
+  "components/ui/__tests__/sonner-toaster.test.tsx",
   // The assistant's brain: corpus over the whole shipped library + the plan's
   // placements, ranked retrieval, intent routing, hub and deep-link rules
   "lib/topics/__tests__/assistant.test.ts",

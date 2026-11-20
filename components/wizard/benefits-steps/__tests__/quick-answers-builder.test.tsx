@@ -9,6 +9,12 @@ import {
 } from "../quick-answers-builder";
 import type { BoardPayload } from "../quick-answers-builder";
 
+const toastSuccess = vi.hoisted(() => vi.fn());
+
+vi.mock("sonner", () => ({
+  toast: { success: toastSuccess, error: vi.fn(), message: vi.fn() },
+}));
+
 const TITLES: Record<string, string> = {
   "t-1": "Contribution limits",
   "t-2": "Catch-up contributions",
@@ -186,6 +192,92 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("QuickAnswersBuilder — counters and confirmations", () => {
+  it("counts the Featured cards above their list", async () => {
+    // A plan id of its own: the board read is keyed by plan, and SWR would
+    // otherwise serve the previous test's cached board within its dedupe window.
+    installFetch(SEVEN_BOARD);
+    render(<QuickAnswersBuilder planId="plan-count" location="retirement" />);
+
+    expect(await screen.findByTestId("featured-card-count")).toHaveTextContent(
+      "7/8",
+    );
+  });
+
+  it("confirms a demotion immediately, with the board already moved", async () => {
+    toastSuccess.mockClear();
+    installFetch(REMEMBERED_GROUP_BOARD);
+    render(<QuickAnswersBuilder planId="plan-toast" location="retirement" />);
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Move to Quick Answers" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Saving & Contributions/ }),
+    );
+
+    await waitFor(() => expect(pending).toHaveLength(1));
+    // The card has ALREADY moved on screen (optimistic board), so the
+    // confirmation is immediate rather than 3–4 s later, when the HTTP write
+    // would have settled.
+    expect(toastSuccess).toHaveBeenCalledWith(
+      "Featured One moved to Quick Answers",
+      {
+        description: "It now sits in Saving & Contributions.",
+        // The confirmation doubles as a jump link to the card's new row.
+        action: { label: "View", onClick: expect.any(Function) },
+      },
+    );
+
+    pending[0].respond(boardFromBody(pending[0].body));
+    await waitFor(() => expect(pending).toHaveLength(1));
+  });
+
+  it("scrolls to the moved card's row from the confirmation's View action", async () => {
+    toastSuccess.mockClear();
+    // jsdom does not implement scrolling, so watch the call instead.
+    const scrollIntoView = vi.fn();
+    const originalScroll = HTMLElement.prototype.scrollIntoView;
+    HTMLElement.prototype.scrollIntoView = scrollIntoView;
+
+    try {
+      installFetch(REMEMBERED_GROUP_BOARD);
+      const { container } = render(
+        <QuickAnswersBuilder planId="plan-view-action" location="retirement" />,
+      );
+
+      fireEvent.click(
+        await screen.findByRole("button", { name: "Move to Quick Answers" }),
+      );
+      fireEvent.click(
+        await screen.findByRole("button", { name: /Saving & Contributions/ }),
+      );
+
+      await waitFor(() => expect(toastSuccess).toHaveBeenCalled());
+      const calls = toastSuccess.mock.calls;
+      const options = calls[calls.length - 1]?.[1] as {
+        action?: { label: string; onClick: () => void };
+      };
+      expect(options.action?.label).toBe("View");
+
+      // The card has already landed in its section, so its row is on screen.
+      await waitFor(() =>
+        expect(
+          container.querySelector('[data-qa-topic="f-1"]'),
+        ).not.toBeNull(),
+      );
+
+      options.action?.onClick();
+      expect(scrollIntoView).toHaveBeenCalled();
+
+      pending[0].respond(boardFromBody(pending[0].body));
+      await waitFor(() => expect(pending).toHaveLength(1));
+    } finally {
+      HTMLElement.prototype.scrollIntoView = originalScroll;
+    }
+  });
+});
+
 /**
  * Card Layout's "Move to Quick Answers" is the builder's own move: the same board
  * write, the same optimistic cache, one behaviour instead of two.
@@ -196,7 +288,9 @@ describe("QuickAnswersBuilder — demoting a Featured card", () => {
     const onBoardChange = vi.fn();
 
     const save = demoteFeaturedCard({
-      planId: "plan-1",
+      // Its own plan id: the optimistic cache write is keyed by plan, and this
+      // must not seed the board another test reads.
+      planId: "plan-demote",
       location: "retirement",
       board: REMEMBERED_GROUP_BOARD,
       topicId: "f-1",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { GripVertical, Star } from "lucide-react";
+import { GripVertical, Loader2, Star } from "lucide-react";
 import {
   DndContext,
   KeyboardSensor,
@@ -98,6 +98,8 @@ interface HelpCardLayoutEditorProps {
    * `demoteFeaturedCard`, so both halves of the panel behave identically.
    */
   onMoveToQuickAnswers?: (cardId: string) => void;
+  /** The card whose move is in flight: its button shows a spinner. */
+  movingCardId?: string | null;
 }
 
 /** Column span → mini-mirror classes (a plain grid, so no breakpoint prefixes). */
@@ -166,6 +168,7 @@ function SortableHelpCardRow({
   span = 1,
   columns = 3,
   onMoveToQuickAnswers,
+  moving = false,
   onMakePrimary,
   onToggleEnabled,
 }: {
@@ -192,6 +195,8 @@ function SortableHelpCardRow({
   span?: number;
   /** Present only when this card is a Featured placement. */
   onMoveToQuickAnswers?: (id: string) => void;
+  /** This card's move is being written: the button shows a spinner. */
+  moving?: boolean;
   onMakePrimary: (id: string) => void;
   onToggleEnabled: (id: string, enabled: boolean) => void;
 }) {
@@ -292,8 +297,15 @@ function SortableHelpCardRow({
           variant="outline"
           size="sm"
           className="shrink-0 text-[11px]"
+          disabled={moving}
           onClick={() => onMoveToQuickAnswers(entry.id)}
         >
+          {moving && (
+            <Loader2
+              className="mr-1 h-3.5 w-3.5 animate-spin"
+              aria-hidden="true"
+            />
+          )}
           Move to Quick Answers
         </Button>
       )}
@@ -343,6 +355,7 @@ export function HelpCardLayoutEditor({
   columns: columnsProp,
   onColumnsChange,
   onMoveToQuickAnswers,
+  movingCardId,
 }: HelpCardLayoutEditorProps) {
   /** 3 or 4 cards per row — anything else in storage falls back to 3. */
   const columns = useMemo(
@@ -529,6 +542,21 @@ export function HelpCardLayoutEditor({
         )}
       </div>
 
+      {/* How many cards the page actually shows, in counter form — above the list,
+          where the advisor is arranging them. Hidden cards are not counted: the
+          portal draws the visible ones, and eight is the cap. */}
+      <div className="flex items-center justify-between gap-2 px-0.5">
+        <Label className="text-[11px] font-bold uppercase tracking-[0.08em] text-foreground">
+          Featured cards
+        </Label>
+        <span
+          data-testid="help-card-layout-count"
+          className="text-[11px] font-semibold tabular-nums text-muted-foreground"
+        >
+          {clampHelpCards(visibleLayout).length}/{HELP_CARD_MAX_VISIBLE}
+        </span>
+      </div>
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCenter}
@@ -554,6 +582,7 @@ export function HelpCardLayoutEditor({
                 span={slotById.get(entry.id)?.span ?? 1}
                 columns={columns}
                 onMoveToQuickAnswers={onMoveToQuickAnswers}
+                moving={movingCardId === entry.id}
                 onMakePrimary={(id) =>
                   onChange(setHelpCardPrimary(layout, id, { catalog, columns }))
                 }

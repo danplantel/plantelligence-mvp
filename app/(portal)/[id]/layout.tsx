@@ -40,6 +40,7 @@ import {
 import { getPortalCountdown, normalizePortalCtaUrl } from "@/lib/portal-banner";
 import { resolvePortalFooterColor } from "@/lib/portal-footer-color";
 import { portalLegalHref } from "@/lib/legal/legal-config";
+import { holdPortalLightSurface } from "@/lib/portal-light-surface";
 
 interface BannerAsset {
   id: string;
@@ -192,6 +193,13 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
     const hadDark = root.classList.contains("dark");
     const prevColorScheme = root.style.colorScheme;
 
+    /**
+     * Overlays with their OWN theme prop (the toaster) cannot read the class we
+     * strip below, so tell them the surface is light for as long as this portal
+     * is mounted.
+     */
+    const releaseLightHold = holdPortalLightSurface();
+
     const enforceLight = () => {
       if (root.classList.contains("dark")) root.classList.remove("dark");
       if (root.style.colorScheme !== "light") {
@@ -216,6 +224,7 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
 
     return () => {
       observer.disconnect();
+      releaseLightHold();
       root.classList.toggle("dark", hadDark);
       root.style.colorScheme = prevColorScheme;
     };

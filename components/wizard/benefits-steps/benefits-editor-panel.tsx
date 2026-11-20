@@ -8,6 +8,7 @@ import {
   QuickAnswersDestinationDialog,
   demoteFeaturedCard,
   reorderFeaturedCards,
+  scrollToQuickAnswersTopic,
   useTopicBoard,
   type BoardPayload,
 } from "./quick-answers-builder";
@@ -15,7 +16,9 @@ import { UNGROUPED_TOPIC_GROUP_ID } from "@/lib/topics/ungrouped";
 import type { HelpCardContent, HelpCardLayoutEntry } from "@/types/benefit";
 import {
   helpCardRowSizes,
+  isHelpCardEnabled,
   normalizeHelpCardColumns,
+  setHelpCardEnabled,
 } from "@/lib/help-card-layout";
 import { topicLocationForCategory } from "@/lib/topic-locations";
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
@@ -31,6 +34,7 @@ import { resolveJourneyImage } from "@/lib/benefits-video-fallback";
 import { ModalGallery } from "@/components/ui/modalGallery";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { BrandImageUpload } from "@/components/ui/brand-image-upload";
 import { Card, CardContent } from "@/components/ui/card";
@@ -405,6 +409,36 @@ export function BenefitsEditorPanel({
   }, [featuredCardCatalog, step1Data.helpCards, step1Data.helpCardColumns]);
 
   /**
+   * Whether the Account Access card is on the page at all — the layout's own
+   * `enabled` flag, the same one the Card Layout's per-card checkbox writes, so
+   * the two controls can never disagree.
+   */
+  const accountAccessVisible = isHelpCardEnabled(
+    helpCardLayoutValue?.find((entry) => entry.id === ACCOUNT_ACCESS_CARD_ID),
+  );
+
+  /**
+   * Show or hide the Account Access card from beside its own fields.
+   *
+   * Hiding is not deleting: the card keeps its slot, and the Plan / Group ID,
+   * login URL and recordkeeper below stay saved, so ticking it again puts the
+   * card straight back where it was. A hidden card also stops being the
+   * Primary's candidate — `setHelpCardEnabled` re-arranges around the flag.
+   */
+  const setAccountAccessVisible = (visible: boolean) => {
+    const next = setHelpCardEnabled(
+      helpCardLayoutValue,
+      ACCOUNT_ACCESS_CARD_ID,
+      visible,
+      {
+        catalog: featuredCardCatalog,
+        columns: normalizeHelpCardColumns(step1Data.helpCardColumns),
+      },
+    );
+    saveStepData(1, { ...step1Data, helpCards: next } as any);
+  };
+
+  /**
    * A card the advisor asked to send back to Quick Answers. Held until they pick
    * a section — the SAME dialog the Quick Answers builder shows (that component
    * is exported from there), so the two halves of the panel cannot disagree.
@@ -428,6 +462,9 @@ export function BenefitsEditorPanel({
     setPendingDemotion({ topicId: topic.topicId, title: topic.title });
   };
 
+  /** The card whose demote is in flight, so its button can spin. */
+  const [demotingCardId, setDemotingCardId] = useState<string | null>(null);
+
   /** Answer the section picker with the builder's own demote write. */
   const moveIntoQuickAnswers = (groupId: string) => {
     const board = featuredBoard.data?.board;
@@ -436,6 +473,27 @@ export function BenefitsEditorPanel({
     if (!board || !pending || !step1Data.planId || !quickAnswersLocation) {
       return;
     }
+    const groupName =
+      board.groups.find((group) => group.id === groupId)?.name ??
+      "Quick Answers";
+    const cardId = board.featured
+      .find((topic) => topic.topicId === pending.topicId)
+      ?.slug.replace(/^sys\./, "");
+    if (cardId) setDemotingCardId(cardId);
+
+    // The optimistic board write has already moved the card on screen, so the
+    // confirmation fires NOW — waiting for the round trip read as a late toast.
+    toast.success(`${pending.title} moved to Quick Answers`, {
+      description: `It now sits in ${groupName}.`,
+      // Jump the panel down to the row the card now occupies in Quick Answers.
+      action: {
+        label: "View",
+        onClick: () => {
+          scrollToQuickAnswersTopic(pending.topicId);
+        },
+      },
+    });
+
     void demoteFeaturedCard({
       planId: step1Data.planId,
       location: quickAnswersLocation,
@@ -453,7 +511,8 @@ export function BenefitsEditorPanel({
             ? error.message
             : "Could not move the card to Quick Answers.",
         );
-      });
+      })
+      .finally(() => setDemotingCardId(null));
   };
 
   /**
@@ -2300,90 +2359,40 @@ export function BenefitsEditorPanel({
             title="How Can We Help You Today?"
           />
           <p className="text-[13px] text-muted-foreground mb-6">
-            Choose the card layout below, then edit the Account Access fields —
-            Plan / Group ID, where the &ldquo;Register or Log In&rdquo;
-            button sends participants, and who administers the benefit.
+            Start with the Account Access card's Plan / Group ID, where its
+            &ldquo;Register or Log In&rdquo; button sends participants, and who
+            administers the benefit — then arrange the card layout below.
           </p>
 
-          {/* Card layout: which card is Primary. Copy is static. */}
-          <div className="mb-4 rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
-            <HelpCardLayoutEditor
-              value={helpCardLayoutValue}
-              // 3 or 4 across, stored beside the layout it belongs to.
-              columns={step1Data.helpCardColumns}
-              onColumnsChange={(helpCardColumns) =>
-                saveStepData(1, { ...step1Data, helpCardColumns } as any)
-              }
-              // The benefit being created/edited, so `[Benefit Category]` reads
-              // "Retirement Account Access" (or the advisor's Custom name).
-              category={helpCardCategoryLabelValue}
-              // Exactly the Featured cards Quick Access lists, plus Account
-              // Access — so an advisor can never arrange a card that is not on
-              // the page, and a promoted question appears here straight away.
-              catalog={featuredCardCatalog}
-              // The show/hide checkbox is offered here too: it writes the layout's
-              // own `enabled` flag, which the portal section reads, so it hides a
-              // card without touching its Featured membership.
-              showEnabledToggle
-              // Only a placement can be sent back to Quick Answers; Account Access
-              // is synthesised, and the editor leaves its button out.
-              onMoveToQuickAnswers={
-                featuredCardCatalog ? moveCardToQuickAnswers : undefined
-              }
-              onChange={(helpCards) => {
-                saveStepData(1, { ...step1Data, helpCards } as any);
-
-                // The order is arranged HERE, so it has to reach the placements
-                // too — the Featured list in Quick Access reads the same board.
-                const board = featuredBoard.data?.board;
-                if (
-                  !board ||
-                  board.featured.length === 0 ||
-                  !step1Data.planId ||
-                  !quickAnswersLocation
-                ) {
-                  return;
-                }
-                const topicIdBySlug = new Map(
-                  board.featured.map((topic) => [
-                    topic.slug.replace(/^sys\./, ""),
-                    topic.topicId,
-                  ]),
-                );
-                const orderedTopicIds = helpCards
-                  .map((entry) => topicIdBySlug.get(entry.id))
-                  .filter((topicId): topicId is string => Boolean(topicId));
-                if (orderedTopicIds.length !== board.featured.length) return;
-
-                void reorderFeaturedCards({
-                  planId: step1Data.planId,
-                  location: quickAnswersLocation,
-                  board,
-                  orderedTopicIds,
-                  // The page beside the panel renders from the BENEFIT payload, so
-                  // the new order has to reach that cache too — otherwise the grid
-                  // only catches up on a reload.
-                  onBoardChange: onTopicsBoardChange,
-                }).catch((error: unknown) => {
-                  toast.error(
-                    error instanceof Error
-                      ? error.message
-                      : "Could not save the card order.",
-                  );
-                });
-              }}
-            />
-
-            <QuickAnswersDestinationDialog
-              open={pendingDemotion !== null}
-              topicTitle={pendingDemotion?.title ?? ""}
-              groups={demotionGroups}
-              onPick={moveIntoQuickAnswers}
-              onCancel={() => setPendingDemotion(null)}
-            />
-          </div>
-
           <div className="space-y-4 rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
+            {/* Is this card on the page at all? The layout's own flag, so the
+                Card Layout checkbox below reads back the state chosen here. */}
+            <div className="flex items-start gap-2.5 rounded-md border border-muted bg-muted/20 p-3">
+              <Checkbox
+                id="account-access-visible"
+                data-testid="account-access-visible"
+                checked={accountAccessVisible}
+                onCheckedChange={(checked) =>
+                  setAccountAccessVisible(checked === true)
+                }
+                className="mt-0.5"
+              />
+              <div className="space-y-0.5">
+                <Label
+                  htmlFor="account-access-visible"
+                  className="text-xs font-bold text-foreground"
+                >
+                  Show the Account Access card
+                </Label>
+                <p className="text-[11px] text-muted-foreground">
+                  Untick to take the card off the page. The fields below stay
+                  saved and the card keeps its place, so ticking it again brings
+                  it straight back — and the remaining cards re-fill the rows
+                  while it is hidden.
+                </p>
+              </div>
+            </div>
+
             {/* Plan / Group ID — printed as "PLAN / GROUP ID: …" on the card. */}
             <div className="space-y-2">
               <Label className="text-xs font-bold text-foreground">
@@ -2520,6 +2529,88 @@ export function BenefitsEditorPanel({
                 />
               </div>
             </div>
+          </div>
+
+          {/* Card layout, AFTER the Account Access fields: the fields name what
+              the card shows, so the advisor sets them first and arranges the
+              cards they belong to underneath. */}
+          <div className="mt-4 rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
+            <HelpCardLayoutEditor
+              value={helpCardLayoutValue}
+              // 3 or 4 across, stored beside the layout it belongs to.
+              columns={step1Data.helpCardColumns}
+              onColumnsChange={(helpCardColumns) =>
+                saveStepData(1, { ...step1Data, helpCardColumns } as any)
+              }
+              // The benefit being created/edited, so `[Benefit Category]` reads
+              // "Retirement Account Access" (or the advisor's Custom name).
+              category={helpCardCategoryLabelValue}
+              // Exactly the Featured cards Quick Access lists, plus Account
+              // Access — so an advisor can never arrange a card that is not on
+              // the page, and a promoted question appears here straight away.
+              catalog={featuredCardCatalog}
+              // The show/hide checkbox is offered here too: it writes the layout's
+              // own `enabled` flag, which the portal section reads, so it hides a
+              // card without touching its Featured membership.
+              showEnabledToggle
+              // Only a placement can be sent back to Quick Answers; Account Access
+              // is synthesised, and the editor leaves its button out.
+              onMoveToQuickAnswers={
+                featuredCardCatalog ? moveCardToQuickAnswers : undefined
+              }
+              // The card being written: its button spins until the save settles.
+              movingCardId={demotingCardId}
+              onChange={(helpCards) => {
+                saveStepData(1, { ...step1Data, helpCards } as any);
+
+                // The order is arranged HERE, so it has to reach the placements
+                // too — the Featured list in Quick Access reads the same board.
+                const board = featuredBoard.data?.board;
+                if (
+                  !board ||
+                  board.featured.length === 0 ||
+                  !step1Data.planId ||
+                  !quickAnswersLocation
+                ) {
+                  return;
+                }
+                const topicIdBySlug = new Map(
+                  board.featured.map((topic) => [
+                    topic.slug.replace(/^sys\./, ""),
+                    topic.topicId,
+                  ]),
+                );
+                const orderedTopicIds = helpCards
+                  .map((entry) => topicIdBySlug.get(entry.id))
+                  .filter((topicId): topicId is string => Boolean(topicId));
+                if (orderedTopicIds.length !== board.featured.length) return;
+
+                void reorderFeaturedCards({
+                  planId: step1Data.planId,
+                  location: quickAnswersLocation,
+                  board,
+                  orderedTopicIds,
+                  // The page beside the panel renders from the BENEFIT payload, so
+                  // the new order has to reach that cache too — otherwise the grid
+                  // only catches up on a reload.
+                  onBoardChange: onTopicsBoardChange,
+                }).catch((error: unknown) => {
+                  toast.error(
+                    error instanceof Error
+                      ? error.message
+                      : "Could not save the card order.",
+                  );
+                });
+              }}
+            />
+
+            <QuickAnswersDestinationDialog
+              open={pendingDemotion !== null}
+              topicTitle={pendingDemotion?.title ?? ""}
+              groups={demotionGroups}
+              onPick={moveIntoQuickAnswers}
+              onCancel={() => setPendingDemotion(null)}
+            />
           </div>
         </div>
 
