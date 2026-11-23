@@ -3,7 +3,7 @@
 import { forwardRef, useEffect, useMemo, useRef, useState } from "react";
 import useSWR, { mutate as globalMutate } from "swr";
 import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
-import { AlertTriangle, GripVertical, Loader2, Plus, Search } from "lucide-react";
+import { AlertTriangle, GripVertical, Loader2, Pencil, Plus, Search } from "lucide-react";
 import { toast } from "sonner";
 import {
   DndContext,
@@ -38,6 +38,12 @@ import {
 } from "@/lib/topics/ungrouped";
 import { cn } from "@/lib/utils";
 import { TOPIC_LOCATION_LABELS } from "@/lib/topic-locations";
+import {
+  overridesFromTextValues,
+  type TopicTextOverrides,
+  type TopicTextValues,
+} from "@/lib/topics/text-overrides";
+import { TopicTextEditDialog } from "./topic-text-edit-dialog";
 import type { ActionHubLink, EffectiveTopic, TopicLocation } from "@/types/topic";
 
 /**
@@ -520,6 +526,56 @@ export async function restoreTopicBoard(params: {
 }
 
 /**
+ * Save one card's edited text for this plan.
+ *
+ * Writes the placement's `overrides` through the topics `PATCH` endpoint — the shared
+ * Topic row is never touched, so the copy is scoped to this plan. The refreshed board
+ * replaces the cache (and is handed to the host) so the page beside the panel shows the
+ * new wording in the same frame. Exported because BOTH card lists — a Featured card in
+ * the layout editor and a Quick Answers question in the builder — edit the same board.
+ */
+export async function saveTopicText(params: {
+  planId: string;
+  location: TopicLocation;
+  topicId: string;
+  overrides: TopicTextOverrides;
+  onBoardChange?: (board: BoardPayload) => void;
+  onSaved?: () => void;
+}): Promise<void> {
+  const key = boardKey(params.planId, params.location);
+  const response = await fetch(key, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      location: params.location,
+      topicId: params.topicId,
+      overrides: params.overrides,
+    }),
+  });
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body?.error || "Could not save that text.");
+  }
+
+  if (body.board) {
+    void globalMutate(
+      key,
+      (current: TopicsResponse | undefined) =>
+        current
+          ? {
+              ...current,
+              board: body.board as BoardPayload,
+              library: body.library ?? current.library,
+            }
+          : current,
+      { revalidate: false },
+    );
+    params.onBoardChange?.(body.board as BoardPayload);
+  }
+  params.onSaved?.();
+}
+
+/**
  * One group, draggable by its handle.
  *
  * Top-level (not declared inside the builder) on purpose: `useSortable` must keep the
@@ -887,6 +943,33 @@ export function QuickAnswersBuilder({
    * land in a SECTION, so it waits here until they pick one (or cancel).
    */
   const [pendingDemotion, setPendingDemotion] = useState<BoardTopic | null>(null);
+  /**
+   * The card whose text is being edited (title / card line / answer). Saving writes
+   * plan-scoped placement overrides, so the change never touches another plan.
+   */
+  const [editingTopic, setEditingTopic] = useState<BoardTopic | null>(null);
+
+  const saveEditingText = async (values: TopicTextValues) => {
+    if (!editingTopic) return;
+    const overrides = overridesFromTextValues(editingTopic, values);
+    if (Object.keys(overrides).length === 0) return;
+    try {
+      await saveTopicText({
+        planId,
+        location,
+        topicId: editingTopic.topicId,
+        overrides,
+        onBoardChange,
+        onSaved,
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Could not save that text.",
+      );
+      // Keep the dialog open so the edit is not lost.
+      throw error;
+    }
+  };
 
   // Seed (and re-seed) the draft from the server's board.
   useEffect(() => {
@@ -1599,6 +1682,10 @@ export function QuickAnswersBuilder({
                         {topic.title}
                       </span>
                       {topic.isActionHub && <ActionHubBadge />}
+                      <EditTextButton
+                        title={topic.title}
+                        onClick={() => setEditingTopic(topic)}
+                      />
                       <Button
                         type="button"
                         variant="outline"
@@ -1670,6 +1757,10 @@ export function QuickAnswersBuilder({
                               {topic.title}
                             </span>
                             {topic.isActionHub && <ActionHubBadge />}
+                            <EditTextButton
+                              title={topic.title}
+                              onClick={() => setEditingTopic(topic)}
+                            />
                             <select
                               aria-label={`Move ${topic.title}`}
                               value={group.id}
@@ -1722,6 +1813,10 @@ export function QuickAnswersBuilder({
                           {topic.title}
                         </span>
                         {topic.isActionHub && <ActionHubBadge />}
+                        <EditTextButton
+                          title={topic.title}
+                          onClick={() => setEditingTopic(topic)}
+                        />
                         <select
                           aria-label={`Move ${topic.title}`}
                           value={UNGROUPED_KEY}
@@ -1776,6 +1871,10 @@ export function QuickAnswersBuilder({
                         {topic.title}
                       </span>
                       {topic.isActionHub && <ActionHubBadge />}
+                      <EditTextButton
+                        title={topic.title}
+                        onClick={() => setEditingTopic(topic)}
+                      />
                       <select
                         aria-label={`Restore ${topic.title}`}
                         value="hidden"
@@ -1978,7 +2077,37 @@ export function QuickAnswersBuilder({
         onPick={demoteIntoGroup}
         onCancel={() => setPendingDemotion(null)}
       />
+
+      <TopicTextEditDialog
+        topic={editingTopic}
+        open={editingTopic !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditingTopic(null);
+        }}
+        onSave={saveEditingText}
+      />
     </div>
+  );
+}
+
+/** A compact "edit this card's text" affordance for a question row. */
+function EditTextButton({
+  title,
+  onClick,
+}: {
+  title: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      title="Edit text"
+      aria-label={`Edit text for ${title}`}
+      onClick={onClick}
+      className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+    >
+      <Pencil className="h-3.5 w-3.5" aria-hidden="true" />
+    </button>
   );
 }
 

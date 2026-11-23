@@ -100,6 +100,7 @@ vi.mock("@/components/wizard/benefits-steps/quick-answers-builder", () => ({
   demoteFeaturedCard: vi.fn(async () => {}),
   reorderFeaturedCards: vi.fn(async () => {}),
   restoreTopicBoard: vi.fn(async () => {}),
+  saveTopicText: vi.fn(async () => {}),
   scrollToQuickAnswersTopic: vi.fn(() => true),
   MOVEMENT_TOAST_DURATION: 8000,
 }));

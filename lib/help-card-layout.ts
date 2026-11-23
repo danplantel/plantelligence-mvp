@@ -444,10 +444,11 @@ export function isHelpCardEnabled(
 /**
  * Reorder the cards.
  *
- *  - The primary itself cannot be dragged (there is nothing to swap it with).
  *  - Dropping a standard card ON the primary makes THAT card primary, at the same
  *    edge of row 1; the previous primary slides into the dropped card's old place.
  *    This is the drag equivalent of "Make primary".
+ *  - Dragging the PRIMARY onto a standard card is the reverse: that card becomes
+ *    the primary at the same edge, and the old primary takes its place.
  *  - Any other move reorders the standard cards around the pinned primary, across
  *    the row-1/row-2 boundary.
  */
@@ -460,7 +461,6 @@ export function moveHelpCard(
   const entries = normalizeHelpCardLayout(layout, options);
   const primaryId = helpCardPrimaryId(entries, options);
   if (!activeId || !overId || activeId === overId) return entries;
-  if (activeId === primaryId) return entries;
 
   const side = helpCardSide(entries, options);
   const visual = entries.map((entry) => entry.id);
@@ -469,6 +469,12 @@ export function moveHelpCard(
   if (from < 0 || to < 0) return entries;
 
   const disabled = disabledIdsOf(entries);
+
+  // Dragged the PRIMARY onto another card → hand primary status to that card,
+  // keeping the same row-1 edge (the reverse of dropping a card on the primary).
+  if (activeId === primaryId) {
+    return arrangeHelpCards(visual, overId, side, disabled, options.columns);
+  }
 
   // Dropped on the primary slot → promote the dragged card, keeping the edge.
   if (overId === primaryId) {

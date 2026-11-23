@@ -56,14 +56,16 @@ describe("HelpCardLayoutEditor", () => {
     ).toHaveLength(HELP_CARD_ORDER.length);
   });
 
-  it("pins the primary (no drag handle) and lets the standards be reordered", () => {
+  it("gives every row a drag handle, the primary included", () => {
     render(<HelpCardLayoutEditor onChange={() => {}} />);
 
+    // The primary is draggable too: dropping it on another card hands over primary
+    // status, so its row carries the same handle as the standards.
     expect(
-      within(row("account-access")).queryByRole("button", {
+      within(row("account-access")).getByRole("button", {
         name: /Reorder/,
       }),
-    ).not.toBeInTheDocument();
+    ).toBeInTheDocument();
     expect(
       within(row("savings")).getByRole("button", { name: /Reorder/ }),
     ).toBeInTheDocument();

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { GET, POST, PUT } from "../route";
+import { GET, PATCH, POST, PUT } from "../route";
 
 /**
  * `/api/clients/[id]/topics` — the Quick Answers builder's read and write (TF-3).
@@ -17,6 +17,17 @@ const mocks = vi.hoisted(() => ({
   loadTopicBoard: vi.fn(),
   applyTopicBoard: vi.fn(),
   ensureLocationSeeded: vi.fn(),
+  placementFindFirst: vi.fn(),
+  placementUpdate: vi.fn(),
+}));
+
+vi.mock("@/lib/prisma", () => ({
+  default: {
+    topicPlacement: {
+      findFirst: mocks.placementFindFirst,
+      update: mocks.placementUpdate,
+    },
+  },
 }));
 
 vi.mock("@/lib/topics/builder-access.server", () => ({
@@ -51,7 +62,7 @@ function getRequest(query = "?location=retirement") {
   );
 }
 
-function writeRequest(method: "PUT" | "POST", body: unknown) {
+function writeRequest(method: "PUT" | "POST" | "PATCH", body: unknown) {
   return new NextRequest(new URL("/api/clients/plan-1/topics", "http://localhost"), {
     method,
     body: typeof body === "string" ? body : JSON.stringify(body),
@@ -71,6 +82,10 @@ function callPut(body: unknown) {
 
 function callPost(body: unknown) {
   return POST(writeRequest("POST", body), params);
+}
+
+function callPatch(body: unknown) {
+  return PATCH(writeRequest("PATCH", body), params);
 }
 
 beforeEach(() => {
@@ -233,6 +248,9 @@ describe("POST /api/clients/[id]/topics", () => {
     expect(mocks.ensureLocationSeeded).toHaveBeenCalledWith({
       clientId: "plan-1",
       category: "Retirement",
+      // The LOCATION travels too: Employee Resources has no Benefit category, so a
+      // category-only lookup could never resolve it.
+      location: "retirement",
     });
     expect(body.success).toBe(true);
     expect(body.board.location).toBe("retirement");
@@ -248,5 +266,84 @@ describe("POST /api/clients/[id]/topics", () => {
 
   it("rejects a missing location", async () => {
     expect((await callPost({})).status).toBe(400);
+  });
+});
+
+describe("PATCH /api/clients/[id]/topics", () => {
+  beforeEach(() => {
+    mocks.placementFindFirst.mockResolvedValue({ id: "pl-1", overrides: null });
+    mocks.placementUpdate.mockResolvedValue({});
+  });
+
+  it("rejects a missing location before checking access", async () => {
+    const response = await callPatch({ topicId: "topic-1" });
+
+    expect(response.status).toBe(400);
+    expect(mocks.resolveBuilderClient).not.toHaveBeenCalled();
+  });
+
+  it("requires a topicId", async () => {
+    const response = await callPatch({ location: "retirement" });
+
+    expect(response.status).toBe(400);
+  });
+
+  it("404s when the question is not on this page", async () => {
+    mocks.placementFindFirst.mockResolvedValue(null);
+
+    const response = await callPatch({
+      location: "retirement",
+      topicId: "topic-x",
+      overrides: { title: "Nope" },
+    });
+
+    expect(response.status).toBe(404);
+    expect(mocks.placementUpdate).not.toHaveBeenCalled();
+  });
+
+  it("merges the edited copy into the placement's overrides", async () => {
+    mocks.placementFindFirst.mockResolvedValue({
+      id: "pl-1",
+      overrides: { summary: "Keep me" },
+    });
+
+    const response = await callPatch({
+      location: "retirement",
+      topicId: "topic-1",
+      overrides: {
+        title: "My title",
+        bodyBlocks: [{ type: "quick_answer", text: "My answer" }],
+      },
+    });
+
+    expect(response.status).toBe(200);
+    expect(mocks.placementUpdate).toHaveBeenCalledWith({
+      where: { id: "pl-1" },
+      data: {
+        overrides: {
+          summary: "Keep me",
+          title: "My title",
+          bodyBlocks: [{ type: "quick_answer", text: "My answer" }],
+        },
+      },
+    });
+  });
+
+  it("removes a field when it is cleared", async () => {
+    mocks.placementFindFirst.mockResolvedValue({
+      id: "pl-1",
+      overrides: { title: "Old", summary: "Old summary" },
+    });
+
+    await callPatch({
+      location: "retirement",
+      topicId: "topic-1",
+      overrides: { title: null },
+    });
+
+    expect(mocks.placementUpdate).toHaveBeenCalledWith({
+      where: { id: "pl-1" },
+      data: { overrides: { summary: "Old summary" } },
+    });
   });
 });

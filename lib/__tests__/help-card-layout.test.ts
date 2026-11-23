@@ -372,12 +372,16 @@ describe("moveHelpCard", () => {
     expect(ids(moved)[2]).toBe("savings");
   });
 
-  it("ignores dragging the primary itself", () => {
+  it("hands over primary status when the primary is dragged onto a card", () => {
     const layout = defaultHelpCardLayout();
 
-    expect(ids(moveHelpCard(layout, "account-access", "savings"))).toEqual(
-      ids(layout),
-    );
+    const moved = moveHelpCard(layout, "account-access", "savings");
+
+    // The target takes the primary slot; the dragged primary becomes a standard.
+    expect(moved[0]).toEqual({ id: "savings", primary: true });
+    expect(moved[1]).toEqual({ id: "account-access" });
+    expect(moved.filter((entry) => entry.primary)).toHaveLength(1);
+    expect(helpCardSide(moved)).toBe("left");
   });
 
   it("promotes the card dropped on a LEFT-edge primary", () => {

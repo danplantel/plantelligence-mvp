@@ -25,10 +25,12 @@ import {
   demoteFeaturedCard,
   reorderFeaturedCards,
   restoreTopicBoard,
+  saveTopicText,
   scrollToQuickAnswersTopic,
   useTopicBoard,
   type BoardPayload,
 } from "@/components/wizard/benefits-steps/quick-answers-builder";
+import { overridesFromTextValues } from "@/lib/topics/text-overrides";
 import { HelpCardLayoutEditor } from "@/components/wizard/benefits-steps/help-card-layout-editor";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import { usePortalPublishAccess } from "@/components/portal-editing/portal-visibility-switch";
@@ -850,6 +852,27 @@ export function PortalEmployeeResourcesEditor() {
                 featuredCardCatalog ? moveCardToQuickAnswers : undefined
               }
               movingCardId={demotingCardId}
+              // This plan's Featured placements, so each row can edit its own text
+              // (title / card line / answer), saved per plan.
+              topics={boardPayload?.featured}
+              onSaveText={(topic, values) => {
+                if (!planId) return;
+                const overrides = overridesFromTextValues(topic, values);
+                if (Object.keys(overrides).length === 0) return;
+                void saveTopicText({
+                  planId,
+                  location: LOCATION,
+                  topicId: topic.topicId,
+                  overrides,
+                  onBoardChange: patchTopics,
+                }).catch((error: unknown) => {
+                  toast.error(
+                    error instanceof Error
+                      ? error.message
+                      : "Could not save that text.",
+                  );
+                });
+              }}
               onChange={handleLayoutChange}
             />
 

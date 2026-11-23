@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { GripVertical, Loader2, Star } from "lucide-react";
+import { GripVertical, Loader2, Pencil, Star } from "lucide-react";
 import { LayoutGroup, motion } from "framer-motion";
 import {
   DndContext,
@@ -26,7 +26,10 @@ import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { TopicTextEditDialog } from "./topic-text-edit-dialog";
 import type { HelpCardContent, HelpCardLayoutEntry } from "@/types/benefit";
+import type { TopicTextValues } from "@/lib/topics/text-overrides";
+import type { EffectiveTopic } from "@/types/topic";
 import {
   ACCOUNT_ACCESS_CARD_ID,
   fillHelpCardTokens,
@@ -105,6 +108,16 @@ interface HelpCardLayoutEditorProps {
   onMoveToQuickAnswers?: (cardId: string) => void;
   /** The card whose move is in flight: its button shows a spinner. */
   movingCardId?: string | null;
+  /**
+   * This plan's Featured placements, so a card row can offer "Edit text": each row
+   * edits the topic behind it (title / card line / answer), saved per plan.
+   */
+  topics?: EffectiveTopic[];
+  /** Save one card's edited text. Omitted hides the "Edit text" control. */
+  onSaveText?: (
+    topic: EffectiveTopic,
+    values: TopicTextValues,
+  ) => Promise<void> | void;
 }
 
 /** Column span → mini-mirror classes (a plain grid, so no breakpoint prefixes). */
@@ -292,6 +305,7 @@ function SortableHelpCardRow({
   moving = false,
   onMakePrimary,
   onToggleEnabled,
+  onEditText,
 }: {
   entry: HelpCardLayoutEntry;
   index: number;
@@ -320,6 +334,8 @@ function SortableHelpCardRow({
   moving?: boolean;
   onMakePrimary: (id: string) => void;
   onToggleEnabled: (id: string, enabled: boolean) => void;
+  /** Open the text editor for this card (omitted for the synthesised Access card). */
+  onEditText?: (id: string) => void;
 }) {
   const content = getHelpCardContent(entry.id, catalog);
   const title = fillHelpCardTokens(content?.title ?? entry.id, category);
@@ -335,12 +351,13 @@ function SortableHelpCardRow({
     /**
      * Only the DRAG is ever disabled — never the drop.
      *
-     * The primary must stay a drop target: dropping a standard card on it is what
-     * promotes that card (`moveHelpCard`). Turning `droppable` off here made every
-     * row invisible to collisions, so `over` was always null and a drop did
-     * nothing at all — the reason this list could not be reordered.
+     * Every row is draggable, the primary included: dragging the primary onto a
+     * card hands primary status to that card (`moveHelpCard`). Dropping a card ON
+     * the primary also promotes it, so the primary must stay a drop target —
+     * turning `droppable` off made every row invisible to collisions, so `over`
+     * was always null and a drop did nothing at all.
      */
-    disabled: isPrimary || !allowReorder ? { draggable: true } : false,
+    disabled: !allowReorder ? { draggable: true } : false,
   });
 
   return (
@@ -352,8 +369,10 @@ function SortableHelpCardRow({
         transform: CSS.Transform.toString(transform),
         transition,
       }}
+      // TWO ROWS: the card's identity on top, its actions beneath. The buttons
+      // share the bottom row and sit at its END.
       className={cn(
-        "flex items-center gap-2 rounded-lg border bg-white p-2.5 dark:bg-gray-800",
+        "flex flex-col gap-2 rounded-lg border bg-white p-2.5 dark:bg-gray-800",
         isPrimary
           ? "border-blue-300 ring-1 ring-blue-200 dark:border-blue-700 dark:ring-blue-900"
           : "border-muted",
@@ -361,91 +380,116 @@ function SortableHelpCardRow({
         isDragging && "z-10 opacity-70 shadow-lg",
       )}
     >
-      {/* Show/hide. Ticked by default, and the card keeps its slot while hidden,
-          so unticking is always reversible. On a plan driven by placements the
-          switch is absent: Quick Access is what adds and removes cards. */}
-      {showEnabledToggle && (
-        <Checkbox
-          checked={enabled}
-          onCheckedChange={(checked) =>
-            onToggleEnabled(entry.id, checked === true)
-          }
-          aria-label={`Show ${title} on the portal`}
-          data-testid={`help-card-enabled-${entry.id}`}
-        />
-      )}
+      {/* ── Row 1 — the card's identity ── */}
+      <div className="flex items-center gap-2">
+        {/* Show/hide. Ticked by default, and the card keeps its slot while hidden,
+            so unticking is always reversible. On a plan driven by placements the
+            switch is absent: Quick Access is what adds and removes cards. */}
+        {showEnabledToggle && (
+          <Checkbox
+            checked={enabled}
+            onCheckedChange={(checked) =>
+              onToggleEnabled(entry.id, checked === true)
+            }
+            aria-label={`Show ${title} on the portal`}
+            data-testid={`help-card-enabled-${entry.id}`}
+          />
+        )}
 
-      {/* The primary is pinned to a row-1 edge, so it has a lock instead of a
-          handle. With no reordering here (Quick Access owns the order) the handle
-          is left out entirely, so the row cannot look draggable when it is not. */}
-      {isPrimary || !allowReorder ? (
-        <span
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300"
-          title="Primary card — change its side below, or choose another card"
-        >
-          <Star className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true" />
-        </span>
-      ) : (
-        <button
-          type="button"
-          className="flex h-7 w-7 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted active:cursor-grabbing"
-          aria-label={`Reorder ${title}`}
-          {...attributes}
-          {...listeners}
-        >
-          <GripVertical className="h-4 w-4" aria-hidden="true" />
-        </button>
-      )}
+        {/* Every row carries a drag handle — the primary included, since dragging
+            it onto another card hands over primary status. When Quick Access owns
+            the order nothing is draggable, so a lock is shown instead. */}
+        {allowReorder ? (
+          <button
+            type="button"
+            className="flex h-7 w-7 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted active:cursor-grabbing"
+            aria-label={`Reorder ${title}`}
+            {...attributes}
+            {...listeners}
+          >
+            <GripVertical className="h-4 w-4" aria-hidden="true" />
+          </button>
+        ) : (
+          <span
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-300"
+            title="Card order is managed in Quick Access"
+          >
+            <Star className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true" />
+          </span>
+        )}
 
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-semibold text-foreground" title={title}>
-          {title}
-        </p>
-        <p className="text-[11px] text-muted-foreground">
-          {enabled
-            ? `Row ${row} · ${span}/${columns} wide`
-            : `Hidden · ${span}/${columns} wide`}
-          {isPrimary ? " · Primary" : ""}
-        </p>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[13px] font-semibold text-foreground" title={title}>
+            {title}
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            {enabled
+              ? `Row ${row} · ${span}/${columns} wide`
+              : `Hidden · ${span}/${columns} wide`}
+            {isPrimary ? " · Primary" : ""}
+          </p>
+        </div>
+
+        {/* The Primary label sits at the END of the identity row. */}
+        {isPrimary && (
+          <span className="ml-auto shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+            Primary
+          </span>
+        )}
       </div>
 
-      {/* The builder's own demote action, offered here too. Account Access is
-          synthesised from the catalog and is not a placement, so it has no row
-          to move and the button is left out for it. */}
-      {onMoveToQuickAnswers && entry.id !== ACCOUNT_ACCESS_CARD_ID && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="shrink-0 text-[11px]"
-          disabled={moving}
-          onClick={() => onMoveToQuickAnswers(entry.id)}
-        >
-          {moving && (
-            <Loader2
-              className="mr-1 h-3.5 w-3.5 animate-spin"
-              aria-hidden="true"
-            />
-          )}
-          Move to Quick Answers
-        </Button>
-      )}
+      {/* ── Row 2 — the card's actions, justified to the end of the row ── */}
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {/* Edit this card's copy — title, card line and answer — scoped to this plan.
+            Only a real placement has something to edit; the synthesised Account
+            Access card has no topic behind it. */}
+        {onEditText && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0 text-[11px]"
+            onClick={() => onEditText(entry.id)}
+          >
+            <Pencil className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
+            Edit text
+          </Button>
+        )}
 
-      {isPrimary ? (
-        <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.08em] text-blue-700 dark:bg-blue-950 dark:text-blue-300">
-          Primary
-        </span>
-      ) : (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="shrink-0 text-[11px]"
-          onClick={() => onMakePrimary(entry.id)}
-        >
-          Make primary
-        </Button>
-      )}
+        {/* The builder's own demote action, offered here too. Account Access is
+            synthesised from the catalog and is not a placement, so it has no row
+            to move and the button is left out for it. */}
+        {onMoveToQuickAnswers && entry.id !== ACCOUNT_ACCESS_CARD_ID && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0 text-[11px]"
+            disabled={moving}
+            onClick={() => onMoveToQuickAnswers(entry.id)}
+          >
+            {moving && (
+              <Loader2
+                className="mr-1 h-3.5 w-3.5 animate-spin"
+                aria-hidden="true"
+              />
+            )}
+            Move to Quick Answers
+          </Button>
+        )}
+
+        {!isPrimary && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="shrink-0 text-[11px]"
+            onClick={() => onMakePrimary(entry.id)}
+          >
+            Make primary
+          </Button>
+        )}
+      </div>
     </div>
   );
 }
@@ -477,7 +521,28 @@ export function HelpCardLayoutEditor({
   onColumnsChange,
   onMoveToQuickAnswers,
   movingCardId,
+  topics,
+  onSaveText,
 }: HelpCardLayoutEditorProps) {
+  /**
+   * The topic behind each card row, keyed by the layout id (slug without `sys.`).
+   * Empty when the host has not supplied the placements, which simply hides "Edit
+   * text" rather than editing a card that is not there.
+   */
+  const topicByCardId = useMemo(() => {
+    const map = new Map<string, EffectiveTopic>();
+    for (const topic of topics ?? []) {
+      map.set(topic.slug.replace(/^sys\./, ""), topic);
+    }
+    return map;
+  }, [topics]);
+  const [editingTopic, setEditingTopic] = useState<EffectiveTopic | null>(null);
+  const beginEditText = onSaveText
+    ? (id: string) => {
+        const topic = topicByCardId.get(id);
+        if (topic) setEditingTopic(topic);
+      }
+    : undefined;
   /** 3 or 4 cards per row — anything else in storage falls back to 3. */
   const columns = useMemo(
     () => normalizeHelpCardColumns(columnsProp),
@@ -786,6 +851,11 @@ export function HelpCardLayoutEditor({
                 columns={columns}
                 onMoveToQuickAnswers={onMoveToQuickAnswers}
                 moving={movingCardId === entry.id}
+                onEditText={
+                  beginEditText && topicByCardId.has(entry.id)
+                    ? beginEditText
+                    : undefined
+                }
                 onMakePrimary={(id) =>
                   onChange(setHelpCardPrimary(layout, id, { catalog, columns }))
                 }
@@ -804,6 +874,19 @@ export function HelpCardLayoutEditor({
           </div>
         </SortableContext>
       </DndContext>
+
+      {onSaveText && (
+        <TopicTextEditDialog
+          topic={editingTopic}
+          open={editingTopic !== null}
+          onOpenChange={(open) => {
+            if (!open) setEditingTopic(null);
+          }}
+          onSave={(values) =>
+            editingTopic ? onSaveText(editingTopic, values) : undefined
+          }
+        />
+      )}
     </div>
   );
 }

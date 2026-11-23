@@ -10,10 +10,12 @@ import {
   demoteFeaturedCard,
   reorderFeaturedCards,
   restoreTopicBoard,
+  saveTopicText,
   scrollToQuickAnswersTopic,
   useTopicBoard,
   type BoardPayload,
 } from "./quick-answers-builder";
+import { overridesFromTextValues } from "@/lib/topics/text-overrides";
 import { UNGROUPED_TOPIC_GROUP_ID } from "@/lib/topics/ungrouped";
 import type { HelpCardContent, HelpCardLayoutEntry } from "@/types/benefit";
 import {
@@ -2671,6 +2673,28 @@ export function BenefitsEditorPanel({
               }
               // The card being written: its button spins until the save settles.
               movingCardId={demotingCardId}
+              // This plan's Featured placements, so each row can edit its own text
+              // (title / card line / answer), saved per plan.
+              topics={featuredSource?.featured}
+              onSaveText={(topic, values) => {
+                if (!step1Data.planId || !quickAnswersLocation) return;
+                const overrides = overridesFromTextValues(topic, values);
+                if (Object.keys(overrides).length === 0) return;
+                void saveTopicText({
+                  planId: step1Data.planId,
+                  location: quickAnswersLocation,
+                  topicId: topic.topicId,
+                  overrides,
+                  onBoardChange: handleTopicsBoardChange,
+                  onSaved: () => onTopicsSaved?.(),
+                }).catch((error: unknown) => {
+                  toast.error(
+                    error instanceof Error
+                      ? error.message
+                      : "Could not save that text.",
+                  );
+                });
+              }}
               onChange={(helpCards) => {
                 saveStepData(1, { ...step1Data, helpCards } as any);
 
