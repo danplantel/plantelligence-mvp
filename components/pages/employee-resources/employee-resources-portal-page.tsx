@@ -7,12 +7,14 @@ import { useClientPortal } from "@/contexts/client-portal-context";
 import { NewsEventsHeader } from "@/components/pages/client-portal/sections/news-events-header";
 import {
   HowCanWeHelpSection,
+  formatPlanGroupIdLabel,
 } from "@/components/pages/client-portal/sections/how-can-we-help-section";
 import { QuickAnswersSection } from "@/components/pages/client-portal/sections/quick-answers-section";
 import { HaveQuestions } from "@/components/pages/client-portal/sections/have-questions";
 import { PortalSectionEditButton } from "@/components/portal-editing/portal-section-edit-button";
 import { useOptionalPortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import { buildFaqSupportContacts } from "@/lib/faq-support-contacts";
+import { readEmployeeResourcesHelp } from "@/lib/employee-resources-help";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { EMPLOYEE_RESOURCES_DEFAULT_BG } from "@/lib/portal-category-hero-background";
 import { portalEditAnchor } from "@/lib/portal-editor-sections";
@@ -186,6 +188,15 @@ export function EmployeeResourcesPortalPage({
     [clientData?.keyContacts],
   );
 
+  // "How Can We Help You Today?" — the Account Access card and the card layout this
+  // hub keeps in `employeePortalPreview.employeeResourcesHelp` (see
+  // lib/employee-resources-help.ts). A benefit stores the same values on its Benefit
+  // row; the fifth hub has no row, so they ride the plan's preview blob instead.
+  const helpSettings = useMemo(
+    () => readEmployeeResourcesHelp(clientData),
+    [clientData],
+  );
+
   if (error) {
     return <HubNotice brandColor={brandColor} />;
   }
@@ -252,6 +263,20 @@ export function EmployeeResourcesPortalPage({
             category={CATEGORY}
             topics={topics?.featured}
             actionHubPanels={topics?.actionHubPanels}
+            // The Account Access card and the card layout arranged in the Editing
+            // Panel. Empty values fall back to the section's own defaults (the
+            // plan-level preview, then the catalog), exactly as a benefit hub does.
+            provider={helpSettings.providerContact}
+            planIdLabel={
+              formatPlanGroupIdLabel(helpSettings.insurancePlanId) || undefined
+            }
+            accountAccessHref={helpSettings.insuranceLoginUrl || undefined}
+            cards={
+              helpSettings.helpCards.length > 0
+                ? helpSettings.helpCards
+                : undefined
+            }
+            helpCardColumns={helpSettings.helpCardColumns}
           />
           <PortalSectionEditButton
             sectionId={portalEditAnchor.employeeResourcesHelp}
@@ -267,6 +292,13 @@ export function EmployeeResourcesPortalPage({
             secondaryColor={secondaryColor}
             basePath={`/${clientId}`}
             actionHubPanels={topics?.actionHubPanels}
+            // Per-plan values a topic's copy / CTA may name — the same Account Access
+            // fields the Editing Panel writes, exactly as a benefit hub passes them.
+            recordkeeperUrl={helpSettings.insuranceLoginUrl || undefined}
+            recordkeeperName={
+              helpSettings.providerContact?.companyName || undefined
+            }
+            planSponsorName={clientData?.companyName}
           />
           <PortalSectionEditButton
             sectionId={portalEditAnchor.employeeResourcesQuickAnswers}

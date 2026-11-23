@@ -3,6 +3,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  MOVEMENT_TOAST_DURATION,
   QuickAnswersBuilder,
   demoteFeaturedCard,
   reorderFeaturedCards,
@@ -224,6 +225,9 @@ describe("QuickAnswersBuilder — counters and confirmations", () => {
       "Featured One moved to Quick Answers",
       {
         description: "It now sits in Saving & Contributions.",
+        // Movement confirmations stay up twice as long and offer Undo as well.
+        duration: MOVEMENT_TOAST_DURATION,
+        cancel: { label: "Undo", onClick: expect.any(Function) },
         // The confirmation doubles as a jump link to the card's new row.
         action: { label: "View", onClick: expect.any(Function) },
       },

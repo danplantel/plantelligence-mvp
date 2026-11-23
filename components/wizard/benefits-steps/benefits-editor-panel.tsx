@@ -4,10 +4,12 @@ import React, { useRef, useEffect, useMemo, useState } from "react";
 import { useBenefitsWizardStore } from "@/lib/benefits-wizard-store";
 import { HelpCardLayoutEditor } from "./help-card-layout-editor";
 import {
+  MOVEMENT_TOAST_DURATION,
   QuickAnswersBuilder,
   QuickAnswersDestinationDialog,
   demoteFeaturedCard,
   reorderFeaturedCards,
+  restoreTopicBoard,
   scrollToQuickAnswersTopic,
   useTopicBoard,
   type BoardPayload,
@@ -554,7 +556,9 @@ export function BenefitsEditorPanel({
     const board = featuredSource;
     const pending = pendingDemotion;
     setPendingDemotion(null);
-    if (!board || !pending || !step1Data.planId || !quickAnswersLocation) {
+    const planId = step1Data.planId;
+    const location = quickAnswersLocation;
+    if (!board || !pending || !planId || !location) {
       return;
     }
     const groupName =
@@ -569,6 +573,28 @@ export function BenefitsEditorPanel({
     // confirmation fires NOW — waiting for the round trip read as a late toast.
     toast.success(`${pending.title} moved to Quick Answers`, {
       description: `It now sits in ${groupName}.`,
+      // Movement confirmations stay up twice as long — they carry two actions.
+      duration: MOVEMENT_TOAST_DURATION,
+      // Undo re-sends the board exactly as it was before this move.
+      cancel: {
+        label: "Undo",
+        onClick: () => {
+          void restoreTopicBoard({
+            planId,
+            location,
+            board,
+            onBoardChange: handleTopicsBoardChange,
+          })
+            .then(() => onTopicsSaved?.())
+            .catch((error: unknown) => {
+              toast.error(
+                error instanceof Error
+                  ? error.message
+                  : "Could not undo that move.",
+              );
+            });
+        },
+      },
       // Jump the panel down to the row the card now occupies in Quick Answers.
       action: {
         label: "View",
@@ -579,8 +605,8 @@ export function BenefitsEditorPanel({
     });
 
     void demoteFeaturedCard({
-      planId: step1Data.planId,
-      location: quickAnswersLocation,
+      planId,
+      location,
       board,
       topicId: pending.topicId,
       groupId,

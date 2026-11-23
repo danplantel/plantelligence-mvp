@@ -73,7 +73,9 @@ vi.mock("@/lib/branding-r2", () => ({
 }));
 
 // The placement board is the shared builder; stubbed so this suite covers the
-// panel's own wiring and the two modes it mounts.
+// panel's own wiring and the modes it mounts. The Card Layout reads the same board
+// through `useTopicBoard`, and "Move to Quick Answers" goes through the builder's
+// own demote/reorder writes — all stubbed here.
 vi.mock("@/components/wizard/benefits-steps/quick-answers-builder", () => ({
   QuickAnswersBuilder: ({
     planId,
@@ -89,6 +91,33 @@ vi.mock("@/components/wizard/benefits-steps/quick-answers-builder", () => ({
       data-plan={planId}
       data-location={location}
       data-mode={mode ?? "full"}
+    />
+  ),
+  QuickAnswersDestinationDialog: () => (
+    <div data-testid="quick-answers-destination" />
+  ),
+  useTopicBoard: () => ({ data: undefined, key: null }),
+  demoteFeaturedCard: vi.fn(async () => {}),
+  reorderFeaturedCards: vi.fn(async () => {}),
+  restoreTopicBoard: vi.fn(async () => {}),
+  scrollToQuickAnswersTopic: vi.fn(() => true),
+  MOVEMENT_TOAST_DURATION: 8000,
+}));
+
+// The Card Layout control is the shared dnd-kit list; stubbed here so this suite
+// covers the panel wiring (the Account Access switch, drafts and the plan PUT).
+vi.mock("@/components/wizard/benefits-steps/help-card-layout-editor", () => ({
+  HelpCardLayoutEditor: ({
+    catalog,
+    showEnabledToggle,
+  }: {
+    catalog?: unknown[];
+    showEnabledToggle?: boolean;
+  }) => (
+    <div
+      data-testid="help-card-layout-editor"
+      data-catalog={String(Boolean(catalog && catalog.length > 0))}
+      data-enabled-toggle={String(showEnabledToggle !== false)}
     />
   ),
 }));
@@ -171,21 +200,31 @@ describe("PortalEmployeeResourcesEditor hero background", () => {
     // The live page is beside the panel, so no header mock-up.
     expect(slot.dataset.preview).toBe("false");
 
-    // Section 2 is "How Can We Help You Today?" (the Featured cards) and
-    // Section 3 is "Quick Answers" — the same board, split in half.
+    // Section 3 is "How Can We Help You Today?" — the SAME structure a Benefit Hub
+    // shows: the Account Access switch first, its fields, then the Card Layout.
+    expect(
+      screen.getByTestId("employee-resources-account-access-visible"),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Show the Account Access card")).toBeInTheDocument();
+    expect(
+      screen.getByTestId("help-card-layout-editor"),
+    ).toBeInTheDocument();
+    // With no placements loaded the layout falls back to the catalog, and the
+    // per-card show/hide switch is offered here too.
+    expect(
+      screen.getByTestId("help-card-layout-editor").dataset.catalog,
+    ).toBe("false");
+    expect(
+      screen.getByTestId("help-card-layout-editor").dataset.enabledToggle,
+    ).toBe("true");
+
+    // Section 4 is "Quick Answers" — the grouped questions half of the SAME board.
     const builders = screen.getAllByTestId("quick-answers-builder");
-    expect(builders.map((node) => node.dataset.mode)).toEqual([
-      "featured",
-      "answers",
-    ]);
+    expect(builders.map((node) => node.dataset.mode)).toEqual(["answers"]);
     expect(builders.map((node) => node.dataset.location)).toEqual([
       "employee_resources",
-      "employee_resources",
     ]);
-    expect(builders.map((node) => node.dataset.plan)).toEqual([
-      "plan-1",
-      "plan-1",
-    ]);
+    expect(builders.map((node) => node.dataset.plan)).toEqual(["plan-1"]);
   });
 
   it("previews the band through employeePortalPreview without writing", async () => {

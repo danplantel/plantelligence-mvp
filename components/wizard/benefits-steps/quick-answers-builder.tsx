@@ -41,6 +41,16 @@ import { TOPIC_LOCATION_LABELS } from "@/lib/topic-locations";
 import type { ActionHubLink, EffectiveTopic, TopicLocation } from "@/types/topic";
 
 /**
+ * How long a "moved between Featured and Quick Answers" confirmation stays on
+ * screen.
+ *
+ * Sonner's default is 4s. These confirmations now carry a View and an Undo action,
+ * so they are kept up for twice as long — long enough to read the result AND reach
+ * for Undo before it disappears. Shared by every panel that fires the toast.
+ */
+export const MOVEMENT_TOAST_DURATION = 8000;
+
+/**
  * "Get Quick Answers" — the builder for one location's question list (TF-3).
  *
  * This is the admin half of the section participants see below the Featured cards. It
@@ -487,6 +497,29 @@ export async function demoteFeaturedCard(params: {
 }
 
 /**
+ * Put a board back exactly as it was — the "Undo" half of a Featured ↔ Quick Answers
+ * move made from a Card Layout (the builder's OWN confirmations undo through
+ * `persist`, which lives inside the component, so they need no helper).
+ *
+ * It writes through the same optimistic cache and `PUT` as every other move, so the
+ * page beside the panel re-orders in the same frame as the panel's own list.
+ */
+export async function restoreTopicBoard(params: {
+  planId: string;
+  location: TopicLocation;
+  board: BoardPayload;
+  onBoardChange?: (board: BoardPayload) => void;
+}): Promise<void> {
+  await putBoard({
+    planId: params.planId,
+    location: params.location,
+    nextBoard: params.board,
+    errorMessage: "Could not undo that move.",
+    onBoardChange: params.onBoardChange,
+  });
+}
+
+/**
  * One group, draggable by its handle.
  *
  * Top-level (not declared inside the builder) on purpose: `useSortable` must keep the
@@ -920,6 +953,16 @@ export function QuickAnswersBuilder({
       const { topicId, featuredCardId } = notice;
       toast.success(notice.title, {
         description: notice.description,
+        // Movement confirmations stay up twice as long — they carry two actions.
+        duration: MOVEMENT_TOAST_DURATION,
+        // Undo re-sends the board exactly as it was before this move, through the
+        // same serialized save queue (a silent write — no second toast).
+        cancel: {
+          label: "Undo",
+          onClick: () => {
+            if (previous) persist(previous);
+          },
+        },
         // The card has already landed in its new half — hand the reader a link
         // that scrolls the panel to the row it now occupies: Section 6's Card
         // Layout row for a promotion, this builder's own row for a demotion.
