@@ -118,6 +118,8 @@ interface HelpCardLayoutEditorProps {
     topic: EffectiveTopic,
     values: TopicTextValues,
   ) => Promise<void> | void;
+  /** Live-preview a card's edited text (title/card line/answer/steps). */
+  onPreviewText?: (topic: EffectiveTopic, values: TopicTextValues) => void;
 }
 
 /** Column span → mini-mirror classes (a plain grid, so no breakpoint prefixes). */
@@ -523,6 +525,7 @@ export function HelpCardLayoutEditor({
   movingCardId,
   topics,
   onSaveText,
+  onPreviewText,
 }: HelpCardLayoutEditorProps) {
   /**
    * The topic behind each card row, keyed by the layout id (slug without `sys.`).
@@ -885,6 +888,11 @@ export function HelpCardLayoutEditor({
           onSave={(values) =>
             editingTopic ? onSaveText(editingTopic, values) : undefined
           }
+          onPreview={(values) => {
+            if (editingTopic && onPreviewText) {
+              onPreviewText(editingTopic, values);
+            }
+          }}
         />
       )}
     </div>

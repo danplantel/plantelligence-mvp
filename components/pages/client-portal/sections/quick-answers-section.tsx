@@ -373,11 +373,25 @@ function TopicAnswer({
             key={`steps-${index}`}
             className="list-decimal space-y-1 pl-5 font-red-hat text-[15px] leading-relaxed text-neutral-700 marker:font-semibold"
           >
-            {block.steps.map((step, stepIndex) => (
-              <li key={stepIndex}>
-                <LinkedText text={fillTokens(step)} color={brandColor} />
-              </li>
-            ))}
+            {/* Steps animate INWARD when they are created (and back out when a
+                step is removed) — live while the advisor edits them. `initial={false}`
+                keeps the first participant paint static. */}
+            {/* `mode="popLayout"` pops a removed step out of the list flow the
+                instant it leaves, so the remaining steps close up immediately. */}
+            <AnimatePresence initial={false} mode="popLayout">
+              {block.steps.map((step, stepIndex) => (
+                <motion.li
+                  key={stepIndex}
+                  layout
+                  initial={{ opacity: 0, scale: 0.92 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.92 }}
+                  transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <LinkedText text={fillTokens(step)} color={brandColor} />
+                </motion.li>
+              ))}
+            </AnimatePresence>
           </ol>
         );
       })}

@@ -15,7 +15,11 @@ import {
   useTopicBoard,
   type BoardPayload,
 } from "./quick-answers-builder";
-import { overridesFromTextValues } from "@/lib/topics/text-overrides";
+import {
+  overridesFromTextValues,
+  previewTopicFromValues,
+  replaceTopicInBoard,
+} from "@/lib/topics/text-overrides";
 import { UNGROUPED_TOPIC_GROUP_ID } from "@/lib/topics/ungrouped";
 import type { HelpCardContent, HelpCardLayoutEntry } from "@/types/benefit";
 import {
@@ -2676,24 +2680,42 @@ export function BenefitsEditorPanel({
               // This plan's Featured placements, so each row can edit its own text
               // (title / card line / answer), saved per plan.
               topics={featuredSource?.featured}
-              onSaveText={(topic, values) => {
+              // AWAIT the write: the dialog must not close until the cache holds the
+              // saved copy, or reopening it within the round trip shows the old text.
+              onSaveText={async (topic, values) => {
                 if (!step1Data.planId || !quickAnswersLocation) return;
                 const overrides = overridesFromTextValues(topic, values);
                 if (Object.keys(overrides).length === 0) return;
-                void saveTopicText({
-                  planId: step1Data.planId,
-                  location: quickAnswersLocation,
-                  topicId: topic.topicId,
-                  overrides,
-                  onBoardChange: handleTopicsBoardChange,
-                  onSaved: () => onTopicsSaved?.(),
-                }).catch((error: unknown) => {
+                try {
+                  await saveTopicText({
+                    planId: step1Data.planId,
+                    location: quickAnswersLocation,
+                    topicId: topic.topicId,
+                    overrides,
+                    onBoardChange: handleTopicsBoardChange,
+                    onSaved: () => onTopicsSaved?.(),
+                  });
+                } catch (error: unknown) {
                   toast.error(
                     error instanceof Error
                       ? error.message
                       : "Could not save that text.",
                   );
-                });
+                  // Re-throw so the dialog stays open and the edit is not lost.
+                  throw error;
+                }
+              }}
+              // Live preview while the text editor is open: an added/removed step
+              // (or any text change) reaches the page beside the panel at once.
+              onPreviewText={(topic, values) => {
+                const board = featuredSource;
+                if (!board) return;
+                handleTopicsBoardChange(
+                  replaceTopicInBoard(
+                    board,
+                    previewTopicFromValues(topic, values),
+                  ),
+                );
               }}
               onChange={(helpCards) => {
                 saveStepData(1, { ...step1Data, helpCards } as any);

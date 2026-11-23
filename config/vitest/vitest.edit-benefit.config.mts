@@ -34,6 +34,11 @@ const editBenefitTests = [
   "components/wizard/benefits-steps/__tests__/help-card-layout-editor.test.tsx",
   // The Quick Answers board: a hidden topic assigned to a section stays there
   "components/wizard/benefits-steps/__tests__/quick-answers-builder.test.tsx",
+  // "Edit card text": a saved title/step is shown when the dialog is reopened
+  "components/wizard/benefits-steps/__tests__/topic-text-edit-dialog.test.tsx",
+  // The same editor reached from a Card Layout row: Save awaits the write, so a
+  // quick reopen never shows the old copy
+  "components/wizard/benefits-steps/__tests__/help-card-layout-text.test.tsx",
   // Library slugs ("Add from the library") become real Topic ids before the write
   "lib/topics/__tests__/board-server.test.ts",
   // The assistant's plan read: two queries, published locations only, hidden slugs

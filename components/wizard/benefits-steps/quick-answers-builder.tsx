@@ -40,6 +40,8 @@ import { cn } from "@/lib/utils";
 import { TOPIC_LOCATION_LABELS } from "@/lib/topic-locations";
 import {
   overridesFromTextValues,
+  previewTopicFromValues,
+  replaceTopicInBoard,
   type TopicTextOverrides,
   type TopicTextValues,
 } from "@/lib/topics/text-overrides";
@@ -2085,6 +2087,25 @@ export function QuickAnswersBuilder({
           if (!open) setEditingTopic(null);
         }}
         onSave={saveEditingText}
+        // Live-preview the draft: the page beside the panel reflects an added or
+        // removed step (and any text change) before it is saved.
+        onPreview={(values) => {
+          const board = data?.board;
+          if (!editingTopic || !board) return;
+          const nextBoard = replaceTopicInBoard(
+            board,
+            previewTopicFromValues(editingTopic, values),
+          );
+          if (key) {
+            void globalMutate(
+              key,
+              (current: TopicsResponse | undefined) =>
+                current ? { ...current, board: nextBoard } : current,
+              { revalidate: false },
+            );
+          }
+          onBoardChange?.(nextBoard);
+        }}
       />
     </div>
   );

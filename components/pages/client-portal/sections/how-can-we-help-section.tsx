@@ -2,7 +2,7 @@
 
 import { Fragment, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { LayoutGroup, motion } from "framer-motion";
+import { AnimatePresence, LayoutGroup, motion } from "framer-motion";
 import {
   ArrowRight,
   ChevronDown,
@@ -1059,24 +1059,41 @@ function HelpCardPanel({
               data-testid="help-card-steps"
               className="mt-4 grid gap-2 sm:grid-cols-2"
             >
-              {steps.map((step, index) => (
-                <li
-                  key={index}
-                  // The same hover the old Rollovers option tiles carried — a
-                  // small lift, a darker border and a soft shadow.
-                  className="flex min-h-[84px] flex-col justify-between gap-2 rounded-xl border border-neutral-200 bg-white p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-sm"
-                >
-                  <span className="font-red-hat text-[13px] leading-snug text-neutral-700">
-                    {step}
-                  </span>
-                  <span
-                    className="self-end font-dm-serif text-[24px] font-semibold leading-none tabular-nums"
-                    style={{ color: brandColor }}
+              {/* Steps animate INWARD when they are created (and back out when a
+                  step is removed) — this is what the advisor sees live while adding
+                  steps in the editor. `initial={false}` keeps the first participant
+                  paint static: existing steps do not assemble themselves on load. */}
+              {/* `mode="popLayout"` pops a removed step out of the grid flow the
+                  instant it leaves, so the remaining tiles close up immediately
+                  (without it, the exit held its slot and the delete looked late). */}
+              <AnimatePresence initial={false} mode="popLayout">
+                {steps.map((step, index) => (
+                  <motion.li
+                    key={index}
+                    layout
+                    initial={{ opacity: 0, scale: 0.92 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.92 }}
+                    transition={{
+                      duration: 0.2,
+                      ease: [0.22, 1, 0.36, 1],
+                    }}
+                    // The same hover the old Rollovers option tiles carried — a
+                    // small lift, a darker border and a soft shadow.
+                    className="flex min-h-[84px] flex-col justify-between gap-2 rounded-xl border border-neutral-200 bg-white p-3 text-left transition-all duration-200 hover:-translate-y-0.5 hover:border-neutral-300 hover:shadow-sm"
                   >
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                </li>
-              ))}
+                    <span className="font-red-hat text-[13px] leading-snug text-neutral-700">
+                      {step}
+                    </span>
+                    <span
+                      className="self-end font-dm-serif text-[24px] font-semibold leading-none tabular-nums"
+                      style={{ color: brandColor }}
+                    >
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                  </motion.li>
+                ))}
+              </AnimatePresence>
             </ol>
           )}
 
