@@ -859,6 +859,7 @@ export function PortalEmployeeResourcesEditor() {
               // This plan's Featured placements, so each row can edit its own text
               // (title / card line / answer), saved per plan.
               topics={boardPayload?.featured}
+              media={topicBoard.data?.media}
               // AWAIT the write: the dialog must not close until the cache holds the
               // saved copy, or reopening it within the round trip shows the old text.
               onSaveText={async (topic, values) => {

@@ -80,6 +80,42 @@ export type TopicBodyBlock =
   | { type: "cta"; cta: TopicCta };
 
 /**
+ * One document from the PLAN's own library, ready to attach to a topic.
+ *
+ * A topic stores only the document id; the title/URL are resolved from this library
+ * so a re-uploaded or renamed document still reads correctly wherever it is attached.
+ */
+export interface PlanMediaDocument {
+  id: string;
+  title: string;
+  description?: string;
+  /** Where the participant opens it (the plan's document viewer). */
+  url: string;
+  fileName?: string;
+}
+
+/** One video from the PLAN's own library, ready to attach to a topic. */
+export interface PlanMediaVideo {
+  id: string;
+  title: string;
+  description?: string;
+  videoUrl: string;
+  thumbnail?: string;
+}
+
+/** The plan's attachable media: its documents and its videos. */
+export interface PlanMediaLibrary {
+  documents: PlanMediaDocument[];
+  videos: PlanMediaVideo[];
+}
+
+/** A library keyed by id, for resolving a topic's media ids at render time. */
+export interface PlanMediaMaps {
+  documents: Record<string, PlanMediaDocument>;
+  videos: Record<string, PlanMediaVideo>;
+}
+
+/**
  * A per-plan override of a topic's copy or CTA. Written to the PLACEMENT, never to
  * the Topic, which is what keeps one plan's edit from reaching another plan.
  */

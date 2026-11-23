@@ -21,6 +21,13 @@ export interface TopicTextValues {
   answer: string;
   /** The how-to steps under the answer, in order. */
   steps: string[];
+  /**
+   * The plan-document ids attached to this topic. Optional so a caller that only
+   * edits copy (and never touches media) leaves the existing attachments alone.
+   */
+  documentIds?: string[];
+  /** The plan-video ids attached to this topic. Optional for the same reason. */
+  videoIds?: string[];
 }
 
 /** A card's steps can never exceed this many. */
@@ -47,6 +54,38 @@ export function topicStepsOf(topic: EffectiveTopic): string[] {
     .slice(0, MAX_TOPIC_STEPS);
 }
 
+/** Every plan-document id this topic attaches, in block order, de-duplicated. */
+export function topicDocumentIdsOf(topic: EffectiveTopic): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const block of topic.bodyBlocks) {
+    if (block.type !== "documents") continue;
+    for (const raw of block.documentIds ?? []) {
+      const id = raw.trim();
+      if (id && !seen.has(id)) {
+        seen.add(id);
+        ids.push(id);
+      }
+    }
+  }
+  return ids;
+}
+
+/** Every plan-video id this topic attaches, in block order, de-duplicated. */
+export function topicVideoIdsOf(topic: EffectiveTopic): string[] {
+  const ids: string[] = [];
+  const seen = new Set<string>();
+  for (const block of topic.bodyBlocks) {
+    if (block.type !== "video" || !block.videoId) continue;
+    const id = block.videoId.trim();
+    if (id && !seen.has(id)) {
+      seen.add(id);
+      ids.push(id);
+    }
+  }
+  return ids;
+}
+
 /** The card's CURRENT copy, as the editor pre-fills it. */
 export function topicTextValuesOf(topic: EffectiveTopic): TopicTextValues {
   return {
@@ -54,6 +93,8 @@ export function topicTextValuesOf(topic: EffectiveTopic): TopicTextValues {
     summary: (topic.summary ?? "").trim(),
     answer: topicQuickAnswer(topic),
     steps: topicStepsOf(topic),
+    documentIds: topicDocumentIdsOf(topic),
+    videoIds: topicVideoIdsOf(topic),
   };
 }
 
@@ -74,7 +115,13 @@ export function previewTopicFromValues(
   const withAnswer = answer
     ? buildBodyBlocksWithAnswer(topic.bodyBlocks, answer)
     : topic.bodyBlocks.filter((block) => block.type !== "quick_answer");
-  const bodyBlocks = applyStepsToBodyBlocks(withAnswer, steps);
+  let bodyBlocks = applyStepsToBodyBlocks(withAnswer, steps);
+  if (values.documentIds !== undefined || values.videoIds !== undefined) {
+    bodyBlocks = applyMediaToBodyBlocks(bodyBlocks, {
+      documentIds: values.documentIds ?? topicDocumentIdsOf(topic),
+      videoIds: values.videoIds ?? topicVideoIdsOf(topic),
+    });
+  }
   const summary = values.summary.trim();
   return {
     ...topic,
@@ -154,6 +201,49 @@ export function applyStepsToBodyBlocks(
 }
 
 /**
+ * Replace the topic's media (documents + videos) with `documentIds`/`videoIds`,
+ * keeping every other block (answer, steps, CTA) in place.
+ *
+ * The block list keeps its shape: the new media blocks take the slot of the OLD
+ * media blocks, or are appended when the topic had none. One `video` block per
+ * video id, because the block carries a single id.
+ */
+export function applyMediaToBodyBlocks(
+  blocks: TopicBodyBlock[],
+  media: { documentIds?: string[]; videoIds?: string[] },
+): TopicBodyBlock[] {
+  const documentIds = [
+    ...new Set((media.documentIds ?? []).map((id) => id.trim()).filter(Boolean)),
+  ];
+  const videoIds = [
+    ...new Set((media.videoIds ?? []).map((id) => id.trim()).filter(Boolean)),
+  ];
+
+  const mediaBlocks: TopicBodyBlock[] = [];
+  if (documentIds.length > 0) {
+    mediaBlocks.push({ type: "documents", documentIds });
+  }
+  for (const videoId of videoIds) {
+    mediaBlocks.push({ type: "video", videoId });
+  }
+
+  const result: TopicBodyBlock[] = [];
+  let inserted = false;
+  for (const block of blocks) {
+    if (block.type === "documents" || block.type === "video") {
+      if (!inserted) {
+        result.push(...mediaBlocks);
+        inserted = true;
+      }
+      continue;
+    }
+    result.push(block);
+  }
+  if (!inserted) result.push(...mediaBlocks);
+  return result;
+}
+
+/**
  * The overrides to send for an edit — only the fields that actually changed, so
  * saving the title never freezes the answer against a later library copy pass.
  *
@@ -186,13 +276,31 @@ export function overridesFromTextValues(
   const stepsChanged =
     JSON.stringify(nextSteps) !== JSON.stringify(original.steps);
 
-  // The answer and the steps live in the same bodyBlocks array, so either edit
-  // rewrites the block list (preserving whatever else is there — resources, CTA).
-  if (answerChanged || stepsChanged) {
+  // Media is edited in the same dialog; only touch it when the caller supplied it.
+  const mediaProvided =
+    values.documentIds !== undefined || values.videoIds !== undefined;
+  const nextDocumentIds = values.documentIds ?? topicDocumentIdsOf(topic);
+  const nextVideoIds = values.videoIds ?? topicVideoIdsOf(topic);
+  const mediaChanged =
+    mediaProvided &&
+    (JSON.stringify(nextDocumentIds) !==
+      JSON.stringify(topicDocumentIdsOf(topic)) ||
+      JSON.stringify(nextVideoIds) !== JSON.stringify(topicVideoIdsOf(topic)));
+
+  // The answer, steps and media all live in the same bodyBlocks array, so any of
+  // them changing rewrites the block list (preserving whatever else is there — CTA,
+  // resources). Steps are re-applied so the list stays ordered answer → steps → media.
+  if (answerChanged || stepsChanged || mediaChanged) {
     const withAnswer = answerChanged
       ? buildBodyBlocksWithAnswer(topic.bodyBlocks, nextAnswer)
       : topic.bodyBlocks;
-    const nextBlocks = applyStepsToBodyBlocks(withAnswer, nextSteps);
+    let nextBlocks = applyStepsToBodyBlocks(withAnswer, nextSteps);
+    if (mediaProvided) {
+      nextBlocks = applyMediaToBodyBlocks(nextBlocks, {
+        documentIds: nextDocumentIds,
+        videoIds: nextVideoIds,
+      });
+    }
     overrides.bodyBlocks = nextBlocks.length > 0 ? nextBlocks : null;
   }
 

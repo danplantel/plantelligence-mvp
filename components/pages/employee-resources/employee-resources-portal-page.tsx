@@ -15,6 +15,7 @@ import { PortalSectionEditButton } from "@/components/portal-editing/portal-sect
 import { useOptionalPortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import { buildFaqSupportContacts } from "@/lib/faq-support-contacts";
 import { readEmployeeResourcesHelp } from "@/lib/employee-resources-help";
+import { usePlanMediaLibrary } from "@/hooks/usePlanMediaLibrary";
 import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { EMPLOYEE_RESOURCES_DEFAULT_BG } from "@/lib/portal-category-hero-background";
 import { portalEditAnchor } from "@/lib/portal-editor-sections";
@@ -88,6 +89,10 @@ export function EmployeeResourcesPortalPage({
 
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
+
+  // The plan's documents + videos, so a topic's attached media resolves in both
+  // question areas. Shared with the benefit hubs via the same SWR key.
+  const planMedia = usePlanMediaLibrary(clientId);
 
   // This hub's own header image, then the bundled default of its own — never the
   // plan's Page Image Header, which belongs to the interior benefit pages and to
@@ -262,6 +267,7 @@ export function EmployeeResourcesPortalPage({
             clientId={clientId}
             category={CATEGORY}
             topics={topics?.featured}
+            media={planMedia}
             actionHubPanels={topics?.actionHubPanels}
             // The Account Access card and the card layout arranged in the Editing
             // Panel. Empty values fall back to the section's own defaults (the
@@ -288,6 +294,7 @@ export function EmployeeResourcesPortalPage({
         <div className="relative">
           <QuickAnswersSection
             groups={topics?.groups ?? []}
+            media={planMedia}
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             basePath={`/${clientId}`}

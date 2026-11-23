@@ -111,7 +111,7 @@ describe("TopicTextEditDialog — save then reopen", () => {
 
     fireEvent.click(
       await screen.findByRole("button", {
-        name: "Edit text for Contribution limits",
+        name: "Edit Topic for Contribution limits",
       }),
     );
 
@@ -127,14 +127,14 @@ describe("TopicTextEditDialog — save then reopen", () => {
     await waitFor(() =>
       expect(
         screen.getByRole("button", {
-          name: "Edit text for New contribution limits",
+          name: "Edit Topic for New contribution limits",
         }),
       ).toBeInTheDocument(),
     );
 
     fireEvent.click(
       screen.getByRole("button", {
-        name: "Edit text for New contribution limits",
+        name: "Edit Topic for New contribution limits",
       }),
     );
     const reopened = (await screen.findByLabelText("Title")) as HTMLInputElement;
@@ -147,7 +147,7 @@ describe("TopicTextEditDialog — save then reopen", () => {
 
     fireEvent.click(
       await screen.findByRole("button", {
-        name: "Edit text for Financial Planning",
+        name: "Edit Topic for Financial Planning",
       }),
     );
 
@@ -161,7 +161,7 @@ describe("TopicTextEditDialog — save then reopen", () => {
     );
 
     fireEvent.click(
-      screen.getByRole("button", { name: "Edit text for Financial Planning" }),
+      screen.getByRole("button", { name: "Edit Topic for Financial Planning" }),
     );
     const reopened = (await screen.findByLabelText("Step 1")) as HTMLInputElement;
     expect(reopened.value).toBe("Set a SMART goal");

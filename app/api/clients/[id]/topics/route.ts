@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import prisma from "@/lib/prisma";
 import {
+  TOPIC_LOCATION_CATEGORY,
   isTopicLocation,
   topicLocationAccessCategory,
 } from "@/lib/topic-locations";
@@ -12,6 +13,7 @@ import {
   readTopicOverrides,
 } from "@/lib/topics/effective-topic";
 import { libraryTopicsForLocation } from "@/lib/topics/library";
+import { loadPlanMediaLibrary } from "@/lib/topics/media-library";
 import { ensureLocationSeeded } from "@/lib/topics/seed-plan-topics";
 import type {
   EffectiveTopic,
@@ -89,11 +91,26 @@ export async function GET(
 
   try {
     const board = await loadTopicBoard(access.clientId, location);
+    // The plan's own documents and videos, so a topic's "Edit text" dialog can
+    // attach them by id. Read here so BOTH card lists share one library. This is
+    // best-effort: a media read failure must never take the board down with it.
+    let media = { documents: [] as unknown[], videos: [] as unknown[] };
+    try {
+      // Scope the document picker to THIS benefit's category (Employee Resources
+      // has none, so it sees the whole plan library) — the same rule the hub's
+      // Documents tab uses, so a topic is never offered another benefit's files.
+      media = await loadPlanMediaLibrary(access.clientId, {
+        category: TOPIC_LOCATION_CATEGORY[location],
+      });
+    } catch (mediaError) {
+      console.error("[topics] media library read failed:", mediaError);
+    }
     return NextResponse.json({
       success: true,
       location,
       board,
       library: libraryFor(board),
+      media,
     });
   } catch (error) {
     console.error("[topics] board read failed:", error);

@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyMediaToBodyBlocks,
   applyStepsToBodyBlocks,
   buildBodyBlocksWithAnswer,
   overridesFromTextValues,
   previewTopicFromValues,
   replaceTopicInBoard,
+  topicDocumentIdsOf,
   topicStepsOf,
   topicTextValuesOf,
+  topicVideoIdsOf,
 } from "@/lib/topics/text-overrides";
 import type { EffectiveTopic } from "@/types/topic";
 
@@ -39,7 +42,23 @@ describe("topicTextValuesOf", () => {
       summary: "Borrow from your own balance.",
       answer: "You can borrow up to 50%.",
       steps: ["Log in", "Choose Loan"],
+      documentIds: [],
+      videoIds: [],
     });
+  });
+
+  it("reads the documents and videos attached to the topic", () => {
+    const values = topicTextValuesOf(
+      topic({
+        bodyBlocks: [
+          { type: "quick_answer", text: "You can borrow up to 50%." },
+          { type: "documents", documentIds: ["d-1", "d-2"] },
+          { type: "video", videoId: "v-1" },
+        ],
+      }),
+    );
+    expect(values.documentIds).toEqual(["d-1", "d-2"]);
+    expect(values.videoIds).toEqual(["v-1"]);
   });
 
   it("treats a missing summary/answer/steps as empty", () => {
@@ -49,6 +68,75 @@ describe("topicTextValuesOf", () => {
     expect(values.summary).toBe("");
     expect(values.answer).toBe("");
     expect(values.steps).toEqual([]);
+  });
+});
+
+describe("media", () => {
+  it("replaces attached documents and videos in place, preserving other blocks", () => {
+    expect(
+      applyMediaToBodyBlocks(
+        [
+          { type: "quick_answer", text: "Answer" },
+          { type: "steps", steps: ["a"] },
+          { type: "documents", documentIds: ["old"] },
+          { type: "video", videoId: "old-video" },
+        ],
+        { documentIds: ["d-1", "d-2"], videoIds: ["v-1"] },
+      ),
+    ).toEqual([
+      { type: "quick_answer", text: "Answer" },
+      { type: "steps", steps: ["a"] },
+      { type: "documents", documentIds: ["d-1", "d-2"] },
+      { type: "video", videoId: "v-1" },
+    ]);
+  });
+
+  it("reads and de-duplicates the attached ids", () => {
+    const withMedia = topic({
+      bodyBlocks: [
+        { type: "documents", documentIds: ["d-1", "d-1"] },
+        { type: "video", videoId: "v-1" },
+        { type: "video", videoId: "v-1" },
+      ],
+    });
+    expect(topicDocumentIdsOf(withMedia)).toEqual(["d-1"]);
+    expect(topicVideoIdsOf(withMedia)).toEqual(["v-1"]);
+  });
+
+  it("writes a bodyBlocks override when only the media changes", () => {
+    const overrides = overridesFromTextValues(
+      topic({
+        summary: undefined,
+        bodyBlocks: [{ type: "quick_answer", text: "Answer" }],
+      }),
+      {
+        title: "Can I take a loan?",
+        summary: "",
+        answer: "Answer",
+        steps: [],
+        documentIds: ["d-1"],
+        videoIds: ["v-1"],
+      },
+    );
+    expect(overrides.bodyBlocks).toEqual([
+      { type: "quick_answer", text: "Answer" },
+      { type: "documents", documentIds: ["d-1"] },
+      { type: "video", videoId: "v-1" },
+    ]);
+  });
+
+  it("leaves media alone when the caller does not supply it", () => {
+    const overrides = overridesFromTextValues(
+      topic({
+        bodyBlocks: [
+          { type: "quick_answer", text: "Answer" },
+          { type: "documents", documentIds: ["d-1"] },
+        ],
+      }),
+      { title: "A new title", summary: "Borrow from your own balance.", answer: "Answer", steps: [] },
+    );
+    expect(overrides.title).toBe("A new title");
+    expect(overrides.bodyBlocks).toBeUndefined();
   });
 });
 

@@ -31,6 +31,7 @@ import {
 import { mergePlanDocumentRows } from "@/lib/plan-client-documents-merge";
 import { sortDocumentRowsByCustomOrder } from "@/lib/documents/document-sort";
 import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
+import { usePlanMediaLibrary } from "@/hooks/usePlanMediaLibrary";
 import {
   benefitCategoryToDocumentHubLabel,
   mapMergedRowsToBenefitHubItems,
@@ -52,6 +53,10 @@ export default function HealthInsurancePage() {
 
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
+
+  // The plan's documents + videos, so a topic's attached media resolves in both
+  // question areas.
+  const planMedia = usePlanMediaLibrary(clientId);
 
   // Fetch benefit data from the new Benefit API
   // `withTopics=1`: placements are the hub's only source of questions now that the
@@ -265,6 +270,7 @@ export default function HealthInsurancePage() {
             planIdLabel={planGroupIdLabel || undefined}
             accountAccessHref={accountAccessHref}
             topics={topics?.featured}
+            media={planMedia}
             actionHubPanels={topics?.actionHubPanels}
             cards={(benefitData as any)?.helpCards ?? undefined}
             // 3 or 4 cards per row, chosen in the panel's Card Layout section.
@@ -282,6 +288,7 @@ export default function HealthInsurancePage() {
         <div className="relative">
           <QuickAnswersSection
             groups={topics?.groups ?? []}
+            media={planMedia}
             // Placeholder frame until this hub's placements arrive, so the section
             // does not materialise after the ones around it.
             loading={benefitLoading}

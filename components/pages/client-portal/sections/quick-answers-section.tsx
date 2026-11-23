@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   ChevronDown,
   ChevronRight,
+  FileText,
   PlayCircle,
   Search,
   User,
@@ -42,8 +43,25 @@ import { cn } from "@/lib/utils";
 import { participantCopy } from "@/lib/participant-copy";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ActionHubPanel } from "./action-hub-panel";
-import type { ActionHubRow, EffectiveTopic, TopicGroup } from "@/types/topic";
+import {
+  topicDocumentIdsOf,
+  topicVideoIdsOf,
+} from "@/lib/topics/text-overrides";
+import type {
+  ActionHubRow,
+  EffectiveTopic,
+  PlanMediaDocument,
+  PlanMediaMaps,
+  PlanMediaVideo,
+  TopicGroup,
+} from "@/types/topic";
 
 /**
  * "Get Quick Answers" — the second question area on a benefit hub (TF-2).
@@ -84,6 +102,11 @@ export interface QuickAnswersSectionProps {
    * slug has rows replaces its single CTA with the choice of benefits.
    */
   actionHubPanels?: Record<string, ActionHubRow[]> | null;
+  /**
+   * The plan's documents and videos, keyed by id, so a topic's attached media
+   * resolves to something a participant can open.
+   */
+  media?: PlanMediaMaps | null;
   /**
    * The benefit category. It resolves the key contact (and that person's booking
    * link) for a CTA whose destination is left to the advisor — "Book a Meeting".
@@ -313,6 +336,7 @@ function TopicAnswer({
   secondaryColor,
   basePath,
   actionHubRows,
+  media,
   advisorBookingUrl,
   recordkeeperUrl,
   fillTokens,
@@ -324,6 +348,8 @@ function TopicAnswer({
   basePath: string;
   /** TF-5: the other benefits this action applies to, when it is an Action Hub. */
   actionHubRows?: ActionHubRow[];
+  /** The plan's media, so this answer's attached documents/videos can be opened. */
+  media?: PlanMediaMaps | null;
   /**
    * The advisor's scheduling link. A CTA with no destination — "Book a Meeting" —
    * goes here; with none set it goes to the Have Questions band, where the
@@ -357,6 +383,16 @@ function TopicAnswer({
     advisorBookingUrl,
     recordkeeperUrl,
   });
+
+  // The video a media chip is currently playing, if any.
+  const [activeVideo, setActiveVideo] = useState<PlanMediaVideo | null>(null);
+  // The plan media this topic attaches, resolved to titles + URLs.
+  const attachedDocuments: PlanMediaDocument[] = topicDocumentIdsOf(topic)
+    .map((id) => media?.documents[id])
+    .filter((document): document is PlanMediaDocument => Boolean(document));
+  const attachedVideos: PlanMediaVideo[] = topicVideoIdsOf(topic)
+    .map((id) => media?.videos[id])
+    .filter((video): video is PlanMediaVideo => Boolean(video));
 
   return (
     <div className="space-y-3">
@@ -420,6 +456,36 @@ function TopicAnswer({
         </div>
       )}
 
+      {/* Documents & videos attached to this topic, resolved from THIS plan's
+          library. A document opens in a new tab; a video plays in a lightbox. */}
+      {(attachedDocuments.length > 0 || attachedVideos.length > 0) && (
+        <div data-testid="quick-answer-media" className="flex flex-wrap gap-2">
+          {attachedDocuments.map((document) => (
+            <a
+              key={`doc-${document.id}`}
+              href={document.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1 font-red-hat text-[12px] text-neutral-700 transition-colors hover:border-neutral-300 hover:text-neutral-900"
+            >
+              <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="max-w-[16rem] truncate">{document.title}</span>
+            </a>
+          ))}
+          {attachedVideos.map((video) => (
+            <button
+              key={`video-${video.id}`}
+              type="button"
+              onClick={() => setActiveVideo(video)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1 font-red-hat text-[12px] text-neutral-700 transition-colors hover:border-neutral-300 hover:text-neutral-900"
+            >
+              <PlayCircle className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="max-w-[16rem] truncate">{video.title}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* The Action Hub panel IS the CTA when there is a choice to make. With one
           row it collapses to a single button, so both cases land here. */}
       {hasActionHub ? (
@@ -456,6 +522,38 @@ function TopicAnswer({
           Applies to more than one benefit
         </p>
       )}
+
+      {/* Lightbox for an attached video — opened here so the reader keeps their place. */}
+      <Dialog
+        open={activeVideo !== null}
+        onOpenChange={(next) => {
+          if (!next) setActiveVideo(null);
+        }}
+      >
+        <DialogContent overlayClassName="z-[120]" className="z-[120] max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{activeVideo?.title ?? "Video"}</DialogTitle>
+          </DialogHeader>
+          {activeVideo && (
+            <div className="space-y-2">
+              <video
+                src={activeVideo.videoUrl}
+                controls
+                autoPlay
+                className="w-full rounded-lg bg-black"
+              />
+              <a
+                href={activeVideo.videoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block font-red-hat text-[12px] text-neutral-600 underline"
+              >
+                Open in a new tab
+              </a>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -466,6 +564,7 @@ export function QuickAnswersSection({
   secondaryColor = "#6B7280",
   basePath = "",
   actionHubPanels,
+  media,
   category,
   advisorBookingUrl,
   recordkeeperUrl,
@@ -854,6 +953,7 @@ export function QuickAnswersSection({
                   <div className="border-t border-neutral-200 px-4 py-3 sm:px-5">
                     <TopicAnswer
                       topic={topic}
+                      media={media}
                       brandColor={brandColor}
                       secondaryColor={secondaryColor}
                       basePath={basePath}
@@ -1178,6 +1278,7 @@ export function QuickAnswersSection({
             <div className="flex-1 overflow-y-auto px-4 py-4">
               <TopicAnswer
                 topic={mobileTopic}
+                media={media}
                 brandColor={brandColor}
                 secondaryColor={secondaryColor}
                 basePath={basePath}

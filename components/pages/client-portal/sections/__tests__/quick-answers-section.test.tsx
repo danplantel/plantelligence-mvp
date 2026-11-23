@@ -57,6 +57,54 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("QuickAnswersSection — attached media", () => {
+  it("renders attached documents as links and a video as a lightbox", async () => {
+    const user = userEvent.setup();
+    const mediaTopic = topic({
+      bodyBlocks: [
+        { type: "quick_answer", text: "You borrow and repay by payroll." },
+        { type: "documents", documentIds: ["doc-1"] },
+        { type: "video", videoId: "vid-1" },
+      ],
+    });
+
+    render(
+      <QuickAnswersSection
+        groups={[group({ topics: [mediaTopic] })]}
+        media={{
+          documents: {
+            "doc-1": {
+              id: "doc-1",
+              title: "Loan Policy",
+              url: "/api/documents/doc-1/view",
+            },
+          },
+          videos: {
+            "vid-1": {
+              id: "vid-1",
+              title: "How loans work",
+              videoUrl: "https://example.com/loans.mp4",
+            },
+          },
+        }}
+      />,
+    );
+
+    // Open the answer.
+    await user.click(screen.getByTestId("quick-answer-question"));
+
+    const docLink = await screen.findByRole("link", { name: /Loan Policy/ });
+    expect(docLink).toHaveAttribute("href", "/api/documents/doc-1/view");
+
+    // The video chip opens a lightbox holding the planned video.
+    await user.click(screen.getByRole("button", { name: /How loans work/ }));
+    const dialog = await screen.findByRole("dialog");
+    const player = dialog.querySelector("video");
+    expect(player).not.toBeNull();
+    expect(player?.getAttribute("src")).toBe("https://example.com/loans.mp4");
+  });
+});
+
 /**
  * Pretend the viewport is a phone. The section reads `matchMedia` to decide
  * between the in-place accordion (`md`+) and the full-screen answer sheet.

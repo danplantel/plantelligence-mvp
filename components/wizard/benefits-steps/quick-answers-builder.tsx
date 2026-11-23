@@ -46,7 +46,12 @@ import {
   type TopicTextValues,
 } from "@/lib/topics/text-overrides";
 import { TopicTextEditDialog } from "./topic-text-edit-dialog";
-import type { ActionHubLink, EffectiveTopic, TopicLocation } from "@/types/topic";
+import type {
+  ActionHubLink,
+  EffectiveTopic,
+  PlanMediaLibrary,
+  TopicLocation,
+} from "@/types/topic";
 
 /**
  * How long a "moved between Featured and Quick Answers" confirmation stays on
@@ -183,6 +188,8 @@ interface LibraryItem {
 interface TopicsResponse {
   board: BoardPayload;
   library: LibraryItem[];
+  /** The plan's attachable documents + videos (the card-text dialog offers them). */
+  media?: PlanMediaLibrary;
   error?: string;
 }
 
@@ -2083,6 +2090,7 @@ export function QuickAnswersBuilder({
       <TopicTextEditDialog
         topic={editingTopic}
         open={editingTopic !== null}
+        media={data?.media}
         onOpenChange={(open) => {
           if (!open) setEditingTopic(null);
         }}
@@ -2122,8 +2130,8 @@ function EditTextButton({
   return (
     <button
       type="button"
-      title="Edit text"
-      aria-label={`Edit text for ${title}`}
+      title="Edit Topic"
+      aria-label={`Edit Topic for ${title}`}
       onClick={onClick}
       className="shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
     >

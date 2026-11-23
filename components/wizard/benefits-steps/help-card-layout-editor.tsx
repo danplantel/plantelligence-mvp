@@ -29,7 +29,7 @@ import { Label } from "@/components/ui/label";
 import { TopicTextEditDialog } from "./topic-text-edit-dialog";
 import type { HelpCardContent, HelpCardLayoutEntry } from "@/types/benefit";
 import type { TopicTextValues } from "@/lib/topics/text-overrides";
-import type { EffectiveTopic } from "@/types/topic";
+import type { EffectiveTopic, PlanMediaLibrary } from "@/types/topic";
 import {
   ACCOUNT_ACCESS_CARD_ID,
   fillHelpCardTokens,
@@ -109,11 +109,13 @@ interface HelpCardLayoutEditorProps {
   /** The card whose move is in flight: its button shows a spinner. */
   movingCardId?: string | null;
   /**
-   * This plan's Featured placements, so a card row can offer "Edit text": each row
+   * This plan's Featured placements, so a card row can offer "Edit Topic": each row
    * edits the topic behind it (title / card line / answer), saved per plan.
    */
   topics?: EffectiveTopic[];
-  /** Save one card's edited text. Omitted hides the "Edit text" control. */
+  /** The plan's documents + videos, offered by the "Edit Topic" dialog. */
+  media?: PlanMediaLibrary | null;
+  /** Save one card's edited text. Omitted hides the "Edit Topic" control. */
   onSaveText?: (
     topic: EffectiveTopic,
     values: TopicTextValues,
@@ -454,7 +456,7 @@ function SortableHelpCardRow({
             onClick={() => onEditText(entry.id)}
           >
             <Pencil className="mr-1 h-3.5 w-3.5" aria-hidden="true" />
-            Edit text
+            Edit Topic
           </Button>
         )}
 
@@ -524,6 +526,7 @@ export function HelpCardLayoutEditor({
   onMoveToQuickAnswers,
   movingCardId,
   topics,
+  media,
   onSaveText,
   onPreviewText,
 }: HelpCardLayoutEditorProps) {
@@ -882,6 +885,7 @@ export function HelpCardLayoutEditor({
         <TopicTextEditDialog
           topic={editingTopic}
           open={editingTopic !== null}
+          media={media}
           onOpenChange={(open) => {
             if (!open) setEditingTopic(null);
           }}

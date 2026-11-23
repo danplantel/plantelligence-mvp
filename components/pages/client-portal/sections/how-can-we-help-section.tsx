@@ -14,6 +14,12 @@ import {
 import { readableColor, transparentize } from "polished";
 import { HOW_CAN_WE_HELP_SECTION_ID } from "@/lib/portal-section-anchors";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useOptionalClientPortal } from "@/contexts/client-portal-context";
 import { formatPhoneWithExtension } from "@/lib/phone-utils";
 import { resolvePortalPrimaryContact } from "@/lib/portal-primary-contact";
@@ -43,9 +49,19 @@ import {
 } from "@/lib/portal-section-anchors";
 import type { ProviderContact } from "@/types/benefit";
 import type { HelpCardLayoutEntry, HelpCardResolved } from "@/types/benefit";
-import type { ActionHubRow, EffectiveTopic } from "@/types/topic";
+import type {
+  ActionHubRow,
+  EffectiveTopic,
+  PlanMediaDocument,
+  PlanMediaMaps,
+  PlanMediaVideo,
+} from "@/types/topic";
 import { ActionHubPanel } from "./action-hub-panel";
 import { topicQuickAnswer } from "@/lib/topics/effective-topic";
+import {
+  topicDocumentIdsOf,
+  topicVideoIdsOf,
+} from "@/lib/topics/text-overrides";
 import {
   buildTopicUrl,
   readHashTopicSlug,
@@ -150,6 +166,11 @@ interface HowCanWeHelpSectionProps {
    * synthesised from the catalog and pinned first as the 2-wide primary.
    */
   topics?: EffectiveTopic[] | null;
+  /**
+   * The plan's attachable documents and videos, keyed by id. A topic's stored media
+   * ids are resolved through this so the card's panel can open them.
+   */
+  media?: PlanMediaMaps | null;
   /**
    * Action Hub rows per topic slug (`topics.actionHubPanels`, TF-5). A card whose slug
    * has rows offers the participant a choice of benefits instead of a single CTA.
@@ -885,6 +906,7 @@ function HelpCardPanel({
   advisorFirm,
   planSponsorName,
   upcomingMeetings,
+  resolvedMedia,
 }: {
   card: HelpCardResolved;
   brandColor: string;
@@ -922,7 +944,14 @@ function HelpCardPanel({
   planSponsorName?: string;
   /** This category's scheduled sessions, for `{{upcoming_retirement_meetings}}`. */
   upcomingMeetings?: string;
+  /** Documents and videos attached to this topic, resolved from the plan library. */
+  resolvedMedia?: {
+    documents: PlanMediaDocument[];
+    videos: PlanMediaVideo[];
+  };
 }) {
+  // The video a resolved media chip is currently playing, if any.
+  const [activeVideo, setActiveVideo] = useState<PlanMediaVideo | null>(null);
   // The Rollovers topic has its own body (options, pros/cons, CTA) instead of the
   // paragraph copy every other topic uses.
   const isRollovers = ROLLOVER_CARD_PATTERN.test(`${card.id} ${card.title}`);
@@ -1143,6 +1172,50 @@ function HelpCardPanel({
             </div>
           )}
 
+          {/* Documents & videos attached to this topic, resolved from THIS plan's
+              library. A document opens in a new tab; a video plays in a lightbox. */}
+          {resolvedMedia &&
+            (resolvedMedia.documents.length > 0 ||
+              resolvedMedia.videos.length > 0) && (
+              <div
+                data-testid="help-card-media"
+                className="mt-4 rounded-xl border border-neutral-200 bg-white/60 p-3"
+              >
+                <p className="font-red-hat text-[10px] font-semibold uppercase tracking-[0.14em] text-neutral-500">
+                  Documents & Videos
+                </p>
+                <ul className="mt-2 flex flex-wrap gap-2">
+                  {resolvedMedia.documents.map((document) => (
+                    <li key={`doc-${document.id}`}>
+                      <a
+                        href={document.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1 font-red-hat text-[12px] text-neutral-700 transition-colors hover:border-neutral-300 hover:text-neutral-900"
+                      >
+                        <FileText className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span className="max-w-[16rem] truncate">
+                          {document.title}
+                        </span>
+                      </a>
+                    </li>
+                  ))}
+                  {resolvedMedia.videos.map((video) => (
+                    <li key={`video-${video.id}`}>
+                      <button
+                        type="button"
+                        onClick={() => setActiveVideo(video)}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white px-3 py-1 font-red-hat text-[12px] text-neutral-700 transition-colors hover:border-neutral-300 hover:text-neutral-900"
+                      >
+                        <PlayCircle className="h-3.5 w-3.5" aria-hidden="true" />
+                        <span className="max-w-[16rem] truncate">{video.title}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
           {/* Related Quick Answers — the questions that continue this topic. Each
               is a link into the Quick Answers band below. */}
           {related.length > 0 && (
@@ -1209,6 +1282,39 @@ function HelpCardPanel({
           </div>
         )
       )}
+
+      {/* Lightbox for an attached video. The chip opens it here rather than
+          navigating away from the topic the participant is reading. */}
+      <Dialog
+        open={activeVideo !== null}
+        onOpenChange={(next) => {
+          if (!next) setActiveVideo(null);
+        }}
+      >
+        <DialogContent overlayClassName="z-[120]" className="z-[120] max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{activeVideo?.title ?? "Video"}</DialogTitle>
+          </DialogHeader>
+          {activeVideo && (
+            <div className="space-y-2">
+              <video
+                src={activeVideo.videoUrl}
+                controls
+                autoPlay
+                className="w-full rounded-lg bg-black"
+              />
+              <a
+                href={activeVideo.videoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block font-red-hat text-[12px] text-neutral-600 underline"
+              >
+                Open in a new tab
+              </a>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -1224,6 +1330,7 @@ export function HowCanWeHelpSection({
   cards,
   helpCardColumns,
   topics,
+  media,
   actionHubPanels,
   onCardEdit,
 }: HowCanWeHelpSectionProps) {
@@ -1485,6 +1592,29 @@ export function HowCanWeHelpSection({
 
   /** Every resolved card, in visual order. */
   const resolvedCards = useMemo(() => rows.flat(), [rows]);
+
+  /**
+   * Each topic's attached media, resolved through the plan's library. Keyed by the
+   * card id (`topic.slug`), so the open panel can look up what to draw.
+   */
+  const mediaByCardId = useMemo(() => {
+    const map = new Map<
+      string,
+      { documents: PlanMediaDocument[]; videos: PlanMediaVideo[] }
+    >();
+    for (const topic of topics ?? []) {
+      const documents = topicDocumentIdsOf(topic)
+        .map((id) => media?.documents[id])
+        .filter((document): document is PlanMediaDocument => Boolean(document));
+      const videos = topicVideoIdsOf(topic)
+        .map((id) => media?.videos[id])
+        .filter((video): video is PlanMediaVideo => Boolean(video));
+      if (documents.length > 0 || videos.length > 0) {
+        map.set(topic.slug, { documents, videos });
+      }
+    }
+    return map;
+  }, [topics, media]);
 
   // Nothing starts open: the grid is collapsed choices until the reader picks
   // one. `null` is the closed state; the first tap (or a `#topic` deep link)
@@ -1931,6 +2061,7 @@ export function HowCanWeHelpSection({
                   basePath={basePath}
                   contactName={benefitContactName}
                   actionHubRows={actionHubPanels?.[openCard.id]}
+                  resolvedMedia={mediaByCardId.get(openCard.id)}
                   loginUrl={resolvedLoginUrl}
                   advisorBookingUrl={advisorBookingUrl}
                   recordkeeperName={resolvedProviderName}

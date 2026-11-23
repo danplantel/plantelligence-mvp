@@ -31,6 +31,7 @@ import { CompletenessAutoTrigger } from "@/components/pages/client-portal/sectio
 import { mergePlanDocumentRows } from "@/lib/plan-client-documents-merge";
 import { sortDocumentRowsByCustomOrder } from "@/lib/documents/document-sort";
 import { fetchPlanDocumentsForClient } from "@/lib/fetch-plan-documents-client";
+import { usePlanMediaLibrary } from "@/hooks/usePlanMediaLibrary";
 import {
   benefitCategoryToDocumentHubLabel,
   mapMergedRowsToBenefitHubItems,
@@ -54,6 +55,10 @@ export default function RetirementPage() {
 
   const brandColor = clientData?.brandColor || "#1F3A60";
   const secondaryColor = clientData?.secondaryColor || "#6B7280";
+
+  // The plan's documents + videos, so a topic's attached media resolves to titles
+  // and URLs in both the Featured panel and Quick Answers.
+  const planMedia = usePlanMediaLibrary(clientId);
 
   // Fetch benefit data from the new Benefit API (typed, no more JSON rummaging).
   // `withTopics=1` asks for the plan's resolved placements: they are now the hub's
@@ -278,6 +283,7 @@ export default function RetirementPage() {
             // Placements win when this plan has them; otherwise the section falls back
             // to the saved legacy card layout.
             topics={topics?.featured}
+            media={planMedia}
             actionHubPanels={topics?.actionHubPanels}
             cards={(benefitData as any)?.helpCards ?? undefined}
             // 3 or 4 cards per row, chosen in the panel's Card Layout section.
@@ -295,6 +301,7 @@ export default function RetirementPage() {
         <div className="relative">
           <QuickAnswersSection
             groups={topics?.groups ?? []}
+            media={planMedia}
             // Placeholder frame until this hub's placements arrive, so the section
             // does not materialise after the ones around it.
             loading={benefitLoading}

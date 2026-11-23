@@ -147,7 +147,7 @@ function editButton() {
     '[data-help-layout-card="financial-planning"]',
   );
   if (!rowEl) throw new Error("No financial-planning row");
-  return within(rowEl).getByRole("button", { name: "Edit text" });
+  return within(rowEl).getByRole("button", { name: "Edit Topic" });
 }
 
 afterEach(() => {

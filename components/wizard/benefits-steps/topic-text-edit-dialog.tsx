@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Loader2, Plus, X } from "lucide-react";
+import { FileText, Loader2, PlayCircle, Plus, X } from "lucide-react";
 
 import {
   Dialog,
@@ -20,11 +20,12 @@ import {
   topicTextValuesOf,
   type TopicTextValues,
 } from "@/lib/topics/text-overrides";
-import type { EffectiveTopic } from "@/types/topic";
+import type { EffectiveTopic, PlanMediaLibrary } from "@/types/topic";
 
 /**
- * "Edit card text" — one topic's title, short card line, expanded answer and its
- * ordered how-to steps (at most {@link MAX_TOPIC_STEPS}).
+ * "Edit Topic" — one topic's title, short card line, expanded answer, its
+ * ordered how-to steps (at most {@link MAX_TOPIC_STEPS}), and the plan Documents and
+ * Videos attached to it.
  *
  * Shared by BOTH card lists in the Editing Panel: a Featured card (the Card Layout's
  * rows) and a Quick Answers question (the builder's rows) open the same dialog, because
@@ -34,6 +35,10 @@ import type { EffectiveTopic } from "@/types/topic";
  * Fields start from the card's CURRENT copy, so an advisor edits from what a
  * participant sees. Clearing a field hands back an empty string; the host writes it as
  * "remove the override" (fall back to the shipped copy).
+ *
+ * Media is chosen from the PLAN's own libraries (`media`), which the host reads from
+ * the board payload — a topic stores only the ids, so the title/URL always resolve to
+ * the live document or video.
  */
 export function TopicTextEditDialog({
   topic,
@@ -41,6 +46,7 @@ export function TopicTextEditDialog({
   onOpenChange,
   onSave,
   onPreview,
+  media,
 }: {
   /** The topic being edited, or null while closed. */
   topic: EffectiveTopic | null;
@@ -49,16 +55,20 @@ export function TopicTextEditDialog({
   onSave: (values: TopicTextValues) => void | Promise<void>;
   /**
    * Live preview: called with the current field values as the advisor edits, so the
-   * page beside the panel reflects an added/removed step (or any text change) before
+   * page beside the panel reflects an added/removed step (or any change) before
    * anything is saved. Closing without saving calls it once more with the original
    * values to revert.
    */
   onPreview?: (values: TopicTextValues) => void;
+  /** The plan's documents and videos this topic can attach. */
+  media?: PlanMediaLibrary | null;
 }) {
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [answer, setAnswer] = useState("");
   const [steps, setSteps] = useState<string[]>([]);
+  const [documentIds, setDocumentIds] = useState<string[]>([]);
+  const [videoIds, setVideoIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   /** The first render after opening only seeds the fields — never a preview. */
   const previewArmedRef = useRef(false);
@@ -76,6 +86,8 @@ export function TopicTextEditDialog({
     setSummary(initial.summary);
     setAnswer(initial.answer);
     setSteps(initial.steps);
+    setDocumentIds(initial.documentIds ?? []);
+    setVideoIds(initial.videoIds ?? []);
     setSaving(false);
     previewArmedRef.current = false;
     committedRef.current = false;
@@ -90,8 +102,15 @@ export function TopicTextEditDialog({
       previewArmedRef.current = true;
       return;
     }
-    onPreviewRef.current({ title, summary, answer, steps });
-  }, [open, topic?.topicId, title, summary, answer, steps]);
+    onPreviewRef.current({
+      title,
+      summary,
+      answer,
+      steps,
+      documentIds,
+      videoIds,
+    });
+  }, [open, topic?.topicId, title, summary, answer, steps, documentIds, videoIds]);
 
   const handleOpenChange = (next: boolean) => {
     if (!next && !committedRef.current && topic && onPreview) {
@@ -117,10 +136,39 @@ export function TopicTextEditDialog({
     setSteps((current) => [...current, ""]);
   };
 
+  // Plan media, looked up by id so an attachment shows its live title.
+  const documentById = new Map(
+    (media?.documents ?? []).map((document) => [document.id, document]),
+  );
+  const videoById = new Map(
+    (media?.videos ?? []).map((video) => [video.id, video]),
+  );
+  const availableDocuments = (media?.documents ?? []).filter(
+    (document) => !documentIds.includes(document.id),
+  );
+  const availableVideos = (media?.videos ?? []).filter(
+    (video) => !videoIds.includes(video.id),
+  );
+
+  const addDocument = (id: string) => {
+    if (!id) return;
+    setDocumentIds((current) =>
+      current.includes(id) ? current : [...current, id],
+    );
+  };
+  const removeDocument = (id: string) =>
+    setDocumentIds((current) => current.filter((entry) => entry !== id));
+  const addVideo = (id: string) => {
+    if (!id) return;
+    setVideoIds((current) => (current.includes(id) ? current : [...current, id]));
+  };
+  const removeVideo = (id: string) =>
+    setVideoIds((current) => current.filter((entry) => entry !== id));
+
   const save = async () => {
     setSaving(true);
     try {
-      await onSave({ title, summary, answer, steps });
+      await onSave({ title, summary, answer, steps, documentIds, videoIds });
       // The saved values now ARE the page, so closing must not revert them.
       committedRef.current = true;
       handleOpenChange(false);
@@ -131,13 +179,20 @@ export function TopicTextEditDialog({
     }
   };
 
+  const chipClass =
+    "inline-flex items-center gap-1 rounded-full border border-muted bg-white px-2.5 py-1 text-[11px] text-foreground";
+  const removeClass =
+    "shrink-0 rounded-full p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground";
+  const selectClass =
+    "h-9 w-full rounded-md border border-input bg-white px-2 text-[12px] dark:bg-gray-800";
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {/* The portal's Editing Panel is `fixed z-[51]`, so the dialog has to sit
           above it (the same tier the other panel dialogs use). */}
       <DialogContent overlayClassName="z-[110]" className="z-[110] max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edit card text</DialogTitle>
+          <DialogTitle>Edit Topic</DialogTitle>
           <DialogDescription>
             Applies to this plan only. Clear a field to go back to the standard
             copy.
@@ -232,6 +287,120 @@ export function TopicTextEditDialog({
               Add step
             </Button>
           </div>
+
+          {/* Media — documents and videos from THIS plan's libraries. */}
+          {media && (
+            <div className="space-y-3 rounded-lg border border-muted p-3">
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs font-bold">Media</Label>
+                <span className="text-[11px] text-muted-foreground">
+                  From this plan&rsquo;s library
+                </span>
+              </div>
+
+              {/* Documents */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                  Documents
+                </p>
+                {documentIds.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    No documents attached.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {documentIds.map((id) => {
+                      const document = documentById.get(id);
+                      const label = document?.title ?? "Unavailable document";
+                      return (
+                        <span key={id} className={chipClass}>
+                          <FileText className="h-3 w-3" aria-hidden="true" />
+                          <span className="max-w-[12rem] truncate">{label}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeDocument(id)}
+                            aria-label={`Remove ${label}`}
+                            className={removeClass}
+                          >
+                            <X className="h-3 w-3" aria-hidden="true" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                <select
+                  aria-label="Add a document"
+                  value=""
+                  onChange={(event) => addDocument(event.target.value)}
+                  disabled={availableDocuments.length === 0}
+                  className={selectClass}
+                >
+                  <option value="">
+                    {availableDocuments.length === 0
+                      ? "No more plan documents"
+                      : "Add a document…"}
+                  </option>
+                  {availableDocuments.map((document) => (
+                    <option key={document.id} value={document.id}>
+                      {document.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Videos */}
+              <div className="space-y-1.5">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                  Videos
+                </p>
+                {videoIds.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground">
+                    No videos attached.
+                  </p>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {videoIds.map((id) => {
+                      const video = videoById.get(id);
+                      const label = video?.title ?? "Unavailable video";
+                      return (
+                        <span key={id} className={chipClass}>
+                          <PlayCircle className="h-3 w-3" aria-hidden="true" />
+                          <span className="max-w-[12rem] truncate">{label}</span>
+                          <button
+                            type="button"
+                            onClick={() => removeVideo(id)}
+                            aria-label={`Remove ${label}`}
+                            className={removeClass}
+                          >
+                            <X className="h-3 w-3" aria-hidden="true" />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                )}
+                <select
+                  aria-label="Add a video"
+                  value=""
+                  onChange={(event) => addVideo(event.target.value)}
+                  disabled={availableVideos.length === 0}
+                  className={selectClass}
+                >
+                  <option value="">
+                    {availableVideos.length === 0
+                      ? "No more plan videos"
+                      : "Add a video…"}
+                  </option>
+                  {availableVideos.map((video) => (
+                    <option key={video.id} value={video.id}>
+                      {video.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
         </div>
 
         <DialogFooter>
