@@ -4,6 +4,9 @@ import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  // The last props handed to the (mocked) creation modal — lets a test drive
+  // `onSave` with the record the real modal now passes back.
+  modalProps: null as any,
   setTitle: vi.fn(),
   setSubtitle: vi.fn(),
   toastSuccess: vi.fn(),
@@ -108,29 +111,34 @@ vi.mock("@/components/ui/plan-change-loading-dialog", () => ({
 }));
 
 vi.mock("@/components/pages/marketing/marketing-asset-modal", () => ({
-  default: (props: any) => (
-    <div
-      data-testid="marketing-modal"
-      data-open={String(!!props.open)}
-      data-type={props.assetType}
-      data-plan-id={props.planId}
-      data-plan-name={props.planName}
-      data-step={props.initialFlyerStep ?? ""}
-      data-element={props.initialPortalElement ?? ""}
-      data-preview={String(!!props.previewOnly)}
-      data-edit-id={props.editingAsset?.id ?? ""}
-    >
-      <button type="button" onClick={() => props.onOpenChange(false)}>
-        close-modal
-      </button>
-      <button type="button" onClick={() => props.onSave?.()}>
-        save-modal
-      </button>
-      <button type="button" onClick={() => props.onEditFromPreview?.()}>
-        edit-from-preview
-      </button>
-    </div>
-  ),
+  default: (props: any) => {
+    // Remember the latest props so a test can hand `onSave` a record, exactly as
+    // the real modal does after a successful POST/PATCH.
+    mocks.modalProps = props;
+    return (
+      <div
+        data-testid="marketing-modal"
+        data-open={String(!!props.open)}
+        data-type={props.assetType}
+        data-plan-id={props.planId}
+        data-plan-name={props.planName}
+        data-step={props.initialFlyerStep ?? ""}
+        data-element={props.initialPortalElement ?? ""}
+        data-preview={String(!!props.previewOnly)}
+        data-edit-id={props.editingAsset?.id ?? ""}
+      >
+        <button type="button" onClick={() => props.onOpenChange(false)}>
+          close-modal
+        </button>
+        <button type="button" onClick={() => props.onSave?.()}>
+          save-modal
+        </button>
+        <button type="button" onClick={() => props.onEditFromPreview?.()}>
+          edit-from-preview
+        </button>
+      </div>
+    );
+  },
 }));
 
 vi.mock("@/components/ui/accordion", () => ({
@@ -661,6 +669,39 @@ describe("Marketing modal wiring", () => {
     await user.click(screen.getByRole("button", { name: "save-modal" }));
 
     expect(mocks.mutateAssets).toHaveBeenCalledTimes(1);
+  });
+
+  it("puts a saved asset in the list before the refresh comes back", () => {
+    renderPage();
+
+    const saved = {
+      id: "news-2",
+      type: "news-post",
+      createdAt: "2026-01-06T00:00:00Z",
+      status: "Published",
+      headline: "Fresh News",
+    };
+
+    act(() => {
+      mocks.modalProps.onSave(saved);
+    });
+
+    // First the cache is written (no refetch), which is what makes the row appear
+    // immediately instead of after the heavy assets round trip.
+    const [updater, options] = mocks.mutateAssets.mock.calls[0] as [
+      (current: any) => any,
+      { revalidate: boolean },
+    ];
+    expect(options).toEqual({ revalidate: false });
+
+    const next = updater({ data: ASSETS });
+    expect(next.data).toHaveLength(ASSETS.length + 1);
+    expect(next.data[0]).toEqual(
+      expect.objectContaining({ id: "news-2", headline: "Fresh News" }),
+    );
+
+    // …and the reconciling refetch still runs, so the server stays the source.
+    expect(mocks.mutateAssets).toHaveBeenLastCalledWith();
   });
 
   it("clears edit state when the modal closes", async () => {

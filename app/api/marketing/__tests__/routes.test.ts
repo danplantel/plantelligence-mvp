@@ -98,6 +98,9 @@ vi.mock("mongodb", () => ({
 
 const PLAN_ID = "65f1c2a9b3d4e5f6a7b8c9d1";
 const ASSET_ID = "65f1c2a9b3d4e5f6a7b8c9d2";
+// A Postgres cuid — the shape plans are keyed by today, and what the portal payload's
+// own `id` holds (neither a 24-hex ObjectId nor a slug).
+const CUID = "cmve68k0900jw12r2sawz2xdm";
 const FLYER_ID = "65f1c2a9b3d4e5f6a7b8c9d3";
 
 function request(path: string, init?: any) {
@@ -330,6 +333,29 @@ describe("POST /api/marketing/assets", () => {
     });
   });
 
+  it("caps over-long text before storing it", async () => {
+    await postAsset(
+      jsonRequest("/api/marketing/assets", "POST", {
+        clientId: PLAN_ID,
+        type: "news-post",
+        headline: "H".repeat(120),
+        body: "Body",
+        ctaText: "C".repeat(50),
+        data: { flyerSubtitle: "S".repeat(200), bgImage: "bg_01" },
+      }),
+    );
+
+    const payload = mocks.prisma.marketingAsset.create.mock.calls[0][0].data;
+
+    expect(payload.headline).toHaveLength(80);
+    expect(payload.ctaText).toHaveLength(32);
+    expect((payload.data as Record<string, unknown>).flyerSubtitle).toHaveLength(
+      120,
+    );
+    // Only the capped field is touched — the rest of the blob survives.
+    expect((payload.data as Record<string, unknown>).bgImage).toBe("bg_01");
+  });
+
   it("returns 500 when creation fails", async () => {
     mocks.prisma.marketingAsset.create.mockRejectedValue(new Error("db"));
 
@@ -426,6 +452,33 @@ describe("PATCH /api/marketing/assets/[id]", () => {
       where: { id: ASSET_ID },
       data: { status: "Archived", headline: "New" },
     });
+  });
+
+  it("caps over-long text on update", async () => {
+    mocks.prisma.marketingAsset.findUnique.mockResolvedValue({
+      id: ASSET_ID,
+      userId: "user-1",
+      clientId: PLAN_ID,
+      type: "news-post",
+    });
+
+    await patchAsset(
+      jsonRequest(`/api/marketing/assets/${ASSET_ID}`, "PATCH", {
+        headline: "H".repeat(120),
+        ctaText: "C".repeat(50),
+        data: { flyerSubtitle: "S".repeat(200), bgImage: "bg_02" },
+      }),
+      ctx(ASSET_ID),
+    );
+
+    const payload = mocks.prisma.marketingAsset.update.mock.calls[0][0].data;
+
+    expect(payload.headline).toHaveLength(80);
+    expect(payload.ctaText).toHaveLength(32);
+    expect((payload.data as Record<string, unknown>).flyerSubtitle).toHaveLength(
+      120,
+    );
+    expect((payload.data as Record<string, unknown>).bgImage).toBe("bg_02");
   });
 
   it("returns 500 when the update fails", async () => {
@@ -577,6 +630,10 @@ describe("GET /api/marketing/assets/public", () => {
       request("/api/marketing/assets/public?clientId=acme"),
     );
 
+    expect(mocks.prisma.client.findFirst).toHaveBeenCalledWith({
+      where: { OR: [{ id: "acme" }, { slug: "acme" }] },
+      select: { id: true },
+    });
     expect(mocks.prisma.marketingAsset.findMany).toHaveBeenCalledWith({
       where: {
         clientId: PLAN_ID,
@@ -588,7 +645,34 @@ describe("GET /api/marketing/assets/public", () => {
     });
   });
 
+  it("resolves a cuid primary key, which is what the portal payload passes", async () => {
+    // Regression: a cuid is neither a 24-hex Mongo ObjectId nor a slug. Treating it
+    // as a slug matched no plan, so the endpoint answered `data: []` and the News &
+    // Events page rendered no Announcements for a plan that had published posts.
+    mocks.prisma.client.findFirst.mockResolvedValue({ id: CUID });
+
+    await getPublicAssets(
+      request(`/api/marketing/assets/public?clientId=${CUID}&type=news-post`),
+    );
+
+    expect(mocks.prisma.client.findFirst).toHaveBeenCalledWith({
+      where: { OR: [{ id: CUID }, { slug: CUID }] },
+      select: { id: true },
+    });
+    expect(mocks.prisma.marketingAsset.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({
+          clientId: CUID,
+          status: "Published",
+          type: "news-post",
+        }),
+      }),
+    );
+  });
+
   it("filters by an explicit public type", async () => {
+    mocks.prisma.client.findFirst.mockResolvedValue({ id: PLAN_ID });
+
     await getPublicAssets(
       request(`/api/marketing/assets/public?clientId=${PLAN_ID}&type=pop-up`),
     );
@@ -601,6 +685,7 @@ describe("GET /api/marketing/assets/public", () => {
   });
 
   it("returns 500 when the query fails", async () => {
+    mocks.prisma.client.findFirst.mockResolvedValue({ id: PLAN_ID });
     mocks.prisma.marketingAsset.findMany.mockRejectedValue(new Error("db"));
 
     expect(

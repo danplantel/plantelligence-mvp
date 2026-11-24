@@ -3,6 +3,13 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { resolvePlanAccess } from "@/lib/teammates/access.server";
+import {
+  clampAssetText,
+  PORTAL_ASSET_BODY_MAX,
+  PORTAL_ASSET_CTA_MAX,
+  PORTAL_ASSET_HEADLINE_MAX,
+  PORTAL_ASSET_SUBTITLE_MAX,
+} from "@/lib/marketing/asset-limits";
 
 // ── PATCH /api/marketing/assets/[id] ──
 
@@ -55,6 +62,39 @@ export async function PATCH(
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 });
+    }
+
+    // Same caps as the form, applied on the way in — see lib/marketing/asset-limits.
+    if (typeof updateData.headline === "string") {
+      updateData.headline = clampAssetText(
+        updateData.headline,
+        PORTAL_ASSET_HEADLINE_MAX,
+      );
+    }
+    if (typeof updateData.body === "string") {
+      updateData.body = clampAssetText(updateData.body, PORTAL_ASSET_BODY_MAX);
+    }
+    if (typeof updateData.ctaText === "string") {
+      updateData.ctaText = clampAssetText(
+        updateData.ctaText,
+        PORTAL_ASSET_CTA_MAX,
+      );
+    }
+    if (
+      existing.type === "news-post" &&
+      updateData.data &&
+      typeof updateData.data === "object" &&
+      typeof (updateData.data as Record<string, unknown>).flyerSubtitle ===
+        "string"
+    ) {
+      const data = updateData.data as Record<string, unknown>;
+      updateData.data = {
+        ...data,
+        flyerSubtitle: clampAssetText(
+          data.flyerSubtitle,
+          PORTAL_ASSET_SUBTITLE_MAX,
+        ),
+      };
     }
 
     const asset = await prisma.marketingAsset.update({

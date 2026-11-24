@@ -12,3 +12,24 @@ export const PORTAL_ASSET_HEADLINE_MAX = 80;
 
 /** Body text, shared by the top banner, the pop-up and the news post. */
 export const PORTAL_ASSET_BODY_MAX = 300;
+
+/**
+ * The news post's subtitle (the line under the headline on its card). It is a
+ * single supporting sentence, and the card clamps it to two lines on a phone, so
+ * a paragraph would be lost anyway.
+ */
+export const PORTAL_ASSET_SUBTITLE_MAX = 120;
+
+/** A call-to-action label — a button, never a sentence. */
+export const PORTAL_ASSET_CTA_MAX = 32;
+
+/**
+ * Trim a supplied value to its cap, leaving non-strings untouched.
+ *
+ * The inputs already carry `maxLength`, but the API is the last line of defence:
+ * an older client, a script or a stale draft could still send a longer value, and
+ * the portal cards have no room for it.
+ */
+export function clampAssetText<T>(value: T, max: number): T | string {
+  return typeof value === "string" ? value.slice(0, max) : value;
+}

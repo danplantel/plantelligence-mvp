@@ -6,10 +6,28 @@ export const dynamic = "force-dynamic";
 
 // ── GET /api/marketing/assets/public?clientId=xxx[&type=xxx] ──
 // Public endpoint — no auth required. Returns Published assets (portal-notice, pop-up, news-post).
+//
+// `clientId` arrives in BOTH shapes the portal uses:
+//   • the plan's PRIMARY KEY (a cuid such as "cmve68k0900jw12r2sawz2xdm") — that is
+//     the portal payload's own `id`, and what `NewsPostList` (the Announcements
+//     section) and the pop-up overlay hand this endpoint;
+//   • the plan's SLUG — what the portal route hands the top-banner fetch.
+//
+// The old guard treated every value that was not a 24-hex Mongo ObjectId as a slug,
+// so a cuid matched no slug, no client resolved, and this endpoint answered with an
+// empty list. That silently blanked the Announcements section (and pop-ups) for
+// every cuid-keyed plan while the slug-fetched banner kept working.
+const PLAN_LOOKUP = (clientIdOrSlug: string) => ({
+  OR: [{ id: clientIdOrSlug }, { slug: clientIdOrSlug }],
+});
 
-/** Returns true when the string looks like a MongoDB ObjectID (24 hex chars). */
-function isObjectId(v: string): boolean {
-  return /^[0-9a-fA-F]{24}$/.test(v);
+/** Resolve either identifier to the plan's primary key, or null when unknown. */
+async function resolvePlanId(clientIdOrSlug: string): Promise<string | null> {
+  const client = await prisma.client.findFirst({
+    where: PLAN_LOOKUP(clientIdOrSlug),
+    select: { id: true },
+  });
+  return client?.id ?? null;
 }
 
 export async function GET(request: NextRequest) {
@@ -22,17 +40,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: "clientId is required" }, { status: 400 });
     }
 
-    // Resolve clientId — it may be a slug (e.g. "g-loomis") rather than a MongoDB ObjectID.
-    let clientId = clientIdParam;
-    if (!isObjectId(clientIdParam)) {
-      const client = await prisma.client.findFirst({
-        where: { slug: clientIdParam },
-        select: { id: true },
-      });
-      if (!client) {
-        return NextResponse.json({ success: true, data: [] });
-      }
-      clientId = client.id;
+    // An unknown plan is an empty portal, not an error — the page simply renders
+    // without announcements.
+    const clientId = await resolvePlanId(clientIdParam);
+    if (!clientId) {
+      return NextResponse.json({ success: true, data: [] });
     }
 
     const where: Record<string, unknown> = {

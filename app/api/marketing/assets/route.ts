@@ -3,6 +3,13 @@ import prisma from "@/lib/prisma";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth-options";
 import { resolvePlanAccess } from "@/lib/teammates/access.server";
+import {
+  clampAssetText,
+  PORTAL_ASSET_BODY_MAX,
+  PORTAL_ASSET_CTA_MAX,
+  PORTAL_ASSET_HEADLINE_MAX,
+  PORTAL_ASSET_SUBTITLE_MAX,
+} from "@/lib/marketing/asset-limits";
 
 // ── Shared helpers ──
 
@@ -96,19 +103,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: gate.error }, { status: gate.status });
     }
 
+    // The four caps are enforced here too — the form's `maxLength` only binds the
+    // modal, and the portal cards have no room for an over-long value.
+    const storedData =
+      data && typeof data === "object"
+        ? {
+            ...(data as Record<string, unknown>),
+            ...(type === "news-post" &&
+            typeof (data as Record<string, unknown>).flyerSubtitle === "string"
+              ? {
+                  flyerSubtitle: clampAssetText(
+                    (data as Record<string, unknown>).flyerSubtitle,
+                    PORTAL_ASSET_SUBTITLE_MAX,
+                  ),
+                }
+              : {}),
+          }
+        : data;
+
     const asset = await prisma.marketingAsset.create({
       data: {
         clientId,
         userId,
         type,
         status: status || "Draft",
-        headline,
-        body: bodyText || "",
-        ctaText: ctaText || "",
+        headline: clampAssetText(headline, PORTAL_ASSET_HEADLINE_MAX),
+        body: clampAssetText(bodyText || "", PORTAL_ASSET_BODY_MAX),
+        ctaText: clampAssetText(ctaText || "", PORTAL_ASSET_CTA_MAX),
         startDate: startDate || null,
         endDate: endDate || null,
         bgColor: bgColor || "#23919c",
-        data: data || undefined,
+        data: storedData || undefined,
       },
     });
 

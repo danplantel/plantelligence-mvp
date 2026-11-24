@@ -684,6 +684,37 @@ export default function MarketingPage() {
     { dedupingInterval: 10_000, revalidateOnFocus: true },
   );
   const savedAssets: SavedAsset[] = useMemo(() => assetsData?.data ?? [], [assetsData]);
+
+  /**
+   * Paint a saved asset immediately, then reconcile with the server.
+   *
+   * The modal hands back the record it just saved, so the row can be written into
+   * the SWR cache with no round trip. That matters because the refresh endpoint has
+   * to ship every flyer's QR code and image blobs inside its `data` blob — several
+   * seconds for a plan with a few flyers — which is why a newly created asset used
+   * to stay missing from the accordions for ~6s. The background revalidation below
+   * still runs, so the list always settles on the server's own copy.
+   */
+  const handleAssetSaved = useCallback(
+    (asset?: (Partial<SavedAsset> & { id?: string }) | null) => {
+      if (asset?.id) {
+        void mutateAssets(
+          (current: { data?: SavedAsset[] } | undefined) => {
+            const list = current?.data ?? [];
+            const index = list.findIndex((row) => row.id === asset.id);
+            const data =
+              index === -1
+                ? [{ ...(asset as SavedAsset) }, ...list]
+                : list.map((row, i) => (i === index ? { ...row, ...asset } : row));
+            return { ...(current ?? {}), success: true, data };
+          },
+          { revalidate: false },
+        );
+      }
+      void mutateAssets();
+    },
+    [mutateAssets],
+  );
   // `summary=1`: this picker reads only id/companyName/slug/status (the plan logo comes
   // from `planData`, a separate request). The default select ships every plan's
   // `keyContacts` + legacy `employeePortalPreview` mirror — base64 images, measured at
@@ -915,9 +946,7 @@ export default function MarketingPage() {
               setEditingAsset(previewAsset);
               setPreviewAsset(null);
             }}
-            onSave={() => {
-              mutateAssets();
-            }}
+            onSave={handleAssetSaved}
           />
         )}
 

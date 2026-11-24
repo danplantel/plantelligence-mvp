@@ -8,7 +8,9 @@ import { useBrandingImageUrl } from "@/hooks/useBrandingImageUrl";
 import { downloadFlyerPdf } from "@/lib/marketing/flyer-pdf";
 import {
   PORTAL_ASSET_BODY_MAX,
+  PORTAL_ASSET_CTA_MAX,
   PORTAL_ASSET_HEADLINE_MAX,
+  PORTAL_ASSET_SUBTITLE_MAX,
 } from "@/lib/marketing/asset-limits";
 import {
   Dialog,
@@ -27,7 +29,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { X, Eye, Calendar, Clock, MapPin, QrCode, Loader2, Image as ImageIcon } from "lucide-react";
+import {
+  X,
+  Eye,
+  Calendar,
+  Clock,
+  MapPin,
+  QrCode,
+  Loader2,
+  Image as ImageIcon,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import { formatUsDate } from "@/lib/date";
 import { getFlyerCategoryDisclaimer } from "@/lib/disclaimer-constants";
@@ -94,7 +107,16 @@ interface MarketingAssetModalProps {
   assetType: AssetType;
   planName: string;
   planId: string;
-  onSave?: () => void;
+  /**
+   * Called after a successful save, with the server's own record.
+   *
+   * The host list used to refetch `/api/marketing/assets` and wait for it, and that
+   * payload is heavy enough (flyer QR + image blobs inside `data`) to take seconds —
+   * so a newly created asset was missing from the accordions for ~6s. Passing the
+   * record lets the host insert the row immediately and reconcile in the background.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onSave?: (asset?: any) => void;
   /** When editing an existing flyer, start at the template/details step */
   initialFlyerStep?: number;
   /** When editing an existing portal-notice (top banner), skip the element picker */
@@ -368,43 +390,98 @@ export default function MarketingAssetModal({
 
   // Preview mode toggle
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">("desktop");
+  /**
+   * Widen the preview to the whole modal by folding the form away.
+   *
+   * A half-width column still shows the card as the page draws it, just small;
+   * checking a long headline or a wrapped subtitle against the real thing is much
+   * easier with the form out of the way, so this is an explicit opt-in rather
+   * than the default (editing needs both halves side by side).
+   */
+  const [previewExpanded, setPreviewExpanded] = useState(false);
 
   // News post specific
   const [postCategory, setPostCategory] = useState("Retirement");
   const [selectedBgImage, setSelectedBgImage] = useState<string>("");
   const [existingNewsPosts, setExistingNewsPosts] = useState<any[]>([]);
+  /** False until the plan's posts have been read — see the picker's guard. */
+  const [bgImagesChecked, setBgImagesChecked] = useState(false);
   const [newsPostLimitReached, setNewsPostLimitReached] = useState(false);
   const [newsPostCtaUrl, setNewsPostCtaUrl] = useState("");
 
-  // Fetch existing news-post assets to enforce max 4 and unique images per client
+  /**
+   * The plan's other news posts — two rules read this list: the four-posts-per-plan
+   * cap, and the one-post-per-default-background rule (there are only four images,
+   * so the artwork must not repeat across a plan's posts).
+   *
+   * The plan's OWN list is read first. The public endpoint only carries PUBLISHED
+   * rows, so a Draft's artwork did not reserve its image and a second post could be
+   * saved with the same background. That endpoint stays as the fallback for a
+   * viewer without a session (a public portal preview).
+   */
   useEffect(() => {
-    if (!planId) return;
+    // `open` is a dependency, not just a guard: this modal stays mounted between
+    // opens, and the create-mode reset empties the list. Without `open` here the
+    // list was never re-read on the second and later creations — so every image
+    // looked free again even though another post already wore it.
+    if (!open || !planId) return;
     // Only fetch when the news-post form is visible (either direct or via portal-notice sub-element)
     if (assetType !== "news-post" && !(assetType === "portal-notice" && portalElement === "news-post")) return;
-    fetch(`/api/marketing/assets/public?clientId=${planId}&type=news-post`)
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.success && Array.isArray(res.data)) {
-          setExistingNewsPosts(res.data);
-          // If creating (not editing) and already have 4, block creation
-          if (!editingAsset && res.data.length >= 4) {
-            setNewsPostLimitReached(true);
-          }
-        }
-      })
-      .catch(() => {});
-  }, [planId, editingAsset, assetType, portalElement]);
 
-  /** IDs of background images already used by other news posts for this client */
-  const usedBgImageIds: string[] = useMemo(() => {
-    return existingNewsPosts
-      .filter((p: any) => p.id !== editingAsset?.id) // exclude current asset when editing
-      .map((p: any) => {
-        const d = (p.data as Record<string, unknown>) ?? {};
-        return d.bgImage as string;
-      })
-      .filter(Boolean);
-  }, [existingNewsPosts, editingAsset]);
+    let cancelled = false;
+    setBgImagesChecked(false);
+
+    const load = async (): Promise<any[] | null> => {
+      const own = await fetch(`/api/marketing/assets?clientId=${planId}`)
+        .then((response) => (response.ok ? response.json() : null))
+        .catch(() => null);
+      if (own && Array.isArray(own.data)) {
+        return (own.data as any[]).filter((row) => row?.type === "news-post");
+      }
+
+      // No session (or an older endpoint) — fall back to what the portal can read.
+      const published = await fetch(
+        `/api/marketing/assets/public?clientId=${planId}&type=news-post`,
+      )
+        .then((response) => (response.ok ? response.json() : null))
+        .catch(() => null);
+      return published && Array.isArray(published.data) ? published.data : null;
+    };
+
+    void load().then((rows) => {
+      if (cancelled) return;
+      // Even a failed read counts as "checked": the save guard still refuses a
+      // reserved image, and leaving the picker locked would be worse.
+      setBgImagesChecked(true);
+      if (!rows) return;
+      setExistingNewsPosts(rows);
+      // If creating (not editing) and already have 4, block creation
+      if (!editingAsset && rows.length >= 4) {
+        setNewsPostLimitReached(true);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, planId, editingAsset, assetType, portalElement]);
+
+  /**
+   * Background images another news post of this plan already wears.
+   *
+   * The post being edited is excluded, so its own artwork stays selectable.
+   */
+  const usedBgImageIds: string[] = useMemo(
+    () =>
+      existingNewsPosts
+        .filter((post: any) => post.id !== editingAsset?.id)
+        .map(
+          (post: any) =>
+            ((post.data as Record<string, unknown>) ?? {}).bgImage,
+        )
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    [existingNewsPosts, editingAsset],
+  );
 
   /** Resolve the effective asset type — when Portal Notice picks a sub-element,
    *  "pop-up" and "news-post" map to their own types, while "top-banner" stays as "portal-notice". */
@@ -480,15 +557,30 @@ export default function MarketingAssetModal({
   }, [flyerTemplate, flyerStep, flyerMode, resolvedType, flyerLanguage, editingAsset]);
 
   useEffect(() => {
+    // A wider preview is a session preference, not part of the record — every
+    // open starts with the form beside it again.
+    setPreviewExpanded(false);
     if (editingAsset) {
       // ── Editing mode: populate from existing asset ──
       const d = (editingAsset.data as Record<string, unknown>) ?? {};
-      setHeadline((editingAsset.headline as string) || "");
+      // Caps are re-applied on load: rows written before a cap existed must not
+      // hide an over-long value behind a `maxLength` the user cannot undo.
+      setHeadline(
+        ((editingAsset.headline as string) || "").slice(
+          0,
+          PORTAL_ASSET_HEADLINE_MAX,
+        ),
+      );
       setBody((editingAsset.body as string) || "");
       setStartDate((editingAsset.startDate as string) || "");
       setEndDate((editingAsset.endDate as string) || "");
       setBgColor((editingAsset.bgColor as string) || (assetType === "flyer" ? "#111111" : "#23919c"));
-      setCtaText((editingAsset.ctaText as string) || (d.ctaText as string) || "");
+      setCtaText(
+        ((editingAsset.ctaText as string) || (d.ctaText as string) || "").slice(
+          0,
+          PORTAL_ASSET_CTA_MAX,
+        ),
+      );
       setAssetStatus((editingAsset.status as MarketingAssetStatus) || "Draft");
 
       // Portal-notice specific
@@ -510,9 +602,20 @@ export default function MarketingAssetModal({
 
       // News post specific
       if (assetType === "news-post" || editingAsset.type === "news-post") {
-        setFlyerSubtitle((editingAsset.flyerSubtitle as string) || (d.flyerSubtitle as string) || "");
+        setFlyerSubtitle(
+          (
+            (editingAsset.flyerSubtitle as string) ||
+            (d.flyerSubtitle as string) ||
+            ""
+          ).slice(0, PORTAL_ASSET_SUBTITLE_MAX),
+        );
         setPostCategory((d.category as string) || "Retirement");
-        setCtaText((editingAsset.ctaText as string) || (d.ctaText as string) || "");
+        setCtaText(
+          ((editingAsset.ctaText as string) || (d.ctaText as string) || "").slice(
+            0,
+            PORTAL_ASSET_CTA_MAX,
+          ),
+        );
         setSelectedBgImage((d.bgImage as string) || "");
         setNewsPostCtaUrl((d.ctaUrl as string) || "");
       }
@@ -844,6 +947,13 @@ export default function MarketingAssetModal({
         setIsSaving(false);
         return;
       }
+      // The picker disables a reserved image, but a race (or a stale draft) could
+      // still reach this point — refuse rather than save a duplicate background.
+      if (usedBgImageIds.includes(selectedBgImage)) {
+        toast({ title: "Validation error", description: "That background image is already used by another News Post.", variant: "destructive", className: "z-[9999]" });
+        setIsSaving(false);
+        return;
+      }
       if (!startDate) {
         toast({ title: "Validation error", description: "Start date is required for News Post.", variant: "destructive", className: "z-[9999]" });
         setIsSaving(false);
@@ -972,9 +1082,9 @@ export default function MarketingAssetModal({
         ),
       });
 
+      const payload = await res.json().catch(() => null);
       if (!res.ok) {
-        const err = await res.json();
-        toast({ title: "Failed to save asset", description: err.error || `Server returned ${res.status}`, variant: "destructive" });
+        toast({ title: "Failed to save asset", description: payload?.error || `Server returned ${res.status}`, variant: "destructive" });
         setIsSaving(false);
         return;
       }
@@ -985,7 +1095,9 @@ export default function MarketingAssetModal({
             ? ASSET_META["portal-notice"].label
             : ASSET_META[portalElement as AssetType].label
           : meta.label;
-      onSave?.();
+      // Both POST and PATCH answer with the saved record, so the host can show the
+      // row at once instead of waiting for its own refetch.
+      onSave?.(payload?.data ?? undefined);
       toast({
         title: `${saveLabel} ${isEditing ? "updated" : "saved"}`,
         description: `"${stripColorMarkers(headline || saveLabel)}" has been ${isEditing ? "updated" : "created"} as ${assetStatus}.`,
@@ -1701,7 +1813,7 @@ export default function MarketingAssetModal({
           )}
           <div className="space-y-1.5">
             <Label htmlFor="portalCtaText">Button text (optional)</Label>
-            <Input id="portalCtaText" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
+            <Input id="portalCtaText" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} maxLength={PORTAL_ASSET_CTA_MAX} />
           </div>
           {ctaText.trim() && (
             <div className="space-y-1.5">
@@ -1762,7 +1874,7 @@ export default function MarketingAssetModal({
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="pu-cta-text">Button text</Label>
-            <Input id="pu-cta-text" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
+            <Input id="pu-cta-text" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} maxLength={PORTAL_ASSET_CTA_MAX} />
           </div>
           {ctaText.trim() && (
             <div className="space-y-1.5">
@@ -1827,11 +1939,22 @@ export default function MarketingAssetModal({
           )}
 
           <div className="space-y-1.5">
-            <Label htmlFor="np-headline">
-              Headline
-              <span className="text-red-500 ml-0.5">*</span>
-            </Label>
-            <Input id="np-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="np-headline">
+                Headline
+                <span className="text-red-500 ml-0.5">*</span>
+              </Label>
+              <span className="text-[11px] text-muted-foreground tabular-nums">
+                {headline.length}/{PORTAL_ASSET_HEADLINE_MAX}
+              </span>
+            </div>
+            <Input
+              id="np-headline"
+              placeholder="Enter headline…"
+              value={headline}
+              onChange={(e) => setHeadline(e.target.value)}
+              maxLength={PORTAL_ASSET_HEADLINE_MAX}
+            />
           </div>
           {/* Date range — shown directly under the headline for News & Events Post */}
           <div className="grid grid-cols-2 gap-3">
@@ -1851,8 +1974,19 @@ export default function MarketingAssetModal({
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="np-subtitle">Subtitle</Label>
-            <Input id="np-subtitle" placeholder="A short description…" value={flyerSubtitle} onChange={(e) => setFlyerSubtitle(e.target.value)} />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="np-subtitle">Subtitle</Label>
+              <span className="text-[11px] text-muted-foreground tabular-nums">
+                {flyerSubtitle.length}/{PORTAL_ASSET_SUBTITLE_MAX}
+              </span>
+            </div>
+            <Input
+              id="np-subtitle"
+              placeholder="A short description…"
+              value={flyerSubtitle}
+              onChange={(e) => setFlyerSubtitle(e.target.value)}
+              maxLength={PORTAL_ASSET_SUBTITLE_MAX}
+            />
           </div>
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
@@ -1889,7 +2023,13 @@ export default function MarketingAssetModal({
               Background image
               <span className="text-red-500 ml-0.5">*</span>
             </Label>
-            <p className="text-xs text-muted-foreground">Select a background photo for this post. Each image can only be used once per plan.</p>
+            <p className="text-xs text-muted-foreground">
+              Select a background photo for this post. Each image can only be used
+              once per plan.
+              {!bgImagesChecked && (
+                <span className="ml-1 italic">Checking availability…</span>
+              )}
+            </p>
             <div className="grid grid-cols-2 gap-2">
               {NEWS_POST_BG_IMAGES.map((img) => {
                 const isUsed = usedBgImageIds.includes(img.id);
@@ -1898,7 +2038,11 @@ export default function MarketingAssetModal({
                   <button
                     key={img.id}
                     type="button"
-                    disabled={isUsed && !isSelected}
+                    // Reserved by another post of this plan — except the post being
+                    // edited, whose own artwork is left out of `usedBgImageIds`.
+                    // Nothing is selectable until the plan's posts have been read,
+                    // so a fast click cannot slip past the reservation.
+                    disabled={!bgImagesChecked || (isUsed && !isSelected)}
                     onClick={() => setSelectedBgImage(img.id)}
                     className={cn(
                       "relative aspect-[16/9] rounded-lg overflow-hidden border-2 transition-all duration-200",
@@ -1932,8 +2076,19 @@ export default function MarketingAssetModal({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="ctaText">Button text</Label>
-            <Input id="ctaText" placeholder="Learn More" value={ctaText} onChange={(e) => setCtaText(e.target.value)} />
+            <div className="flex items-center justify-between">
+              <Label htmlFor="ctaText">Button text</Label>
+              <span className="text-[11px] text-muted-foreground tabular-nums">
+                {ctaText.length}/{PORTAL_ASSET_CTA_MAX}
+              </span>
+            </div>
+            <Input
+              id="ctaText"
+              placeholder="Learn More"
+              value={ctaText}
+              onChange={(e) => setCtaText(e.target.value)}
+              maxLength={PORTAL_ASSET_CTA_MAX}
+            />
           </div>
           {ctaText.trim() && (
             <div className="space-y-1.5">
@@ -1944,14 +2099,9 @@ export default function MarketingAssetModal({
               <Input id="np-cta-url" placeholder="https://example.com" value={newsPostCtaUrl} onChange={(e) => setNewsPostCtaUrl(e.target.value)} />
             </div>
           )}
-          {/* Button color */}
-          <PlanColorSelector
-            label="Button color"
-            value={bgColor}
-            onChange={setBgColor}
-            planPrimaryColor={planBrandColor}
-            planSecondaryColor={planSecondaryColor}
-          />
+          {/* No button-colour choice here: the portal's news-post CTA is the fixed
+              frosted-glass button every post carries (see NewsPostList), so a
+              per-post colour would never reach the page. */}
         </div>
       )}
 
@@ -1966,6 +2116,9 @@ export default function MarketingAssetModal({
         className={cn(
           "max-w-6xl p-0 flex flex-col max-h-[95vh] [&>button.absolute]:hidden",
           previewOnly && "max-w-3xl",
+          // A widened preview takes the whole viewport — the card is drawn at the
+          // portal's real width, so a wider dialog means a bigger, truer preview.
+          previewExpanded && "max-w-[96vw]",
           dialogZClass,
         )}
       >
@@ -2065,8 +2218,8 @@ export default function MarketingAssetModal({
 
         {/* Two-column body */}
         <div className="flex flex-1 overflow-hidden">
-          {/* Left Column — Form (hidden in preview-only mode) */}
-          {!previewOnly && (
+          {/* Left Column — Form (hidden in preview-only or widened-preview mode) */}
+          {!previewOnly && !previewExpanded && (
             <div className="w-1/2 border-r overflow-hidden flex flex-col">
               {assetType === "portal-notice" ? (
                 <div className="relative flex-1 overflow-hidden">
@@ -2130,7 +2283,12 @@ export default function MarketingAssetModal({
           )}
 
           {/* Right Column — Live Preview */}
-          <div className={cn("flex flex-col bg-muted/30", previewOnly ? "w-full" : "w-1/2")}>
+          <div
+            className={cn(
+              "flex flex-col bg-muted/30",
+              previewOnly || previewExpanded ? "w-full" : "w-1/2",
+            )}
+          >
             <div className="flex items-center justify-between px-6 py-3 border-b bg-background">
               <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
                 <Eye className="h-4 w-4" />
@@ -2140,7 +2298,10 @@ export default function MarketingAssetModal({
                 <div className="flex items-center gap-1 rounded-lg border bg-white dark:bg-gray-800 p-0.5 shadow-sm">
                   <button
                     type="button"
-                    onClick={() => setPreviewMode("desktop")}
+                    onClick={() => {
+                      setPreviewMode("desktop");
+                      setPreviewExpanded(false);
+                    }}
                     className={cn(
                       "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                       previewMode === "desktop"
@@ -2155,7 +2316,11 @@ export default function MarketingAssetModal({
                   </button>
                   <button
                     type="button"
-                    onClick={() => setPreviewMode("mobile")}
+                    onClick={() => {
+                      setPreviewMode("mobile");
+                      // The phone mock has its own frame; there is nothing to widen.
+                      setPreviewExpanded(false);
+                    }}
                     className={cn(
                       "rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                       previewMode === "mobile"
@@ -2168,6 +2333,24 @@ export default function MarketingAssetModal({
                     </svg>
                     Mobile
                   </button>
+                  {/* Widen the desktop preview: folds the form away so the card is
+                      drawn at its real page width instead of a scaled-down column. */}
+                  {previewMode === "desktop" && !previewOnly && (
+                    <button
+                      type="button"
+                      onClick={() => setPreviewExpanded((value) => !value)}
+                      className="rounded-md px-2 py-1 text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400"
+                      aria-pressed={previewExpanded}
+                      aria-label={previewExpanded ? "Shrink preview" : "Widen preview"}
+                      title={previewExpanded ? "Shrink preview" : "Widen preview"}
+                    >
+                      {previewExpanded ? (
+                        <Minimize2 className="h-3.5 w-3.5" />
+                      ) : (
+                        <Maximize2 className="h-3.5 w-3.5" />
+                      )}
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -2996,7 +3179,7 @@ function PreviewPane({
     case "pop-up":
       return <PopUpPreview headline={headline} body={body} ctaText={ctaText} bgColor={bgColor} planName={planName} planLogo={planLogo} isMobile={isMobile} />;
     case "news-post":
-      return <NewsPostPreview headline={headline} body={body} planName={planName} ctaText={ctaText} subtitle={flyerSubtitle} bgImage={bgImage} postCategory={postCategory} startDate={startDate} isMobile={isMobile} bgColor={bgColor} />;
+      return <NewsPostPreview headline={headline} body={body} planName={planName} ctaText={ctaText} subtitle={flyerSubtitle} bgImage={bgImage} postCategory={postCategory} startDate={startDate} isMobile={isMobile} />;
   }
 }
 
@@ -3317,6 +3500,16 @@ function getBgImageSrc(bgImageId: string): string {
   return found?.src ?? "";
 }
 
+/**
+ * The width the News & Events page actually gives a post card on a desktop:
+ * `max-w-7xl` (80rem = 1280px) less the section's `lg:px-8` gutters.
+ *
+ * The preview draws the card at this width and scales the result into its own
+ * column. Capping the card at 520px instead (as it used to) showed a narrower
+ * card that wrapped and hyphenated differently from the live page.
+ */
+const DESKTOP_NEWS_POST_WIDTH = 1216;
+
 // ── News Post Preview ─────────────────────────────────────────
 
 function NewsPostPreview({
@@ -3329,7 +3522,6 @@ function NewsPostPreview({
   postCategory,
   startDate,
   isMobile,
-  bgColor,
 }: {
   headline: string;
   body: string;
@@ -3340,13 +3532,59 @@ function NewsPostPreview({
   postCategory?: string;
   startDate?: string;
   isMobile?: boolean;
-  bgColor?: string;
 }) {
   const bgSrc = bgImage ? getBgImageSrc(bgImage) : "";
   const hasBg = !!bgSrc;
 
   /** Display date: prefer startDate, fall back to today so the date UI is always visible in preview */
   const displayDate = startDate || new Date().toISOString().split("T")[0];
+
+  // ── Desktop scale ──
+  // Draw the card at the portal's real desktop width and shrink it with a
+  // transform, rather than squeezing the card's own layout into the column.
+  // Transforms do not affect layout, so the wrapper is given the scaled height
+  // explicitly; otherwise the card would leave a 380px-tall empty gap.
+  const desktopFrameRef = useRef<HTMLDivElement | null>(null);
+  const desktopCardRef = useRef<HTMLDivElement | null>(null);
+  const [desktopScale, setDesktopScale] = useState(1);
+  const [desktopOffset, setDesktopOffset] = useState(0);
+  const [desktopCardHeight, setDesktopCardHeight] = useState(0);
+
+  useEffect(() => {
+    const frame = desktopFrameRef.current;
+    const card = desktopCardRef.current;
+    if (!frame || !card) return;
+
+    const measure = () => {
+      const frameWidth = frame.clientWidth;
+      // A hidden tab (or jsdom) reports 0 — draw 1:1 rather than scale to nothing.
+      const targetWidth =
+        frameWidth > 0
+          ? Math.min(DESKTOP_NEWS_POST_WIDTH, frameWidth)
+          : DESKTOP_NEWS_POST_WIDTH;
+      setDesktopScale(targetWidth / DESKTOP_NEWS_POST_WIDTH);
+      // A widened preview can be wider than the card itself; keep it centred.
+      setDesktopOffset(frameWidth > 0 ? (frameWidth - targetWidth) / 2 : 0);
+      // `offsetHeight` is measured before the transform, which is exactly what
+      // the scaled wrapper's height needs.
+      setDesktopCardHeight(card.offsetHeight);
+    };
+
+    measure();
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(frame);
+    observer.observe(card);
+    return () => observer.disconnect();
+  }, [
+    headline,
+    body,
+    subtitle,
+    ctaText,
+    postCategory,
+    bgImage,
+    startDate,
+  ]);
 
   const cardContent = (
     <>
@@ -3385,13 +3623,13 @@ function NewsPostPreview({
             <div className="h-2 w-4/6 rounded bg-white/20" />
           </div>
         )}
-        {/* CTA */}
-        <div className="mt-auto pt-4">
+        {/* CTA — the portal's own frosted-glass button, verbatim (NewsPostList):
+            translucent white on the photograph, white text, white hairline. */}
+        <div className="mt-auto pt-3 sm:pt-4">
           {ctaText && (
-            <span className="inline-flex items-center rounded-lg backdrop-blur-sm px-5 py-2.5 text-sm font-semibold text-white shadow-sm border border-white/30 hover:opacity-90 transition-all duration-200 cursor-default"
-              style={{ background: bgColor || "rgba(255,255,255,0.2)" }}>
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 backdrop-blur-sm px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-semibold text-white shadow-sm border border-white/30 cursor-default">
               {ctaText}
-              <svg className="ml-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg className="h-3 w-3 sm:h-3.5 sm:w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 12h14" /><polyline points="12 5 19 12 12 19" />
               </svg>
             </span>
@@ -3420,17 +3658,92 @@ function NewsPostPreview({
   }
 
   return (
-    <div className="w-full max-w-[520px] group transition-all duration-300 hover:-translate-y-1">
+    <div ref={desktopFrameRef} className="w-full max-w-full overflow-hidden">
       <div
-        className="relative rounded-xl overflow-hidden shadow-sm min-h-[300px]"
-        style={hasBg ? {} : { background: "linear-gradient(135deg, #1F3A60 0%, #2c4b80 100%)" }}
+        className="relative w-full"
+        style={{
+          height: desktopCardHeight
+            ? desktopCardHeight * desktopScale
+            : undefined,
+        }}
       >
-        {hasBg && (
-          <img src={bgSrc} alt="" className="absolute inset-0 w-full h-full object-cover" />
-        )}
-        {/* Dark overlay — left-to-right gradient: dark on left for text, transparent on right for image */}
-        <div className="absolute inset-0 bg-gradient-to-r from-black/100 via-black/50 to-transparent" />
-        {cardContent}
+        <div
+          ref={desktopCardRef}
+          className="absolute top-0 origin-top-left"
+          style={{
+            left: desktopOffset,
+            width: DESKTOP_NEWS_POST_WIDTH,
+            transform: `scale(${desktopScale})`,
+          }}
+        >
+          {/* Mirrors NewsPostList's desktop card: same content width, type scale,
+              padding and minimum height, so what the advisor previews is what the
+              participant sees. */}
+          <div
+            className="relative rounded-xl overflow-hidden shadow-sm min-h-[380px] sm:min-h-[360px]"
+            style={hasBg ? {} : { background: "linear-gradient(135deg, #1F3A60 0%, #2c4b80 100%)" }}
+          >
+            {hasBg && (
+              <img src={bgSrc} alt="" className="absolute inset-0 w-full h-full object-cover" />
+            )}
+            {/* Dark overlay — left-to-right gradient: darker on the left for text,
+                transparent on the right for the photograph. */}
+            <div className="absolute inset-0 bg-gradient-to-r from-black/100 from-30% via-black/30 via-55% to-transparent sm:from-black/95 sm:via-black/50 sm:to-transparent" />
+
+            <div className="relative z-10 flex flex-col h-full p-5 sm:p-8 max-w-[80%] sm:max-w-[55%]">
+              {/* Category badge + date */}
+              <div className="flex flex-row flex-wrap items-center gap-1.5 mb-2 sm:mb-3">
+                <span className="inline-flex items-center rounded-full border border-white/30 bg-white/20 backdrop-blur-sm px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-white self-start">
+                  {postCategory || "Retirement"}
+                </span>
+                <span className="text-[10px] sm:text-xs text-white/60 sm:text-white/70 flex items-center gap-1">
+                  <Calendar className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                  {new Date(displayDate).toLocaleDateString("en-US", {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })}
+                </span>
+              </div>
+
+              {/* Headline */}
+              <h3 className="font-dm-serif text-lg sm:text-xl lg:text-2xl font-bold leading-snug sm:leading-tight text-white">
+                {headline || "News Post Title"}
+              </h3>
+
+              {/* Subtitle */}
+              <p className={cn("text-xs sm:text-sm mt-1 sm:mt-1.5 font-red-hat", subtitle ? "text-white/80" : "text-white/40 italic")}>
+                {subtitle || "A short description\u2026"}
+              </p>
+
+              {/* Body */}
+              {body ? (
+                <p className="text-lg sm:text-sm text-gray-300 sm:text-gray-200 leading-relaxed line-clamp-2 sm:line-clamp-3 mt-2 sm:mt-3 flex-1 font-red-hat">
+                  {body}
+                </p>
+              ) : (
+                <div className="space-y-2 mt-2 sm:mt-3 flex-1">
+                  <div className="h-2 w-full rounded bg-white/20" />
+                  <div className="h-2 w-5/6 rounded bg-white/20" />
+                  <div className="h-2 w-4/6 rounded bg-white/20" />
+                </div>
+              )}
+
+              {/* CTA — no colour choice: the portal draws every news-post button as
+                  this frosted-glass grey (NewsPostList's own classes). */}
+              {ctaText && (
+                <div className="mt-auto pt-3 sm:pt-4">
+                  <span className="inline-flex items-center gap-1.5 rounded-lg bg-white/20 backdrop-blur-sm px-3 py-1.5 sm:px-4 sm:py-2 text-[11px] sm:text-xs font-semibold text-white shadow-sm border border-white/30 cursor-default">
+                    {ctaText}
+                    <svg className="h-3 w-3 sm:h-3.5 sm:w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M5 12h14" /><polyline points="12 5 19 12 12 19" />
+                    </svg>
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

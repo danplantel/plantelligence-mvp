@@ -292,6 +292,187 @@ describe("MarketingAssetModal", () => {
     expect(onSave).toHaveBeenCalled();
   });
 
+  it("hands the saved record to the caller so the list can skip the refetch", async () => {
+    const savedRecord = {
+      id: "notice-1",
+      type: "portal-notice",
+      status: "Published",
+      headline: "Open Enrollment",
+    };
+    mocks.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ success: true, data: savedRecord }),
+    });
+    const user = userEvent.setup();
+    const { onSave } = renderModal({
+      assetType: "portal-notice",
+      initialPortalElement: "top-banner",
+      editingAsset: editingNotice,
+    });
+
+    await user.click(screen.getByRole("button", { name: /Update Portal Notice/ }));
+
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(savedRecord));
+  });
+
+  it("reserves a background image another post of the plan already uses", async () => {
+    // The plan's own list (drafts included) is what reserves the artwork — the
+    // public endpoint only carries published posts.
+    mocks.fetch.mockImplementation((url: string) =>
+      Promise.resolve({
+        ok: true,
+        json: async () =>
+          String(url) === "/api/marketing/assets?clientId=plan-1"
+            ? {
+                success: true,
+                data: [
+                  { id: "post-1", type: "news-post", data: { bgImage: "bg_01" } },
+                ],
+              }
+            : { success: true },
+      }),
+    );
+
+    renderModal({ assetType: "news-post" });
+
+    const usedBadge = await screen.findByText("Used");
+    expect(usedBadge.closest("button")).toBeDisabled();
+  });
+
+  it("keeps a post's own background image available while editing it", async () => {
+    mocks.fetch.mockImplementation((url: string) =>
+      Promise.resolve({
+        ok: true,
+        json: async () =>
+          String(url) === "/api/marketing/assets?clientId=plan-1"
+            ? {
+                success: true,
+                data: [
+                  { id: "post-1", type: "news-post", data: { bgImage: "bg_01" } },
+                ],
+              }
+            : { success: true },
+      }),
+    );
+
+    renderModal({
+      assetType: "news-post",
+      editingAsset: {
+        id: "post-1",
+        type: "news-post",
+        status: "Draft",
+        headline: "Existing",
+        body: "Body",
+        createdAt: "2026-01-01T00:00:00Z",
+        data: { bgImage: "bg_01", category: "Retirement" },
+      },
+    });
+
+    await waitFor(() =>
+      expect(mocks.fetch).toHaveBeenCalledWith(
+        "/api/marketing/assets?clientId=plan-1",
+      ),
+    );
+    // Its own artwork is not "used" and stays selected.
+    expect(screen.queryByText("Used")).not.toBeInTheDocument();
+  });
+
+  it("re-reads the plan's posts when the form is opened again", async () => {
+    mocks.fetch.mockImplementation((url: string) =>
+      Promise.resolve({
+        ok: true,
+        json: async () =>
+          String(url) === "/api/marketing/assets?clientId=plan-1"
+            ? {
+                success: true,
+                data: [
+                  { id: "post-1", type: "news-post", data: { bgImage: "bg_01" } },
+                ],
+              }
+            : { success: true },
+      }),
+    );
+
+    const modal = (open: boolean) => (
+      <MarketingAssetModal
+        open={open}
+        onOpenChange={() => {}}
+        assetType="news-post"
+        planName="Acme"
+        planId="plan-1"
+      />
+    );
+
+    const { rerender } = render(modal(true));
+    expect(await screen.findByText("Used")).toBeInTheDocument();
+
+    // Closing empties the list (create-mode reset)…
+    rerender(modal(false));
+    await waitFor(() =>
+      expect(screen.queryByText("Used")).not.toBeInTheDocument(),
+    );
+
+    // …so reopening HAS to read the plan's posts again, or every image would
+    // look free even though another post already wears it.
+    mocks.fetch.mockClear();
+    rerender(modal(true));
+
+    await waitFor(() =>
+      expect(mocks.fetch).toHaveBeenCalledWith(
+        "/api/marketing/assets?clientId=plan-1",
+      ),
+    );
+    expect(await screen.findByText("Used")).toBeInTheDocument();
+  });
+
+  it("offers no button colour on a news post", () => {
+    // The portal draws every news-post CTA as the same frosted-glass button, so a
+    // per-post colour would never reach the page.
+    renderModal({ assetType: "news-post" });
+
+    expect(screen.queryByText("Button color")).not.toBeInTheDocument();
+  });
+
+  it("still offers a button colour on the other assets", () => {
+    renderModal({ assetType: "portal-notice", initialPortalElement: "top-banner" });
+
+    expect(screen.getByText("Button color")).toBeInTheDocument();
+  });
+
+  it("caps the news post's headline, subtitle and button label", () => {
+    renderModal({ assetType: "news-post" });
+
+    expect(screen.getByLabelText(/Headline/)).toHaveAttribute(
+      "maxlength",
+      "80",
+    );
+    expect(screen.getByLabelText("Subtitle")).toHaveAttribute(
+      "maxlength",
+      "120",
+    );
+    expect(screen.getByLabelText("Button text")).toHaveAttribute(
+      "maxlength",
+      "32",
+    );
+  });
+
+  it("widens the desktop preview by folding the form away", async () => {
+    const user = userEvent.setup();
+    renderModal({ assetType: "news-post" });
+
+    await user.click(screen.getByRole("button", { name: "Widen preview" }));
+
+    // The form column is gone; the preview is now the whole modal.
+    expect(screen.queryByLabelText(/Headline/)).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Shrink preview" }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(screen.getByRole("button", { name: "Shrink preview" }));
+
+    expect(screen.getByLabelText(/Headline/)).toBeInTheDocument();
+  });
+
   it("calls onEditFromPreview in preview mode", async () => {
     const user = userEvent.setup();
     const { onEditFromPreview } = renderModal({
