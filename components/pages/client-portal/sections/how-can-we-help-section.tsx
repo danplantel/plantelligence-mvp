@@ -196,8 +196,14 @@ export function formatPlanGroupIdLabel(value?: string | null): string {
   return `PLAN / GROUP ID: ${raw}`;
 }
 
-/** Cards that share one line of the 2-column phone grid. */
-const MOBILE_ROW_CAPACITY = 2;
+/**
+ * Cards that share one line of the phone grid.
+ *
+ * ONE: a phone shows a single full-width column of tiles, so every card owns its
+ * line and the open panel sits directly beneath the card that opened it. (The
+ * desktop grid still packs 3 or 4 to a row — see `DESKTOP_SPAN_CLASS`.)
+ */
+const MOBILE_ROW_CAPACITY = 1;
 
 /** The DESKTOP half of a card's span, per grid width. */
 const DESKTOP_SPAN_CLASS: Record<HelpCardColumns, Record<number, string>> = {
@@ -213,23 +219,20 @@ const DESKTOP_SPAN_CLASS: Record<HelpCardColumns, Record<number, string>> = {
 /**
  * Column span → grid classes, for the TWO grids the card lives in.
  *
- * The phone grid is two columns and the desktop grid is `columns` wide, so a span
- * means different things at each width — the phone half is a base utility and the
+ * The phone grid is ONE column and the desktop grid is `columns` wide, so a span
+ * only means something at `lg` — the phone half is a plain `col-span-1` and the
  * desktop half is the `lg:` override. Written out as static strings because
  * Tailwind cannot see a computed `col-span-${n}`.
  *
  * On a phone there is ONE grid for the whole section (the desktop row wrappers
- * are `display: contents` at that width), so a span of two — the primary, or any
- * card that owns a whole desktop row — takes the line to itself and every
- * narrower card pairs with the card AFTER it, whichever desktop row it came
- * from. That is what stops a row of three singles from stranding its last card
- * with an empty column beside it: it pairs with the first card of the next row.
- * An odd tail (no card left to pair with) simply keeps one column, as asked.
+ * are `display: contents` at that width) and every card fills it, edge to edge:
+ * a plan's tiles are its primary reading surface, and a half-width tile squeezed
+ * a title, a line of copy and a CTA into ~160px. `col-span-1` is kept explicit
+ * (rather than omitted) so no card can inherit a wider desktop span at that width.
  */
 function spanClass(span: number, columns: HelpCardColumns = 3): string {
   const clamped = Math.min(Math.max(span, 1), columns);
-  const phone = clamped >= MOBILE_ROW_CAPACITY ? "col-span-2" : "col-span-1";
-  return cn(phone, DESKTOP_SPAN_CLASS[columns][clamped]);
+  return cn("col-span-1", DESKTOP_SPAN_CLASS[columns][clamped]);
 }
 
 /** The desktop column count, written out because Tailwind cannot see `${n}`. */
@@ -238,10 +241,10 @@ const GRID_CLASS: Record<HelpCardColumns, string> = {
   4: "lg:grid-cols-4",
 };
 
-/** The open panel spans the whole row, on the phone grid and on desktop. */
+/** The open panel spans the whole row — the only column on a phone, the full row on desktop. */
 const PANEL_SPAN_CLASS: Record<HelpCardColumns, string> = {
-  3: "col-span-2 lg:col-span-3 lg:order-last",
-  4: "col-span-2 lg:col-span-4 lg:order-last",
+  3: "col-span-1 lg:col-span-3 lg:order-last",
+  4: "col-span-1 lg:col-span-4 lg:order-last",
 };
 
 /**
@@ -294,10 +297,10 @@ interface RowEntry {
  * Group a row into the lines a PHONE shows, so the open card's panel can be
  * inserted directly under the line it belongs to.
  *
- * The pairing itself is CSS: every desktop row wrapper is `display: contents` on
- * a phone, so all the cards flow into the section's single two-column grid and
- * neighbours pair up across row boundaries. This grouping only decides WHERE the
- * panel goes — after the last card of the line the open card sits on.
+ * The width itself is CSS: every desktop row wrapper is `display: contents` on a
+ * phone, so all the cards flow into the section's single ONE-column grid. With
+ * that capacity every card is its own line; this grouping still decides WHERE the
+ * panel goes — after the card that opened it.
  */
 function chunkRowForPhone(row: HelpCardResolved[], spans: number[]): RowEntry[][] {
   const lines: RowEntry[][] = [];
@@ -1766,14 +1769,13 @@ export function HowCanWeHelpSection({
 
       <div
         ref={rowsContainerRef}
-        // ONE grid for the whole section. On a phone that is the two-column grid
-        // every card lands in (the row wrappers are `display: contents` there),
-        // which is what lets two cards share a line across desktop row
-        // boundaries. On desktop it is a stack of rows — each row spans the
-        // whole line and runs its own grid — and the gaps do the spacing that
+        // ONE grid for the whole section. On a phone that is a SINGLE column
+        // (the row wrappers are `display: contents` there), so every card fills
+        // the viewport's width. On desktop it is a stack of rows — each row spans
+        // the whole line and runs its own grid — and the gaps do the spacing that
         // `space-y-4` used to.
         className={cn(
-          "relative mx-auto grid w-full max-w-7xl grid-cols-2 gap-3 px-4 sm:gap-4 sm:px-6 lg:px-8",
+          "relative mx-auto grid w-full max-w-7xl grid-cols-1 gap-3 px-4 sm:gap-4 sm:px-6 lg:px-8",
           GRID_CLASS[columns],
         )}
       >

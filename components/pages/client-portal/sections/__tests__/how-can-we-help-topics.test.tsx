@@ -99,8 +99,11 @@ describe("HowCanWeHelpSection with placements", () => {
     );
 
     // Two cards, three columns: the primary takes two so it stays the wide card,
-    // and the topic fills the third — the row still reaches the right edge.
-    expect(access?.className).toContain("col-span-2");
+    // and the topic fills the third — the row still reaches the right edge. On a
+    // phone both fill its single column.
+    expect(access?.className).toContain("lg:col-span-2");
+    expect(topic?.className).toContain("lg:col-span-1");
+    expect(access?.className).toContain("col-span-1");
     expect(topic?.className).toContain("col-span-1");
   });
 
@@ -181,8 +184,10 @@ describe("HowCanWeHelpSection with placements", () => {
     );
     expect(secondRow).toHaveLength(3);
     secondRow.forEach((rowTile) => {
-      expect(rowTile.className).toContain("col-span-1");
+      expect(rowTile.className).toContain("lg:col-span-1");
       expect(rowTile.className).not.toContain("lg:col-span-2");
+      // And every tile fills the phone's single column.
+      expect(rowTile.className).toContain("col-span-1");
     });
   });
 

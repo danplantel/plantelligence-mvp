@@ -123,13 +123,20 @@ describe("HowCanWeHelpSection layout", () => {
 
     const [primary, beside, ...midRow] = tiles(container);
     expect(primary).toHaveAttribute("data-help-card", "account-access");
-    expect(primary.className).toContain("col-span-2");
-    expect(beside.className).not.toContain("col-span-2");
+    // Desktop widths are the `lg:` spans; the phone half is always one column.
+    expect(primary.className).toContain("lg:col-span-2");
+    expect(beside.className).not.toContain("lg:col-span-2");
     // The middle row is three equal thirds.
     expect(
       midRow
         .slice(0, 3)
-        .every((element) => element.className.includes("col-span-1")),
+        .every((element) => element.className.includes("lg:col-span-1")),
+    ).toBe(true);
+    // Every tile — the primary included — fills the phone's single column.
+    expect(
+      [primary, beside, ...midRow].every((element) =>
+        element.className.includes("col-span-1"),
+      ),
     ).toBe(true);
   });
 
@@ -187,9 +194,9 @@ describe("HowCanWeHelpSection layout", () => {
     const rendered = tiles(container);
     // Row 1 holds two cards; the primary is the last of them.
     expect(rendered[1]).toHaveAttribute("data-help-card", "account-access");
-    expect(rendered[1].className).toContain("col-span-2");
-    expect(rendered[0].className).not.toContain("col-span-2");
-    expect(rendered[2].className).not.toContain("col-span-2");
+    expect(rendered[1].className).toContain("lg:col-span-2");
+    expect(rendered[0].className).not.toContain("lg:col-span-2");
+    expect(rendered[2].className).not.toContain("lg:col-span-2");
   });
 
   it("lets a topic card be the primary and demotes Account Access to 1/4", () => {
@@ -201,10 +208,10 @@ describe("HowCanWeHelpSection layout", () => {
     );
 
     const primary = tile(container, "rollovers-distributions");
-    expect(primary.className).toContain("col-span-2");
+    expect(primary.className).toContain("lg:col-span-2");
 
     const account = tile(container, "account-access");
-    expect(account.className).not.toContain("col-span-2");
+    expect(account.className).not.toContain("lg:col-span-2");
     expect(account.className).toContain("bg-white");
   });
 
@@ -753,7 +760,8 @@ describe("HowCanWeHelpSection expansion", () => {
       .getByRole("region", { name: "Financial Planning" })
       .closest('[id^="help-card-"]') as HTMLElement;
 
-    expect(panel.className).toContain("col-span-2");
+    expect(panel.className).toContain("col-span-1");
+    expect(panel.className).toContain("lg:col-span-3");
     expect(panel.className).toContain("lg:order-last");
   });
 
@@ -1127,7 +1135,7 @@ describe("2/3 primary card width", () => {
     );
     const primaryTile = tile(view.container, "financial-planning");
 
-    expect(primaryTile.className).toContain("col-span-2");
+    expect(primaryTile.className).toContain("lg:col-span-2");
     const content = primaryTile.querySelector<HTMLElement>(":scope > div");
     expect(content?.className).toContain("w-full");
     // It is NOT the measured wide-card column.
@@ -1723,11 +1731,16 @@ describe("HowCanWeHelpSection features placements", () => {
     expect(all).toHaveLength(8);
     // 2+2 / 2+2 / 1+1+1+1: the first four cards are each two columns wide.
     for (const element of all.slice(0, 4)) {
-      expect(element.className).toContain("col-span-2");
+      expect(element.className).toContain("lg:col-span-2");
     }
     for (const element of all.slice(4)) {
+      expect(element.className).toContain("lg:col-span-1");
+      expect(element.className).not.toContain("lg:col-span-2");
+    }
+    // …while every one of them keeps the phone's single full-width column.
+    for (const element of all) {
       expect(element.className).toContain("col-span-1");
-      expect(element.className).not.toContain("col-span-2");
+      expect(element.className).not.toMatch(/(^|\s)col-span-2(\s|$)/);
     }
   });
 
@@ -1914,7 +1927,7 @@ describe("HowCanWeHelpSection features placements", () => {
     // The layout's primary is the wide tile at the right edge of row 1, not
     // Account Access.
     const primary = tile(container, "sys.hsa-fsa-resources");
-    expect(primary.className).toContain("col-span-2");
+    expect(primary.className).toContain("lg:col-span-2");
     expect(primary.querySelector("button")?.textContent).toContain("Learn more");
   });
 
@@ -2061,9 +2074,9 @@ describe("HowCanWeHelpSection cards per row", () => {
     );
 
     const [primary, beside, third] = tiles(container);
-    expect(primary.className).toContain("col-span-2");
-    expect(beside.className).not.toContain("col-span-2");
-    expect(third.className).not.toContain("col-span-2");
+    expect(primary.className).toContain("lg:col-span-2");
+    expect(beside.className).not.toContain("lg:col-span-2");
+    expect(third.className).not.toContain("lg:col-span-2");
 
     // Nothing becomes a full-row banner: the widest any card can be is 2/4.
     for (const element of tiles(container)) {
@@ -2084,7 +2097,7 @@ describe("HowCanWeHelpSection cards per row", () => {
     expect(
       all
         .slice(3)
-        .every((element) => element.className.includes("col-span-1")),
+        .every((element) => element.className.includes("lg:col-span-1")),
     ).toBe(true);
   });
 
@@ -2100,60 +2113,56 @@ describe("HowCanWeHelpSection cards per row", () => {
 });
 
 /**
- * The phone lines.
+ * The phone layout.
  *
- * Outside the Primary — which owns a line of its own — the cards have to sit TWO
- * to a line, and a line that cannot be filled keeps ONE card at ONE column
- * rather than stretching it across both.
+ * A phone shows ONE full-width column: every tile fills the viewport's width, so
+ * a title, its line of copy and the CTA are never squeezed into half a screen,
+ * and the open panel sits directly beneath the card that opened it.
  *
  * That is a FLOW problem, not a chunking one: rows are computed per DESKTOP row,
- * so a row of three singles used to leave its third card beside an empty column.
- * The section therefore owns ONE two-column grid on a phone and every desktop row
- * wrapper steps out of the layout at that width (`display: contents`), which lets
- * a row's odd card pair with the first card of the row below it.
+ * so the section owns ONE single-column grid on a phone and every desktop row
+ * wrapper steps out of the layout at that width (`display: contents`).
  */
-describe("HowCanWeHelpSection phone lines", () => {
-  it("flows every card into one two-column phone grid", () => {
+describe("HowCanWeHelpSection phone layout", () => {
+  it("flows every card into one full-width phone column", () => {
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
 
     const grid = container.querySelector(".grid") as HTMLElement;
     expect(grid).not.toBeNull();
-    expect(grid.classList.contains("grid-cols-2")).toBe(true);
+    expect(grid.classList.contains("grid-cols-1")).toBe(true);
+    expect(grid.classList.contains("grid-cols-2")).toBe(false);
     // The desktop column count rides on the same element, so the two widths
     // cannot disagree about how the grid is drawn.
     expect(grid.classList.contains("lg:grid-cols-3")).toBe(true);
 
-    // A row wrapper that stayed a grid of its own would trap its cards: its odd
-    // one could only ever sit alone with an empty column beside it.
+    // A row wrapper that stayed a grid of its own would trap its cards and
+    // override the single column.
     for (const element of tiles(container)) {
       expect(element.parentElement?.classList.contains("contents")).toBe(true);
     }
   });
 
-  it("leaves an odd tail card at one column instead of widening it", () => {
+  it("gives every tile the full width, the primary included", () => {
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
 
-    // The classic seven: the primary (2), one card beside it, three across the
-    // middle, then a two-wide card and one more — five one-column cards, so the
-    // last one has nothing left to pair with.
-    const all = tiles(container);
-    const tail = all[all.length - 1];
-    expect(tail.classList.contains("col-span-1")).toBe(true);
-    expect(tail.classList.contains("col-span-2")).toBe(false);
-
-    // Every one-column card follows the same rule: it never fills the line.
-    for (const element of all) {
-      if (element.classList.contains("lg:col-span-1")) {
-        expect(element.classList.contains("col-span-1")).toBe(true);
-        expect(element.classList.contains("col-span-2")).toBe(false);
-      }
+    for (const element of tiles(container)) {
+      expect(element.classList.contains("col-span-1")).toBe(true);
+      // A leftover `col-span-2` would open a second (implicit) column on a
+      // single-column grid — the very half-width tile this replaces.
+      expect(element.classList.contains("col-span-2")).toBe(false);
     }
   });
 
-  it("keeps the primary on a line of its own", () => {
+  it("puts the panel on the same full-width line as the card that opened it", async () => {
+    const user = userEvent.setup();
     const { container } = render(<HowCanWeHelpSection clientId="plan-1" />);
 
-    const primary = tile(container, "account-access");
-    expect(primary.classList.contains("col-span-2")).toBe(true);
+    await user.click(tile(container, "financial-planning"));
+
+    const panel = screen
+      .getByRole("region", { name: "Financial Planning" })
+      .closest('[id^="help-card-"]') as HTMLElement;
+    expect(panel.classList.contains("col-span-1")).toBe(true);
+    expect(panel.classList.contains("col-span-2")).toBe(false);
   });
 });
