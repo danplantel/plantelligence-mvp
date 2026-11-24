@@ -490,84 +490,105 @@ describe("BenefitEditPage Custom name", () => {
   });
 });
 
-describe("BenefitEditPage save", () => {
-  it("requires a plan id", async () => {
+describe("BenefitEditPage autosave", () => {
+  it("needs a plan id before it writes anything", async () => {
     const user = userEvent.setup();
-    await renderReady("", "Retirement");
+    await renderReady("", "Company / Plan Sponsor");
+    const input = await screen.findByLabelText(/Custom Benefit Name/);
 
-    await user.click(screen.getByRole("button", { name: /Save changes/ }));
+    await user.type(input, "Yoga");
+    // Let the debounce fire: there is nothing to write against, so nothing is.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 900));
+    });
 
-    expect(mocks.toastError).toHaveBeenCalledWith(
-      "Plan ID missing. Cannot save benefit.",
-    );
     expect(mocks.saveBenefit).not.toHaveBeenCalled();
   });
 
-  it("saves and shows the Saved label", async () => {
+  it("writes an edit by itself, with no Save button", async () => {
     const user = userEvent.setup();
-    await renderReady();
+    await renderReady("plan-1", "Company / Plan Sponsor");
+    const input = await screen.findByLabelText(/Custom Benefit Name/);
 
-    await user.click(screen.getByRole("button", { name: /Save changes/ }));
+    await user.type(input, "Yoga");
 
+    await waitFor(() => expect(mocks.saveBenefit).toHaveBeenCalledTimes(1), {
+      timeout: 3000,
+    });
     await waitFor(() =>
-      expect(mocks.saveBenefit).toHaveBeenCalledWith(mocks.state.stepData),
+      expect(screen.getByText("All changes saved")).toBeInTheDocument(),
     );
-    expect(mocks.toastSuccess).toHaveBeenCalledWith(
-      "Benefit saved successfully!",
-    );
-    expect(screen.getByRole("button", { name: /Saved/ })).toBeInTheDocument();
+    // Silent: the bar carries the outcome, not a toast per write.
+    expect(mocks.toastSuccess).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: /Save changes/ }),
+    ).not.toBeInTheDocument();
   });
 
-  it("resets Saved after 2.5s", async () => {
+  it("keeps an explicit Save only while the Glance Card is missing", async () => {
+    mocks.state.stepData.step1.landingCardBody = "";
     await renderReady();
-    vi.useFakeTimers();
 
-    fireEvent.click(screen.getByRole("button", { name: /Save changes/ }));
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(screen.getByRole("button", { name: /Saved/ })).toBeInTheDocument();
-
-    act(() => {
-      vi.advanceTimersByTime(2500);
-    });
-
+    expect(
+      screen.getByText("Add your Glance Card image and body text to save"),
+    ).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /Save changes/ }),
     ).toBeInTheDocument();
   });
 
-  it("reports a failed save", async () => {
+  it("explains what it still needs instead of writing", async () => {
+    const user = userEvent.setup();
+    mocks.state.stepData.step1.landingCardImage = undefined;
+    await renderReady();
+
+    await user.click(screen.getByRole("button", { name: /Save changes/ }));
+
+    expect(mocks.saveBenefit).not.toHaveBeenCalled();
+    expect(mocks.toastError).toHaveBeenCalledWith(
+      "Your Benefits at a Glance Card is required",
+      expect.objectContaining({
+        description: expect.stringContaining("image"),
+      }),
+    );
+  });
+
+  it("reports a failed automatic write in the bar", async () => {
     const user = userEvent.setup();
     mocks.saveBenefit.mockResolvedValue({ success: false, error: "nope" });
-    await renderReady();
+    await renderReady("plan-1", "Company / Plan Sponsor");
+    const input = await screen.findByLabelText(/Custom Benefit Name/);
 
-    await user.click(screen.getByRole("button", { name: /Save changes/ }));
+    await user.type(input, "Yoga");
 
-    await waitFor(() =>
-      expect(mocks.toastError).toHaveBeenCalledWith(
-        "Cannot save benefit:",
-        expect.objectContaining({ description: "nope", duration: 5000 }),
-      ),
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText("Couldn’t save — your changes are kept"),
+        ).toBeInTheDocument(),
+      { timeout: 3000 },
     );
+    expect(mocks.toastError).not.toHaveBeenCalled();
   });
 
-  it("reports a thrown save request", async () => {
+  it("reports a thrown automatic write in the bar too", async () => {
     const user = userEvent.setup();
     mocks.saveBenefit.mockRejectedValue(new Error("network"));
-    await renderReady();
+    await renderReady("plan-1", "Company / Plan Sponsor");
+    const input = await screen.findByLabelText(/Custom Benefit Name/);
 
-    await user.click(screen.getByRole("button", { name: /Save changes/ }));
+    await user.type(input, "Yoga");
 
-    await waitFor(() =>
-      expect(mocks.toastError).toHaveBeenCalledWith(
-        "Cannot save benefit:",
-        expect.objectContaining({ description: "network" }),
-      ),
+    await waitFor(
+      () =>
+        expect(
+          screen.getByText("Couldn’t save — your changes are kept"),
+        ).toBeInTheDocument(),
+      { timeout: 3000 },
     );
   });
 
-  it("disables both footer buttons while saving", async () => {
+  it("disables the way out while a write is in flight", async () => {
     const user = userEvent.setup();
     let resolveSave!: (value: { success: boolean }) => void;
     mocks.saveBenefit.mockReturnValue(
@@ -575,20 +596,20 @@ describe("BenefitEditPage save", () => {
         resolveSave = resolve;
       }),
     );
-    await renderReady();
+    await renderReady("plan-1", "Company / Plan Sponsor");
+    const input = await screen.findByLabelText(/Custom Benefit Name/);
 
-    await user.click(screen.getByRole("button", { name: /Save changes/ }));
+    await user.type(input, "Yoga");
 
-    await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: /Saving\.\.\./ }),
-      ).toBeDisabled(),
+    await waitFor(
+      () => expect(screen.getByText("Saving…")).toBeInTheDocument(),
+      { timeout: 3000 },
     );
     expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
 
     resolveSave({ success: true });
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: /Saved/ })).toBeInTheDocument(),
+      expect(screen.getByText("All changes saved")).toBeInTheDocument(),
     );
   });
 
@@ -603,13 +624,13 @@ describe("BenefitEditPage save", () => {
     const input = await screen.findByLabelText(/Custom Benefit Name/);
     await user.clear(input);
     await user.type(input, "Mindfulness");
-    await user.click(screen.getByRole("button", { name: /Save changes/ }));
 
-    await waitFor(() =>
-      expect(mocks.state.saveStepData).toHaveBeenCalledWith(
-        1,
-        expect.objectContaining({ benefitTitle: "Mindfulness" }),
-      ),
+    await waitFor(() => expect(mocks.saveBenefit).toHaveBeenCalled(), {
+      timeout: 3000,
+    });
+    expect(mocks.state.saveStepData).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ benefitTitle: "Mindfulness" }),
     );
     expect(mocks.mutateSwr).toHaveBeenCalledWith(
       "/api/benefits",
@@ -642,15 +663,26 @@ describe("BenefitEditPage save", () => {
     expect(next.benefits[2].title).toBe("Other plan");
   });
 
-  it("does not write an empty Custom name", async () => {
+  it("does not write an empty Custom name over the saved one", async () => {
     const user = userEvent.setup();
     mocks.state.stepData.step1.benefitTitle = "Company / Plan Sponsor";
     await renderReady("plan-1", "Company / Plan Sponsor");
     const input = await screen.findByLabelText(/Custom Benefit Name/);
+
+    // A real name first, so clearing it is an actual edit.
+    await user.type(input, "Yoga");
+    await waitFor(() => expect(mocks.saveBenefit).toHaveBeenCalledTimes(1), {
+      timeout: 3000,
+    });
+
+    // Clearing the field writes the empty draft through the input's own handler;
+    // the WRITE must not re-assert it as the saved name.
     await user.clear(input);
     mocks.state.saveStepData.mockClear();
 
-    await user.click(screen.getByRole("button", { name: /Save changes/ }));
+    await waitFor(() => expect(mocks.saveBenefit).toHaveBeenCalledTimes(2), {
+      timeout: 3000,
+    });
 
     expect(mocks.state.saveStepData).not.toHaveBeenCalledWith(
       1,

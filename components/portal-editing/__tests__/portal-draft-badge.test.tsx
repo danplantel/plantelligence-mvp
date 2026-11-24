@@ -1,12 +1,13 @@
-import { render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * The amber **Unsaved changes** chip in a portal panel's header.
+ * The "the panel is showing something the server does not have yet" flag.
  *
  * Every editor reports its own draft through `usePortalDirtyReport`; the provider
- * holds the flag and this badge renders it right beside the red **Live** tag, so a
- * preview that is not saved yet is obvious without scrolling to the Save bar.
+ * holds it so the autosave loop (and anything else that asks) knows there is work
+ * left. The panel header itself no longer carries an "Unsaved changes" chip —
+ * `PortalSaveStatusBadge` reports the write instead.
  */
 
 const mocks = vi.hoisted(() => ({
@@ -20,32 +21,15 @@ vi.mock("@/components/portal-editing/portal-editing-provider", () => ({
   useOptionalPortalEditing: () => mocks.editing,
 }));
 
-import {
-  PortalDraftBadge,
-  usePortalDirtyReport,
-} from "@/components/portal-editing/portal-draft-badge";
+import { usePortalDirtyReport } from "@/components/portal-editing/portal-draft-badge";
 
-describe("PortalDraftBadge", () => {
+describe("usePortalDirtyReport", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.editing.isDirty = false;
   });
 
-  it("shows the chip only while the editor holds a draft", () => {
-    mocks.editing.isDirty = true;
-
-    render(<PortalDraftBadge />);
-
-    expect(screen.getByText("Unsaved changes")).toBeInTheDocument();
-  });
-
-  it("renders nothing once the draft is saved", () => {
-    const { container } = render(<PortalDraftBadge />);
-
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it("reports an editor's draft to the panel header", () => {
+  it("reports an editor's draft to the panel", () => {
     function Probe({ dirty }: { dirty: boolean }) {
       usePortalDirtyReport(dirty);
       return null;
@@ -56,5 +40,19 @@ describe("PortalDraftBadge", () => {
 
     rerender(<Probe dirty={false} />);
     expect(mocks.editing.setDirty).toHaveBeenLastCalledWith(false);
+  });
+
+  it("clears the flag when the editor goes away", () => {
+    function Probe() {
+      usePortalDirtyReport(true);
+      return null;
+    }
+
+    const { unmount } = render(<Probe />);
+    mocks.editing.setDirty.mockClear();
+
+    unmount();
+
+    expect(mocks.editing.setDirty).toHaveBeenCalledWith(false);
   });
 });

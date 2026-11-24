@@ -4,9 +4,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * The News & Events panel owns the page's hero background — the plan's "Page
- * Image Header" slot, the same control Create Client Step 1 renders — and it is
- * a DRAFT like the Home and benefit panels: the page beside it repaints at once,
- * but only the panel's Save writes anything.
+ * Image Header" slot, the same control Create Client Step 1 renders. The page
+ * beside it repaints at once, and the panel writes the draft a beat after the
+ * last edit: there is no Save button to press.
  */
 
 const mocks = vi.hoisted(() => ({
@@ -164,11 +164,11 @@ describe("PortalNewsEditor hero background", () => {
     expect(slot.dataset.preview).toBe("false");
   });
 
-  it("gives the panel a Save / Cancel bar that starts clean", () => {
+  it("gives the panel a Done button and reports it starts clean", () => {
     render(<PortalNewsEditor />);
 
-    expect(screen.getByRole("button", { name: "Cancel" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Done" })).toBeEnabled();
+    expect(screen.getByText("All changes saved")).toBeInTheDocument();
   });
 
   it("previews the new header without writing anything", async () => {
@@ -186,19 +186,18 @@ describe("PortalNewsEditor hero background", () => {
         }),
       ),
     );
-    // …and the bar lights up, but nothing has been saved.
-    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+    // …and the bar reports the write that is on its way, but nothing has left yet.
+    expect(screen.getByText("Saving automatically…")).toBeInTheDocument();
     expect(putCalls()).toHaveLength(0);
   });
 
-  it("writes the header through the plan PUT when Save is pressed", async () => {
+  it("writes the header through the plan PUT once the typing stops", async () => {
     const user = userEvent.setup();
     render(<PortalNewsEditor />);
 
     await user.click(screen.getByTestId("upload-header"));
-    await user.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(putCalls()).toHaveLength(1));
+    await waitFor(() => expect(putCalls()).toHaveLength(1), { timeout: 3000 });
 
     const [url, init] = putCalls()[0] as [string, RequestInit];
     expect(url).toBe("/api/clients/plan-1");
@@ -212,19 +211,17 @@ describe("PortalNewsEditor hero background", () => {
     await waitFor(() => expect(mocks.refetchPortal).toHaveBeenCalled());
   });
 
-  it("drops the draft on Cancel", async () => {
+  it("writes the header even if the panel closes before the debounce fires", async () => {
     const user = userEvent.setup();
-    render(<PortalNewsEditor />);
+    const { unmount } = render(<PortalNewsEditor />);
 
     await user.click(screen.getByTestId("upload-header"));
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
-
-    await waitFor(() => expect(mocks.refetchPortal).toHaveBeenCalled());
-    expect(mocks.resetSave).toHaveBeenCalled();
+    // Still inside the quiet period: nothing has been written yet…
     expect(putCalls()).toHaveLength(0);
-    // Back to a clean slate: Save is disabled again.
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled(),
-    );
+
+    unmount();
+
+    // …but closing the panel flushes the draft instead of dropping it.
+    await waitFor(() => expect(putCalls()).toHaveLength(1));
   });
 });

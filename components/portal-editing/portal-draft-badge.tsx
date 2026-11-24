@@ -5,14 +5,18 @@ import { useEffect } from "react";
 import { useOptionalPortalEditing } from "@/components/portal-editing/portal-editing-provider";
 
 /**
- * Tells the panel HEADER whether the editor holds an unsaved draft.
+ * Tells the panel whether the editor holds an unwritten draft.
  *
- * Every portal panel previews its edits in the live page beside it and writes nothing
- * until Save, so "what you see is not what is stored yet" needs to be visible without
- * scrolling to the action bar — and Cancel/Save may be out of sight while the advisor
- * works through the sections. Each editor owns its own draft state (a pending field
- * map, a blob, dirty asset ids), so it reports it here rather than the provider
- * guessing from `saveState`.
+ * Portal panels write their own drafts (see
+ * [`usePortalAutosave`](./use-portal-autosave.ts:1)), so nothing in the header
+ * needs an "Unsaved changes" chip any more — the save-status chip reports the
+ * write itself. The provider still tracks the flag, because "the panel is
+ * showing something the server does not have yet" is worth knowing outside the
+ * badge: it is what tells the autosave loop there is work left.
+ *
+ * Each editor owns its own draft state (a pending field map, a blob, dirty asset
+ * ids), so it reports it here rather than the provider guessing from
+ * `saveState`.
  */
 export function usePortalDirtyReport(isDirty: boolean) {
   const setDirty = useOptionalPortalEditing()?.setDirty;
@@ -28,24 +32,4 @@ export function usePortalDirtyReport(isDirty: boolean) {
     if (!setDirty) return;
     return () => setDirty(false);
   }, [setDirty]);
-}
-
-/**
- * The amber **Unsaved changes** chip, rendered right beside the red **Live** badge.
- *
- * Amber, not red: the page is live, but what it is showing is a draft. It renders
- * nothing when the editor is clean, so the header keeps its two-tag rhythm.
- */
-export function PortalDraftBadge() {
-  const editing = useOptionalPortalEditing();
-  if (!editing?.isDirty) return null;
-
-  return (
-    <span
-      className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 shadow-sm dark:border-amber-400/40 dark:bg-amber-400/10 dark:text-amber-300"
-      title="The page beside you shows changes that have not been saved yet."
-    >
-      Unsaved changes
-    </span>
-  );
 }

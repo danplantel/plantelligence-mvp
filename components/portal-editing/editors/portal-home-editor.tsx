@@ -8,6 +8,7 @@ import { PortalBenefitsGlanceSection } from "@/components/portal-editing/portal-
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
 import { usePortalDirtyReport } from "@/components/portal-editing/portal-draft-badge";
+import { usePortalAutosave } from "@/components/portal-editing/use-portal-autosave";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
 import { customBenefitTitleFromHubs } from "@/lib/benefit-custom-name";
 import type { PortalDisclaimersEnvelope } from "@/lib/portal-disclosures";
@@ -205,12 +206,17 @@ export function PortalHomeEditor() {
   const bodyTextRef = useRef<HTMLTextAreaElement>(null);
 
   // The draft. `pendingRef` merges every field touched since the last successful
-  // PUT, so Save sends one payload; `isDirty` drives the action bar and the live
-  // preview itself comes from `patchClientData`.
+  // PUT, so one autosave sends one payload; `isDirty` drives the autosave loop
+  // and the live preview itself comes from `patchClientData`.
   const pendingRef = useRef<Record<string, any>>({});
   const savingRef = useRef(false);
   const [isDirty, setIsDirty] = useState(false);
-  // The panel header's "Unsaved changes" badge follows this draft.
+  /**
+   * Moves on every edit so the autosave debounce restarts on each keystroke —
+   * `isDirty` is already true for the second one and would not.
+   */
+  const [draftVersion, setDraftVersion] = useState(0);
+  // The panel footer's status follows this draft.
   usePortalDirtyReport(isDirty);
   /**
    * The plan as it was LOADED — the comparison for "is this actually a change?".
@@ -256,6 +262,7 @@ export function PortalHomeEditor() {
     }
     pendingRef.current = next;
     setIsDirty(Object.keys(next).length > 0);
+    setDraftVersion((value) => value + 1);
   }, []);
 
   const updateField = useCallback(
@@ -306,13 +313,19 @@ export function PortalHomeEditor() {
     [patchClientData, queueChange],
   );
 
-  /** Write the queued draft. Only the bar's Save button calls this. */
-  const save = useCallback(async () => {
-    if (!planId || savingRef.current) return;
+  /**
+   * Write the queued draft. The autosave calls this a beat after the last edit —
+   * there is no Save button any more — and reports whether the server accepted
+   * it so a failure is not retried in a loop.
+   */
+  const save = useCallback(async (): Promise<boolean> => {
+    if (!planId) return false;
+    // A write is already on its way; this draft rides the next pass.
+    if (savingRef.current) return true;
     const payload = pendingRef.current;
     if (!Object.keys(payload).length) {
       setIsDirty(false);
-      return;
+      return true;
     }
 
     savingRef.current = true;
@@ -327,23 +340,40 @@ export function PortalHomeEditor() {
         const body = await response.json().catch(() => null);
         throw new Error(body?.error || "Could not save this page.");
       }
-      // Everything queued was in this payload, and the live preview already
-      // shows exactly what the server accepted. The baseline moves with it, so
-      // the next edit is compared against what is now stored.
-      pendingRef.current = {};
+      // The baseline moves to what the server accepted, so the next edit is
+      // compared against what is now stored.
       baselineRef.current = { ...(baselineRef.current ?? {}), ...payload };
-      setIsDirty(false);
+      // Only fields the advisor has NOT touched again since this request left
+      // stay queued. Anything typed while it was in flight is still a draft and
+      // goes out on the autosave's next pass — it must not be dropped here.
+      const remaining: Record<string, any> = {};
+      for (const key of Object.keys(pendingRef.current)) {
+        const value = pendingRef.current[key];
+        const saved = baselineRef.current?.[key];
+        const unchanged =
+          key === "companyLogo"
+            ? logoUrlOf(value) === logoUrlOf(saved)
+            : sameDraft(value, saved);
+        if (!unchanged) remaining[key] = value;
+      }
+      pendingRef.current = remaining;
+      setIsDirty(Object.keys(remaining).length > 0);
       finishSave();
+      return true;
     } catch (error) {
       // Keep the draft (and its live preview) so the advisor can retry; the
-      // action bar carries the message.
+      // bar and the header chip carry the message.
       failSave(
         error instanceof Error ? error.message : "Could not save this page.",
       );
+      return false;
     } finally {
       savingRef.current = false;
     }
   }, [planId, beginSave, finishSave, failSave]);
+
+  // No Save button: every edit previews at once and writes a beat later.
+  usePortalAutosave({ isDirty, version: draftVersion, save });
 
   /**
    * Throw the draft away: refetch the saved plan and re-seed the panel from it.
@@ -511,14 +541,8 @@ export function PortalHomeEditor() {
             </span>
           ) : undefined
         }
-        // The Save/Cancel row docks to the panel's own footer, not the portal.
-        footer={
-          <PortalEditorActionBar
-            isDirty={isDirty}
-            onSave={() => void save()}
-            onCancel={() => void cancel()}
-          />
-        }
+        // The autosave status and the way out, docked to the panel's own footer.
+        footer={<PortalEditorActionBar isDirty={isDirty} />}
       />
       {modals}
     </>

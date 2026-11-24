@@ -7,9 +7,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * `disclaimers.byCategory` row — the one `layout.tsx` reads FIRST on a hub page.
  *
  * Two things have to hold and are pinned here: the section edits THIS benefit's
- * entry (never the portal-wide Home Page row), and Save writes it to the plan,
- * because `saveBenefit()` deliberately drops Step 5 so one hub's save cannot
- * rewrite another benefit's disclosures.
+ * entry (never the portal-wide Home Page row), and the panel's autosave writes it
+ * to the plan, because `saveBenefit()` deliberately drops Step 5 so one hub's
+ * write cannot rewrite another benefit's disclosures.
  */
 
 const portal = vi.hoisted(() => ({
@@ -133,24 +133,11 @@ vi.mock("@/components/ui/dialog", () => ({
   DialogTitle: ({ children }: any) => <h2>{children}</h2>,
 }));
 
+// The bar is shared chrome; this suite cares about the write the panel triggers
+// by itself, so the footer is reduced to the status it would print.
 vi.mock("@/components/portal-editing/portal-editor-action-bar", () => ({
-  PortalEditorActionBar: ({
-    isDirty,
-    onSave,
-    onCancel,
-  }: {
-    isDirty: boolean;
-    onSave: () => void;
-    onCancel: () => void;
-  }) => (
-    <div>
-      <button type="button" disabled={!isDirty} onClick={onSave}>
-        Save
-      </button>
-      <button type="button" onClick={onCancel}>
-        Cancel
-      </button>
-    </div>
+  PortalEditorActionBar: ({ isDirty }: { isDirty: boolean }) => (
+    <div data-testid="action-bar">{isDirty ? "saving" : "saved"}</div>
   ),
 }));
 
@@ -212,7 +199,7 @@ describe("PortalBenefitEditor — the hub's own disclosure", () => {
     ]);
   });
 
-  it("writes the disclosure to the plan on Save, alongside the benefit", async () => {
+  it("writes the disclosure to the plan by itself, alongside the benefit", async () => {
     const user = userEvent.setup();
     render(<PortalBenefitEditor />);
 
@@ -220,10 +207,14 @@ describe("PortalBenefitEditor — the hub's own disclosure", () => {
       screen.getByRole("button", { name: /Open footer editor/i }),
     );
     await user.type(screen.getByLabelText("Disclosure Text"), "!");
-    await user.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() => expect(mocks.saveBenefit).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(mocks.fetch).toHaveBeenCalled());
+    // No Save button: the panel writes a beat after the typing stops.
+    await waitFor(() => expect(mocks.saveBenefit).toHaveBeenCalledTimes(1), {
+      timeout: 3000,
+    });
+    await waitFor(() => expect(mocks.fetch).toHaveBeenCalled(), {
+      timeout: 3000,
+    });
 
     const [url, init] = mocks.fetch.mock.calls.at(-1) as unknown as [
       string,

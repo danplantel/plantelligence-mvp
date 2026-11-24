@@ -7,10 +7,11 @@ import { Loader2 } from "lucide-react";
 import { BenefitsEditorPanel } from "@/components/wizard/benefits-steps/benefits-editor-panel";
 import { PortalFooterDialog } from "@/components/portal-editing/portal-footer-dialog";
 import { PortalLiveBadge } from "@/components/portal-editing/portal-live-badge";
-import { PortalDraftBadge } from "@/components/portal-editing/portal-draft-badge";
+import { PortalSaveStatusBadge } from "@/components/portal-editing/portal-save-status-badge";
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
 import { usePortalDirtyReport } from "@/components/portal-editing/portal-draft-badge";
+import { usePortalAutosave } from "@/components/portal-editing/use-portal-autosave";
 import { PortalBenefitVisibilityToggle } from "@/components/portal-editing/portal-benefit-visibility-toggle";
 import { sameDraft } from "@/lib/portal-draft-compare";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
@@ -342,6 +343,11 @@ export function PortalBenefitEditor() {
   const baselineDisclaimersRef = useRef<unknown>(undefined);
   const skipFirstChangeRef = useRef(true);
   const savingRef = useRef(false);
+  /**
+   * Moves on every edit so the autosave debounce restarts on each keystroke —
+   * `isDirty` is already true for the second one and would not.
+   */
+  const [draftVersion, setDraftVersion] = useState(0);
   // The draft effect needs the newest plan without re-subscribing on every patch.
   const clientDataRef = useRef(clientData);
   clientDataRef.current = clientData;
@@ -364,11 +370,12 @@ export function PortalBenefitEditor() {
 
   const handleDisclaimersChange = useCallback(
     (next: PortalDisclaimersEnvelope) => {
-      // The ref is what Save reads to know the plan needs the PUT; the badge is
-      // derived from `clientData.disclaimers` vs its baseline below.
+      // The ref is what the write reads to know the plan needs the PUT; the badge
+      // is derived from `clientData.disclaimers` vs its baseline below.
       disclaimersDirtyRef.current = true;
       // Live preview: the layout resolves this hub's footer from this value.
       patchClientData({ disclaimers: next });
+      setDraftVersion((value) => value + 1);
     },
     [patchClientData],
   );
@@ -442,6 +449,8 @@ export function PortalBenefitEditor() {
 
     const step1 = stepData.step1 as BenefitsStep1Data | undefined;
     if (!benefitKey || !step1) return;
+    // A real edit: restart the autosave's quiet period.
+    setDraftVersion((value) => value + 1);
 
     const patch = benefitPatchFromStepData(
       step1,
@@ -483,11 +492,19 @@ export function PortalBenefitEditor() {
     if (Object.keys(planPatch).length) patchClientData(planPatch);
   }, [stepData, hydrated, benefitKey, mutate, patchClientData]);
 
-  /** Write the drafted Steps 1/3 through the shared benefit save path. */
-  const save = useCallback(async () => {
-    if (!planId || savingRef.current) return;
+  /**
+   * Write the drafted Steps 1/3 through the shared benefit save path.
+   *
+   * Called by the autosave a beat after the last edit and reports whether the
+   * server accepted the write, so a failure stops the loop instead of retrying
+   * the same draft forever.
+   */
+  const save = useCallback(async (): Promise<boolean> => {
+    if (!planId) return false;
+    // A write is already on its way; this draft rides the next pass.
+    if (savingRef.current) return true;
     const snapshot = useBenefitsWizardStore.getState().stepData;
-    if (!snapshot.step1?.planId) return;
+    if (!snapshot.step1?.planId) return true;
 
     // The portal only owns Steps 1 and 3. Drop any Steps 4/5 left by an
     // unrelated dashboard draft so this save can never rewrite another
@@ -507,14 +524,13 @@ export function PortalBenefitEditor() {
       }
 
       // The disclosure rides the plan, not the Benefit row (see
-      // `disclaimersDirtyRef`): written here so one Save commits both.
+      // `disclaimersDirtyRef`): written here so one pass commits both.
+      const sentDisclaimers = clientDataRef.current?.disclaimers;
       if (disclaimersDirtyRef.current) {
         const response = await fetch(`/api/clients/${planId}`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            disclaimers: clientDataRef.current?.disclaimers,
-          }),
+          body: JSON.stringify({ disclaimers: sentDisclaimers }),
         });
         if (!response.ok) {
           const body = await response.json().catch(() => null);
@@ -523,19 +539,28 @@ export function PortalBenefitEditor() {
               "This benefit was saved, but its footer disclosure was not.",
           );
         }
-        disclaimersDirtyRef.current = false;
       }
 
-      // What was just saved becomes the baseline the badge compares to.
-      const savedSteps = useBenefitsWizardStore.getState().stepData;
+      // Only what was SENT becomes the baseline: an edit that landed while the
+      // request was in flight is still a draft, and the autosave writes it on its
+      // next pass instead of having it swallowed here.
       baselineStepsRef.current = {
-        step1: cloneDraft((savedSteps.step1 ?? null) as BenefitsStep1Data | null),
-        step3: cloneDraft((savedSteps.step3 ?? null) as BenefitsStep3Data | null),
+        step1: cloneDraft(
+          (portalStepData.step1 ?? null) as BenefitsStep1Data | null,
+        ),
+        step3: cloneDraft(
+          (portalStepData.step3 ?? null) as BenefitsStep3Data | null,
+        ),
       };
-      baselineDisclaimersRef.current = clientDataRef.current?.disclaimers;
+      baselineDisclaimersRef.current = sentDisclaimers;
+      disclaimersDirtyRef.current = !sameDraft(
+        clientDataRef.current?.disclaimers,
+        sentDisclaimers,
+      );
       finishSave();
       // The saved row is the source of truth now — drop the optimistic cache.
       if (benefitKey) await mutate(benefitKey);
+      return true;
     } catch (saveFailure) {
       // Keep the draft and its live preview so the advisor can retry.
       failSave(
@@ -543,10 +568,14 @@ export function PortalBenefitEditor() {
           ? saveFailure.message
           : "Could not save this benefit.",
       );
+      return false;
     } finally {
       savingRef.current = false;
     }
   }, [planId, benefitKey, mutate, beginSave, finishSave, failSave]);
+
+  // No Save button: the panel writes itself a beat after the last edit.
+  usePortalAutosave({ isDirty, version: draftVersion, save });
 
   /**
    * Throw the draft away: refetch the saved Benefit row and the plan, then
@@ -604,12 +633,12 @@ export function PortalBenefitEditor() {
           <PortalBenefitVisibilityToggle category={apiCategory} />
         ) : undefined
       }
-      // The portal's red Live tag (and the amber draft tag beside it), next to the
-      // plan/category badge.
+      // The portal's red Live tag (and the write's own status beside it), next to
+      // the plan/category badge.
       headerBadgePrefix={
         <>
           <PortalLiveBadge />
-          <PortalDraftBadge />
+          <PortalSaveStatusBadge />
         </>
       }
       planCompanyName={String(clientData?.companyName || "")}
@@ -619,14 +648,8 @@ export function PortalBenefitEditor() {
       focusRequest={focusRequest}
       // A light grey tool surface, matching the portal's other editor panels.
       surfaceClassName="bg-gray-100 dark:bg-gray-900"
-      // The Save/Cancel row docks to the panel's own footer, not the portal.
-      footer={
-        <PortalEditorActionBar
-          isDirty={isDirty}
-          onSave={() => void save()}
-          onCancel={() => void cancel()}
-        />
-      }
+      // The autosave status and the way out, docked to the panel's own footer.
+      footer={<PortalEditorActionBar isDirty={isDirty} />}
       // Quick Answers writes placements through its own endpoint. The page beside
       // this panel renders its questions from the BENEFIT payload, so the board is
       // patched in here the moment a topic moves — the row leaves the section in the

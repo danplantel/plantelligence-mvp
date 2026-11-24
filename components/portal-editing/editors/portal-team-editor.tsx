@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { KeyContactsEditor } from "@/components/contacts/key-contacts-editor";
@@ -83,8 +82,6 @@ export function PortalTeamEditor() {
     beginSave,
     finishSave,
     failSave,
-    saveState,
-    saveError,
     patchClientData,
     refetchPortal,
     focusRequest,
@@ -269,19 +266,8 @@ export function PortalTeamEditor() {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-end gap-1.5 text-[11px] text-muted-foreground">
-        {saveState === "saving" && (
-          <>
-            <Loader2 className="h-3 w-3 animate-spin" />
-            Saving…
-          </>
-        )}
-        {saveState === "saved" && <span>Saved</span>}
-        {saveState === "error" && (
-          <span className="text-red-500">{saveError || "Save failed"}</span>
-        )}
-      </div>
-
+      {/* The write's own status lives in the panel header now (the shell's save
+          chip), so this body starts with the first section. */}
       <MainContactStyleSection
         value={normalizeKeyContactCardStyle(blob.mainContactStyle)}
         onChange={setMainContactStyle}

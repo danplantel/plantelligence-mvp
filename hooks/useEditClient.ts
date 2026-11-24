@@ -797,16 +797,27 @@ export function useEditClient() {
     return fieldErrors;
   };
 
-  const handleSave = async (): Promise<boolean> => {
+  /**
+   * Write the plan.
+   *
+   * `silent` is the autosave's mode: it must not announce every debounced write
+   * (or every validation pass) with a toast — the page's own status line reports
+   * the outcome instead. The explicit Save button keeps the toasts.
+   */
+  const handleSave = async (
+    options: { silent?: boolean } = {},
+  ): Promise<boolean> => {
     if (!client) return false;
 
     // Validate form if status is Active
     if (clientStatus === "Active") {
       const validationErrors = validateForm();
       if (validationErrors.length > 0) {
-        toast.error("Please complete all required fields:", {
-          description: validationErrors.join(", "),
-        });
+        if (!options.silent) {
+          toast.error("Please complete all required fields:", {
+            description: validationErrors.join(", "),
+          });
+        }
         return false;
       }
     }
@@ -973,13 +984,13 @@ export function useEditClient() {
       const result = await response.json();
       if (result.success) {
         ok = true;
-        toast.success("Client updated successfully");
+        if (!options.silent) toast.success("Client updated successfully");
       } else {
         throw new Error("Failed to update client");
       }
     } catch (error) {
       console.error("Error updating client:", error);
-      toast.error("Failed to update client");
+      if (!options.silent) toast.error("Failed to update client");
     } finally {
       setSaving(false);
     }

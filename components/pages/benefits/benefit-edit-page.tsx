@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { mutate as mutateSwr } from "swr";
@@ -26,6 +26,7 @@ import {
 } from "@/lib/fetch-client";
 import { persistPlanSelection } from "@/lib/plan-selector-storage";
 import { usePageTitleContext } from "@/hooks/usePageTitleContext";
+import { useAutosave } from "@/hooks/useAutosave";
 import {
   getBenefitPortalSegment,
   getBenefitsHubOpenPortalUrl,
@@ -285,8 +286,14 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
    * Persist every section using the shared `saveBenefit()` helper (identical
    * merge logic to the Create Benefit wizard). Per-field autosave from the step
    * components keeps the draft current in between.
+   *
+   * `silent` is the page's own autosave mode: a debounced write must not announce
+   * itself (or a not-yet-complete draft) with a toast — the bottom bar reports
+   * the outcome instead. The explicit Save keeps every message.
    */
-  const handleSave = async () => {
+  const handleSave = async (
+    options: { silent?: boolean } = {},
+  ): Promise<boolean> => {
     // Re-assert the Custom benefit's name before saving.
     //
     // `benefitTitle` is the field `saveBenefit()` writes to `Benefit.title`, and for the Custom
@@ -308,8 +315,8 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
 
     const stepData = useBenefitsWizardStore.getState().stepData;
     if (!stepData.step1?.planId) {
-      toast.error("Plan ID missing. Cannot save benefit.");
-      return;
+      if (!options.silent) toast.error("Plan ID missing. Cannot save benefit.");
+      return false;
     }
     // The Your Benefits at a Glance Card is required. Its image and body live on
     // Step 1's Branding tab, which may not be the tab the Save button was pressed
@@ -320,19 +327,21 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
     if (!(stepData.step1?.landingCardBody || "").trim())
       landingCardMissing.push("body text");
     if (landingCardMissing.length > 0) {
-      toast.error("Your Benefits at a Glance Card is required", {
-        description: `Add the card ${landingCardMissing.join(
-          " and ",
-        )} in Branding → Your Benefits at a Glance Card before saving.`,
-      });
-      return;
+      if (!options.silent) {
+        toast.error("Your Benefits at a Glance Card is required", {
+          description: `Add the card ${landingCardMissing.join(
+            " and ",
+          )} in Branding → Your Benefits at a Glance Card before saving.`,
+        });
+      }
+      return false;
     }
     setSaving(true);
     try {
       const result = await saveBenefit(stepData);
       if (!result.success) throw new Error(result.error || "Failed to save benefit");
       setSaved(true);
-      toast.success("Benefit saved successfully!");
+      if (!options.silent) toast.success("Benefit saved successfully!");
       setTimeout(() => setSaved(false), 2500);
 
       // Browse Benefits is a different route with its own SWR cache for `/api/benefits`, so a
@@ -362,16 +371,96 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
           );
         }
       }
+      return true;
     } catch (error: any) {
       console.error("Benefit save error:", error);
-      toast.error("Cannot save benefit:", {
-        description: error.message,
-        duration: 5000,
-      });
+      if (!options.silent) {
+        toast.error("Cannot save benefit:", {
+          description: error.message,
+          duration: 5000,
+        });
+      }
+      return false;
     } finally {
       setSaving(false);
     }
   };
+
+  // ── Autosave ───────────────────────────────────────────────────────────────
+  // The page writes itself a beat after the last edit (see
+  // [`useAutosave`](../../../hooks/useAutosave.ts:1)). The bottom bar keeps an
+  // explicit Save only while the draft cannot be written yet: the Glance Card is
+  // required, and the advisor has to see that before it disappears behind a
+  // silently failing save.
+  const stepDataAll = useBenefitsWizardStore((s) => s.stepData);
+
+  /** One string that changes whenever anything `saveBenefit` writes changes. */
+  const draftSignature = useMemo(
+    () =>
+      JSON.stringify(stepDataAll, (_key, value) => {
+        if (typeof File !== "undefined" && value instanceof File) {
+          return `file:${value.name}:${value.size}:${value.lastModified}`;
+        }
+        if (
+          typeof value === "string" &&
+          value.length > 512 &&
+          value.startsWith("data:")
+        ) {
+          return `data:${value.length}:${value.slice(0, 512)}`;
+        }
+        return value;
+      }),
+    [stepDataAll],
+  );
+
+  /**
+   * What the last write committed. `null` until the page has hydrated, so the
+   * load-time seeding is never mistaken for an edit.
+   */
+  const [savedSignature, setSavedSignature] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isHydrated || savedSignature !== null) return;
+    setSavedSignature(draftSignature);
+  }, [isHydrated, savedSignature, draftSignature]);
+
+  const autosavePauseReason =
+    !stepDataAll?.step1?.landingCardImage?.url?.trim() ||
+    !(stepDataAll?.step1?.landingCardBody || "").trim()
+      ? "Add your Glance Card image and body text to save"
+      : null;
+
+  /** The last automatic write failed. The draft is kept; the bar says so. */
+  const [autosaveFailed, setAutosaveFailed] = useState(false);
+  // A new edit is a new attempt, so the message clears as soon as they type.
+  useEffect(() => {
+    setAutosaveFailed(false);
+  }, [draftSignature]);
+
+  const hasUnsavedChanges =
+    savedSignature !== null && savedSignature !== draftSignature;
+
+  /**
+   * The autosave's write. Silent on purpose — the bar reports the outcome — and
+   * it moves the baseline only to the state it actually SENT, so an edit made
+   * while the request was in flight stays dirty and goes out on the next pass.
+   */
+  const autosaveBenefit = useCallback(async (): Promise<boolean> => {
+    if (autosavePauseReason) return true;
+    const sentSignature = draftSignature;
+    const ok = await handleSave({ silent: true });
+    if (!ok) {
+      setAutosaveFailed(true);
+      return false;
+    }
+    setSavedSignature(sentSignature);
+    return true;
+  }, [autosavePauseReason, draftSignature, handleSave]);
+
+  useAutosave({
+    isDirty: hasUnsavedChanges && !autosavePauseReason,
+    version: draftSignature,
+    save: autosaveBenefit,
+  });
 
   /**
    * Delete this category's Benefit page, then forget it locally.
@@ -690,6 +779,34 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
               : undefined
           }
         >
+          {/* What the page is doing with the draft, so the advisor never has to
+              wonder whether their edit was kept. */}
+          <p
+            className={cn(
+              "mr-auto min-w-0 truncate text-xs",
+              autosavePauseReason
+                ? "text-amber-600"
+                : autosaveFailed
+                  ? "text-red-500"
+                  : "text-muted-foreground",
+            )}
+            aria-live="polite"
+          >
+            {autosavePauseReason ? (
+              autosavePauseReason
+            ) : autosaveFailed ? (
+              "Couldn’t save — your changes are kept"
+            ) : saving ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Saving…
+              </span>
+            ) : hasUnsavedChanges ? (
+              "Saving automatically…"
+            ) : (
+              "All changes saved"
+            )}
+          </p>
           <Button
             variant="outline"
             onClick={() => router.push("/benefits")}
@@ -697,18 +814,21 @@ export function BenefitEditPage({ planId, category }: BenefitEditPageProps) {
           >
             Cancel
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={saving || !isHydrated}
-            className="gap-2"
-          >
-            {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4" />
-            )}
-            {saving ? "Saving..." : saved ? "Saved" : "Save changes"}
-          </Button>
+          {/* Only while the draft cannot be written on its own. */}
+          {autosavePauseReason ? (
+            <Button
+              onClick={() => void handleSave()}
+              disabled={saving || !isHydrated}
+              className="gap-2"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="h-4 w-4" />
+              )}
+              {saving ? "Saving..." : saved ? "Saved" : "Save changes"}
+            </Button>
+          ) : null}
         </div>
       </div>
 

@@ -63,7 +63,13 @@ const portalHubTests = [
   "components/portal-editing/__tests__/portal-employee-resources-visibility-toggle.test.tsx",
   // The same switch as Section 1 of a benefit hub's panel: the category map write
   "components/portal-editing/__tests__/portal-benefit-visibility-toggle.test.tsx",
-  // The panel header's amber "Unsaved changes" chip and the hook editors report with
+  // The panel header's save chip: Saving… / Saved / Couldn't save, and the moment
+  // "Saved" gets out of the way
+  "components/portal-editing/__tests__/portal-save-status-badge.test.tsx",
+  // The write loop behind the Save button that is gone: debounce, one at a time,
+  // quiet after a failure, flushed on close
+  "components/portal-editing/__tests__/use-portal-autosave.test.tsx",
+  // The "the panel holds an unwritten draft" flag editors report with
   "components/portal-editing/__tests__/portal-draft-badge.test.tsx",
   // The comparison behind "is this actually a change?" (revert clears the badge)
   "lib/__tests__/portal-draft-compare.test.ts",

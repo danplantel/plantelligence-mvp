@@ -8,6 +8,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
 import { usePortalDirtyReport } from "@/components/portal-editing/portal-draft-badge";
+import { usePortalAutosave } from "@/components/portal-editing/use-portal-autosave";
 import { PortalEmployeeResourcesVisibilityToggle } from "@/components/portal-editing/portal-employee-resources-visibility-toggle";
 import { PortalFooterSection } from "@/components/portal-editing/portal-footer-section";
 import { brandImagesFromClient } from "@/components/portal-editing/portal-brand-images";
@@ -234,6 +235,14 @@ export function PortalEmployeeResourcesEditor() {
   const themeDirtyRef = useRef(false);
   /** The theme the panel loaded — same role as the hero baseline above. */
   const baselineThemeRef = useRef<TypographyThemeId>(savedTheme);
+  /** The draft itself, for "did the advisor pick another one mid-request?". */
+  const themeDraftRef = useRef<TypographyThemeId>(themeDraft);
+  themeDraftRef.current = themeDraft;
+  /**
+   * Moves on every edit so the autosave debounce restarts on each keystroke —
+   * `isDirty` is already true for the second one and would not.
+   */
+  const [draftVersion, setDraftVersion] = useState(0);
 
   // ── "How Can We Help You Today?" — Account Access + card layout ──
   // A benefit hub keeps these on its Benefit row; this hub keeps them in the plan's
@@ -273,6 +282,7 @@ export function PortalEmployeeResourcesEditor() {
       themeDirtyRef.current = true;
       setThemeDraft(id);
       patchClientData({ typographyTheme: id } as any);
+      setDraftVersion((value) => value + 1);
     },
     [patchClientData],
   );
@@ -326,6 +336,7 @@ export function PortalEmployeeResourcesEditor() {
           employeeResourcesHeroImage: hero?.url ?? "",
         },
       });
+      setDraftVersion((value) => value + 1);
     },
     [patchClientData],
   );
@@ -345,6 +356,7 @@ export function PortalEmployeeResourcesEditor() {
           employeeResourcesHelp: next,
         },
       });
+      setDraftVersion((value) => value + 1);
     },
     [patchClientData],
   );
@@ -570,9 +582,22 @@ export function PortalEmployeeResourcesEditor() {
     helpDirtyRef.current = false;
   }, []);
 
-  /** Persist the drafted hero, theme, Account Access fields and card layout. */
-  const save = useCallback(async () => {
-    if (!planId || !isDirty) return;
+  /**
+   * Persist the drafted hero, theme, Account Access fields and card layout.
+   *
+   * The autosave calls this a beat after the last edit and reports whether the
+   * server accepted it, so a failure stops the loop instead of retrying the same
+   * draft forever.
+   */
+  const save = useCallback(async (): Promise<boolean> => {
+    if (!planId) return false;
+    if (!isDirty) return true;
+
+    // What this pass sends. Captured now because every one of these refs moves
+    // with the advisor's next click, and one may land while the upload is running.
+    const sentTheme = themeDraft;
+    const sentHelp = helpDraftRef.current;
+    const sentHeroDraft = brandImagesRef.current;
 
     beginSave();
     try {
@@ -615,20 +640,35 @@ export function PortalEmployeeResourcesEditor() {
         throw new Error(body?.error || "Could not save the header image.");
       }
 
-      heroDirtyRef.current = false;
-      themeDirtyRef.current = false;
-      helpDirtyRef.current = false;
+      // Only what this pass SENT becomes the baseline. A theme, hero or card the
+      // advisor changed again while the request was in flight keeps its draft —
+      // and its dirty flag — and goes out on the autosave's next pass instead of
+      // being swallowed here.
+      const advanced =
+        brandImagesRef.current !== sentHeroDraft ||
+        helpDraftRef.current !== sentHelp ||
+        themeDraftRef.current !== sentTheme;
+      baselineThemeRef.current = sentTheme;
+      baselineBrandImagesRef.current = payload;
+      baselineHelpRef.current = sentHelp;
+      heroDirtyRef.current = advanced;
+      themeDirtyRef.current = advanced;
+      helpDirtyRef.current = advanced;
       finishSave();
-      // The stored value replaces the optimistic data URL (and the R2 key the
-      // upload produced), so the drafts are re-seeded from the saved plan.
-      const fresh = await refetchPortal();
-      reseedFromPlan(fresh as Record<string, any> | null);
+      if (!advanced) {
+        // The stored value replaces the optimistic data URL (and the R2 key the
+        // upload produced), so the drafts are re-seeded from the saved plan.
+        const fresh = await refetchPortal();
+        reseedFromPlan(fresh as Record<string, any> | null);
+      }
+      return true;
     } catch (error) {
       failSave(
         error instanceof Error
           ? error.message
           : "Could not save the header image.",
       );
+      return false;
     }
   }, [
     planId,
@@ -641,6 +681,9 @@ export function PortalEmployeeResourcesEditor() {
     reseedFromPlan,
   ]);
 
+  // No Save button: every edit previews at once and writes a beat later.
+  usePortalAutosave({ isDirty, version: draftVersion, save });
+
   /** Throw the draft away; the portal refetch restores the saved band. */
   const cancel = useCallback(async () => {
     heroDirtyRef.current = false;
@@ -652,15 +695,7 @@ export function PortalEmployeeResourcesEditor() {
   }, [refetchPortal, resetSave, reseedFromPlan]);
 
   return (
-    <PortalEditorShell
-      footer={
-        <PortalEditorActionBar
-          isDirty={isDirty}
-          onSave={() => void save()}
-          onCancel={() => void cancel()}
-        />
-      }
-    >
+    <PortalEditorShell footer={<PortalEditorActionBar isDirty={isDirty} />}>
       <div className="space-y-8">
         {/* Section 1 — can employees reach this page at all? The hub is opt-in per
             plan, so its state belongs at the top: an advisor who sets up questions on

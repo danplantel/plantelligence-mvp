@@ -70,6 +70,7 @@ import {
 import { useViewerAccess } from "@/hooks/useViewerAccess";
 import { SaveButton } from "@/components/pages/edit-client/save-button";
 import { useEditClient } from "@/hooks/useEditClient";
+import { useAutosave } from "@/hooks/useAutosave";
 // Import components from new-client-steps
 import { UniversalImageEditorModal } from "@/components/ui/universal-image-editor-modal";
 import { ContactFormFields } from "@/components/ui/contact-form-fields";
@@ -3862,6 +3863,134 @@ export default function EditClientPage() {
     useState(false);
   const [isSavingDisclaimer, setIsSavingDisclaimer] = useState(false);
 
+  // ── Autosave ───────────────────────────────────────────────────────────────
+  // The plan form writes itself a beat after the last edit (see
+  // [`useAutosave`](../../../../hooks/useAutosave.ts:1)). The footer keeps an
+  // explicit Save ONLY for the changes the page has always made the advisor
+  // confirm — a Portal URL rename, unconfirmed document uploads and an edited
+  // disclosure — plus an Active plan that is missing a required field.
+  //
+  // Mirrors `disclaimerEditedRef` for the gate: a ref cannot schedule a render,
+  // and "paused" is something the footer has to show.
+  const [disclaimerEdited, setDisclaimerEdited] = useState(false);
+
+  /**
+   * One string that changes whenever anything this page writes changes.
+   *
+   * Files and data URLs are reduced to something short and stable: serialising a
+   * multi-megabyte logo or document on every keystroke would make typing lag.
+   */
+  const draftSignature = useMemo(
+    () =>
+      JSON.stringify(
+        {
+          companyData,
+          keyContacts,
+          keyContactsDisplayStyle,
+          keyContactsMobileDisplayStyle,
+          welcomeData,
+          documentsData,
+          disclaimers,
+          clientStatus,
+          categoryPortalVisibility,
+        },
+        (_key, value) => {
+          if (typeof File !== "undefined" && value instanceof File) {
+            return `file:${value.name}:${value.size}:${value.lastModified}`;
+          }
+          if (
+            typeof value === "string" &&
+            value.length > 512 &&
+            value.startsWith("data:")
+          ) {
+            return `data:${value.length}:${value.slice(0, 512)}`;
+          }
+          return value;
+        },
+      ),
+    [
+      companyData,
+      keyContacts,
+      keyContactsDisplayStyle,
+      keyContactsMobileDisplayStyle,
+      welcomeData,
+      documentsData,
+      disclaimers,
+      clientStatus,
+      categoryPortalVisibility,
+    ],
+  );
+
+  /**
+   * The state the last write committed. `null` until the plan has loaded, so an
+   * empty form is never mistaken for an edit.
+   */
+  const [savedSignature, setSavedSignature] = useState<string | null>(null);
+  useEffect(() => {
+    if (!client || savedSignature !== null) return;
+    setSavedSignature(draftSignature);
+  }, [client, savedSignature, draftSignature]);
+
+  const currentPortalUrl = (companyData.portalUrl || "").trim();
+  const urlRenamePending = Boolean(
+    savedPortalSlug && currentPortalUrl && currentPortalUrl !== savedPortalSlug,
+  );
+
+  /** Why the autosave is holding off, in the footer's own words. */
+  const autosavePauseReason = pendingDocumentUploads > 0
+    ? "Confirm your document uploads to save"
+    : disclaimerEdited
+      ? "Confirm the disclosure change to save"
+      : urlRenamePending
+        ? "Confirm the Portal URL change to save"
+        : clientStatus === "Active" && !isFormValid()
+          ? "Complete the required fields to save"
+          : null;
+
+  const hasUnsavedChanges =
+    savedSignature !== null && savedSignature !== draftSignature;
+
+  /** The last automatic write failed. The draft is kept; the bar says so. */
+  const [autosaveFailed, setAutosaveFailed] = useState(false);
+  // A new edit is a new attempt, so the message clears as soon as they type.
+  useEffect(() => {
+    setAutosaveFailed(false);
+  }, [draftSignature]);
+
+  /** The write committed: everything on screen is what the server now holds. */
+  const markSaved = useCallback(() => {
+    setSavedSignature(draftSignature);
+    if (disclaimerEditedRef.current) {
+      // The advisor saw the confirmation and the plan now carries the text, so
+      // the next save must not ask again.
+      disclaimerEditedRef.current = false;
+      setDisclaimerEdited(false);
+    }
+  }, [draftSignature]);
+
+  /**
+   * The autosave's write. Silent on purpose — the footer reports the outcome —
+   * and it moves the baseline only to the state it actually SENT, so an edit made
+   * while the request was in flight stays dirty and goes out on the next pass.
+   */
+  const autosavePlan = useCallback(async (): Promise<boolean> => {
+    if (autosavePauseReason) return true;
+    const sentSignature = draftSignature;
+    const ok = await handleSave({ silent: true });
+    if (!ok) {
+      setAutosaveFailed(true);
+      return false;
+    }
+    setSavedSignature(sentSignature);
+    return true;
+  }, [autosavePauseReason, draftSignature, handleSave]);
+
+  useAutosave({
+    isDirty: hasUnsavedChanges && !autosavePauseReason,
+    version: draftSignature,
+    save: autosavePlan,
+  });
+
   const headlineRef = useRef<HTMLInputElement>(null);
   const bodyTextRef = useRef<HTMLTextAreaElement>(null);
 
@@ -4264,6 +4393,8 @@ export default function EditClientPage() {
   }, [userOrgLogo, userEmail, userOrgEmail, keyContacts, setKeyContacts]);
 
   const handleSaveClick = async () => {
+    // The explicit path exists for the confirmation-gated changes; it commits the
+    // same way the autosave does.
     // When the Portal URL changed, explain renaming/releasing before we persist
     // it. Acknowledging re-enters this handler so the normal guards still run.
     const originalSlug = savedPortalSlug;
@@ -4313,6 +4444,7 @@ export default function EditClientPage() {
     // the Previous URLs list so the old slug shows as a saved alias (with a
     // Release action) instead of "Pending save".
     if (ok) {
+      markSaved();
       setSavedPortalSlug((companyData.portalUrl || "").trim());
       await loadPortalSlugs();
       // The URL is now saved — clear the stale "<url> is available" indicator.
@@ -4349,6 +4481,7 @@ export default function EditClientPage() {
       // Only close the dialog once the save succeeds (the success toast is
       // shown by handleSave). On failure it stays open so the user can retry.
       if (ok) {
+        markSaved();
         setShowDisclaimerConfirmDialog(false);
         setSavedPortalSlug((companyData.portalUrl || "").trim());
         await loadPortalSlugs();
@@ -4429,6 +4562,7 @@ export default function EditClientPage() {
       }
       setCustomDisclaimerChosen(false);
       disclaimerEditedRef.current = true;
+      setDisclaimerEdited(true);
       setDisclaimerText(defaultDisclaimerText);
       return;
     }
@@ -4440,6 +4574,7 @@ export default function EditClientPage() {
     setCustomDisclaimerChosen(true);
     if (returningFromDefault && draft) {
       disclaimerEditedRef.current = true;
+      setDisclaimerEdited(true);
       setDisclaimerText(draft);
     }
     requestAnimationFrame(() => {
@@ -5613,6 +5748,7 @@ export default function EditClientPage() {
                               value={getResolvedDisclaimerText()}
                               onChange={(e) => {
                                 disclaimerEditedRef.current = true;
+                                setDisclaimerEdited(true);
                                 setCustomDisclaimerChosen(true);
                                 setDisclaimerText(
                                   ensurePlanTelligenceTrademark(e.target.value),
@@ -5791,6 +5927,34 @@ export default function EditClientPage() {
               : undefined
           }
         >
+          {/* What this page is doing with the draft, so the advisor never has to
+              wonder whether their edit was kept. */}
+          <p
+            className={cn(
+              "mr-auto min-w-0 truncate text-xs",
+              autosavePauseReason
+                ? "text-amber-600"
+                : autosaveFailed
+                  ? "text-red-500"
+                  : "text-muted-foreground",
+            )}
+            aria-live="polite"
+          >
+            {autosavePauseReason ? (
+              autosavePauseReason
+            ) : autosaveFailed ? (
+              "Couldn’t save — your changes are kept"
+            ) : saving ? (
+              <span className="inline-flex items-center gap-1.5">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Saving…
+              </span>
+            ) : hasUnsavedChanges ? (
+              "Saving automatically…"
+            ) : (
+              "All changes saved"
+            )}
+          </p>
           <Button
             variant="outline"
             onClick={() => router.push("/clients")}
@@ -5798,13 +5962,18 @@ export default function EditClientPage() {
           >
             Cancel
           </Button>
-          <SaveButton
-            onSave={handleSaveClick}
-            onInvalidClick={handleShowStep1Errors}
-            saving={saving}
-            clientStatus={clientStatus}
-            isFormValid={isFormValid()}
-          />
+          {/* The Save button survives only for what the autosave cannot decide
+              alone: a rename, unconfirmed uploads, an edited disclosure, or an
+              Active plan that is not valid yet. */}
+          {autosavePauseReason ? (
+            <SaveButton
+              onSave={handleSaveClick}
+              onInvalidClick={handleShowStep1Errors}
+              saving={saving}
+              clientStatus={clientStatus}
+              isFormValid={isFormValid()}
+            />
+          ) : null}
         </div>
       </div>
     </TooltipProvider>

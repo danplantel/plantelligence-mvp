@@ -32,6 +32,7 @@ import { notifyPortalMeetingsChanged } from "@/lib/portal-data-events";
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
 import { usePortalDirtyReport } from "@/components/portal-editing/portal-draft-badge";
+import { usePortalAutosave } from "@/components/portal-editing/use-portal-autosave";
 import { PortalFooterSection } from "@/components/portal-editing/portal-footer-section";
 import { sameDraft } from "@/lib/portal-draft-compare";
 import { SectionHeader } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
@@ -467,6 +468,11 @@ export function PortalNewsEditor() {
   const baselineBrandImagesRef = useRef<BrandImagesData>(savedBrandImages);
   const heroDirtyRef = useRef(false);
   const dirtyAssetsRef = useRef<Set<string>>(new Set());
+  /**
+   * Moves on every edit so the autosave debounce restarts on each keystroke —
+   * `isDirty` is already true for the second one and would not.
+   */
+  const [draftVersion, setDraftVersion] = useState(0);
   const draftsRef = useRef<Record<string, MarketingAssetDraft>>({});
   draftsRef.current = drafts;
 
@@ -571,6 +577,7 @@ export function PortalNewsEditor() {
         [id]: { ...previous[id], ...patch },
       }));
       patchPublicAssets(id, patch);
+      setDraftVersion((value) => value + 1);
     },
     [patchPublicAssets],
   );
@@ -587,26 +594,38 @@ export function PortalNewsEditor() {
         secondaryBannerImg: banner?.url ?? "",
         secondaryBannerImgName: banner?.fileName ?? "",
       });
+      setDraftVersion((value) => value + 1);
     },
     [patchClientData],
   );
 
-  /** Persist the drafted hero + every edited row. Only the bar calls this. */
-  const save = useCallback(async () => {
-    if (!planId) return;
-    const heroDirty = !sameDraft(
-      brandImagesRef.current,
-      baselineBrandImagesRef.current,
-    );
+  /**
+   * Persist the drafted hero + every edited row.
+   *
+   * The autosave calls this a beat after the last edit and reports whether the
+   * server accepted it, so a failure stops the loop instead of retrying the same
+   * draft forever.
+   */
+  const save = useCallback(async (): Promise<boolean> => {
+    if (!planId) return false;
+    // What this pass sends. The header is captured now because the ref moves with
+    // every upload, and each row's values are captured below for the same reason.
+    const sentHero = brandImagesRef.current;
+    const heroDirty = !sameDraft(sentHero, baselineBrandImagesRef.current);
     // Only rows that genuinely differ are PATCHed — a row typed back to its saved
-    // values is not a change, which is the same rule the header badge follows.
+    // values is not a change, which is the same rule `isDirty` follows.
     const assetIds = assets
       .filter((asset) => {
         const draft = draftsRef.current[asset.id];
         return draft && !sameDraft(assetSaveShape(draft), assetSaveShape(asset));
       })
       .map((asset) => asset.id);
-    if (!heroDirty && assetIds.length === 0) return;
+    const sentRows = new Map<string, MarketingAssetDraft>();
+    for (const id of assetIds) {
+      const draft = draftsRef.current[id];
+      if (draft) sentRows.set(id, draft);
+    }
+    if (!heroDirty && sentRows.size === 0) return true;
 
     beginSave();
     try {
@@ -616,7 +635,7 @@ export function PortalNewsEditor() {
           headers: { "Content-Type": "application/json" },
           // The route turns the uploaded data URL into an R2 object and writes
           // the legacy `secondaryBannerImg` column this page reads.
-          body: JSON.stringify({ brandImages: brandImagesRef.current }),
+          body: JSON.stringify({ brandImages: sentHero }),
         });
         if (!response.ok) {
           const payload = await response.json().catch(() => null);
@@ -624,10 +643,8 @@ export function PortalNewsEditor() {
         }
       }
 
-      for (const id of assetIds) {
-        const draft = draftsRef.current[id];
-        if (!draft) continue;
-        const response = await fetch(`/api/marketing/assets/${id}`, {
+      for (const draft of sentRows.values()) {
+        const response = await fetch(`/api/marketing/assets/${draft.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -643,8 +660,17 @@ export function PortalNewsEditor() {
         }
       }
 
-      heroDirtyRef.current = false;
-      dirtyAssetsRef.current.clear();
+      // Only what this pass SENT goes clean. A hero or row the advisor changed
+      // again while the request was in flight is still a draft, and the autosave
+      // writes it on its next pass instead of having it swallowed here.
+      const heroAdvanced = !sameDraft(brandImagesRef.current, sentHero);
+      if (!heroAdvanced) heroDirtyRef.current = false;
+      sentRows.forEach((sent, id) => {
+        const current = draftsRef.current[id];
+        if (current && sameDraft(assetSaveShape(current), assetSaveShape(sent))) {
+          dirtyAssetsRef.current.delete(id);
+        }
+      });
       finishSave();
 
       // The saved rows are the source of truth now.
@@ -655,15 +681,22 @@ export function PortalNewsEditor() {
           : false,
       );
       if (heroDirty) {
-        const fresh = await refetchPortal();
-        if (fresh) {
-          reseedBrandImages(fresh as Record<string, any>);
+        if (heroAdvanced) {
+          // Keep the newer draft; move only the baseline to what was written.
+          seededHeroRef.current = JSON.stringify(sentHero);
+          baselineBrandImagesRef.current = sentHero;
         } else {
-          // No refetched plan: what was written is the new baseline.
-          seededHeroRef.current = JSON.stringify(brandImagesRef.current);
-          baselineBrandImagesRef.current = brandImagesRef.current;
+          const fresh = await refetchPortal();
+          if (fresh) {
+            reseedBrandImages(fresh as Record<string, any>);
+          } else {
+            // No refetched plan: what was written is the new baseline.
+            seededHeroRef.current = JSON.stringify(sentHero);
+            baselineBrandImagesRef.current = sentHero;
+          }
         }
       }
+      return true;
     } catch (error) {
       // Keep the draft and its preview so the advisor can retry.
       failSave(
@@ -671,6 +704,7 @@ export function PortalNewsEditor() {
           ? error.message
           : "Could not save these changes.",
       );
+      return false;
     }
   }, [
     planId,
@@ -684,6 +718,9 @@ export function PortalNewsEditor() {
     refetchPortal,
     reseedBrandImages,
   ]);
+
+  // No Save button: every edit previews at once and writes a beat later.
+  usePortalAutosave({ isDirty, version: draftVersion, save });
 
   /** Throw the draft away: revalidate both sources and re-seed from them. */
   const cancel = useCallback(async () => {
@@ -721,13 +758,7 @@ export function PortalNewsEditor() {
 
   return (
     <PortalEditorShell
-      footer={
-        <PortalEditorActionBar
-          isDirty={isDirty}
-          onSave={() => void save()}
-          onCancel={() => void cancel()}
-        />
-      }
+      footer={<PortalEditorActionBar isDirty={isDirty} />}
     >
       <div className="space-y-8">
         {/* The page's hero background — the same "Page Image Header" slot Create

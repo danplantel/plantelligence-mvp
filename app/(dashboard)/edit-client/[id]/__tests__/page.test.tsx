@@ -552,20 +552,33 @@ describe("EditClientPage save bar", () => {
     expect(mocks.push).toHaveBeenCalledWith("/clients");
   });
 
-  it("shows the Save button's status and validity", () => {
-    mocks.editClient.clientStatus = "Draft";
+  it("keeps the explicit Save for an Active plan that is not valid yet", () => {
+    mocks.editClient.clientStatus = "Active";
     mocks.editClient.isFormValid = vi.fn(() => false);
 
     renderPage();
 
+    // The autosave says why it is holding off, and hands the decision back.
+    expect(
+      screen.getByText("Complete the required fields to save"),
+    ).toBeInTheDocument();
     const save = screen.getByTestId("save-button");
-    expect(save).toHaveAttribute("data-status", "Draft");
+    expect(save).toHaveAttribute("data-status", "Active");
     expect(save).toHaveAttribute("data-valid", "false");
     expect(save).toHaveAttribute("data-saving", "false");
   });
 
-  it("saves, then refreshes the portal slug list", async () => {
+  it("has nothing but the status to show when the plan can save itself", () => {
+    renderPage();
+
+    expect(screen.getByText("All changes saved")).toBeInTheDocument();
+    expect(screen.queryByTestId("save-button")).not.toBeInTheDocument();
+  });
+
+  it("saves from that explicit Save, then refreshes the portal slug list", async () => {
     const user = userEvent.setup();
+    mocks.editClient.clientStatus = "Active";
+    mocks.editClient.isFormValid = vi.fn(() => false);
     renderPage();
 
     await user.click(screen.getByTestId("save-button"));
@@ -584,6 +597,8 @@ describe("EditClientPage save bar", () => {
 
   it("does not refresh the slug list when the save fails", async () => {
     const user = userEvent.setup();
+    mocks.editClient.clientStatus = "Active";
+    mocks.editClient.isFormValid = vi.fn(() => false);
     mocks.editClient.handleSave = vi.fn(async () => false);
     renderPage();
 

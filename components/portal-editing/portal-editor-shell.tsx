@@ -3,7 +3,7 @@
 import { EditorPanelWrapper } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import type { EditorSection } from "@/components/wizard/new-client-steps/sections/components/editor-panel-wrapper";
 import { PortalLiveBadge } from "@/components/portal-editing/portal-live-badge";
-import { PortalDraftBadge } from "@/components/portal-editing/portal-draft-badge";
+import { PortalSaveStatusBadge } from "@/components/portal-editing/portal-save-status-badge";
 import { usePortalEditing } from "@/components/portal-editing/portal-editing-provider";
 
 interface PortalEditorShellProps {
@@ -62,8 +62,8 @@ export function PortalEditorShell({
       headerBadge={
         <>
           <PortalLiveBadge />
-          {/* A draft on the live page: amber, right beside the red tag. */}
-          <PortalDraftBadge />
+          {/* The panel's own write, right beside the red tag: Saving…/Saved. */}
+          <PortalSaveStatusBadge />
           {headerBadge}
         </>
       }

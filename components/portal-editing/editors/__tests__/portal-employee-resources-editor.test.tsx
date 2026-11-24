@@ -247,24 +247,26 @@ describe("PortalEmployeeResourcesEditor hero background", () => {
     expect(mocks.uploadBrandingToR2).not.toHaveBeenCalled();
   });
 
-  it("uploads the crop to R2 and saves the key on Save", async () => {
+  it("uploads the crop to R2 and saves the key by itself", async () => {
     const user = userEvent.setup();
     render(<PortalEmployeeResourcesEditor />);
 
     await user.click(screen.getByTestId("upload-header"));
-    await user.click(screen.getByRole("button", { name: "Save" }));
 
-    await waitFor(() =>
-      expect(mocks.uploadBrandingToR2).toHaveBeenCalledWith(
-        expect.objectContaining({
-          dataUrlOrFile: "data:image/png;base64,BBBB",
-          clientId: "plan-1",
-          slot: "employeeResourcesHero",
-        }),
-      ),
+    // No Save button: the panel writes a beat after the last edit.
+    await waitFor(
+      () =>
+        expect(mocks.uploadBrandingToR2).toHaveBeenCalledWith(
+          expect.objectContaining({
+            dataUrlOrFile: "data:image/png;base64,BBBB",
+            clientId: "plan-1",
+            slot: "employeeResourcesHero",
+          }),
+        ),
+      { timeout: 3000 },
     );
 
-    await waitFor(() => expect(putCalls()).toHaveLength(1));
+    await waitFor(() => expect(putCalls()).toHaveLength(1), { timeout: 3000 });
     const [url, init] = putCalls()[0] as [string, RequestInit];
     expect(url).toBe("/api/clients/plan-1");
     const body = JSON.parse(String(init.body));
@@ -277,19 +279,18 @@ describe("PortalEmployeeResourcesEditor hero background", () => {
     await waitFor(() => expect(mocks.refetchPortal).toHaveBeenCalled());
   });
 
-  it("drops the draft on Cancel", async () => {
+  it("writes the crop even if the panel closes before the debounce fires", async () => {
     const user = userEvent.setup();
-    render(<PortalEmployeeResourcesEditor />);
+    const { unmount } = render(<PortalEmployeeResourcesEditor />);
 
     await user.click(screen.getByTestId("upload-header"));
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
-
-    await waitFor(() => expect(mocks.refetchPortal).toHaveBeenCalled());
-    expect(mocks.resetSave).toHaveBeenCalled();
+    // Still inside the quiet period: nothing has been written yet…
     expect(putCalls()).toHaveLength(0);
     expect(mocks.uploadBrandingToR2).not.toHaveBeenCalled();
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Save" })).toBeDisabled(),
-    );
+
+    unmount();
+
+    // …but closing the panel flushes the draft instead of dropping it.
+    await waitFor(() => expect(putCalls()).toHaveLength(1));
   });
 });
