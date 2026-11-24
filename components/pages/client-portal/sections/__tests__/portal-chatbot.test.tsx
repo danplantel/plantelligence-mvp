@@ -852,7 +852,11 @@ describe("PortalChatbot session", () => {
   });
 
   it("resets the conversation when the hour is up", async () => {
-    seedSession(Date.now() - CHAT_SESSION_MS + 80, [
+    // 1.5s of head-room, not 80ms: opening the sheet costs a few hundred
+    // milliseconds, and under a loaded suite the session had already expired
+    // before the first assertion — which reads as "never restored" rather than
+    // "expired while open". The test still pins the transition itself.
+    seedSession(Date.now() - CHAT_SESSION_MS + 1500, [
       GREETING_MESSAGE,
       { id: 1, role: "user", text: "Old question" },
     ]);
@@ -862,7 +866,7 @@ describe("PortalChatbot session", () => {
 
     await waitFor(
       () => expect(screen.queryByText("Old question")).not.toBeInTheDocument(),
-      { timeout: 2000 },
+      { timeout: 5000 },
     );
     expect(
       screen.getByText(/I'm your benefits assistant/i),

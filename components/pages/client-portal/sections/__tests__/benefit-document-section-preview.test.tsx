@@ -77,6 +77,25 @@ describe("BenefitDocumentSection preview", () => {
     expect(previewFrame()).toHaveAttribute("src", SCOPED_URL);
   });
 
+  it("fills the desktop viewport, with the frame taking the leftover height", () => {
+    renderSection([doc()]);
+
+    openPreview();
+
+    const dialog = screen.getByRole("dialog");
+
+    // From `sm` up the dialog is pinned to all four viewport edges…
+    expect(dialog).toHaveClass("sm:inset-0");
+    expect(dialog).toHaveClass("sm:max-w-none");
+    expect(dialog).toHaveClass("sm:translate-x-0");
+    expect(dialog).toHaveClass("sm:translate-y-0");
+    expect(dialog).toHaveClass("sm:rounded-none");
+    // …and the frame below takes everything the header does not use.
+    expect(previewFrame()?.parentElement).toHaveClass("flex-1");
+    // Phones keep the bounded sheet.
+    expect(dialog).toHaveClass("max-h-[94vh]");
+  });
+
   it("holds a spinner over the frame until the document has loaded", () => {
     renderSection([doc()]);
 

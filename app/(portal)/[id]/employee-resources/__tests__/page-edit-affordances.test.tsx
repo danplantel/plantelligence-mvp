@@ -64,6 +64,9 @@ vi.mock(
   "@/components/pages/client-portal/sections/how-can-we-help-section",
   () => ({
     HowCanWeHelpSection: () => <div>help cards</div>,
+    // The page prints the plan/group id through this helper, so the mock has to
+    // carry it too — a partial mock that omits it crashes the whole route.
+    formatPlanGroupIdLabel: (value?: string | null) => value ?? "",
   }),
 );
 

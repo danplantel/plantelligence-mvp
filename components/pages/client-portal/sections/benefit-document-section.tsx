@@ -711,7 +711,13 @@ export function BenefitDocumentSection({
           }
         }}
       >
-        <DialogContent className="portal-root max-w-5xl bg-white">
+        {/* Full screen on a desktop: a plan document is unreadable inside any
+            boxed dialog, so from `sm` up the dialog is pinned to all four
+            viewport edges (`inset-0` + zeroed offsets/transform, square corners).
+            It stays a column whose preview frame takes the leftover height
+            (`flex-1`), so the document fills the window. Phones keep a normal
+            near-full dialog, where a 94vh sheet is easier to dismiss. */}
+        <DialogContent className="portal-root flex max-h-[94vh] w-[96vw] max-w-[1400px] flex-col gap-3 overflow-hidden bg-white p-4 sm:inset-0 sm:max-h-none sm:w-auto sm:max-w-none sm:translate-x-0 sm:translate-y-0 sm:rounded-none sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-gray-900">{previewDoc?.title || "Document preview"}</DialogTitle>
             <DialogDescription className="text-gray-600">
@@ -725,9 +731,9 @@ export function BenefitDocumentSection({
               Preview not available for this document.
             </p>
           ) : (
-            <div className="space-y-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-3">
               {previewInline ? (
-                <div className="relative h-[70vh] w-full overflow-hidden rounded-xl border border-gray-200 bg-white">
+                <div className="relative min-h-[320px] w-full flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white">
                   {/* The viewer's own chrome appears only once the file has
                       arrived; until then the frame is blank white. */}
                   {isPreviewLoading && (
@@ -765,7 +771,7 @@ export function BenefitDocumentSection({
                   </p>
                 </div>
               )}
-              <div className="flex flex-wrap justify-end gap-2">
+              <div className="flex shrink-0 flex-wrap justify-end gap-2">
                 {/* Closing is the safe way out — same as Escape or the overlay,
                     but a visible target beside the download. */}
                 <Button
