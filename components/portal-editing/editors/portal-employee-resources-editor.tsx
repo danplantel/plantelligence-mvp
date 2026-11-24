@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSWRConfig } from "swr";
 import { toast } from "sonner";
+import { AnimatePresence, motion } from "framer-motion";
 
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
 import { PortalEditorShell } from "@/components/portal-editing/portal-editor-shell";
@@ -752,6 +753,23 @@ export function PortalEmployeeResourcesEditor() {
               </div>
             </div>
 
+            {/* The Plan / Group ID, login URL and provider describe the Account
+                Access card, so they hide with it — a short height/fade animation
+                keeps the toggle from jumping the panel. */}
+            <AnimatePresence initial={false}>
+              {accountAccessVisible && (
+                <motion.div
+                  key="account-access-fields"
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: "auto", opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{
+                    duration: 0.25,
+                    ease: [0.22, 1, 0.36, 1] as [number, number, number, number],
+                  }}
+                  className="overflow-hidden"
+                >
+                  <div className="space-y-4 pt-1">
             {/* Plan / Group ID — printed as "PLAN / GROUP ID: …" on the card. */}
             <div className="space-y-2">
               <Label className="text-xs font-bold text-foreground">
@@ -835,6 +853,10 @@ export function PortalEmployeeResourcesEditor() {
                 />
               </div>
             </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Card layout — the SAME control a Benefit Hub's Section 6 shows: order,
