@@ -1594,6 +1594,11 @@ export function QuickAnswersBuilder({
 
   const moveOptions = (current: string) => (
     <>
+      {/* Featured card is the FIRST option: promoting a question to a Featured
+          card is the primary action, so it sits above the sections. */}
+      <option value="featured" disabled={current === "featured"}>
+        {"\u2606"} Featured Card @ How Can We Help You Today?
+      </option>
       {draft.groups.map((group) => (
         <option key={group.id} value={group.id} disabled={group.id === current}>
           {group.name}
@@ -1602,9 +1607,6 @@ export function QuickAnswersBuilder({
       {draft.ungrouped.length > 0 && (
         <option value={UNGROUPED_KEY}>Questions (ungrouped)</option>
       )}
-      <option value="featured" disabled={current === "featured"}>
-        Featured card
-      </option>
       <option value="hidden">Hidden</option>
     </>
   );
