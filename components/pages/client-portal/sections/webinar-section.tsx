@@ -7,6 +7,8 @@ interface WebinarSectionProps {
   secondaryColor?: string;
   clientId?: string;
   enableEditing?: boolean;
+  /** Render the "Past Meetings" band. Defaults to true. */
+  showPastMeetings?: boolean;
 }
 
 /**
@@ -21,12 +23,14 @@ export function WebinarSection({
   brandColor,
   secondaryColor,
   clientId,
+  showPastMeetings,
 }: WebinarSectionProps) {
   return (
     <VideosCardSection
       brandColor={brandColor}
       secondaryColor={secondaryColor}
       clientId={clientId}
+      showPastMeetings={showPastMeetings}
     />
   );
 }

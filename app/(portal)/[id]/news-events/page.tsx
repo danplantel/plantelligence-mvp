@@ -65,6 +65,8 @@ export default function NewsEventsPage() {
           brandColor={brandColor}
           secondaryColor={secondaryColor}
           clientId={clientId}
+          // News & Events shows Upcoming + Replays only — no "Past Meetings" band.
+          showPastMeetings={false}
         />
 
         {/* <NewsEventsResources

@@ -138,6 +138,8 @@ interface VideosCardSectionProps {
   secondaryColor?: string;
   clientId?: string;
   onLoadComplete?: () => void;
+  /** Render the "Past Meetings" band. Defaults to true. */
+  showPastMeetings?: boolean;
 }
 
 const parseLocalDate = (dateStr: string): Date => {
@@ -1079,6 +1081,7 @@ export function VideosCardSection({
   secondaryColor,
   clientId,
   onLoadComplete,
+  showPastMeetings = true,
 }: VideosCardSectionProps) {
   const loadCompleteCalled = useRef(false);
   const [upcomingWebinars, setUpcomingWebinars] = useState<UpcomingWebinar[]>(
@@ -1308,39 +1311,42 @@ export function VideosCardSection({
           ) : null}
         </div>
 
-        {/* Past plan meetings */}
-        <div className="space-y-8">
-          <h2
-            className="font-dm-serif text-center text-2xl sm:text-[40px] font-normal leading-tight"
-            style={{ color: brandColor }}
-          >
-            Past Meetings
-          </h2>
-          {isLoading && (
-            <p className="text-sm text-gray-500 text-center">
-              Loading past sessions…
-            </p>
-          )}
-          {!isLoading && pastMeetings.length === 0 && clientId && (
-            <SectionEmptyState
-              icon={History}
-              brandColor={brandColor}
-              title="No past meetings"
-              description="Completed sessions will be listed here once they've taken place, so you can look back on what was covered."
-            />
-          )}
-          {!isLoading && pastMeetings.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {pastMeetings.map((webinar: UpcomingWebinar) => (
-                <UpcomingWebinarCard
-                  key={webinar.id}
-                  webinar={webinar}
-                  secondaryColor={secondaryColor}
-                />
-              ))}
-            </div>
-          ) : null}
-        </div>
+        {/* Past plan meetings — the News & Events page hides this band via
+            `showPastMeetings={false}`. */}
+        {showPastMeetings && (
+          <div className="space-y-8">
+            <h2
+              className="font-dm-serif text-center text-2xl sm:text-[40px] font-normal leading-tight"
+              style={{ color: brandColor }}
+            >
+              Past Meetings
+            </h2>
+            {isLoading && (
+              <p className="text-sm text-gray-500 text-center">
+                Loading past sessions…
+              </p>
+            )}
+            {!isLoading && pastMeetings.length === 0 && clientId && (
+              <SectionEmptyState
+                icon={History}
+                brandColor={brandColor}
+                title="No past meetings"
+                description="Completed sessions will be listed here once they've taken place, so you can look back on what was covered."
+              />
+            )}
+            {!isLoading && pastMeetings.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {pastMeetings.map((webinar: UpcomingWebinar) => (
+                  <UpcomingWebinarCard
+                    key={webinar.id}
+                    webinar={webinar}
+                    secondaryColor={secondaryColor}
+                  />
+                ))}
+              </div>
+            ) : null}
+          </div>
+        )}
 
         {/* Webinar Replays Section */}
         <div className="space-y-8">

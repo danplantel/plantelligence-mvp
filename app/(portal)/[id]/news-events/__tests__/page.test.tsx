@@ -115,6 +115,8 @@ describe("NewsEventsPage", () => {
       clientId: "plan-1",
       brandColor: "#123456",
       secondaryColor: "#654321",
+      // Past Meetings is hidden on this page.
+      showPastMeetings: false,
     });
   });
 
@@ -131,6 +133,7 @@ describe("NewsEventsPage", () => {
       clientId: undefined,
       brandColor: "#1F3A60",
       secondaryColor: "#6B7280",
+      showPastMeetings: false,
     });
   });
 
