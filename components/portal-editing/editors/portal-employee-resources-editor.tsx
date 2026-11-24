@@ -416,6 +416,22 @@ export function PortalEmployeeResourcesEditor() {
       .filter((topicId): topicId is string => Boolean(topicId));
     if (orderedTopicIds.length !== board.featured.length) return;
 
+    // Only a real reorder reaches the placements; a show/hide, a new primary or an
+    // edge flip is layout-only (the same guard as the Benefit Hub's `onChange`),
+    // and writing those here shuffled the Featured cards after an unrelated tweak.
+    const layoutPrimaryId = helpCards.find((entry) => entry.primary)?.id ?? "";
+    const primaryTopicId = topicIdBySlug.get(layoutPrimaryId);
+    const withoutPrimary = (ids: (string | undefined)[]) =>
+      ids.filter((id): id is string => Boolean(id) && id !== primaryTopicId);
+    const nextRest = withoutPrimary(orderedTopicIds);
+    const currentRest = withoutPrimary(
+      board.featured.map((topic) => topic.topicId),
+    );
+    const orderChanged =
+      nextRest.length !== currentRest.length ||
+      nextRest.some((id, index) => id !== currentRest[index]);
+    if (!orderChanged) return;
+
     void reorderFeaturedCards({
       planId,
       location: LOCATION,

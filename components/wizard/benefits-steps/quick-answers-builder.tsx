@@ -244,6 +244,46 @@ function boardKey(planId: string, location: TopicLocation): string {
   return `/api/clients/${planId}/topics?location=${encodeURIComponent(location)}`;
 }
 
+/**
+ * ONE serialized write queue PER BOARD, shared by every writer.
+ *
+ * Every move sends the WHOLE board, so two writers must never be in flight at the
+ * same time: whichever response landed last used to win, which is how a card moved
+ * a moment earlier would "jump" back (or land in the wrong slot) seconds later.
+ * The queue makes the server apply writes in the order the advisor made them, and
+ * a sequence number lets a response that a newer write already superseded be
+ * dropped instead of painted over the newer state.
+ */
+const boardWriteQueues = new Map<string, Promise<unknown>>();
+const boardWriteSequence = new Map<string, number>();
+
+/** Mark the start of a write and return its sequence; the newest call wins. */
+function beginBoardWrite(key: string): number {
+  const next = (boardWriteSequence.get(key) ?? 0) + 1;
+  boardWriteSequence.set(key, next);
+  return next;
+}
+
+/** True while `sequence` is still the newest write for this board. */
+function isCurrentBoardWrite(key: string, sequence: number): boolean {
+  return (boardWriteSequence.get(key) ?? 0) === sequence;
+}
+
+/** Run `task` after every earlier write for this board has settled. */
+function enqueueBoardWrite<T>(key: string, task: () => Promise<T>): Promise<T> {
+  const previous = boardWriteQueues.get(key) ?? Promise.resolve();
+  // `.then(task, task)` so one failed write cannot wedge the queue.
+  const run = previous.then(task, task);
+  boardWriteQueues.set(
+    key,
+    run.then(
+      () => undefined,
+      () => undefined,
+    ),
+  );
+  return run;
+}
+
 const fetcher = (url: string) =>
   fetch(url, { credentials: "same-origin" }).then(async (response) => {
     const body = await response.json();
@@ -363,6 +403,9 @@ async function putBoard(params: {
   onBoardChange?: (board: BoardPayload) => void;
 }): Promise<void> {
   const key = boardKey(params.planId, params.location);
+  const sequence = beginBoardWrite(key);
+  // INSTANT: write the optimistic board and hand it to the host before the
+  // request even starts.
   void globalMutate(
     key,
     (current: TopicsResponse | undefined) =>
@@ -374,37 +417,43 @@ async function putBoard(params: {
   const realGroups = params.nextBoard.groups.filter(
     (group) => group.id !== UNGROUPED_KEY,
   );
-  const response = await fetch(key, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      location: params.location,
-      groups: realGroups.map((group, index) => ({
-        id: group.id,
-        name: group.name,
-        sortOrder: index,
-      })),
-      placements: placementsFromBoard(params.nextBoard),
-    }),
-  });
-  const body = await response.json();
-  if (!response.ok) {
-    throw new Error(body?.error || params.errorMessage);
-  }
 
-  void globalMutate(
-    key,
-    (current: TopicsResponse | undefined) =>
-      current
-        ? {
-            ...current,
-            board: body.board as BoardPayload,
-            library: body.library ?? current.library,
-          }
-        : current,
-    { revalidate: false },
-  );
-  params.onBoardChange?.(body.board as BoardPayload);
+  await enqueueBoardWrite(key, async () => {
+    const response = await fetch(key, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: params.location,
+        groups: realGroups.map((group, index) => ({
+          id: group.id,
+          name: group.name,
+          sortOrder: index,
+        })),
+        placements: placementsFromBoard(params.nextBoard),
+      }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body?.error || params.errorMessage);
+    }
+    // A newer write owns the board now — this response is stale, and applying it
+    // would put an older card order back on screen a few seconds later.
+    if (!isCurrentBoardWrite(key, sequence)) return;
+
+    void globalMutate(
+      key,
+      (current: TopicsResponse | undefined) =>
+        current
+          ? {
+              ...current,
+              board: body.board as BoardPayload,
+              library: body.library ?? current.library,
+            }
+          : current,
+      { revalidate: false },
+    );
+    params.onBoardChange?.(body.board as BoardPayload);
+  });
 }
 
 /**
@@ -552,35 +601,41 @@ export async function saveTopicText(params: {
   onSaved?: () => void;
 }): Promise<void> {
   const key = boardKey(params.planId, params.location);
-  const response = await fetch(key, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      location: params.location,
-      topicId: params.topicId,
-      overrides: params.overrides,
-    }),
-  });
-  const body = await response.json();
-  if (!response.ok) {
-    throw new Error(body?.error || "Could not save that text.");
-  }
+  const sequence = beginBoardWrite(key);
+  await enqueueBoardWrite(key, async () => {
+    const response = await fetch(key, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        location: params.location,
+        topicId: params.topicId,
+        overrides: params.overrides,
+      }),
+    });
+    const body = await response.json();
+    if (!response.ok) {
+      throw new Error(body?.error || "Could not save that text.");
+    }
+    // A card move queued after this edit owns the board now; its board already
+    // carries the new copy, so a stale reply must not be painted over it.
+    if (!isCurrentBoardWrite(key, sequence)) return;
 
-  if (body.board) {
-    void globalMutate(
-      key,
-      (current: TopicsResponse | undefined) =>
-        current
-          ? {
-              ...current,
-              board: body.board as BoardPayload,
-              library: body.library ?? current.library,
-            }
-          : current,
-      { revalidate: false },
-    );
-    params.onBoardChange?.(body.board as BoardPayload);
-  }
+    if (body.board) {
+      void globalMutate(
+        key,
+        (current: TopicsResponse | undefined) =>
+          current
+            ? {
+                ...current,
+                board: body.board as BoardPayload,
+                library: body.library ?? current.library,
+              }
+            : current,
+        { revalidate: false },
+      );
+      params.onBoardChange?.(body.board as BoardPayload);
+    }
+  });
   params.onSaved?.();
 }
 
@@ -994,18 +1049,9 @@ export function QuickAnswersBuilder({
     );
   }, [data, query]);
 
-  /**
-   * Serialized, latest-wins saves.
-   *
-   * Every save sends the WHOLE board. When an advisor moves one question and then
-   * moves another before the first response lands, the older response could arrive
-   * last and be applied on top of the newer one — which is exactly how a topic
-   * "went back to Hidden from participants" after being assigned to a section. So
-   * saves are queued in order, a snapshot that a newer edit superseded is never
-   * sent, and a response is only applied while it is still the newest.
-   */
-  const saveSequence = useRef(0);
-  const saveQueue = useRef<Promise<void>>(Promise.resolve());
+  // Saves go through the shared per-board queue (see `enqueueBoardWrite`), so a
+  // builder move and a Card Layout reorder/demote/undo are applied in the order the
+  // advisor made them, and an older response can never be painted over a newer one.
 
   /**
    * Send the complete board. Featured placements are included unchanged so that a
@@ -1025,16 +1071,15 @@ export function QuickAnswersBuilder({
   ) => {
     const previous = draft;
     const previousData = data;
-    const sequence = ++saveSequence.current;
+    const writeKey = key ?? boardKey(planId, location);
+    const sequence = beginBoardWrite(writeKey);
     setDraft(next);
     setSaveError(null);
     setSaving(true);
 
     // INSTANT: the preview re-orders from the cache before the request even settles.
     const optimistic = optimisticResponse(next, previousData, location);
-    if (key) {
-      void globalMutate(key, optimistic, { revalidate: false });
-    }
+    void globalMutate(writeKey, optimistic, { revalidate: false });
     // And the portal's own section, which reads the benefit payload, not this board.
     onBoardChange?.(optimistic.board);
 
@@ -1104,12 +1149,12 @@ export function QuickAnswersBuilder({
     ];
 
     const send = async () => {
-      // A newer edit replaced this snapshot while it waited its turn — the newest
+      // A newer write replaced this snapshot while it waited its turn — the newest
       // board supersedes it completely, so there is nothing to send.
-      if (sequence !== saveSequence.current) return;
+      if (!isCurrentBoardWrite(writeKey, sequence)) return;
 
       try {
-        const response = await fetch(key as string, {
+        const response = await fetch(writeKey, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1140,34 +1185,32 @@ export function QuickAnswersBuilder({
           throw new Error(body?.error || "Could not save Quick Answers.");
         }
 
-        // A newer save owns the screen now; its response is the truth.
-        if (sequence !== saveSequence.current) return;
+        // A newer write owns the screen now; its response is the truth.
+        if (!isCurrentBoardWrite(writeKey, sequence)) return;
 
         setDraft(toDraft(body.board));
         // The response carries the reconciled board AND the refreshed library, so the
         // cache is written from it directly — no refetch, and no window where the
         // preview disagrees with what was saved.
-        if (key) {
-          void globalMutate(
-            key,
-            {
-              ...(previousData ?? { board: body.board, library: [] }),
-              board: body.board,
-              library: body.library ?? previousData?.library ?? [],
-            } as TopicsResponse,
-            { revalidate: false },
-          );
-        }
+        void globalMutate(
+          writeKey,
+          {
+            ...(previousData ?? { board: body.board, library: [] }),
+            board: body.board,
+            library: body.library ?? previousData?.library ?? [],
+          } as TopicsResponse,
+          { revalidate: false },
+        );
         // The reconciled board (real ids for a topic added from the library).
         onBoardChange?.(body.board as BoardPayload);
         onSaved?.();
       } catch (error) {
-        // A newer save supersedes this failure too — rolling back would undo its work.
-        if (sequence !== saveSequence.current) return;
+        // A newer write supersedes this failure too — rolling back would undo its work.
+        if (!isCurrentBoardWrite(writeKey, sequence)) return;
         // Put the last server truth back, so a rejected save cannot look applied.
         setDraft(previous);
-        if (key && previousData) {
-          void globalMutate(key, previousData, { revalidate: false });
+        if (previousData) {
+          void globalMutate(writeKey, previousData, { revalidate: false });
           // …and tell the panel beside us the same thing: it holds the board it
           // was last handed while that board carries a card the read does not, so
           // without this the rollback would only reach our own list.
@@ -1185,12 +1228,13 @@ export function QuickAnswersBuilder({
           });
         }
       } finally {
-        if (sequence === saveSequence.current) setSaving(false);
+        if (isCurrentBoardWrite(writeKey, sequence)) setSaving(false);
       }
     };
 
-    // Chain, so the server always receives the snapshots in the order they were made.
-    saveQueue.current = saveQueue.current.then(send, send);
+    // Queued behind every earlier write for this board (a builder save, a Card
+    // Layout reorder, a demote or an undo), so the server applies them in order.
+    void enqueueBoardWrite(writeKey, send);
   };
 
   /** Seed this location from the library — the first-use path for older plans. */

@@ -390,16 +390,22 @@ export function BenefitsEditorPanel({
       lastBoardByPlanLocation.get(
         boardMemoryKey(step1Data.planId, quickAnswersLocation) ?? "",
       ) ?? null;
-    const held = latestBoardRef.current ?? remembered;
-    if (!liveBoard) return held ?? undefined;
+    const held = latestBoardRef.current;
+    if (!liveBoard) return held ?? remembered ?? undefined;
     if (!held) return liveBoard;
+    // Prefer the board this panel last WROTE whenever its Featured membership
+    // differs from the read — an ADDED card (a promotion) AND a REMOVED one (a
+    // demotion or an undo). The old test only caught additions, so a demoted card
+    // could reappear from a stale read for a few seconds.
     const liveTopicIds = new Set(
       liveBoard.featured.map((topic) => topic.topicId),
     );
-    const heldAddsCard = held.featured.some(
-      (topic) => !liveTopicIds.has(topic.topicId),
-    );
-    return heldAddsCard ? held : liveBoard;
+    const heldTopicIds = new Set(held.featured.map((topic) => topic.topicId));
+    const membershipDiffers =
+      held.featured.length !== liveBoard.featured.length ||
+      held.featured.some((topic) => !liveTopicIds.has(topic.topicId)) ||
+      liveBoard.featured.some((topic) => !heldTopicIds.has(topic.topicId));
+    return membershipDiffers ? held : liveBoard;
   }, [liveBoard, step1Data.planId, quickAnswersLocation]);
 
   /**
@@ -2764,6 +2770,27 @@ export function BenefitsEditorPanel({
                   .map((entry) => topicIdBySlug.get(entry.id))
                   .filter((topicId): topicId is string => Boolean(topicId));
                 if (orderedTopicIds.length !== board.featured.length) return;
+
+                // Only an actual REORDER belongs on the board. A show/hide toggle, a
+                // new primary or an edge flip re-orders the LAYOUT, not the
+                // placements — writing that here is what shuffled the Featured cards
+                // after an unrelated tweak. Compare the order with the primary's
+                // edge removed, so only a real drag counts as a change.
+                const layoutPrimaryId =
+                  helpCards.find((entry) => entry.primary)?.id ?? "";
+                const primaryTopicId = topicIdBySlug.get(layoutPrimaryId);
+                const withoutPrimary = (ids: (string | undefined)[]) =>
+                  ids.filter(
+                    (id): id is string => Boolean(id) && id !== primaryTopicId,
+                  );
+                const nextRest = withoutPrimary(orderedTopicIds);
+                const currentRest = withoutPrimary(
+                  board.featured.map((topic) => topic.topicId),
+                );
+                const orderChanged =
+                  nextRest.length !== currentRest.length ||
+                  nextRest.some((id, index) => id !== currentRest[index]);
+                if (!orderChanged) return;
 
                 void reorderFeaturedCards({
                   planId: step1Data.planId,
