@@ -92,8 +92,106 @@ describe("BenefitDocumentSection preview", () => {
     expect(dialog).toHaveClass("sm:rounded-none");
     // …and the frame below takes everything the header does not use.
     expect(previewFrame()?.parentElement).toHaveClass("flex-1");
-    // Phones keep the bounded sheet.
-    expect(dialog).toHaveClass("max-h-[94vh]");
+    // Phones keep the sheet, but it is exactly as tall as the viewport.
+    expect(dialog).toHaveClass("h-[100dvh]");
+    expect(dialog).toHaveClass("max-h-[100dvh]");
+  });
+
+  it("releases the spinner when a phone never reports the frame loaded", () => {
+    vi.useFakeTimers();
+    try {
+      renderSection([doc()]);
+
+      act(() => {
+        openPreview();
+      });
+
+      expect(
+        screen.getByTestId("document-preview-spinner"),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByTestId("document-preview-fallback"),
+      ).not.toBeInTheDocument();
+
+      // iOS Safari and Android Chrome often never fire `load` for a PDF frame,
+      // so waiting on `onLoad` alone left the modal spinning forever.
+      act(() => {
+        vi.advanceTimersByTime(8000);
+      });
+
+      expect(
+        screen.queryByTestId("document-preview-spinner"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByTestId("document-preview-fallback"),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("link", { name: /open the document in a new tab/i }),
+      ).toHaveAttribute("href", SCOPED_URL);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  /** Pretend the viewport is a phone for the duration of `run`. */
+  function asPhone(run: () => void) {
+    const originalMatchMedia = window.matchMedia;
+    window.matchMedia = vi.fn(() => ({
+      matches: true,
+      media: "(max-width: 767px)",
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })) as unknown as typeof window.matchMedia;
+
+    try {
+      run();
+    } finally {
+      window.matchMedia = originalMatchMedia;
+    }
+  }
+
+  it("sends a phone straight to the document, with no modal at all", () => {
+    // The VIEW/DOWNLOAD press hands the file to the phone's own viewer: iOS
+    // Safari paints a PDF frame blank and Android Chrome downloads it, so the
+    // modal had nothing to show.
+    const open = vi.fn();
+    const originalOpen = window.open;
+    window.open = open as unknown as typeof window.open;
+
+    try {
+      asPhone(() => {
+        renderSection([doc()]);
+
+        openPreview();
+
+        expect(open).toHaveBeenCalledWith(
+          SCOPED_URL,
+          "_blank",
+          "noopener,noreferrer",
+        );
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+        expect(previewFrame()).not.toBeInTheDocument();
+      });
+    } finally {
+      window.open = originalOpen;
+    }
+  });
+
+  it("still explains a phone's document that has no file to open", () => {
+    asPhone(() => {
+      renderSection([doc({ href: "#" })]);
+
+      openPreview();
+
+      // Nothing to hand the browser, so the modal says so instead.
+      expect(
+        screen.getByText("Preview not available for this document."),
+      ).toBeInTheDocument();
+    });
   });
 
   it("holds a spinner over the frame until the document has loaded", () => {

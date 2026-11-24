@@ -75,6 +75,7 @@ import {
 } from "@/lib/portal-document-url";
 import { isPersistedDocumentId } from "@/lib/document-id";
 import { useHoldPortalModal } from "@/lib/portal-modal-flag";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 /**
  * Derive a user-facing accordion header title from a benefit category.
@@ -102,6 +103,19 @@ function deriveAccordionHeaderTitle(category?: string): string {
  * save dialog is dismissed.
  */
 const DOWNLOAD_FEEDBACK_MS = 4000;
+
+/**
+ * How long the preview waits for the iframe's `load` before it stops claiming to
+ * be loading.
+ *
+ * `onLoad` is the only signal a frame gives, and on a phone it frequently never
+ * arrives: iOS Safari paints at most the first page of a PDF in a frame, and
+ * Android Chrome hands the file to a download instead of rendering it. Waiting on
+ * `load` alone left the modal under its spinner indefinitely. Once this grace
+ * period passes the spinner steps aside and a "open in a new tab" fallback
+ * appears — the one thing every phone can always do with the file.
+ */
+const PREVIEW_LOAD_GRACE_MS = 8000;
 
 export type RetirementDocumentLanguage = "EN" | "ES";
 
@@ -322,11 +336,23 @@ export function BenefitDocumentSection({
   };
 
   const [openRetirement, setOpenRetirement] = useState(true);
+  /**
+   * A phone cannot draw a PDF inside a frame, so it gets the file's own card.
+   *
+   * iOS Safari paints at most the first page of a PDF in an iframe (usually just
+   * white) and Android Chrome hands it to a download — which is why the modal
+   * either spun forever or went blank. `serverFallback: false` keeps the server
+   * render and the first client paint on the framed view, so a desktop visitor
+   * never sees the card flash before the real measurement arrives.
+   */
+  const isPhone = useMediaQuery("(max-width: 767px)", false);
   const [previewDoc, setPreviewDoc] = useState<RetirementDocumentItem | null>(
     null,
   );
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
+  /** The frame never reported a load — offer the file itself. */
+  const [isPreviewStalled, setIsPreviewStalled] = useState(false);
   const [isDownloadStarting, setIsDownloadStarting] = useState(false);
   const [orderedDocs, setOrderedDocs] =
     useState<RetirementDocumentItem[]>(actualRetirementDocs);
@@ -503,8 +529,20 @@ export function BenefitDocumentSection({
    * the meantime reads as "the modal is broken".
    */
   const openPreview = (doc: RetirementDocumentItem) => {
+    if (isPhone) {
+      const url = resolveDocumentSourceUrl(doc.href, portalClientId);
+      // A phone has its own document viewer, and it cannot draw a PDF inside a
+      // frame at all — so the modal added nothing but a blank pane. Hand the file
+      // straight to the browser. A document with no stored file has no URL to
+      // open, and falls through to the modal, which says so.
+      if (url) {
+        window.open(url, "_blank", "noopener,noreferrer");
+        return;
+      }
+    }
     setPreviewDoc(doc);
     setIsPreviewLoading(true);
+    setIsPreviewStalled(false);
     setIsPreviewOpen(true);
   };
 
@@ -521,6 +559,17 @@ export function BenefitDocumentSection({
     : "";
   const previewExtension = previewDoc ? documentFileExtension(previewDoc) : "";
   const previewInline = canPreviewDocumentInline(previewExtension);
+
+  // Release the spinner even when the frame never says it has loaded — see
+  // PREVIEW_LOAD_GRACE_MS for why a phone often stays silent.
+  useEffect(() => {
+    if (!isPreviewOpen || !isPreviewLoading || !previewSrc) return;
+    const timer = window.setTimeout(() => {
+      setIsPreviewLoading(false);
+      setIsPreviewStalled(true);
+    }, PREVIEW_LOAD_GRACE_MS);
+    return () => window.clearTimeout(timer);
+  }, [isPreviewOpen, isPreviewLoading, previewSrc]);
 
   /**
    * The download is a LINK, not a `fetch`.
@@ -568,6 +617,41 @@ export function BenefitDocumentSection({
     mode === "page" ? `py-8 sm:py-16 bg-white ${className}` : className;
   const containerClasses =
     mode === "page" ? "mx-auto max-w-6xl px-4 sm:px-6 lg:px-8" : "space-y-6";
+
+  /** The modal's actions row — shared by the framed preview and the phone card. */
+  const previewActions = (
+    <div className="flex shrink-0 flex-wrap justify-end gap-2">
+      {/* Closing is the safe way out — same as Escape or the overlay, but a
+          visible target beside the download. */}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setIsPreviewOpen(false)}
+      >
+        Cancel
+      </Button>
+      <Button
+        type="button"
+        onClick={handleDownloadPreview}
+        disabled={isDownloadStarting}
+        // A phone has no use for the download once it can open the document in
+        // its own viewer — and the sheet's action bar stays a single button.
+        className="hidden sm:inline-flex"
+      >
+        {isDownloadStarting ? (
+          <Loader2
+            className="mr-2 h-4 w-4 animate-spin"
+            data-testid="document-download-spinner"
+          />
+        ) : (
+          <Download className="mr-2 h-4 w-4" />
+        )}
+        {isDownloadStarting
+          ? "Preparing…"
+          : `Download ${(previewExtension || "pdf").toUpperCase()}`}
+      </Button>
+    </div>
+  );
 
   return (
     <div className="portal-root">
@@ -707,17 +791,18 @@ export function BenefitDocumentSection({
           if (!open) {
             setPreviewDoc(null);
             setIsPreviewLoading(false);
+            setIsPreviewStalled(false);
             setIsDownloadStarting(false);
           }
         }}
       >
-        {/* Full screen on a desktop: a plan document is unreadable inside any
-            boxed dialog, so from `sm` up the dialog is pinned to all four
-            viewport edges (`inset-0` + zeroed offsets/transform, square corners).
-            It stays a column whose preview frame takes the leftover height
-            (`flex-1`), so the document fills the window. Phones keep a normal
-            near-full dialog, where a 94vh sheet is easier to dismiss. */}
-        <DialogContent className="portal-root flex max-h-[94vh] w-[96vw] max-w-[1400px] flex-col gap-3 overflow-hidden bg-white p-4 sm:inset-0 sm:max-h-none sm:w-auto sm:max-w-none sm:translate-x-0 sm:translate-y-0 sm:rounded-none sm:p-6">
+        {/* Full screen everywhere: a plan document is unreadable inside any boxed
+            dialog. From `sm` up the dialog is pinned to all four viewport edges
+            (`inset-0` + zeroed offsets/transform, square corners); on a phone it
+            is a sheet exactly as tall as the viewport (`100dvh`, which follows
+            mobile browser chrome). Either way it is a column whose preview frame
+            takes the leftover height (`flex-1`). */}
+        <DialogContent className="portal-root flex h-[100dvh] max-h-[100dvh] w-[96vw] max-w-[1400px] flex-col gap-3 overflow-hidden bg-white p-4 sm:inset-0 sm:h-auto sm:max-h-none sm:w-auto sm:max-w-none sm:translate-x-0 sm:translate-y-0 sm:rounded-none sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-gray-900">{previewDoc?.title || "Document preview"}</DialogTitle>
             <DialogDescription className="text-gray-600">
@@ -730,75 +815,94 @@ export function BenefitDocumentSection({
             <p className="text-sm text-gray-600">
               Preview not available for this document.
             </p>
-          ) : (
+          ) : previewInline && !isPhone ? (
             <div className="flex min-h-0 flex-1 flex-col gap-3">
-              {previewInline ? (
-                <div className="relative min-h-[320px] w-full flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white">
-                  {/* The viewer's own chrome appears only once the file has
-                      arrived; until then the frame is blank white. */}
-                  {isPreviewLoading && (
-                    <div
-                      data-testid="document-preview-spinner"
-                      className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white"
-                      role="status"
-                      aria-live="polite"
-                    >
-                      <Loader2
-                        className="h-9 w-9 animate-spin"
-                        style={{ color: brandColor }}
-                      />
-                      <span className="text-sm font-red-hat text-gray-600">
-                        Loading document…
-                      </span>
-                    </div>
-                  )}
-                  <iframe
-                    src={previewSrc}
-                    className="h-full w-full"
-                    title={previewDoc?.title || "Document preview"}
-                    onLoad={() => setIsPreviewLoading(false)}
-                  />
-                </div>
-              ) : (
-                <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-10 text-center">
-                  <FileText className="mx-auto mb-3 h-8 w-8 text-gray-400" />
-                  <p className="text-sm font-medium text-gray-700">
-                    This {previewExtension.toUpperCase()} file can&rsquo;t be
-                    previewed in the browser.
-                  </p>
-                  <p className="mt-1 text-sm text-gray-600">
-                    Download it to open it on your device.
-                  </p>
-                </div>
-              )}
-              <div className="flex shrink-0 flex-wrap justify-end gap-2">
-                {/* Closing is the safe way out — same as Escape or the overlay,
-                    but a visible target beside the download. */}
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsPreviewOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handleDownloadPreview}
-                  disabled={isDownloadStarting}
-                >
-                  {isDownloadStarting ? (
+              <div className="relative min-h-[200px] w-full flex-1 overflow-hidden rounded-xl border border-gray-200 bg-white">
+                {/* The viewer's own chrome appears only once the file has
+                    arrived; until then the frame is blank white. */}
+                {isPreviewLoading && (
+                  <div
+                    data-testid="document-preview-spinner"
+                    className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-white"
+                    role="status"
+                    aria-live="polite"
+                  >
                     <Loader2
-                      className="mr-2 h-4 w-4 animate-spin"
-                      data-testid="document-download-spinner"
+                      className="h-9 w-9 animate-spin"
+                      style={{ color: brandColor }}
                     />
-                  ) : (
-                    <Download className="mr-2 h-4 w-4" />
-                  )}
-                  {isDownloadStarting
-                    ? "Preparing…"
-                    : `Download ${(previewExtension || "pdf").toUpperCase()}`}
-                </Button>
+                    <span className="text-sm font-red-hat text-gray-600">
+                      Loading document…
+                    </span>
+                  </div>
+                )}
+                <iframe
+                  src={previewSrc}
+                  className="h-full w-full"
+                  title={previewDoc?.title || "Document preview"}
+                  onLoad={() => setIsPreviewLoading(false)}
+                />
               </div>
+              {/* If the frame still has not reported a load, hand the reader the
+                  file itself rather than leaving a blank pane behind a spinner. */}
+              {isPreviewStalled && (
+                <p
+                  data-testid="document-preview-fallback"
+                  className="shrink-0 text-xs text-gray-600"
+                >
+                  Taking a while?{" "}
+                  <a
+                    href={previewSrc}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="font-semibold underline"
+                    style={{ color: brandColor }}
+                  >
+                    Open the document in a new tab
+                  </a>
+                  .
+                </p>
+              )}
+              {previewActions}
+            </div>
+          ) : (
+            // A phone, or a file the browser cannot draw. No frame: iOS Safari
+            // paints a PDF frame blank and Android Chrome downloads it, so the
+            // reader gets the document's own card and a link to its viewer.
+            <div className="flex min-h-0 flex-1 flex-col gap-3">
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-y-auto rounded-xl border border-dashed border-gray-300 bg-gray-50 px-6 py-8 text-center">
+                <FileText className="h-8 w-8 text-gray-400" />
+                <p className="max-w-full break-words text-sm font-medium text-gray-700">
+                  {previewDoc?.title || "Document"}
+                </p>
+                {previewInline ? (
+                  <>
+                    <p className="text-sm text-gray-600">
+                      A phone opens the document in its own viewer.
+                    </p>
+                    <a
+                      href={previewSrc}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex h-10 items-center justify-center rounded-md px-5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+                      style={{ backgroundColor: brandColor }}
+                    >
+                      Open document
+                    </a>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-medium text-gray-700">
+                      This {previewExtension.toUpperCase()} file can&rsquo;t be
+                      previewed in the browser.
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      Download it to open it on your device.
+                    </p>
+                  </>
+                )}
+              </div>
+              {previewActions}
             </div>
           )}
         </DialogContent>
