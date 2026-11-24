@@ -10,6 +10,14 @@
 /** The top banner's headline cap — the longest a portal asset headline may be. */
 export const PORTAL_ASSET_HEADLINE_MAX = 80;
 
+/**
+ * A TOP BANNER's headline is chrome above the portal header — one line beside the
+ * CTA on a laptop, at most two in the phone's narrower text column — so it gets a
+ * tighter cap than a card headline. 70 characters fills a desktop banner line and
+ * wraps to two full lines on a phone; beyond that the reader only sees an ellipsis.
+ */
+export const PORTAL_BANNER_HEADLINE_MAX = 70;
+
 /** Body text, shared by the top banner, the pop-up and the news post. */
 export const PORTAL_ASSET_BODY_MAX = 300;
 

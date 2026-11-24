@@ -439,6 +439,17 @@ describe("MarketingAssetModal", () => {
     expect(screen.getByText("Button color")).toBeInTheDocument();
   });
 
+  it("caps a top banner's headline tighter than a card's", () => {
+    // A banner is one truncated line of portal chrome beside the CTA, so it gets
+    // its own cap rather than the 80 a card headline may use.
+    renderModal({
+      assetType: "portal-notice",
+      initialPortalElement: "top-banner",
+    });
+
+    expect(screen.getByLabelText(/Headline/)).toHaveAttribute("maxlength", "70");
+  });
+
   it("caps the news post's headline, subtitle and button label", () => {
     renderModal({ assetType: "news-post" });
 

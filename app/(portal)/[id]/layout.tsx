@@ -574,53 +574,59 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
             className="relative w-full flex items-center justify-between gap-2.5 px-4 py-3 text-white shadow-sm sm:gap-2 sm:px-4 sm:py-2.5 sm:justify-center"
             style={{ background: banner.bgColor || "#23919c" }}
           >
-            {/* Centered group: headline + countdown */}
-            <div className="flex items-center gap-2 min-w-0 flex-1 sm:gap-4 sm:justify-center sm:text-center sm:flex-1">
-              {noticeType === "countdown" && countdownTarget ? (
-                <>
-                  <span className="text-xs font-medium whitespace-nowrap sm:text-sm">
-                    {banner.headline || "Countdown"}
+            {/* PHONE: two columns — this is the LEFT one, holding the headline
+                with the countdown directly UNDERNEATH it, so the clock never has
+                to share a line with the CTA (that overlap was the bug).
+                DESKTOP: the same pair on one centred line, exactly as before. */}
+            <div className="flex min-w-0 flex-1 flex-col items-start gap-1 sm:flex-row sm:flex-1 sm:items-center sm:justify-center sm:gap-4 sm:text-center">
+              {/* Two lines on a phone: a banner headline reads at ~35 characters
+                  per line in this column, so a single clamped line threw away half
+                  of a 70-character headline. Desktop keeps one line. */}
+              <span className="max-w-full line-clamp-2 text-[13px] font-medium leading-snug sm:line-clamp-1 sm:text-sm sm:font-medium">
+                {banner.headline ||
+                  (noticeType === "countdown" && countdownTarget
+                    ? "Countdown"
+                    : "Announcement")}
+              </span>
+              {noticeType === "countdown" &&
+                countdownTarget &&
+                (countdown.expired ? (
+                  <span className="text-xs font-bold leading-none whitespace-nowrap sm:text-base">
+                    Expired
                   </span>
-                  {countdown.expired ? (
-                    <span className="text-xs font-bold whitespace-nowrap sm:text-base">
-                      Expired
-                    </span>
-                  ) : (
-                    <div className="flex items-center gap-1 text-xs font-bold tabular-nums tracking-wider whitespace-nowrap sm:gap-2 sm:text-base">
-                      {countdown.d > 0 && (
-                        <span className="inline-flex items-center gap-1 rounded-md bg-black/25 px-1.5 py-1 sm:gap-1 sm:px-2 sm:py-1">
-                          <span>{countdown.d}</span>
-                          <span className="text-[10px] opacity-80 sm:text-sm">
-                            d
-                          </span>
+                ) : (
+                  <div className="flex items-center gap-1 text-[11px] font-bold tabular-nums tracking-wider whitespace-nowrap sm:gap-2 sm:text-base">
+                    {countdown.d > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-md bg-black/25 px-1.5 py-1 sm:gap-1 sm:px-2 sm:py-1">
+                        <span>{countdown.d}</span>
+                        <span className="text-[10px] opacity-80 sm:text-sm">
+                          d
                         </span>
-                      )}
-                      <span className="inline-flex items-center rounded-md bg-black/25 px-1.5 py-1 sm:px-2 sm:py-1">
-                        {pad(countdown.h)}
                       </span>
-                      <span className="text-sm opacity-50 sm:text-lg sm:-mx-0.5">
-                        :
-                      </span>
-                      <span className="inline-flex items-center rounded-md bg-black/25 px-1.5 py-1 sm:px-2 sm:py-1">
-                        {pad(countdown.m)}
-                      </span>
-                      <span className="text-sm opacity-50 sm:text-lg sm:-mx-0.5">
-                        :
-                      </span>
-                      <span className="inline-flex items-center rounded-md bg-black/25 px-1.5 py-1 sm:px-2 sm:py-1">
-                        {pad(countdown.s)}
-                      </span>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <span className="text-[13px] font-medium leading-snug truncate sm:text-sm sm:font-medium">
-                  {banner.headline || "Announcement"}
-                </span>
-              )}
+                    )}
+                    <span className="inline-flex items-center rounded-md bg-black/25 px-1.5 py-1 sm:px-2 sm:py-1">
+                      {pad(countdown.h)}
+                    </span>
+                    <span className="text-[11px] opacity-50 sm:text-lg sm:-mx-0.5">
+                      :
+                    </span>
+                    <span className="inline-flex items-center rounded-md bg-black/25 px-1.5 py-1 sm:px-2 sm:py-1">
+                      {pad(countdown.m)}
+                    </span>
+                    <span className="text-[11px] opacity-50 sm:text-lg sm:-mx-0.5">
+                      :
+                    </span>
+                    <span className="inline-flex items-center rounded-md bg-black/25 px-1.5 py-1 sm:px-2 sm:py-1">
+                      {pad(countdown.s)}
+                    </span>
+                  </div>
+                ))}
             </div>
-            {/* Right side: CTA + dismiss */}
-            <div className="flex items-center gap-1.5 shrink-0 sm:absolute sm:right-4 sm:top-1/2 sm:-translate-y-1/2 sm:gap-2">
+            {/* PHONE: the RIGHT column of the two — the CTA and its dismiss,
+                side by side, aligned to the bar's right edge and free of the
+                countdown now that the clock lives in the left column.
+                DESKTOP: pinned to the right of the bar, as before. */}
+            <div className="flex shrink-0 items-center gap-1.5 sm:absolute sm:right-4 sm:top-1/2 sm:-translate-y-1/2 sm:gap-2">
               {ctaText && (
                 <>
                   {portalCtaUrl ? (
@@ -628,14 +634,14 @@ function ClientViewLayoutContent({ children }: { children: React.ReactNode }) {
                       href={portalCtaUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center rounded-lg px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:opacity-90 transition-opacity sm:px-4 sm:py-1.5 sm:text-xs"
+                      className="inline-flex max-w-[45vw] items-center truncate rounded-lg px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm hover:opacity-90 transition-opacity sm:max-w-none sm:px-4 sm:py-1.5 sm:text-xs"
                       style={{ background: `rgba(0,0,0,0.25)` }}
                     >
                       {ctaText}
                     </a>
                   ) : (
                     <span
-                      className="inline-flex items-center rounded-lg px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm sm:px-4 sm:py-1.5 sm:text-xs"
+                      className="inline-flex max-w-[45vw] items-center truncate rounded-lg px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm sm:max-w-none sm:px-4 sm:py-1.5 sm:text-xs"
                       style={{ background: `rgba(0,0,0,0.25)` }}
                     >
                       {ctaText}

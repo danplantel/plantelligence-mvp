@@ -355,6 +355,44 @@ describe("portal layout banner", () => {
     expect(dismiss.querySelector("svg")?.getAttribute("class")).toContain("h-5");
   });
 
+  it("stacks the countdown under the headline, clear of the CTA", async () => {
+    const target = new Date(Date.now() + 3 * 86_400_000).toISOString();
+    mocks.fetch.mockResolvedValue(
+      jsonResponse({
+        success: true,
+        data: [
+          {
+            id: "a1",
+            headline: "Open enrollment ends soon",
+            bgColor: "#111",
+            ctaText: "Learn more",
+            createdAt: "",
+            data: {
+              noticeType: "countdown",
+              countdownTarget: target,
+              portalCtaUrl: "https://example.com",
+            },
+          },
+        ],
+      }),
+    );
+    renderLayout();
+
+    const headline = await screen.findByText("Open enrollment ends soon");
+    const leftColumn = headline.parentElement as HTMLElement;
+
+    // PHONE: two columns — the text one stacks (headline, then the clock) and the
+    // CTA shares the bar from the other column, so the two can never overlap.
+    expect(leftColumn.className).toContain("flex-col");
+    expect(leftColumn.className).toContain("sm:flex-row");
+
+    // The clock lives in that same column, under the headline…
+    expect(within(leftColumn).getByText("d")).toBeInTheDocument();
+    // …and the CTA does not.
+    const cta = screen.getByRole("link", { name: "Learn more" });
+    expect(leftColumn.contains(cta)).toBe(false);
+  });
+
   it("links a CTA with a URL and keeps its scheme", async () => {
     mocks.fetch.mockResolvedValue(
       jsonResponse({

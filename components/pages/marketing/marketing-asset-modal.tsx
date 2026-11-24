@@ -11,6 +11,8 @@ import {
   PORTAL_ASSET_CTA_MAX,
   PORTAL_ASSET_HEADLINE_MAX,
   PORTAL_ASSET_SUBTITLE_MAX,
+  PORTAL_BANNER_HEADLINE_MAX,
+  clampAssetText,
 } from "@/lib/marketing/asset-limits";
 import {
   Dialog,
@@ -490,6 +492,26 @@ export default function MarketingAssetModal({
     if (portalElement === "top-banner") return "portal-notice";
     return portalElement; // "pop-up" | "news-post"
   }, [assetType, portalElement]);
+
+  /**
+   * The headline cap for what is being written.
+   *
+   * A top banner is one truncated line of portal chrome, so it is capped tighter
+   * than a card headline — see PORTAL_BANNER_HEADLINE_MAX. Everything else keeps
+   * the shared cap.
+   */
+  const headlineMax =
+    resolvedType === "portal-notice"
+      ? PORTAL_BANNER_HEADLINE_MAX
+      : PORTAL_ASSET_HEADLINE_MAX;
+
+  // Switching a Portal Notice to the Top Banner form with a long headline already
+  // typed must not leave more characters in the field than the banner may hold.
+  useEffect(() => {
+    setHeadline((current) =>
+      current.length > headlineMax ? current.slice(0, headlineMax) : current,
+    );
+  }, [headlineMax]);
 
   const isFlyerLocked = resolvedType === "flyer" && flyerMode === "meeting" && !selectedMeetingId;
 
@@ -1059,7 +1081,7 @@ export default function MarketingAssetModal({
           isEditing
             ? {
                 status: assetStatus,
-                headline: headline || meta.label,
+                headline: clampAssetText(headline || meta.label, headlineMax),
                 body,
                 ctaText: ctaText || "",
                 startDate: startDate || null,
@@ -1071,7 +1093,7 @@ export default function MarketingAssetModal({
                 clientId: planId,
                 type: resolvedType,
                 status: assetStatus,
-                headline: headline || meta.label,
+                headline: clampAssetText(headline || meta.label, headlineMax),
                 body,
                 ctaText: ctaText || "",
                 startDate: startDate || null,
@@ -1752,8 +1774,8 @@ export default function MarketingAssetModal({
               Headline
               <span className="text-red-500 ml-0.5">*</span>
             </Label>
-            <Input id="pn-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} maxLength={PORTAL_ASSET_HEADLINE_MAX} />
-            <p className="text-[11px] text-muted-foreground text-right tabular-nums">{headline.length}/{PORTAL_ASSET_HEADLINE_MAX}</p>
+            <Input id="pn-headline" placeholder="Enter headline…" value={headline} onChange={(e) => setHeadline(e.target.value)} maxLength={headlineMax} />
+            <p className="text-[11px] text-muted-foreground text-right tabular-nums">{headline.length}/{headlineMax}</p>
           </div>
           {/* Date range — shown directly under the headline for Top Banner */}
           <div className="grid grid-cols-2 gap-3">
