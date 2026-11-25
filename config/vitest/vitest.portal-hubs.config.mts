@@ -90,6 +90,9 @@ const portalHubTests = [
   "components/pages/client-portal/sections/__tests__/benefit-document-section-preview.test.tsx",
   // The URL rules behind it: plan scoping, `#`, file type, saved file name
   "lib/__tests__/portal-document-url.test.ts",
+  // The panel's "Benefit Documents" section: one flow (AI-named upload + rows with
+  // their quick actions), a delete that removes the row, a rename that PATCHes it
+  "components/portal-editing/editors/__tests__/portal-benefit-documents-section.test.tsx",
   // The href each hub card carries: persisted cuid → /view, never the "r2:stored"
   // placeholder the browser refuses to launch
   "lib/__tests__/map-plan-documents-for-benefit-hub.test.ts",

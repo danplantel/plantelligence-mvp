@@ -33,11 +33,12 @@ export function portalSectionId(title: string): string {
 /**
  * The BENEFIT editor's sections, as its four hub pages address them.
  *
- * That panel numbers eight sections, but a hub page is only five regions: the
- * banner's photograph, the journey section's video, "How Can We Help You Today?",
- * Quick Answers, and the closing band whose key contact it styles. The other three
- * (Portal Header Button, Typography, Benefit Messaging) belong to the panel's own
- * list rather than to a region a participant can point at.
+ * That panel numbers nine sections on the portal, but a hub page is only six
+ * regions: the banner's photograph, the journey section's video, "How Can We Help
+ * You Today?", Quick Answers, the Documents & Forms band, and the closing band
+ * whose key contact it styles. The rest (Portal Header Button, Typography, Benefit
+ * Messaging) belong to the panel's own list rather than to a region a participant
+ * can point at.
  *
  * Anchors, not section ids: this panel renders its sections as children of the
  * wrapper (like Employee Resources), so the wrapper's automatic `[data-section-id]`
@@ -58,7 +59,15 @@ export const benefitEditAnchor = {
   help: "benefit-help",
   /** Section 7 — the Quick Answers groups. */
   quickAnswers: "benefit-quick-answers",
-  /** Section 8 — how the closing band's key contact is drawn. */
+  /**
+   * Section 8 — the plan documents the hub lists under "Documents & Forms".
+   *
+   * Portal only: these are `Document` rows on the plan, not benefit draft fields,
+   * so the section edits the library itself and the page beside the panel re-reads
+   * it. Create/Edit Benefits keeps its documents in wizard Step 4 instead.
+   */
+  documents: "benefit-documents",
+  /** Section 9 — how the closing band's key contact is drawn. */
   haveQuestions: "benefit-have-questions",
 } as const;
 

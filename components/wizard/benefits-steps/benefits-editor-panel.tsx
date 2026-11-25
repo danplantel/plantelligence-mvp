@@ -229,8 +229,23 @@ interface BenefitsEditorPanelProps {
   /** Lenis-backed scroll for the editor panel (falls back to native scroll) */
   onScrollEditorTo?: (top: number) => void;
   /**
-   * Sections appended AFTER Section 8, numbered from 9 (or 10 when a
-   * `visibilitySection` leads the panel).
+   * The PORTAL's "Benefit Documents" section: the plan's own files, the ones the
+   * hub lists under "Documents & Forms".
+   *
+   * Documents are `Document` rows rather than benefit draft fields, so this
+   * section edits the library itself (AI-named upload, list, preview, replace,
+   * delete) and the page beside the panel re-reads it — nothing here waits for
+   * Save. Create/Edit Benefits has no use for it: its documents are wizard Step 4,
+   * saved with the draft.
+   *
+   * Rendered as a section of its own between Quick Answers and "Have Questions?",
+   * shifting both of those (and every `extraSection`) down one.
+   */
+  benefitDocumentsSection?: React.ReactNode;
+  /**
+   * Sections appended AFTER the last numbered one, numbered from 9 (or 10 when a
+   * `visibilitySection` leads the panel, and one higher again when
+   * `benefitDocumentsSection` is present).
    *
    * Create/Edit Benefits has no footer of its own, so the portal's panel passes
    * its Disclosure section here instead of the wizard growing a section it would
@@ -274,6 +289,7 @@ export function BenefitsEditorPanel({
   onTopicsSaved,
   onTopicsBoardChange,
   onHeroSegmentModeChange,
+  benefitDocumentsSection,
   extraSections,
   visibilitySection,
   focusRequest,
@@ -344,6 +360,7 @@ export function BenefitsEditorPanel({
     planVideo: useRef<HTMLDivElement>(null),
     helpCards: useRef<HTMLDivElement>(null),
     quickAnswers: useRef<HTMLDivElement>(null),
+    benefitDocuments: useRef<HTMLDivElement>(null),
     haveQuestions: useRef<HTMLDivElement>(null),
   };
 
@@ -2867,6 +2884,35 @@ export function BenefitsEditorPanel({
           </div>
         )}
 
+        {/* Benefit Documents — the plan's own files, exactly the ones the hub's
+            "Documents & Forms" band lists. Portal only: these are `Document` rows
+            on the plan rather than draft fields, so the section writes the library
+            itself (AI-named upload, list, preview, replace, delete) and the page
+            beside the panel re-reads it. Nothing here waits for Save. */}
+        {benefitDocumentsSection && (
+          <div
+            ref={sectionsRef.benefitDocuments}
+            data-edit-anchor={benefitEditAnchor.documents}
+            className={cn(
+              "transition-all duration-500 rounded-xl",
+              highlightedSection === "benefitDocuments"
+                ? "ring-2 ring-blue-500/50 scale-[1.01] shadow-lg p-4 -m-4 bg-white dark:bg-gray-800"
+                : "",
+            )}
+          >
+            <SectionHeader number={sectionNumber(8)} title="Benefit Documents" />
+            <p className="text-[13px] text-muted-foreground mb-6">
+              The files participants find under Documents & Forms on this
+              benefit&rsquo;s page. Upload one from your computer — its name is
+              filled in for you — or review, replace and remove what is already
+              there. Changes reach the page as soon as they are made.
+            </p>
+            <div className="rounded-lg border border-muted bg-white p-4 dark:bg-gray-800">
+              {benefitDocumentsSection}
+            </div>
+          </div>
+        )}
+
         {/* Have Questions? Section — the band that closes the page, and how its KEY
             CONTACT is drawn. A benefit-level setting: it rides the Benefit row's
             `keyContactCardStyle` out to whichever hub page renders this benefit. */}
@@ -2880,7 +2926,10 @@ export function BenefitsEditorPanel({
               : "",
           )}
         >
-          <SectionHeader number={sectionNumber(8)} title="Have Questions?" />
+          <SectionHeader
+            number={sectionNumber(benefitDocumentsSection ? 9 : 8)}
+            title="Have Questions?"
+          />
           <p className="text-[13px] text-muted-foreground mb-6">
             The people who close the page for this benefit, taken from its
             support contacts. Its key contact can be drawn like everyone else,
@@ -2982,7 +3031,9 @@ export function BenefitsEditorPanel({
           className="mt-8 border-t pt-6"
         >
           <SectionHeader
-            number={sectionNumber(9) + index}
+            // Numbered after the last real section, whichever panel it is: the
+            // portal's documents section takes slot 8 and pushes these along.
+            number={sectionNumber(benefitDocumentsSection ? 10 : 9) + index}
             title={section.title}
           />
           {section.content}

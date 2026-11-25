@@ -1378,19 +1378,25 @@ export function DocumentsUploadSection({
         />
         {/* Upload progress: bar + per-file status (multi-file only) */}
         {uploadProgress && uploadProgress.total > 0 && (
-          <div className="rounded-lg border border-accent-blue/30 bg-accent-blue/5 p-4 space-y-3 dark:border-accent-blue/20 dark:bg-accent-blue/10">
+          <div className="min-w-0 rounded-lg border border-accent-blue/30 bg-accent-blue/5 p-4 space-y-3 dark:border-accent-blue/20 dark:bg-accent-blue/10">
+            {/* The card is sometimes a narrow column (the portal's Editing
+                Panel), so the file name is the part that gives way: it truncates
+                and the Cancel button and the percentage keep their place INSIDE
+                the card instead of being pushed out of it. */}
             <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-medium text-accent-blue flex items-center gap-2">
+              <span className="flex min-w-0 flex-1 items-center gap-2 text-sm font-medium text-accent-blue">
                 {isAnalyzingNames && (
-                  <span className="animate-spin inline-block h-4 w-4 rounded-full border-2 border-accent-blue border-t-transparent" />
+                  <span className="animate-spin inline-block h-4 w-4 shrink-0 rounded-full border-2 border-accent-blue border-t-transparent" />
                 )}
-                {isAnalyzingNames ? "Naming" : "Uploading"}{" "}
-                {uploadProgress.completed} of {uploadProgress.total}
-                {uploadProgress.currentFile
-                  ? ` — ${uploadProgress.currentFile}`
-                  : ""}
+                <span className="min-w-0 truncate">
+                  {isAnalyzingNames ? "Naming" : "Uploading"}{" "}
+                  {uploadProgress.completed} of {uploadProgress.total}
+                  {uploadProgress.currentFile
+                    ? ` — ${uploadProgress.currentFile}`
+                    : ""}
+                </span>
               </span>
-              <div className="flex items-center gap-2">
+              <div className="flex shrink-0 items-center gap-2">
                 <Button
                   type="button"
                   variant="ghost"
@@ -1440,9 +1446,9 @@ export function DocumentsUploadSection({
                   />
                 </div>
               )}
-            <ul className="space-y-1.5">
+            <ul className="min-w-0 space-y-1.5">
               {uploadProgress.fileStatuses.map((f, i) => (
-                <li key={i} className="flex items-center gap-2 text-sm">
+                <li key={i} className="flex min-w-0 items-start gap-2 text-sm">
                   {(f.status === "ready" ||
                     (f.status as string) === "done") && (
                     <CheckCircle2 className="h-4 w-4 text-green-600 flex-shrink-0" />
@@ -1462,8 +1468,8 @@ export function DocumentsUploadSection({
                   <span
                     className={
                       f.status === "error"
-                        ? "text-destructive"
-                        : "text-muted-foreground"
+                        ? "min-w-0 flex-1 break-all text-destructive"
+                        : "min-w-0 flex-1 break-all text-muted-foreground"
                     }
                   >
                     {f.fileName}
@@ -1485,9 +1491,9 @@ export function DocumentsUploadSection({
         )}
         {/* AI Naming in progress indicator — shown while Gemini processes names */}
         {isAnalyzingNames && !isUploading && !isReviewing && (
-          <div className="rounded-lg border border-violet-300 bg-violet-50 p-5 flex items-center gap-4 dark:border-violet-700 dark:bg-violet-900/20">
-            <div className="animate-spin rounded-full h-6 w-6 border-2 border-violet-500 border-t-transparent dark:border-violet-400 dark:border-t-transparent" />
-            <div>
+          <div className="flex min-w-0 items-center gap-4 rounded-lg border border-violet-300 bg-violet-50 p-5 dark:border-violet-700 dark:bg-violet-900/20">
+            <div className="h-6 w-6 shrink-0 animate-spin rounded-full border-2 border-violet-500 border-t-transparent dark:border-violet-400 dark:border-t-transparent" />
+            <div className="min-w-0">
               <p className="text-sm font-semibold text-violet-900 dark:text-violet-200">
                 Generating document names with AI
               </p>
@@ -1501,9 +1507,9 @@ export function DocumentsUploadSection({
 
         {/* Batch Review UI — shown after multi-file upload processing before committing */}
         {isReviewing && reviewDocuments.length > 0 && !isUploading && (
-          <div className="rounded-lg border border-accent-blue/40 bg-accent-blue/5 p-4 space-y-4 dark:border-accent-blue/30 dark:bg-accent-blue/10">
-            <div className="flex items-center justify-between">
-              <h4 className="text-sm font-semibold text-accent-blue">
+          <div className="min-w-0 rounded-lg border border-accent-blue/40 bg-accent-blue/5 p-4 space-y-4 dark:border-accent-blue/30 dark:bg-accent-blue/10">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h4 className="min-w-0 text-sm font-semibold text-accent-blue">
                 Review {reviewDocuments.length} file
                 {reviewDocuments.length !== 1 ? "s" : ""} before adding
               </h4>

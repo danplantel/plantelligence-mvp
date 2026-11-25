@@ -482,108 +482,16 @@ export function TopicTextEditDialog({
           </div>
 
           {/* DOCUMENTS — two groups, separated by whitespace rather than by a
-              second surface or a second colour: the benefit's own documents
-              (shared, also on Documents & Forms), then the documents that belong
-              to this card alone. Proximity does the segregating. */}
+              second surface or a second colour: the documents that belong to this
+              card alone first (they are what an advisor comes here to add), then
+              the benefit's own shared documents. Proximity does the segregating. */}
           <div className="rounded-lg border border-muted p-3">
             <Label className="text-xs font-bold">Documents</Label>
 
-            {/* 1 — the plan's library documents. */}
-            <div className="mt-4 space-y-2">
-              <div className="flex flex-wrap items-baseline gap-2">
-                <p className="text-[12px] font-semibold text-foreground">
-                  Benefit documents
-                </p>
-                <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
-                  Shared
-                </span>
-              </div>
-              <p className="text-[11px] leading-snug text-muted-foreground">
-                From this plan&rsquo;s library — also listed under the benefit&rsquo;s
-                Documents & Forms.
-              </p>
-              {documentIds.length === 0 ? (
-                <p className="text-[11px] text-muted-foreground">
-                  No documents attached.
-                </p>
-              ) : (
-                <div className="flex flex-col gap-1.5">
-                  {/* One pill per line, each filling the section: a document's
-                      name is the useful thing here, and a wrapped row of short
-                      pills read as tags rather than as the benefit's documents. */}
-                  {documentIds.map((id) => {
-                    const document = documentById.get(id);
-                    const orphaned = !document && orphanedDocumentIds.includes(id);
-                    const label = document?.title ?? "No longer in the library";
-                    return (
-                      <span
-                        key={id}
-                        className={
-                          orphaned
-                            ? "flex w-full min-w-0 items-center gap-1.5 rounded-full border border-dashed border-muted px-2.5 py-1 text-[11px] text-muted-foreground"
-                            : "flex w-full min-w-0 items-center gap-1.5 rounded-full border border-muted bg-white px-2.5 py-1 text-[11px] text-foreground"
-                        }
-                      >
-                        <FileText
-                          className="h-3 w-3 shrink-0"
-                          aria-hidden="true"
-                        />
-                        <span className="min-w-0 flex-1 truncate">{label}</span>
-                        <button
-                          type="button"
-                          onClick={() => removeDocument(id)}
-                          aria-label={`Remove ${label}`}
-                          className={removeClass}
-                        >
-                          <X className="h-3 w-3" aria-hidden="true" />
-                        </button>
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-              {/* A document the library no longer holds: say so before the save
-                  removes it, so nothing disappears unexplained. */}
-              {orphanedDocumentIds.length > 0 && (
-                <p
-                  role="status"
-                  className="text-[11px] italic leading-snug text-muted-foreground"
-                >
-                  {orphanedDocumentIds.length === 1
-                    ? "One attached document is no longer in this benefit's library."
-                    : `${orphanedDocumentIds.length} attached documents are no longer in this benefit's library.`}{" "}
-                  Saving removes {orphanedDocumentIds.length === 1 ? "it" : "them"} —
-                  choose the current file again below.
-                </p>
-              )}
-              <select
-                aria-label="Add a document"
-                value=""
-                onChange={(event) => addDocument(event.target.value)}
-                disabled={availableDocuments.length === 0}
-                className={selectClass}
-              >
-                <option value="">
-                  {availableDocuments.length === 0
-                    ? (media?.documents.length ?? 0) === 0
-                      ? "This plan has no documents yet"
-                      : "No more plan documents"
-                    : "Add a document…"}
-                </option>
-                {availableDocuments.map((document) => (
-                  <option key={document.id} value={document.id}>
-                    {document.title}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* 2 — documents that belong to this card ALONE. They are stored on
+            {/* 1 — documents that belong to this card ALONE. They are stored on
                 this placement (a file uploaded from the advisor's computer), so
-                they never reach the benefit's Documents & Forms list. Only the
-                whitespace above separates the two groups — same surface, same
-                type, one label each. */}
-            <div className="mt-6 space-y-2">
+                they never reach the benefit's Documents & Forms list. */}
+            <div className="mt-4 space-y-2">
               <div className="flex flex-wrap items-baseline gap-2">
                 <p className="text-[12px] font-semibold text-foreground">
                   Topic documents
@@ -716,6 +624,97 @@ export function TopicTextEditDialog({
                   {uploadError}
                 </p>
               )}
+            </div>
+
+            {/* 2 — the plan's library documents. Only the whitespace above
+                separates the two groups — same surface, same type, one label each. */}
+            <div className="mt-6 space-y-2">
+              <div className="flex flex-wrap items-baseline gap-2">
+                <p className="text-[12px] font-semibold text-foreground">
+                  Benefit documents
+                </p>
+                <span className="text-[10px] uppercase tracking-[0.08em] text-muted-foreground">
+                  Shared
+                </span>
+              </div>
+              <p className="text-[11px] leading-snug text-muted-foreground">
+                From this plan&rsquo;s library — also listed under the benefit&rsquo;s
+                Documents & Forms.
+              </p>
+              {documentIds.length === 0 ? (
+                <p className="text-[11px] text-muted-foreground">
+                  No documents attached.
+                </p>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {/* One pill per line, each filling the section: a document's
+                      name is the useful thing here, and a wrapped row of short
+                      pills read as tags rather than as the benefit's documents. */}
+                  {documentIds.map((id) => {
+                    const document = documentById.get(id);
+                    const orphaned = !document && orphanedDocumentIds.includes(id);
+                    const label = document?.title ?? "No longer in the library";
+                    return (
+                      <span
+                        key={id}
+                        className={
+                          orphaned
+                            ? "flex w-full min-w-0 items-center gap-1.5 rounded-full border border-dashed border-muted px-2.5 py-1 text-[11px] text-muted-foreground"
+                            : "flex w-full min-w-0 items-center gap-1.5 rounded-full border border-muted bg-white px-2.5 py-1 text-[11px] text-foreground"
+                        }
+                      >
+                        <FileText
+                          className="h-3 w-3 shrink-0"
+                          aria-hidden="true"
+                        />
+                        <span className="min-w-0 flex-1 truncate">{label}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeDocument(id)}
+                          aria-label={`Remove ${label}`}
+                          className={removeClass}
+                        >
+                          <X className="h-3 w-3" aria-hidden="true" />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+              {/* A document the library no longer holds: say so before the save
+                  removes it, so nothing disappears unexplained. */}
+              {orphanedDocumentIds.length > 0 && (
+                <p
+                  role="status"
+                  className="text-[11px] italic leading-snug text-muted-foreground"
+                >
+                  {orphanedDocumentIds.length === 1
+                    ? "One attached document is no longer in this benefit's library."
+                    : `${orphanedDocumentIds.length} attached documents are no longer in this benefit's library.`}{" "}
+                  Saving removes {orphanedDocumentIds.length === 1 ? "it" : "them"} —
+                  choose the current file again below.
+                </p>
+              )}
+              <select
+                aria-label="Add a document"
+                value=""
+                onChange={(event) => addDocument(event.target.value)}
+                disabled={availableDocuments.length === 0}
+                className={selectClass}
+              >
+                <option value="">
+                  {availableDocuments.length === 0
+                    ? (media?.documents.length ?? 0) === 0
+                      ? "This plan has no documents yet"
+                      : "No more plan documents"
+                    : "Add a document…"}
+                </option>
+                {availableDocuments.map((document) => (
+                  <option key={document.id} value={document.id}>
+                    {document.title}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 

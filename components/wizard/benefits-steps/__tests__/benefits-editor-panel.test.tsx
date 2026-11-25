@@ -327,6 +327,42 @@ describe("BenefitsEditorPanel section order", () => {
     if (quickAnswersAt !== -1)
       expect(quickAnswersAt).toBeGreaterThan(helpCardsAt);
   });
+
+  it("puts the portal's Benefit Documents between Quick Answers and Have Questions", () => {
+    render(
+      <BenefitsEditorPanel
+        isOpen
+        isAnimating={false}
+        onClose={vi.fn()}
+        benefitDocumentsSection={<p>documents editor</p>}
+        extraSections={[{ title: "Disclosure", content: <p>disclosure</p> }]}
+      />,
+    );
+
+    const labels = screen
+      .getAllByText(/^Section \d+:/)
+      .map((element) => element.textContent);
+    const at = (label: string) => labels.indexOf(label);
+
+    expect(at("Section 8: Benefit Documents")).toBeGreaterThan(-1);
+    expect(at("Section 9: Have Questions?")).toBeGreaterThan(
+      at("Section 8: Benefit Documents"),
+    );
+    // Everything appended after the real sections moves along with them.
+    expect(at("Section 10: Disclosure")).toBeGreaterThan(
+      at("Section 9: Have Questions?"),
+    );
+    // …and the documents editor is the section's content.
+    expect(screen.getByText("documents editor")).toBeInTheDocument();
+  });
+
+  it("closes the numbering up when the documents section is not provided", () => {
+    renderPanel();
+
+    // The dashboard wizard and Edit Benefit keep their own documents step, so
+    // "Have Questions?" stays Section 8 there.
+    expect(screen.getByText("Section 8: Have Questions?")).toBeInTheDocument();
+  });
 });
 
 describe("BenefitsEditorPanel header badge", () => {

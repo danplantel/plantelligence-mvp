@@ -98,6 +98,9 @@ describe("Retirement hub — blue edit affordances", () => {
       "Edit video section",
       "Edit how we can help",
       "Edit quick answers",
+      // Documents & Forms — between Quick Answers and the closing band, so the
+      // button order matches the order the regions appear on the page.
+      "Edit benefit documents",
       "Edit have questions",
     ]);
   });
@@ -111,6 +114,7 @@ describe("Retirement hub — blue edit affordances", () => {
       "Edit video section",
       "Edit how we can help",
       "Edit quick answers",
+      "Edit benefit documents",
       "Edit have questions",
     ]) {
       await user.click(screen.getByRole("button", { name: label }));
@@ -121,6 +125,7 @@ describe("Retirement hub — blue edit affordances", () => {
       ["benefit-video"],
       ["benefit-help"],
       ["benefit-quick-answers"],
+      ["benefit-documents"],
       ["benefit-have-questions"],
     ]);
   });

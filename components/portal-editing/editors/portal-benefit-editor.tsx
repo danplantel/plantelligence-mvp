@@ -6,6 +6,7 @@ import { Loader2 } from "lucide-react";
 
 import { BenefitsEditorPanel } from "@/components/wizard/benefits-steps/benefits-editor-panel";
 import { PortalFooterDialog } from "@/components/portal-editing/portal-footer-dialog";
+import { PortalBenefitDocumentsSection } from "@/components/portal-editing/editors/portal-benefit-documents-section";
 import { PortalLiveBadge } from "@/components/portal-editing/portal-live-badge";
 import { PortalSaveStatusBadge } from "@/components/portal-editing/portal-save-status-badge";
 import { PortalEditorActionBar } from "@/components/portal-editing/portal-editor-action-bar";
@@ -678,7 +679,21 @@ export function PortalBenefitEditor() {
       onTopicsSaved={() => {
         if (benefitKey) void mutate(benefitKey);
       }}
-      // Section 9: this hub's own footer disclosure, as the same full-width
+      // Section 8: the plan's own files — the ones this hub lists under
+      // "Documents & Forms". They are `Document` rows, not benefit draft fields,
+      // so the editor writes the library directly and the page re-reads it; there
+      // is nothing here for the panel's Save to carry.
+      benefitDocumentsSection={
+        planId ? (
+          <PortalBenefitDocumentsSection
+            planId={planId}
+            benefitCategory={apiCategory}
+            brandColor={String(clientData?.brandColor || "#1F3A60")}
+            secondaryColor={String(clientData?.secondaryColor || "#6B7280")}
+          />
+        ) : undefined
+      }
+      // Section 10: this hub's own footer disclosure, as the same full-width
       // dialog the other portal panels use — scoped to THIS benefit's
       // `byCategory` row. There is no `onSave`: the panel's own Save bar writes
       // the benefit and the disclosure together, exactly as before.

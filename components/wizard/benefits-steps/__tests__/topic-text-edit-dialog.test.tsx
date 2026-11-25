@@ -281,11 +281,17 @@ describe("TopicTextEditDialog — documents", () => {
     expect(dialog.getByText("Videos")).toBeInTheDocument();
     expect(dialog.queryByText("Documents & videos")).not.toBeInTheDocument();
 
-    // …and inside Documents, the two groups are named.
+    // …and inside Documents, the two groups are named — the card's OWN documents
+    // first, because they are what an advisor opens this section to add.
     expect(dialog.getByText("Benefit documents")).toBeInTheDocument();
     expect(dialog.getByText("Shared")).toBeInTheDocument();
     expect(dialog.getByText("Topic documents")).toBeInTheDocument();
     expect(dialog.getByText("Only on this card")).toBeInTheDocument();
+    expect(
+      dialog
+        .getAllByText(/^(Topic documents|Benefit documents)$/)
+        .map((element) => element.textContent),
+    ).toEqual(["Topic documents", "Benefit documents"]);
     // The grouping is spacing, not a second surface or colour.
     expect(
       screen.queryByText("From your computer — the name is filled in for you."),

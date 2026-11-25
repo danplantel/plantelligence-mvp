@@ -341,18 +341,27 @@ export default function CustomBenefitPage() {
           />
         </div>
 
-        <BenefitDocumentSection
-          brandColor={brandColor}
-          accentColor={secondaryColor}
-          // The plan's slug: `/api/documents/{id}/view` resolves the owning
-          // advisor from it, and the portal is anonymous.
-          portalClientId={clientId}
-          retirementDocs={wellnessDocs}
-          title="Wellness Program Documents & Forms"
-          description="Access all your important wellness program documents, forms, and notices in one convenient location."
-          accordionHeaderTitle="Wellness Program Documents"
-          loading={loadingDocs}
-        />
+        {/* Documents & Forms — edited in the panel's own "Benefit Documents"
+            section, which writes the plan's library directly. */}
+        <div className="relative">
+          <BenefitDocumentSection
+            brandColor={brandColor}
+            accentColor={secondaryColor}
+            // The plan's slug: `/api/documents/{id}/view` resolves the owning
+            // advisor from it, and the portal is anonymous.
+            portalClientId={clientId}
+            retirementDocs={wellnessDocs}
+            title="Wellness Program Documents & Forms"
+            description="Access all your important wellness program documents, forms, and notices in one convenient location."
+            accordionHeaderTitle="Wellness Program Documents"
+            loading={loadingDocs}
+          />
+          <PortalSectionEditButton
+            sectionId={benefitEditAnchor.documents}
+            label="Edit benefit documents"
+            className="right-4 top-4"
+          />
+        </div>
 
         {/* The category's contacts — the same people listed on My Benefits Team,
             scoped to this benefit (see `supportContactsForFAQ`). The plan's
@@ -363,7 +372,7 @@ export default function CustomBenefitPage() {
             brandColor={brandColor}
             secondaryColor={secondaryColor}
             contacts={supportContactsForFAQ}
-            // Section 8 of the benefit editor: how this benefit's key contact is drawn.
+            // Section 9 of the benefit editor: how this benefit's key contact is drawn.
             keyContactCardStyle={benefitData?.keyContactCardStyle ?? undefined}
             keyContacts={clientData?.keyContacts}
             category="Company / Plan Sponsor"
