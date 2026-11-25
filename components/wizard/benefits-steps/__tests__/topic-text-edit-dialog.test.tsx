@@ -138,6 +138,28 @@ afterEach(() => {
 });
 
 /**
+ * Opening the card editor is a read-then-edit action, so the dialog must not land
+ * the caret in the Title: focusing a field on open makes the browser select its
+ * whole value, and the first keystroke would replace copy the advisor had not read.
+ */
+describe("TopicTextEditDialog — focus on open", () => {
+  it("leaves the Title field unfocused", async () => {
+    installServer();
+    render(<QuickAnswersBuilder planId="plan-focus-1" location="retirement" />);
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: "Edit Topic for Contribution limits",
+      }),
+    );
+
+    const title = (await screen.findByLabelText("Title")) as HTMLInputElement;
+    expect(title).not.toHaveFocus();
+    expect(document.activeElement).not.toBe(title);
+  });
+});
+
+/**
  * Each copy field caps at a length the CARD can actually show, and says so
  * (`n/max`) while the advisor types — a limit they only discover by having text
  * clipped by the layout is not a limit, it is a trap.
@@ -292,6 +314,11 @@ describe("TopicTextEditDialog — documents", () => {
         .getAllByText(/^(Topic documents|Benefit documents)$/)
         .map((element) => element.textContent),
     ).toEqual(["Topic documents", "Benefit documents"]);
+    // The group says what happens on upload: AI names the file, and the name is
+    // the advisor's to change.
+    expect(
+      dialog.getByText(/AI gives it an initial name/),
+    ).toBeInTheDocument();
     // The grouping is spacing, not a second surface or colour.
     expect(
       screen.queryByText("From your computer — the name is filled in for you."),

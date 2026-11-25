@@ -128,6 +128,8 @@ export function TopicTextEditDialog({
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  /** The scrolling body — the thing that takes focus when the dialog opens. */
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   /** The card-only document whose name is being edited, keyed by its link. */
   const [renamingUrl, setRenamingUrl] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
@@ -362,7 +364,19 @@ export function TopicTextEditDialog({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       {/* The portal's Editing Panel is `fixed z-[51]`, so the dialog has to sit
           above it (the same tier the other panel dialogs use). */}
-      <DialogContent overlayClassName="z-[110]" className="z-[110] max-w-lg">
+      <DialogContent
+        overlayClassName="z-[110]"
+        className="z-[110] max-w-lg"
+        // Opening this dialog is a read-then-edit action: the advisor reviews the
+        // card's current copy before changing it. Left alone, Radix focuses the
+        // first field (Title) and the browser selects its whole value, so the first
+        // keystroke would replace a title nobody had looked at. Focus the panel
+        // itself and leave the caret to whoever clicks a field.
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          bodyRef.current?.focus();
+        }}
+      >
         <DialogHeader>
           <DialogTitle>Edit Topic</DialogTitle>
           <DialogDescription>
@@ -371,7 +385,13 @@ export function TopicTextEditDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+        {/* `tabIndex={-1}` so the dialog can park focus here on open: in the tab
+            order, but never a stop someone tabs through. */}
+        <div
+          ref={bodyRef}
+          tabIndex={-1}
+          className="max-h-[70vh] space-y-3 overflow-y-auto pr-1 outline-none"
+        >
           <div className="space-y-1.5">
             <div className="flex items-baseline justify-between gap-2">
               <Label htmlFor="topic-text-title" className="text-xs font-bold">
@@ -502,7 +522,9 @@ export function TopicTextEditDialog({
               </div>
               <p className="text-[11px] leading-snug text-muted-foreground">
                 A document of its own — it is never added to the benefit&rsquo;s
-                Documents & Forms, so participants only meet it here.
+                Documents & Forms, so participants only meet it here. Upload a
+                file and AI gives it an initial name; rename it any time with the
+                pencil icon.
               </p>
               {topicDocuments.length === 0 ? (
                 <p className="text-[11px] text-muted-foreground">
