@@ -79,6 +79,13 @@ beforeEach(() => {
   mocks.mode = { canComment: true, mode: "on" };
   mocks.editing = null;
   setViewport(VIEWPORT);
+  // jsdom has no scrolling; every scale change asks for one now.
+  vi.spyOn(window, "scrollTo").mockImplementation(() => undefined);
+  Object.defineProperty(window, "scrollY", {
+    configurable: true,
+    writable: true,
+    value: 0,
+  });
 });
 
 afterEach(() => {
@@ -228,5 +235,59 @@ describe("PortalCommentsZoom layout", () => {
 
     unmount();
     expect(instances[0].disconnect).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * Opening a tool (the Editing Panel, Comments, Messages) scales the page — and a
+ * scaled page is a SHORTER page, so the browser clamps the old pixel offset and
+ * the reader lands somewhere else. The zoom therefore keeps the reader's COPY in
+ * place: `viewport offset / scale` of content before, `content * newScale` after.
+ */
+describe("PortalCommentsZoom keeps the reader's place", () => {
+  it("keeps the same copy under the viewport when the page scales down", () => {
+    const scrollTo = vi.mocked(window.scrollTo);
+    // The reader is 1000px into the page while it is still drawn at full size.
+    window.scrollY = 1000;
+
+    renderZoom();
+
+    const scale = expectedScale(VIEWPORT);
+    expect(scrollTo).toHaveBeenCalledWith(
+      expect.objectContaining({ top: 1000 * scale, behavior: "auto" }),
+    );
+  });
+
+  it("keeps the same copy when the page returns to full size", () => {
+    const scrollTo = vi.mocked(window.scrollTo);
+    const { rerender } = renderZoom();
+    const scale = expectedScale(VIEWPORT);
+
+    // 500px at the replica's scale is 500 / scale of content.
+    window.scrollY = 500;
+    act(() => {
+      window.dispatchEvent(new Event("scroll"));
+    });
+
+    scrollTo.mockClear();
+    mocks.mode = { canComment: true, mode: "off" };
+    rerender(
+      <PortalCommentsZoom>
+        <p>portal content</p>
+      </PortalCommentsZoom>,
+    );
+
+    expect(scrollTo).toHaveBeenCalledWith(
+      expect.objectContaining({ top: 500 / scale }),
+    );
+  });
+
+  it("does not scroll when nothing was scrolled", () => {
+    const scrollTo = vi.mocked(window.scrollTo);
+    window.scrollY = 0;
+
+    renderZoom();
+
+    expect(scrollTo).not.toHaveBeenCalled();
   });
 });

@@ -44,7 +44,13 @@
  * so neither is scaled, and both keep reading the real `--comments-inset`.
  */
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+} from "react";
 import { useOptionalCommentMode } from "@/components/comments/comment-mode-provider";
 import { useOptionalMessagesMode } from "@/components/messages/messages-mode-provider";
 import { useOptionalPortalEditing } from "@/components/portal-editing/portal-editing-provider";
@@ -61,6 +67,14 @@ const RAIL_PX = (() => {
   if (!Number.isFinite(value)) return 384;
   return match[2] === "rem" ? value * 16 : value;
 })();
+
+/**
+ * A layout effect that survives the server render: the scroll correction below has
+ * to land BEFORE the browser paints the new scale, but `useLayoutEffect` warns when
+ * a client component is still rendered on the server.
+ */
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 /** Never shrink past this — below it the replica stops being readable. */
 const MIN_SCALE = 0.5;
@@ -149,6 +163,45 @@ export function PortalCommentsZoom({
   const { scaled, scale, editorOpen } = usePortalReplicaGeometry();
   const [contentHeight, setContentHeight] = useState(0);
   const contentRef = useRef<HTMLDivElement | null>(null);
+
+  // ── Keeping the reader's place across a scale change ──────────────────────
+  /**
+   * The part of the page the reader is looking at, in UNSCALED content pixels.
+   *
+   * The replica is drawn `scale` times smaller, so a viewport offset `y` is
+   * `y / scale` of copy. Recorded on every scroll, so it is already right when a
+   * tool opens: the click that opens the panel happens BEFORE the new scale — and
+   * the clamped scroll offset that comes with it — exists.
+   */
+  const contentOffsetRef = useRef(0);
+  /** The scale the page is currently drawn at (the last one this component applied). */
+  const appliedScaleRef = useRef(scale);
+
+  useEffect(() => {
+    const record = () => {
+      const applied = appliedScaleRef.current || 1;
+      contentOffsetRef.current = window.scrollY / applied;
+    };
+    record();
+    window.addEventListener("scroll", record, { passive: true });
+    return () => window.removeEventListener("scroll", record);
+  }, []);
+
+  /**
+   * A scaled page is also a SHORTER page — the wrapper's height is divided by the
+   * same factor — so the browser clamps the old pixel offset and the reader lands
+   * somewhere else entirely. Put the same COPY back under the viewport once the
+   * new height is laid out, which is what makes opening a floating action button
+   * (Editing Panel, Comments, Messages) feel like the page stayed where it was.
+   */
+  useIsomorphicLayoutEffect(() => {
+    const previous = appliedScaleRef.current;
+    if (previous === scale) return;
+    appliedScaleRef.current = scale;
+    const target = Math.max(0, contentOffsetRef.current * scale);
+    if (Math.abs(window.scrollY - target) < 1) return;
+    window.scrollTo({ top: target, left: window.scrollX, behavior: "auto" });
+  }, [scale]);
 
   // Measure the UNSCALED height. `offsetHeight` ignores transforms, which is exactly what the
   // wrapper has to be divided down by.
