@@ -60,25 +60,25 @@ describe("usePortalAutosave", () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
-  it("stops after a write the server refused, until the next edit", () => {
+  it("stops after a write the server refused, until the next edit", async () => {
     const save = vi.fn(async () => false);
     render(<Harness save={save} />);
 
     act(() => controls.edit!());
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(100);
     });
     expect(save).toHaveBeenCalledTimes(1);
 
     // Same draft, more time: a failing endpoint is not hammered in a loop.
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(10_000);
     });
     expect(save).toHaveBeenCalledTimes(1);
 
     // A new edit is a new attempt.
     act(() => controls.edit!());
-    act(() => {
+    await act(async () => {
       vi.advanceTimersByTime(100);
     });
     expect(save).toHaveBeenCalledTimes(2);

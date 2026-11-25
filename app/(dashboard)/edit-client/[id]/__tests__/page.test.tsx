@@ -225,20 +225,17 @@ vi.mock("@/components/pages/edit-client", () => ({
 }));
 
 vi.mock("@/components/pages/edit-client/save-button", () => ({
-  SaveButton: ({
-    onSave,
-    onInvalidClick,
-    saving,
-    clientStatus,
-    isFormValid,
-  }: any) => (
+  // The real button is only rendered while the autosave is paused, and pressing
+  // it runs the explicit save. Its enabled/disabled rules are pinned by
+  // `save-button.test.tsx`; here it just reports what it was handed.
+  SaveButton: ({ onSave, saving, clientStatus, isFormValid }: any) => (
     <button
       type="button"
       data-testid="save-button"
       data-saving={String(saving)}
       data-status={clientStatus}
       data-valid={String(isFormValid)}
-      onClick={() => (isFormValid ? onSave() : onInvalidClick())}
+      onClick={() => void onSave()}
     >
       Save
     </button>
